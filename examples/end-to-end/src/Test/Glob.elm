@@ -171,6 +171,14 @@ all =
             , Err "Unexpected date format, expected yyyy/mm/dd folder structure."
             ]
         }
+    , globTestCase
+        { name = "literal root file"
+        , glob =
+            Glob.succeed identity
+                |> Glob.capture (Glob.literal "README.md")
+        , expected =
+            [ "README.md" ]
+        }
     ]
         |> DataSource.combine
         |> DataSource.map (describe "glob tests")

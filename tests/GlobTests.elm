@@ -9,14 +9,7 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "glob"
-        [ test "literal" <|
-            \() ->
-                Glob.literal "hello"
-                    |> expect "hello"
-                        { expectedMatch = "hello"
-                        , expectedPattern = "hello"
-                        }
-        , test "capture" <|
+        [ test "capture" <|
             \() ->
                 Glob.succeed identity
                     |> Glob.capture Glob.wildcard
