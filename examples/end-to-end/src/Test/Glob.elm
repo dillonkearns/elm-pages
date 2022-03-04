@@ -71,7 +71,7 @@ all =
         , expected = [ ( "data-file", JSON ) ]
         }
     , globTestCase
-        { name = "7"
+        { name = "multiple wildcards"
         , glob =
             Glob.succeed
                 (\year month day slug ->

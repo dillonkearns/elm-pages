@@ -120,34 +120,6 @@ all =
                         [ ( "content/about.md", ( [], "about" ) )
                         , ( "content/community/meetups.md", ( [ "community" ], "meetups" ) )
                         ]
-        , test "multiple wildcards" <|
-            \() ->
-                Glob.succeed
-                    (\year month day slug ->
-                        { year = year
-                        , month = month
-                        , day = day
-                        , slug = slug
-                        }
-                    )
-                    |> Glob.match (Glob.literal "archive/")
-                    |> Glob.capture Glob.int
-                    |> Glob.match (Glob.literal "/")
-                    |> Glob.capture Glob.int
-                    |> Glob.match (Glob.literal "/")
-                    |> Glob.capture Glob.int
-                    |> Glob.match (Glob.literal "/")
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.match (Glob.literal ".md")
-                    |> expectAll
-                        [ ( "archive/1977/06/10/apple-2-released.md"
-                          , { year = 1977
-                            , month = 6
-                            , day = 10
-                            , slug = "apple-2-released"
-                            }
-                          )
-                        ]
         ]
 
 
