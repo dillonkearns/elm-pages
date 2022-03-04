@@ -55,7 +55,7 @@ all =
             ]
         }
     , globTestCase
-        { name = "6"
+        { name = "oneOf"
         , glob =
             Glob.succeed Tuple.pair
                 |> Glob.match (Glob.literal "glob-test-cases/")

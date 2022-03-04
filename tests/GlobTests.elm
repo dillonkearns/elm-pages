@@ -18,23 +18,6 @@ all =
                         { expectedMatch = "my-file"
                         , expectedPattern = "*.txt"
                         }
-        , test "oneOf" <|
-            \() ->
-                Glob.succeed Tuple.pair
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.match (Glob.literal ".")
-                    |> Glob.capture
-                        (Glob.oneOf
-                            ( ( "yml", Yml )
-                            , [ ( "json", Json )
-                              ]
-                            )
-                        )
-                    -- https://runkit.com/embed/05epbnc0c7g1
-                    |> expect "data-file.json"
-                        { expectedMatch = ( "data-file", Json )
-                        , expectedPattern = "*.{yml,json}"
-                        }
         , test "mix of match and capture with wildcards" <|
             \() ->
                 Glob.succeed identity
