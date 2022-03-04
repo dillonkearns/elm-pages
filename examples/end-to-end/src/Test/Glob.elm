@@ -233,6 +233,19 @@ all =
         , expected =
             [ "match" ]
         }
+    , globTestCase
+        { name = "recursive match"
+        , glob =
+            Glob.succeed Tuple.pair
+                |> Glob.match (Glob.literal "glob-test-cases/recursive/")
+                |> Glob.capture Glob.recursiveWildcard
+                |> Glob.match (Glob.literal "/")
+                |> Glob.capture Glob.wildcard
+                |> Glob.match (Glob.literal ".txt")
+        , expected =
+            [ ( [ "a", "b", "c" ], "d" )
+            ]
+        }
     ]
         |> DataSource.combine
         |> DataSource.map (describe "glob tests")

@@ -36,17 +36,6 @@ all =
                         { expectedMatch = Just "ba"
                         , expectedPattern = "test/a*(a|b)/x.js"
                         }
-        , test "recursive match" <|
-            \() ->
-                Glob.succeed Tuple.pair
-                    |> Glob.capture Glob.recursiveWildcard
-                    |> Glob.match (Glob.literal "/")
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.match (Glob.literal ".txt")
-                    |> expect "a/b/c/d.txt"
-                        { expectedMatch = ( [ "a", "b", "c" ], "d" )
-                        , expectedPattern = "**/*.txt"
-                        }
         ]
 
 
