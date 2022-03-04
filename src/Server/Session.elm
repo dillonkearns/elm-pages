@@ -1,8 +1,8 @@
-module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), Value(..), clearFlashCookies, empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash2, withSession)
+module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), Value(..), clearFlashCookies, empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash, withSession)
 
 {-|
 
-@docs Decoder, NotLoadedReason, Session, SessionUpdate, Value, clearFlashCookies, empty, expectSession, flash, flashPrefix, get, insert, noUpdates, oneUpdate, remove, setValues, succeed, unwrap, update, updateAllFields, withFlash, withFlash2, withSession
+@docs Decoder, NotLoadedReason, Session, SessionUpdate, Value, clearFlashCookies, empty, expectSession, flash, flashPrefix, get, insert, noUpdates, oneUpdate, remove, setValues, succeed, unwrap, update, updateAllFields, withFlash, withFlash, withSession
 
 -}
 
@@ -36,8 +36,8 @@ type Value
 
 
 {-| -}
-withFlash2 : String -> String -> Session -> Session
-withFlash2 key value (Session session) =
+withFlash : String -> String -> Session -> Session
+withFlash key value (Session session) =
     session
         |> Dict.insert key (NewFlash value)
         |> Session

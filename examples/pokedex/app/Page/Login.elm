@@ -54,7 +54,7 @@ data routeParams =
                     |> Result.withDefault Nothing
                     |> Maybe.withDefault Session.empty
                     |> Session.insert "name" name
-                    |> Session.withFlash2 "message" ("Welcome " ++ name ++ "!")
+                    |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
                 , "/greet"
                     |> Server.Response.temporaryRedirect
                 )
