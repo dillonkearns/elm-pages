@@ -222,6 +222,17 @@ all =
         , expected =
             [ "capture" ]
         }
+    , globTestCase
+        { name = "reversed mix of capture and wildcards"
+        , glob =
+            Glob.succeed identity
+                |> Glob.match (Glob.literal "glob-test-cases/mix/")
+                |> Glob.capture Glob.wildcard
+                |> Glob.match (Glob.literal "/")
+                |> Glob.match Glob.wildcard
+        , expected =
+            [ "match" ]
+        }
     ]
         |> DataSource.combine
         |> DataSource.map (describe "glob tests")

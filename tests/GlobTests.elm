@@ -9,16 +9,7 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "glob"
-        [ test "mix of match and capture with wildcards 2" <|
-            \() ->
-                Glob.succeed identity
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.match (Glob.literal "/")
-                    |> Glob.match Glob.wildcard
-                    |> expectAll
-                        [ ( "capture/match", "capture" )
-                        ]
-        , test "optional group - no match" <|
+        [ test "optional group - no match" <|
             \() ->
                 zeroOrMoreGlob
                     |> expect "test/a/x.js"
