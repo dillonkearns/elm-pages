@@ -211,6 +211,17 @@ all =
             , ( [ "community" ], "meetups" )
             ]
         }
+    , globTestCase
+        { name = "mix of match and capture with wildcards"
+        , glob =
+            Glob.succeed identity
+                |> Glob.match (Glob.literal "glob-test-cases/mix/")
+                |> Glob.match Glob.wildcard
+                |> Glob.match (Glob.literal "/")
+                |> Glob.capture Glob.wildcard
+        , expected =
+            [ "capture" ]
+        }
     ]
         |> DataSource.combine
         |> DataSource.map (describe "glob tests")

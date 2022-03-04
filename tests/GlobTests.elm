@@ -9,16 +9,7 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "glob"
-        [ test "mix of match and capture with wildcards" <|
-            \() ->
-                Glob.succeed identity
-                    |> Glob.match Glob.wildcard
-                    |> Glob.match (Glob.literal "/")
-                    |> Glob.capture Glob.wildcard
-                    |> expectAll
-                        [ ( "match/capture", "capture" )
-                        ]
-        , test "mix of match and capture with wildcards 2" <|
+        [ test "mix of match and capture with wildcards 2" <|
             \() ->
                 Glob.succeed identity
                     |> Glob.capture Glob.wildcard
