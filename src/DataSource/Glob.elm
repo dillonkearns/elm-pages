@@ -569,7 +569,7 @@ This is usually not what is intended. Using `recursiveWildcard` is usually follo
 -}
 recursiveWildcard : Glob (List String)
 recursiveWildcard =
-    Glob "(**)"
+    Glob "**"
         (\_ captures ->
             case captures of
                 first :: rest ->

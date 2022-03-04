@@ -4,7 +4,7 @@ import DataSource exposing (DataSource)
 import DataSource.Glob as Glob exposing (Glob, Include(..), defaultOptions)
 import DataSource.Internal.Glob
 import Expect
-import Test exposing (Test, describe, test)
+import Test exposing (Test, describe, only, test)
 
 
 all : DataSource Test
@@ -129,6 +129,47 @@ all =
             , [ "folder2b", "folder3" ]
             ]
         , expectedFiles = []
+        }
+    , globTestCase
+        { name = "wildcard and map"
+        , glob =
+            Glob.succeed Tuple.pair
+                |> Glob.capture Glob.wildcard
+                |> Glob.match (Glob.literal "/")
+                |> Glob.capture (Glob.wildcard |> Glob.map String.toUpper)
+                |> Glob.match (Glob.literal ".txt")
+        , expected =
+            [ ( "glob-test-cases", "FILE-1-2-3" )
+            , ( "glob-test-cases", "FILE1" )
+            ]
+        }
+    , globTestCase
+        { name = "another map example"
+        , glob =
+            let
+                expectDateFormat : List String -> Result String String
+                expectDateFormat dateParts =
+                    case dateParts of
+                        [ year, month, date ] ->
+                            Ok (String.join "-" [ year, month, date ])
+
+                        _ ->
+                            Err "Unexpected date format, expected yyyy/mm/dd folder structure."
+            in
+            Glob.succeed
+                (\dateResult slug ->
+                    dateResult
+                        |> Result.map (\okDate -> ( okDate, slug ))
+                )
+                |> Glob.match (Glob.literal "glob-test-cases/blog/")
+                |> Glob.capture (Glob.recursiveWildcard |> Glob.map expectDateFormat)
+                |> Glob.match (Glob.literal "/")
+                |> Glob.capture Glob.wildcard
+                |> Glob.match (Glob.literal ".md")
+        , expected =
+            [ Ok ( "2021-05-28", "first-post" )
+            , Err "Unexpected date format, expected yyyy/mm/dd folder structure."
+            ]
         }
     ]
         |> DataSource.combine

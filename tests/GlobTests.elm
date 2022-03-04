@@ -128,24 +128,6 @@ all =
                         { expectedMatch = Just "ba"
                         , expectedPattern = "test/a*(a|b)/x.js"
                         }
-        , test "new star" <|
-            \() ->
-                Glob.wildcard
-                    |> expect "star-pattern"
-                        { expectedMatch = "star-pattern"
-                        , expectedPattern = "*"
-                        }
-        , test "new star with literal" <|
-            \() ->
-                Glob.succeed Tuple.pair
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.match (Glob.literal "/")
-                    |> Glob.capture (Glob.wildcard |> Glob.map String.toUpper)
-                    |> Glob.match (Glob.literal ".txt")
-                    |> expect "before-slash/after-slash.txt"
-                        { expectedMatch = ( "before-slash", "AFTER-SLASH" )
-                        , expectedPattern = "*/*.txt"
-                        }
         , test "recursive match" <|
             \() ->
                 Glob.succeed Tuple.pair
@@ -168,32 +150,6 @@ all =
                     |> expectAll
                         [ ( "content/about.md", ( [], "about" ) )
                         , ( "content/community/meetups.md", ( [ "community" ], "meetups" ) )
-                        ]
-        , test "map" <|
-            \() ->
-                let
-                    expectDateFormat : List String -> Result String String
-                    expectDateFormat dateParts =
-                        case dateParts of
-                            [ year, month, date ] ->
-                                Ok (String.join "-" [ year, month, date ])
-
-                            _ ->
-                                Err "Unexpected date format, expected yyyy/mm/dd folder structure."
-                in
-                Glob.succeed
-                    (\dateResult slug ->
-                        dateResult
-                            |> Result.map (\okDate -> ( okDate, slug ))
-                    )
-                    |> Glob.match (Glob.literal "blog/")
-                    |> Glob.capture (Glob.recursiveWildcard |> Glob.map expectDateFormat)
-                    |> Glob.match (Glob.literal "/")
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.match (Glob.literal ".md")
-                    |> expectAll
-                        [ ( "blog/2021/05/28/first-post.md", Ok ( "2021-05-28", "first-post" ) )
-                        , ( "blog/second-post.md", Err "Unexpected date format, expected yyyy/mm/dd folder structure." )
                         ]
         , test "multiple wildcards" <|
             \() ->
