@@ -9,16 +9,7 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "glob"
-        [ test "capture" <|
-            \() ->
-                Glob.succeed identity
-                    |> Glob.capture Glob.wildcard
-                    |> Glob.match (Glob.literal ".txt")
-                    |> expect "my-file.txt"
-                        { expectedMatch = "my-file"
-                        , expectedPattern = "*.txt"
-                        }
-        , test "mix of match and capture with wildcards" <|
+        [ test "mix of match and capture with wildcards" <|
             \() ->
                 Glob.succeed identity
                     |> Glob.match Glob.wildcard

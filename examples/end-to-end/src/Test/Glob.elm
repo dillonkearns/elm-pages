@@ -55,6 +55,14 @@ all =
             ]
         }
     , globTestCase
+        { name = "capture"
+        , glob =
+            Glob.succeed identity
+                |> Glob.capture Glob.wildcard
+                |> Glob.match (Glob.literal ".md")
+        , expected = [ "README" ]
+        }
+    , globTestCase
         { name = "oneOf"
         , glob =
             Glob.succeed Tuple.pair
