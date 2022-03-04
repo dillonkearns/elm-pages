@@ -126,7 +126,6 @@ function isServerSide(route) {
  */
 function rendererCode(isOnDemand, processedHtml) {
   return `const path = require("path");
-const cookie = require("cookie");
 const busboy = require("busboy");
 const processedHtml = ${JSON.stringify(processedHtml)};
 
@@ -291,7 +290,6 @@ function toJsonHelper(req, requestTime, multiPartFormData) {
     rawUrl: req.rawUrl,
     body: req.body,
     requestTime: Math.round(requestTime.getTime()),
-    cookies: cookie.parse(req.headers.cookie || ""),
     multiPartFormData: multiPartFormData,
   };
 }
