@@ -100,7 +100,7 @@ all =
             ]
         }
     , globTestCase
-        { name = "8"
+        { name = "atLeastOne"
         , glob =
             Glob.succeed identity
                 |> Glob.match (Glob.literal "glob-test-cases/at-least-one/")
