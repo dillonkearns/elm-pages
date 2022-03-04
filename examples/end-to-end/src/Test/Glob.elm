@@ -246,6 +246,19 @@ all =
             [ ( [ "a", "b", "c" ], "d" )
             ]
         }
+    , globTestCase
+        { name = "zeroOrMore"
+        , glob =
+            Glob.succeed identity
+                |> Glob.match (Glob.literal "glob-test-cases/zero-or-more/test/a")
+                |> Glob.capture (Glob.zeroOrMore [ "a", "b" ])
+                |> Glob.match (Glob.literal "/x.js")
+        , expected =
+            [ Nothing
+            , Just "b"
+            , Just "ba"
+            ]
+        }
     ]
         |> DataSource.combine
         |> DataSource.map (describe "glob tests")
