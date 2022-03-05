@@ -1,4 +1,4 @@
-module Route.PokedexNumber_ exposing (Data, Model, Msg, page)
+module Route.PokedexNumber_ exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.Http
@@ -27,8 +27,8 @@ type alias RouteParams =
     { pokedexNumber : String }
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.preRenderWithFallback
         { head = head
         , pages = pages

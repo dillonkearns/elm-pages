@@ -1,4 +1,4 @@
-module Route.Named.Color_ exposing (Data, Model, Msg, page)
+module Route.Named.Color_ exposing (Data, Model, Msg, route)
 
 import ColorHelpers
 import DataSource exposing (DataSource)
@@ -21,8 +21,8 @@ type alias Data =
     ColorHelpers.Data
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.preRenderWithFallback
         { head = ColorHelpers.head toCssVal
         , pages = pages

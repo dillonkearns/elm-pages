@@ -1,4 +1,4 @@
-module Route.TailwindForm exposing (Data, Model, Msg, page)
+module Route.TailwindForm exposing (Data, Model, Msg, route)
 
 import Browser.Dom
 import Css exposing (Color)
@@ -542,8 +542,8 @@ cancelButton =
         [ Html.text "Cancel" ]
 
 
-page : StatefulRoute RouteParams Data Model Msg
-page =
+route : StatefulRoute RouteParams Data Model Msg
+route =
     RouteBuilder.serverRender
         { head = head
         , data = data

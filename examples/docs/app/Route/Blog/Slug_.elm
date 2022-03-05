@@ -1,4 +1,4 @@
-module Route.Blog.Slug_ exposing (Data, Model, Msg, page)
+module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
 
 import Article
 import Cloudinary
@@ -39,8 +39,8 @@ type alias RouteParams =
     { slug : String }
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.preRender
         { data = data
         , head = head
@@ -234,11 +234,11 @@ type alias Data =
 
 
 data : RouteParams -> DataSource Data
-data route =
+data routeParams =
     MarkdownCodec.withFrontmatter Data
         frontmatterDecoder
         TailwindMarkdownRenderer.renderer
-        ("content/blog/" ++ route.slug ++ ".md")
+        ("content/blog/" ++ routeParams.slug ++ ".md")
 
 
 type alias ArticleMetadata =

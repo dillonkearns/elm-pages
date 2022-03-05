@@ -1,4 +1,4 @@
-module Route.PortTest exposing (Data, Model, Msg, page)
+module Route.PortTest exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.Port
@@ -26,8 +26,8 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.single
         { head = head
         , data = data

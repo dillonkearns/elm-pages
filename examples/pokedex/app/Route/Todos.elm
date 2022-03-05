@@ -1,4 +1,4 @@
-module Route.Todos exposing (Data, Model, Msg, page)
+module Route.Todos exposing (Data, Model, Msg, route)
 
 import Api.InputObject
 import Api.Mutation
@@ -44,8 +44,8 @@ type alias RouteParams =
     {}
 
 
-page : StatefulRoute RouteParams Data Model Msg
-page =
+route : StatefulRoute RouteParams Data Model Msg
+route =
     RouteBuilder.serverRender
         { head = head
         , data = data

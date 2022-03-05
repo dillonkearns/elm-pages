@@ -1,4 +1,4 @@
-module Route.Blog.Slug_ exposing (Data, Model, Msg, page)
+module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Head
@@ -22,8 +22,8 @@ type alias RouteParams =
     { slug : String }
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.preRender
         { head = head
         , pages = pages

@@ -1,4 +1,4 @@
-module Route.Blog exposing (Data, Model, Msg, page)
+module Route.Blog exposing (Data, Model, Msg, route)
 
 import Article
 import DataSource
@@ -22,8 +22,8 @@ type alias Msg =
     ()
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.single
         { head = head
         , data = data
@@ -174,19 +174,19 @@ head staticPayload =
 
 
 link : Route.Route -> List (Attribute msg) -> List (Html msg) -> Html msg
-link route attrs children =
+link route_ attrs children =
     Route.toLink
         (\anchorAttrs ->
             a
                 (List.map Attr.fromUnstyled anchorAttrs ++ attrs)
                 children
         )
-        route
+        route_
 
 
 blogCard : ( Route, Article.ArticleMetadata ) -> Html msg
-blogCard ( route, info ) =
-    link route
+blogCard ( route_, info ) =
+    link route_
         [ css
             [ Tw.flex
             , Tw.flex_col

@@ -1,4 +1,4 @@
-module Route.Docs.Section__ exposing (Data, Model, Msg, page)
+module Route.Docs.Section__ exposing (Data, Model, Msg, route)
 
 import Css
 import Css.Global
@@ -41,8 +41,8 @@ type alias RouteParams =
     { section : Maybe String }
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.preRender
         { head = head
         , pages = pages

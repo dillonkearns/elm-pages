@@ -1,4 +1,4 @@
-module Route.FormEvent exposing (Data, Model, Msg, page)
+module Route.FormEvent exposing (Data, Model, Msg, route)
 
 import Browser.Navigation
 import DataSource exposing (DataSource)
@@ -28,8 +28,8 @@ type alias RouteParams =
     {}
 
 
-page : StatefulRoute RouteParams Data Model Msg
-page =
+route : StatefulRoute RouteParams Data Model Msg
+route =
     RouteBuilder.single
         { head = head
         , data = data

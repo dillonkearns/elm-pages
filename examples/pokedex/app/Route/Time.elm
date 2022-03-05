@@ -1,4 +1,4 @@
-module Route.Time exposing (Data, Model, Msg, page)
+module Route.Time exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
@@ -27,8 +27,8 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.serverRender
         { head = head
         , data = data

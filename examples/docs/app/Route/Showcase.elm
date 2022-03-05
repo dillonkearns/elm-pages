@@ -1,4 +1,4 @@
-module Route.Showcase exposing (Data, Model, Msg, page)
+module Route.Showcase exposing (Data, Model, Msg, route)
 
 import Css
 import DataSource
@@ -29,8 +29,8 @@ type alias RouteParams =
     {}
 
 
-page : StatefulRoute RouteParams Data Model Msg
-page =
+route : StatefulRoute RouteParams Data Model Msg
+route =
     RouteBuilder.single
         { head = head
         , data = data

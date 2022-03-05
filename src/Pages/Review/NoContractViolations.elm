@@ -86,7 +86,7 @@ moduleDefinitionVisitor node _ =
 
         Exposing.Explicit exposedValues ->
             if isRouteModule then
-                case Set.diff (Set.fromList [ "Data", "Msg", "Model", "page" ]) (exposedNames exposedValues) |> Set.toList of
+                case Set.diff (Set.fromList [ "Data", "Msg", "Model", "route" ]) (exposedNames exposedValues) |> Set.toList of
                     [] ->
                         ( []
                         , { moduleName = Node.value node |> Module.moduleName

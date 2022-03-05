@@ -1,4 +1,4 @@
-module Route.Index exposing (Data, Model, Msg, page)
+module Route.Index exposing (Data, Model, Msg, route)
 
 import Css
 import DataSource exposing (DataSource)
@@ -38,8 +38,8 @@ type alias Data =
     ()
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.single
         { head = head
         , data = data
@@ -116,13 +116,13 @@ landingView =
             , buttonLink = Route.Docs__Section__ { section = Nothing }
             , svgIcon = "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
             , code =
-                ( "src/Page/Repo/Name_.elm", """module Route.Repo.Name_ exposing (Data, Model, Msg, page)
+                ( "src/Page/Repo/Name_.elm", """module Route.Repo.Name_ exposing (Data, Model, Msg, route)
                 
 type alias Data = Int
 type alias RouteParams = { name : String }
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     Page.preRender
         { head = head
         , pages = pages

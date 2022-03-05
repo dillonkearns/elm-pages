@@ -1,4 +1,4 @@
-module Route.Index exposing (Data, Model, Msg, page)
+module Route.Index exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.Env as Env
@@ -28,8 +28,8 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.single
         { head = head
         , data = data

@@ -162,7 +162,7 @@ view page maybePageUrl globalData pageData =
                       \\model ->
                           case model.page of
                               Model${pathNormalizedName(name)} subModel ->
-                                  Route.${moduleName(name)}.page.view
+                                  Route.${moduleName(name)}.route.view
                                       maybePageUrl
                                       model.global
                                       subModel
@@ -181,7 +181,7 @@ view page maybePageUrl globalData pageData =
                   , head = ${
                     phase === "browser"
                       ? "[]"
-                      : `Route.${moduleName(name)}.page.head
+                      : `Route.${moduleName(name)}.route.head
                       { data = data
                       , sharedData = globalData
                       , routeParams = ${emptyRouteParams(name) ? "{}" : "s"}
@@ -243,7 +243,7 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                     }, justPath ), Data${pathNormalizedName(
                       name
                     )} thisPageData ) ->
-                    Route.${moduleName(name)}.page.init
+                    Route.${moduleName(name)}.route.init
                         (Maybe.andThen .pageUrl maybePagePath)
                         sharedModel
                         { data = thisPageData
@@ -346,7 +346,7 @@ update sharedData pageData navigationKey msg model =
               name,
               "routeParams"
             )}, pageUrl, justPage ) ) ->
-                            Route.${moduleName(name)}.page.update
+                            Route.${moduleName(name)}.route.update
                                 pageUrl
                                 { data = thisPageData
                                 , sharedData = sharedData
@@ -395,7 +395,7 @@ templateSubscriptions route path model =
               name,
               "routeParams"
             )} ) ->
-            Route.${moduleName(name)}.page.subscriptions
+            Route.${moduleName(name)}.route.subscriptions
                 Nothing -- TODO wire through value
                 ${routeHelpers.referenceRouteParams(name, "routeParams")}
                 path
@@ -596,7 +596,7 @@ dataForRoute route =
                   : `(Route.${routeHelpers.routeVariant(name)} routeParams)`
               } ->\n            Route.${name.join(
                 "."
-              )}.page.data ${routeHelpers.referenceRouteParams(
+              )}.route.data ${routeHelpers.referenceRouteParams(
                 name,
                 "routeParams"
               )} 
@@ -622,7 +622,7 @@ handleRoute maybeRoute =
                   : " routeParams"
               }) ->\n            Route.${name.join(
                 "."
-              )}.page.handleRoute { moduleName = [ ${name
+              )}.route.handleRoute { moduleName = [ ${name
                 .map((part) => `"${part}"`)
                 .join(", ")} ], routePattern = ${routeHelpers.toElmPathPattern(
                 name
@@ -695,7 +695,7 @@ routePatterns =
               .map((name) => {
                 return `{ kind = Route.${moduleName(
                   name
-                )}.page.kind, pathPattern = "${routeHelpers.toPathPattern(
+                )}.route.kind, pathPattern = "${routeHelpers.toPathPattern(
                   name
                 )}" }`;
               })
@@ -749,7 +749,7 @@ getStaticRoutes =
           .map((name) => {
             return `Route.${moduleName(
               name
-            )}.page.staticRoutes |> DataSource.map (List.map ${
+            )}.route.staticRoutes |> DataSource.map (List.map ${
               emptyRouteParams(name)
                 ? `(\\_ -> Route.${pathNormalizedName(name)}))`
                 : `Route.${pathNormalizedName(name)})`

@@ -1,4 +1,4 @@
-module Route.Form exposing (Data, Model, Msg, page)
+module Route.Form exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Date exposing (Date)
@@ -186,8 +186,8 @@ form user =
             )
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.serverRender
         { head = head
         , data = data
