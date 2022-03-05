@@ -25,7 +25,7 @@ a list of headers, the status code, etc. The Server Response helpers like `json`
 building up those low-level Server Responses.
 
 Render Responses are a little more special in the way they are connected to your elm-pages app. They allow you to render
-the current Page Module. To do that, you'll need to pass along the `data` for your Page Module.
+the current Route Module. To do that, you'll need to pass along the `data` for your Route Module.
 
 You can use `withHeader` and `withStatusCode` to customize either type of Response (Server Responses or Render Responses).
 

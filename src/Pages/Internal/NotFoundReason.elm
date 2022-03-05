@@ -96,7 +96,7 @@ document pathPatterns payload =
                         ]
                     , Html.br [] []
                     , Html.br [] []
-                    , Html.text " from the Page Module "
+                    , Html.text " from the Route Module "
                     , Html.br [] []
                     , Html.br [] []
                     , Html.code []
