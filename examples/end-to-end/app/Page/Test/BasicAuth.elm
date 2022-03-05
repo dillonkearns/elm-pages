@@ -97,30 +97,25 @@ withBasicAuth :
     -> DataSource (Response data)
     -> Request (DataSource (Response data))
 withBasicAuth checkAuth successResponse =
-    Request.oneOf
-        [ Request.expectHeader "authorization"
-            |> Request.map
-                (\base64Auth ->
-                    case parseAuth base64Auth of
-                        Just userPass ->
-                            checkAuth userPass
-                                |> DataSource.andThen
-                                    (\authSucceeded ->
-                                        if authSucceeded then
-                                            successResponse
+    Request.optionalHeader "authorization"
+        |> Request.map
+            (\base64Auth ->
+                case base64Auth |> Maybe.andThen parseAuth of
+                    Just userPass ->
+                        checkAuth userPass
+                            |> DataSource.andThen
+                                (\authSucceeded ->
+                                    if authSucceeded then
+                                        successResponse
 
-                                        else
-                                            requireBasicAuth |> DataSource.succeed
-                                    )
+                                    else
+                                        requireBasicAuth |> DataSource.succeed
+                                )
 
-                        Nothing ->
-                            requireBasicAuth
-                                |> DataSource.succeed
-                )
-        , requireBasicAuth
-            |> DataSource.succeed
-            |> Request.succeed
-        ]
+                    Nothing ->
+                        requireBasicAuth
+                            |> DataSource.succeed
+            )
 
 
 requireBasicAuth : Response data
