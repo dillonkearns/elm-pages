@@ -8,8 +8,8 @@ const routeHelpers = require("./route-codegen-helpers");
  * @param {'browser' | 'cli'} phase
  */
 function generateTemplateModuleConnector(basePath, phase) {
-  const templates = globby.sync(["app/Page/**/*.elm"], {}).map((file) => {
-    const captures = mm.capture("app/Page/**/*.elm", file);
+  const templates = globby.sync(["app/Route/**/*.elm"], {}).map((file) => {
+    const captures = mm.capture("app/Route/**/*.elm", file);
     if (captures) {
       return path.join(captures[0], captures[1]).split(path.sep);
     } else {
@@ -76,7 +76,7 @@ import Task exposing (Task)
 import Url exposing (Url)
 import View
 
-${templates.map((name) => `import Page.${name.join(".")}`).join("\n")}
+${templates.map((name) => `import Route.${name.join(".")}`).join("\n")}
 
 
 type alias Model =
@@ -99,7 +99,7 @@ type PageModel
     = ${templates
       .map(
         (name) =>
-          `Model${pathNormalizedName(name)} Page.${moduleName(name)}.Model\n`
+          `Model${pathNormalizedName(name)} Route.${moduleName(name)}.Model\n`
       )
       .join("    | ")}
     | NotFound
@@ -121,7 +121,7 @@ type Msg
     | ${templates
       .map(
         (name) =>
-          `Msg${pathNormalizedName(name)} Page.${moduleName(name)}.Msg\n`
+          `Msg${pathNormalizedName(name)} Route.${moduleName(name)}.Msg\n`
       )
       .join("    | ")}
 
@@ -131,7 +131,7 @@ type PageData
     | ${templates
       .map(
         (name) =>
-          `Data${pathNormalizedName(name)} Page.${moduleName(name)}.Data\n`
+          `Data${pathNormalizedName(name)} Route.${moduleName(name)}.Data\n`
       )
       .join("    | ")}
 
@@ -162,7 +162,7 @@ view page maybePageUrl globalData pageData =
                       \\model ->
                           case model.page of
                               Model${pathNormalizedName(name)} subModel ->
-                                  Page.${moduleName(name)}.page.view
+                                  Route.${moduleName(name)}.page.view
                                       maybePageUrl
                                       model.global
                                       subModel
@@ -181,7 +181,7 @@ view page maybePageUrl globalData pageData =
                   , head = ${
                     phase === "browser"
                       ? "[]"
-                      : `Page.${moduleName(name)}.page.head
+                      : `Route.${moduleName(name)}.page.head
                       { data = data
                       , sharedData = globalData
                       , routeParams = ${emptyRouteParams(name) ? "{}" : "s"}
@@ -243,7 +243,7 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                     }, justPath ), Data${pathNormalizedName(
                       name
                     )} thisPageData ) ->
-                    Page.${moduleName(name)}.page.init
+                    Route.${moduleName(name)}.page.init
                         (Maybe.andThen .pageUrl maybePagePath)
                         sharedModel
                         { data = thisPageData
@@ -346,7 +346,7 @@ update sharedData pageData navigationKey msg model =
               name,
               "routeParams"
             )}, pageUrl, justPage ) ) ->
-                            Page.${moduleName(name)}.page.update
+                            Route.${moduleName(name)}.page.update
                                 pageUrl
                                 { data = thisPageData
                                 , sharedData = sharedData
@@ -395,7 +395,7 @@ templateSubscriptions route path model =
               name,
               "routeParams"
             )} ) ->
-            Page.${moduleName(name)}.page.subscriptions
+            Route.${moduleName(name)}.page.subscriptions
                 Nothing -- TODO wire through value
                 ${routeHelpers.referenceRouteParams(name, "routeParams")}
                 path
@@ -504,7 +504,7 @@ byteEncodePageData pageData =
 ${templates
   .map(
     (name) => `        Data${pathNormalizedName(name)} thisPageData ->
-            Page.${name.join(".")}.w3_encode_Data thisPageData
+            Route.${name.join(".")}.w3_encode_Data thisPageData
 `
   )
   .join("\n")}
@@ -573,7 +573,7 @@ ${templates
         emptyRouteParams(name)
           ? `Route.${routeHelpers.routeVariant(name)}`
           : `(Route.${routeHelpers.routeVariant(name)} _)`
-      }) ->\n            Page.${name.join(
+      }) ->\n            Route.${name.join(
         "."
       )}.w3_decode_Data |> Bytes.Decode.map Data${routeHelpers.routeVariant(
         name
@@ -594,7 +594,7 @@ dataForRoute route =
                 emptyRouteParams(name)
                   ? `Route.${routeHelpers.routeVariant(name)}`
                   : `(Route.${routeHelpers.routeVariant(name)} routeParams)`
-              } ->\n            Page.${name.join(
+              } ->\n            Route.${name.join(
                 "."
               )}.page.data ${routeHelpers.referenceRouteParams(
                 name,
@@ -620,7 +620,7 @@ handleRoute maybeRoute =
                 routeHelpers.parseRouteParams(name).length === 0
                   ? ""
                   : " routeParams"
-              }) ->\n            Page.${name.join(
+              }) ->\n            Route.${name.join(
                 "."
               )}.page.handleRoute { moduleName = [ ${name
                 .map((part) => `"${part}"`)
@@ -693,7 +693,7 @@ routePatterns =
             )
             [ ${sortTemplates(templates)
               .map((name) => {
-                return `{ kind = Page.${moduleName(
+                return `{ kind = Route.${moduleName(
                   name
                 )}.page.kind, pathPattern = "${routeHelpers.toPathPattern(
                   name
@@ -747,7 +747,7 @@ getStaticRoutes =
     DataSource.combine
         [ ${templates
           .map((name) => {
-            return `Page.${moduleName(
+            return `Route.${moduleName(
               name
             )}.page.staticRoutes |> DataSource.map (List.map ${
               emptyRouteParams(name)

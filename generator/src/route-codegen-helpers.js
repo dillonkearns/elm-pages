@@ -211,7 +211,11 @@ function toElmPathPattern(name) {
     .flatMap((param) => {
       switch (param.kind) {
         case "static": {
-          return [`Pages.Internal.RoutePattern.StaticSegment "${camelToKebab(param.name)}"`];
+          return [
+            `Pages.Internal.RoutePattern.StaticSegment "${camelToKebab(
+              param.name
+            )}"`,
+          ];
         }
         case "dynamic": {
           return [`Pages.Internal.RoutePattern.DynamicSegment "${param.name}"`];
