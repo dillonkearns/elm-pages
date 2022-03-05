@@ -10,7 +10,7 @@ all =
     describe "Pages.Review.NoContractViolations"
         [ test "reports error when missing exposed declaration" <|
             \() ->
-                """module Page.Blog.Slug_ exposing (Data, Msg, page)
+                """module Route.Blog.Slug_ exposing (Data, Msg, page)
 
 a = 1
 """
@@ -33,7 +33,7 @@ But it is not exposing: Model"""
                         ]
         , test "reports RouteParams mismatch" <|
             \() ->
-                """module Page.Blog.Slug_ exposing (Data, page, Model, Msg)
+                """module Route.Blog.Slug_ exposing (Data, page, Model, Msg)
 
 type alias RouteParams = { blogPostName : String }
 
@@ -54,7 +54,7 @@ type alias RouteParams = { slug : String }
                         ]
         , test "reports incorrect types for optional RouteParams" <|
             \() ->
-                """module Page.Docs.Section_.SubSection__ exposing (Data, page, Model, Msg)
+                """module Route.Docs.Section_.SubSection__ exposing (Data, page, Model, Msg)
 
 type alias RouteParams = { section : String, subSection : String }
 
@@ -75,7 +75,7 @@ type alias RouteParams = { section : String, subSection : Maybe String }
                         ]
         , test "reports incorrect types for required splat RouteParams" <|
             \() ->
-                """module Page.Docs.Section_.SPLAT_ exposing (Data, page, Model, Msg)
+                """module Route.Docs.Section_.SPLAT_ exposing (Data, page, Model, Msg)
 
 type alias RouteParams = { section : String, splat : List String }
 
@@ -96,7 +96,7 @@ type alias RouteParams = { section : String, splat : ( String, List String ) }
                         ]
         , test "no error for valid SPLAT_ RouteParams" <|
             \() ->
-                """module Page.Docs.Section_.SPLAT_ exposing (Data, page, Model, Msg)
+                """module Route.Docs.Section_.SPLAT_ exposing (Data, page, Model, Msg)
 
 type alias RouteParams = { section : String, splat : ( String, List String ) }
 
@@ -106,7 +106,7 @@ page = {}
                     |> Review.Test.expectNoErrors
         , test "no error for valid SPLAT__ RouteParams" <|
             \() ->
-                """module Page.Docs.Section_.SPLAT__ exposing (Data, page, Model, Msg)
+                """module Route.Docs.Section_.SPLAT__ exposing (Data, page, Model, Msg)
 
 type alias RouteParams = { section : String, splat : List String }
 
@@ -116,7 +116,7 @@ page = {}
                     |> Review.Test.expectNoErrors
         , test "no error for matching RouteParams name" <|
             \() ->
-                """module Page.Blog.Slug_ exposing (Data, page, Model, Msg)
+                """module Route.Blog.Slug_ exposing (Data, page, Model, Msg)
 
 type alias RouteParams = { slug : String }
 
@@ -126,7 +126,7 @@ page = {}
                     |> Review.Test.expectNoErrors
         , test "error when RouteParams type is not a record" <|
             \() ->
-                """module Page.Blog.Slug_ exposing (Data, page, Model, Msg)
+                """module Route.Blog.Slug_ exposing (Data, page, Model, Msg)
 
 type alias RouteParams = ()
 

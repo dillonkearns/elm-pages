@@ -73,7 +73,7 @@ moduleDefinitionVisitor node _ =
         isPageModule : Bool
         isPageModule =
             (Node.value node |> Module.moduleName |> List.take 1)
-                == [ "Page" ]
+                == [ "Route" ]
                 && ((Node.value node |> Module.moduleName |> List.length) > 1)
     in
     case Node.value node |> Module.exposingList of
@@ -184,7 +184,7 @@ paramToTypeString param =
 expectedRouteParamsFromModuleName : List String -> Dict String Param
 expectedRouteParamsFromModuleName moduleSegments =
     case moduleSegments of
-        "Page" :: segments ->
+        "Route" :: segments ->
             segments
                 |> List.filterMap segmentToParam
                 |> Dict.fromList
