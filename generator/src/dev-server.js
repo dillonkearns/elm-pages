@@ -430,10 +430,12 @@ async function start(options) {
               break;
             }
             case "json": {
+              // TODO is this used anymore? I Think it's a dead code path and can be deleted
               res.writeHead(is404 ? 404 : renderResult.statusCode, {
                 "Content-Type": "application/json",
                 ...renderResult.headers,
               });
+              // is contentJson used any more? I think it can safely be deleted
               res.end(renderResult.contentJson);
               break;
             }
