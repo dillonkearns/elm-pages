@@ -54,7 +54,7 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchema "Pages.Review.NoContractViolations"
         { moduleName = []
-        , isPageModule = False
+        , isRouteModule = False
         }
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withDeclarationVisitor declarationVisitor
@@ -63,15 +63,15 @@ rule =
 
 type alias Context =
     { moduleName : List String
-    , isPageModule : Bool
+    , isRouteModule : Bool
     }
 
 
 moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
 moduleDefinitionVisitor node _ =
     let
-        isPageModule : Bool
-        isPageModule =
+        isRouteModule : Bool
+        isRouteModule =
             (Node.value node |> Module.moduleName |> List.take 1)
                 == [ "Route" ]
                 && ((Node.value node |> Module.moduleName |> List.length) > 1)
@@ -80,25 +80,25 @@ moduleDefinitionVisitor node _ =
         Exposing.All _ ->
             ( []
             , { moduleName = Node.value node |> Module.moduleName
-              , isPageModule = isPageModule
+              , isRouteModule = isRouteModule
               }
             )
 
         Exposing.Explicit exposedValues ->
-            if isPageModule then
+            if isRouteModule then
                 case Set.diff (Set.fromList [ "Data", "Msg", "Model", "page" ]) (exposedNames exposedValues) |> Set.toList of
                     [] ->
                         ( []
                         , { moduleName = Node.value node |> Module.moduleName
-                          , isPageModule = isPageModule
+                          , isRouteModule = isRouteModule
                           }
                         )
 
                     nonEmpty ->
                         ( [ Rule.error
-                                { message = "Unexposed Declaration in Page Module"
+                                { message = "Unexposed Declaration in Route Module"
                                 , details =
-                                    [ """Page Modules need to expose the following values:
+                                    [ """Route Modules need to expose the following values:
 
 - page
 - Data
@@ -112,14 +112,14 @@ But it is not exposing: """
                                 (Node.range (exposingListNode (Node.value node)))
                           ]
                         , { moduleName = Node.value node |> Module.moduleName
-                          , isPageModule = isPageModule
+                          , isRouteModule = isRouteModule
                           }
                         )
 
             else
                 ( []
                 , { moduleName = Node.value node |> Module.moduleName
-                  , isPageModule = isPageModule
+                  , isRouteModule = isRouteModule
                   }
                 )
 
@@ -141,7 +141,7 @@ routeParamsMatchesNameOrError annotation moduleName =
 
             else
                 [ Rule.error
-                    { message = "RouteParams don't match Page Module name"
+                    { message = "RouteParams don't match Route Module name"
                     , details =
                         [ """Expected
 
@@ -349,7 +349,7 @@ declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.AliasDeclaration { name, typeAnnotation } ) ->
             -- TODO check that generics is empty
-            if context.isPageModule && Node.value name == "RouteParams" then
+            if context.isRouteModule && Node.value name == "RouteParams" then
                 ( routeParamsMatchesNameOrError typeAnnotation context.moduleName
                 , context
                 )

@@ -17,9 +17,9 @@ a = 1
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Unexposed Declaration in Page Module"
+                            { message = "Unexposed Declaration in Route Module"
                             , details =
-                                [ """Page Modules need to expose the following values:
+                                [ """Route Modules need to expose the following values:
 
 - page
 - Data
@@ -42,7 +42,7 @@ page = {}
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "RouteParams don't match Page Module name"
+                            { message = "RouteParams don't match Route Module name"
                             , details =
                                 [ """Expected
 
@@ -63,7 +63,7 @@ page = {}
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "RouteParams don't match Page Module name"
+                            { message = "RouteParams don't match Route Module name"
                             , details =
                                 [ """Expected
 
@@ -84,7 +84,7 @@ page = {}
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "RouteParams don't match Page Module name"
+                            { message = "RouteParams don't match Route Module name"
                             , details =
                                 [ """Expected
 
@@ -142,9 +142,9 @@ page = {}
                             , under = "()"
                             }
                         ]
-        , test "no error for modules that don't start with Page prefix" <|
+        , test "no error for modules that don't start with Route prefix" <|
             \() ->
-                """module NotPageModule.Blog.Slug_ exposing (Model, Msg)
+                """module NotRouteModule.Blog.Slug_ exposing (Model, Msg)
 
 type alias RouteParams = ()
 
