@@ -12,6 +12,7 @@ module Server.Request exposing
     , File, expectMultiPartFormPost
     , map3
     , errorsToString, errorToString, getDecoder, ValidationError
+    , skipMatch, validationError
     )
 
 {-|
@@ -157,6 +158,11 @@ type ValidationError
     | MissingQueryParam { missingParam : String, allQueryParams : String }
 
 
+validationError : String -> ValidationError
+validationError =
+    ValidationError
+
+
 {-| -}
 errorsToString : ( ValidationError, List ValidationError ) -> String
 errorsToString validationErrors =
@@ -169,9 +175,9 @@ errorsToString validationErrors =
 {-| TODO internal only
 -}
 errorToString : ValidationError -> String
-errorToString validationError =
+errorToString validationError_ =
     -- elm-review: known-unoptimized-recursion
-    case validationError of
+    case validationError_ of
         ValidationError message ->
             message
 
@@ -339,9 +345,13 @@ expectHeader : String -> Request String
 expectHeader headerName =
     optionalField (headerName |> String.toLower) Json.Decode.string
         |> Json.Decode.field "headers"
-        |> Json.Decode.andThen (\value -> jsonFromResult (value |> Result.fromMaybe "Missing field headers"))
         |> noErrors
         |> Request
+        |> andThen
+            (\value ->
+                fromResult
+                    (value |> Result.fromMaybe "Missing field headers")
+            )
 
 
 {-| -}
@@ -459,10 +469,10 @@ expectQueryParam name =
 
 {-| -}
 skipMatch : ValidationError -> Request value
-skipMatch validationError =
+skipMatch validationError_ =
     Request
         (Json.Decode.succeed
-            ( Err validationError, [] )
+            ( Err validationError_, [] )
         )
 
 

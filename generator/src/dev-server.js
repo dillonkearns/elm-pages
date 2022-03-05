@@ -770,7 +770,7 @@ function toJsonHelper(req, body, requestTime, multiPartFormData) {
     method: req.method,
     hostname: req.hostname,
     query: paramsToObject(url.searchParams),
-    headers: req.headers,
+    headers: req.headers || {},
     rawUrl: url.toString(),
     body: body,
     requestTime: Math.round(requestTime.getTime()),

@@ -5,7 +5,8 @@ import DataSource.File
 import DataSource.Port
 import Head
 import Head.Seo as Seo
-import Html.Styled exposing (div, text)
+import Html.Styled exposing (a, div, text)
+import Html.Styled.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Page exposing (Page, PageWithState, StaticPayload)
@@ -80,5 +81,9 @@ view maybeUrl sharedModel static =
         [ text "This is the index page."
         , div [] [ text <| "Greeting: " ++ static.data.greeting ]
         , div [] [ text <| "Greeting: " ++ static.data.portGreeting ]
+        , div []
+            [ a [ Attr.href "/test/response-headers" ] [ text "/test/response-headers" ]
+            , a [ Attr.href "/test/basic-auth" ] [ text "/test/basic-auth" ]
+            ]
         ]
     }

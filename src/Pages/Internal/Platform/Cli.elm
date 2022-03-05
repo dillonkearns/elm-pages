@@ -676,13 +676,23 @@ sendSinglePageProgress site contentJson config model info =
                 renderedResult =
                     case includeHtml of
                         RenderRequest.OnlyJson ->
-                            Ok
-                                (Server.Response.render
-                                    { head = []
-                                    , view = "This page was not rendered because it is a JSON-only request."
-                                    , title = "This page was not rendered because it is a JSON-only request."
-                                    }
-                                )
+                            pageDataResult
+                                |> Result.map
+                                    (\okPageData ->
+                                        case okPageData of
+                                            PageServerResponse.RenderPage responseInfo pageData ->
+                                                PageServerResponse.RenderPage
+                                                    { statusCode = responseInfo.statusCode
+                                                    , headers = responseInfo.headers
+                                                    }
+                                                    { head = []
+                                                    , view = "This page was not rendered because it is a JSON-only request."
+                                                    , title = "This page was not rendered because it is a JSON-only request."
+                                                    }
+
+                                            PageServerResponse.ServerResponse serverResponse ->
+                                                PageServerResponse.ServerResponse serverResponse
+                                    )
 
                         RenderRequest.HtmlAndJson ->
                             Result.map2 Tuple.pair pageDataResult sharedDataResult
