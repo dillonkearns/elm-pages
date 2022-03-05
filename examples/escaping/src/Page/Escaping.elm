@@ -9,7 +9,7 @@ import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Lazy as HtmlLazy
-import Page exposing (Page, PageWithState, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
@@ -28,13 +28,13 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.single
+    RouteBuilder.single
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 type alias Data =

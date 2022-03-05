@@ -7,13 +7,12 @@ import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Route exposing (Route)
+import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Shared
-import SiteOld
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 import View exposing (View)
@@ -23,13 +22,13 @@ type alias Msg =
     ()
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.single
+    RouteBuilder.single
         { head = head
         , data = data
         }
-        |> Page.buildNoState
+        |> RouteBuilder.buildNoState
             { view = view
             }
 

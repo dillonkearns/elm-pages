@@ -5,9 +5,9 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response
 import Shared
@@ -26,13 +26,13 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.serverRender
+    RouteBuilder.serverRender
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 type alias Data =

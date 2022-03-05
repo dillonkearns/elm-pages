@@ -14,7 +14,7 @@ import Markdown.Parser
 import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
-import Page exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
@@ -48,7 +48,7 @@ page =
                     )
         , data = data
         }
-        |> Page.buildWithLocalState
+        |> RouteBuilder.buildWithLocalState
             { view = view
             , init = \_ _ staticPayload -> ( (), Cmd.none )
             , update =

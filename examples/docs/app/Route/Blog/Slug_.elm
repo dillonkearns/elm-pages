@@ -14,10 +14,10 @@ import Json.Decode.Extra
 import Markdown.Block
 import Markdown.Renderer
 import MarkdownCodec
-import Page exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
+import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Shared
 import SiteOld
 import StructuredData
@@ -39,14 +39,14 @@ type alias RouteParams =
     { slug : String }
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.preRender
+    RouteBuilder.preRender
         { data = data
         , head = head
         , pages = pages
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 pages : DataSource.DataSource (List RouteParams)

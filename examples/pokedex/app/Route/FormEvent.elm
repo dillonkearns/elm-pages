@@ -7,10 +7,10 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
+import RouteBuilder exposing (StatefulRoute, StaticPayload)
 import Shared
 import View exposing (View)
 
@@ -28,13 +28,13 @@ type alias RouteParams =
     {}
 
 
-page : PageWithState RouteParams Data Model Msg
+page : StatefulRoute RouteParams Data Model Msg
 page =
-    Page.single
+    RouteBuilder.single
         { head = head
         , data = data
         }
-        |> Page.buildWithLocalState
+        |> RouteBuilder.buildWithLocalState
             { view = view
             , update = update
             , subscriptions = subscriptions

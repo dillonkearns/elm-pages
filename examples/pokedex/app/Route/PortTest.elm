@@ -7,9 +7,9 @@ import Head.Seo as Seo
 import Html
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
 import View exposing (View)
 
@@ -26,13 +26,13 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.single
+    RouteBuilder.single
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 type alias Data =

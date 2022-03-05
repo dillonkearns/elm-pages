@@ -3,9 +3,9 @@ module Route.Blog.Slug_ exposing (Data, Model, Msg, page)
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
-import Page exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Shared
 import View exposing (View)
 
@@ -22,14 +22,14 @@ type alias RouteParams =
     { slug : String }
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.preRender
+    RouteBuilder.preRender
         { head = head
         , pages = pages
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 pages : DataSource (List RouteParams)

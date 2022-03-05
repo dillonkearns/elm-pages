@@ -11,17 +11,15 @@ import Head.Seo as Seo
 import Heroicon
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Extra
 import List.Extra
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
 import Markdown.Renderer
 import MarkdownCodec
 import NextPrevious
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Shared
 import TableOfContents
 import Tailwind.Breakpoints as Bp
@@ -43,14 +41,14 @@ type alias RouteParams =
     { section : Maybe String }
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.preRender
+    RouteBuilder.preRender
         { head = head
         , pages = pages
         , data = data
         }
-        |> Page.buildNoState
+        |> RouteBuilder.buildNoState
             { view = view
             }
 

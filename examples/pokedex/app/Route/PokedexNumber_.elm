@@ -7,9 +7,9 @@ import Head.Seo as Seo
 import Html exposing (..)
 import Html.Attributes exposing (src)
 import Json.Decode as Decode
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -27,14 +27,14 @@ type alias RouteParams =
     { pokedexNumber : String }
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.preRenderWithFallback
+    RouteBuilder.preRenderWithFallback
         { head = head
         , pages = pages
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 pages : DataSource (List RouteParams)

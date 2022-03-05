@@ -5,8 +5,8 @@ import DataSource exposing (DataSource)
 import DataSource.File
 import Head
 import Html.Styled exposing (div, text)
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
@@ -25,13 +25,13 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.serverRender
+    RouteBuilder.serverRender
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 type alias Data =

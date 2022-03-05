@@ -25,7 +25,7 @@ async function generate(basePath) {
   const uiFileContent = elmPagesUiFile();
 
   await Promise.all([
-    copyToBoth("Page.elm"),
+    copyToBoth("RouteBuilder.elm"),
     copyToBoth("SharedTemplate.elm"),
     copyToBoth("SiteConfig.elm"),
 
@@ -67,7 +67,7 @@ async function generateClientFolder(basePath) {
   const uiFileContent = elmPagesUiFile();
   ensureDirSync("./elm-stuff/elm-pages/client/app");
   ensureDirSync("./elm-stuff/elm-pages/client/.elm-pages");
-  await newCopyBoth("Page.elm");
+  await newCopyBoth("RouteBuilder.elm");
   await newCopyBoth("SharedTemplate.elm");
   await newCopyBoth("SiteConfig.elm");
 

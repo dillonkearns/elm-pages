@@ -4,7 +4,7 @@ import DataSource
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
-import Page exposing (Page, PageWithState, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
@@ -23,14 +23,14 @@ type alias RouteParams =
     { name : Maybe String }
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
     Page.preRender
         { head = head
         , pages = pages
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 pages : DataSource.DataSource (List RouteParams)

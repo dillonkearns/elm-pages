@@ -1,25 +1,25 @@
-module Page exposing
-    ( Page, buildNoState
+module RouteBuilder exposing
+    ( StatelessRoute, buildNoState
     , StaticPayload
     , buildWithLocalState, buildWithSharedState
     , preRender, single
     , preRenderWithFallback, serverRender
     , Builder(..)
-    , PageWithState
+    , StatefulRoute
     )
 
 {-|
 
 
-## Stateless Page Modules
+## Stateless Route Modules
 
-The simplest Page Module you can build is one with no state. It still can use `DataSource`'s, but it has no `init`, `update`, or `subscriptions`.
+The simplest Route Module you can build is one with no state. It still can use `DataSource`'s, but it has no `init`, `update`, or `subscriptions`.
 
 It can read the `Shared.Model`, but it cannot send `Shared.Msg`'s to update the `Shared.Model`. If you need a `Model`, use `buildWithLocalState`.
 
 If you need to _change_ Shared state, use `buildWithSharedState`.
 
-@docs Page, buildNoState
+@docs StatelessRoute, buildNoState
 
 
 ## Accessing Static Data
@@ -39,23 +39,23 @@ We have the following data during pre-render:
 @docs StaticPayload
 
 
-## Stateful Page Modules
+## Stateful Route Modules
 
 @docs buildWithLocalState, buildWithSharedState
 
 
-## Pre-Rendered Pages
+## Pre-Rendered Routes
 
-A `single` page is just a Route that has no Dynamic Route Segments. For example, `Page.About` will have `type alias RouteParams = {}`, whereas `Page.Blog.Slug_` has a Dynamic Segment slug, and `type alias RouteParams = { slug : String }`.
+A `single` page is just a Route that has no Dynamic Route Segments. For example, `Route.About` will have `type alias RouteParams = {}`, whereas `Route.Blog.Slug_` has a Dynamic Segment slug, and `type alias RouteParams = { slug : String }`.
 
-When you run `elm-pages add About`, it will use `Page.single { ... }` because it has empty `RouteParams`. When you run `elm-pages add Blog.Slug_`, will will use `Page.preRender` because it has a Dynamic Route Segment.
+When you run `elm-pages add About`, it will use `RouteBuilder.single { ... }` because it has empty `RouteParams`. When you run `elm-pages add Blog.Slug_`, will will use `RouteBuilder.preRender` because it has a Dynamic Route Segment.
 
-So `Page.single` is just a simplified version of `Page.preRender`. If there are no Dynamic Route Segments, then you don't need to define which pages to render so `Page.single` doesn't need a `pages` field.
+So `RouteBuilder.single` is just a simplified version of `RouteBuilder.preRender`. If there are no Dynamic Route Segments, then you don't need to define which pages to render so `RouteBuilder.single` doesn't need a `pages` field.
 
 When there are Dynamic Route Segments, you need to tell `elm-pages` which pages to render. For example:
 
     page =
-        Page.preRender
+        RouteBuilder.preRender
             { data = data
             , pages = pages
             , head = head
@@ -78,7 +78,7 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 ## Internals
 
 @docs Builder
-@docs PageWithState
+@docs StatefulRoute
 
 -}
 
@@ -97,7 +97,7 @@ import View exposing (View)
 
 
 {-| -}
-type alias PageWithState routeParams data model msg =
+type alias StatefulRoute routeParams data model msg =
     { data : routeParams -> DataSource (Server.Response.Response data)
     , staticRoutes : DataSource (List routeParams)
     , view :
@@ -118,8 +118,8 @@ type alias PageWithState routeParams data model msg =
 
 
 {-| -}
-type alias Page routeParams data =
-    PageWithState routeParams data {} ()
+type alias StatelessRoute routeParams data =
+    StatefulRoute routeParams data {} ()
 
 
 {-| -}
@@ -158,7 +158,7 @@ buildNoState :
         -> View ()
     }
     -> Builder routeParams data
-    -> PageWithState routeParams data {} ()
+    -> StatefulRoute routeParams data {} ()
 buildNoState { view } builderState =
     case builderState of
         WithData record ->
@@ -187,7 +187,7 @@ buildWithLocalState :
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data
-    -> PageWithState routeParams data model msg
+    -> StatefulRoute routeParams data model msg
 buildWithLocalState config builderState =
     case builderState of
         WithData record ->
@@ -232,7 +232,7 @@ buildWithSharedState :
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data
-    -> PageWithState routeParams data model msg
+    -> StatefulRoute routeParams data model msg
 buildWithSharedState config builderState =
     case builderState of
         WithData record ->

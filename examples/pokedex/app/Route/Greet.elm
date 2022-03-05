@@ -7,9 +7,9 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Request)
 import Server.Response exposing (Response)
 import Server.Session as Session
@@ -30,13 +30,13 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.serverRender
+    RouteBuilder.serverRender
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))

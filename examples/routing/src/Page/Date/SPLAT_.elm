@@ -3,7 +3,7 @@ module Page.Date.SPLAT_ exposing (Data, Model, Msg, page)
 import DataSource
 import Head
 import Html.Styled exposing (text)
-import Page exposing (Page, PageWithState, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Shared
 import View exposing (View)
@@ -21,7 +21,7 @@ type alias RouteParams =
     { splat : ( String, List String ) }
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
     Page.preRender
         { head = head
@@ -30,7 +30,7 @@ page =
 
         --, routeFound = \_ -> DataSource.succeed True
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 pages : DataSource.DataSource (List RouteParams)

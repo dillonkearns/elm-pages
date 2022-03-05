@@ -6,10 +6,10 @@ import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css, href)
-import Page exposing (PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
+import RouteBuilder exposing (StatefulRoute, StaticPayload)
 import Shared
 import Showcase
 import Tailwind.Breakpoints as Bp
@@ -29,13 +29,13 @@ type alias RouteParams =
     {}
 
 
-page : PageWithState RouteParams Data Model Msg
+page : StatefulRoute RouteParams Data Model Msg
 page =
-    Page.single
+    RouteBuilder.single
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 data : DataSource.DataSource Data

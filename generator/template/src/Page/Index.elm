@@ -5,7 +5,7 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
-import Page exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Shared
@@ -28,13 +28,13 @@ type alias Data =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.single
+    RouteBuilder.single
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 data : DataSource Data

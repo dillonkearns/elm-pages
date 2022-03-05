@@ -13,7 +13,7 @@ all =
                 """module Page.Index exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import Page exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -38,13 +38,13 @@ type alias Data =
    ()
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-   Page.single
+   RouteBuilder.single
        { head = head
        , data = data
        }
-       |> Page.buildNoState { view = view }
+       |> RouteBuilder.buildNoState { view = view }
 
 
 data : DataSource Data
@@ -65,7 +65,7 @@ data =
                                 """module Page.Index exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import Page exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -90,13 +90,13 @@ type alias Data =
    ()
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-   Page.single
+   RouteBuilder.single
        { head = head
        , data = DataSource.fail ""
        }
-       |> Page.buildNoState { view = view }
+       |> RouteBuilder.buildNoState { view = view }
 
 
 data : DataSource Data
@@ -109,7 +109,7 @@ data =
                 """module Page.Blog.Slug_ exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import Page exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -134,14 +134,14 @@ type alias Data =
    ()
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
     Page.preRender
         { data = data
         , head = head
         , pages = pages
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 data : DataSource Data
@@ -161,7 +161,7 @@ data =
                                 """module Page.Blog.Slug_ exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import Page exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -186,14 +186,14 @@ type alias Data =
    ()
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
     Page.preRender
         { data = \\_ -> DataSource.fail ""
         , head = head
         , pages = pages
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 data : DataSource Data
@@ -201,7 +201,7 @@ data =
     DataSource.succeed ()
 """
                         ]
-        , test "replaces data record setter with Page.serverRendered" <|
+        , test "replaces data record setter with RouteBuilder.serverRendered" <|
             \() ->
                 """module Page.Login exposing (Data, Model, Msg, page)
 
@@ -217,13 +217,13 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.serverRender
+    RouteBuilder.serverRender
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -250,13 +250,13 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.serverRender
+    RouteBuilder.serverRender
         { head = head
         , data = \\_ -> Request.oneOf []
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 """
                         ]
         , test "no Request.oneOf fix after replacement is made" <|
@@ -275,13 +275,13 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-    Page.serverRender
+    RouteBuilder.serverRender
         { head = head
         , data = \\_ -> Request.oneOf []
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -290,7 +290,7 @@ page =
                 """module Page.Index exposing (Data, Model, Msg, page)
 
 import DataSource exposing (DataSource)
-import Page exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -315,13 +315,13 @@ type alias Data =
    ()
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data
 page =
-   Page.single
+   RouteBuilder.single
        { head = head
        , data = DataSource.fail ""
        }
-       |> Page.buildNoState { view = view }
+       |> RouteBuilder.buildNoState { view = view }
 
 
 data : DataSource Data

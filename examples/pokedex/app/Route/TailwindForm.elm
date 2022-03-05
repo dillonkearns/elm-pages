@@ -16,9 +16,9 @@ import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Http
 import Icon
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
@@ -542,13 +542,13 @@ cancelButton =
         [ Html.text "Cancel" ]
 
 
-page : PageWithState RouteParams Data Model Msg
+page : StatefulRoute RouteParams Data Model Msg
 page =
-    Page.serverRender
+    RouteBuilder.serverRender
         { head = head
         , data = data
         }
-        |> Page.buildWithLocalState
+        |> RouteBuilder.buildWithLocalState
             { view = view
             , update = update
             , init = init

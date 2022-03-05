@@ -17,12 +17,12 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Page exposing (Page, PageWithState, StaticPayload)
 import Pages
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
 import Request.Fauna
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
@@ -44,13 +44,13 @@ type alias RouteParams =
     {}
 
 
-page : PageWithState RouteParams Data Model Msg
+page : StatefulRoute RouteParams Data Model Msg
 page =
-    Page.serverRender
+    RouteBuilder.serverRender
         { head = head
         , data = data
         }
-        |> Page.buildWithLocalState
+        |> RouteBuilder.buildWithLocalState
             { view = view
             , update = update
             , subscriptions = subscriptions
