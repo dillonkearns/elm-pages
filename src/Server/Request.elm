@@ -1,7 +1,7 @@
 module Server.Request exposing
     ( Request(..)
     , Method(..), methodToString
-    , succeed, fromResult
+    , succeed, fromResult, skipMatch, validationError
     , requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
     , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap, andThen
@@ -12,7 +12,6 @@ module Server.Request exposing
     , File, expectMultiPartFormPost
     , map3
     , errorsToString, errorToString, getDecoder, ValidationError
-    , skipMatch, validationError
     )
 
 {-|
@@ -21,7 +20,7 @@ module Server.Request exposing
 
 @docs Method, methodToString
 
-@docs succeed, fromResult
+@docs succeed, fromResult, skipMatch, validationError
 
 @docs requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
 
@@ -158,6 +157,7 @@ type ValidationError
     | MissingQueryParam { missingParam : String, allQueryParams : String }
 
 
+{-| -}
 validationError : String -> ValidationError
 validationError =
     ValidationError

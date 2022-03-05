@@ -2,7 +2,7 @@ module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), Value
 
 {-|
 
-@docs Decoder, NotLoadedReason, Session, SessionUpdate, Value, clearFlashCookies, empty, expectSession, flash, flashPrefix, get, insert, noUpdates, oneUpdate, remove, setValues, succeed, unwrap, update, updateAllFields, withFlash, withFlash, withSession
+@docs Decoder, NotLoadedReason, Session, Value, clearFlashCookies, empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash, withSession
 
 -}
 
