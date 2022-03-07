@@ -4,7 +4,7 @@ module Server.Response exposing
     , emptyBody, body, bytesBody, base64Body
     , render
     , map
-    , withHeader, withStatusCode, withSetCookieHeader
+    , withHeader, withHeaders, withStatusCode, withSetCookieHeader
     , toJson
     )
 
@@ -49,7 +49,7 @@ You can use `withHeader` and `withStatusCode` to customize either type of Respon
 
 ## Amending Responses
 
-@docs withHeader, withStatusCode, withSetCookieHeader
+@docs withHeader, withHeaders, withStatusCode, withSetCookieHeader
 
 
 ## Internals
@@ -226,6 +226,17 @@ withHeader name value serverResponse =
 
         ServerResponse response ->
             ServerResponse { response | headers = ( name, value ) :: response.headers }
+
+
+{-| -}
+withHeaders : List ( String, String ) -> Response data -> Response data
+withHeaders headers serverResponse =
+    case serverResponse of
+        RenderPage response data ->
+            RenderPage { response | headers = headers ++ response.headers } data
+
+        ServerResponse response ->
+            ServerResponse { response | headers = headers ++ response.headers }
 
 
 {-| -}
