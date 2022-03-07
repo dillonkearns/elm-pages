@@ -1,7 +1,7 @@
 module Server.Response exposing
     ( Response
     , json, plainText, temporaryRedirect, permanentRedirect
-    , customResponse, RawResponse
+    , emptyBody, body, bytesBody, base64Body
     , render
     , map
     , withHeader, withStatusCode, withSetCookieHeader
@@ -34,7 +34,10 @@ You can use `withHeader` and `withStatusCode` to customize either type of Respon
 
 @docs json, plainText, temporaryRedirect, permanentRedirect
 
-@docs customResponse, RawResponse
+
+## Custom Responses
+
+@docs emptyBody, body, bytesBody, base64Body
 
 
 ## Render Responses
@@ -55,6 +58,8 @@ You can use `withHeader` and `withStatusCode` to customize either type of Respon
 
 -}
 
+import Base64
+import Bytes exposing (Bytes)
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse(..))
 import Server.SetCookie as SetCookie exposing (SetCookie)
@@ -105,9 +110,47 @@ render data =
 
 
 {-| -}
-customResponse : RawResponse -> Response data
-customResponse rawResponse =
-    ServerResponse rawResponse
+emptyBody : Response data
+emptyBody =
+    { statusCode = 200
+    , headers = []
+    , body = Nothing
+    , isBase64Encoded = False
+    }
+        |> ServerResponse
+
+
+{-| -}
+body : String -> Response data
+body body_ =
+    { statusCode = 200
+    , headers = []
+    , body = Just body_
+    , isBase64Encoded = False
+    }
+        |> ServerResponse
+
+
+{-| -}
+base64Body : String -> Response data
+base64Body base64String =
+    { statusCode = 200
+    , headers = []
+    , body = Just base64String
+    , isBase64Encoded = True
+    }
+        |> ServerResponse
+
+
+{-| -}
+bytesBody : Bytes -> Response data
+bytesBody bytes =
+    { statusCode = 200
+    , headers = []
+    , body = bytes |> Base64.fromBytes
+    , isBase64Encoded = True
+    }
+        |> ServerResponse
 
 
 {-| -}

@@ -120,10 +120,6 @@ withBasicAuth checkAuth successResponse =
 
 requireBasicAuth : Response data
 requireBasicAuth =
-    Response.customResponse
-        { headers = []
-        , body = Nothing
-        , statusCode = 401
-        , isBase64Encoded = False
-        }
+    Response.emptyBody
+        |> Response.withStatusCode 401
         |> Response.withHeader "WWW-Authenticate" "Basic"

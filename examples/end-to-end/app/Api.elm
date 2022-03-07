@@ -22,12 +22,9 @@ routes getStaticRoutes htmlToString =
     let
         html : Html Never -> Response data
         html htmlValue =
-            { statusCode = 200
-            , headers = [ ( "Content-Type", "text/html; charset=UTF-8" ) ]
-            , body = Just (htmlToString htmlValue)
-            , isBase64Encoded = False
-            }
-                |> Response.customResponse
+            htmlToString htmlValue
+                |> Response.body
+                |> Response.withHeader "Content-Type" "text/html; charset=UTF-8"
     in
     [ greet
     , ApiRoute.succeed
