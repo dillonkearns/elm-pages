@@ -1,4 +1,4 @@
-module Route.Test.BasicAuth exposing (Data, Model, Msg, page)
+module Route.Test.BasicAuth exposing (Data, Model, Msg, route)
 
 import Base64
 import DataSource exposing (DataSource)
@@ -24,8 +24,8 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.serverRender
         { head = head
         , data = data

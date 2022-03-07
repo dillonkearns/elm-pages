@@ -1,4 +1,4 @@
-module Route.CookieTest exposing (Data, Model, Msg, page)
+module Route.CookieTest exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Head
@@ -25,8 +25,8 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.serverRender
         { head = head
         , data = data

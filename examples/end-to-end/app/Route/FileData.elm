@@ -1,4 +1,4 @@
-module Route.FileData exposing (Data, Model, Msg, page)
+module Route.FileData exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.File
@@ -25,8 +25,8 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.single
         { head = head
         , data = data
