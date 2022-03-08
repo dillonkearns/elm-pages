@@ -51,14 +51,14 @@ function fileContentWithParams(
   serverRender,
   withFallback
 ) {
-  return `module Page.${pageModuleName} exposing (Model, Msg, Data, page)
+  return `module Route.${pageModuleName} exposing (Model, Msg, Data, route)
 
-${serverRender ? `import Server.Request as Request exposing (Request)\n` : ""}
+${serverRender ? `import Server.Request as Request\n` : ""}
 ${withState ? "\nimport Browser.Navigation" : ""}
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
-import Page exposing (Page, PageWithState, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
 ${
   serverRender || withFallback
     ? "import Server.Response as Response exposing (Response)"
@@ -86,43 +86,43 @@ ${
 type alias RouteParams =
     ${routeHelpers.paramsRecord(pageModuleName.split("."))}
 
-page : ${
+route : ${
     withState
-      ? "PageWithState RouteParams Data Model Msg"
-      : "Page RouteParams Data"
+      ? "StatefulRoute RouteParams Data Model Msg"
+      : "StatelessRoute RouteParams Data"
   }
-page =
+route =
     ${
       serverRender
-        ? `Page.serverRender
+        ? `RouteBuilder.serverRender
         { head = head
         , data = data
         }`
         : withFallback
-        ? `Page.preRenderWithFallback { head = head
+        ? `RouteBuilder.preRenderWithFallback { head = head
         , pages = pages
         , data = data
         }`
         : withParams
-        ? `Page.preRender
+        ? `RouteBuilder.preRender
         { head = head
         , pages = pages
         , data = data
         }`
-        : `Page.single
+        : `RouteBuilder.single
         { head = head
         , data = data
         }`
     }
         |> ${
           withState
-            ? `Page.buildWithLocalState
+            ? `RouteBuilder.buildWithLocalState
             { view = view
             , update = update
             , subscriptions = subscriptions
             , init = init
             }`
-            : `Page.buildNoState { view = view }`
+            : `RouteBuilder.buildNoState { view = view }`
         }
 
 ${
@@ -182,7 +182,7 @@ type alias Data =
 
 ${
   serverRender
-    ? `data : RouteParams -> Request (DataSource (Response Data))
+    ? `data : RouteParams -> Request.Parser (DataSource (Response Data))
 data routeParams =`
     : withFallback
     ? `data : RouteParams -> DataSource (Response Data)
