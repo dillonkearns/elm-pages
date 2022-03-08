@@ -838,11 +838,14 @@ expectFormPost :
     )
     -> Parser decodedForm
 expectFormPost toForm =
-    map2 Tuple.pair
+    map3 (\a b c -> ( a, b, c ))
         (matchesContentType "application/x-www-form-urlencoded")
         (matchesMethod ( Post, [] ))
+        (rawBody
+            |> andThen (\maybeBody -> maybeBody |> Result.fromMaybe "Not a form POST because there is no body." |> fromResult)
+        )
         |> andThen
-            (\( validContentType, validMethod ) ->
+            (\( validContentType, validMethod, justBody ) ->
                 if not ((validContentType |> Maybe.withDefault False) && validMethod) then
                     Json.Decode.succeed
                         ( Err
@@ -856,9 +859,10 @@ expectFormPost toForm =
                         |> Parser
 
                 else
-                    Json.Decode.field "body" Json.Decode.string
-                        |> Json.Decode.map FormData.parse
-                        |> Json.Decode.andThen
+                    justBody
+                        |> FormData.parse
+                        |> succeed
+                        |> andThen
                             (\parsedForm ->
                                 let
                                     thing : Json.Encode.Value
@@ -872,20 +876,13 @@ expectFormPost toForm =
                                                     )
                                                 )
                                             |> Json.Encode.object
-                                in
-                                Json.Decode.succeed thing
-                            )
-                        |> noErrors
-                        |> Parser
-                        |> andThen
-                            (\parsedForm ->
-                                let
+
                                     innerDecoder : Json.Decode.Decoder ( Result ValidationError decodedForm, List ValidationError )
                                     innerDecoder =
                                         toForm { field = formField_, optionalField = optionalFormField_ }
                                             |> (\(Parser decoder) -> decoder)
                                 in
-                                Json.Decode.decodeValue innerDecoder parsedForm
+                                Json.Decode.decodeValue innerDecoder thing
                                     |> Result.mapError Json.Decode.errorToString
                                     |> jsonFromResult
                                     |> Parser
