@@ -1,7 +1,7 @@
 module Server.Request exposing
     ( Request(..)
     , Method(..), methodToString
-    , succeed, fromResult, skipMatch, validationError
+    , succeed, fromResult, skip, validationError
     , requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
     , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap, andThen
@@ -20,7 +20,7 @@ module Server.Request exposing
 
 @docs Method, methodToString
 
-@docs succeed, fromResult, skipMatch, validationError
+@docs succeed, fromResult, skip, validationError
 
 @docs requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
 
@@ -327,7 +327,7 @@ fromResult result =
             succeed okValue
 
         Err error ->
-            skipMatch (ValidationError error)
+            skip (ValidationError error)
 
 
 jsonFromResult : Result String value -> Json.Decode.Decoder value
@@ -455,7 +455,7 @@ expectQueryParam name =
 
                             Nothing ->
                                 --skipMatch (ValidationError ("Missing query param \"" ++ name ++ "\""))
-                                skipMatch
+                                skip
                                     (MissingQueryParam
                                         { missingParam = name
                                         , allQueryParams = queryString
@@ -463,13 +463,13 @@ expectQueryParam name =
                                     )
 
                     Nothing ->
-                        skipMatch (ValidationError ("Expected query param \"" ++ name ++ "\", but there were no query params."))
+                        skip (ValidationError ("Expected query param \"" ++ name ++ "\", but there were no query params."))
             )
 
 
 {-| -}
-skipMatch : ValidationError -> Request value
-skipMatch validationError_ =
+skip : ValidationError -> Request value
+skip validationError_ =
     Request
         (Json.Decode.succeed
             ( Err validationError_, [] )
@@ -515,7 +515,7 @@ expectCookie name =
                         succeed justValue
 
                     Nothing ->
-                        skipMatch (ValidationError ("Missing cookie " ++ name))
+                        skip (ValidationError ("Missing cookie " ++ name))
             )
 
 
