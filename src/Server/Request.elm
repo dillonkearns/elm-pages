@@ -858,18 +858,21 @@ expectJsonBody : Json.Decode.Decoder value -> Parser value
 expectJsonBody jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
-        (Json.Decode.oneOf
-            [ Json.Decode.field "body" Json.Decode.string
-                |> Json.Decode.andThen
-                    (\rawBody_ ->
-                        Json.Decode.decodeString jsonBodyDecoder rawBody_
-                            |> Result.mapError Json.Decode.errorToString
-                            |> jsonFromResult
+        (rawBody
+            |> andThen
+                (\rawBody_ ->
+                    (case rawBody_ of
+                        Just body_ ->
+                            Json.Decode.decodeString
+                                jsonBodyDecoder
+                                body_
+                                |> Result.mapError Json.Decode.errorToString
+
+                        Nothing ->
+                            Err "Tried to parse JSON body but the request had no body."
                     )
-                |> noErrors
-            , Json.Decode.succeed ( Err (ValidationError "Tried to parse JSON body but the request had no body."), [] )
-            ]
-            |> Parser
+                        |> fromResult
+                )
         )
 
 
