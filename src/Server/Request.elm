@@ -374,9 +374,9 @@ map3 :
     -> Parser valueCombined
 map3 combineFn request1 request2 request3 =
     succeed combineFn
-        |> map2 (|>) request1
-        |> map2 (|>) request2
-        |> map2 (|>) request3
+        |> andMap request1
+        |> andMap request2
+        |> andMap request3
 
 
 {-| -}
@@ -389,10 +389,10 @@ map4 :
     -> Parser valueCombined
 map4 combineFn request1 request2 request3 request4 =
     succeed combineFn
-        |> map2 (|>) request1
-        |> map2 (|>) request2
-        |> map2 (|>) request3
-        |> map2 (|>) request4
+        |> andMap request1
+        |> andMap request2
+        |> andMap request3
+        |> andMap request4
 
 
 {-| -}
@@ -406,11 +406,11 @@ map5 :
     -> Parser valueCombined
 map5 combineFn request1 request2 request3 request4 request5 =
     succeed combineFn
-        |> map2 (|>) request1
-        |> map2 (|>) request2
-        |> map2 (|>) request3
-        |> map2 (|>) request4
-        |> map2 (|>) request5
+        |> andMap request1
+        |> andMap request2
+        |> andMap request3
+        |> andMap request4
+        |> andMap request5
 
 
 {-| -}
@@ -425,12 +425,12 @@ map6 :
     -> Parser valueCombined
 map6 combineFn request1 request2 request3 request4 request5 request6 =
     succeed combineFn
-        |> map2 (|>) request1
-        |> map2 (|>) request2
-        |> map2 (|>) request3
-        |> map2 (|>) request4
-        |> map2 (|>) request5
-        |> map2 (|>) request6
+        |> andMap request1
+        |> andMap request2
+        |> andMap request3
+        |> andMap request4
+        |> andMap request5
+        |> andMap request6
 
 
 {-| -}
@@ -446,13 +446,13 @@ map7 :
     -> Parser valueCombined
 map7 combineFn request1 request2 request3 request4 request5 request6 request7 =
     succeed combineFn
-        |> map2 (|>) request1
-        |> map2 (|>) request2
-        |> map2 (|>) request3
-        |> map2 (|>) request4
-        |> map2 (|>) request5
-        |> map2 (|>) request6
-        |> map2 (|>) request7
+        |> andMap request1
+        |> andMap request2
+        |> andMap request3
+        |> andMap request4
+        |> andMap request5
+        |> andMap request6
+        |> andMap request7
 
 
 {-| -}
@@ -469,14 +469,14 @@ map8 :
     -> Parser valueCombined
 map8 combineFn request1 request2 request3 request4 request5 request6 request7 request8 =
     succeed combineFn
-        |> map2 (|>) request1
-        |> map2 (|>) request2
-        |> map2 (|>) request3
-        |> map2 (|>) request4
-        |> map2 (|>) request5
-        |> map2 (|>) request6
-        |> map2 (|>) request7
-        |> map2 (|>) request8
+        |> andMap request1
+        |> andMap request2
+        |> andMap request3
+        |> andMap request4
+        |> andMap request5
+        |> andMap request6
+        |> andMap request7
+        |> andMap request8
 
 
 {-| -}
@@ -494,15 +494,15 @@ map9 :
     -> Parser valueCombined
 map9 combineFn request1 request2 request3 request4 request5 request6 request7 request8 request9 =
     succeed combineFn
-        |> map2 (|>) request1
-        |> map2 (|>) request2
-        |> map2 (|>) request3
-        |> map2 (|>) request4
-        |> map2 (|>) request5
-        |> map2 (|>) request6
-        |> map2 (|>) request7
-        |> map2 (|>) request8
-        |> map2 (|>) request9
+        |> andMap request1
+        |> andMap request2
+        |> andMap request3
+        |> andMap request4
+        |> andMap request5
+        |> andMap request6
+        |> andMap request7
+        |> andMap request8
+        |> andMap request9
 
 
 optionalField : String -> Json.Decode.Decoder a -> Json.Decode.Decoder (Maybe a)
