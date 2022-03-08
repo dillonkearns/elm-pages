@@ -4,6 +4,7 @@ import ApiRoute exposing (ApiRoute)
 import DataSource exposing (DataSource)
 import Html exposing (Html)
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Pages
 import Random
 import Route exposing (Route)
@@ -36,7 +37,42 @@ routes getStaticRoutes htmlToString =
         )
         |> ApiRoute.literal "tests"
         |> ApiRoute.serverRender
+    , requestPrinter
     ]
+
+
+requestPrinter : ApiRoute ApiRoute.Response
+requestPrinter =
+    ApiRoute.succeed
+        (Request.map4
+            (\rawBody method cookies queryParams ->
+                Encode.object
+                    [ ( "rawBody"
+                      , Maybe.map Encode.string rawBody
+                            |> Maybe.withDefault Encode.null
+                      )
+                    , ( "method"
+                      , method |> Request.methodToString |> Encode.string
+                      )
+                    , ( "cookies"
+                      , cookies |> Encode.dict identity Encode.string
+                      )
+                    , ( "queryParams"
+                      , queryParams |> Encode.dict identity (Encode.list Encode.string)
+                      )
+                    ]
+                    |> Response.json
+                    |> DataSource.succeed
+            )
+            Request.rawBody
+            Request.method
+            Request.cookies
+            Request.queryParams
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "request-test"
+        |> ApiRoute.serverRender
 
 
 config : Test.Runner.Html.Config

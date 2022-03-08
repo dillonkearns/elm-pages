@@ -1,5 +1,6 @@
 module Server.Request exposing
-    ( Parser(..)
+    ( Parser
+    , method, rawBody, cookies, queryParams
     , Method(..), methodToString
     , succeed, fromResult, skip, validationError
     , requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
@@ -10,13 +11,18 @@ module Server.Request exposing
     , expectHeader
     , expectFormPost
     , File, expectMultiPartFormPost
-    , map3
+    , map3, map4
     , errorsToString, errorToString, getDecoder, ValidationError
     )
 
 {-|
 
 @docs Parser
+
+
+## Direct Values
+
+@docs method, rawBody, cookies, queryParams
 
 @docs Method, methodToString
 
@@ -59,7 +65,7 @@ module Server.Request exposing
 
 ## Map Functions
 
-@docs map3
+@docs map3, map4
 
 
 ## Internals
@@ -70,7 +76,7 @@ module Server.Request exposing
 
 import CookieParser
 import DataSource exposing (DataSource)
-import Dict
+import Dict exposing (Dict)
 import FormData
 import Json.Decode
 import Json.Encode
@@ -80,7 +86,81 @@ import Time
 import Url
 
 
-{-| -}
+{-| A `Server.Request.Parser` lets you send a `Server.Response.Response` based on an incoming HTTP request. For example,
+using a `Server.Request.Parser`, you could check a session cookie to decide whether to respond by rendering a page
+for the logged-in user, or else respond with an HTTP redirect response (see the [`Server.Response` docs](Server-Response)).
+
+You can access the incoming HTTP request's:
+
+  - Headers
+  - Cookies
+  - [`method`](#method)
+  - URL query parameters
+  - [`requestTime`](#requestTime) (as a `Time.Posix`)
+
+Note that this data is not available for pre-rendered pages or pre-rendered API Routes, only for server-rendered pages.
+This is because when a page is pre-rendered, there _is_ no incoming HTTP request to respond to, it is rendered before a user
+requests the page and then the pre-rendered page is served as a plain file (without running your Route Module).
+
+That's why `RouteBuilder.preRender` has `data : RouteParams -> DataSource Data`:
+
+    import DataSource exposing (DataSource)
+    import RouteBuilder exposing (StatelessRoute)
+
+    type alias Data =
+        {}
+
+    data : RouteParams -> DataSource Data
+    data routeParams =
+        DataSource.succeed Data
+
+    route : StatelessRoute RouteParams Data
+    route =
+        RouteBuilder.preRender
+            { data = data
+            , head = head
+            , pages = pages
+            }
+            |> RouteBuilder.buildNoState { view = view }
+
+A server-rendered Route Module _does_ have access to a user's incoming HTTP request because it runs every time the page
+is loaded. That's why `data` is a `Request.Parser` in server-rendered Route Modules. Since you have an incoming HTTP request for server-rendered routes,
+`RouteBuilder.serverRender` has `data : RouteParams -> Request.Parser (DataSource (Response Data))`. That means that you
+can use the incoming HTTP request data to choose how to respond. For example, you could check for a dark-mode preference
+cookie and render a light- or dark-themed page and render a different page.
+
+That's a mouthful, so let's unpack what it means.
+
+`Request.Parser` means you can pull out
+
+data from the request payload using a Server Request Parser.
+
+    import DataSource exposing (DataSource)
+    import RouteBuilder exposing (StatelessRoute)
+    import Server.Request as Request exposing (Request)
+    import Server.Response as Response exposing (Response)
+
+    type alias Data =
+        {}
+
+    data :
+        RouteParams
+        -> Request.Parser (DataSource (Response Data))
+    data routeParams =
+        {}
+            |> Server.Response.render
+            |> DataSource.succeed
+            |> Request.succeed
+
+    route : StatelessRoute RouteParams Data
+    route =
+        RouteBuilder.serverRender
+            { head = head
+            , data = data
+            }
+            |> RouteBuilder.buildNoState { view = view }
+
+-}
 type Parser decodesTo
     = Parser (Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError ))
 
@@ -299,6 +379,22 @@ map3 combineFn request1 request2 request3 =
         |> map2 (|>) request3
 
 
+{-| -}
+map4 :
+    (value1 -> value2 -> value3 -> value4 -> valueCombined)
+    -> Parser value1
+    -> Parser value2
+    -> Parser value3
+    -> Parser value4
+    -> Parser valueCombined
+map4 combineFn request1 request2 request3 request4 =
+    succeed combineFn
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+
+
 optionalField : String -> Json.Decode.Decoder a -> Json.Decode.Decoder (Maybe a)
 optionalField fieldName decoder_ =
     let
@@ -413,6 +509,15 @@ acceptMethod ( accepted1, accepted ) (Parser decoder) =
 
 
 {-| -}
+method : Parser Method
+method =
+    Json.Decode.field "method" Json.Decode.string
+        |> Json.Decode.map methodFromString
+        |> noErrors
+        |> Parser
+
+
+{-| -}
 matchesMethod : ( Method, List Method ) -> Parser Bool
 matchesMethod ( accepted1, accepted ) =
     (Json.Decode.field "method" Json.Decode.string
@@ -464,6 +569,21 @@ expectQueryParam name =
 
                     Nothing ->
                         skip (ValidationError ("Expected query param \"" ++ name ++ "\", but there were no query params."))
+            )
+
+
+{-| -}
+queryParams : Parser (Dict String (List String))
+queryParams =
+    rawUrl
+        |> map
+            (\rawUrl_ ->
+                rawUrl_
+                    |> Url.fromString
+                    |> Maybe.andThen .query
+                    |> Maybe.map QueryParams.fromString
+                    |> Maybe.map QueryParams.toDict
+                    |> Maybe.withDefault Dict.empty
             )
 
 
@@ -522,15 +642,19 @@ expectCookie name =
 {-| -}
 cookie : String -> Parser (Maybe String)
 cookie name =
+    cookies
+        |> map (Dict.get name)
+
+
+{-| -}
+cookies : Parser (Dict String String)
+cookies =
     Json.Decode.field "headers"
         (optionalField "cookie"
             Json.Decode.string
             |> Json.Decode.map (Maybe.map CookieParser.parse)
         )
-        |> Json.Decode.map
-            (\cookies ->
-                cookies |> Maybe.andThen (Dict.get name)
-            )
+        |> Json.Decode.map (Maybe.withDefault Dict.empty)
         |> noErrors
         |> Parser
 
@@ -737,8 +861,8 @@ expectJsonBody jsonBodyDecoder =
         (Json.Decode.oneOf
             [ Json.Decode.field "body" Json.Decode.string
                 |> Json.Decode.andThen
-                    (\rawBody ->
-                        Json.Decode.decodeString jsonBodyDecoder rawBody
+                    (\rawBody_ ->
+                        Json.Decode.decodeString jsonBodyDecoder rawBody_
                             |> Result.mapError Json.Decode.errorToString
                             |> jsonFromResult
                     )
@@ -747,6 +871,14 @@ expectJsonBody jsonBodyDecoder =
             ]
             |> Parser
         )
+
+
+{-| -}
+rawBody : Parser (Maybe String)
+rawBody =
+    Json.Decode.field "body" (Json.Decode.nullable Json.Decode.string)
+        |> noErrors
+        |> Parser
 
 
 {-| -}
