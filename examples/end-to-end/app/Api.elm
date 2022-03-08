@@ -66,7 +66,7 @@ requestPrinter =
             )
             Request.rawBody
             Request.method
-            Request.cookies
+            Request.allCookies
             Request.queryParams
         )
         |> ApiRoute.literal "api"

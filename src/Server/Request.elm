@@ -1,6 +1,6 @@
 module Server.Request exposing
     ( Parser
-    , method, rawBody, cookies, queryParams
+    , method, rawBody, allCookies, rawHeaders, queryParams
     , Method(..), methodToString
     , succeed, fromResult, skip, validationError
     , requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
@@ -11,7 +11,7 @@ module Server.Request exposing
     , expectHeader
     , expectFormPost
     , File, expectMultiPartFormPost
-    , map3, map4
+    , map3, map4, map5
     , errorsToString, errorToString, getDecoder, ValidationError
     )
 
@@ -22,7 +22,7 @@ module Server.Request exposing
 
 ## Direct Values
 
-@docs method, rawBody, cookies, queryParams
+@docs method, rawBody, allCookies, rawHeaders, queryParams
 
 @docs Method, methodToString
 
@@ -65,7 +65,7 @@ module Server.Request exposing
 
 ## Map Functions
 
-@docs map3, map4
+@docs map3, map4, map5
 
 
 ## Internals
@@ -395,6 +395,24 @@ map4 combineFn request1 request2 request3 request4 =
         |> map2 (|>) request4
 
 
+{-| -}
+map5 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> valueCombined)
+    -> Parser value1
+    -> Parser value2
+    -> Parser value3
+    -> Parser value4
+    -> Parser value5
+    -> Parser valueCombined
+map5 combineFn request1 request2 request3 request4 request5 =
+    succeed combineFn
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+
+
 optionalField : String -> Json.Decode.Decoder a -> Json.Decode.Decoder (Maybe a)
 optionalField fieldName decoder_ =
     let
@@ -448,6 +466,14 @@ expectHeader headerName =
                 fromResult
                     (value |> Result.fromMaybe "Missing field headers")
             )
+
+
+{-| -}
+rawHeaders : Parser (Dict String String)
+rawHeaders =
+    Json.Decode.field "headers" (Json.Decode.dict Json.Decode.string)
+        |> noErrors
+        |> Parser
 
 
 {-| -}
@@ -642,13 +668,13 @@ expectCookie name =
 {-| -}
 cookie : String -> Parser (Maybe String)
 cookie name =
-    cookies
+    allCookies
         |> map (Dict.get name)
 
 
 {-| -}
-cookies : Parser (Dict String String)
-cookies =
+allCookies : Parser (Dict String String)
+allCookies =
     Json.Decode.field "headers"
         (optionalField "cookie"
             Json.Decode.string
