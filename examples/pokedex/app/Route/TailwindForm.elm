@@ -19,7 +19,7 @@ import Icon
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
-import Server.Request as Request exposing (Request)
+import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
 import Tailwind.Breakpoints as Bp
@@ -605,7 +605,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data))
 data routeParams =
     Request.oneOf
         [ Form.submitHandlers

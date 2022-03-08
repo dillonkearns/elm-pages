@@ -65,7 +65,7 @@ single handler =
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Request (DataSource (Server.Response.Response Never))) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Parser (DataSource (Server.Response.Response Never))) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never

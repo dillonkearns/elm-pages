@@ -10,7 +10,7 @@ import MySession
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
-import Server.Request as Request exposing (Request)
+import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
 import Server.Session as Session
 import Shared
@@ -39,7 +39,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
+data : RouteParams -> Request.Parser (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
         [ Request.map2 (\a b -> Data a b Nothing)

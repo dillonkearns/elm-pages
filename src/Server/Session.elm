@@ -13,7 +13,7 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Json.Decode
 import Json.Encode
-import Server.Request as Request exposing (Request)
+import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
 import Server.SetCookie as SetCookie
 
@@ -167,9 +167,9 @@ expectSession :
     , secrets : DataSource (List String)
     , sameSite : String
     }
-    -> Request request
+    -> Parser request
     -> (request -> Result () Session -> DataSource ( Session, Response data ))
-    -> Request (DataSource (Response data))
+    -> Parser (DataSource (Response data))
 expectSession config userRequest toRequest =
     Request.map2
         (\sessionCookie userRequestData ->
@@ -188,9 +188,9 @@ withSession :
     , secrets : DataSource (List String)
     , sameSite : String
     }
-    -> Request request
+    -> Parser request
     -> (request -> Result () (Maybe Session) -> DataSource ( Session, Response data ))
-    -> Request (DataSource (Response data))
+    -> Parser (DataSource (Response data))
 withSession config userRequest toRequest =
     Request.map2
         (\maybeSessionCookie userRequestData ->

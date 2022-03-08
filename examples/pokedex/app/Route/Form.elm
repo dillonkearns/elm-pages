@@ -12,7 +12,7 @@ import Html.Attributes as Attr
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
-import Server.Request as Request exposing (Request)
+import Server.Request as Request exposing (Parser)
 import Server.Response
 import Shared
 import Time
@@ -201,7 +201,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request (DataSource (Server.Response.Response Data))
+data : RouteParams -> Parser (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
         [ Form.submitHandlers

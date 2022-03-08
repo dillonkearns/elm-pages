@@ -333,7 +333,7 @@ preRenderWithFallback { data, head, pages } =
 
 {-| -}
 serverRender :
-    { data : routeParams -> Server.Request.Request (DataSource (Server.Response.Response data))
+    { data : routeParams -> Server.Request.Parser (DataSource (Server.Response.Response data))
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data

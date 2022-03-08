@@ -1,5 +1,5 @@
 module Server.Request exposing
-    ( Request(..)
+    ( Parser(..)
     , Method(..), methodToString
     , succeed, fromResult, skip, validationError
     , requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
@@ -16,7 +16,7 @@ module Server.Request exposing
 
 {-|
 
-@docs Request
+@docs Parser
 
 @docs Method, methodToString
 
@@ -81,8 +81,8 @@ import Url
 
 
 {-| -}
-type Request decodesTo
-    = Request (Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError ))
+type Parser decodesTo
+    = Parser (Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError ))
 
 
 oneOfInternal : List ValidationError -> List (Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError )) -> Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError )
@@ -124,15 +124,15 @@ oneOfInternal previousErrors optimizedDecoders =
 
 
 {-| -}
-succeed : value -> Request value
+succeed : value -> Parser value
 succeed value =
-    Request (Json.Decode.succeed ( Ok value, [] ))
+    Parser (Json.Decode.succeed ( Ok value, [] ))
 
 
 {-| TODO internal only
 -}
-getDecoder : Request (DataSource response) -> Json.Decode.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
-getDecoder (Request decoder) =
+getDecoder : Parser (DataSource response) -> Json.Decode.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
+getDecoder (Parser decoder) =
     decoder
         |> Json.Decode.map
             (\( result, validationErrors ) ->
@@ -205,9 +205,9 @@ errorToString validationError_ =
 
 
 {-| -}
-map : (a -> b) -> Request a -> Request b
-map mapFn (Request decoder) =
-    Request
+map : (a -> b) -> Parser a -> Parser b
+map mapFn (Parser decoder) =
+    Parser
         (Json.Decode.map
             (\( result, errors ) ->
                 ( Result.map mapFn result, errors )
@@ -217,12 +217,12 @@ map mapFn (Request decoder) =
 
 
 {-| -}
-oneOf : List (Request a) -> Request a
+oneOf : List (Parser a) -> Parser a
 oneOf serverRequests =
-    Request
+    Parser
         (oneOfInternal []
             (List.map
-                (\(Request decoder) -> decoder)
+                (\(Parser decoder) -> decoder)
                 serverRequests
             )
         )
@@ -242,14 +242,14 @@ oneOf serverRequests =
     --> Success "hihihi"
 
 -}
-andMap : Request a -> Request (a -> b) -> Request b
+andMap : Parser a -> Parser (a -> b) -> Parser b
 andMap =
     map2 (|>)
 
 
 {-| -}
-andThen : (a -> Request b) -> Request a -> Request b
-andThen toRequestB (Request requestA) =
+andThen : (a -> Parser b) -> Parser a -> Parser b
+andThen toRequestB (Parser requestA) =
     Json.Decode.andThen
         (\value ->
             case value of
@@ -262,18 +262,18 @@ andThen toRequestB (Request requestA) =
                     Json.Decode.succeed ( Err error, errors )
         )
         requestA
-        |> Request
+        |> Parser
 
 
-unwrap : Request a -> Json.Decode.Decoder ( Result ValidationError a, List ValidationError )
-unwrap (Request decoder_) =
+unwrap : Parser a -> Json.Decode.Decoder ( Result ValidationError a, List ValidationError )
+unwrap (Parser decoder_) =
     decoder_
 
 
 {-| -}
-map2 : (a -> b -> c) -> Request a -> Request b -> Request c
-map2 f (Request jdA) (Request jdB) =
-    Request
+map2 : (a -> b -> c) -> Parser a -> Parser b -> Parser c
+map2 f (Parser jdA) (Parser jdB) =
+    Parser
         (Json.Decode.map2
             (\( result1, errors1 ) ( result2, errors2 ) ->
                 ( Result.map2 f result1 result2
@@ -288,10 +288,10 @@ map2 f (Request jdA) (Request jdB) =
 {-| -}
 map3 :
     (value1 -> value2 -> value3 -> valueCombined)
-    -> Request value1
-    -> Request value2
-    -> Request value3
-    -> Request valueCombined
+    -> Parser value1
+    -> Parser value2
+    -> Parser value3
+    -> Parser valueCombined
 map3 combineFn request1 request2 request3 =
     succeed combineFn
         |> map2 (|>) request1
@@ -320,7 +320,7 @@ optionalField fieldName decoder_ =
 {-| Turn a Result into a Request. Useful with `andThen`. Turns `Err` into a skipped request handler (non-matching request),
 and `Ok` values into a `succeed` (matching request).
 -}
-fromResult : Result String value -> Request value
+fromResult : Result String value -> Parser value
 fromResult result =
     case result of
         Ok okValue ->
@@ -341,12 +341,12 @@ jsonFromResult result =
 
 
 {-| -}
-expectHeader : String -> Request String
+expectHeader : String -> Parser String
 expectHeader headerName =
     optionalField (headerName |> String.toLower) Json.Decode.string
         |> Json.Decode.field "headers"
         |> noErrors
-        |> Request
+        |> Parser
         |> andThen
             (\value ->
                 fromResult
@@ -355,12 +355,12 @@ expectHeader headerName =
 
 
 {-| -}
-requestTime : Request Time.Posix
+requestTime : Parser Time.Posix
 requestTime =
     Json.Decode.field "requestTime"
         (Json.Decode.int |> Json.Decode.map Time.millisToPosix)
         |> noErrors
-        |> Request
+        |> Parser
 
 
 noErrors : Json.Decode.Decoder value -> Json.Decode.Decoder ( Result ValidationError value, List ValidationError )
@@ -370,8 +370,8 @@ noErrors decoder =
 
 
 {-| -}
-acceptContentTypes : ( String, List String ) -> Request value -> Request value
-acceptContentTypes ( accepted1, accepted ) (Request decoder) =
+acceptContentTypes : ( String, List String ) -> Parser value -> Parser value
+acceptContentTypes ( accepted1, accepted ) (Parser decoder) =
     -- TODO this should parse content-types so it doesn't need to be an exact match (support `; q=...`, etc.)
     optionalField ("Accept" |> String.toLower) Json.Decode.string
         |> Json.Decode.field "headers"
@@ -387,12 +387,12 @@ acceptContentTypes ( accepted1, accepted ) (Request decoder) =
                                 ("Expected Accept header " ++ String.join ", " (accepted1 :: accepted) ++ " but was " ++ (acceptHeader |> Maybe.withDefault ""))
                             )
             )
-        |> Request
+        |> Parser
 
 
 {-| -}
-acceptMethod : ( Method, List Method ) -> Request value -> Request value
-acceptMethod ( accepted1, accepted ) (Request decoder) =
+acceptMethod : ( Method, List Method ) -> Parser value -> Parser value
+acceptMethod ( accepted1, accepted ) (Parser decoder) =
     (Json.Decode.field "method" Json.Decode.string
         |> Json.Decode.map methodFromString
         |> Json.Decode.andThen
@@ -409,11 +409,11 @@ acceptMethod ( accepted1, accepted ) (Request decoder) =
                             )
             )
     )
-        |> Request
+        |> Parser
 
 
 {-| -}
-matchesMethod : ( Method, List Method ) -> Request Bool
+matchesMethod : ( Method, List Method ) -> Parser Bool
 matchesMethod ( accepted1, accepted ) =
     (Json.Decode.field "method" Json.Decode.string
         |> Json.Decode.map methodFromString
@@ -423,7 +423,7 @@ matchesMethod ( accepted1, accepted ) =
             )
     )
         |> noErrors
-        |> Request
+        |> Parser
 
 
 appendError : ValidationError -> Json.Decode.Decoder ( value, List ValidationError ) -> Json.Decode.Decoder ( value, List ValidationError )
@@ -433,7 +433,7 @@ appendError error decoder =
 
 
 {-| -}
-expectQueryParam : String -> Request String
+expectQueryParam : String -> Parser String
 expectQueryParam name =
     rawUrl
         |> andThen
@@ -468,16 +468,16 @@ expectQueryParam name =
 
 
 {-| -}
-skip : ValidationError -> Request value
+skip : ValidationError -> Parser value
 skip validationError_ =
-    Request
+    Parser
         (Json.Decode.succeed
             ( Err validationError_, [] )
         )
 
 
 {-| -}
-rawUrl : Request String
+rawUrl : Parser String
 rawUrl =
     Json.Decode.maybe
         (Json.Decode.string
@@ -492,20 +492,20 @@ rawUrl =
                     Nothing ->
                         ( Err (ValidationError "Internal error - expected rawUrl field but the adapter script didn't provide one."), [] )
             )
-        |> Request
+        |> Parser
 
 
 {-| -}
-optionalHeader : String -> Request (Maybe String)
+optionalHeader : String -> Parser (Maybe String)
 optionalHeader headerName =
     optionalField (headerName |> String.toLower) Json.Decode.string
         |> Json.Decode.field "headers"
         |> noErrors
-        |> Request
+        |> Parser
 
 
 {-| -}
-expectCookie : String -> Request String
+expectCookie : String -> Parser String
 expectCookie name =
     cookie name
         |> andThen
@@ -520,7 +520,7 @@ expectCookie name =
 
 
 {-| -}
-cookie : String -> Request (Maybe String)
+cookie : String -> Parser (Maybe String)
 cookie name =
     Json.Decode.field "headers"
         (optionalField "cookie"
@@ -532,10 +532,10 @@ cookie name =
                 cookies |> Maybe.andThen (Dict.get name)
             )
         |> noErrors
-        |> Request
+        |> Parser
 
 
-formField_ : String -> Request String
+formField_ : String -> Parser String
 formField_ name =
     optionalField name Json.Decode.string
         |> Json.Decode.map
@@ -547,14 +547,14 @@ formField_ name =
                     Nothing ->
                         ( Err (ValidationError ("Missing form field '" ++ name ++ "'")), [] )
             )
-        |> Request
+        |> Parser
 
 
-optionalFormField_ : String -> Request (Maybe String)
+optionalFormField_ : String -> Parser (Maybe String)
 optionalFormField_ name =
     optionalField name Json.Decode.string
         |> noErrors
-        |> Request
+        |> Parser
 
 
 {-| -}
@@ -565,7 +565,7 @@ type alias File =
     }
 
 
-fileField_ : String -> Request File
+fileField_ : String -> Parser File
 fileField_ name =
     optionalField name
         (Json.Decode.oneOf
@@ -584,17 +584,17 @@ fileField_ name =
                     Nothing ->
                         ( Err (ValidationError ("Missing form field " ++ name)), [] )
             )
-        |> Request
+        |> Parser
 
 
 {-| -}
 expectFormPost :
-    ({ field : String -> Request String
-     , optionalField : String -> Request (Maybe String)
+    ({ field : String -> Parser String
+     , optionalField : String -> Parser (Maybe String)
      }
-     -> Request decodedForm
+     -> Parser decodedForm
     )
-    -> Request decodedForm
+    -> Parser decodedForm
 expectFormPost toForm =
     map2 Tuple.pair
         (matchesContentType "application/x-www-form-urlencoded")
@@ -611,7 +611,7 @@ expectFormPost toForm =
                             )
                         , []
                         )
-                        |> Request
+                        |> Parser
 
                 else
                     Json.Decode.field "body" Json.Decode.string
@@ -634,32 +634,32 @@ expectFormPost toForm =
                                 Json.Decode.succeed thing
                             )
                         |> noErrors
-                        |> Request
+                        |> Parser
                         |> andThen
                             (\parsedForm ->
                                 let
                                     innerDecoder : Json.Decode.Decoder ( Result ValidationError decodedForm, List ValidationError )
                                     innerDecoder =
                                         toForm { field = formField_, optionalField = optionalFormField_ }
-                                            |> (\(Request decoder) -> decoder)
+                                            |> (\(Parser decoder) -> decoder)
                                 in
                                 Json.Decode.decodeValue innerDecoder parsedForm
                                     |> Result.mapError Json.Decode.errorToString
                                     |> jsonFromResult
-                                    |> Request
+                                    |> Parser
                             )
             )
 
 
 {-| -}
 expectMultiPartFormPost :
-    ({ field : String -> Request String
-     , optionalField : String -> Request (Maybe String)
-     , fileField : String -> Request File
+    ({ field : String -> Parser String
+     , optionalField : String -> Parser (Maybe String)
+     , fileField : String -> Parser File
      }
-     -> Request decodedForm
+     -> Parser decodedForm
     )
-    -> Request decodedForm
+    -> Parser decodedForm
 expectMultiPartFormPost toForm =
     map2
         (\_ value ->
@@ -671,16 +671,16 @@ expectMultiPartFormPost toForm =
             , optionalField = optionalFormField_
             , fileField = fileField_
             }
-            |> (\(Request decoder) -> decoder)
+            |> (\(Parser decoder) -> decoder)
             -- @@@ TODO is it possible to do multipart form data parsing in pure Elm?
             |> Json.Decode.field "multiPartFormData"
-            |> Request
+            |> Parser
             |> acceptMethod ( Post, [] )
         )
 
 
 {-| -}
-expectContentType : String -> Request Bool
+expectContentType : String -> Parser Bool
 expectContentType expectedContentType =
     optionalField ("content-type" |> String.toLower) Json.Decode.string
         |> Json.Decode.field "headers"
@@ -697,10 +697,10 @@ expectContentType expectedContentType =
                         else
                             ( Ok False, [ ValidationError ("Expected content-type to be " ++ expectedContentType ++ " but it was " ++ contentType) ] )
             )
-        |> Request
+        |> Parser
 
 
-matchesContentType : String -> Request (Maybe Bool)
+matchesContentType : String -> Parser (Maybe Bool)
 matchesContentType expectedContentType =
     optionalField ("content-type" |> String.toLower) Json.Decode.string
         |> Json.Decode.field "headers"
@@ -718,7 +718,7 @@ matchesContentType expectedContentType =
                             Just False
             )
         |> noErrors
-        |> Request
+        |> Parser
 
 
 parseContentType : String -> String
@@ -730,7 +730,7 @@ parseContentType rawContentType =
 
 
 {-| -}
-expectJsonBody : Json.Decode.Decoder value -> Request value
+expectJsonBody : Json.Decode.Decoder value -> Parser value
 expectJsonBody jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
@@ -745,12 +745,12 @@ expectJsonBody jsonBodyDecoder =
                 |> noErrors
             , Json.Decode.succeed ( Err (ValidationError "Tried to parse JSON body but the request had no body."), [] )
             ]
-            |> Request
+            |> Parser
         )
 
 
 {-| -}
-jsonBodyResult : Json.Decode.Decoder value -> Request (Result Json.Decode.Error value)
+jsonBodyResult : Json.Decode.Decoder value -> Parser (Result Json.Decode.Error value)
 jsonBodyResult jsonBodyDecoder =
     map2 (\_ secondValue -> secondValue)
         (expectContentType "application/json")
@@ -764,7 +764,7 @@ jsonBodyResult jsonBodyDecoder =
                 |> Json.Decode.map (Json.Decode.decodeValue jsonBodyDecoder)
             ]
             |> noErrors
-            |> Request
+            |> Parser
         )
 
 

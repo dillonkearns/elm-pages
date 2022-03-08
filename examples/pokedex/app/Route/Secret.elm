@@ -48,7 +48,7 @@ type alias LoggedInInfo =
     }
 
 
-data : RouteParams -> Request.Request (DataSource (Response Data))
+data : RouteParams -> Request.Parser (DataSource (Response Data))
 data routeParams =
     Request.oneOf
         [ Request.expectCookie "username"

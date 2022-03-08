@@ -6,7 +6,7 @@ import Head
 import Html.Styled exposing (div, text)
 import Pages.PageUrl exposing (PageUrl)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
-import Server.Request as Request exposing (Request)
+import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -38,7 +38,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data))
 data routeParams =
     withBasicAuth
         (\{ username, password } ->
@@ -95,7 +95,7 @@ parseAuth base64Auth =
 withBasicAuth :
     ({ username : String, password : String } -> DataSource Bool)
     -> DataSource (Response data)
-    -> Request (DataSource (Response data))
+    -> Parser (DataSource (Response data))
 withBasicAuth checkAuth successResponse =
     Request.optionalHeader "authorization"
         |> Request.map

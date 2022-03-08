@@ -44,7 +44,7 @@ type alias Request =
     }
 
 
-data : RouteParams -> Request.Request (DataSource (Server.Response.Response Data))
+data : RouteParams -> Request.Parser (DataSource (Server.Response.Response Data))
 data routeParams =
     Request.oneOf
         [ MySession.withSession

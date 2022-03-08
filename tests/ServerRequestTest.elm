@@ -131,8 +131,8 @@ type Body
     | StringBody String
 
 
-expectMatch : Request -> Request.Request value -> Expectation
-expectMatch request (Request.Request decoder) =
+expectMatch : Request -> Request.Parser value -> Expectation
+expectMatch request (Request.Parser decoder) =
     case
         request
             |> requestToJson
@@ -159,8 +159,8 @@ expectMatch request (Request.Request decoder) =
             Expect.fail (Decode.errorToString error)
 
 
-expectNoMatch : Request -> String -> Request.Request value -> Expectation
-expectNoMatch request expectedErrorString (Request.Request decoder) =
+expectNoMatch : Request -> String -> Request.Parser value -> Expectation
+expectNoMatch request expectedErrorString (Request.Parser decoder) =
     case
         request
             |> requestToJson

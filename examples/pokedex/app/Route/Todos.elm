@@ -23,7 +23,7 @@ import Pages.Url
 import Path exposing (Path)
 import Request.Fauna
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
-import Server.Request as Request exposing (Request)
+import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
 import Time
@@ -141,7 +141,7 @@ todoSelection =
         (Api.Object.Todo.id_ |> SelectionSet.map (\(Id id) -> id))
 
 
-data : RouteParams -> Request (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data))
 data routeParams =
     Request.oneOf
         [ Form.submitHandlers2 (deleteItemForm "")

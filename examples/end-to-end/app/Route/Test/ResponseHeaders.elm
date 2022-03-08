@@ -7,7 +7,7 @@ import Head
 import Html.Styled exposing (div, text)
 import Pages.PageUrl exposing (PageUrl)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
-import Server.Request as Request exposing (Request)
+import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -39,7 +39,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data))
 data routeParams =
     Request.succeed
         (DataSource.succeed Data

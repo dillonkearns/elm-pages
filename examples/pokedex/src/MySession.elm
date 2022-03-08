@@ -3,15 +3,15 @@ module MySession exposing (..)
 import Codec
 import DataSource exposing (DataSource)
 import DataSource.Env as Env
-import Server.Request exposing (Request)
+import Server.Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 
 
 withSession :
-    Request request
+    Parser request
     -> (request -> Result () (Maybe Session.Session) -> DataSource ( Session.Session, Response data ))
-    -> Request (DataSource (Response data))
+    -> Parser (DataSource (Response data))
 withSession =
     Session.withSession
         { name = "mysession"
@@ -21,9 +21,9 @@ withSession =
 
 
 withSessionOrRedirect :
-    Request request
+    Parser request
     -> (request -> Maybe Session.Session -> DataSource ( Session.Session, Response data ))
-    -> Request (DataSource (Response data))
+    -> Parser (DataSource (Response data))
 withSessionOrRedirect handler toRequest =
     Session.withSession
         { name = "mysession"
@@ -45,8 +45,8 @@ withSessionOrRedirect handler toRequest =
 
 expectSessionOrRedirect :
     (request -> Session.Session -> DataSource ( Session.Session, Response data ))
-    -> Request request
-    -> Request (DataSource (Response data))
+    -> Parser request
+    -> Parser (DataSource (Response data))
 expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"

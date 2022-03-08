@@ -141,7 +141,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
 import List.NonEmpty
-import Server.Request as Request exposing (Request)
+import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
 import Task
 import Url
@@ -204,10 +204,10 @@ type Form error value view
             , List view -> List view
             )
         )
-        ((String -> Request (Maybe String)) -> Request (Result (List ( String, List error )) ( value, List ( String, List error ) )))
-        ((String -> Request (Maybe String))
+        ((String -> Parser (Maybe String)) -> Parser (Result (List ( String, List error )) ( value, List ( String, List error ) )))
+        ((String -> Parser (Maybe String))
          ->
-            Request
+            Parser
                 (DataSource
                     (List
                         ( String
@@ -1500,7 +1500,7 @@ withClientValidation2 mapFn (Field field) =
 with : Field error value view constraints -> Form error (value -> form) view -> Form error form view
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
-        thing : (String -> Request (Maybe String)) -> Request (DataSource (List ( String, RawFieldState error )))
+        thing : (String -> Parser (Maybe String)) -> Parser (DataSource (List ( String, RawFieldState error )))
         thing expectFormField =
             Request.map2
                 (\arg1 arg2 ->
@@ -1525,7 +1525,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                     |> Maybe.withDefault (Request.succeed Nothing)
                 )
 
-        withDecoder : (String -> Request (Maybe String)) -> Request (Result (List ( String, List error )) ( form, List ( String, List error ) ))
+        withDecoder : (String -> Parser (Maybe String)) -> Parser (Result (List ( String, List error )) ( form, List ( String, List error ) ))
         withDecoder expectFormField =
             Request.map2
                 (combineWithDecoder field.name)
@@ -1920,7 +1920,7 @@ toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
 
 apiHandler :
     Form String value view
-    -> Request (DataSource (Response response))
+    -> Parser (DataSource (Response response))
 apiHandler (Form _ decoder serverValidations _) =
     let
         encodeErrors : List ( String, RawFieldState String ) -> Encode.Value
@@ -1971,7 +1971,7 @@ apiHandler (Form _ decoder serverValidations _) =
 toRequest2 :
     Form String value view
     ->
-        Request
+        Parser
             (DataSource
                 (Result Model ( Model, value ))
             )
@@ -2053,7 +2053,7 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
 submitHandlers :
     Form String decoded view
     -> (Model -> Result () decoded -> DataSource data)
-    -> Request (DataSource (Response data))
+    -> Parser (DataSource (Response data))
 submitHandlers myForm toDataSource =
     Request.oneOf
         [ apiHandler myForm
@@ -2082,7 +2082,7 @@ submitHandlers myForm toDataSource =
 submitHandlers2 :
     Form String decoded view
     -> (Model -> Result () decoded -> DataSource (Response data))
-    -> Request (DataSource (Response data))
+    -> Parser (DataSource (Response data))
 submitHandlers2 myForm toDataSource =
     Request.oneOf
         [ apiHandler myForm

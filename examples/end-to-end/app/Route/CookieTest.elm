@@ -7,7 +7,7 @@ import Html.Styled exposing (text)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
-import Server.Request as Request exposing (Request)
+import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -38,7 +38,7 @@ type alias Data =
     { darkMode : Maybe String }
 
 
-data : RouteParams -> Request (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data))
 data routeParams =
     Request.oneOf
         [ Request.expectCookie "dark-mode"
