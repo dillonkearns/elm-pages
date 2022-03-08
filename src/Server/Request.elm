@@ -11,7 +11,7 @@ module Server.Request exposing
     , expectHeader
     , expectFormPost
     , File, expectMultiPartFormPost
-    , map3, map4, map5
+    , map3, map4, map5, map6, map7, map8, map9
     , errorsToString, errorToString, getDecoder, ValidationError
     )
 
@@ -65,7 +65,7 @@ module Server.Request exposing
 
 ## Map Functions
 
-@docs map3, map4, map5
+@docs map3, map4, map5, map6, map7, map8, map9
 
 
 ## Internals
@@ -411,6 +411,98 @@ map5 combineFn request1 request2 request3 request4 request5 =
         |> map2 (|>) request3
         |> map2 (|>) request4
         |> map2 (|>) request5
+
+
+{-| -}
+map6 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> valueCombined)
+    -> Parser value1
+    -> Parser value2
+    -> Parser value3
+    -> Parser value4
+    -> Parser value5
+    -> Parser value6
+    -> Parser valueCombined
+map6 combineFn request1 request2 request3 request4 request5 request6 =
+    succeed combineFn
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+        |> map2 (|>) request6
+
+
+{-| -}
+map7 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> valueCombined)
+    -> Parser value1
+    -> Parser value2
+    -> Parser value3
+    -> Parser value4
+    -> Parser value5
+    -> Parser value6
+    -> Parser value7
+    -> Parser valueCombined
+map7 combineFn request1 request2 request3 request4 request5 request6 request7 =
+    succeed combineFn
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+        |> map2 (|>) request6
+        |> map2 (|>) request7
+
+
+{-| -}
+map8 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> valueCombined)
+    -> Parser value1
+    -> Parser value2
+    -> Parser value3
+    -> Parser value4
+    -> Parser value5
+    -> Parser value6
+    -> Parser value7
+    -> Parser value8
+    -> Parser valueCombined
+map8 combineFn request1 request2 request3 request4 request5 request6 request7 request8 =
+    succeed combineFn
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+        |> map2 (|>) request6
+        |> map2 (|>) request7
+        |> map2 (|>) request8
+
+
+{-| -}
+map9 :
+    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> value9 -> valueCombined)
+    -> Parser value1
+    -> Parser value2
+    -> Parser value3
+    -> Parser value4
+    -> Parser value5
+    -> Parser value6
+    -> Parser value7
+    -> Parser value8
+    -> Parser value9
+    -> Parser valueCombined
+map9 combineFn request1 request2 request3 request4 request5 request6 request7 request8 request9 =
+    succeed combineFn
+        |> map2 (|>) request1
+        |> map2 (|>) request2
+        |> map2 (|>) request3
+        |> map2 (|>) request4
+        |> map2 (|>) request5
+        |> map2 (|>) request6
+        |> map2 (|>) request7
+        |> map2 (|>) request8
+        |> map2 (|>) request9
 
 
 optionalField : String -> Json.Decode.Decoder a -> Json.Decode.Decoder (Maybe a)
