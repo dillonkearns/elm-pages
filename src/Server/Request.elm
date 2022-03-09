@@ -702,7 +702,50 @@ queryParams =
             )
 
 
-{-| -}
+{-| This is a Request.Parser that will never match an HTTP request. Similar to `Json.Decode.fail`.
+
+Why would you want it to always fail? It's helpful for building custom `Server.Request.Parser`. For example, let's say
+you wanted to define a custom `Server.Request.Parser` to use an XML Decoding package on the request body.
+You could define a custom function like this
+
+    import Server.Request as Request
+
+    expectXmlBody : XmlDecoder value -> Request.Parser value
+    expectXmlBody xmlDecoder =
+        Request.expectBody
+            |> Request.andThen
+                (\bodyAsString ->
+                    case runXmlDecoder xmlDecoder bodyAsString of
+                        Ok decodedXml ->
+                            Request.succeed decodedXml
+
+                        Err error ->
+                            Request.skip ("XML could not be decoded " ++ xmlErrorToString error)
+                )
+
+Note that when we said `Request.skip`, remaining Request Parsers will run (for example if you use [`Server.Request.oneOf`](#oneOf)).
+You could build this with different semantics if you wanted to handle _any_ valid XML body. This Request Parser will _not_
+handle any valid XML body. It will only handle requests that can match the XmlDecoder that is passed in.
+
+So when you define your `Server.Request.Parser`s, think carefully about whether you want to handle invalid cases and give an
+error, or fall through to other Parsers. There's no universal right answer, it's just something to decide for your use case.
+
+    expectXmlBody : Request.Parser value
+    expectXmlBody =
+        Request.map2
+            acceptContentTypes
+            Request.expectBody
+            |> Request.andThen
+                (\bodyAsString ->
+                    case runXmlDecoder xmlDecoder bodyAsString of
+                        Ok decodedXml ->
+                            Request.succeed decodedXml
+
+                        Err error ->
+                            Request.skip ("XML could not be decoded " ++ xmlErrorToString error)
+                )
+
+-}
 skip : String -> Parser value
 skip errorMessage =
     skipInternal (ValidationError errorMessage)
