@@ -2,7 +2,7 @@ module Server.Request exposing
     ( Parser
     , method, rawBody, allCookies, rawHeaders, queryParams
     , Method(..), methodToString
-    , succeed, fromResult, skip, validationError
+    , succeed, fromResult, skip
     , requestTime, optionalHeader, expectContentType, expectJsonBody
     , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap, andThen
@@ -27,7 +27,7 @@ module Server.Request exposing
 
 @docs Method, methodToString
 
-@docs succeed, fromResult, skip, validationError
+@docs succeed, fromResult, skip
 
 @docs requestTime, optionalHeader, expectContentType, expectJsonBody
 
@@ -237,12 +237,6 @@ type ValidationError
     | OneOf (List ValidationError)
     | NotFormPost { method : Maybe Method, contentType : Maybe String }
     | MissingQueryParam { missingParam : String, allQueryParams : String }
-
-
-{-| -}
-validationError : String -> ValidationError
-validationError =
-    ValidationError
 
 
 {-| -}
