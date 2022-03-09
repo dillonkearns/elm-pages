@@ -535,7 +535,7 @@ fromResult result =
             succeed okValue
 
         Err error ->
-            skip (ValidationError error)
+            skipInternal (ValidationError error)
 
 
 jsonFromResult : Result String value -> Json.Decode.Decoder value
@@ -679,8 +679,7 @@ expectQueryParam name =
                                 succeed okParamValue
 
                             Nothing ->
-                                --skipMatch (ValidationError ("Missing query param \"" ++ name ++ "\""))
-                                skip
+                                skipInternal
                                     (MissingQueryParam
                                         { missingParam = name
                                         , allQueryParams = queryString
@@ -688,7 +687,7 @@ expectQueryParam name =
                                     )
 
                     Nothing ->
-                        skip (ValidationError ("Expected query param \"" ++ name ++ "\", but there were no query params."))
+                        skipInternal (ValidationError ("Expected query param \"" ++ name ++ "\", but there were no query params."))
             )
 
 
@@ -708,8 +707,13 @@ queryParams =
 
 
 {-| -}
-skip : ValidationError -> Parser value
-skip validationError_ =
+skip : String -> Parser value
+skip errorMessage =
+    skipInternal (ValidationError errorMessage)
+
+
+skipInternal : ValidationError -> Parser value
+skipInternal validationError_ =
     Parser
         (Json.Decode.succeed
             ( Err validationError_, [] )
@@ -755,7 +759,7 @@ expectCookie name =
                         succeed justValue
 
                     Nothing ->
-                        skip (ValidationError ("Missing cookie " ++ name))
+                        skipInternal (ValidationError ("Missing cookie " ++ name))
             )
 
 
