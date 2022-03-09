@@ -9,10 +9,6 @@ import Head.Seo as Seo
 import Html.Styled as Html
 import Html.Styled.Attributes exposing (css)
 import Json.Decode as Decode
-import Markdown.Block
-import Markdown.Parser
-import Markdown.Renderer
-import MarkdownRenderer
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StaticPayload)
@@ -38,13 +34,10 @@ route =
     RouteBuilder.preRender
         { head = head
         , pages =
-            slideCount
-                |> DataSource.map
-                    (\count ->
-                        List.range 1 count
-                            |> List.map String.fromInt
-                            |> List.map RouteParams
-                    )
+            List.range 1 3
+                |> List.map String.fromInt
+                |> List.map RouteParams
+                |> DataSource.succeed
         , data = data
         }
         |> RouteBuilder.buildWithLocalState
@@ -54,33 +47,8 @@ route =
                 \_ maybeNavigationKey sharedModel static msg model ->
                     case msg of
                         OnKeyPress (Just direction) ->
-                            let
-                                currentSlide =
-                                    String.toInt static.routeParams.number |> Maybe.withDefault 0
-
-                                nextSlide =
-                                    clamp
-                                        1
-                                        static.data.totalCount
-                                        (case direction of
-                                            Right ->
-                                                currentSlide + 1
-
-                                            Left ->
-                                                currentSlide - 1
-                                        )
-                            in
                             ( model
-                            , maybeNavigationKey
-                                |> Maybe.map
-                                    (\navKey ->
-                                        Browser.Navigation.pushUrl navKey
-                                            ("/slide/"
-                                                ++ String.fromInt
-                                                    nextSlide
-                                            )
-                                    )
-                                |> Maybe.withDefault Cmd.none
+                            , Cmd.none
                             )
 
                         _ ->
@@ -116,81 +84,20 @@ toDirection string =
 
 data : RouteParams -> DataSource.DataSource Data
 data routeParams =
-    DataSource.map2 Data
+    DataSource.map Data
         (slideBody routeParams)
-        slideCount
 
 
 slideBody : RouteParams -> DataSource.DataSource (List (Html.Html Msg))
 slideBody route_ =
     DataSource.File.bodyWithoutFrontmatter
         "slides.md"
-        |> DataSource.andThen
+        |> DataSource.map
             (\rawBody ->
-                rawBody
-                    |> Markdown.Parser.parse
-                    |> Result.map (markdownIndexedByHeading (route_.number |> String.toInt |> Maybe.withDefault 1))
-                    |> Result.mapError (\_ -> "Markdown parsing error.")
-                    |> Result.andThen (Markdown.Renderer.render MarkdownRenderer.renderer)
-                    |> DataSource.fromResult
+                [ rawBody
+                    |> Html.text
+                ]
             )
-
-
-slideCount : DataSource.DataSource Int
-slideCount =
-    DataSource.File.bodyWithoutFrontmatter "slides.md"
-        |> DataSource.andThen
-            (\rawBody ->
-                rawBody
-                    |> Markdown.Parser.parse
-                    |> Result.mapError (\_ -> "Markdown parsing error.")
-                    |> Result.map
-                        (Markdown.Block.foldl
-                            (\block h2CountSoFar ->
-                                case block of
-                                    Markdown.Block.Heading Markdown.Block.H2 _ ->
-                                        h2CountSoFar + 1
-
-                                    _ ->
-                                        h2CountSoFar
-                            )
-                            0
-                        )
-                    |> DataSource.fromResult
-            )
-
-
-markdownIndexedByHeading :
-    Int
-    -> List Markdown.Block.Block
-    -> List Markdown.Block.Block
-markdownIndexedByHeading index markdownBlocks =
-    Markdown.Block.foldl
-        (\block ( currentIndex, markdownToKeep ) ->
-            case block of
-                Markdown.Block.Heading Markdown.Block.H2 _ ->
-                    let
-                        newIndex =
-                            currentIndex + 1
-                    in
-                    --_ ->
-                    if newIndex == index then
-                        ( newIndex, block :: markdownToKeep )
-
-                    else
-                        ( newIndex, markdownToKeep )
-
-                _ ->
-                    if currentIndex == index then
-                        ( currentIndex, block :: markdownToKeep )
-
-                    else
-                        ( currentIndex, markdownToKeep )
-        )
-        ( 0, [] )
-        markdownBlocks
-        |> Tuple.second
-        |> List.reverse
 
 
 head :
@@ -215,7 +122,6 @@ head static =
 
 type alias Data =
     { body : List (Html.Html Msg)
-    , totalCount : Int
     }
 
 
