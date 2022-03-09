@@ -1,4 +1,4 @@
-import userInit from "/index.js";
+import userInit from "/index";
 
 let prefetchedPages;
 let initialLocationHash;

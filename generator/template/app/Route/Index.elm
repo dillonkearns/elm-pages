@@ -1,13 +1,13 @@
-module Page.Index exposing (Data, Model, Msg, page)
+module Route.Index exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
-import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Shared
 import View exposing (View)
 
@@ -28,8 +28,8 @@ type alias Data =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.single
         { head = head
         , data = data
@@ -39,7 +39,7 @@ page =
 
 data : DataSource Data
 data =
-    DataSource.succeed {}
+    DataSource.succeed Data
 
 
 head :
@@ -55,7 +55,7 @@ head static =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "TODO"
+        , description = "Welcome to elm-pages!"
         , locale = Nothing
         , title = "elm-pages is running"
         }

@@ -1,6 +1,7 @@
 {
     "type": "application",
     "source-directories": [
+        "app",
         "src",
         ".elm-pages"
     ],

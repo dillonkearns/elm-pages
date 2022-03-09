@@ -195,14 +195,14 @@ data =`
 }
     ${
       serverRender
-        ? `Request.succeed (DataSource.succeed (Response.render {}))
+        ? `Request.succeed (DataSource.succeed (Response.render Data))
 `
         : withFallback
         ? `    Data
         |> DataSource.succeed
         |> DataSource.map Response.render
 `
-        : `DataSource.succeed {}`
+        : `DataSource.succeed Data`
     }
 
 head :

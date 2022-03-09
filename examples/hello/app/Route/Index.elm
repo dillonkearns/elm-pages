@@ -39,7 +39,7 @@ route =
 
 data : DataSource Data
 data =
-    DataSource.succeed {}
+    DataSource.succeed Data
 
 
 head :
@@ -55,7 +55,7 @@ head static =
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "TODO"
+        , description = "Welcome to elm-pages!"
         , locale = Nothing
         , title = "elm-pages is running"
         }

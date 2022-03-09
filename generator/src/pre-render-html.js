@@ -55,7 +55,7 @@ function templateHtml() {
       "../static-code/elm-pages.js"
     )}" type="module"></script>
     <link rel="stylesheet" href="/style.css" />
-    <link rel="modulepreload" href="/index.js" />
+    <link rel="modulepreload" href="/index" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title><!-- PLACEHOLDER_TITLE --></title>
