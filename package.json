@@ -7,7 +7,7 @@
   "main": "index.js",
   "scripts": {
     "start": "cd examples/end-to-end && npm start",
-    "test": "set -x; npx elmi-to-json --version && elm-verify-examples --run-tests && elm-test && (cd generator && mocha) && (cd examples/routing && npm i && mkdir .elm-pages && lamdera make app/Route/SPLAT__.elm && npm run build && elm-test-rs) && npm run test:snapshot",
+    "test": "set -x; lamdera reset && (cd generator && mocha) && (cd examples/routing && npm i && mkdir .elm-pages && lamdera make app/Route/SPLAT__.elm && npm run build && elm-test-rs) && npm run test:snapshot && npx elmi-to-json --version && elm-verify-examples --run-tests && elm-test",
     "test:snapshot": "(cd examples/escaping && npm install && mkdir .elm-pages && lamdera make app/Route/Index.elm && npm test) && (cd examples/base-path && npm install && mkdir .elm-pages && lamdera make app/Route/Index.elm && npm test)",
     "cypress": "npm start & cypress run",
     "review": "elm-review"
