@@ -70,7 +70,7 @@ jobs:
       - name: Cypress tests
         uses: cypress-io/github-action@v2
         with:
-          start: npm start
+          start: cd examples/end-to-end && npm i && npx elm-pages dev
           wait-on: "http://localhost:1234"
           wait-on-timeout: 60
 
