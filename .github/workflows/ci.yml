@@ -51,6 +51,8 @@ jobs:
         run: npm ci
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
+      - name: Download lamdera
+        run: curl https://static.lamdera.com/bin/linux/lamdera -o node_modules/.bin/lamdera && chmod a+x node_modules/.bin/lamdera
       - name: Tests
         run: npm test
       - name: Add elm-review, elm and elm-format to path
@@ -144,5 +146,7 @@ jobs:
         run: npm ci
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
+      - name: Download lamdera
+        run: curl https://static.lamdera.com/bin/linux/lamdera -o node_modules/.bin/lamdera && chmod a+x node_modules/.bin/lamdera
       - name: Snapshot Tests
         run: npm run test:snapshot
