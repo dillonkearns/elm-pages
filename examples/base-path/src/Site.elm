@@ -1,7 +1,7 @@
 module Site exposing (config)
 
 import Cloudinary
-import DataSource
+import DataSource exposing (DataSource)
 import Head
 import MimeType
 import Pages.Manifest as Manifest
@@ -10,11 +10,9 @@ import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
 
 
-config : SiteConfig Data
+config : SiteConfig
 config =
-    { data = data
-    , canonicalUrl = canonicalUrl
-    , manifest = manifest
+    { canonicalUrl = canonicalUrl
     , head = head
     }
 
@@ -24,21 +22,15 @@ type alias Data =
     }
 
 
-data : DataSource.DataSource Data
-data =
-    DataSource.map Data
-        --(StaticFile.request "site-name.txt" StaticFile.body)
-        (DataSource.succeed "site-name")
-
-
-head : Data -> List Head.Tag
-head static =
+head : DataSource (List Head.Tag)
+head =
     [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
     , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
     , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
     , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
     , Head.sitemapLink "/sitemap.xml"
     ]
+        |> DataSource.succeed
 
 
 canonicalUrl : String

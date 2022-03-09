@@ -1,16 +1,17 @@
-module Page.Index exposing (Data, Model, Msg, page)
+module Route.SubPage exposing (Data, Model, Msg, route)
 
+import Css exposing (..)
+import Css.Global
 import DataSource exposing (DataSource)
 import DataSource.File
 import Head
 import Head.Seo as Seo
-import Html.Styled as Html exposing (text)
+import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
-import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
-import Route
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
 import View exposing (View)
 
@@ -20,15 +21,15 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.single
         { head = head
         , data = data
@@ -71,9 +72,30 @@ view :
     -> StaticPayload Data RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
-    { title = "Index page"
+    { title = ""
     , body =
-        [ text "This is the index page."
-        , Html.div [] [ Html.a [ Attr.href (Route.SubPage |> Route.toPath |> Path.toAbsolute) ] [ text "Sub Page" ] ]
+        [ Html.label [ Attr.for "note" ] []
+        , div []
+            [ Css.Global.global
+                [ Css.Global.typeSelector "div"
+                    [ Css.Global.children
+                        [ Css.Global.typeSelector "p"
+                            [ fontSize (px 14)
+                            , color (rgb 255 0 0)
+                            ]
+                        ]
+                    ]
+                ]
+            , div []
+                [ p []
+                    [ text "Here is the Elm logo:"
+                    ]
+                , img
+                    [ Attr.src (Path.fromString "/images/elm-logo.svg" |> Path.toAbsolute)
+                    , Attr.css [ maxWidth (rem 10) ]
+                    ]
+                    []
+                ]
+            ]
         ]
     }

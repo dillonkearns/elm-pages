@@ -1,19 +1,14 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import Browser.Navigation
-import Css.Global
 import DataSource
-import DataSource.Http
 import Html exposing (Html)
 import Html.Styled
-import OptimizedDecoder as D
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Route exposing (Route)
-import Secrets
 import SharedTemplate exposing (SharedTemplate)
-import Tailwind.Utilities
 import View exposing (View)
 
 
