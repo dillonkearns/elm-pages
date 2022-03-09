@@ -3,7 +3,7 @@ module Server.Request exposing
     , method, rawBody, allCookies, rawHeaders, queryParams
     , Method(..), methodToString
     , succeed, fromResult, skip, validationError
-    , requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
+    , requestTime, optionalHeader, expectContentType, expectJsonBody
     , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap, andThen
     , expectQueryParam
@@ -28,7 +28,7 @@ module Server.Request exposing
 
 @docs succeed, fromResult, skip, validationError
 
-@docs requestTime, optionalHeader, expectContentType, expectJsonBody, jsonBodyResult
+@docs requestTime, optionalHeader, expectContentType, expectJsonBody
 
 @docs acceptMethod, acceptContentTypes
 
@@ -997,25 +997,6 @@ rawBody =
     Json.Decode.field "body" (Json.Decode.nullable Json.Decode.string)
         |> noErrors
         |> Parser
-
-
-{-| -}
-jsonBodyResult : Json.Decode.Decoder value -> Parser (Result Json.Decode.Error value)
-jsonBodyResult jsonBodyDecoder =
-    map2 (\_ secondValue -> secondValue)
-        (expectContentType "application/json")
-        (Json.Decode.oneOf
-            -- @@@ TODO use "body" instead of "jsonBody"
-            [ Json.Decode.field "jsonBody" jsonBodyDecoder
-                |> Json.Decode.map Ok
-
-            -- @@@ TODO use "body" instead of "jsonBody"
-            , Json.Decode.field "jsonBody" Json.Decode.value
-                |> Json.Decode.map (Json.Decode.decodeValue jsonBodyDecoder)
-            ]
-            |> noErrors
-            |> Parser
-        )
 
 
 {-| -}

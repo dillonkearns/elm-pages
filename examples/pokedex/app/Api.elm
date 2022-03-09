@@ -28,37 +28,8 @@ routes getStaticRoutes htmlToString =
     , logout
     , greet
     , fileLength
-    , jsonError
     , DataSource.succeed manifest |> Manifest.generator Site.canonicalUrl
     ]
-
-
-jsonError : ApiRoute ApiRoute.Response
-jsonError =
-    ApiRoute.succeed
-        (Server.Request.oneOf
-            [ Server.Request.jsonBodyResult (Json.Decode.field "name" Json.Decode.string)
-                |> Server.Request.map
-                    (\result ->
-                        case result of
-                            Ok firstName ->
-                                Server.Response.plainText
-                                    ("Hello " ++ firstName)
-
-                            Err decodeError ->
-                                decodeError
-                                    |> Json.Decode.errorToString
-                                    |> Server.Response.plainText
-                                    |> Server.Response.withStatusCode 400
-                    )
-            , Server.Request.succeed (Server.Response.plainText "Hello anonymous!")
-            ]
-            |> Server.Request.map DataSource.succeed
-        )
-        |> ApiRoute.literal "api"
-        |> ApiRoute.slash
-        |> ApiRoute.literal "validate-json"
-        |> ApiRoute.serverRender
 
 
 greet : ApiRoute ApiRoute.Response
