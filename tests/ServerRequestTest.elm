@@ -54,9 +54,7 @@ all =
                             ]
                         , body = Nothing
                         }
-                        """Did not match formPost because
-- Form post must have method POST, but the method was GET
-- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO"""
+                        """Expected a form POST but this HTTP request has no body."""
         , test "tries multiple form post formats" <|
             \() ->
                 Request.oneOf
@@ -105,16 +103,13 @@ all =
                         }
                         """Server.Request.oneOf failed in the following 4 ways:
 
-(1) Did not match formPost because
-- Form post must have method POST, but the method was GET
-- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO
+(1) Expected a form POST but this HTTP request has no body.
 
-(2) Tried to parse JSON body but the request had no body.
+(2) Expected content-type to be application/json but it was application/x-www-form-urlencoded
 
 (3) Internal error - expected rawUrl field but the adapter script didn't provide one.
 
-(4) Missing form field 'first'
-Expected content-type to be multipart/form-data but it was application/x-www-form-urlencoded
+(4) Expected content-type to be multipart/form-data but it was application/x-www-form-urlencoded
 Expected HTTP method POST but was GET"""
         ]
 

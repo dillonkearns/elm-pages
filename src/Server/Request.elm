@@ -888,7 +888,12 @@ expectFormPost toForm =
         (matchesContentType "application/x-www-form-urlencoded")
         (matchesMethod ( Post, [] ))
         (rawBody
-            |> andThen (\maybeBody -> maybeBody |> Result.fromMaybe "Not a form POST because there is no body." |> fromResult)
+            |> andThen
+                (\maybeBody ->
+                    maybeBody
+                        |> Result.fromMaybe "Expected a form POST but this HTTP request has no body."
+                        |> fromResult
+                )
         )
         |> andThen
             (\( validContentType, validMethod, justBody ) ->
