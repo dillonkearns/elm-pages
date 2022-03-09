@@ -41,6 +41,7 @@ routes getStaticRoutes htmlToString =
         |> ApiRoute.serverRender
     , requestPrinter
     , xmlDecoder
+    , multipleContentTypes
     ]
 
 
@@ -66,6 +67,40 @@ xmlDecoder =
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
         |> ApiRoute.literal "xml"
+        |> ApiRoute.serverRender
+
+
+multipleContentTypes : ApiRoute ApiRoute.Response
+multipleContentTypes =
+    let
+        dataDecoder : Xml.Decode.Decoder String
+        dataDecoder =
+            Xml.Decode.path [ "path", "to", "string", "value" ] (Xml.Decode.single Xml.Decode.string)
+    in
+    ApiRoute.succeed
+        (Request.oneOf
+            [ Request.map2
+                (\_ xmlString ->
+                    xmlString
+                        |> Xml.Decode.run dataDecoder
+                        |> Result.Extra.merge
+                        |> Response.plainText
+                        |> DataSource.succeed
+                )
+                (Request.expectContentType "application/xml")
+                Request.expectBody
+            , Request.map
+                (\decodedValue ->
+                    decodedValue
+                        |> Response.plainText
+                        |> DataSource.succeed
+                )
+                (Request.expectJsonBody (Decode.at [ "path", "to", "string", "value" ] Decode.string))
+            ]
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "multiple-content-types"
         |> ApiRoute.serverRender
 
 

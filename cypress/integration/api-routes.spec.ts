@@ -156,3 +156,38 @@ it("gives an error when there is no content-type header", () => {
     );
   });
 });
+
+it("handles XML body", () => {
+  cy.request({
+    method: "POST",
+    url: "/api/multiple-content-types",
+    headers: { "Content-Type": "application/xml ; charset=utf-8" },
+    body: `
+    <root>
+        <path>
+            <to>
+                <string>
+                    <value>SomeString</value>
+                </string>
+            </to>
+        </path>
+    </root>
+`,
+  }).then((res) => {
+    expect(res.headers["content-type"]).to.eq("text/plain");
+    expect(res.status).to.eq(200);
+    expect(res.body).to.eq("SomeString");
+  });
+});
+
+it("handles JSON body", () => {
+  cy.request({
+    method: "POST",
+    url: "/api/multiple-content-types",
+    body: { path: { to: { string: { value: "SomeString" } } } },
+  }).then((res) => {
+    expect(res.headers["content-type"]).to.eq("text/plain");
+    expect(res.status).to.eq(200);
+    expect(res.body).to.eq("SomeString");
+  });
+});
