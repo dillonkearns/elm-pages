@@ -3,6 +3,7 @@ module ServerRequestTest exposing (all)
 import Dict exposing (Dict)
 import Expect exposing (Expectation)
 import FormData
+import Internal.Request exposing (Parser(..))
 import Json.Decode as Decode
 import Json.Encode
 import List.NonEmpty as NonEmpty exposing (NonEmpty)
@@ -132,7 +133,7 @@ type Body
 
 
 expectMatch : Request -> Request.Parser value -> Expectation
-expectMatch request (Request.Parser decoder) =
+expectMatch request (Parser decoder) =
     case
         request
             |> requestToJson
@@ -160,7 +161,7 @@ expectMatch request (Request.Parser decoder) =
 
 
 expectNoMatch : Request -> String -> Request.Parser value -> Expectation
-expectNoMatch request expectedErrorString (Request.Parser decoder) =
+expectNoMatch request expectedErrorString (Parser decoder) =
     case
         request
             |> requestToJson
