@@ -66,7 +66,7 @@ jobs:
         id: docs
         run: npx --no-install elm make --docs docs.json
       - name: Setup for cypress
-        run: (cd examples/end-to-end && npm install && npx elm-tooling install && curl https://static.lamdera.com/bin/linux/lamdera -o node_modules/.bin/lamdera && chmod a+x node_modules/.bin/lamdera)
+        run: (cd examples/end-to-end && npm install && npx elm-tooling install)
       - name: Cypress tests
         uses: cypress-io/github-action@v2
         with:
