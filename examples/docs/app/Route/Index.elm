@@ -123,7 +123,7 @@ type alias RouteParams = { name : String }
 
 route : StatelessRoute RouteParams Data
 route =
-    Page.preRender
+    RouteBuilder.preRender
         { head = head
         , pages = pages
         , data = data

@@ -1,4 +1,4 @@
-module Page.Slide.Number_ exposing (Data, Model, Msg, page)
+module Route.Slide.Number_ exposing (Data, Model, Msg, route)
 
 import Browser.Events
 import Browser.Navigation
@@ -13,10 +13,9 @@ import Markdown.Block
 import Markdown.Parser
 import Markdown.Renderer
 import MarkdownRenderer
-import OptimizedDecoder
-import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatefulRoute, StaticPayload)
 import Shared
 import Tailwind.Utilities as Tw
 import View exposing (View)
@@ -34,9 +33,9 @@ type alias RouteParams =
     { number : String }
 
 
-page : Page.PageWithState RouteParams Data Model Msg
-page =
-    Page.preRender
+route : StatefulRoute RouteParams Data Model Msg
+route =
+    RouteBuilder.preRender
         { head = head
         , pages =
             slideCount
@@ -123,14 +122,14 @@ data routeParams =
 
 
 slideBody : RouteParams -> DataSource.DataSource (List (Html.Html Msg))
-slideBody route =
+slideBody route_ =
     DataSource.File.bodyWithoutFrontmatter
         "slides.md"
         |> DataSource.andThen
             (\rawBody ->
                 rawBody
                     |> Markdown.Parser.parse
-                    |> Result.map (markdownIndexedByHeading (route.number |> String.toInt |> Maybe.withDefault 1))
+                    |> Result.map (markdownIndexedByHeading (route_.number |> String.toInt |> Maybe.withDefault 1))
                     |> Result.mapError (\_ -> "Markdown parsing error.")
                     |> Result.andThen (Markdown.Renderer.render MarkdownRenderer.renderer)
                     |> DataSource.fromResult

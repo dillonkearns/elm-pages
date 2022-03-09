@@ -1,4 +1,4 @@
-module Page.Escaping exposing (Data, Model, Msg, page)
+module Route.Escaping exposing (Data, Model, Msg, route)
 
 import Css exposing (..)
 import Css.Global
@@ -9,9 +9,9 @@ import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Lazy as HtmlLazy
-import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
 import View exposing (View)
 
@@ -21,15 +21,15 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.single
         { head = head
         , data = data

@@ -144,8 +144,11 @@ cliApplication config =
                                 Decode.decodeValue decoder jsonValue
                                     |> Result.mapError
                                         (\error ->
-                                            error
-                                                |> Decode.errorToString
+                                            ("From location 1: "
+                                                ++ (error
+                                                        |> Decode.errorToString
+                                                   )
+                                            )
                                                 |> BuildError.internal
                                                 |> GotBuildError
                                         )
@@ -158,8 +161,11 @@ cliApplication config =
                                     |> Result.map GotDataBatch
                                     |> Result.mapError
                                         (\error ->
-                                            error
-                                                |> Decode.errorToString
+                                            ("From location 2: "
+                                                ++ (error
+                                                        |> Decode.errorToString
+                                                   )
+                                            )
                                                 |> BuildError.internal
                                                 |> GotBuildError
                                         )

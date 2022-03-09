@@ -1,4 +1,4 @@
-module Page.Slide exposing (Data, Model, Msg, page)
+module Route.Slide exposing (Data, Model, Msg, route)
 
 import DataSource
 import Head
@@ -15,15 +15,15 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.single
         { head = head
         , data = DataSource.succeed {}

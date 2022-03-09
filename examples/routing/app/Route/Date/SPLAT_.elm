@@ -1,4 +1,4 @@
-module Page.SPLAT__ exposing (Data, Model, Msg, page)
+module Route.Date.SPLAT_ exposing (Data, Model, Msg, route)
 
 import DataSource
 import Head
@@ -14,23 +14,33 @@ type alias Model =
 
 
 type alias Msg =
-    Never
+    ()
 
 
 type alias RouteParams =
-    { splat : List String }
+    { splat : ( String, List String ) }
 
 
-page : StatelessRoute RouteParams Data
-page =
-    Page.preRender
+route : StatelessRoute RouteParams Data
+route =
+    RouteBuilder.preRender
         { head = head
-        , pages = DataSource.succeed []
+        , pages = pages
         , data = data
 
         --, routeFound = \_ -> DataSource.succeed True
         }
         |> RouteBuilder.buildNoState { view = view }
+
+
+pages : DataSource.DataSource (List RouteParams)
+pages =
+    DataSource.succeed
+        [ { splat = ( "2021", [ "04", "28" ] )
+          }
+        , { splat = ( "2021-04-28", [] )
+          }
+        ]
 
 
 data : RouteParams -> DataSource.DataSource Data
@@ -58,5 +68,5 @@ view maybeUrl sharedModel static =
     { body =
         [ Debug.toString static.routeParams |> text
         ]
-    , title = "Fallback splat page"
+    , title = ""
     }

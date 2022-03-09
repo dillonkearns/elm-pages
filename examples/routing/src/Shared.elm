@@ -6,12 +6,11 @@ import DataSource
 import DataSource.Http
 import Html exposing (Html)
 import Html.Styled
-import OptimizedDecoder as D
+import Json.Decode as D
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Route exposing (Route)
-import Secrets
 import SharedTemplate exposing (SharedTemplate)
 import Tailwind.Utilities
 import View exposing (View)
@@ -83,8 +82,9 @@ subscriptions _ _ =
 
 data : DataSource.DataSource Data
 data =
-    DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-        (D.field "stargazers_count" D.int)
+    --DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
+    --    (D.field "stargazers_count" D.int)
+    DataSource.succeed 123
 
 
 view :

@@ -24,7 +24,7 @@ type alias RouteParams =
 
 page : StatelessRoute RouteParams Data
 page =
-    Page.preRender
+    RouteBuilder.preRender
         { head = head
         , pages = pages
         , data = data
