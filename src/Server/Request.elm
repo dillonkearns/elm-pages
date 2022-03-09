@@ -611,7 +611,6 @@ acceptMethod ( accepted1, accepted ) (Parser decoder) =
         |> Json.Decode.andThen
             (\method_ ->
                 if (accepted1 :: accepted) |> List.member method_ then
-                    -- TODO distill here - is that possible???
                     decoder
 
                 else
