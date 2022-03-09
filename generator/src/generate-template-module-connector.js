@@ -810,7 +810,7 @@ decodeBytes bytesDecoder items =
     Bytes.Decode.decode bytesDecoder items
         |> Result.fromMaybe "Decoding error"
 `,
-    routesModule: `module Route exposing (Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
+    routesModule: `module Route exposing (baseUrlAsPath, Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
 
 {-|
 
