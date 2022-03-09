@@ -1,8 +1,7 @@
 module Server.Request exposing
     ( Parser
-    , method, rawBody, allCookies, rawHeaders, queryParams
-    , Method(..), methodToString
     , succeed, fromResult, skip
+    , method, rawBody, allCookies, rawHeaders, queryParams
     , requestTime, optionalHeader, expectContentType, expectJsonBody
     , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap, andThen
@@ -13,6 +12,7 @@ module Server.Request exposing
     , expectBody
     , expectFormPost
     , map3, map4, map5, map6, map7, map8, map9
+    , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
     )
 
@@ -20,14 +20,12 @@ module Server.Request exposing
 
 @docs Parser
 
+@docs succeed, fromResult, skip
+
 
 ## Direct Values
 
 @docs method, rawBody, allCookies, rawHeaders, queryParams
-
-@docs Method, methodToString
-
-@docs succeed, fromResult, skip
 
 @docs requestTime, optionalHeader, expectContentType, expectJsonBody
 
@@ -68,6 +66,11 @@ module Server.Request exposing
 ## Map Functions
 
 @docs map3, map4, map5, map6, map7, map8, map9
+
+
+## Method Type
+
+@docs Method, methodToString
 
 
 ## Internals
@@ -919,24 +922,26 @@ expectMultiPartFormPost toForm =
 
 
 {-| -}
-expectContentType : String -> Parser Bool
+expectContentType : String -> Parser ()
 expectContentType expectedContentType =
-    optionalField ("content-type" |> String.toLower) Json.Decode.string
+    optionalField "content-type" Json.Decode.string
         |> Json.Decode.field "headers"
-        |> Json.Decode.map
+        |> noErrors
+        |> Parser
+        |> andThen
             (\maybeContentType ->
                 case maybeContentType of
                     Nothing ->
-                        ( Err (ValidationError "Missing content-type"), [] )
+                        skipInternal <|
+                            ValidationError ("Expected content-type `" ++ expectedContentType ++ "` but there was no content-type header.")
 
                     Just contentType ->
                         if (contentType |> parseContentType) == (expectedContentType |> parseContentType) then
-                            ( Ok True, [] )
+                            succeed ()
 
                         else
-                            ( Ok False, [ ValidationError ("Expected content-type to be " ++ expectedContentType ++ " but it was " ++ contentType) ] )
+                            skipInternal <| ValidationError ("Expected content-type to be " ++ expectedContentType ++ " but it was " ++ contentType)
             )
-        |> Parser
 
 
 matchesContentType : String -> Parser (Maybe Bool)
@@ -965,6 +970,7 @@ parseContentType rawContentType =
     rawContentType
         |> String.split ";"
         |> List.head
+        |> Maybe.map String.trim
         |> Maybe.withDefault rawContentType
 
 

@@ -7,12 +7,14 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages
 import Random
+import Result.Extra
 import Route exposing (Route)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Test.Glob
 import Test.Runner.Html
 import Time
+import Xml.Decode
 
 
 routes :
@@ -38,7 +40,33 @@ routes getStaticRoutes htmlToString =
         |> ApiRoute.literal "tests"
         |> ApiRoute.serverRender
     , requestPrinter
+    , xmlDecoder
     ]
+
+
+xmlDecoder : ApiRoute ApiRoute.Response
+xmlDecoder =
+    let
+        dataDecoder : Xml.Decode.Decoder String
+        dataDecoder =
+            Xml.Decode.path [ "path", "to", "string", "value" ] (Xml.Decode.single Xml.Decode.string)
+    in
+    ApiRoute.succeed
+        (Request.map2
+            (\_ xmlString ->
+                xmlString
+                    |> Xml.Decode.run dataDecoder
+                    |> Result.Extra.merge
+                    |> Response.plainText
+                    |> DataSource.succeed
+            )
+            (Request.expectContentType "application/xml")
+            Request.expectBody
+        )
+        |> ApiRoute.literal "api"
+        |> ApiRoute.slash
+        |> ApiRoute.literal "xml"
+        |> ApiRoute.serverRender
 
 
 requestPrinter : ApiRoute ApiRoute.Response

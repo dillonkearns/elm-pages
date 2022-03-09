@@ -84,3 +84,75 @@ it("multi-part form post", () => {
     );
   });
 });
+
+it("decodes xml", () => {
+  cy.request({
+    method: "POST",
+    url: "/api/xml",
+    headers: { "Content-Type": "application/xml" },
+    body: `
+    <root>
+        <path>
+            <to>
+                <string>
+                    <value>SomeString</value>
+                </string>
+            </to>
+        </path>
+    </root>
+`,
+  }).then((res) => {
+    expect(res.headers["content-type"]).to.eq("text/plain");
+    expect(res.status).to.eq(200);
+    expect(res.body).to.eq("SomeString");
+  });
+});
+
+it("accepts xml content-type with extra whitespace and params", () => {
+  cy.request({
+    method: "POST",
+    url: "/api/xml",
+    headers: { "Content-Type": "application/xml ; charset=utf-8" },
+    body: `
+    <root>
+        <path>
+            <to>
+                <string>
+                    <value>SomeString</value>
+                </string>
+            </to>
+        </path>
+    </root>
+`,
+  }).then((res) => {
+    expect(res.headers["content-type"]).to.eq("text/plain");
+    expect(res.status).to.eq(200);
+    expect(res.body).to.eq("SomeString");
+  });
+});
+
+it("gives an error when there is no content-type header", () => {
+  cy.request({
+    method: "POST",
+    url: "/api/xml",
+    headers: {},
+    body: `
+    <root>
+        <path>
+            <to>
+                <string>
+                    <value>SomeString</value>
+                </string>
+            </to>
+        </path>
+    </root>
+`,
+    failOnStatusCode: false,
+  }).then((res) => {
+    expect(res.headers["content-type"]).to.eq("text/plain");
+    expect(res.status).to.eq(400);
+    expect(res.body).to.eq(
+      "Expected content-type `application/xml` but there was no content-type header."
+    );
+  });
+});
