@@ -9,8 +9,9 @@ module Server.Request exposing
     , expectQueryParam
     , cookie, expectCookie
     , expectHeader
-    , expectFormPost
     , File, expectMultiPartFormPost
+    , expectBody
+    , expectFormPost
     , map3, map4, map5, map6, map7, map8, map9
     , errorsToString, errorToString, getDecoder, ValidationError
     )
@@ -53,14 +54,15 @@ module Server.Request exposing
 @docs expectHeader
 
 
-## Form Posts
-
-@docs expectFormPost
-
-
 ## Multi-part forms and file uploads
 
 @docs File, expectMultiPartFormPost
+
+
+## Request Parsers That Can Fail
+
+@docs expectBody
+@docs expectFormPost
 
 
 ## Map Functions
@@ -997,6 +999,17 @@ rawBody =
     Json.Decode.field "body" (Json.Decode.nullable Json.Decode.string)
         |> noErrors
         |> Parser
+
+
+{-| Same as [`rawBody`](#rawBody), but will only match when a body is present in the HTTP request.
+-}
+expectBody : Parser String
+expectBody =
+    rawBody
+        |> andThen
+            (Result.fromMaybe "Expected body but none was present."
+                >> fromResult
+            )
 
 
 {-| -}
