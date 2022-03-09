@@ -46,7 +46,7 @@ async function ensureRequiredExecutables() {
   try {
     await which("lamdera");
   } catch (error) {
-    throw "I couldn't find elm on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
+    throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
   try {
     await which("elm-optimize-level-2");
