@@ -10,7 +10,7 @@ all =
     describe "dead code elimination"
         [ test "replaces data record setter" <|
             \() ->
-                """module Page.Index exposing (Data, Model, Msg, page)
+                """module Route.Index exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload)
@@ -38,8 +38,8 @@ type alias Data =
    ()
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
    RouteBuilder.single
        { head = head
        , data = data
@@ -62,7 +62,7 @@ data =
        }"""
                             }
                             |> Review.Test.whenFixed
-                                """module Page.Index exposing (Data, Model, Msg, page)
+                                """module Route.Index exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload)
@@ -90,8 +90,8 @@ type alias Data =
    ()
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
    RouteBuilder.single
        { head = head
        , data = DataSource.fail ""
@@ -106,7 +106,7 @@ data =
                         ]
         , test "replaces data record setter with non-empty RouteParams" <|
             \() ->
-                """module Page.Blog.Slug_ exposing (Data, Model, Msg, page)
+                """module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload)
@@ -134,9 +134,9 @@ type alias Data =
    ()
 
 
-page : StatelessRoute RouteParams Data
-page =
-    Page.preRender
+route : StatelessRoute RouteParams Data
+route =
+    RouteBuilder.preRender
         { data = data
         , head = head
         , pages = pages
@@ -158,7 +158,7 @@ data =
                                 """data = data"""
                             }
                             |> Review.Test.whenFixed
-                                """module Page.Blog.Slug_ exposing (Data, Model, Msg, page)
+                                """module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload)
@@ -186,9 +186,9 @@ type alias Data =
    ()
 
 
-page : StatelessRoute RouteParams Data
-page =
-    Page.preRender
+route : StatelessRoute RouteParams Data
+route =
+    RouteBuilder.preRender
         { data = \\_ -> DataSource.fail ""
         , head = head
         , pages = pages
@@ -203,7 +203,7 @@ data =
                         ]
         , test "replaces data record setter with RouteBuilder.serverRendered" <|
             \() ->
-                """module Page.Login exposing (Data, Model, Msg, page)
+                """module Route.Login exposing (Data, Model, Msg, route)
 
 type alias Model =
     {}
@@ -217,8 +217,8 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.serverRender
         { head = head
         , data = data
@@ -236,7 +236,7 @@ page =
         }"""
                             }
                             |> Review.Test.whenFixed
-                                """module Page.Login exposing (Data, Model, Msg, page)
+                                """module Route.Login exposing (Data, Model, Msg, route)
 
 type alias Model =
     {}
@@ -250,8 +250,8 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.serverRender
         { head = head
         , data = \\_ -> Request.oneOf []
@@ -261,7 +261,7 @@ page =
                         ]
         , test "no Request.oneOf fix after replacement is made" <|
             \() ->
-                """module Page.Login exposing (Data, Model, Msg, page)
+                """module Route.Login exposing (Data, Model, Msg, route)
 
 type alias Model =
     {}
@@ -275,8 +275,8 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
     RouteBuilder.serverRender
         { head = head
         , data = \\_ -> Request.oneOf []
@@ -287,7 +287,7 @@ page =
                     |> Review.Test.expectNoErrors
         , test "no fix after replacement is made" <|
             \() ->
-                """module Page.Index exposing (Data, Model, Msg, page)
+                """module Route.Index exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload)
@@ -315,8 +315,8 @@ type alias Data =
    ()
 
 
-page : StatelessRoute RouteParams Data
-page =
+route : StatelessRoute RouteParams Data
+route =
    RouteBuilder.single
        { head = head
        , data = DataSource.fail ""

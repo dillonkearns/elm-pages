@@ -75,7 +75,7 @@ expressionVisitor node context =
     case Node.value node of
         Expression.Application applicationExpressions ->
             case applicationExpressions |> List.map Node.value of
-                [ Expression.FunctionOrValue [ "Page" ] pageBuilderName, Expression.RecordExpr fields ] ->
+                [ Expression.FunctionOrValue [ "RouteBuilder" ] pageBuilderName, Expression.RecordExpr fields ] ->
                     let
                         dataFieldValue : Maybe (Node ( Node String, Node Expression ))
                         dataFieldValue =

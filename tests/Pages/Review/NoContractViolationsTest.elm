@@ -10,7 +10,7 @@ all =
     describe "Pages.Review.NoContractViolations"
         [ test "reports error when missing exposed declaration" <|
             \() ->
-                """module Route.Blog.Slug_ exposing (Data, Msg, page)
+                """module Route.Blog.Slug_ exposing (Data, Msg, route)
 
 a = 1
 """
@@ -21,23 +21,23 @@ a = 1
                             , details =
                                 [ """Route Modules need to expose the following values:
 
-- page
+- route
 - Data
 - Model
 - Msg
 
 But it is not exposing: Model"""
                                 ]
-                            , under = "exposing (Data, Msg, page)"
+                            , under = "exposing (Data, Msg, route)"
                             }
                         ]
         , test "reports RouteParams mismatch" <|
             \() ->
-                """module Route.Blog.Slug_ exposing (Data, page, Model, Msg)
+                """module Route.Blog.Slug_ exposing (Data, route, Model, Msg)
 
 type alias RouteParams = { blogPostName : String }
 
-page = {}
+route = {}
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -54,11 +54,11 @@ type alias RouteParams = { slug : String }
                         ]
         , test "reports incorrect types for optional RouteParams" <|
             \() ->
-                """module Route.Docs.Section_.SubSection__ exposing (Data, page, Model, Msg)
+                """module Route.Docs.Section_.SubSection__ exposing (Data, route, Model, Msg)
 
 type alias RouteParams = { section : String, subSection : String }
 
-page = {}
+route = {}
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -75,11 +75,11 @@ type alias RouteParams = { section : String, subSection : Maybe String }
                         ]
         , test "reports incorrect types for required splat RouteParams" <|
             \() ->
-                """module Route.Docs.Section_.SPLAT_ exposing (Data, page, Model, Msg)
+                """module Route.Docs.Section_.SPLAT_ exposing (Data, route, Model, Msg)
 
 type alias RouteParams = { section : String, splat : List String }
 
-page = {}
+route = {}
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -96,41 +96,41 @@ type alias RouteParams = { section : String, splat : ( String, List String ) }
                         ]
         , test "no error for valid SPLAT_ RouteParams" <|
             \() ->
-                """module Route.Docs.Section_.SPLAT_ exposing (Data, page, Model, Msg)
+                """module Route.Docs.Section_.SPLAT_ exposing (Data, route, Model, Msg)
 
 type alias RouteParams = { section : String, splat : ( String, List String ) }
 
-page = {}
+route = {}
                         """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
         , test "no error for valid SPLAT__ RouteParams" <|
             \() ->
-                """module Route.Docs.Section_.SPLAT__ exposing (Data, page, Model, Msg)
+                """module Route.Docs.Section_.SPLAT__ exposing (Data, route, Model, Msg)
 
 type alias RouteParams = { section : String, splat : List String }
 
-page = {}
+route = {}
                         """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
         , test "no error for matching RouteParams name" <|
             \() ->
-                """module Route.Blog.Slug_ exposing (Data, page, Model, Msg)
+                """module Route.Blog.Slug_ exposing (Data, route, Model, Msg)
 
 type alias RouteParams = { slug : String }
 
-page = {}
+route = {}
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
         , test "error when RouteParams type is not a record" <|
             \() ->
-                """module Route.Blog.Slug_ exposing (Data, page, Model, Msg)
+                """module Route.Blog.Slug_ exposing (Data, route, Model, Msg)
 
 type alias RouteParams = ()
 
-page = {}
+route = {}
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -148,7 +148,7 @@ page = {}
 
 type alias RouteParams = ()
 
-page = {}
+route = {}
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors

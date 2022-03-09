@@ -100,7 +100,7 @@ moduleDefinitionVisitor node _ =
                                 , details =
                                     [ """Route Modules need to expose the following values:
 
-- page
+- route
 - Data
 - Model
 - Msg
