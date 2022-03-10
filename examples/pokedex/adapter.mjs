@@ -1,11 +1,12 @@
-const fs = require("fs");
+import fs from "fs";
 
-async function run({
+export default async function run({
   renderFunctionFilePath,
   routePatterns,
   apiRoutePatterns,
   portsFilePath,
 }) {
+  console.log("Running adapter script");
   ensureDirSync("functions/render");
   ensureDirSync("functions/server-render");
 
@@ -99,26 +100,6 @@ function isServerSide(route) {
     route.kind === "prerender-with-fallback" || route.kind === "serverless"
   );
 }
-
-(async function () {
-  try {
-    await run({
-      renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
-      routePatterns: JSON.parse(fs.readFileSync("dist/route-patterns.json")),
-      apiRoutePatterns: JSON.parse(fs.readFileSync("dist/api-patterns.json")),
-      portsFilePath: "./.elm-pages/compiled-ports/port-data-source.mjs",
-    });
-    console.log("Success - Adapter script complete");
-  } catch (error) {
-    console.error("ERROR - Adapter script failed");
-    try {
-      console.error(JSON.stringify(error));
-    } catch (parsingError) {
-      console.error(error);
-    }
-    process.exit(1);
-  }
-})();
 
 /**
  * @param {boolean} isOnDemand

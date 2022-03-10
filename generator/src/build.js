@@ -21,6 +21,7 @@ let pagesReady;
 let pages = new Promise((resolve, reject) => {
   pagesReady = resolve;
 });
+let activeWorkers = 0;
 let buildError = false;
 
 const DIR_PATH = process.cwd();
@@ -75,17 +76,17 @@ async function run(options) {
       preRenderHtml.templateHtml()
     );
 
-    const viteConfig = await import(
+    const config = await import(
       path.join(process.cwd(), "elm-pages.config.mjs")
     )
       .then(async (elmPagesConfig) => {
-        return elmPagesConfig.default.vite || {};
+        return elmPagesConfig.default || {};
       })
       .catch((error) => {
         console.warn("Using default config.", error);
         return {};
       });
-    console.log("@@@1");
+    const viteConfig = config.vite || {};
 
     const buildComplete = build({
       configFile: false,
@@ -123,7 +124,6 @@ async function run(options) {
       })
       .then((result) => {
         global.portsFilePath = Object.keys(result.metafile.outputs)[0];
-        console.log("Watching port-data-source...");
       })
       .catch((error) => {
         if (
@@ -151,6 +151,12 @@ async function run(options) {
     await portDataSourceCompiled;
     const cliDone = runCli(options);
     await cliDone;
+    await runAdapter(
+      config.adapter ||
+        function () {
+          console.log("No adapter configured. Skipping adapter step.");
+        }
+    );
   } catch (error) {
     console.error(error);
     buildError = true;
@@ -175,8 +181,9 @@ async function run(options) {
 /**
  * @param {string} basePath
  */
-function initWorker(basePath) {
+function initWorker(basePath, whenDone) {
   return new Promise((resolve, reject) => {
+    activeWorkers += 1;
     let newWorker = {
       worker: new Worker(path.join(__dirname, "./render-worker.js"), {
         env: SHARE_ENV,
@@ -190,9 +197,9 @@ function initWorker(basePath) {
         } else if (message.tag === "error") {
           process.exitCode = 1;
           console.error(restoreColorSafe(message.data));
-          buildNextPage(newWorker);
+          buildNextPage(newWorker, whenDone);
         } else if (message.tag === "done") {
-          buildNextPage(newWorker);
+          buildNextPage(newWorker, whenDone);
         } else {
           throw `Unhandled tag ${message.tag}`;
         }
@@ -200,7 +207,7 @@ function initWorker(basePath) {
       newWorker.worker.on("error", (error) => {
         console.error("Unhandled worker exception", error);
         process.exitCode = 1;
-        buildNextPage(newWorker);
+        buildNextPage(newWorker, whenDone);
       });
       resolve(newWorker);
     });
@@ -218,7 +225,7 @@ function prepareStaticPathsNew(thread) {
   });
 }
 
-async function buildNextPage(thread) {
+async function buildNextPage(thread, allComplete) {
   let nextPage = (await pages).pop();
   if (nextPage) {
     thread.worker.postMessage({
@@ -229,22 +236,33 @@ async function buildNextPage(thread) {
     });
   } else {
     thread.worker.terminate();
+    activeWorkers -= 1;
+    allComplete();
   }
 }
 
-async function runCli(options) {
-  const cpuCount = os.cpus().length;
-  console.log("Threads: ", cpuCount);
+function runCli(options) {
+  return new Promise((resolve) => {
+    const whenDone = () => {
+      if (activeWorkers === 0) {
+        // wait for the remaining tasks in the pool to complete once the pages queue is emptied
+        Promise.all(pool).then(resolve);
+      }
+    };
+    const cpuCount = os.cpus().length;
+    // const cpuCount = 1;
+    console.log("Threads: ", cpuCount);
 
-  const getPathsWorker = initWorker(options.base);
-  getPathsWorker.then(prepareStaticPathsNew);
-  const threadsToCreate = Math.max(1, cpuCount - 1);
-  pool.push(getPathsWorker);
-  for (let index = 0; index < threadsToCreate - 1; index++) {
-    pool.push(initWorker(options.base));
-  }
-  pool.forEach((threadPromise) => {
-    threadPromise.then(buildNextPage);
+    const getPathsWorker = initWorker(options.base, whenDone);
+    getPathsWorker.then(prepareStaticPathsNew);
+    const threadsToCreate = Math.max(1, cpuCount - 1);
+    pool.push(getPathsWorker);
+    for (let index = 0; index < threadsToCreate - 1; index++) {
+      pool.push(initWorker(options.base, whenDone));
+    }
+    pool.forEach((threadPromise) => {
+      threadPromise.then((thread) => buildNextPage(thread, whenDone));
+    });
   });
 }
 
@@ -498,6 +516,33 @@ return forceThunks(html);
       )
       .replace(`console.log("App dying");`, ``)
   );
+}
+
+async function runAdapter(adaptFn) {
+  try {
+    await adaptFn({
+      renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
+      routePatterns: JSON.parse(
+        await fsPromises.readFile(
+          path.join(process.cwd(), "./dist/route-patterns.json"),
+          "utf-8"
+        )
+      ),
+      apiRoutePatterns: JSON.parse(
+        await fsPromises.readFile("./dist/api-patterns.json", "utf-8")
+      ),
+      portsFilePath: "./.elm-pages/compiled-ports/port-data-source.mjs",
+    });
+    console.log("Success - Adapter script complete");
+  } catch (error) {
+    console.error("ERROR - Adapter script failed");
+    try {
+      console.error(JSON.stringify(error));
+    } catch (parsingError) {
+      console.error(error);
+    }
+    process.exit(1);
+  }
 }
 
 /** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; body: string; } } FromElm */
