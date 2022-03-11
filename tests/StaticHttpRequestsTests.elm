@@ -16,7 +16,6 @@ import Pages.Internal.NotFoundReason
 import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
-import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as Request
@@ -29,7 +28,7 @@ import Server.Response as Response
 import SimulatedEffect.Cmd
 import SimulatedEffect.Ports
 import Task
-import Test exposing (Test, describe, skip, test)
+import Test exposing (Test, describe, test)
 
 
 all : Test
@@ -580,11 +579,6 @@ site =
 startSimple : List String -> DataSource a -> ProgramTest (Model Route) Msg Effect
 startSimple route dataSources =
     startWithRoutes route [ route ] [] [ ( route, dataSources ) ]
-
-
-startSimpleWithCache : List String -> DataSource a -> List ( Request.Request, String ) -> ProgramTest (Model Route) Msg Effect
-startSimpleWithCache route dataSources cache =
-    startWithRoutes route [ route ] cache [ ( route, dataSources ) ]
 
 
 startWithRoutes :

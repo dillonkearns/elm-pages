@@ -71,15 +71,6 @@ type alias Response data =
 
 
 {-| -}
-type alias RawResponse =
-    { statusCode : Int
-    , headers : List ( String, String )
-    , body : Maybe String
-    , isBase64Encoded : Bool
-    }
-
-
-{-| -}
 map : (data -> mappedData) -> Response data -> Response mappedData
 map mapFn pageServerResponse =
     case pageServerResponse of
