@@ -45,7 +45,7 @@ In fact, let's combine our library of authors from 3 different `DataSource`s.
 ```elm
 authorsFromFile : DataSource (List Author)
 authorsFromFile =
-    DataSource.File.read "data/authors.json"
+    DataSource.File.rawFile "data/authors.json"
         authorsDecoder
 
 allAuthors : DataSource (List Author)
