@@ -83,7 +83,9 @@ async function run(options) {
         return elmPagesConfig.default || {};
       })
       .catch((error) => {
-        console.warn("Using default config.", error);
+        console.warn(
+          "No `elm-pages.config.mjs` file found. Using default config."
+        );
         return {};
       });
     const viteConfig = config.vite || {};
@@ -154,7 +156,9 @@ async function run(options) {
     await runAdapter(
       config.adapter ||
         function () {
-          console.log("No adapter configured. Skipping adapter step.");
+          console.log(
+            "No adapter configured in elm-pages.config.mjs. Skipping adapter step."
+          );
         }
     );
   } catch (error) {
