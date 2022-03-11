@@ -89,9 +89,6 @@ expressionVisitor node context =
             case applicationExpressions |> List.map (\applicationNode -> ( ModuleNameLookupTable.moduleNameFor context.lookupTable applicationNode, Node.value applicationNode )) of
                 [ ( Just [ "RouteBuilder" ], Expression.FunctionOrValue _ pageBuilderName ), ( _, Expression.RecordExpr fields ) ] ->
                     let
-                        foo =
-                            ModuleNameLookupTable.moduleNameFor context.lookupTable node
-
                         dataFieldValue : Maybe (Node ( Node String, Node Expression ))
                         dataFieldValue =
                             fields
