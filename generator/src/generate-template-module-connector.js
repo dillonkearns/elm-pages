@@ -45,6 +45,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
 import HtmlPrinter
+import Lamdera.Wire3
 import Pages.Internal.String
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
@@ -807,7 +808,7 @@ encodeBytes bytesEncoder items =
 
 decodeBytes : Bytes.Decode.Decoder a -> Bytes -> Result String a
 decodeBytes bytesDecoder items =
-    Bytes.Decode.decode bytesDecoder items
+    Lamdera.Wire3.bytesDecodeStrict bytesDecoder items
         |> Result.fromMaybe "Decoding error"
 `,
     routesModule: `module Route exposing (baseUrlAsPath, Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
