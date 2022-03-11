@@ -523,10 +523,7 @@ async function runAdapter(adaptFn) {
     await adaptFn({
       renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
       routePatterns: JSON.parse(
-        await fsPromises.readFile(
-          path.join(process.cwd(), "./dist/route-patterns.json"),
-          "utf-8"
-        )
+        await fsPromises.readFile("./dist/route-patterns.json", "utf-8")
       ),
       apiRoutePatterns: JSON.parse(
         await fsPromises.readFile("./dist/api-patterns.json", "utf-8")
