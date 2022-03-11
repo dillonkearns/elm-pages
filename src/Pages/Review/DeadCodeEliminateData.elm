@@ -4,21 +4,33 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Fix
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
+
+
+type alias Context =
+    { lookupTable : ModuleNameLookupTable }
 
 
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "Pages.Review.DeadCodeEliminateData"
-        { moduleName = []
-        , isPageModule = False
-        }
+    Rule.newModuleRuleSchemaUsingContextCreator "Pages.Review.DeadCodeEliminateData" initialContext
         |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.fromModuleRuleSchema
 
 
-declarationVisitor : Node Declaration -> context -> ( List (Error {}), context )
+initialContext : Rule.ContextCreator () Context
+initialContext =
+    Rule.initContextCreator
+        (\lookupTable () ->
+            { lookupTable = lookupTable
+            }
+        )
+        |> Rule.withModuleNameLookupTable
+
+
+declarationVisitor : Node Declaration -> Context -> ( List (Error {}), Context )
 declarationVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration { declaration } ->
@@ -70,13 +82,16 @@ declarationVisitor node context =
             ( [], context )
 
 
-expressionVisitor : Node Expression -> context -> ( List (Error {}), context )
+expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionVisitor node context =
     case Node.value node of
         Expression.Application applicationExpressions ->
-            case applicationExpressions |> List.map Node.value of
-                [ Expression.FunctionOrValue [ "RouteBuilder" ] pageBuilderName, Expression.RecordExpr fields ] ->
+            case applicationExpressions |> List.map (\applicationNode -> ( ModuleNameLookupTable.moduleNameFor context.lookupTable applicationNode, Node.value applicationNode )) of
+                [ ( Just [ "RouteBuilder" ], Expression.FunctionOrValue _ pageBuilderName ), ( _, Expression.RecordExpr fields ) ] ->
                     let
+                        foo =
+                            ModuleNameLookupTable.moduleNameFor context.lookupTable node
+
                         dataFieldValue : Maybe (Node ( Node String, Node Expression ))
                         dataFieldValue =
                             fields

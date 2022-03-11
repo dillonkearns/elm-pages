@@ -13,7 +13,7 @@ all =
                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
-import RouteBuilder exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -40,7 +40,7 @@ type alias Data =
 
 route : StatelessRoute RouteParams Data
 route =
-   RouteBuilder.single
+   single
        { head = head
        , data = data
        }
@@ -65,7 +65,7 @@ data =
                                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
-import RouteBuilder exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -92,7 +92,7 @@ type alias Data =
 
 route : StatelessRoute RouteParams Data
 route =
-   RouteBuilder.single
+   single
        { head = head
        , data = DataSource.fail ""
        }
