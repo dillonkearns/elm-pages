@@ -21,17 +21,7 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
         /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
         "return " + (debug ? "_Json_wrap(x)" : "x")
       )
-      .replace(
-        "return ports ? { ports: ports } : {};",
-        `const die = function() {
-        managers = null
-        model = null
-        stepper = null
-        ports = null
-      }
-
-      return ports ? { ports: ports, die: die } : { die: die };`
-      )
+      .replace(`console.log('App dying')`, "")
   );
 }
 

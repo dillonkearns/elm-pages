@@ -518,7 +518,7 @@ function _HtmlAsJson_toJson(html) {
 return forceThunks(html);
 `)
       )
-      .replace(`console.log("App dying");`, ``)
+      .replace(`console.log('App dying')`, "")
   );
 }
 
