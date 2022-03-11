@@ -110,6 +110,7 @@ config =
                     |> Rule.ignoreErrorsForDirectories
                         [ "src/ElmHtml"
                         , "src/Test"
+                        , ".elm-pages"
                         ]
             )
 
