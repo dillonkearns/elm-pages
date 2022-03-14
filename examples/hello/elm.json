@@ -45,7 +45,15 @@
         }
     },
     "test-dependencies": {
-        "direct": {},
-        "indirect": {}
+        "direct": {
+            "avh4/elm-program-test": "3.6.3",
+            "elm-explorations/test": "1.2.2"
+        },
+        "indirect": {
+            "avh4/elm-fifo": "1.0.4",
+            "elm/random": "1.0.0",
+            "hecrj/html-parser": "2.4.0",
+            "mgold/elm-nonempty-list": "4.2.0"
+        }
     }
 }
