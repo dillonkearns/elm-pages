@@ -7,6 +7,7 @@ import Html
 import Html.Attributes as Attr
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Path
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Shared
 import View exposing (View)
@@ -50,7 +51,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = Pages.Url.external "TODO"
+            { url = [ "images", "icon-png.png" ] |> Path.join |> Pages.Url.fromPath
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

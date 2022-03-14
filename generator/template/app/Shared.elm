@@ -3,6 +3,7 @@ module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 import Browser.Navigation
 import DataSource
 import Html exposing (Html)
+import Html.Events
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -18,17 +19,13 @@ template =
     , view = view
     , data = data
     , subscriptions = subscriptions
-    , onPageChange = Just OnPageChange
+    , onPageChange = Nothing
     }
 
 
 type Msg
-    = OnPageChange
-        { path : Path
-        , query : Maybe String
-        , fragment : Maybe String
-        }
-    | SharedMsg SharedMsg
+    = SharedMsg SharedMsg
+    | MenuClicked
 
 
 type alias Data =
@@ -40,7 +37,7 @@ type SharedMsg
 
 
 type alias Model =
-    { showMobileMenu : Bool
+    { showMenu : Bool
     }
 
 
@@ -59,7 +56,7 @@ init :
             }
     -> ( Model, Cmd Msg )
 init navigationKey flags maybePagePath =
-    ( { showMobileMenu = False }
+    ( { showMenu = False }
     , Cmd.none
     )
 
@@ -67,11 +64,11 @@ init navigationKey flags maybePagePath =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        OnPageChange _ ->
-            ( { model | showMobileMenu = False }, Cmd.none )
-
         SharedMsg globalMsg ->
             ( model, Cmd.none )
+
+        MenuClicked ->
+            ( { model | showMenu = not model.showMenu }, Cmd.none )
 
 
 subscriptions : Path -> Model -> Sub Msg
@@ -95,6 +92,30 @@ view :
     -> View msg
     -> { body : Html msg, title : String }
 view sharedData page model toMsg pageView =
-    { body = Html.div [] pageView.body
+    { body =
+        Html.div []
+            [ Html.nav []
+                [ Html.button
+                    [ Html.Events.onClick MenuClicked ]
+                    [ Html.text
+                        (if model.showMenu then
+                            "Close Menu"
+
+                         else
+                            "Open Menu"
+                        )
+                    ]
+                , if model.showMenu then
+                    Html.ul []
+                        [ Html.li [] [ Html.text "Menu item 1" ]
+                        , Html.li [] [ Html.text "Menu item 2" ]
+                        ]
+
+                  else
+                    Html.text ""
+                ]
+                |> Html.map toMsg
+            , Html.main_ [] pageView.body
+            ]
     , title = pageView.title
     }
