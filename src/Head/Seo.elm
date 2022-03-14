@@ -51,6 +51,8 @@ with the `head` function that you pass to your Pages config (`Pages.application`
 
 import Head
 import Head.Twitter as Twitter
+import LanguageTag.Country
+import LanguageTag.Language
 import Pages.Url
 
 
@@ -307,6 +309,13 @@ type alias Common =
     }
 
 
+localeToString : Locale -> String
+localeToString ( language, territory ) =
+    LanguageTag.Language.toCodeString language
+        ++ "_"
+        ++ LanguageTag.Country.toCodeString territory
+
+
 tagsForCommon : Common -> List ( String, Maybe Head.AttributeValue )
 tagsForCommon common =
     tagsForImage common.image
@@ -316,12 +325,12 @@ tagsForCommon common =
            , ( "og:url", common.canonicalUrlOverride |> Maybe.map Head.raw |> Maybe.withDefault Head.currentPageFullUrl |> Just )
            , ( "og:description", Just (Head.raw common.description) )
            , ( "og:site_name", Just (Head.raw common.siteName) )
-           , ( "og:locale", common.locale |> Maybe.map Head.raw )
+           , ( "og:locale", common.locale |> Maybe.map localeToString |> Maybe.map Head.raw )
            ]
         ++ (common.alternateLocales
                 |> List.map
                     (\alternateLocale ->
-                        ( "og:locale:alternate", alternateLocale |> Head.raw |> Just )
+                        ( "og:locale:alternate", alternateLocale |> localeToString |> Head.raw |> Just )
                     )
            )
         ++ Twitter.rawTags common.twitterCard
@@ -350,8 +359,7 @@ tagsForAudio audio =
 
 
 type alias Locale =
-    -- TODO make this more type-safe
-    String
+    ( LanguageTag.Language.Language, LanguageTag.Country.Country )
 
 
 type Content
