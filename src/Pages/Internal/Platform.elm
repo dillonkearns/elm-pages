@@ -1,8 +1,11 @@
-module Pages.Internal.Platform exposing (Flags, Model, Msg, Program, application)
+module Pages.Internal.Platform exposing
+    ( Flags, Model, Msg(..), Program, application, init, update
+    , view
+    )
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs Flags, Model, Msg, Program, application
+@docs Flags, Model, Msg, Program, application, init, update
 
 -}
 
@@ -132,7 +135,7 @@ init :
     ProgramConfig userMsg userModel route pageData sharedData
     -> Flags
     -> Url
-    -> Browser.Navigation.Key
+    -> Maybe Browser.Navigation.Key
     -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData sharedData) )
 init config flags url key =
     let
@@ -169,7 +172,7 @@ init config flags url key =
                         |> StaticHttpRequest.toBuildError url.path
                     )
     in
-    case pageDataResult of
+    case pageDataResult |> Debug.log "@@@pageDataResult" of
         Ok (OkPage sharedData pageData) ->
             let
                 urls : { currentUrl : Url, basePath : List String }
@@ -208,7 +211,7 @@ init config flags url key =
                                 , fragment = url.fragment
                                 }
                         }
-                        |> config.init userFlags sharedData pageData (Just key)
+                        |> config.init userFlags sharedData pageData key
 
                 cmd : Cmd (Msg userMsg pageData sharedData)
                 cmd =
@@ -276,7 +279,7 @@ type Msg userMsg pageData sharedData
 
 {-| -}
 type alias Model userModel pageData sharedData =
-    { key : Browser.Navigation.Key
+    { key : Maybe Browser.Navigation.Key
     , url : Url
     , ariaNavigationAnnouncement : String
     , pageData :
@@ -355,7 +358,7 @@ update config appMsg model =
                                     config.update
                                         pageData.sharedData
                                         pageData.pageData
-                                        (Just model.key)
+                                        model.key
                                         (config.onPageChange
                                             { protocol = model.url.protocol
                                             , host = model.url.host
@@ -402,7 +405,7 @@ update config appMsg model =
                 Ok pageData ->
                     let
                         ( userModel, userCmd ) =
-                            config.update pageData.sharedData pageData.pageData (Just model.key) userMsg pageData.userModel
+                            config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
                         updatedPageData : Result error { userModel : userModel, pageData : pageData, sharedData : sharedData }
                         updatedPageData =
@@ -439,7 +442,7 @@ update config appMsg model =
                             config.update
                                 newSharedData
                                 newPageData
-                                (Just model.key)
+                                model.key
                                 (config.onPageChange
                                     { protocol = model.url.protocol
                                     , host = model.url.host
@@ -466,7 +469,12 @@ update config appMsg model =
                         [ userCmd |> Cmd.map UserMsg
                         , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
                         , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
-                            Browser.Navigation.pushUrl model.key newUrl.path
+                            model.key
+                                |> Maybe.map
+                                    (\key ->
+                                        Browser.Navigation.pushUrl key newUrl.path
+                                    )
+                                |> Maybe.withDefault Cmd.none
 
                           else
                             Cmd.none
@@ -550,7 +558,7 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config flags url key
+                init config flags url (Just key)
         , view = view config
         , update = update config
         , subscriptions =

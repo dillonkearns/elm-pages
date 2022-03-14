@@ -1,10 +1,12 @@
 module Route.Index exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
+import DataSource.Http
 import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
+import Json.Decode as Decode
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -26,7 +28,8 @@ type alias RouteParams =
 
 
 type alias Data =
-    {}
+    { message : String
+    }
 
 
 route : StatelessRoute RouteParams Data
@@ -41,6 +44,10 @@ route =
 data : DataSource Data
 data =
     DataSource.succeed Data
+        |> DataSource.andMap
+            (DataSource.Http.get "https://example.com/message"
+                (Decode.field "message" Decode.string)
+            )
 
 
 head :
@@ -72,16 +79,8 @@ view maybeUrl sharedModel static =
     { title = "elm-pages is running"
     , body =
         [ Html.h1 [] [ Html.text "elm-pages is up and running!" ]
-        , Html.h2 [] [ Html.text "Learn more" ]
-        , Html.ul
-            []
-            [ Html.li []
-                [ Html.a [ Attr.href "https://elm-pages.com/docs/" ] [ Html.text "Framework documentation" ]
-                ]
-            , Html.li
-                []
-                [ Html.a [ Attr.href "https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/" ] [ Html.text "Elm package documentation" ]
-                ]
+        , Html.p []
+            [ Html.text <| "The message is: " ++ static.data.message
             ]
         ]
     }
