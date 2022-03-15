@@ -268,9 +268,14 @@ request request__ expect =
     in
     Request
         [ request_ ]
-        (\rawResponseDict ->
-            rawResponseDict
-                |> RequestsAndPending.get (request_ |> HashRequest.hash)
+        (\maybeMockResolver rawResponseDict ->
+            (case maybeMockResolver of
+                Just mockResolver ->
+                    mockResolver request_
+
+                Nothing ->
+                    rawResponseDict |> RequestsAndPending.get (request_ |> HashRequest.hash)
+            )
                 |> (\maybeResponse ->
                         case maybeResponse of
                             Just rawResponse ->

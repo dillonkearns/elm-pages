@@ -1,14 +1,29 @@
-module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), cacheRequestResolution, resolve, resolveUrls, toBuildError)
+module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), cacheRequestResolution, mockResolve, resolve, resolveUrls, toBuildError)
 
 import BuildError exposing (BuildError)
+import Dict
 import List.Extra
+import Pages.Internal.StaticHttpBody
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
 
 
+type alias RequestDetails =
+    { url : String
+    , method : String
+    , headers : List ( String, String )
+    , body : Pages.Internal.StaticHttpBody.Body
+    }
+
+
+type alias MockResolver =
+    Pages.StaticHttp.Request.Request
+    -> Maybe RequestsAndPending.Response
+
+
 type RawRequest value
-    = Request (List Pages.StaticHttp.Request.Request) (RequestsAndPending -> RawRequest value)
+    = Request (List Pages.StaticHttp.Request.Request) (Maybe MockResolver -> RequestsAndPending -> RawRequest value)
     | RequestError Error
     | ApiRoute value
 
@@ -57,9 +72,24 @@ resolve request rawResponses =
             Err error
 
         Request _ lookupFn ->
-            case lookupFn rawResponses of
+            case lookupFn Nothing rawResponses of
                 nextRequest ->
                     resolve nextRequest rawResponses
+
+        ApiRoute value ->
+            Ok value
+
+
+mockResolve : RawRequest value -> MockResolver -> Result Error value
+mockResolve request mockResolver =
+    case request of
+        RequestError error ->
+            Err error
+
+        Request _ lookupFn ->
+            case lookupFn (Just mockResolver) Dict.empty of
+                nextRequest ->
+                    resolve nextRequest Dict.empty
 
         ApiRoute value ->
             Ok value
@@ -86,7 +116,7 @@ resolveUrlsHelp rawResponses soFar request =
             resolveUrlsHelp
                 rawResponses
                 (soFar ++ urlList)
-                (lookupFn rawResponses)
+                (lookupFn Nothing rawResponses)
 
         ApiRoute _ ->
             soFar
@@ -128,7 +158,7 @@ cacheRequestResolutionHelp foundUrls rawResponses request =
         Request urlList lookupFn ->
             cacheRequestResolutionHelp urlList
                 rawResponses
-                (lookupFn rawResponses)
+                (lookupFn Nothing rawResponses)
 
         ApiRoute _ ->
             Complete

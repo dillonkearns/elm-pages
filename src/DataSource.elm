@@ -135,9 +135,9 @@ map fn requestInfo =
             ApiRoute (fn value)
 
 
-mapLookupFn : (a -> b) -> (c -> DataSource a) -> c -> DataSource b
-mapLookupFn fn lookupFn requests =
-    map fn (lookupFn requests)
+mapLookupFn : (a -> b) -> (d -> c -> DataSource a) -> d -> c -> DataSource b
+mapLookupFn fn lookupFn maybeMock requests =
+    map fn (lookupFn maybeMock requests)
 
 
 {-| Helper to remove an inner layer of Request wrapping.
@@ -226,22 +226,22 @@ map2 fn request1 request2 =
         ( Request urls1 lookupFn1, ApiRoute value2 ) ->
             Request
                 urls1
-                (mapReq fn lookupFn1 (\_ -> ApiRoute value2))
+                (mapReq fn lookupFn1 (\_ _ -> ApiRoute value2))
 
         ( ApiRoute value2, Request urls1 lookupFn1 ) ->
             Request
                 urls1
-                (mapReq fn (\_ -> ApiRoute value2) lookupFn1)
+                (mapReq fn (\_ _ -> ApiRoute value2) lookupFn1)
 
         ( ApiRoute value1, ApiRoute value2 ) ->
             ApiRoute (fn value1 value2)
 
 
-mapReq : (a -> b -> c) -> (d -> DataSource a) -> (d -> DataSource b) -> d -> DataSource c
-mapReq fn lookupFn1 lookupFn2 rawResponses =
+mapReq : (a -> b -> c) -> (e -> d -> DataSource a) -> (e -> d -> DataSource b) -> e -> d -> DataSource c
+mapReq fn lookupFn1 lookupFn2 maybeMock rawResponses =
     map2 fn
-        (lookupFn1 rawResponses)
-        (lookupFn2 rawResponses)
+        (lookupFn1 maybeMock rawResponses)
+        (lookupFn2 maybeMock rawResponses)
 
 
 lookup : DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
@@ -252,7 +252,7 @@ lookup requestInfo rawResponses =
 
         Request urls lookupFn ->
             lookup
-                (addUrls urls (lookupFn rawResponses))
+                (addUrls urls (lookupFn Nothing rawResponses))
                 rawResponses
 
         ApiRoute value ->
@@ -317,7 +317,7 @@ andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
     Request
         (lookupUrls requestInfo)
-        (\rawResponses ->
+        (\maybeMockResolver rawResponses ->
             lookup
                 requestInfo
                 rawResponses

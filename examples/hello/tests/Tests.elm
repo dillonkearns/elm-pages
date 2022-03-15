@@ -3,13 +3,17 @@ module Tests exposing (suite)
 import Base64
 import Browser
 import Bytes.Encode
+import Dict
 import Json.Encode as Encode
 import Main
+import PageServerResponse
 import Pages.Flags exposing (Flags(..))
 import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
+import Pages.StaticHttpRequest
 import Path
 import ProgramTest
+import RequestsAndPending
 import Route
 import Route.Index
 import Test exposing (Test, test)
@@ -25,7 +29,7 @@ suite =
                 |> ProgramTest.expectViewHas
                     [ text "elm-pages is up and running!"
                     , text "Close Menu"
-                    , text "The message is: HELLO 123!@#"
+                    , text "The message is: This is my message!!"
                     ]
 
 
@@ -148,10 +152,28 @@ sharedModel =
 
 
 flagsWithData =
+    let
+        indexPageData =
+            Pages.StaticHttpRequest.mockResolve
+                (Route.Index.route.data {})
+                (\_ ->
+                    RequestsAndPending.Response Nothing
+                        (RequestsAndPending.JsonBody
+                            (Encode.object
+                                [ ( "message", Encode.string "This is my message!!" )
+                                ]
+                            )
+                        )
+                        |> Just
+                )
+                |> expectOk
+                |> expectRenderResponse
+                |> Main.DataIndex
+    in
     Encode.object
         [ ( "pageDataBase64"
           , ResponseSketch.HotUpdate
-                (Main.DataIndex { message = "HELLO 123!@#" })
+                indexPageData
                 ()
                 |> Main.encodeResponse
                 |> Bytes.Encode.encode
@@ -169,3 +191,21 @@ expectOrError thing =
 
         Nothing ->
             Debug.todo "Expected Just but got Nothing"
+
+
+expectOk thing =
+    case thing of
+        Ok okThing ->
+            okThing
+
+        Err error ->
+            Debug.todo <| "Expected Ok but got Err " ++ Debug.toString error
+
+
+expectRenderResponse response =
+    case response of
+        PageServerResponse.RenderPage info pageData_ ->
+            pageData_
+
+        PageServerResponse.ServerResponse _ ->
+            Debug.todo "Unhandled: ServerResponse"

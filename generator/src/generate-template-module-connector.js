@@ -422,7 +422,9 @@ main =
       phase === "browser"
         ? "Pages.Internal.Platform.application"
         : "Pages.Internal.Platform.Cli.cliApplication"
-    }
+    } config
+
+config =
         { init = init Nothing
         , urlToRoute = Route.urlToRoute
         , routeToPath = \\route -> route |> Maybe.map Route.routeToPath |> Maybe.withDefault []
