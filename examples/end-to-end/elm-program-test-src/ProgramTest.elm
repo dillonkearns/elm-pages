@@ -1,4 +1,4 @@
-module PagesProgramTest exposing
+module ProgramTest exposing
     ( ProgramTest, start
     , createSandbox, createElement, createDocument, createApplication, createWorker
     , ProgramDefinition
