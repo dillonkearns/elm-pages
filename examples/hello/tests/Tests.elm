@@ -1,191 +1,221 @@
 module Tests exposing (suite)
 
 import Base64
-import Browser
 import Bytes.Encode
-import Dict
+import Expect
 import Json.Encode as Encode
-import Main
+import Main exposing (config)
 import PageServerResponse
 import Pages.Flags exposing (Flags(..))
+import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform as Platform
 import Pages.Internal.ResponseSketch as ResponseSketch
+import Pages.StaticHttp.Request
 import Pages.StaticHttpRequest
 import Path
 import ProgramTest
 import RequestsAndPending
 import Route
-import Route.Index
-import Test exposing (Test, test)
+import Shared
+import SimulatedEffect.Cmd
+import SimulatedEffect.Navigation
+import SimulatedEffect.Task
+import Test exposing (Test, describe, only, test)
 import Test.Html.Selector exposing (text)
+import Url exposing (Url)
 
 
 suite : Test
 suite =
-    test "wire up hello" <|
-        \() ->
-            start2
-                |> ProgramTest.clickButton "Open Menu"
-                |> ProgramTest.expectViewHas
-                    [ text "elm-pages is up and running!"
-                    , text "Close Menu"
-                    , text "The message is: This is my message!!"
-                    ]
+    describe "end to end tests"
+        [ test "wire up hello" <|
+            \() ->
+                start "/"
+                    |> ProgramTest.ensureViewHas
+                        [ text "elm-pages is up and running!"
+                        , text "The message is: This is my message!!"
+                        ]
+                    |> ProgramTest.clickButton "Open Menu"
+                    |> ProgramTest.clickButton "Close Menu"
+                    |> ProgramTest.expectViewHas
+                        [ text "Open Menu"
+                        ]
+        , test "data is fetched when navigating to new Route" <|
+            \() ->
+                start "/"
+                    |> ProgramTest.ensureBrowserUrl (\currentUrl -> currentUrl |> Expect.equal "https://localhost:1234/")
+                    |> ProgramTest.routeChange "/blog/hello"
+                    -- TODO elm-program-test does not yet intercept link clicks when using Browser.application
+                    --  see <https://github.com/avh4/elm-program-test/issues/107>
+                    --|> ProgramTest.clickLink "My blog post" "/blog/hello"
+                    |> ProgramTest.ensureBrowserUrl (\currentUrl -> currentUrl |> Expect.equal "https://localhost:1234/blog/hello")
+                    |> ProgramTest.expectViewHas
+                        [ text "You're on the page Blog.Slug_"
+                        ]
+        , test "initial page blog" <|
+            \() ->
+                start "/blog/hello"
+                    |> ProgramTest.ensureBrowserUrl (\currentUrl -> currentUrl |> Expect.equal "https://localhost:1234/blog/hello")
+                    |> ProgramTest.expectViewHas
+                        [ text "You're on the page Blog.Slug_"
+                        ]
+        ]
 
 
-start =
-    ProgramTest.createApplication
-        { onUrlRequest =
-            \urlRequest ->
-                case urlRequest of
-                    Browser.Internal url ->
-                        Main.OnPageChange
-                            { protocol = url.protocol
-                            , host = url.host
-                            , port_ = url.port_
-                            , path = url.path |> Path.fromString
-                            , query = url.query
-                            , fragment = url.fragment
-                            , metadata = route
+start :
+    String
+    ->
+        ProgramTest.ProgramTest
+            (Platform.Model Main.Model Main.PageData Shared.Data)
+            (Platform.Msg Main.Msg Main.PageData Shared.Data)
+            (Platform.Effect Main.Msg Main.PageData Shared.Data)
+start initialPath =
+    let
+        resolvedSharedData : Shared.Data
+        resolvedSharedData =
+            Pages.StaticHttpRequest.mockResolve
+                Shared.template.data
+                mockData
+                |> expectOk
+
+        flagsWithData =
+            Encode.object
+                [ ( "pageDataBase64"
+                  , (case initialRouteNotFoundReason of
+                        Just notFoundReason ->
+                            { reason = notFoundReason
+                            , path = Path.fromString initialPath
                             }
+                                |> ResponseSketch.NotFound
 
-                    Browser.External _ ->
-                        Debug.todo "Unhandled"
-        , onUrlChange =
-            \url ->
-                Main.OnPageChange
-                    { protocol = url.protocol
-                    , host = url.host
-                    , port_ = url.port_
-                    , path = url.path |> Path.fromString
-                    , query = url.query
-                    , fragment = url.fragment
-                    , metadata = route
-                    }
-        , init =
-            \flags initialUrl () ->
-                Main.init
-                    sharedModel
-                    flags
-                    sharedData
-                    pageData
-                    -- navKey
-                    Nothing
-                    -- Path and stuff
-                    (Just
-                        { path =
-                            { path = Path.join []
-                            , query = Nothing
-                            , fragment = Nothing
-                            }
-                        , metadata = route
-                        , pageUrl = Nothing -- TODO --Maybe PageUrl
-                        }
+                        Nothing ->
+                            ResponseSketch.HotUpdate
+                                responseSketchData
+                                resolvedSharedData
                     )
-        , update =
-            \msg model ->
-                Main.update
-                    sharedData
-                    pageData
-                    Nothing
-                    msg
-                    model
-        , view =
-            \model ->
-                model
-                    |> (Main.view
-                            { path = path
-                            , route = route
-                            }
-                            Nothing
-                            sharedData
-                            pageData
-                            |> .view
-                       )
-                    |> (\{ title, body } -> { title = title, body = [ body ] })
-        }
-        |> ProgramTest.withBaseUrl "https://my-app.com/"
-        |> ProgramTest.start Pages.Flags.PreRenderFlags
+                        |> Main.encodeResponse
+                        |> Bytes.Encode.encode
+                        |> Base64.fromBytes
+                        |> expectJust
+                        |> Encode.string
+                  )
+                ]
 
+        initialRoute : Maybe Route.Route
+        initialRoute =
+            Main.config.urlToRoute { path = initialPath }
 
-start2 =
+        initialRouteNotFoundReason : Maybe NotFoundReason
+        initialRouteNotFoundReason =
+            Pages.StaticHttpRequest.mockResolve
+                (config.handleRoute initialRoute)
+                mockData
+                |> expectOk
+
+        newDataMock : Result Pages.StaticHttpRequest.Error (PageServerResponse.PageServerResponse Main.PageData)
+        newDataMock =
+            Pages.StaticHttpRequest.mockResolve
+                (Main.config.data initialRoute)
+                mockData
+
+        responseSketchData : Main.PageData
+        responseSketchData =
+            case newDataMock of
+                Ok (PageServerResponse.RenderPage info newPageData) ->
+                    newPageData
+
+                _ ->
+                    Debug.todo "Unhandled"
+    in
     ProgramTest.createApplication
         { onUrlRequest = Platform.LinkClicked
         , onUrlChange = Platform.UrlChanged
         , init =
             \flags url () ->
-                Platform.init Main.config
-                    flags
-                    url
-                    Nothing
+                Platform.init Main.config flags url Nothing
         , update =
             \msg model ->
-                Platform.update Main.config
-                    msg
-                    model
+                Platform.update Main.config msg model
         , view =
             \model ->
                 Platform.view Main.config model
         }
-        |> ProgramTest.withBaseUrl "https://my-app.com/"
+        |> ProgramTest.withBaseUrl ("https://localhost:1234" ++ initialPath)
+        |> ProgramTest.withSimulatedEffects perform
         |> ProgramTest.start flagsWithData
 
 
-path =
-    Path.join []
+mockData : Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response
+mockData request =
+    RequestsAndPending.Response Nothing
+        (RequestsAndPending.JsonBody
+            (Encode.object
+                [ ( "message", Encode.string "This is my message!!" )
+                ]
+            )
+        )
+        |> Just
 
 
-sharedData =
-    ()
+perform :
+    Platform.Effect userMsg Main.PageData Shared.Data
+    -> ProgramTest.SimulatedEffect (Platform.Msg userMsg Main.PageData Shared.Data)
+perform effect =
+    case effect of
+        Platform.NoEffect ->
+            SimulatedEffect.Cmd.none
+
+        Platform.ScrollToTop ->
+            SimulatedEffect.Cmd.none
+
+        Platform.BrowserLoadUrl url ->
+            SimulatedEffect.Navigation.load url
+
+        Platform.BrowserPushUrl url ->
+            SimulatedEffect.Navigation.pushUrl url
+
+        Platform.Batch effects ->
+            effects
+                |> List.map perform
+                |> SimulatedEffect.Cmd.batch
+
+        Platform.FetchPageData maybeRequestInfo url toMsg ->
+            let
+                newRoute : Maybe Route.Route
+                newRoute =
+                    Main.config.urlToRoute url
+
+                newDataMock : Result Pages.StaticHttpRequest.Error (PageServerResponse.PageServerResponse Main.PageData)
+                newDataMock =
+                    Pages.StaticHttpRequest.mockResolve
+                        (Main.config.data newRoute)
+                        mockData
+
+                responseSketchData : ResponseSketch.ResponseSketch Main.PageData shared
+                responseSketchData =
+                    case newDataMock of
+                        Ok (PageServerResponse.RenderPage info newPageData) ->
+                            ResponseSketch.RenderPage newPageData
+
+                        _ ->
+                            Debug.todo "Unhandled"
+
+                msg : Result error ( Url, ResponseSketch.ResponseSketch Main.PageData shared )
+                msg =
+                    Ok ( url, responseSketchData )
+            in
+            SimulatedEffect.Task.succeed msg
+                |> SimulatedEffect.Task.perform toMsg
+
+        Platform.UserCmd cmd ->
+            -- TODO need to turn this into an `Effect` defined by user - this is a temporary intermediary step to get there
+            -- TODO need to expose a way for the user to simulate their own Effect type (similar to elm-program-test's withSimulatedEffects)
+            SimulatedEffect.Cmd.none
 
 
-pageData =
-    Main.DataIndex { message = "Hi!" }
-
-
-route =
-    Just Route.Index
-
-
-sharedModel =
-    Just { showMenu = False }
-
-
-flagsWithData =
-    let
-        indexPageData =
-            Pages.StaticHttpRequest.mockResolve
-                (Route.Index.route.data {})
-                (\_ ->
-                    RequestsAndPending.Response Nothing
-                        (RequestsAndPending.JsonBody
-                            (Encode.object
-                                [ ( "message", Encode.string "This is my message!!" )
-                                ]
-                            )
-                        )
-                        |> Just
-                )
-                |> expectOk
-                |> expectRenderResponse
-                |> Main.DataIndex
-    in
-    Encode.object
-        [ ( "pageDataBase64"
-          , ResponseSketch.HotUpdate
-                indexPageData
-                ()
-                |> Main.encodeResponse
-                |> Bytes.Encode.encode
-                |> Base64.fromBytes
-                |> expectOrError
-                |> Encode.string
-          )
-        ]
-
-
-expectOrError thing =
-    case thing of
+expectJust : Maybe a -> a
+expectJust maybeValue =
+    case maybeValue of
         Just justThing ->
             justThing
 
@@ -193,6 +223,7 @@ expectOrError thing =
             Debug.todo "Expected Just but got Nothing"
 
 
+expectOk : Result error a -> a
 expectOk thing =
     case thing of
         Ok okThing ->
@@ -200,12 +231,3 @@ expectOk thing =
 
         Err error ->
             Debug.todo <| "Expected Ok but got Err " ++ Debug.toString error
-
-
-expectRenderResponse response =
-    case response of
-        PageServerResponse.RenderPage info pageData_ ->
-            pageData_
-
-        PageServerResponse.ServerResponse _ ->
-            Debug.todo "Unhandled: ServerResponse"

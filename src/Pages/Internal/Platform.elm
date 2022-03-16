@@ -1,6 +1,6 @@
 module Pages.Internal.Platform exposing
     ( Flags, Model, Msg(..), Program, application, init, update
-    , view
+    , Effect(..), view
     )
 
 {-| Exposed for internal use only (used in generated code).
@@ -136,7 +136,7 @@ init :
     -> Flags
     -> Url
     -> Maybe Browser.Navigation.Key
-    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData sharedData) )
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData )
 init config flags url key =
     let
         pageDataResult : Result BuildError (InitKind sharedData pageData)
@@ -172,7 +172,7 @@ init config flags url key =
                         |> StaticHttpRequest.toBuildError url.path
                     )
     in
-    case pageDataResult |> Debug.log "@@@pageDataResult" of
+    case pageDataResult of
         Ok (OkPage sharedData pageData) ->
             let
                 urls : { currentUrl : Url, basePath : List String }
@@ -213,14 +213,9 @@ init config flags url key =
                         }
                         |> config.init userFlags sharedData pageData key
 
-                cmd : Cmd (Msg userMsg pageData sharedData)
+                cmd : Effect userMsg pageData sharedData
                 cmd =
-                    [ userCmd
-                        |> Cmd.map UserMsg
-                        |> Just
-                    ]
-                        |> List.filterMap identity
-                        |> Cmd.batch
+                    UserCmd userCmd
 
                 initialModel : Model userModel pageData sharedData
                 initialModel =
@@ -251,7 +246,7 @@ init config flags url key =
               , userFlags = flags
               , notFound = Just info
               }
-            , Cmd.none
+            , NoEffect
             )
 
         Err error ->
@@ -262,7 +257,7 @@ init config flags url key =
               , userFlags = flags
               , notFound = Nothing
               }
-            , Cmd.none
+            , NoEffect
             )
 
 
@@ -294,12 +289,22 @@ type alias Model userModel pageData sharedData =
     }
 
 
+type Effect userMsg pageData sharedData
+    = ScrollToTop
+    | NoEffect
+    | BrowserLoadUrl String
+    | BrowserPushUrl String
+    | FetchPageData (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData)
+    | Batch (List (Effect userMsg pageData sharedData))
+    | UserCmd (Cmd userMsg)
+
+
 {-| -}
 update :
     ProgramConfig userMsg userModel route pageData sharedData
     -> Msg userMsg pageData sharedData
     -> Model userModel pageData sharedData
-    -> ( Model userModel pageData sharedData, Cmd (Msg userMsg pageData sharedData) )
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData )
 update config appMsg model =
     case appMsg of
         LinkClicked urlRequest ->
@@ -313,16 +318,19 @@ update config appMsg model =
                     if navigatingToSamePage then
                         -- this is a workaround for an issue with anchor fragment navigation
                         -- see https://github.com/elm/browser/issues/39
-                        ( model, Browser.Navigation.load (Url.toString url) )
+                        ( model
+                        , BrowserLoadUrl (Url.toString url)
+                        )
 
                     else
                         ( model
-                        , config.fetchPageData url Nothing
-                            |> Task.attempt (UpdateCacheAndUrlNew True url)
+                        , FetchPageData Nothing url (UpdateCacheAndUrlNew True url)
                         )
 
                 Browser.External href ->
-                    ( model, Browser.Navigation.load href )
+                    ( model
+                    , BrowserLoadUrl href
+                    )
 
         UrlChanged url ->
             let
@@ -375,29 +383,19 @@ update config appMsg model =
                                 | url = url
                                 , pageData = updatedPageData
                               }
-                            , Cmd.none
-                              --Cmd.batch
-                              --    [ userCmd |> Cmd.map UserMsg
-                              --    , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
-                              --    ]
+                            , NoEffect
                             )
                         )
-                    |> Result.withDefault ( model, Cmd.none )
+                    |> Result.withDefault ( model, NoEffect )
 
             else
                 ( model
-                , config.fetchPageData url Nothing
-                    |> Task.attempt (UpdateCacheAndUrlNew False url)
+                , FetchPageData Nothing url (UpdateCacheAndUrlNew False url)
                 )
 
         ReloadCurrentPageData requestInfo ->
             ( model
-            , config.fetchPageData model.url (Just requestInfo)
-                |> Task.attempt (UpdateCacheAndUrlNew False model.url)
-              -- @@@ TODO re-implement with Bytes decoding
-              --model.contentCache
-              --    |> ContentCache.eagerLoad urls
-              --    |> Task.attempt (UpdateCacheAndUrl model.url)
+            , FetchPageData (Just requestInfo) model.url (UpdateCacheAndUrlNew False model.url)
             )
 
         UserMsg userMsg ->
@@ -411,10 +409,12 @@ update config appMsg model =
                         updatedPageData =
                             Ok { pageData | userModel = userModel }
                     in
-                    ( { model | pageData = updatedPageData }, userCmd |> Cmd.map UserMsg )
+                    ( { model | pageData = updatedPageData }
+                    , UserCmd userCmd
+                    )
 
                 Err _ ->
-                    ( model, Cmd.none )
+                    ( model, NoEffect )
 
         UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution updateResult ->
             case Result.map2 Tuple.pair (updateResult |> Result.mapError (\_ -> "Http error")) model.pageData of
@@ -465,19 +465,14 @@ update config appMsg model =
                     ( { updatedModel
                         | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                       }
-                    , Cmd.batch
-                        [ userCmd |> Cmd.map UserMsg
-                        , Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
+                    , Batch
+                        [ UserCmd userCmd
+                        , ScrollToTop
                         , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
-                            model.key
-                                |> Maybe.map
-                                    (\key ->
-                                        Browser.Navigation.pushUrl key newUrl.path
-                                    )
-                                |> Maybe.withDefault Cmd.none
+                            BrowserPushUrl newUrl.path
 
                           else
-                            Cmd.none
+                            NoEffect
                         ]
                     )
 
@@ -498,11 +493,11 @@ update config appMsg model =
                     ( model
                     , urlWithoutRedirectResolution
                         |> Url.toString
-                        |> Browser.Navigation.load
+                        |> BrowserLoadUrl
                     )
 
         PageScrollComplete ->
-            ( model, Cmd.none )
+            ( model, NoEffect )
 
         HotReloadCompleteNew pageDataBytes ->
             model.pageData
@@ -525,7 +520,7 @@ update config appMsg model =
                                             }
                                     , notFound = Nothing
                                   }
-                                , Cmd.none
+                                , NoEffect
                                 )
 
                             Just (ResponseSketch.HotUpdate newPageData newSharedData) ->
@@ -538,16 +533,49 @@ update config appMsg model =
                                             }
                                     , notFound = Nothing
                                   }
-                                , Cmd.none
+                                , NoEffect
                                 )
 
                             Just (ResponseSketch.NotFound info) ->
-                                ( { model | notFound = Just info }, Cmd.none )
+                                ( { model | notFound = Just info }, NoEffect )
 
                             _ ->
-                                ( model, Cmd.none )
+                                ( model, NoEffect )
                     )
-                |> Result.withDefault ( model, Cmd.none )
+                |> Result.withDefault ( model, NoEffect )
+
+
+perform : ProgramConfig userMsg userModel route pageData sharedData -> Maybe Browser.Navigation.Key -> Effect userMsg pageData sharedData -> Cmd (Msg userMsg pageData sharedData)
+perform config maybeKey effect =
+    case effect of
+        NoEffect ->
+            Cmd.none
+
+        Batch effects ->
+            effects
+                |> List.map (perform config maybeKey)
+                |> Cmd.batch
+
+        ScrollToTop ->
+            Task.perform (\_ -> PageScrollComplete) (Dom.setViewport 0 0)
+
+        BrowserLoadUrl url ->
+            Browser.Navigation.load url
+
+        BrowserPushUrl url ->
+            maybeKey
+                |> Maybe.map
+                    (\key ->
+                        Browser.Navigation.pushUrl key url
+                    )
+                |> Maybe.withDefault Cmd.none
+
+        FetchPageData maybeRequestInfo url toMsg ->
+            config.fetchPageData url maybeRequestInfo
+                |> Task.attempt toMsg
+
+        UserCmd cmd ->
+            cmd |> Cmd.map UserMsg
 
 
 {-| -}
@@ -559,8 +587,11 @@ application config =
         { init =
             \flags url key ->
                 init config flags url (Just key)
+                    |> Tuple.mapSecond (perform config (Just key))
         , view = view config
-        , update = update config
+        , update =
+            \msg model ->
+                update config msg model |> Tuple.mapSecond (perform config model.key)
         , subscriptions =
             \model ->
                 case model.pageData of

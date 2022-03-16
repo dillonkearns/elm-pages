@@ -3,6 +3,7 @@ module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
+import Html
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
@@ -34,7 +35,9 @@ route =
 
 pages : DataSource (List RouteParams)
 pages =
-    DataSource.succeed []
+    DataSource.succeed
+        [ { slug = "hello" }
+        ]
 
 
 type alias Data =
@@ -74,4 +77,6 @@ view :
     -> StaticPayload Data RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
-    View.placeholder "Blog.Slug_"
+    { title = "Placeholder - Blog.Slug_"
+    , body = [ Html.text "You're on the page Blog.Slug_" ]
+    }
