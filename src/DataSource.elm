@@ -244,15 +244,15 @@ mapReq fn lookupFn1 lookupFn2 maybeMock rawResponses =
         (lookupFn2 maybeMock rawResponses)
 
 
-lookup : DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
-lookup requestInfo rawResponses =
+lookup : Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
+lookup maybeMockResolver requestInfo rawResponses =
     case requestInfo of
         RequestError error ->
             Err error
 
         Request urls lookupFn ->
-            lookup
-                (addUrls urls (lookupFn Nothing rawResponses))
+            lookup maybeMockResolver
+                (addUrls urls (lookupFn maybeMockResolver rawResponses))
                 rawResponses
 
         ApiRoute value ->
@@ -318,7 +318,7 @@ andThen fn requestInfo =
     Request
         (lookupUrls requestInfo)
         (\maybeMockResolver rawResponses ->
-            lookup
+            lookup maybeMockResolver
                 requestInfo
                 rawResponses
                 |> (\result ->

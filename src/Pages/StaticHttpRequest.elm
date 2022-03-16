@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Error(..), RawRequest(..), Status(..), cacheRequestResolution, mockResolve, resolve, resolveUrls, toBuildError)
+module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..), Status(..), cacheRequestResolution, mockResolve, resolve, resolveUrls, toBuildError)
 
 import BuildError exposing (BuildError)
 import Dict
@@ -89,7 +89,7 @@ mockResolve request mockResolver =
         Request _ lookupFn ->
             case lookupFn (Just mockResolver) Dict.empty of
                 nextRequest ->
-                    resolve nextRequest Dict.empty
+                    mockResolve nextRequest mockResolver
 
         ApiRoute value ->
             Ok value
