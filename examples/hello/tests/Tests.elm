@@ -30,7 +30,7 @@ suite =
     describe "end to end tests"
         [ test "wire up hello" <|
             \() ->
-                start "/"
+                start "/" mockData
                     |> ProgramTest.ensureViewHas
                         [ text "elm-pages is up and running!"
                         , text "The message is: This is my message!!"
@@ -42,7 +42,7 @@ suite =
                         ]
         , test "data is fetched when navigating to new Route" <|
             \() ->
-                start "/"
+                start "/" mockData
                     |> ProgramTest.ensureBrowserUrl (\currentUrl -> currentUrl |> Expect.equal "https://localhost:1234/")
                     |> ProgramTest.routeChange "/blog/hello"
                     -- TODO elm-program-test does not yet intercept link clicks when using Browser.application
@@ -54,7 +54,7 @@ suite =
                         ]
         , test "initial page blog" <|
             \() ->
-                start "/blog/hello"
+                start "/blog/hello" mockData
                     |> ProgramTest.ensureBrowserUrl (\currentUrl -> currentUrl |> Expect.equal "https://localhost:1234/blog/hello")
                     |> ProgramTest.expectViewHas
                         [ text "You're on the page Blog.Slug_"
@@ -62,20 +62,37 @@ suite =
         ]
 
 
+mockData : Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response
+mockData request =
+    RequestsAndPending.Response Nothing
+        (RequestsAndPending.JsonBody
+            (Encode.object
+                [ ( "message", Encode.string "This is my message!!" )
+                ]
+            )
+        )
+        |> Just
+
+
+type alias DataSourceSimulator =
+    Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response
+
+
 start :
     String
+    -> DataSourceSimulator
     ->
         ProgramTest.ProgramTest
             (Platform.Model Main.Model Main.PageData Shared.Data)
             (Platform.Msg Main.Msg Main.PageData Shared.Data)
             (Platform.Effect Main.Msg Main.PageData Shared.Data)
-start initialPath =
+start initialPath dataSourceSimulator =
     let
         resolvedSharedData : Shared.Data
         resolvedSharedData =
             Pages.StaticHttpRequest.mockResolve
                 Shared.template.data
-                mockData
+                dataSourceSimulator
                 |> expectOk
 
         flagsWithData =
@@ -109,14 +126,14 @@ start initialPath =
         initialRouteNotFoundReason =
             Pages.StaticHttpRequest.mockResolve
                 (config.handleRoute initialRoute)
-                mockData
+                dataSourceSimulator
                 |> expectOk
 
         newDataMock : Result Pages.StaticHttpRequest.Error (PageServerResponse.PageServerResponse Main.PageData)
         newDataMock =
             Pages.StaticHttpRequest.mockResolve
                 (Main.config.data initialRoute)
-                mockData
+                dataSourceSimulator
 
         responseSketchData : Main.PageData
         responseSketchData =
@@ -141,26 +158,15 @@ start initialPath =
                 Platform.view Main.config model
         }
         |> ProgramTest.withBaseUrl ("https://localhost:1234" ++ initialPath)
-        |> ProgramTest.withSimulatedEffects perform
+        |> ProgramTest.withSimulatedEffects (perform dataSourceSimulator)
         |> ProgramTest.start flagsWithData
 
 
-mockData : Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response
-mockData request =
-    RequestsAndPending.Response Nothing
-        (RequestsAndPending.JsonBody
-            (Encode.object
-                [ ( "message", Encode.string "This is my message!!" )
-                ]
-            )
-        )
-        |> Just
-
-
 perform :
-    Platform.Effect userMsg Main.PageData Shared.Data
+    DataSourceSimulator
+    -> Platform.Effect userMsg Main.PageData Shared.Data
     -> ProgramTest.SimulatedEffect (Platform.Msg userMsg Main.PageData Shared.Data)
-perform effect =
+perform dataSourceSimulator effect =
     case effect of
         Platform.NoEffect ->
             SimulatedEffect.Cmd.none
@@ -176,7 +182,7 @@ perform effect =
 
         Platform.Batch effects ->
             effects
-                |> List.map perform
+                |> List.map (perform dataSourceSimulator)
                 |> SimulatedEffect.Cmd.batch
 
         Platform.FetchPageData maybeRequestInfo url toMsg ->
@@ -189,7 +195,7 @@ perform effect =
                 newDataMock =
                     Pages.StaticHttpRequest.mockResolve
                         (Main.config.data newRoute)
-                        mockData
+                        dataSourceSimulator
 
                 responseSketchData : ResponseSketch.ResponseSketch Main.PageData shared
                 responseSketchData =
