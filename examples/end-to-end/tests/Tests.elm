@@ -36,26 +36,14 @@ suite =
                     |> ProgramTest.expectViewHas
                         [ text "Hello dillon!"
                         ]
-
-        --, test "data is fetched when navigating to new Route" <|
-        --    \() ->
-        --        start "/" mockData
-        --            |> ProgramTest.ensureBrowserUrl (\currentUrl -> currentUrl |> Expect.equal "https://localhost:1234/")
-        --            |> ProgramTest.routeChange "/blog/hello"
-        --            -- TODO elm-program-test does not yet intercept link clicks when using Browser.application
-        --            --  see <https://github.com/avh4/elm-program-test/issues/107>
-        --            --|> ProgramTest.clickLink "My blog post" "/blog/hello"
-        --            |> ProgramTest.ensureBrowserUrl (\currentUrl -> currentUrl |> Expect.equal "https://localhost:1234/blog/hello")
-        --            |> ProgramTest.expectViewHas
-        --                [ text "You're on the page Blog.Slug_"
-        --                ]
-        --, test "initial page blog" <|
-        --    \() ->
-        --        start "/blog/hello" mockData
-        --            |> ProgramTest.ensureBrowserUrl (\currentUrl -> currentUrl |> Expect.equal "https://localhost:1234/blog/hello")
-        --            |> ProgramTest.expectViewHas
-        --                [ text "You're on the page Blog.Slug_"
-        --                ]
+        , test "redirect" <|
+            \() ->
+                start "/greet" mockData
+                    |> ProgramTest.ensureViewHas
+                        [ text "Login"
+                        ]
+                    |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
+                    |> ProgramTest.done
         ]
 
 
@@ -86,7 +74,9 @@ start initialPath dataSourceSimulator =
                         (Encode.object
                             [ ( "requestTime", Encode.int 0 )
                             , ( "headers", Encode.dict identity Encode.string Dict.empty )
-                            , ( "rawUrl", Encode.string "https://localhost:1234/greet?name=dillon" )
+                            , ( "rawUrl", Encode.string <| "https://localhost:1234/" ++ initialPath )
+                            , ( "body", Encode.null )
+                            , ( "method", Encode.string "GET" )
                             ]
                         )
                     )
@@ -128,7 +118,7 @@ start initialPath dataSourceSimulator =
 
                         Nothing ->
                             ResponseSketch.HotUpdate
-                                responseSketchData
+                                (responseSketchData |> Tuple.second)
                                 resolvedSharedData
                     )
                         |> Main.encodeResponse
@@ -163,16 +153,10 @@ start initialPath dataSourceSimulator =
             Pages.StaticHttpRequest.mockResolve
                 (Main.config.data initialRoute)
                 appRequestSimulator
-                |> Debug.log "@@@newData"
 
-        responseSketchData : Main.PageData
+        responseSketchData : ( Maybe String, Main.PageData )
         responseSketchData =
-            case newDataMock of
-                Ok (PageServerResponse.RenderPage info newPageData) ->
-                    newPageData
-
-                _ ->
-                    Debug.todo <| "Unhandled: " ++ Debug.toString newDataMock
+            initialUrlOrRedirect Nothing initialRoute appRequestSimulator
     in
     ProgramTest.createApplication
         { onUrlRequest = Platform.LinkClicked
@@ -187,7 +171,13 @@ start initialPath dataSourceSimulator =
             \model ->
                 Platform.view Main.config model
         }
-        |> ProgramTest.withBaseUrl ("https://localhost:1234" ++ initialPath)
+        |> ProgramTest.withBaseUrl
+            ("https://localhost:1234"
+                ++ (responseSketchData
+                        |> Tuple.first
+                        |> Maybe.withDefault initialPath
+                   )
+            )
         |> ProgramTest.withSimulatedEffects (perform appRequestSimulator)
         |> ProgramTest.start flagsWithData
 
@@ -234,6 +224,15 @@ perform dataSourceSimulator effect =
                         Ok (PageServerResponse.RenderPage info newPageData) ->
                             ResponseSketch.RenderPage newPageData
 
+                        Ok (PageServerResponse.ServerResponse info) ->
+                            PageServerResponse.toRedirect info
+                                |> Maybe.map
+                                    (\{ location } ->
+                                        location
+                                            |> ResponseSketch.Redirect
+                                    )
+                                |> expectJust
+
                         _ ->
                             Debug.todo "Unhandled"
 
@@ -241,13 +240,71 @@ perform dataSourceSimulator effect =
                 msg =
                     Ok ( url, responseSketchData )
             in
-            SimulatedEffect.Task.succeed msg
-                |> SimulatedEffect.Task.perform toMsg
+            SimulatedEffect.Task.succeed (msg |> toMsg |> Debug.log "msg")
+                |> SimulatedEffect.Task.perform identity
 
         Platform.UserCmd cmd ->
             -- TODO need to turn this into an `Effect` defined by user - this is a temporary intermediary step to get there
             -- TODO need to expose a way for the user to simulate their own Effect type (similar to elm-program-test's withSimulatedEffects)
             SimulatedEffect.Cmd.none
+
+
+toResponseSketch : Maybe Route.Route -> (Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response) -> Main.PageData
+toResponseSketch newRoute dataSourceSimulator =
+    let
+        newDataMock =
+            Pages.StaticHttpRequest.mockResolve
+                (Main.config.data newRoute)
+                dataSourceSimulator
+    in
+    case newDataMock of
+        Ok (PageServerResponse.RenderPage info newPageData) ->
+            newPageData
+
+        Ok (PageServerResponse.ServerResponse info) ->
+            PageServerResponse.toRedirect info
+                |> Maybe.map
+                    (\{ location } ->
+                        location
+                    )
+                |> expectJust
+                |> (\location ->
+                        toResponseSketch
+                            (Main.config.urlToRoute { path = location })
+                            dataSourceSimulator
+                   )
+
+        _ ->
+            Debug.todo <| "Unhandled: " ++ Debug.toString newDataMock
+
+
+initialUrlOrRedirect : Maybe String -> Maybe Route.Route -> (Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response) -> ( Maybe String, Main.PageData )
+initialUrlOrRedirect redirectedFrom newRoute dataSourceSimulator =
+    let
+        newDataMock =
+            Pages.StaticHttpRequest.mockResolve
+                (Main.config.data newRoute)
+                dataSourceSimulator
+    in
+    case newDataMock |> Debug.log "newDataMock" of
+        Ok (PageServerResponse.RenderPage info newPageData) ->
+            ( redirectedFrom, newPageData )
+
+        Ok (PageServerResponse.ServerResponse info) ->
+            PageServerResponse.toRedirect info
+                |> Maybe.map
+                    (\{ location } ->
+                        location
+                    )
+                |> expectJust
+                |> (\location ->
+                        initialUrlOrRedirect (Just location)
+                            (Main.config.urlToRoute { path = location })
+                            dataSourceSimulator
+                   )
+
+        _ ->
+            Debug.todo <| "Unhandled: " ++ Debug.toString newDataMock
 
 
 expectJust : Maybe a -> a
