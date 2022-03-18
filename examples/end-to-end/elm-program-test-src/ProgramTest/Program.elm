@@ -1,5 +1,6 @@
 module ProgramTest.Program exposing (Program, renderView)
 
+import Dict exposing (Dict)
 import Html exposing (Html)
 import Test.Html.Query as Query
 import Url exposing (Url)
@@ -18,6 +19,7 @@ type alias Program model msg effect sub =
     , onRouteChange : Url -> Maybe msg
     , subscriptions : Maybe (model -> sub)
     , withinFocus : Query.Single msg -> Query.Single msg
+    , onFormSubmit : Maybe (Dict String String -> effect)
     }
 
 

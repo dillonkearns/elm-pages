@@ -1,6 +1,6 @@
-module TestState exposing (TestState, advanceTime, drain, queueEffect, routeChangeHelper, simulateLoadUrlHelper, update, withSimulation)
+module TestState exposing (TestState, advanceTime, drain, fillInField, queueEffect, routeChangeHelper, simulateLoadUrlHelper, update, withSimulation)
 
-import Dict
+import Dict exposing (Dict)
 import PairingHeap
 import ProgramTest.EffectSimulation as EffectSimulation exposing (EffectSimulation)
 import ProgramTest.Failure exposing (Failure(..))
@@ -22,6 +22,7 @@ type alias TestState model msg effect =
             , browserHistory : List Url
             }
     , effectSimulation : Maybe (EffectSimulation msg effect)
+    , domFields : Dict String String
     }
 
 
@@ -283,3 +284,8 @@ advanceTo program functionName end state =
 withSimulation : (EffectSimulation msg effect -> EffectSimulation msg effect) -> TestState model msg effect -> TestState model msg effect
 withSimulation f state =
     { state | effectSimulation = Maybe.map f state.effectSimulation }
+
+
+fillInField : String -> String -> TestState model msg effect -> TestState model msg effect
+fillInField name value state =
+    { state | domFields = state.domFields |> Dict.insert name value |> Debug.log "newState" }

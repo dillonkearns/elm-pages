@@ -28,6 +28,7 @@ module ProgramTest exposing
     , simulateLastEffect
     , fail, createFailed
     , getOutgoingPortValues
+    , fillInDom, onFormSubmit, submitForm
     )
 
 {-| A `ProgramTest` simulates the execution of an Elm program
@@ -240,6 +241,16 @@ type ProgramTest model msg effect
     | FailedToCreate Failure
 
 
+onFormSubmit : ProgramTest model msg effect -> Maybe (Dict String String -> effect)
+onFormSubmit programTest =
+    case programTest of
+        Created { program } ->
+            program.onFormSubmit
+
+        _ ->
+            Nothing
+
+
 andThen :
     (Program model msg effect (SimulatedSub msg) -> TestState model msg effect -> Result Failure (TestState model msg effect))
     -> ProgramTest model msg effect
@@ -304,6 +315,7 @@ createHelper :
     , update : msg -> model -> ( model, effect )
     , view : model -> Html msg
     , onRouteChange : Url -> Maybe msg
+    , onFormSubmit : Maybe (Dict String String -> effect)
     }
     -> ProgramOptions model msg effect
     -> ProgramTest model msg effect
@@ -315,6 +327,7 @@ createHelper program options =
             , onRouteChange = program.onRouteChange
             , subscriptions = options.subscriptions
             , withinFocus = identity
+            , onFormSubmit = program.onFormSubmit
             }
 
         ( newModel, newEffect ) =
@@ -338,6 +351,7 @@ createHelper program options =
                                 , browserHistory = []
                                 }
                 , effectSimulation = Maybe.map EffectSimulation.init options.deconstructEffect
+                , domFields = Dict.empty
                 }
         }
         |> andThen
@@ -366,6 +380,7 @@ createSandbox program =
                 , update = \msg model -> ( program.update msg model, () )
                 , view = program.view
                 , onRouteChange = \_ -> Nothing
+                , onFormSubmit = Nothing
                 }
 
 
@@ -389,6 +404,7 @@ createWorker program =
                 , update = program.update
                 , view = \_ -> Html.text "** Programs created with ProgramTest.createWorker do not have a view.  Use ProgramTest.createElement instead if you meant to provide a view function. **"
                 , onRouteChange = \_ -> Nothing
+                , onFormSubmit = Nothing
                 }
 
 
@@ -413,6 +429,7 @@ createElement program =
                 , update = program.update
                 , view = program.view
                 , onRouteChange = \_ -> Nothing
+                , onFormSubmit = Nothing
                 }
 
 
@@ -531,6 +548,7 @@ createDocument program =
                 , update = program.update
                 , view = \model -> Html.node "body" [] (program.view model).body
                 , onRouteChange = \_ -> Nothing
+                , onFormSubmit = Nothing
                 }
 
 
@@ -552,6 +570,7 @@ createApplication :
     , update : msg -> model -> ( model, effect )
     , onUrlRequest : Browser.UrlRequest -> msg
     , onUrlChange : Url -> msg
+    , onFormSubmit : Dict String String -> effect
     }
     -> ProgramDefinition flags model msg effect
 createApplication program =
@@ -568,6 +587,7 @@ createApplication program =
                         , update = program.update
                         , view = \model -> Html.node "body" [] (program.view model).body
                         , onRouteChange = program.onUrlChange >> Just
+                        , onFormSubmit = Just program.onFormSubmit
                         }
 
 
@@ -696,7 +716,8 @@ simulateLabeledInputHelper functionDescription fieldId label allowTextArea addit
             else
                 checks_ "input"
 
-        checks_ : String -> List ( String, ComplexQuery (Query.Single msg) -> ComplexQuery msg )
+        --checks_ : String -> List ( String, ComplexQuery (Query.Single msg) -> ComplexQuery msg )
+        checks_ : String -> List ( String, ComplexQuery (Query.Single msg) -> ComplexQuery (Query.Single msg) )
         checks_ inputTag =
             if fieldId == "" then
                 [ ( "<" ++ inputTag ++ "> with parent <label>"
@@ -708,7 +729,7 @@ simulateLabeledInputHelper functionDescription fieldId label allowTextArea addit
                         >> ComplexQuery.find Nothing
                             [ inputTag ]
                             [ Selector.tag inputTag ]
-                        >> ComplexQuery.simulate event
+                    -->> ComplexQuery.simulate event
                   )
                 , ( "<" ++ inputTag ++ "> with aria-label"
                   , ComplexQuery.find Nothing
@@ -716,7 +737,7 @@ simulateLabeledInputHelper functionDescription fieldId label allowTextArea addit
                         [ Selector.tag inputTag
                         , Selector.attribute (attribute "aria-label" label)
                         ]
-                        >> ComplexQuery.simulate event
+                    -->> ComplexQuery.succeed identity
                   )
                 ]
 
@@ -733,7 +754,7 @@ simulateLabeledInputHelper functionDescription fieldId label allowTextArea addit
                                 , additionalInputSelectors
                                 ]
                             )
-                        >> ComplexQuery.simulate event
+                    -->> ComplexQuery.simulate event
                   )
                 , ( "<" ++ inputTag ++ "> with aria-label and id"
                   , ComplexQuery.find Nothing
@@ -742,11 +763,17 @@ simulateLabeledInputHelper functionDescription fieldId label allowTextArea addit
                         , Selector.id fieldId
                         , Selector.attribute (attribute "aria-label" label)
                         ]
-                        >> ComplexQuery.simulate event
+                    -->> ComplexQuery.simulate event
                   )
                 ]
     in
-    simulateComplexQuery functionDescription
+    -- TODO this is currently skipping event handler simulation. Need to make it *optional* (so form submit without event handlers works as well and stores DOM input state instead of Elm input state).
+    --simulateComplexQuery functionDescription
+    --    (ComplexQuery.exactlyOneOf
+    --        ("Expected one of the following to exist and have an " ++ String.Extra.escape ("on" ++ Tuple.first event) ++ " handler")
+    --        checks
+    --    )
+    assertComplexQuery functionDescription
         (ComplexQuery.exactlyOneOf
             ("Expected one of the following to exist and have an " ++ String.Extra.escape ("on" ++ Tuple.first event) ++ " handler")
             checks
@@ -803,6 +830,31 @@ The parameters are:
 simulateDomEvent : (Query.Single msg -> Query.Single msg) -> ( String, Json.Encode.Value ) -> ProgramTest model msg effect -> ProgramTest model msg effect
 simulateDomEvent findTarget ( eventName, eventValue ) =
     andThen (simulateHelper ("simulateDomEvent " ++ String.Extra.escape eventName) findTarget ( eventName, eventValue ))
+
+
+submitForm : ProgramTest model msg effect -> ProgramTest model msg effect
+submitForm program_ =
+    --andThen (simulateHelper ("simulateDomEvent " ++ String.Extra.escape eventName) findTarget ( eventName, eventValue ))
+    program_
+        |> andThen
+            (\state testState ->
+                case onFormSubmit program_ of
+                    Just onFormSubmitFn ->
+                        let
+                            _ =
+                                Debug.log "-> Submit form" ""
+                        in
+                        testState
+                            |> TestState.queueEffect state
+                                (onFormSubmitFn
+                                    testState.domFields
+                                )
+                            |> Result.andThen (TestState.drain state)
+
+                    Nothing ->
+                        --Ok state
+                        Debug.todo ""
+            )
 
 
 {-| Simulates clicking a button.
@@ -1146,6 +1198,26 @@ fillIn fieldId label newContent programTest =
         ]
         (Test.Html.Event.input newContent)
         programTest
+
+
+fillInDom : String -> String -> String -> ProgramTest model msg effect -> ProgramTest model msg effect
+fillInDom fieldId label newContent programTest =
+    simulateLabeledInputHelper ("fillIn " ++ String.Extra.escape label)
+        fieldId
+        label
+        True
+        [-- TODO: should ensure that known special input types are not set, like `type="checkbox"`, etc?
+        ]
+        (Test.Html.Event.input newContent)
+        (programTest
+            |> (andThen <|
+                    \_ state ->
+                        Ok
+                            (state
+                                |> TestState.fillInField fieldId newContent
+                            )
+               )
+        )
 
 
 {-| Simulates replacing the text in a `<textarea>`.

@@ -3,6 +3,8 @@ module Route.Login exposing (Data, Model, Msg, route)
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
+import Html.Styled as Html
+import Html.Styled.Attributes as Attr
 import MySession
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -105,4 +107,37 @@ view :
     -> StaticPayload Data RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
-    View.placeholder "Login"
+    { title = "Login"
+    , body =
+        [ Html.p []
+            [ Html.text
+                (case static.data.username of
+                    Just username ->
+                        "Hello " ++ username ++ "!"
+
+                    Nothing ->
+                        "You aren't logged in yet."
+                )
+            ]
+        , Html.form
+            [ Attr.method "post"
+            , Attr.action "/login"
+            ]
+            [ Html.label
+                [ Attr.attribute "htmlFor" "name"
+                ]
+                [ Html.text "Name"
+                , Html.input
+                    [ Attr.name "name"
+                    , Attr.type_ "text"
+                    , Attr.id "name"
+                    ]
+                    []
+                ]
+            , Html.button
+                [ Attr.type_ "submit"
+                ]
+                [ Html.text "Login" ]
+            ]
+        ]
+    }
