@@ -42,31 +42,7 @@ suite =
                     |> ProgramTest.expectViewHas
                         [ text "Hello dillon!"
                         ]
-        , --test "redirect" <|
-          --  \() ->
-          --      start "/greet" mockData
-          --          |> ProgramTest.ensureViewHas
-          --              [ text "Login"
-          --              ]
-          --          |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
-          --          |> ProgramTest.done
-          --, Test.only <|
-          --    test "redirect then login" <|
-          --        \() ->
-          --            start "/login" mockData
-          --                --|> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
-          --                |> ProgramTest.fillInDom "name" "Name" "Jane"
-          --                |> ProgramTest.submitForm
-          --                |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/greet")
-          --                |> ProgramTest.ensureViewHas
-          --                    [ text "Hello asdf!"
-          --                    ]
-          --                |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/greet")
-          --                --|> ProgramTest.simulateDomEvent
-          --                --    (Test.Html.Query.find [ Test.Html.Selector.tag "form" ])
-          --                --    Test.Html.Event.submit
-          --                |> ProgramTest.done
-          test "redirect then login" <|
+        , test "redirect then login" <|
             \() ->
                 start "/login" mockData
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
@@ -436,9 +412,6 @@ perform dataSourceSimulator testState effect =
                             , ResponseSketch.RenderPage c
                             )
 
-                --|> Tuple.mapSecond ResponseSketch.RenderPage
-                --|> Tuple.mapFirst (Maybe.map toUrl)
-                --|> Tuple.mapFirst (Maybe.withDefault url)
                 msg : Result error ( Url, ResponseSketch.ResponseSketch Main.PageData Shared.Data )
                 msg =
                     case newThingMapped of
