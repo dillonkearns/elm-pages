@@ -112,6 +112,17 @@ start initialPath dataSourceSimulator =
         appRequestSimulator : DataSourceSimulator
         appRequestSimulator inFlightCookies testState maybeRequestInfo request =
             if request.url == "$$elm-pages$$headers" then
+                let
+                    cookieHeader : ( String, String )
+                    cookieHeader =
+                        ( "cookie"
+                        , testState.cookieJar
+                            |> Dict.union inFlightCookies
+                            |> Dict.toList
+                            |> List.map (\( name, value ) -> name ++ "=" ++ value)
+                            |> String.join ";"
+                        )
+                in
                 case maybeRequestInfo of
                     Just requestInfo ->
                         RequestsAndPending.Response Nothing
@@ -123,13 +134,7 @@ start initialPath dataSourceSimulator =
                                             Encode.string
                                             (Dict.fromList
                                                 [ ( "content-type", requestInfo.contentType )
-                                                , ( "cookie"
-                                                  , testState.cookieJar
-                                                        |> Dict.union inFlightCookies
-                                                        |> Dict.toList
-                                                        |> List.map (\( name, value ) -> name ++ "=" ++ value)
-                                                        |> String.join ";"
-                                                  )
+                                                , cookieHeader
                                                 ]
                                             )
                                       )
@@ -158,13 +163,7 @@ start initialPath dataSourceSimulator =
                                             Encode.string
                                             (Dict.fromList
                                                 [ ( "content-type", "application/x-www-form-urlencoded" )
-                                                , ( "cookie"
-                                                  , testState.cookieJar
-                                                        |> Dict.union inFlightCookies
-                                                        |> Dict.toList
-                                                        |> List.map (\( name, value ) -> name ++ "=" ++ value)
-                                                        |> String.join ";"
-                                                  )
+                                                , cookieHeader
                                                 ]
                                             )
                                       )
@@ -183,18 +182,6 @@ start initialPath dataSourceSimulator =
                                 )
                             )
                             |> Just
-                --RequestsAndPending.Response Nothing
-                --    (RequestsAndPending.JsonBody
-                --        (Encode.object
-                --            [ ( "requestTime", Encode.int 0 )
-                --            , ( "headers", Encode.dict identity Encode.string Dict.empty )
-                --            , ( "rawUrl", Encode.string <| "https://localhost:1234/" ++ initialPath )
-                --            , ( "body", maybeRequestInfo |> Maybe.map .body |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
-                --            , ( "method", Encode.string "GET" )
-                --            ]
-                --        )
-                --    )
-                --    |> Just
 
             else if request.url == "elm-pages-internal://env" then
                 RequestsAndPending.Response Nothing
