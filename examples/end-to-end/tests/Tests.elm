@@ -122,6 +122,16 @@ start initialPath dataSourceSimulator =
                             |> List.map (\( name, value ) -> name ++ "=" ++ value)
                             |> String.join ";"
                         )
+
+                    rawUrl : ( String, Encode.Value )
+                    rawUrl =
+                        ( "rawUrl"
+                        , Encode.string <|
+                            "https://localhost:1234/"
+                                -- TODO handle with or without leading `/`
+                                -- TODO handle URL on page change
+                                ++ initialPath
+                        )
                 in
                 case maybeRequestInfo of
                     Just requestInfo ->
@@ -138,12 +148,7 @@ start initialPath dataSourceSimulator =
                                                 ]
                                             )
                                       )
-                                    , ( "rawUrl"
-                                      , Encode.string <|
-                                            "https://localhost:1234/"
-                                                -- TODO remove hardcoding
-                                                ++ "login"
-                                      )
+                                    , rawUrl
                                     , ( "body"
                                       , Encode.string requestInfo.body
                                       )
@@ -167,13 +172,7 @@ start initialPath dataSourceSimulator =
                                                 ]
                                             )
                                       )
-                                    , ( "rawUrl"
-                                      , Encode.string <|
-                                            "https://localhost:1234/"
-                                                -- TODO handle with or without leading `/`
-                                                -- TODO handle URL on page change
-                                                ++ initialPath
-                                      )
+                                    , rawUrl
                                     , ( "body"
                                       , Encode.null
                                       )
