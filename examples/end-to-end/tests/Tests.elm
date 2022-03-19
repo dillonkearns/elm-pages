@@ -2,10 +2,12 @@ module Tests exposing (suite)
 
 import Base64
 import Bytes.Encode
-import Dict
+import CookieParser
+import Dict exposing (Dict)
 import Expect
 import Json.Decode as Decode
 import Json.Encode as Encode
+import List.Extra
 import Main exposing (config)
 import PageServerResponse
 import Pages.Flags exposing (Flags(..))
@@ -68,32 +70,23 @@ suite =
             \() ->
                 start "/login" mockData
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
-                    |> ProgramTest.fillInDom "name" "Name" "Jane"
+                    |> ProgramTest.fillInDom "name" "Name" "John"
                     |> ProgramTest.submitForm
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/greet")
                     |> ProgramTest.ensureViewHas
-                        [ text "Hello asdf!"
-                        ]
-                    |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/greet")
-                    |> ProgramTest.done
-        , test "greet with cookies" <|
-            \() ->
-                start "/greet" mockData
-                    |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/greet")
-                    |> ProgramTest.ensureViewHas
-                        [ text "Hello asdf!"
+                        [ text "Hello John!"
                         ]
                     |> ProgramTest.done
         ]
 
 
 mockData : DataSourceSimulator
-mockData _ request =
+mockData _ _ _ request =
     Nothing
 
 
 type alias DataSourceSimulator =
-    Maybe Platform.RequestInfo -> Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response
+    Dict String String -> ProgramTest.SimpleState -> Maybe Platform.RequestInfo -> Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response
 
 
 start :
@@ -106,8 +99,18 @@ start :
             (Platform.Effect Main.Msg Main.PageData Shared.Data)
 start initialPath dataSourceSimulator =
     let
+        initialSimpleState =
+            { domFields = Dict.empty
+            , navigation =
+                Just
+                    { currentLocation = toUrl initialPath
+                    , browserHistory = [ toUrl initialPath ]
+                    }
+            , cookieJar = Dict.empty
+            }
+
         appRequestSimulator : DataSourceSimulator
-        appRequestSimulator maybeRequestInfo request =
+        appRequestSimulator inFlightCookies testState maybeRequestInfo request =
             if request.url == "$$elm-pages$$headers" then
                 case maybeRequestInfo of
                     Just requestInfo ->
@@ -120,9 +123,13 @@ start initialPath dataSourceSimulator =
                                             Encode.string
                                             (Dict.fromList
                                                 [ ( "content-type", requestInfo.contentType )
-
-                                                --, ( "cookie", """mysession={"name":"asdf"}""" )
-                                                --, ( "cookie", """mysession=%7B%22name%22%3A%22asdf%22%7D""" )
+                                                , ( "cookie"
+                                                  , testState.cookieJar
+                                                        |> Dict.union inFlightCookies
+                                                        |> Dict.toList
+                                                        |> List.map (\( name, value ) -> name ++ "=" ++ value)
+                                                        |> String.join ";"
+                                                  )
                                                 ]
                                             )
                                       )
@@ -150,8 +157,14 @@ start initialPath dataSourceSimulator =
                                       , Encode.dict identity
                                             Encode.string
                                             (Dict.fromList
-                                                [ --( "cookie", """mysession={"name":"asdf"}""" )
-                                                  ( "cookie", """mysession=%7B%22name%22%3A%22asdf%22%7D""" )
+                                                [ ( "content-type", "application/x-www-form-urlencoded" )
+                                                , ( "cookie"
+                                                  , testState.cookieJar
+                                                        |> Dict.union inFlightCookies
+                                                        |> Dict.toList
+                                                        |> List.map (\( name, value ) -> name ++ "=" ++ value)
+                                                        |> String.join ";"
+                                                  )
                                                 ]
                                             )
                                       )
@@ -159,7 +172,7 @@ start initialPath dataSourceSimulator =
                                       , Encode.string <|
                                             "https://localhost:1234/"
                                                 -- TODO remove hardcoding
-                                                ++ "greet"
+                                                ++ "login"
                                       )
                                     , ( "body"
                                       , Encode.null
@@ -190,28 +203,14 @@ start initialPath dataSourceSimulator =
                     |> Just
 
             else if request.url == "elm-pages-internal://encrypt" then
-                let
-                    _ =
-                        case request.body of
-                            JsonBody body ->
-                                body
-                                    |> Decode.decodeValue (Decode.field "values" (Decode.dict Decode.string))
-                                    --|> Result.map (D)
-                                    --|> Result.withDefault "Err"
-                                    |> Debug.toString
-
-                            _ ->
-                                "NotJSON"
-                in
                 RequestsAndPending.Response Nothing
                     (RequestsAndPending.JsonBody
                         (case request.body of
                             JsonBody body ->
                                 body
-                                    |> Decode.decodeValue (Decode.field "values" (Decode.dict Decode.string))
-                                    |> Result.map
-                                        (Dict.toList >> List.map (\( key, value ) -> "asdf") >> String.join "; ")
-                                    |> Result.withDefault "ERROR"
+                                    |> Decode.decodeValue (Decode.field "values" Decode.value)
+                                    |> Result.withDefault Encode.null
+                                    |> Encode.encode 0
                                     |> Encode.string
 
                             _ ->
@@ -246,13 +245,24 @@ start initialPath dataSourceSimulator =
                     |> Just
 
             else
-                dataSourceSimulator Nothing request
+                dataSourceSimulator
+                    Dict.empty
+                    { domFields = Dict.empty
+                    , navigation =
+                        Just
+                            { currentLocation = toUrl initialPath
+                            , browserHistory = [ toUrl initialPath ]
+                            }
+                    , cookieJar = Dict.empty
+                    }
+                    Nothing
+                    request
 
         resolvedSharedData : Shared.Data
         resolvedSharedData =
             Pages.StaticHttpRequest.mockResolve
                 Shared.template.data
-                (appRequestSimulator Nothing)
+                (appRequestSimulator Dict.empty initialSimpleState Nothing)
                 |> expectOk
 
         flagsWithData =
@@ -267,7 +277,7 @@ start initialPath dataSourceSimulator =
 
                         Nothing ->
                             ResponseSketch.HotUpdate
-                                (responseSketchData |> Tuple.second)
+                                (responseSketchData |> tupleThird)
                                 resolvedSharedData
                     )
                         |> Main.encodeResponse
@@ -292,12 +302,12 @@ start initialPath dataSourceSimulator =
         initialRouteNotFoundReason =
             Pages.StaticHttpRequest.mockResolve
                 (config.handleRoute initialRoute)
-                (appRequestSimulator Nothing)
+                (appRequestSimulator Dict.empty initialSimpleState Nothing)
                 |> expectOk
 
-        responseSketchData : ( Maybe String, Main.PageData )
+        responseSketchData : ( Dict String String, Maybe String, Main.PageData )
         responseSketchData =
-            initialUrlOrRedirect Nothing initialRoute appRequestSimulator Nothing
+            initialUrlOrRedirect Nothing Dict.empty initialSimpleState initialRoute appRequestSimulator Nothing
     in
     ProgramTest.createApplication
         { onUrlRequest = Platform.LinkClicked
@@ -326,7 +336,7 @@ start initialPath dataSourceSimulator =
                 in
                 Platform.FetchPageData
                     (Just
-                        { body = "name=dillon"
+                        { body = "name=John"
                         , contentType = "application/x-www-form-urlencoded"
                         }
                     )
@@ -341,7 +351,7 @@ start initialPath dataSourceSimulator =
         |> ProgramTest.withBaseUrl
             ("https://localhost:1234"
                 ++ (responseSketchData
-                        |> Tuple.first
+                        |> tupleSecond
                         |> Maybe.withDefault initialPath
                    )
             )
@@ -349,28 +359,63 @@ start initialPath dataSourceSimulator =
         |> ProgramTest.start flagsWithData
 
 
+tupleFirst : ( a, b, c ) -> a
+tupleFirst ( a, b, c ) =
+    a
+
+
+tupleSecond : ( a, b, c ) -> b
+tupleSecond ( a, b, c ) =
+    b
+
+
+tupleThird : ( a, b, c ) -> c
+tupleThird ( a, b, c ) =
+    c
+
+
 perform :
     DataSourceSimulator
+    -> ProgramTest.SimpleState
     -> Platform.Effect userMsg Main.PageData Shared.Data
-    -> ProgramTest.SimulatedEffect (Platform.Msg userMsg Main.PageData Shared.Data)
-perform dataSourceSimulator effect =
+    -- TODO return ( effect, CookieJarUpdate ) here?
+    -> ( Dict String String, ProgramTest.SimulatedEffect (Platform.Msg userMsg Main.PageData Shared.Data) )
+perform dataSourceSimulator testState effect =
     case effect of
         Platform.NoEffect ->
-            SimulatedEffect.Cmd.none
+            ( testState.cookieJar, SimulatedEffect.Cmd.none )
 
         Platform.ScrollToTop ->
-            SimulatedEffect.Cmd.none
+            ( testState.cookieJar, SimulatedEffect.Cmd.none )
 
         Platform.BrowserLoadUrl url ->
-            SimulatedEffect.Navigation.load url
+            ( testState.cookieJar, SimulatedEffect.Navigation.load url )
 
         Platform.BrowserPushUrl url ->
-            SimulatedEffect.Navigation.pushUrl url
+            ( testState.cookieJar, SimulatedEffect.Navigation.pushUrl url )
 
         Platform.Batch effects ->
-            effects
-                |> List.map (perform dataSourceSimulator)
-                |> SimulatedEffect.Cmd.batch
+            let
+                all =
+                    effects
+                        |> List.map (perform dataSourceSimulator testState)
+
+                allCookies : Dict String String
+                allCookies =
+                    all
+                        |> List.map Tuple.first
+                        -- TODO should it be foldl or foldr
+                        |> List.foldl Dict.union testState.cookieJar
+
+                batchedEffects =
+                    effects
+                        |> List.map (perform dataSourceSimulator testState)
+                        |> List.map Tuple.second
+                        |> SimulatedEffect.Cmd.batch
+            in
+            ( allCookies
+            , batchedEffects
+            )
 
         Platform.FetchPageData maybeRequestInfo url toMsg ->
             let
@@ -378,89 +423,85 @@ perform dataSourceSimulator effect =
                 newRoute =
                     Main.config.urlToRoute url
 
-                newDataMock : Result Pages.StaticHttpRequest.Error (PageServerResponse.PageServerResponse Main.PageData)
-                newDataMock =
-                    Pages.StaticHttpRequest.mockResolve
-                        (Main.config.data newRoute)
-                        (dataSourceSimulator maybeRequestInfo)
-
+                newThing : ( Dict String String, Maybe String, Main.PageData )
                 newThing =
                     initialUrlOrRedirect Nothing
+                        testState.cookieJar
+                        testState
                         newRoute
                         dataSourceSimulator
                         maybeRequestInfo
 
+                newThingMapped : ( Dict String String, Url, ResponseSketch.ResponseSketch Main.PageData Shared.Data )
                 newThingMapped =
-                    newThing
-                        |> Tuple.mapSecond ResponseSketch.RenderPage
-                        |> Tuple.mapFirst (Maybe.map toUrl)
-                        |> Tuple.mapFirst (Maybe.withDefault url)
+                    case newThing of
+                        ( a, b, c ) ->
+                            ( a
+                            , b
+                                |> Maybe.map toUrl
+                                |> Maybe.withDefault url
+                            , ResponseSketch.RenderPage c
+                            )
 
-                toUrl : String -> Url
-                toUrl path =
-                    { path = path
-                    , query = Nothing
-                    , fragment = Nothing
-                    , host = "localhost"
-                    , port_ = Just 1234
-                    , protocol = Https
-                    }
-
-                responseSketchData : ResponseSketch.ResponseSketch Main.PageData shared
-                responseSketchData =
-                    case newDataMock of
-                        Ok (PageServerResponse.RenderPage info newPageData) ->
-                            ResponseSketch.RenderPage newPageData
-
-                        Ok (PageServerResponse.ServerResponse info) ->
-                            PageServerResponse.toRedirect info
-                                |> Maybe.map
-                                    (\{ location } ->
-                                        location
-                                            |> ResponseSketch.Redirect
-                                    )
-                                |> expectJust
-
-                        _ ->
-                            Debug.todo <| "Unhandled: " ++ Debug.toString newDataMock
-
-                msg : Result error ( Url, ResponseSketch.ResponseSketch Main.PageData shared )
+                --|> Tuple.mapSecond ResponseSketch.RenderPage
+                --|> Tuple.mapFirst (Maybe.map toUrl)
+                --|> Tuple.mapFirst (Maybe.withDefault url)
+                msg : Result error ( Url, ResponseSketch.ResponseSketch Main.PageData Shared.Data )
                 msg =
-                    --Ok ( url, responseSketchData )
-                    Ok newThingMapped
+                    case newThingMapped of
+                        ( _, b, c ) ->
+                            Ok ( b, c )
             in
             case newThing of
-                ( Just redirectToUrl, _ ) ->
-                    SimulatedEffect.Cmd.batch
+                ( _, Just redirectToUrl, _ ) ->
+                    ( testState.cookieJar
+                        |> Dict.union (tupleFirst newThing)
+                    , SimulatedEffect.Cmd.batch
                         [ SimulatedEffect.Task.succeed (msg |> toMsg)
                             |> SimulatedEffect.Task.perform identity
                         , SimulatedEffect.Navigation.pushUrl redirectToUrl
                         ]
+                    )
 
                 _ ->
-                    SimulatedEffect.Task.succeed (msg |> toMsg)
+                    ( testState.cookieJar
+                        |> Dict.union (tupleFirst newThing)
+                    , SimulatedEffect.Task.succeed (msg |> toMsg)
                         |> SimulatedEffect.Task.perform identity
+                    )
 
-        --_ ->
-        --    SimulatedEffect.Task.succeed (msg |> toMsg |> Debug.log "msg")
-        --        |> SimulatedEffect.Task.perform identity
         Platform.UserCmd cmd ->
             -- TODO need to turn this into an `Effect` defined by user - this is a temporary intermediary step to get there
             -- TODO need to expose a way for the user to simulate their own Effect type (similar to elm-program-test's withSimulatedEffects)
-            SimulatedEffect.Cmd.none
+            ( testState.cookieJar, SimulatedEffect.Cmd.none )
 
 
-initialUrlOrRedirect : Maybe String -> Maybe Route.Route -> DataSourceSimulator -> Maybe Platform.RequestInfo -> ( Maybe String, Main.PageData )
-initialUrlOrRedirect redirectedFrom newRoute dataSourceSimulator maybeRequestInfo =
+initialUrlOrRedirect :
+    Maybe String
+    -> Dict String String
+    -> ProgramTest.SimpleState
+    -> Maybe Route.Route
+    -> DataSourceSimulator
+    -> Maybe Platform.RequestInfo
+    ->
+        ( Dict String String
+        , Maybe String
+        , Main.PageData
+        )
+initialUrlOrRedirect redirectedFrom cookiesSoFar testState newRoute dataSourceSimulator maybeRequestInfo =
     let
         newDataMock =
             Pages.StaticHttpRequest.mockResolve
                 (Main.config.data newRoute)
-                (dataSourceSimulator maybeRequestInfo)
+                (dataSourceSimulator cookiesSoFar testState maybeRequestInfo)
     in
     case newDataMock of
         Ok (PageServerResponse.RenderPage info newPageData) ->
-            ( redirectedFrom, newPageData )
+            ( cookiesSoFar
+                |> Dict.union (getCookies info)
+            , redirectedFrom
+            , newPageData
+            )
 
         Ok (PageServerResponse.ServerResponse info) ->
             PageServerResponse.toRedirect info
@@ -471,6 +512,8 @@ initialUrlOrRedirect redirectedFrom newRoute dataSourceSimulator maybeRequestInf
                 |> expectJust
                 |> (\location ->
                         initialUrlOrRedirect (Just location)
+                            (cookiesSoFar |> Dict.union (getCookies info))
+                            testState
                             (Main.config.urlToRoute { path = location })
                             dataSourceSimulator
                             -- Don't pass along the request payload to redirects
@@ -479,6 +522,31 @@ initialUrlOrRedirect redirectedFrom newRoute dataSourceSimulator maybeRequestInf
 
         _ ->
             Debug.todo <| "Unhandled: " ++ Debug.toString newDataMock
+
+
+getCookies : { a | headers : List ( String, String ) } -> Dict String String
+getCookies info =
+    info.headers
+        |> List.filterMap
+            (\( key, value ) ->
+                if String.toLower key == "set-cookie" then
+                    case
+                        value
+                            |> String.split ";"
+                            |> List.head
+                            |> Maybe.withDefault value
+                            |> String.split "="
+                    of
+                        [ setCookieKey, setCookieValue ] ->
+                            Just ( setCookieKey, setCookieValue )
+
+                        _ ->
+                            Nothing
+
+                else
+                    Nothing
+            )
+        |> Dict.fromList
 
 
 expectJust : Maybe a -> a
@@ -499,3 +567,14 @@ expectOk thing =
 
         Err error ->
             Debug.todo <| "Expected Ok but got Err " ++ Debug.toString error
+
+
+toUrl : String -> Url
+toUrl path =
+    { path = path
+    , query = Nothing
+    , fragment = Nothing
+    , host = "localhost"
+    , port_ = Just 1234
+    , protocol = Https
+    }

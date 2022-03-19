@@ -16,24 +16,37 @@ import MultiDict exposing (MultiDict)
 import PairingHeap exposing (PairingHeap)
 import SimulatedEffect exposing (SimulatedEffect, SimulatedTask)
 import Time
+import Url exposing (Url)
 
 
 type alias EffectSimulation msg effect =
     { deconstructEffect :
-        effect
-        -> SimulatedEffect msg -- TODO: this should not be in here
+        SimpleState
+        -> effect
+        -> ( Dict String String, SimulatedEffect msg ) -- TODO: this should not be in here
     , workQueue : Fifo (SimulatedTask msg msg)
     , state : SimulationState msg
     , outgoingPortValues : Dict String (List Json.Encode.Value)
     }
 
 
-init : (effect -> SimulatedEffect msg) -> EffectSimulation msg effect
+init : (SimpleState -> effect -> ( Dict String String, SimulatedEffect msg )) -> EffectSimulation msg effect
 init f =
     { deconstructEffect = f
     , workQueue = Fifo.empty
     , state = emptySimulationState
     , outgoingPortValues = Dict.empty
+    }
+
+
+type alias SimpleState =
+    { navigation :
+        Maybe
+            { currentLocation : Url
+            , browserHistory : List Url
+            }
+    , domFields : Dict String String
+    , cookieJar : Dict String String
     }
 
 

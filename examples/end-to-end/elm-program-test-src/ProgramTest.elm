@@ -28,7 +28,7 @@ module ProgramTest exposing
     , simulateLastEffect
     , fail, createFailed
     , getOutgoingPortValues
-    , fillInDom, onFormSubmit, submitForm
+    , SimpleState, fillInDom, onFormSubmit, submitForm, updateCookieJar
     )
 
 {-| A `ProgramTest` simulates the execution of an Elm program
@@ -290,7 +290,7 @@ type alias TestLog model msg =
 
 type alias ProgramOptions model msg effect =
     { baseUrl : Maybe Url
-    , deconstructEffect : Maybe (effect -> SimulatedEffect msg)
+    , deconstructEffect : Maybe (SimpleState -> effect -> ( Dict String String, SimulatedEffect msg ))
     , subscriptions : Maybe (model -> SimulatedSub msg)
     }
 
@@ -352,6 +352,7 @@ createHelper program options =
                                 }
                 , effectSimulation = Maybe.map EffectSimulation.init options.deconstructEffect
                 , domFields = Dict.empty
+                , cookieJar = Dict.empty
                 }
         }
         |> andThen
@@ -499,11 +500,22 @@ the required `effect -> SimulatedEffect msg` function for your `effect` type.
 
 -}
 withSimulatedEffects :
-    (effect -> SimulatedEffect msg)
+    (SimpleState -> effect -> ( Dict String String, SimulatedEffect msg ))
     -> ProgramDefinition flags model msg effect
     -> ProgramDefinition flags model msg effect
 withSimulatedEffects fn (ProgramDefinition options program) =
     ProgramDefinition { options | deconstructEffect = Just fn } program
+
+
+type alias SimpleState =
+    { navigation :
+        Maybe
+            { currentLocation : Url
+            , browserHistory : List Url
+            }
+    , domFields : Dict String String
+    , cookieJar : Dict String String
+    }
 
 
 {-| This allows you to provide a function that lets `ProgramTest` simulate subscriptions that would be `Sub`s
@@ -1141,6 +1153,13 @@ clickLink linkText href programTest =
         |> assertComplexQuery functionDescription
             (ComplexQuery.find Nothing [ "a" ] findLinkTag)
         |> tryClicking { otherwise = \_ -> TestState.simulateLoadUrlHelper functionDescription href >> Err }
+
+
+updateCookieJar : Dict String String -> ProgramTest model msg effect -> ProgramTest model msg effect
+updateCookieJar newEntries =
+    andThen <|
+        \program state ->
+            Ok { state | cookieJar = state.cookieJar |> Dict.union newEntries }
 
 
 {-| Simulates replacing the text in an input field labeled with the given label.

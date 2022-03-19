@@ -23,6 +23,7 @@ type alias TestState model msg effect =
             }
     , effectSimulation : Maybe (EffectSimulation msg effect)
     , domFields : Dict String String
+    , cookieJar : Dict String String
     }
 
 
@@ -47,7 +48,29 @@ queueEffect program effect state =
             Ok state
 
         Just simulation ->
-            queueSimulatedEffect program (simulation.deconstructEffect effect) state
+            let
+                simpleState : SimpleState
+                simpleState =
+                    { navigation = state.navigation
+                    , domFields = state.domFields
+                    , cookieJar = state.cookieJar
+                    }
+
+                ( newCookieJar, newEffect ) =
+                    simulation.deconstructEffect simpleState effect
+            in
+            queueSimulatedEffect program newEffect { state | cookieJar = newCookieJar }
+
+
+type alias SimpleState =
+    { navigation :
+        Maybe
+            { currentLocation : Url
+            , browserHistory : List Url
+            }
+    , domFields : Dict String String
+    , cookieJar : Dict String String
+    }
 
 
 queueSimulatedEffect : Program model msg effect sub -> SimulatedEffect msg -> TestState model msg effect -> Result Failure (TestState model msg effect)
