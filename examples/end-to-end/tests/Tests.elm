@@ -53,6 +53,17 @@ suite =
                         [ text "Hello Jane!"
                         ]
                     |> ProgramTest.done
+        , test "back to login page with session" <|
+            \() ->
+                start "/login" mockData
+                    |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
+                    |> ProgramTest.fillInDom "name" "Name" "Jane"
+                    |> ProgramTest.submitForm
+                    |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/greet")
+                    |> ProgramTest.routeChange "/login"
+                    |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
+                    |> ProgramTest.ensureViewHas [ text "Hello Jane!" ]
+                    |> ProgramTest.done
         ]
 
 
