@@ -123,6 +123,10 @@ start initialPath dataSourceSimulator =
                             |> String.join ";"
                         )
 
+                    requestTime : ( String, Encode.Value )
+                    requestTime =
+                        ( "requestTime", Encode.int 0 )
+
                     rawUrl : ( String, Encode.Value )
                     rawUrl =
                         ( "rawUrl"
@@ -138,7 +142,7 @@ start initialPath dataSourceSimulator =
                         RequestsAndPending.Response Nothing
                             (RequestsAndPending.JsonBody
                                 (Encode.object
-                                    [ ( "requestTime", Encode.int 0 )
+                                    [ requestTime
                                     , ( "headers"
                                       , Encode.dict identity
                                             Encode.string
@@ -162,7 +166,7 @@ start initialPath dataSourceSimulator =
                         RequestsAndPending.Response Nothing
                             (RequestsAndPending.JsonBody
                                 (Encode.object
-                                    [ ( "requestTime", Encode.int 0 )
+                                    [ requestTime
                                     , ( "headers"
                                       , Encode.dict identity
                                             Encode.string
