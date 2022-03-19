@@ -144,13 +144,11 @@ start initialPath dataSourceSimulator =
                                 (Encode.object
                                     [ requestTime
                                     , ( "headers"
-                                      , Encode.dict identity
-                                            Encode.string
-                                            (Dict.fromList
-                                                [ ( "content-type", requestInfo.contentType )
-                                                , cookieHeader
-                                                ]
-                                            )
+                                      , [ ( "content-type", requestInfo.contentType )
+                                        , cookieHeader
+                                        ]
+                                            |> Dict.fromList
+                                            |> Encode.dict identity Encode.string
                                       )
                                     , rawUrl
                                     , ( "body"
@@ -168,13 +166,10 @@ start initialPath dataSourceSimulator =
                                 (Encode.object
                                     [ requestTime
                                     , ( "headers"
-                                      , Encode.dict identity
-                                            Encode.string
-                                            (Dict.fromList
-                                                [ ( "content-type", "application/x-www-form-urlencoded" )
-                                                , cookieHeader
-                                                ]
-                                            )
+                                      , [ cookieHeader
+                                        ]
+                                            |> Dict.fromList
+                                            |> Encode.dict identity Encode.string
                                       )
                                     , rawUrl
                                     , ( "body"
