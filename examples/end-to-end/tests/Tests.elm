@@ -70,11 +70,11 @@ suite =
             \() ->
                 start "/login" mockData
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
-                    |> ProgramTest.fillInDom "name" "Name" "John"
+                    |> ProgramTest.fillInDom "name" "Name" "Jane"
                     |> ProgramTest.submitForm
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/greet")
                     |> ProgramTest.ensureViewHas
-                        [ text "Hello John!"
+                        [ text "Hello Jane!"
                         ]
                     |> ProgramTest.done
         ]
@@ -322,7 +322,7 @@ start initialPath dataSourceSimulator =
             \model ->
                 Platform.view Main.config model
         , onFormSubmit =
-            \_ ->
+            \formState ->
                 let
                     url : Url
                     url =
@@ -336,7 +336,14 @@ start initialPath dataSourceSimulator =
                 in
                 Platform.FetchPageData
                     (Just
-                        { body = "name=John"
+                        { body =
+                            --"name=John"
+                            formState
+                                -- TODO url encode key and value (use shared helper, same one that elm-pages uses?)
+                                -- TODO don't send ALL form state... send only the form state from the current form *AND* the button that was clicked to submit (if any)
+                                |> Dict.toList
+                                |> List.map (\( key, value ) -> key ++ "=" ++ value)
+                                |> String.join "&"
                         , contentType = "application/x-www-form-urlencoded"
                         }
                     )
