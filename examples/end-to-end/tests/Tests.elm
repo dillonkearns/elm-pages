@@ -36,13 +36,13 @@ import Url exposing (Protocol(..), Url)
 suite : Test
 suite =
     describe "end to end tests"
-        [ --test "wire up hello" <|
-          --    \() ->
-          --        start "/greet?name=dillon" mockData
-          --            |> ProgramTest.expectViewHas
-          --                [ text "Hello dillon!"
-          --                ]
-          --test "redirect" <|
+        [ test "wire up hello" <|
+            \() ->
+                start "/greet?name=dillon" mockData
+                    |> ProgramTest.expectViewHas
+                        [ text "Hello dillon!"
+                        ]
+        , --test "redirect" <|
           --  \() ->
           --      start "/greet" mockData
           --          |> ProgramTest.ensureViewHas
@@ -171,8 +171,9 @@ start initialPath dataSourceSimulator =
                                     , ( "rawUrl"
                                       , Encode.string <|
                                             "https://localhost:1234/"
-                                                -- TODO remove hardcoding
-                                                ++ "login"
+                                                -- TODO handle with or without leading `/`
+                                                -- TODO handle URL on page change
+                                                ++ initialPath
                                       )
                                     , ( "body"
                                       , Encode.null
