@@ -139,6 +139,7 @@ async function start(options) {
   });
   try {
     await fs.statSync("./port-data-source.js");
+    await fs.statSync("./port-data-source.ts");
     // If the file does not exist, an exception will be thrown and we skip the build.
   esbuild
     .build({
