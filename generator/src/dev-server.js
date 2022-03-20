@@ -137,10 +137,21 @@ async function start(options) {
     base: options.base,
     ...viteConfig,
   });
+
+  let jsExists = false;
   try {
-    await fs.statSync("./port-data-source.js");
-    await fs.statSync("./port-data-source.ts");
-    // If the file does not exist, an exception will be thrown and we skip the build.
+    fs.statSync("./port-data-source.js");
+    jsExists = true;
+  } catch (e) { }
+
+  let tsExists = false;
+  try {
+    fs.statSync("./port-data-source.ts");
+    tsExists = true;
+  } catch (e) { }
+
+  if (jsExists || tsExists) {
+    try {
   esbuild
     .build({
       entryPoints: ["./port-data-source"],
@@ -177,13 +188,6 @@ async function start(options) {
       console.error("Failed to start port-data-source watcher", error);
     });
   } catch (e) {
-    if (e.code == "ENOENT") {
-      console.warn(
-        kleur.yellow(
-          "No `port-data-source.js` file found."
-        )
-      );
-    } else {
       throw e;
     }
   }
