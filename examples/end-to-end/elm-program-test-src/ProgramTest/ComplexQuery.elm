@@ -1,4 +1,4 @@
-module ProgramTest.ComplexQuery exposing (ComplexQuery, Failure(..), FailureContext, FailureContext1(..), Highlight, Priority, check, exactlyOneOf, find, findButNot, run, simulate, succeed)
+module ProgramTest.ComplexQuery exposing (ComplexQuery, Failure(..), FailureContext, FailureContext1(..), Highlight, MsgOrSubmit(..), Priority, check, exactlyOneOf, find, findButNot, map, run, simulate, simulateSubmit, succeed)
 
 import Json.Encode as Json
 import ProgramTest.TestHtmlHacks as TestHtmlHacks
@@ -12,6 +12,11 @@ import Test.Runner
 
 type ComplexQuery a
     = QueryResult State Highlight (List FailureContext1) (Result Failure a)
+
+
+map : (a -> b) -> ComplexQuery a -> ComplexQuery b
+map function (QueryResult state highlight failures result) =
+    QueryResult state highlight failures (Result.map function result)
 
 
 succeed : a -> ComplexQuery a
@@ -277,6 +282,31 @@ findButNot description highlight { good, bads, onError } prev =
                 Nothing ->
                     Query.find good source
                         |> checkBads (List.length good) bads
+
+
+type MsgOrSubmit msg
+    = SubmitMsg msg
+    | Submit
+
+
+simulateSubmit : ComplexQuery (Query.Single msg) -> ComplexQuery (MsgOrSubmit msg)
+simulateSubmit prev =
+    case prev of
+        QueryResult state prevHighlight prevContext (Err err) ->
+            QueryResult state prevHighlight prevContext (Err err)
+
+        QueryResult state prevHighlight prevContext (Ok source) ->
+            case
+                source
+                    |> Test.Html.Event.simulate Test.Html.Event.submit
+                    |> Test.Html.Event.toResult
+            of
+                Err message ->
+                    -- TODO include details of the form to submit, etc.? Or gather that context elsewhere?
+                    QueryResult state prevHighlight prevContext (Ok Submit)
+
+                Ok msg ->
+                    QueryResult state prevHighlight prevContext (Ok (SubmitMsg msg))
 
 
 simulate : ( String, Json.Value ) -> ComplexQuery (Query.Single msg) -> ComplexQuery msg

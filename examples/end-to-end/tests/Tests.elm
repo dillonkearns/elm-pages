@@ -21,7 +21,7 @@ suite =
                 PagesTest.start "/login" mockData
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
                     |> ProgramTest.fillInDom "name" "Name" "Jane"
-                    |> ProgramTest.submitForm
+                    |> ProgramTest.clickButton "Login"
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/greet")
                     |> ProgramTest.ensureViewHas
                         [ text "Hello Jane!"
@@ -32,7 +32,7 @@ suite =
                 PagesTest.start "/login" mockData
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")
                     |> ProgramTest.fillInDom "name" "Name" "Jane"
-                    |> ProgramTest.submitForm
+                    |> ProgramTest.clickButton "Login"
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/greet")
                     |> ProgramTest.routeChange "/login"
                     |> ProgramTest.ensureBrowserUrl (Expect.equal "https://localhost:1234/login")

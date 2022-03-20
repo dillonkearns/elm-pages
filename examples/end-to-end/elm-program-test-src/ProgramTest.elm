@@ -28,7 +28,7 @@ module ProgramTest exposing
     , simulateLastEffect
     , fail, createFailed
     , getOutgoingPortValues
-    , SimpleState, fillInDom, onFormSubmit, submitForm, updateCookieJar
+    , SimpleState, fillInDom, onFormSubmit, updateCookieJar
     )
 
 {-| A `ProgramTest` simulates the execution of an Elm program
@@ -810,6 +810,28 @@ simulateComplexQuery functionName complexQuery =
                     Err (ViewAssertionFailed ("ProgramTest." ++ functionName) (Html.map (\_ -> ()) (program.view state.currentModel)) highlight queryFailure)
 
 
+{-| -}
+simulateComplexQueryOrSubmit : String -> (ComplexQuery (Query.Single msg) -> ComplexQuery (ComplexQuery.MsgOrSubmit msg)) -> ProgramTest model msg effect -> ProgramTest model msg effect
+simulateComplexQueryOrSubmit functionName complexQuery programTest =
+    andThen
+        (\program state ->
+            let
+                view =
+                    Program.renderView program state.currentModel
+            in
+            case ComplexQuery.run (complexQuery (ComplexQuery.succeed view)) of
+                ( _, Ok (ComplexQuery.SubmitMsg msg) ) ->
+                    TestState.update msg program state
+
+                ( _, Ok ComplexQuery.Submit ) ->
+                    submitFormInner programTest program state
+
+                ( highlight, Err queryFailure ) ->
+                    Err (ViewAssertionFailed ("ProgramTest." ++ functionName) (Html.map (\_ -> ()) (program.view state.currentModel)) highlight queryFailure)
+        )
+        programTest
+
+
 assertComplexQuery : String -> (ComplexQuery (Query.Single msg) -> ComplexQuery ignored) -> ProgramTest model msg effect -> ProgramTest model msg effect
 assertComplexQuery functionName complexQuery =
     andThen <|
@@ -844,29 +866,19 @@ simulateDomEvent findTarget ( eventName, eventValue ) =
     andThen (simulateHelper ("simulateDomEvent " ++ String.Extra.escape eventName) findTarget ( eventName, eventValue ))
 
 
-submitForm : ProgramTest model msg effect -> ProgramTest model msg effect
-submitForm program_ =
-    --andThen (simulateHelper ("simulateDomEvent " ++ String.Extra.escape eventName) findTarget ( eventName, eventValue ))
-    program_
-        |> andThen
-            (\state testState ->
-                case onFormSubmit program_ of
-                    Just onFormSubmitFn ->
-                        let
-                            _ =
-                                Debug.log "-> Submit form" ""
-                        in
-                        testState
-                            |> TestState.queueEffect state
-                                (onFormSubmitFn
-                                    testState.domFields
-                                )
-                            |> Result.andThen (TestState.drain state)
+submitFormInner : ProgramTest model msg effect -> Program model msg effect sub -> TestState model msg effect -> Result Failure (TestState model msg effect)
+submitFormInner programTest state testState =
+    case onFormSubmit programTest of
+        Just onFormSubmitFn ->
+            testState
+                |> TestState.queueEffect state
+                    (onFormSubmitFn
+                        testState.domFields
+                    )
+                |> Result.andThen (TestState.drain state)
 
-                    Nothing ->
-                        --Ok state
-                        Debug.todo ""
-            )
+        Nothing ->
+            Ok testState
 
 
 {-| Simulates clicking a button.
@@ -884,7 +896,7 @@ clickButton buttonText =
         functionDescription =
             "clickButton " ++ String.Extra.escape buttonText
 
-        checks : List ( String, ComplexQuery (Query.Single msg) -> ComplexQuery msg )
+        checks : List ( String, ComplexQuery (Query.Single msg) -> ComplexQuery (ComplexQuery.MsgOrSubmit msg) )
         checks =
             [ ( "<button> with text"
               , findNotDisabled (Just "find button")
@@ -894,6 +906,7 @@ clickButton buttonText =
                     , Selector.containing [ Selector.text buttonText ]
                     ]
                     >> ComplexQuery.simulate Test.Html.Event.click
+                    >> ComplexQuery.map ComplexQuery.SubmitMsg
               )
             , ( "<button> with <img> with alt text"
               , findNotDisabled (Just "find button")
@@ -906,6 +919,7 @@ clickButton buttonText =
                         ]
                     ]
                     >> ComplexQuery.simulate Test.Html.Event.click
+                    >> ComplexQuery.map ComplexQuery.SubmitMsg
               )
             , ( "<button> with aria-label"
               , findNotDisabled (Just "find button")
@@ -915,6 +929,7 @@ clickButton buttonText =
                     , Selector.attribute (Html.Attributes.attribute "aria-label" buttonText)
                     ]
                     >> ComplexQuery.simulate Test.Html.Event.click
+                    >> ComplexQuery.map ComplexQuery.SubmitMsg
               )
             , ( "any element with role=\"button\" and text"
               , findNotDisabled (Just "find button")
@@ -930,6 +945,7 @@ clickButton buttonText =
                     , Selector.containing [ Selector.text buttonText ]
                     ]
                     >> ComplexQuery.simulate Test.Html.Event.click
+                    >> ComplexQuery.map ComplexQuery.SubmitMsg
               )
             , ( "any element with role=\"button\" and aria-label"
               , findNotDisabled (Just "find button")
@@ -945,6 +961,7 @@ clickButton buttonText =
                     , Selector.attribute (Html.Attributes.attribute "aria-label" buttonText)
                     ]
                     >> ComplexQuery.simulate Test.Html.Event.click
+                    >> ComplexQuery.map ComplexQuery.SubmitMsg
               )
             , ( "<form> with submit <button> with text"
               , ComplexQuery.findButNot (Just "find form")
@@ -982,7 +999,7 @@ clickButton buttonText =
                             ]
                         ]
                     }
-                    >> ComplexQuery.simulate Test.Html.Event.submit
+                    >> ComplexQuery.simulateSubmit
               )
             , ( "<form> with submit <input> with value"
               , ComplexQuery.findButNot (Just "find form")
@@ -1015,11 +1032,11 @@ clickButton buttonText =
                             ]
                         ]
                     }
-                    >> ComplexQuery.simulate Test.Html.Event.submit
+                    >> ComplexQuery.simulateSubmit
               )
             ]
     in
-    simulateComplexQuery functionDescription
+    simulateComplexQueryOrSubmit functionDescription
         (ComplexQuery.exactlyOneOf "Expected one of the following to exist" checks)
 
 
