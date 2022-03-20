@@ -1,4 +1,5 @@
 const path = require("path");
+const url = require("url");
 const fetch = require("node-fetch");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
@@ -55,7 +56,9 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
       let portDataSource = {};
       let portDataSourceFound = false;
       try {
-        portDataSource = await import(path.join(process.cwd(), portsFile));
+        const portDataSourcePath = path.join(process.cwd(), portsFile);
+        // On Windows, we need cannot use paths directly and instead must use a file:// URL.
+        portDataSource = await import(url.pathToFileURL(portDataSourcePath).href);
         portDataSourceFound = true;
       } catch (e) {}
 
@@ -143,7 +146,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
                 .yellow()
                 .underline(request.url)} Bad HTTP response ${response.status} ${
                 response.statusText
-              }
+                }
 `,
             });
           }
