@@ -3,6 +3,7 @@ module PagesTest exposing (DataSourceSimulator, start)
 import Base64
 import Bytes.Encode
 import Dict exposing (Dict)
+import Effect exposing (Effect)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Main exposing (config)
@@ -36,7 +37,7 @@ start :
         ProgramTest.ProgramTest
             (Platform.Model Main.Model Main.PageData Shared.Data)
             (Platform.Msg Main.Msg Main.PageData Shared.Data)
-            (Platform.Effect Main.Msg Main.PageData Shared.Data)
+            (Platform.Effect Main.Msg Main.PageData Shared.Data (Effect Main.Msg))
 start initialPath dataSourceSimulator =
     let
         initialSimpleState =
@@ -304,8 +305,7 @@ tupleThird ( a, b, c ) =
 perform :
     DataSourceSimulator
     -> ProgramTest.SimpleState
-    -> Platform.Effect userMsg Main.PageData Shared.Data
-    -- TODO return ( effect, CookieJarUpdate ) here?
+    -> Platform.Effect userMsg Main.PageData Shared.Data (Effect Main.Msg)
     -> ( Dict String String, ProgramTest.SimulatedEffect (Platform.Msg userMsg Main.PageData Shared.Data) )
 perform dataSourceSimulator testState effect =
     case effect of

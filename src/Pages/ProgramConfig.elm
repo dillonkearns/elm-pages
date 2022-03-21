@@ -24,7 +24,7 @@ import Task exposing (Task)
 import Url exposing (Url)
 
 
-type alias ProgramConfig userMsg userModel route pageData sharedData =
+type alias ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg =
     { init :
         Pages.Flags.Flags
         -> sharedData
@@ -40,8 +40,8 @@ type alias ProgramConfig userMsg userModel route pageData sharedData =
                 , metadata : route
                 , pageUrl : Maybe PageUrl
                 }
-        -> ( userModel, Cmd userMsg )
-    , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Cmd userMsg )
+        -> ( userModel, effect )
+    , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource sharedData
     , data : route -> DataSource (PageServerResponse pageData)
@@ -87,4 +87,6 @@ type alias ProgramConfig userMsg userModel route pageData sharedData =
     , encodeResponse : ResponseSketch pageData sharedData -> Bytes.Encode.Encoder
     , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData sharedData)
     , globalHeadTags : Maybe (DataSource (List Head.Tag))
+    , cmdToEffect : Cmd userMsg -> effect
+    , perform : (userMsg -> mappedMsg) -> effect -> Cmd mappedMsg
     }

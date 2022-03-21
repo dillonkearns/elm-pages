@@ -41,7 +41,7 @@ type alias Program userModel userMsg pageData sharedData =
 
 
 mainView :
-    ProgramConfig userMsg userModel route pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData)
     -> Model userModel pageData sharedData
     -> { title : String, body : Html userMsg }
 mainView config model =
@@ -90,7 +90,7 @@ urlsToPagePath urls =
 
 
 view :
-    ProgramConfig userMsg userModel route pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData)
     -> Model userModel pageData sharedData
     -> Browser.Document (Msg userMsg pageData sharedData)
 view config model =
@@ -132,11 +132,11 @@ type InitKind shared page
 
 {-| -}
 init :
-    ProgramConfig userMsg userModel route pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData)
     -> Flags
     -> Url
     -> Maybe Browser.Navigation.Key
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData )
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect )
 init config flags url key =
     let
         pageDataResult : Result BuildError (InitKind sharedData pageData)
@@ -213,7 +213,7 @@ init config flags url key =
                         }
                         |> config.init userFlags sharedData pageData key
 
-                cmd : Effect userMsg pageData sharedData
+                cmd : Effect userMsg pageData sharedData userEffect
                 cmd =
                     UserCmd userCmd
 
@@ -289,22 +289,22 @@ type alias Model userModel pageData sharedData =
     }
 
 
-type Effect userMsg pageData sharedData
+type Effect userMsg pageData sharedData userEffect
     = ScrollToTop
     | NoEffect
     | BrowserLoadUrl String
     | BrowserPushUrl String
     | FetchPageData (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData)
-    | Batch (List (Effect userMsg pageData sharedData))
-    | UserCmd (Cmd userMsg)
+    | Batch (List (Effect userMsg pageData sharedData userEffect))
+    | UserCmd userEffect
 
 
 {-| -}
 update :
-    ProgramConfig userMsg userModel route pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData)
     -> Msg userMsg pageData sharedData
     -> Model userModel pageData sharedData
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData )
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect )
 update config appMsg model =
     case appMsg of
         LinkClicked urlRequest ->
@@ -545,7 +545,7 @@ update config appMsg model =
                 |> Result.withDefault ( model, NoEffect )
 
 
-perform : ProgramConfig userMsg userModel route pageData sharedData -> Maybe Browser.Navigation.Key -> Effect userMsg pageData sharedData -> Cmd (Msg userMsg pageData sharedData)
+perform : ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData) -> Maybe Browser.Navigation.Key -> Effect userMsg pageData sharedData userEffect -> Cmd (Msg userMsg pageData sharedData)
 perform config maybeKey effect =
     case effect of
         NoEffect ->
@@ -575,12 +575,13 @@ perform config maybeKey effect =
                 |> Task.attempt toMsg
 
         UserCmd cmd ->
-            cmd |> Cmd.map UserMsg
+            -- TODO pass in `UserMsg`
+            cmd |> config.perform UserMsg
 
 
 {-| -}
 application :
-    ProgramConfig userMsg userModel route pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData)
     -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData sharedData)
 application config =
     Browser.application

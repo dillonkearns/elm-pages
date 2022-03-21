@@ -2,6 +2,7 @@ module SharedTemplate exposing (SharedTemplate)
 
 import Browser.Navigation
 import DataSource
+import Effect exposing (Effect)
 import Html exposing (Html)
 import Pages.Flags exposing (Flags)
 import Pages.PageUrl exposing (PageUrl)
@@ -24,8 +25,8 @@ type alias SharedTemplate msg sharedModel sharedData mappedMsg =
                 , metadata : Maybe Route
                 , pageUrl : Maybe PageUrl
                 }
-        -> ( sharedModel, Cmd msg )
-    , update : msg -> sharedModel -> ( sharedModel, Cmd msg )
+        -> ( sharedModel, Effect msg )
+    , update : msg -> sharedModel -> ( sharedModel, Effect msg )
     , view :
         sharedData
         ->

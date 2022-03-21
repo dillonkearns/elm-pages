@@ -44,6 +44,7 @@ import Api
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
+import Effect exposing (Effect)
 import HtmlPrinter
 import Lamdera.Wire3
 import Pages.Internal.String
@@ -225,11 +226,11 @@ init :
             , metadata : Maybe Route
             , pageUrl : Maybe PageUrl
             }
-    -> ( Model, Cmd Msg )
+    -> ( Model, Effect Msg )
 init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePath =
     let
         ( sharedModel, globalCmd ) =
-            currentGlobalModel |> Maybe.map (\\m -> ( m, Cmd.none )) |> Maybe.withDefault (Shared.template.init navigationKey userFlags maybePagePath)
+            currentGlobalModel |> Maybe.map (\\m -> ( m, Effect.none )) |> Maybe.withDefault (Shared.template.init navigationKey userFlags maybePagePath)
 
         ( templateModel, templateCmd ) =
             case ( ( Maybe.map2 Tuple.pair (maybePagePath |> Maybe.andThen .metadata) (maybePagePath |> Maybe.map .path) ), pageData ) of
@@ -256,26 +257,26 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                         }
                         |> Tuple.mapBoth Model${pathNormalizedName(
                           name
-                        )} (Cmd.map Msg${pathNormalizedName(name)})
+                        )} (Effect.map Msg${pathNormalizedName(name)})
 `
                   )
                   .join("\n                ")}
                 _ ->
-                    ( NotFound, Cmd.none )
+                    ( NotFound, Effect.none )
     in
     ( { global = sharedModel
       , page = templateModel
       , current = maybePagePath
       }
-    , Cmd.batch
+    , Effect.batch
         [ templateCmd
-        , globalCmd |> Cmd.map MsgGlobal
+        , globalCmd |> Effect.map MsgGlobal
         ]
     )
 
 
 
-update : Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Cmd Msg )
+update : Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
 update sharedData pageData navigationKey msg model =
     case msg of
         MsgGlobal msg_ ->
@@ -284,7 +285,7 @@ update sharedData pageData navigationKey msg model =
                     Shared.template.update msg_ model.global
             in
             ( { model | global = sharedModel }
-            , globalCmd |> Cmd.map MsgGlobal
+            , globalCmd |> Effect.map MsgGlobal
             )
 
         OnPageChange record ->
@@ -327,7 +328,7 @@ update sharedData pageData navigationKey msg model =
                                 ( { updatedModel
                                     | global = updatedGlobalModel
                                   }
-                                , Cmd.batch [ cmd, Cmd.map MsgGlobal globalCmd ]
+                                , Effect.batch [ cmd, Effect.map MsgGlobal globalCmd ]
                                 )
                    )
 
@@ -363,21 +364,21 @@ update sharedData pageData navigationKey msg model =
                                 model.global
                                 |> mapBoth Model${pathNormalizedName(
                                   name
-                                )} (Cmd.map Msg${pathNormalizedName(name)})
+                                )} (Effect.map Msg${pathNormalizedName(name)})
                                 |> (\\( a, b, c ) ->
                                         case c of
                                             Just sharedMsg ->
                                                 ( a, b, Shared.template.update sharedMsg model.global )
 
                                             Nothing ->
-                                                ( a, b, ( model.global, Cmd.none ) )
+                                                ( a, b, ( model.global, Effect.none ) )
                                    )
 
                         _ ->
-                            ( model.page, Cmd.none, ( model.global, Cmd.none ) )
+                            ( model.page, Effect.none, ( model.global, Effect.none ) )
             in
             ( { model | page = updatedPageModel, global = newGlobalModel }
-            , Cmd.batch [ pageCmd, newGlobalCmd |> Cmd.map MsgGlobal ]
+            , Effect.batch [ pageCmd, newGlobalCmd |> Effect.map MsgGlobal ]
             )
 `
           )
@@ -472,6 +473,8 @@ config =
         , hotReloadData = hotReloadData identity
         , encodeResponse = encodeResponse
         , decodeResponse = decodeResponse
+        , cmdToEffect = Effect.fromCmd
+        , perform = Effect.perform
         }
 
 globalHeadTags : DataSource (List Head.Tag)

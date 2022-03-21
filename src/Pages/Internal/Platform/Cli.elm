@@ -77,7 +77,7 @@ type alias Program route =
 
 {-| -}
 cliApplication :
-    ProgramConfig userMsg userModel (Maybe route) pageData sharedData
+    ProgramConfig userMsg userModel (Maybe route) pageData sharedData effect mappedMsg
     -> Program (Maybe route)
 cliApplication config =
     let
@@ -85,7 +85,7 @@ cliApplication config =
         site =
             getSiteConfig config
 
-        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) pageData sharedData -> SiteConfig
+        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) pageData sharedData effect mappedMsg -> SiteConfig
         getSiteConfig fullConfig =
             case fullConfig.site of
                 Just mySite ->
@@ -200,12 +200,12 @@ requestDecoder =
         |> Codec.decoder
 
 
-flatten : SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData sharedData -> List Effect -> Cmd Msg
+flatten : SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg -> List Effect -> Cmd Msg
 flatten site renderRequest config list =
     Cmd.batch (flattenHelp [] site renderRequest config list)
 
 
-flattenHelp : List (Cmd Msg) -> SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData sharedData -> List Effect -> List (Cmd Msg)
+flattenHelp : List (Cmd Msg) -> SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg -> List Effect -> List (Cmd Msg)
 flattenHelp soFar site renderRequest config list =
     case list of
         first :: rest ->
@@ -223,7 +223,7 @@ flattenHelp soFar site renderRequest config list =
 perform :
     SiteConfig
     -> RenderRequest route
-    -> ProgramConfig userMsg userModel route pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg
     -> Effect
     -> Cmd Msg
 perform site renderRequest config effect =
@@ -362,7 +362,7 @@ flagsDecoder =
 init :
     SiteConfig
     -> RenderRequest route
-    -> ProgramConfig userMsg userModel route pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg
     -> Decode.Value
     -> ( Model route, Effect )
 init site renderRequest config flags =
@@ -393,7 +393,7 @@ initLegacy :
     SiteConfig
     -> RenderRequest route
     -> { staticHttpCache : RequestsAndPending, isDevServer : Bool }
-    -> ProgramConfig userMsg userModel route pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg
     -> ( Model route, Effect )
 initLegacy site renderRequest { staticHttpCache, isDevServer } config =
     let
@@ -462,7 +462,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
 
 updateAndSendPortIfDone :
     SiteConfig
-    -> ProgramConfig userMsg userModel route pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg
     -> Model route
     -> ( Model route, Effect )
 updateAndSendPortIfDone site config model =
@@ -475,7 +475,7 @@ updateAndSendPortIfDone site config model =
 {-| -}
 update :
     SiteConfig
-    -> ProgramConfig userMsg userModel route pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg
     -> Msg
     -> Model route
     -> ( Model route, Effect )
@@ -521,7 +521,7 @@ update site config msg model =
 
 nextStepToEffect :
     SiteConfig
-    -> ProgramConfig userMsg userModel route pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg
     -> Model route
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model route, Effect )
@@ -653,7 +653,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
 sendSinglePageProgress :
     SiteConfig
     -> RequestsAndPending
-    -> ProgramConfig userMsg userModel route pageData sharedData
+    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg
     -> Model route
     -> { path : Path, frontmatter : route }
     -> Effect
@@ -860,7 +860,7 @@ sendSinglePageProgress site contentJson config model info =
 
 
 render404Page :
-    ProgramConfig userMsg userModel route pageData sharedData
+    ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg
     -> Model route
     -> Path
     -> NotFoundReason
