@@ -121,7 +121,6 @@ view maybeUrl sharedModel static =
             ]
         , Html.form
             [ Attr.method "post"
-            , Attr.action "/login"
             ]
             [ Html.label
                 [ Attr.attribute "htmlFor" "name"
