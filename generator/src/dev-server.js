@@ -770,13 +770,10 @@ function toJsonHelper(req, body, requestTime, multiPartFormData) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   return {
     method: req.method,
-    hostname: req.hostname,
-    query: paramsToObject(url.searchParams),
     headers: req.headers || {},
     rawUrl: url.toString(),
     body: body,
     requestTime: Math.round(requestTime.getTime()),
-    cookies: {},
     multiPartFormData: multiPartFormData,
   };
 }
