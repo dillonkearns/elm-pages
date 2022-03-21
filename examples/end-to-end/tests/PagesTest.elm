@@ -32,13 +32,14 @@ type alias DataSourceSimulator =
 
 start :
     String
+    -> ((Main.Msg -> Platform.Msg Main.Msg Main.PageData Shared.Data) -> Effect Main.Msg -> ProgramTest.SimulatedEffect (Platform.Msg Main.Msg Main.PageData Shared.Data))
     -> DataSourceSimulator
     ->
         ProgramTest.ProgramTest
             (Platform.Model Main.Model Main.PageData Shared.Data)
             (Platform.Msg Main.Msg Main.PageData Shared.Data)
             (Platform.Effect Main.Msg Main.PageData Shared.Data (Effect Main.Msg))
-start initialPath dataSourceSimulator =
+start initialPath simulateEffect dataSourceSimulator =
     let
         initialSimpleState =
             { domFields = Dict.empty
@@ -283,7 +284,7 @@ start initialPath dataSourceSimulator =
                         |> Maybe.withDefault initialPath
                    )
             )
-        |> ProgramTest.withSimulatedEffects (perform appRequestSimulator)
+        |> ProgramTest.withSimulatedEffects (perform simulateEffect appRequestSimulator)
         |> ProgramTest.start flagsWithData
 
 
@@ -303,11 +304,12 @@ tupleThird ( a, b, c ) =
 
 
 perform :
-    DataSourceSimulator
+    ((Main.Msg -> Platform.Msg Main.Msg Main.PageData Shared.Data) -> Effect Main.Msg -> ProgramTest.SimulatedEffect (Platform.Msg Main.Msg Main.PageData Shared.Data))
+    -> DataSourceSimulator
     -> ProgramTest.SimpleState
-    -> Platform.Effect userMsg Main.PageData Shared.Data (Effect Main.Msg)
-    -> ( Dict String String, ProgramTest.SimulatedEffect (Platform.Msg userMsg Main.PageData Shared.Data) )
-perform dataSourceSimulator testState effect =
+    -> Platform.Effect Main.Msg Main.PageData Shared.Data (Effect Main.Msg)
+    -> ( Dict String String, ProgramTest.SimulatedEffect (Platform.Msg Main.Msg Main.PageData Shared.Data) )
+perform simulateEffect dataSourceSimulator testState effect =
     case effect of
         Platform.NoEffect ->
             ( testState.cookieJar, SimulatedEffect.Cmd.none )
@@ -325,7 +327,7 @@ perform dataSourceSimulator testState effect =
             let
                 all =
                     effects
-                        |> List.map (perform dataSourceSimulator testState)
+                        |> List.map (perform simulateEffect dataSourceSimulator testState)
 
                 allCookies : Dict String String
                 allCookies =
@@ -336,7 +338,7 @@ perform dataSourceSimulator testState effect =
 
                 batchedEffects =
                     effects
-                        |> List.map (perform dataSourceSimulator testState)
+                        |> List.map (perform simulateEffect dataSourceSimulator testState)
                         |> List.map Tuple.second
                         |> SimulatedEffect.Cmd.batch
             in
@@ -395,9 +397,9 @@ perform dataSourceSimulator testState effect =
                     )
 
         Platform.UserCmd cmd ->
-            -- TODO need to turn this into an `Effect` defined by user - this is a temporary intermediary step to get there
-            -- TODO need to expose a way for the user to simulate their own Effect type (similar to elm-program-test's withSimulatedEffects)
-            ( testState.cookieJar, SimulatedEffect.Cmd.none )
+            ( testState.cookieJar
+            , simulateEffect Platform.UserMsg cmd
+            )
 
 
 initialUrlOrRedirect :

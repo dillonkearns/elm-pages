@@ -5,6 +5,8 @@ import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import Head
 import Head.Seo as Seo
+import Html.Styled as Html
+import Http
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -14,11 +16,13 @@ import View exposing (View)
 
 
 type alias Model =
-    {}
+    { count : Maybe Int
+    }
 
 
 type Msg
     = NoOp
+    | GotStargazers (Result Http.Error Int)
 
 
 type alias RouteParams =
@@ -45,7 +49,7 @@ init :
     -> StaticPayload Data RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( {}, Effect.None )
+    ( { count = Nothing }, Effect.GetStargazers GotStargazers )
 
 
 update :
@@ -59,6 +63,12 @@ update :
 update pageUrl maybeNavigationKey sharedModel static msg model =
     case msg of
         NoOp ->
+            ( model, Effect.none )
+
+        GotStargazers (Ok count) ->
+            ( { count = Just count }, Effect.none )
+
+        GotStargazers (Err error) ->
             ( model, Effect.none )
 
 
@@ -91,7 +101,7 @@ head static =
             }
         , description = "TODO"
         , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
+        , title = "Counter"
         }
         |> Seo.website
 
@@ -99,8 +109,17 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> templateModel
-    -> StaticPayload templateData routeParams
-    -> View templateMsg
+    -> Model
+    -> StaticPayload Data RouteParams
+    -> View Msg
 view maybeUrl sharedModel model static =
-    View.placeholder "Counter"
+    { title = "Counter"
+    , body =
+        [ case model.count of
+            Nothing ->
+                Html.text "Loading..."
+
+            Just count ->
+                Html.text ("The count is: " ++ String.fromInt count)
+        ]
+    }

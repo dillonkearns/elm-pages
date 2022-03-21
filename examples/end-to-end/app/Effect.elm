@@ -1,10 +1,14 @@
 module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 
+import Http
+import Json.Decode as Decode
+
 
 type Effect msg
     = None
     | Cmd (Cmd msg)
     | Batch (List (Effect msg))
+    | GetStargazers (Result Http.Error Int -> msg)
 
 
 none : Effect msg
@@ -34,6 +38,9 @@ map fn effect =
         Batch list ->
             Batch (List.map (map fn) list)
 
+        GetStargazers toMsg ->
+            GetStargazers (toMsg >> fn)
+
 
 perform : (pageMsg -> msg) -> Effect pageMsg -> Cmd msg
 perform fromPageMsg effect =
@@ -46,3 +53,10 @@ perform fromPageMsg effect =
 
         Batch list ->
             Cmd.batch (List.map (perform fromPageMsg) list)
+
+        GetStargazers toMsg ->
+            Http.get
+                { url =
+                    "https://api.github.com/repos/dillonkearns/elm-pages"
+                , expect = Http.expectJson (toMsg >> fromPageMsg) (Decode.field "stargazers_count" Decode.int)
+                }
