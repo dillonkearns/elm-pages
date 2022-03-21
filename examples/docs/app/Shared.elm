@@ -3,6 +3,7 @@ module Shared exposing (Data, Model, Msg, template)
 import Browser.Navigation
 import DataSource
 import DocsSection
+import Effect exposing (Effect)
 import Html exposing (Html)
 import Html.Styled
 import Pages.Flags
@@ -60,27 +61,27 @@ init :
             , metadata : route
             , pageUrl : Maybe PageUrl
             }
-    -> ( Model, Cmd Msg )
+    -> ( Model, Effect Msg )
 init navigationKey flags maybePagePath =
     ( { showMobileMenu = False
       , counter = 0
       , navigationKey = navigationKey
       }
-    , Cmd.none
+    , Effect.none
     )
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
     case msg of
         OnPageChange _ ->
-            ( { model | showMobileMenu = False }, Cmd.none )
+            ( { model | showMobileMenu = False }, Effect.none )
 
         ToggleMobileMenu ->
-            ( { model | showMobileMenu = not model.showMobileMenu }, Cmd.none )
+            ( { model | showMobileMenu = not model.showMobileMenu }, Effect.none )
 
         IncrementFromChild ->
-            ( { model | counter = model.counter + 1 }, Cmd.none )
+            ( { model | counter = model.counter + 1 }, Effect.none )
 
 
 subscriptions : Path -> Model -> Sub Msg
