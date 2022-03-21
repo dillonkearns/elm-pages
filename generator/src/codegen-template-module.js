@@ -159,8 +159,8 @@ update pageUrl maybeNavigationKey sharedModel static msg model =
             }
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path model =
+subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
+subscriptions maybePageUrl routeParams path sharedModel model =
     Sub.none
 `
     : ""
