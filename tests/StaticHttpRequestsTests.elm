@@ -444,7 +444,6 @@ startLowLevel apiRoutes staticHttpCache pages =
                 Nothing ->
                     Debug.todo "Error - no pages"
 
-        config : ProgramConfig Msg () Route () ()
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
@@ -512,6 +511,8 @@ startLowLevel apiRoutes staticHttpCache pages =
             , fetchPageData = \_ _ -> Task.fail Http.NetworkError
             , gotBatchSub = Sub.none
             , globalHeadTags = Nothing
+            , perform = \_ _ -> Cmd.none
+            , cmdToEffect = \_ -> Debug.todo "Effect"
             }
 
         encodedFlags : Encode.Value
@@ -589,7 +590,6 @@ startWithRoutes :
     -> ProgramTest (Model Route) Msg Effect
 startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
     let
-        config : ProgramConfig Msg () Route () ()
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
@@ -667,6 +667,8 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , fetchPageData = \_ _ -> Task.fail Http.NetworkError
             , gotBatchSub = Sub.none
             , globalHeadTags = Nothing
+            , perform = \_ _ -> Cmd.none
+            , cmdToEffect = \_ -> Debug.todo "Effect"
             }
 
         encodedFlags : Encode.Value
