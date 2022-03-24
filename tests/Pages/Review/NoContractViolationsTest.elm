@@ -14,12 +14,13 @@ all =
 
 a = 1
 """
-                    |> Review.Test.run rule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Unexposed Declaration in Route Module"
-                            , details =
-                                [ """Route Modules need to expose the following values:
+                    |> testRouteModule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Route.Blog.Slug_"
+                          , [ Review.Test.error
+                                { message = "Unexposed Declaration in Route Module"
+                                , details =
+                                    [ """Route Modules need to expose the following values:
 
 - route
 - Data
@@ -27,9 +28,11 @@ a = 1
 - Msg
 
 But it is not exposing: Model"""
-                                ]
-                            , under = "exposing (Data, Msg, route)"
-                            }
+                                    ]
+                                , under = "exposing (Data, Msg, route)"
+                                }
+                            ]
+                          )
                         ]
         , test "reports RouteParams mismatch" <|
             \() ->
@@ -39,18 +42,21 @@ type alias RouteParams = { blogPostName : String }
 
 route = {}
 """
-                    |> Review.Test.run rule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "RouteParams don't match Route Module name"
-                            , details =
-                                [ """Expected
+                    |> testRouteModule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Route.Blog.Slug_"
+                          , [ Review.Test.error
+                                { message = "RouteParams don't match Route Module name"
+                                , details =
+                                    [ """Expected
 
 type alias RouteParams = { slug : String }
 """
-                                ]
-                            , under = "{ blogPostName : String }"
-                            }
+                                    ]
+                                , under = "{ blogPostName : String }"
+                                }
+                            ]
+                          )
                         ]
         , test "reports incorrect types for optional RouteParams" <|
             \() ->
@@ -60,18 +66,21 @@ type alias RouteParams = { section : String, subSection : String }
 
 route = {}
 """
-                    |> Review.Test.run rule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "RouteParams don't match Route Module name"
-                            , details =
-                                [ """Expected
+                    |> testRouteModule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Route.Docs.Section_.SubSection__"
+                          , [ Review.Test.error
+                                { message = "RouteParams don't match Route Module name"
+                                , details =
+                                    [ """Expected
 
 type alias RouteParams = { section : String, subSection : Maybe String }
 """
-                                ]
-                            , under = "{ section : String, subSection : String }"
-                            }
+                                    ]
+                                , under = "{ section : String, subSection : String }"
+                                }
+                            ]
+                          )
                         ]
         , test "reports incorrect types for required splat RouteParams" <|
             \() ->
@@ -81,18 +90,21 @@ type alias RouteParams = { section : String, splat : List String }
 
 route = {}
 """
-                    |> Review.Test.run rule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "RouteParams don't match Route Module name"
-                            , details =
-                                [ """Expected
+                    |> testRouteModule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Route.Docs.Section_.SPLAT_"
+                          , [ Review.Test.error
+                                { message = "RouteParams don't match Route Module name"
+                                , details =
+                                    [ """Expected
 
 type alias RouteParams = { section : String, splat : ( String, List String ) }
 """
-                                ]
-                            , under = "{ section : String, splat : List String }"
-                            }
+                                    ]
+                                , under = "{ section : String, splat : List String }"
+                                }
+                            ]
+                          )
                         ]
         , test "no error for valid SPLAT_ RouteParams" <|
             \() ->
@@ -102,7 +114,7 @@ type alias RouteParams = { section : String, splat : ( String, List String ) }
 
 route = {}
                         """
-                    |> Review.Test.run rule
+                    |> testRouteModule
                     |> Review.Test.expectNoErrors
         , test "no error for valid SPLAT__ RouteParams" <|
             \() ->
@@ -112,7 +124,7 @@ type alias RouteParams = { section : String, splat : List String }
 
 route = {}
                         """
-                    |> Review.Test.run rule
+                    |> testRouteModule
                     |> Review.Test.expectNoErrors
         , test "no error for matching RouteParams name" <|
             \() ->
@@ -122,7 +134,7 @@ type alias RouteParams = { slug : String }
 
 route = {}
 """
-                    |> Review.Test.run rule
+                    |> testRouteModule
                     |> Review.Test.expectNoErrors
         , test "error when RouteParams type is not a record" <|
             \() ->
@@ -132,15 +144,18 @@ type alias RouteParams = ()
 
 route = {}
 """
-                    |> Review.Test.run rule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "RouteParams must be a record type alias."
-                            , details =
-                                [ """Expected a record type alias."""
-                                ]
-                            , under = "()"
-                            }
+                    |> testRouteModule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Route.Blog.Slug_"
+                          , [ Review.Test.error
+                                { message = "RouteParams must be a record type alias."
+                                , details =
+                                    [ """Expected a record type alias."""
+                                    ]
+                                , under = "()"
+                                }
+                            ]
+                          )
                         ]
         , test "no error for modules that don't start with Route prefix" <|
             \() ->
@@ -150,6 +165,91 @@ type alias RouteParams = ()
 
 route = {}
 """
-                    |> Review.Test.run rule
+                    |> testRouteModule
+                    |> Review.Test.expectNoErrors
+        , test "error for missing application module definitions" <|
+            \() ->
+                [ """module Route.Index exposing (Data, route, Model, Msg)
+
+type alias RouteParams = {}
+
+route = {}
+"""
+                , """module Site exposing (config)
+
+config : SiteConfig
+config =
+    { canonicalUrl = canonicalUrl
+    , head = head
+    }
+"""
+                ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expectGlobalErrors
+                        [ { message = "Missing core modules"
+                          , details =
+                                [ "Api"
+                                , "Effect"
+                                , "Shared"
+                                , "View"
+                                ]
+                          }
+                        ]
+        , test "no error when all core modules are defined" <|
+            \() ->
+                [ """module Route.Index exposing (Data, route, Model, Msg)
+                            
+type alias RouteParams = {}
+
+route = {}
+"""
+                , """module Site exposing (config)
+                            
+config : SiteConfig
+config =
+    { canonicalUrl = canonicalUrl
+    , head = head
+    }
+"""
+                , """module Api exposing (routes)
+routes = Debug.todo ""
+"""
+                , """module Effect exposing (routes)
+routes = Debug.todo ""
+"""
+                , """module Shared exposing (routes)
+routes = Debug.todo ""
+"""
+                , """module View exposing (routes)
+routes = Debug.todo ""
+"""
+                ]
+                    |> Review.Test.runOnModules rule
                     |> Review.Test.expectNoErrors
         ]
+
+
+testRouteModule : String -> Review.Test.ReviewResult
+testRouteModule routeModule =
+    Review.Test.runOnModules rule
+        (routeModule :: validCoreModules)
+
+
+validCoreModules : List String
+validCoreModules =
+    [ """module Api exposing (routes)
+routes = Debug.todo ""
+"""
+    , """module Effect exposing (routes)
+routes = Debug.todo ""
+"""
+    , """module Shared exposing (routes)
+routes = Debug.todo ""
+"""
+    , """module Site exposing (routes)
+routes = Debug.todo ""
+"""
+    , """module View exposing (routes)
+routes = Debug.todo ""
+"""
+    ]

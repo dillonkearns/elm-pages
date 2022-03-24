@@ -52,13 +52,54 @@ elm-review --template dillonkearns/elm-review-elm-pages/example --rules Pages.Re
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "Pages.Review.NoContractViolations"
-        { moduleName = []
-        , isRouteModule = False
+    Rule.newProjectRuleSchema "Pages.Review.NoContractViolations"
+        { visitedCoreModules = Set.empty
         }
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.fromModuleRuleSchema
+        |> Rule.withModuleVisitor
+            (Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+                >> Rule.withDeclarationVisitor declarationVisitor
+            )
+        |> Rule.withModuleContext
+            { foldProjectContexts = \a b -> { visitedCoreModules = Set.union a.visitedCoreModules b.visitedCoreModules }
+            , fromModuleToProject = \moduleKey moduleName moduleContext -> { visitedCoreModules = Set.singleton (Node.value moduleName) }
+            , fromProjectToModule =
+                \moduleKey moduleName projectContext ->
+                    { moduleName = Node.value moduleName
+                    , isRouteModule = (Node.value moduleName |> List.take 1) == [ "Route" ] && ((Node.value moduleName |> List.length) > 1)
+                    }
+            }
+        |> Rule.withFinalProjectEvaluation
+            (\context ->
+                let
+                    missingCoreModules =
+                        context.visitedCoreModules
+                            |> Set.diff coreModules
+                in
+                if missingCoreModules |> Set.isEmpty then
+                    []
+
+                else
+                    [ Rule.globalError
+                        { message = "Missing core modules"
+                        , details =
+                            missingCoreModules
+                                |> Set.toList
+                                |> List.map (String.join ".")
+                        }
+                    ]
+            )
+        |> Rule.fromProjectRuleSchema
+
+
+coreModules : Set (List String)
+coreModules =
+    Set.fromList
+        [ [ "Api" ]
+        , [ "Effect" ]
+        , [ "Shared" ]
+        , [ "Site" ]
+        , [ "View" ]
+        ]
 
 
 type alias Context =
@@ -67,32 +108,22 @@ type alias Context =
     }
 
 
+type alias ProjectContext =
+    { visitedCoreModules : Set (List String)
+    }
+
+
 moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
-moduleDefinitionVisitor node _ =
-    let
-        isRouteModule : Bool
-        isRouteModule =
-            (Node.value node |> Module.moduleName |> List.take 1)
-                == [ "Route" ]
-                && ((Node.value node |> Module.moduleName |> List.length) > 1)
-    in
+moduleDefinitionVisitor node context =
     case Node.value node |> Module.exposingList of
         Exposing.All _ ->
-            ( []
-            , { moduleName = Node.value node |> Module.moduleName
-              , isRouteModule = isRouteModule
-              }
-            )
+            ( [], context )
 
         Exposing.Explicit exposedValues ->
-            if isRouteModule then
+            if context.isRouteModule then
                 case Set.diff (Set.fromList [ "Data", "Msg", "Model", "route" ]) (exposedNames exposedValues) |> Set.toList of
                     [] ->
-                        ( []
-                        , { moduleName = Node.value node |> Module.moduleName
-                          , isRouteModule = isRouteModule
-                          }
-                        )
+                        ( [], context )
 
                     nonEmpty ->
                         ( [ Rule.error
@@ -111,17 +142,11 @@ But it is not exposing: """
                                 }
                                 (Node.range (exposingListNode (Node.value node)))
                           ]
-                        , { moduleName = Node.value node |> Module.moduleName
-                          , isRouteModule = isRouteModule
-                          }
+                        , context
                         )
 
             else
-                ( []
-                , { moduleName = Node.value node |> Module.moduleName
-                  , isRouteModule = isRouteModule
-                  }
-                )
+                ( [], context )
 
 
 routeParamsMatchesNameOrError : Node TypeAnnotation -> List String -> List (Error {})
