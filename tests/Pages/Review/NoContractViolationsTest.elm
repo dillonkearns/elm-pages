@@ -197,35 +197,94 @@ config =
                         ]
         , test "no error when all core modules are defined" <|
             \() ->
+                ("""module Route.Index exposing (Data, route, Model, Msg)
+                            
+type alias RouteParams = {}
+
+route = {}
+"""
+                    :: validCoreModules
+                )
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expectNoErrors
+        , test "show missing exposed values from core modules" <|
+            \() ->
                 [ """module Route.Index exposing (Data, route, Model, Msg)
                             
 type alias RouteParams = {}
 
 route = {}
 """
-                , """module Site exposing (config)
-                            
-config : SiteConfig
-config =
-    { canonicalUrl = canonicalUrl
-    , head = head
-    }
+                , """module Api exposing (invalid)
+invalid = Debug.todo ""
 """
-                , """module Api exposing (routes)
-routes = Debug.todo ""
+                , """module Effect exposing (invalid)
+invalid = Debug.todo ""
+
 """
-                , """module Effect exposing (routes)
-routes = Debug.todo ""
+                , """module Shared exposing (invalid)
+invalid = Debug.todo ""
 """
-                , """module Shared exposing (routes)
-routes = Debug.todo ""
+                , """module Site exposing (invalid)
+invalid = Debug.todo ""
 """
-                , """module View exposing (routes)
-routes = Debug.todo ""
+                , """module View exposing (invalid)
+invalid = Debug.todo ""
 """
                 ]
                     |> Review.Test.runOnModules rule
-                    |> Review.Test.expectNoErrors
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Api"
+                          , [ Review.Test.error
+                                { message = "A core elm-pages module needs to expose something"
+                                , details =
+                                    [ "The Api module must expose `routes`"
+                                    ]
+                                , under = "exposing (invalid)"
+                                }
+                            ]
+                          )
+                        , ( "Effect"
+                          , [ Review.Test.error
+                                { message = "A core elm-pages module needs to expose something"
+                                , details =
+                                    [ "The Effect module must expose `Effect`, `batch`, `fromCmd`, `map`, `none`, `perform`"
+                                    ]
+                                , under = "exposing (invalid)"
+                                }
+                            ]
+                          )
+                        , ( "Shared"
+                          , [ Review.Test.error
+                                { message = "A core elm-pages module needs to expose something"
+                                , details =
+                                    [ "The Shared module must expose `Data`, `Model`, `Msg`, `template`"
+                                    ]
+                                , under = "exposing (invalid)"
+                                }
+                            ]
+                          )
+                        , ( "Site"
+                          , [ Review.Test.error
+                                { message = "A core elm-pages module needs to expose something"
+                                , details =
+                                    [ "The Site module must expose `config`"
+                                    ]
+                                , under = "exposing (invalid)"
+                                }
+                            ]
+                          )
+                        , ( "View"
+                          , [ Review.Test.error
+                                { message = "A core elm-pages module needs to expose something"
+                                , details =
+                                    [ "The View module must expose `View`, `map`, `placeholder`"
+                                    ]
+                                , under = "exposing (invalid)"
+                                }
+                            ]
+                          )
+                        ]
         ]
 
 
@@ -240,16 +299,16 @@ validCoreModules =
     [ """module Api exposing (routes)
 routes = Debug.todo ""
 """
-    , """module Effect exposing (routes)
+    , """module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 routes = Debug.todo ""
 """
-    , """module Shared exposing (routes)
+    , """module Shared exposing (Data, Model, Msg, template)
 routes = Debug.todo ""
 """
-    , """module Site exposing (routes)
+    , """module Site exposing (config)
 routes = Debug.todo ""
 """
-    , """module View exposing (routes)
+    , """module View exposing (View, map, placeholder)
 routes = Debug.todo ""
 """
     ]

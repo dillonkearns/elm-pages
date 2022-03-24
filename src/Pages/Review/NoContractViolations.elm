@@ -65,7 +65,17 @@ rule =
             , fromProjectToModule =
                 \moduleKey moduleName projectContext ->
                     { moduleName = Node.value moduleName
-                    , isRouteModule = (Node.value moduleName |> List.take 1) == [ "Route" ] && ((Node.value moduleName |> List.length) > 1)
+                    , isRouteModule =
+                        if (Node.value moduleName |> List.take 1) == [ "Route" ] && ((Node.value moduleName |> List.length) > 1) then
+                            Just RouteModule
+
+                        else
+                            coreModulesAndExports
+                                |> Dict.get (Node.value moduleName)
+                                |> Maybe.map
+                                    (\requiredExposes ->
+                                        CoreModule { requiredExposes = requiredExposes }
+                                    )
                     }
             }
         |> Rule.withFinalProjectEvaluation
@@ -91,6 +101,11 @@ rule =
         |> Rule.fromProjectRuleSchema
 
 
+type SpecialModule
+    = RouteModule
+    | CoreModule { requiredExposes : List String }
+
+
 coreModules : Set (List String)
 coreModules =
     Set.fromList
@@ -102,9 +117,20 @@ coreModules =
         ]
 
 
+coreModulesAndExports : Dict (List String) (List String)
+coreModulesAndExports =
+    Dict.fromList
+        [ ( [ "Api" ], [ "routes" ] )
+        , ( [ "Effect" ], [ "Effect", "batch", "fromCmd", "map", "none", "perform" ] )
+        , ( [ "Shared" ], [ "Data", "Model", "Msg", "template" ] )
+        , ( [ "Site" ], [ "config" ] )
+        , ( [ "View" ], [ "View", "map", "placeholder" ] )
+        ]
+
+
 type alias Context =
     { moduleName : List String
-    , isRouteModule : Bool
+    , isRouteModule : Maybe SpecialModule
     }
 
 
@@ -120,16 +146,17 @@ moduleDefinitionVisitor node context =
             ( [], context )
 
         Exposing.Explicit exposedValues ->
-            if context.isRouteModule then
-                case Set.diff (Set.fromList [ "Data", "Msg", "Model", "route" ]) (exposedNames exposedValues) |> Set.toList of
-                    [] ->
-                        ( [], context )
+            case context.isRouteModule of
+                Just RouteModule ->
+                    case Set.diff (Set.fromList [ "Data", "Msg", "Model", "route" ]) (exposedNames exposedValues) |> Set.toList of
+                        [] ->
+                            ( [], context )
 
-                    nonEmpty ->
-                        ( [ Rule.error
-                                { message = "Unexposed Declaration in Route Module"
-                                , details =
-                                    [ """Route Modules need to expose the following values:
+                        nonEmpty ->
+                            ( [ Rule.error
+                                    { message = "Unexposed Declaration in Route Module"
+                                    , details =
+                                        [ """Route Modules need to expose the following values:
 
 - route
 - Data
@@ -137,16 +164,39 @@ moduleDefinitionVisitor node context =
 - Msg
 
 But it is not exposing: """
-                                        ++ (nonEmpty |> String.join ", ")
-                                    ]
-                                }
-                                (Node.range (exposingListNode (Node.value node)))
-                          ]
-                        , context
-                        )
+                                            ++ (nonEmpty |> String.join ", ")
+                                        ]
+                                    }
+                                    (Node.range (exposingListNode (Node.value node)))
+                              ]
+                            , context
+                            )
 
-            else
-                ( [], context )
+                Just (CoreModule { requiredExposes }) ->
+                    case Set.diff (Set.fromList requiredExposes) (exposedNames exposedValues) |> Set.toList of
+                        [] ->
+                            ( [], context )
+
+                        nonEmpty ->
+                            ( [ Rule.error
+                                    { message = "A core elm-pages module needs to expose something"
+                                    , details =
+                                        [ "The "
+                                            ++ (context.moduleName |> String.join ".")
+                                            ++ " module must expose "
+                                            ++ (nonEmpty
+                                                    |> List.map (\value -> "`" ++ value ++ "`")
+                                                    |> String.join ", "
+                                               )
+                                        ]
+                                    }
+                                    (Node.range (exposingListNode (Node.value node)))
+                              ]
+                            , context
+                            )
+
+                _ ->
+                    ( [], context )
 
 
 routeParamsMatchesNameOrError : Node TypeAnnotation -> List String -> List (Error {})
@@ -374,7 +424,7 @@ declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.AliasDeclaration { name, typeAnnotation } ) ->
             -- TODO check that generics is empty
-            if context.isRouteModule && Node.value name == "RouteParams" then
+            if context.isRouteModule == Just RouteModule && Node.value name == "RouteParams" then
                 ( routeParamsMatchesNameOrError typeAnnotation context.moduleName
                 , context
                 )
