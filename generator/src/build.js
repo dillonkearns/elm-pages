@@ -147,7 +147,15 @@ async function run(options) {
       await compileCli;
       await compileClientDone;
     } catch (cliError) {
-      console.error(cliError);
+      const reviewOutput = JSON.parse(await runElmReview());
+      const isParsingError = reviewOutput.errors.some((reviewError) => {
+        return reviewError.errors.some((item) => item.rule === "ParsingError");
+      });
+      if (isParsingError) {
+        console.error(cliError);
+      } else {
+        console.error(restoreColorSafe(reviewOutput));
+      }
       process.exit(1);
     }
     await portDataSourceCompiled;
@@ -164,21 +172,7 @@ async function run(options) {
   } catch (error) {
     console.error(error);
     buildError = true;
-    try {
-      const reviewOutput = JSON.parse(await runElmReview());
-      const isParsingError = reviewOutput.errors.some((reviewError) => {
-        return reviewError.errors.some((item) => item.rule === "ParsingError");
-      });
-      if (isParsingError) {
-        console.error(error);
-      } else {
-        console.error(restoreColorSafe(reviewOutput));
-      }
-      process.exitCode = 1;
-    } catch (noElmReviewErrors) {
-      console.error(error);
-    } finally {
-    }
+    process.exitCode = 1;
   }
 }
 
