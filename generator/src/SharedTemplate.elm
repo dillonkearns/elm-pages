@@ -1,6 +1,5 @@
 module SharedTemplate exposing (SharedTemplate)
 
-import Browser.Navigation
 import DataSource
 import Effect exposing (Effect)
 import Html exposing (Html)
@@ -13,8 +12,7 @@ import View exposing (View)
 
 type alias SharedTemplate msg sharedModel sharedData mappedMsg =
     { init :
-        Maybe Browser.Navigation.Key
-        -> Flags
+        Flags
         ->
             Maybe
                 { path :

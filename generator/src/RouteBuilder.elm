@@ -82,7 +82,6 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 
 -}
 
-import Browser.Navigation
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Effect exposing (Effect)
@@ -111,7 +110,7 @@ type alias StatefulRoute routeParams data model msg =
         StaticPayload data routeParams
         -> List Head.Tag
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Effect msg )
-    , update : PageUrl -> StaticPayload data routeParams -> Maybe Browser.Navigation.Key -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
+    , update : PageUrl -> StaticPayload data routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> model -> Shared.Model -> Sub msg
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
     , kind : String
@@ -168,7 +167,7 @@ buildNoState { view } builderState =
             , data = record.data
             , staticRoutes = record.staticRoutes
             , init = \_ _ _ -> ( {}, Effect.none )
-            , update = \_ _ _ _ _ _ -> ( {}, Effect.none, Nothing )
+            , update = \_ _ _ _ _ -> ( {}, Effect.none, Nothing )
             , subscriptions = \_ _ _ _ _ -> Sub.none
             , handleRoute = record.handleRoute
             , kind = record.kind
@@ -184,7 +183,7 @@ buildWithLocalState :
         -> StaticPayload data routeParams
         -> View msg
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Effect msg )
-    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Effect msg )
+    , update : PageUrl -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Effect msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data
@@ -200,12 +199,11 @@ buildWithLocalState config builderState =
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
-                \pageUrl staticPayload navigationKey msg model sharedModel ->
+                \pageUrl staticPayload msg model sharedModel ->
                     let
                         ( updatedModel, cmd ) =
                             config.update
                                 pageUrl
-                                navigationKey
                                 sharedModel
                                 staticPayload
                                 msg
@@ -229,7 +227,7 @@ buildWithSharedState :
         -> StaticPayload data routeParams
         -> View msg
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Effect msg )
-    , update : PageUrl -> Maybe Browser.Navigation.Key -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
+    , update : PageUrl -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data
@@ -243,9 +241,8 @@ buildWithSharedState config builderState =
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
-                \pageUrl staticPayload navigationKey msg model sharedModel ->
+                \pageUrl staticPayload msg model sharedModel ->
                     config.update pageUrl
-                        navigationKey
                         sharedModel
                         staticPayload
                         msg

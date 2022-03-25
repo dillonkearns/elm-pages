@@ -230,7 +230,7 @@ init :
 init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePath =
     let
         ( sharedModel, globalCmd ) =
-            currentGlobalModel |> Maybe.map (\\m -> ( m, Effect.none )) |> Maybe.withDefault (Shared.template.init navigationKey userFlags maybePagePath)
+            currentGlobalModel |> Maybe.map (\\m -> ( m, Effect.none )) |> Maybe.withDefault (Shared.template.init userFlags maybePagePath)
 
         ( templateModel, templateCmd ) =
             case ( ( Maybe.map2 Tuple.pair (maybePagePath |> Maybe.andThen .metadata) (maybePagePath |> Maybe.map .path) ), pageData ) of
@@ -358,7 +358,6 @@ update sharedData pageData navigationKey msg model =
                                 )}
                                 , path = justPage.path
                                 }
-                                navigationKey
                                 msg_
                                 pageModel
                                 model.global

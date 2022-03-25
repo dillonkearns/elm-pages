@@ -3,7 +3,7 @@ module Route.Login exposing (Data, Model, Msg, route)
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
-import Html.Styled as Html
+import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import MySession
 import Pages.PageUrl exposing (PageUrl)
@@ -39,6 +39,7 @@ route =
 
 type alias Data =
     { username : Maybe String
+    , flashMessage : Maybe String
     }
 
 
@@ -63,17 +64,23 @@ data routeParams =
             (\() session ->
                 case session of
                     Ok (Just okSession) ->
+                        let
+                            flashMessage : Maybe String
+                            flashMessage =
+                                okSession
+                                    |> Session.get "message"
+                        in
                         ( okSession
-                        , okSession
-                            |> Session.get "name"
-                            |> Data
+                        , Data
+                            (okSession |> Session.get "name")
+                            flashMessage
                             |> Response.render
                         )
                             |> DataSource.succeed
 
                     _ ->
                         ( Session.empty
-                        , { username = Nothing }
+                        , { username = Nothing, flashMessage = Nothing }
                             |> Response.render
                         )
                             |> DataSource.succeed
@@ -109,7 +116,10 @@ view :
 view maybeUrl sharedModel static =
     { title = "Login"
     , body =
-        [ Html.p []
+        [ static.data.flashMessage
+            |> Maybe.map (\message -> flashView (Ok message))
+            |> Maybe.withDefault (Html.p [] [ Html.text "No flash" ])
+        , Html.p []
             [ Html.text
                 (case static.data.username of
                     Just username ->
@@ -140,3 +150,18 @@ view maybeUrl sharedModel static =
             ]
         ]
     }
+
+
+flashView : Result String String -> Html msg
+flashView message =
+    Html.p
+        [ Attr.style "background-color" "rgb(163 251 163)"
+        ]
+        [ Html.text <|
+            case message of
+                Ok okMessage ->
+                    okMessage
+
+                Err error ->
+                    "Something went wrong: " ++ error
+        ]

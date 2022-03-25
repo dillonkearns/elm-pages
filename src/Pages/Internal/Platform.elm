@@ -575,8 +575,12 @@ perform config maybeKey effect =
                 |> Task.attempt toMsg
 
         UserCmd cmd ->
-            -- TODO pass in `UserMsg`
-            cmd |> config.perform UserMsg
+            case maybeKey of
+                Just key ->
+                    cmd |> config.perform UserMsg key
+
+                Nothing ->
+                    Cmd.none
 
 
 {-| -}

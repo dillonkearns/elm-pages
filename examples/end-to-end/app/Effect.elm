@@ -1,5 +1,6 @@
 module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 
+import Browser.Navigation
 import Http
 import Json.Decode as Decode
 
@@ -42,8 +43,8 @@ map fn effect =
             GetStargazers (toMsg >> fn)
 
 
-perform : (pageMsg -> msg) -> Effect pageMsg -> Cmd msg
-perform fromPageMsg effect =
+perform : (pageMsg -> msg) -> Browser.Navigation.Key -> Effect pageMsg -> Cmd msg
+perform fromPageMsg key effect =
     case effect of
         None ->
             Cmd.none
@@ -52,7 +53,7 @@ perform fromPageMsg effect =
             Cmd.map fromPageMsg cmd
 
         Batch list ->
-            Cmd.batch (List.map (perform fromPageMsg) list)
+            Cmd.batch (List.map (perform fromPageMsg key) list)
 
         GetStargazers toMsg ->
             Http.get

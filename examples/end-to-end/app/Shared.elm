@@ -1,6 +1,5 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
-import Browser.Navigation
 import DataSource
 import Effect exposing (Effect)
 import Html exposing (Html)
@@ -46,8 +45,7 @@ type alias Model =
 
 
 init :
-    Maybe Browser.Navigation.Key
-    -> Pages.Flags.Flags
+    Pages.Flags.Flags
     ->
         Maybe
             { path :
@@ -59,7 +57,7 @@ init :
             , pageUrl : Maybe PageUrl
             }
     -> ( Model, Effect Msg )
-init _ flags maybePagePath =
+init flags maybePagePath =
     ( { showMobileMenu = False }
     , Effect.none
     )

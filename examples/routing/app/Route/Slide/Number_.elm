@@ -4,6 +4,7 @@ import Browser.Events
 import Browser.Navigation
 import DataSource
 import DataSource.File
+import Effect
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -42,17 +43,17 @@ route =
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
-            , init = \_ _ staticPayload -> ( (), Cmd.none )
+            , init = \_ _ staticPayload -> ( (), Effect.none )
             , update =
-                \_ maybeNavigationKey sharedModel static msg model ->
+                \_ sharedModel static msg model ->
                     case msg of
                         OnKeyPress (Just direction) ->
                             ( model
-                            , Cmd.none
+                            , Effect.none
                             )
 
                         _ ->
-                            ( model, Cmd.none )
+                            ( model, Effect.none )
             , subscriptions =
                 \maybePageUrl routeParams path sharedModel model ->
                     Browser.Events.onKeyDown keyDecoder |> Sub.map OnKeyPress

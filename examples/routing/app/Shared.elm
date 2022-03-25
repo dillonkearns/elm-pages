@@ -4,6 +4,7 @@ import Browser.Navigation
 import Css.Global
 import DataSource
 import DataSource.Http
+import Effect exposing (Effect)
 import Html exposing (Html)
 import Html.Styled
 import Json.Decode as D
@@ -49,8 +50,7 @@ type alias Model =
 
 
 init :
-    Maybe Browser.Navigation.Key
-    -> Pages.Flags.Flags
+    Pages.Flags.Flags
     ->
         Maybe
             { path :
@@ -61,18 +61,18 @@ init :
             , metadata : route
             , pageUrl : Maybe PageUrl
             }
-    -> ( Model, Cmd Msg )
-init _ flags maybePagePath =
+    -> ( Model, Effect Msg )
+init flags maybePagePath =
     ( { showMobileMenu = False }
-    , Cmd.none
+    , Effect.none
     )
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
     case msg of
         OnPageChange _ ->
-            ( { model | showMobileMenu = False }, Cmd.none )
+            ( { model | showMobileMenu = False }, Effect.none )
 
 
 subscriptions : Path -> Model -> Sub Msg
