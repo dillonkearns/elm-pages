@@ -511,7 +511,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , fetchPageData = \_ _ -> Task.fail Http.NetworkError
             , gotBatchSub = Sub.none
             , globalHeadTags = Nothing
-            , perform = \_ _ -> Cmd.none
+            , perform = \_ _ _ -> Cmd.none
             , cmdToEffect = \_ -> Debug.todo "Effect"
             }
 
@@ -667,7 +667,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , fetchPageData = \_ _ -> Task.fail Http.NetworkError
             , gotBatchSub = Sub.none
             , globalHeadTags = Nothing
-            , perform = \_ _ -> Cmd.none
+            , perform = \_ _ _ -> Cmd.none
             , cmdToEffect = \_ -> Debug.todo "Effect"
             }
 
