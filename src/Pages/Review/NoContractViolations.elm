@@ -61,9 +61,9 @@ rule =
             )
         |> Rule.withModuleContext
             { foldProjectContexts = \a b -> { visitedCoreModules = Set.union a.visitedCoreModules b.visitedCoreModules }
-            , fromModuleToProject = \moduleKey moduleName moduleContext -> { visitedCoreModules = Set.singleton (Node.value moduleName) }
+            , fromModuleToProject = \_ moduleName _ -> { visitedCoreModules = Set.singleton (Node.value moduleName) }
             , fromProjectToModule =
-                \moduleKey moduleName projectContext ->
+                \_ moduleName _ ->
                     { moduleName = Node.value moduleName
                     , isRouteModule =
                         if (Node.value moduleName |> List.take 1) == [ "Route" ] && ((Node.value moduleName |> List.length) > 1) then
@@ -131,11 +131,6 @@ coreModulesAndExports =
 type alias Context =
     { moduleName : List String
     , isRouteModule : Maybe SpecialModule
-    }
-
-
-type alias ProjectContext =
-    { visitedCoreModules : Set (List String)
     }
 
 
