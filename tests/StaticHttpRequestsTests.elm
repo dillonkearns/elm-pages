@@ -16,6 +16,7 @@ import Pages.Internal.NotFoundReason
 import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
+import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as Request
 import Path
@@ -443,10 +444,11 @@ startLowLevel apiRoutes staticHttpCache pages =
                 Nothing ->
                     Debug.todo "Error - no pages"
 
+        config : ProgramConfig Msg () Route () () Effect mappedMsg
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
-            , init = \_ _ _ _ _ -> ( (), Cmd.none )
+            , init = \_ _ _ _ _ -> ( (), Effect.NoEffect )
             , getStaticRoutes =
                 --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
                 --    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
@@ -457,7 +459,7 @@ startLowLevel apiRoutes staticHttpCache pages =
                     |> DataSource.succeed
             , handleRoute = \_ -> DataSource.succeed Nothing
             , urlToRoute = .path >> Route
-            , update = \_ _ _ _ _ -> ( (), Cmd.none )
+            , update = \_ _ _ _ _ -> ( (), Effect.NoEffect )
             , basePath = []
             , data =
                 \(Route pageRoute) ->
@@ -511,7 +513,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , gotBatchSub = Sub.none
             , globalHeadTags = Nothing
             , perform = \_ _ _ -> Cmd.none
-            , cmdToEffect = \_ -> Debug.todo "Effect"
+            , cmdToEffect = \_ -> Effect.NoEffect
             }
 
         encodedFlags : Encode.Value
@@ -589,10 +591,11 @@ startWithRoutes :
     -> ProgramTest (Model Route) Msg Effect
 startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
     let
+        config : ProgramConfig Msg () Route () () Effect mappedMsg
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
-            , init = \_ _ _ _ _ -> ( (), Cmd.none )
+            , init = \_ _ _ _ _ -> ( (), Effect.NoEffect )
             , getStaticRoutes =
                 staticRoutes
                     |> List.map (String.join "/")
@@ -612,7 +615,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                            )
                         |> DataSource.succeed
             , urlToRoute = .path >> Route
-            , update = \_ _ _ _ _ -> ( (), Cmd.none )
+            , update = \_ _ _ _ _ -> ( (), Effect.NoEffect )
             , basePath = []
             , data =
                 \(Route pageRoute) ->
@@ -667,7 +670,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , gotBatchSub = Sub.none
             , globalHeadTags = Nothing
             , perform = \_ _ _ -> Cmd.none
-            , cmdToEffect = \_ -> Debug.todo "Effect"
+            , cmdToEffect = \_ -> Effect.NoEffect
             }
 
         encodedFlags : Encode.Value
