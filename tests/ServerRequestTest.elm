@@ -55,8 +55,7 @@ all =
                         , body = Nothing
                         }
                         """Did not match formPost because
-- Form post must have method POST, but the method was GET
-- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO"""
+- Form post must have method POST, but the method was GET"""
         , test "tries multiple form post formats" <|
             \() ->
                 Request.oneOf
@@ -107,7 +106,6 @@ all =
 
 (1) Did not match formPost because
 - Form post must have method POST, but the method was GET
-- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO
 
 (2) Expected content-type to be application/json but it was application/x-www-form-urlencoded
 

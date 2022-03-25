@@ -884,7 +884,8 @@ expectFormPost :
     )
     -> Parser decodedForm
 expectFormPost toForm =
-    map3 (\a b c -> ( a, b, c ))
+    map4 (\parsedContentType a b c -> ( ( a, parsedContentType ), b, c ))
+        (rawContentType |> map (Maybe.map parseContentType))
         (matchesContentType "application/x-www-form-urlencoded")
         (matchesMethod ( Post, [] ))
         (rawBody
@@ -897,13 +898,13 @@ expectFormPost toForm =
          --    )
         )
         |> andThen
-            (\( validContentType, validMethod, justBody ) ->
+            (\( ( validContentType, parsedContentType ), validMethod, justBody ) ->
                 if not ((validContentType |> Maybe.withDefault False) && validMethod) then
                     Json.Decode.succeed
                         ( Err
                             (NotFormPost
                                 { method = Just Get
-                                , contentType = Just "TODO"
+                                , contentType = parsedContentType
                                 }
                             )
                         , []
@@ -993,6 +994,13 @@ expectContentType expectedContentType =
             )
 
 
+rawContentType : Parser (Maybe String)
+rawContentType =
+    optionalField ("content-type" |> String.toLower) Json.Decode.string
+        |> noErrors
+        |> Internal.Request.Parser
+
+
 matchesContentType : String -> Parser (Maybe Bool)
 matchesContentType expectedContentType =
     optionalField ("content-type" |> String.toLower) Json.Decode.string
@@ -1015,12 +1023,12 @@ matchesContentType expectedContentType =
 
 
 parseContentType : String -> String
-parseContentType rawContentType =
-    rawContentType
+parseContentType contentTypeString =
+    contentTypeString
         |> String.split ";"
         |> List.head
         |> Maybe.map String.trim
-        |> Maybe.withDefault rawContentType
+        |> Maybe.withDefault contentTypeString
 
 
 {-| -}
