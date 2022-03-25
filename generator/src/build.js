@@ -97,6 +97,7 @@ async function run(options) {
       ssr: false,
 
       build: {
+        manifest: true,
         outDir: "dist",
         rollupOptions: {
           input: "elm-stuff/elm-pages/index.html",
@@ -106,10 +107,19 @@ async function run(options) {
     });
     const compileClientDone = compileElm(options);
     await buildComplete;
-    await fsPromises.copyFile(
+    const assetManifestPath = path.join(process.cwd(), "dist/manifest.json");
+    const manifest = require(assetManifestPath);
+    const indexTemplate = await fsPromises.readFile(
       "dist/elm-stuff/elm-pages/index.html",
-      "dist/template.html"
+      "utf-8"
     );
+    const preloads = `<link rel="modulepreload" href="${manifest["elm-stuff/elm-pages/index.html"]["file"]}" />`;
+
+    await fsPromises.writeFile(
+      "dist/template.html",
+      indexTemplate.replace("<!-- PLACEHOLDER_PRELOADS -->", preloads)
+    );
+    await fsPromises.unlink(assetManifestPath);
 
     const portDataSourceCompiled = esbuild
       .build({
