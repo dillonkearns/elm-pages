@@ -547,6 +547,7 @@ update config appMsg model =
 
 perform : ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData) -> Maybe Browser.Navigation.Key -> Effect userMsg pageData sharedData userEffect -> Cmd (Msg userMsg pageData sharedData)
 perform config maybeKey effect =
+    -- elm-review: known-unoptimized-recursion
     case effect of
         NoEffect ->
             Cmd.none

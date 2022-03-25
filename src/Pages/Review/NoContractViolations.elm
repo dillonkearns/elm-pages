@@ -81,6 +81,7 @@ rule =
         |> Rule.withFinalProjectEvaluation
             (\context ->
                 let
+                    missingCoreModules : Set (List String)
                     missingCoreModules =
                         context.visitedCoreModules
                             |> Set.diff coreModules
