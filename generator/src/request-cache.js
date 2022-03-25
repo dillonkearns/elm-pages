@@ -1,4 +1,5 @@
 const path = require("path");
+const url = require("url");
 const fetch = require("node-fetch");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
@@ -53,24 +54,32 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
       resolve(responsePath);
     } else {
       let portDataSource = {};
-      let portDataSourceFound = false;
+      let portDataSourceImportError = null;
       try {
-        portDataSource = await import(path.join(process.cwd(), portsFile));
-        portDataSourceFound = true;
-      } catch (e) {}
+        if (portsFile === undefined)  {
+          throw "missing"
+        }
+        const portDataSourcePath = path.join(process.cwd(), portsFile);
+        // On Windows, we need cannot use paths directly and instead must use a file:// URL.
+        portDataSource = await import(url.pathToFileURL(portDataSourcePath).href);
+      } catch (e) {
+        portDataSourceImportError = e;
+      }
 
       if (request.url === "elm-pages-internal://port") {
         try {
           const { input, portName } = rawRequest.body.args[0];
 
           if (!portDataSource[portName]) {
-            if (portDataSourceFound) {
-              throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
+            if (portDataSourceImportError === null) {
+              throw `DataSource.Port.send "${portName}" was called, but I couldn't find a function with that name in the port definitions file. Is it exported correctly?`;
+            } else if (portDataSourceImportError === "missing") {
+              throw `DataSource.Port.send "${portName}" was called, but I couldn't find the port definitions file. Be sure to create a 'port-data-source.ts' or 'port-data-source.js' file and maybe restart the dev server.`;
             } else {
-              throw `DataSource.Port.send "${portName}" was called, but I couldn't find a port definitions file. Create a 'port-data-source.ts' or 'port-data-source.js' file and export a ${portName} function.`;
+              throw `DataSource.Port.send "${portName}" was called, but I couldn't import the port definitions file, because of this exception: \`${portDataSourceImportError}\` Are there syntax errors or expections thrown during import?`;
             }
           } else if (typeof portDataSource[portName] !== "function") {
-            throw `DataSource.Port.send "${portName}" is not a function. Be sure to export a function with that name from port-data-source.js`;
+            throw `DataSource.Port.send "${portName}" was called, but it is not a function. Be sure to export a function with that name from port-data-source.js`;
           }
           await fs.promises.writeFile(
             responsePath,
@@ -143,7 +152,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
                 .yellow()
                 .underline(request.url)} Bad HTTP response ${response.status} ${
                 response.statusText
-              }
+                }
 `,
             });
           }
