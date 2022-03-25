@@ -54,7 +54,9 @@ all =
                             ]
                         , body = Nothing
                         }
-                        """Expected a form POST but this HTTP request has no body."""
+                        """Did not match formPost because
+- Form post must have method POST, but the method was GET
+- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO"""
         , test "tries multiple form post formats" <|
             \() ->
                 Request.oneOf
@@ -103,7 +105,9 @@ all =
                         }
                         """Server.Request.oneOf failed in the following 4 ways:
 
-(1) Expected a form POST but this HTTP request has no body.
+(1) Did not match formPost because
+- Form post must have method POST, but the method was GET
+- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was TODO
 
 (2) Expected content-type to be application/json but it was application/x-www-form-urlencoded
 
