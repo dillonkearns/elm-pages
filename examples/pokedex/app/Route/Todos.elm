@@ -9,6 +9,7 @@ import Api.Query
 import Api.Scalar exposing (Id(..))
 import Browser.Navigation
 import DataSource exposing (DataSource)
+import Effect exposing (Effect)
 import Form exposing (Form)
 import Form.Value
 import Graphql.Operation exposing (RootMutation, RootQuery)
@@ -62,29 +63,28 @@ init :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data RouteParams
-    -> ( Model, Cmd Msg )
+    -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( {}, Cmd.none )
+    ( {}, Effect.none )
 
 
 update :
     PageUrl
-    -> Maybe Browser.Navigation.Key
     -> Shared.Model
     -> StaticPayload Data RouteParams
     -> Msg
     -> Model
-    -> ( Model, Cmd Msg )
-update pageUrl maybeNavigationKey sharedModel static msg model =
+    -> ( Model, Effect Msg )
+update pageUrl sharedModel static msg model =
     case msg of
         FormMsg formMsg ->
-            ( model, Cmd.none )
+            ( model, Effect.none )
 
         NoOp ->
-            ( model, Cmd.none )
+            ( model, Effect.none )
 
         MakeHttpRequest cmd ->
-            ( model, cmd )
+            ( model, Effect.fromCmd cmd )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg

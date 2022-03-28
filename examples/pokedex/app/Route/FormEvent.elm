@@ -2,6 +2,7 @@ module Route.FormEvent exposing (Data, Model, Msg, route)
 
 import Browser.Navigation
 import DataSource exposing (DataSource)
+import Effect exposing (Effect)
 import FormDecoder
 import Head
 import Head.Seo as Seo
@@ -46,23 +47,22 @@ init :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data RouteParams
-    -> ( Model, Cmd Msg )
+    -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( { formAsString = Nothing }, Cmd.none )
+    ( { formAsString = Nothing }, Effect.none )
 
 
 update :
     PageUrl
-    -> Maybe Browser.Navigation.Key
     -> Shared.Model
     -> StaticPayload Data RouteParams
     -> Msg
     -> Model
-    -> ( Model, Cmd Msg )
-update pageUrl maybeNavigationKey sharedModel static msg model =
+    -> ( Model, Effect Msg )
+update pageUrl sharedModel static msg model =
     case msg of
         OnSubmit formAsString ->
-            ( { model | formAsString = Just (toString formAsString) }, Cmd.none )
+            ( { model | formAsString = Just (toString formAsString) }, Effect.none )
 
 
 toString : List ( String, String ) -> String

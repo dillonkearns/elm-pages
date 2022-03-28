@@ -5,13 +5,11 @@ import Css exposing (Color)
 import Css.Global
 import DataSource exposing (DataSource)
 import Date exposing (Date)
-import Dict exposing (Dict)
+import Effect exposing (Effect)
 import Form exposing (Form)
 import Form.Value
 import Head
 import Head.Seo as Seo
-import Html as CoreHtml
-import Html.Events
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Http
@@ -556,32 +554,37 @@ route =
             }
 
 
-update _ _ _ _ msg model =
+update _ _ _ msg model =
     case msg of
         FormMsg formMsg ->
             model.form
                 |> Form.update FormMsg GotFormResponse (form defaultUser) formMsg
+                |> Tuple.mapSecond Effect.fromCmd
                 |> Tuple.mapFirst (\newFormModel -> { model | form = newFormModel })
 
         GotFormResponse result ->
             case result of
                 Ok updatedFormModel ->
                     if Form.hasErrors2 model.form then
-                        ( model, Cmd.none )
+                        ( model, Effect.none )
                             |> withFlash (Err "Failed to submit or had errors")
 
                     else
-                        ( model, Browser.Dom.setViewport 0 0 |> Task.perform (\() -> MovedToTop) )
+                        ( model
+                        , Browser.Dom.setViewport 0 0
+                            |> Task.perform (\() -> MovedToTop)
+                            |> Effect.fromCmd
+                        )
                             |> withFlash (Ok "Success! Submitted form from Elm")
 
                 Err _ ->
-                    ( model, Cmd.none )
+                    ( model, Effect.none )
 
         MovedToTop ->
-            ( model, Cmd.none )
+            ( model, Effect.none )
 
 
-withFlash : Result String String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+withFlash : Result String String -> ( Model, effect ) -> ( Model, effect )
 withFlash flashMessage ( model, cmd ) =
     ( { model | flashMessage = Just flashMessage }, cmd )
 
@@ -595,7 +598,7 @@ init _ _ static =
                         Ok ("Successfully received user " ++ user_.first ++ " " ++ user_.last)
                     )
       }
-    , Cmd.none
+    , Effect.none
     )
 
 
