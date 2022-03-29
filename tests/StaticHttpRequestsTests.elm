@@ -444,7 +444,7 @@ startLowLevel apiRoutes staticHttpCache pages =
                 Nothing ->
                     Debug.todo "Error - no pages"
 
-        config : ProgramConfig Msg () Route () () Effect mappedMsg
+        config : ProgramConfig Msg () Route () () Effect mappedMsg ()
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
@@ -514,6 +514,14 @@ startLowLevel apiRoutes staticHttpCache pages =
             , globalHeadTags = Nothing
             , perform = \_ _ _ -> Cmd.none
             , cmdToEffect = \_ -> Effect.NoEffect
+            , errorStatusCode = \_ -> 404
+            , notFoundPage = ()
+            , internalError = \_ -> ()
+            , errorView =
+                \() ->
+                    { title = "Error"
+                    , body = Html.text ""
+                    }
             }
 
         encodedFlags : Encode.Value
@@ -591,7 +599,7 @@ startWithRoutes :
     -> ProgramTest (Model Route) Msg Effect
 startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
     let
-        config : ProgramConfig Msg () Route () () Effect mappedMsg
+        config : ProgramConfig Msg () Route () () Effect mappedMsg ()
         config =
             { toJsPort = toJsPort
             , fromJsPort = fromJsPort
@@ -671,6 +679,14 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , globalHeadTags = Nothing
             , perform = \_ _ _ -> Cmd.none
             , cmdToEffect = \_ -> Effect.NoEffect
+            , errorStatusCode = \_ -> 404
+            , notFoundPage = ()
+            , internalError = \_ -> ()
+            , errorView =
+                \() ->
+                    { title = "Error"
+                    , body = Html.text ""
+                    }
             }
 
         encodedFlags : Encode.Value

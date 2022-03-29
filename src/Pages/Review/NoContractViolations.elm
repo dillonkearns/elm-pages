@@ -112,6 +112,7 @@ coreModules =
     Set.fromList
         [ [ "Api" ]
         , [ "Effect" ]
+        , [ "ErrorPage" ]
         , [ "Shared" ]
         , [ "Site" ]
         , [ "View" ]
@@ -123,6 +124,7 @@ coreModulesAndExports =
     Dict.fromList
         [ ( [ "Api" ], [ "routes" ] )
         , ( [ "Effect" ], [ "Effect", "batch", "fromCmd", "map", "none", "perform" ] )
+        , ( [ "ErrorPage" ], [ "ErrorPage", "notFound", "internalError", "view", "statusCode" ] )
         , ( [ "Shared" ], [ "Data", "Model", "Msg", "template" ] )
         , ( [ "Site" ], [ "config" ] )
         , ( [ "View" ], [ "View", "map", "placeholder" ] )

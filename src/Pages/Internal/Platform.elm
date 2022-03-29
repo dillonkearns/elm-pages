@@ -439,8 +439,7 @@ update config appMsg model =
                     (updateResult
                         |> Result.mapError
                             (\_ ->
-                                --"Http error"
-                                Debug.todo "HTTP ERROR"
+                                config.internalError "Http error"
                             )
                     )
                     model.pageData

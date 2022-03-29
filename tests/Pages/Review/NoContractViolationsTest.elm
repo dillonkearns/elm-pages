@@ -190,6 +190,7 @@ config =
                           , details =
                                 [ "Api"
                                 , "Effect"
+                                , "ErrorPage"
                                 , "Shared"
                                 , "View"
                                 ]
@@ -220,7 +221,9 @@ invalid = Debug.todo ""
 """
                 , """module Effect exposing (invalid)
 invalid = Debug.todo ""
-
+"""
+                , """module ErrorPage exposing (invalid)
+invalid = Debug.todo ""
 """
                 , """module Shared exposing (invalid)
 invalid = Debug.todo ""
@@ -249,6 +252,16 @@ invalid = Debug.todo ""
                                 { message = "A core elm-pages module needs to expose something"
                                 , details =
                                     [ "The Effect module must expose `Effect`, `batch`, `fromCmd`, `map`, `none`, `perform`"
+                                    ]
+                                , under = "exposing (invalid)"
+                                }
+                            ]
+                          )
+                        , ( "ErrorPage"
+                          , [ Review.Test.error
+                                { message = "A core elm-pages module needs to expose something"
+                                , details =
+                                    [ "The ErrorPage module must expose `ErrorPage`, `internalError`, `notFound`, `statusCode`, `view`"
                                     ]
                                 , under = "exposing (invalid)"
                                 }
@@ -300,6 +313,9 @@ validCoreModules =
 routes = Debug.todo ""
 """
     , """module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
+routes = Debug.todo ""
+"""
+    , """module ErrorPage exposing (ErrorPage(..), internalError, notFound, statusCode, view)
 routes = Debug.todo ""
 """
     , """module Shared exposing (Data, Model, Msg, template)
