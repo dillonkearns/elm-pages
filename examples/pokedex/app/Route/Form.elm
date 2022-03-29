@@ -3,6 +3,7 @@ module Route.Form exposing (Data, Model, Msg, route)
 import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict exposing (Dict)
+import ErrorPage exposing (ErrorPage)
 import Form exposing (Form)
 import Form.Value
 import Head
@@ -13,7 +14,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
-import Server.Response
+import Server.Response exposing (Response)
 import Shared
 import Time
 import View exposing (View)
@@ -201,7 +202,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource (Server.Response.Response Data))
+data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Form.submitHandlers

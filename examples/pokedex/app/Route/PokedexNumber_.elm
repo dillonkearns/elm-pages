@@ -2,6 +2,7 @@ module Route.PokedexNumber_ exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.Http
+import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
@@ -42,7 +43,7 @@ pages =
     DataSource.succeed []
 
 
-data : RouteParams -> DataSource (Response Data)
+data : RouteParams -> DataSource (Response Data ErrorPage)
 data { pokedexNumber } =
     let
         asNumber : Int
@@ -50,7 +51,9 @@ data { pokedexNumber } =
             String.toInt pokedexNumber |> Maybe.withDefault -1
     in
     if asNumber < 1 then
-        notFoundResponse "Pokedex numbers must be 1 or greater."
+        --notFoundResponse "Pokedex numbers must be 1 or greater."
+        Response.errorPage ErrorPage.NotFound
+            |> DataSource.succeed
 
     else if asNumber > 898 && asNumber < 10001 || asNumber > 10194 then
         notFoundResponse "The pokedex is empty in that range."
@@ -69,10 +72,11 @@ data { pokedexNumber } =
             |> DataSource.map Response.render
 
 
-notFoundResponse : String -> DataSource (Response Data)
+notFoundResponse : String -> DataSource (Response Data ErrorPage)
 notFoundResponse message =
     Response.plainText ("Not found.\n\n" ++ message)
         |> Response.withStatusCode 404
+        |> Response.mapError never
         |> DataSource.succeed
 
 

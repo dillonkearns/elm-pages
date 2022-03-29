@@ -168,8 +168,8 @@ expectSession :
     , sameSite : String
     }
     -> Parser request
-    -> (request -> Result () Session -> DataSource ( Session, Response data ))
-    -> Parser (DataSource (Response data))
+    -> (request -> Result () Session -> DataSource ( Session, Response data errorPage ))
+    -> Parser (DataSource (Response data errorPage))
 expectSession config userRequest toRequest =
     Request.map2
         (\sessionCookie userRequestData ->
@@ -189,8 +189,8 @@ withSession :
     , sameSite : String
     }
     -> Parser request
-    -> (request -> Result () (Maybe Session) -> DataSource ( Session, Response data ))
-    -> Parser (DataSource (Response data))
+    -> (request -> Result () (Maybe Session) -> DataSource ( Session, Response data errorPage ))
+    -> Parser (DataSource (Response data errorPage))
 withSession config userRequest toRequest =
     Request.map2
         (\maybeSessionCookie userRequestData ->
@@ -215,7 +215,7 @@ withSession config userRequest toRequest =
         userRequest
 
 
-encodeSessionUpdate : { a | name : String, secrets : DataSource (List String) } -> (c -> d -> DataSource ( Session, Response data )) -> c -> d -> DataSource (Response data)
+encodeSessionUpdate : { a | name : String, secrets : DataSource (List String) } -> (c -> d -> DataSource ( Session, Response data errorPage )) -> c -> d -> DataSource (Response data errorPage)
 encodeSessionUpdate config toRequest userRequestData sessionResult =
     sessionResult
         |> toRequest userRequestData

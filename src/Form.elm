@@ -1920,7 +1920,7 @@ toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
 
 apiHandler :
     Form String value view
-    -> Parser (DataSource (Response response))
+    -> Parser (DataSource (Response response error))
 apiHandler (Form _ decoder serverValidations _) =
     let
         encodeErrors : List ( String, RawFieldState String ) -> Encode.Value
@@ -2053,7 +2053,7 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
 submitHandlers :
     Form String decoded view
     -> (Model -> Result () decoded -> DataSource data)
-    -> Parser (DataSource (Response data))
+    -> Parser (DataSource (Response data error))
 submitHandlers myForm toDataSource =
     Request.oneOf
         [ apiHandler myForm
@@ -2081,8 +2081,8 @@ submitHandlers myForm toDataSource =
 {-| -}
 submitHandlers2 :
     Form String decoded view
-    -> (Model -> Result () decoded -> DataSource (Response data))
-    -> Parser (DataSource (Response data))
+    -> (Model -> Result () decoded -> DataSource (Response data error))
+    -> Parser (DataSource (Response data error))
 submitHandlers2 myForm toDataSource =
     Request.oneOf
         [ apiHandler myForm

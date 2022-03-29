@@ -2,6 +2,7 @@ module Route.Secret exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.File
+import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
 import Html
@@ -48,7 +49,7 @@ type alias LoggedInInfo =
     }
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data))
+data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.expectCookie "username"

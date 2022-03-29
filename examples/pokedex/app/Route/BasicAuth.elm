@@ -2,6 +2,7 @@ module Route.BasicAuth exposing (Data, Model, Msg, route)
 
 import Base64
 import DataSource exposing (DataSource)
+import ErrorPage exposing (ErrorPage)
 import Head
 import Html exposing (div, text)
 import Pages.PageUrl exposing (PageUrl)
@@ -38,7 +39,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     withBasicAuth
         (\{ username, password } ->
@@ -94,8 +95,8 @@ parseAuth base64Auth =
 
 withBasicAuth :
     ({ username : String, password : String } -> DataSource Bool)
-    -> DataSource (Response data)
-    -> Parser (DataSource (Response data))
+    -> DataSource (Response data ErrorPage)
+    -> Parser (DataSource (Response data ErrorPage))
 withBasicAuth checkAuth successResponse =
     Request.optionalHeader "authorization"
         |> Request.map
@@ -118,8 +119,9 @@ withBasicAuth checkAuth successResponse =
             )
 
 
-requireBasicAuth : Response data
+requireBasicAuth : Response data ErrorPage
 requireBasicAuth =
     Response.emptyBody
         |> Response.withStatusCode 401
         |> Response.withHeader "WWW-Authenticate" "Basic"
+        |> Response.mapError never

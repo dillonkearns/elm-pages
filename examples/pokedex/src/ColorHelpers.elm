@@ -5,6 +5,7 @@ module ColorHelpers exposing (..)
 
 import DataSource exposing (DataSource)
 import DataSource.Http
+import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
 import Html
@@ -18,7 +19,7 @@ import Shared
 import View exposing (View)
 
 
-data : routeParams -> DataSource (Server.Response.Response Data)
+data : routeParams -> DataSource (Server.Response.Response Data ErrorPage)
 data _ =
     DataSource.Http.get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
         Decode.string

@@ -10,8 +10,8 @@ import Server.Session as Session
 
 withSession :
     Parser request
-    -> (request -> Result () (Maybe Session.Session) -> DataSource ( Session.Session, Response data ))
-    -> Parser (DataSource (Response data))
+    -> (request -> Result () (Maybe Session.Session) -> DataSource ( Session.Session, Response data errorPage ))
+    -> Parser (DataSource (Response data errorPage))
 withSession =
     Session.withSession
         { name = "mysession"
@@ -22,8 +22,8 @@ withSession =
 
 withSessionOrRedirect :
     Parser request
-    -> (request -> Maybe Session.Session -> DataSource ( Session.Session, Response data ))
-    -> Parser (DataSource (Response data))
+    -> (request -> Maybe Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    -> Parser (DataSource (Response data errorPage))
 withSessionOrRedirect handler toRequest =
     Session.withSession
         { name = "mysession"
@@ -44,9 +44,9 @@ withSessionOrRedirect handler toRequest =
 
 
 expectSessionOrRedirect :
-    (request -> Session.Session -> DataSource ( Session.Session, Response data ))
+    (request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data))
+    -> Parser (DataSource (Response data errorPage))
 expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"

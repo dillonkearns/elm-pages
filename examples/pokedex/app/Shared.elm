@@ -1,6 +1,5 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
-import Browser.Navigation
 import DataSource
 import Effect exposing (Effect)
 import Html exposing (Html)

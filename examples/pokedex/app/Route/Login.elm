@@ -2,6 +2,7 @@ module Route.Login exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
+import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
 import Html
@@ -11,7 +12,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
-import Server.Response
+import Server.Response exposing (Response)
 import Server.Session as Session
 import Shared
 import View exposing (View)
@@ -44,7 +45,7 @@ type alias Request =
     }
 
 
-data : RouteParams -> Request.Parser (DataSource (Server.Response.Response Data))
+data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession

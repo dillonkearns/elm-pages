@@ -1,6 +1,7 @@
 module Route.FileUpload exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
+import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
 import Html
@@ -39,7 +40,7 @@ type alias Data =
     Maybe Request.File
 
 
-data : RouteParams -> Request.Parser (DataSource (Server.Response.Response Data))
+data : RouteParams -> Request.Parser (DataSource (Server.Response.Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.expectMultiPartFormPost

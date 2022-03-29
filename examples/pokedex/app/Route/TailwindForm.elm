@@ -6,6 +6,7 @@ import Css.Global
 import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Effect exposing (Effect)
+import ErrorPage exposing (ErrorPage)
 import Form exposing (Form)
 import Form.Value
 import Head
@@ -608,7 +609,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Form.submitHandlers

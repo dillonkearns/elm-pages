@@ -5,13 +5,14 @@ import Json.Encode
 import List.Extra
 
 
-type PageServerResponse data
+type PageServerResponse data error
     = RenderPage
         { statusCode : Int
         , headers : List ( String, String )
         }
         data
     | ServerResponse Response
+    | ErrorPage error { headers : List ( String, String ) }
 
 
 toRedirect : Response -> Maybe { statusCode : Int, location : String }

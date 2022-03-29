@@ -85,6 +85,7 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Effect exposing (Effect)
+import ErrorPage exposing (ErrorPage)
 import Head
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
@@ -98,7 +99,7 @@ import View exposing (View)
 
 {-| -}
 type alias StatefulRoute routeParams data model msg =
-    { data : routeParams -> DataSource (Server.Response.Response data)
+    { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
     , staticRoutes : DataSource (List routeParams)
     , view :
         Maybe PageUrl
@@ -134,7 +135,7 @@ type alias StaticPayload data routeParams =
 {-| -}
 type Builder routeParams data
     = WithData
-        { data : routeParams -> DataSource (Server.Response.Response data)
+        { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
         , staticRoutes : DataSource (List routeParams)
         , head :
             StaticPayload data routeParams
@@ -311,7 +312,7 @@ preRender { data, head, pages } =
 
 {-| -}
 preRenderWithFallback :
-    { data : routeParams -> DataSource (Server.Response.Response data)
+    { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
     , pages : DataSource (List routeParams)
     , head : StaticPayload data routeParams -> List Head.Tag
     }
@@ -331,7 +332,7 @@ preRenderWithFallback { data, head, pages } =
 
 {-| -}
 serverRender :
-    { data : routeParams -> Server.Request.Parser (DataSource (Server.Response.Response data))
+    { data : routeParams -> Server.Request.Parser (DataSource (Server.Response.Response data ErrorPage))
     , head : StaticPayload data routeParams -> List Head.Tag
     }
     -> Builder routeParams data

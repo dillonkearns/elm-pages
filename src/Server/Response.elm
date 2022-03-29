@@ -6,6 +6,7 @@ module Server.Response exposing
     , map
     , withHeader, withHeaders, withStatusCode, withSetCookieHeader
     , toJson
+    , errorPage, mapError
     )
 
 {-|
@@ -66,12 +67,12 @@ import Server.SetCookie as SetCookie exposing (SetCookie)
 
 
 {-| -}
-type alias Response data =
-    PageServerResponse data
+type alias Response data error =
+    PageServerResponse data error
 
 
 {-| -}
-map : (data -> mappedData) -> Response data -> Response mappedData
+map : (data -> mappedData) -> Response data error -> Response mappedData error
 map mapFn pageServerResponse =
     case pageServerResponse of
         RenderPage response data ->
@@ -80,9 +81,26 @@ map mapFn pageServerResponse =
         ServerResponse serverResponse ->
             ServerResponse serverResponse
 
+        ErrorPage error response ->
+            ErrorPage error response
+
 
 {-| -}
-plainText : String -> Response data
+mapError : (errorPage -> mappedErrorPage) -> Response data errorPage -> Response data mappedErrorPage
+mapError mapFn pageServerResponse =
+    case pageServerResponse of
+        RenderPage response data ->
+            RenderPage response data
+
+        ServerResponse serverResponse ->
+            ServerResponse serverResponse
+
+        ErrorPage error response ->
+            ErrorPage (mapFn error) response
+
+
+{-| -}
+plainText : String -> Response data error
 plainText string =
     { statusCode = 200
     , headers = [ ( "Content-Type", "text/plain" ) ]
@@ -93,7 +111,7 @@ plainText string =
 
 
 {-| -}
-render : data -> Response data
+render : data -> Response data error
 render data =
     RenderPage
         { statusCode = 200, headers = [] }
@@ -101,7 +119,13 @@ render data =
 
 
 {-| -}
-emptyBody : Response data
+errorPage : errorPage -> Response data errorPage
+errorPage errorPage_ =
+    ErrorPage errorPage_ { headers = [] }
+
+
+{-| -}
+emptyBody : Response data error
 emptyBody =
     { statusCode = 200
     , headers = []
@@ -112,7 +136,7 @@ emptyBody =
 
 
 {-| -}
-body : String -> Response data
+body : String -> Response data error
 body body_ =
     { statusCode = 200
     , headers = []
@@ -123,7 +147,7 @@ body body_ =
 
 
 {-| -}
-base64Body : String -> Response data
+base64Body : String -> Response data error
 base64Body base64String =
     { statusCode = 200
     , headers = []
@@ -134,7 +158,7 @@ base64Body base64String =
 
 
 {-| -}
-bytesBody : Bytes -> Response data
+bytesBody : Bytes -> Response data error
 bytesBody bytes =
     { statusCode = 200
     , headers = []
@@ -145,7 +169,7 @@ bytesBody bytes =
 
 
 {-| -}
-json : Json.Encode.Value -> Response data
+json : Json.Encode.Value -> Response data error
 json jsonValue =
     { statusCode = 200
     , headers =
@@ -172,7 +196,7 @@ If you need to specifically rely on a 301 permanent redirect (see <https://stack
 use `customResponse` instead.
 
 -}
-permanentRedirect : String -> Response data
+permanentRedirect : String -> Response data error
 permanentRedirect url =
     { body = Nothing
     , statusCode = 308
@@ -185,7 +209,7 @@ permanentRedirect url =
 
 
 {-| -}
-temporaryRedirect : String -> Response data
+temporaryRedirect : String -> Response data error
 temporaryRedirect url =
     { body = Nothing
     , statusCode = 302
@@ -198,7 +222,7 @@ temporaryRedirect url =
 
 
 {-| -}
-withStatusCode : Int -> Response data -> Response data
+withStatusCode : Int -> Response data Never -> Response data Never
 withStatusCode statusCode serverResponse =
     case serverResponse of
         RenderPage response data ->
@@ -207,9 +231,12 @@ withStatusCode statusCode serverResponse =
         ServerResponse response ->
             ServerResponse { response | statusCode = statusCode }
 
+        ErrorPage error _ ->
+            never error
+
 
 {-| -}
-withHeader : String -> String -> Response data -> Response data
+withHeader : String -> String -> Response data error -> Response data error
 withHeader name value serverResponse =
     case serverResponse of
         RenderPage response data ->
@@ -218,9 +245,12 @@ withHeader name value serverResponse =
         ServerResponse response ->
             ServerResponse { response | headers = ( name, value ) :: response.headers }
 
+        ErrorPage error response ->
+            ErrorPage error { response | headers = ( name, value ) :: response.headers }
+
 
 {-| -}
-withHeaders : List ( String, String ) -> Response data -> Response data
+withHeaders : List ( String, String ) -> Response data error -> Response data error
 withHeaders headers serverResponse =
     case serverResponse of
         RenderPage response data ->
@@ -229,9 +259,12 @@ withHeaders headers serverResponse =
         ServerResponse response ->
             ServerResponse { response | headers = headers ++ response.headers }
 
+        ErrorPage error response ->
+            ErrorPage error { response | headers = headers ++ response.headers }
+
 
 {-| -}
-withSetCookieHeader : SetCookie -> Response data -> Response data
+withSetCookieHeader : SetCookie -> Response data error -> Response data error
 withSetCookieHeader cookie response =
     response
         |> withHeader "Set-Cookie"
@@ -241,7 +274,7 @@ withSetCookieHeader cookie response =
 
 
 {-| -}
-toJson : Response Never -> Json.Encode.Value
+toJson : Response Never Never -> Json.Encode.Value
 toJson response =
     case response of
         RenderPage _ data ->
@@ -249,3 +282,6 @@ toJson response =
 
         ServerResponse serverResponse ->
             PageServerResponse.toJson serverResponse
+
+        ErrorPage error _ ->
+            never error

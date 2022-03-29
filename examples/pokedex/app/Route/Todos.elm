@@ -10,6 +10,7 @@ import Api.Scalar exposing (Id(..))
 import Browser.Navigation
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
+import ErrorPage exposing (ErrorPage)
 import Form exposing (Form)
 import Form.Value
 import Graphql.Operation exposing (RootMutation, RootQuery)
@@ -141,7 +142,7 @@ todoSelection =
         (Api.Object.Todo.id_ |> SelectionSet.map (\(Id id) -> id))
 
 
-data : RouteParams -> Parser (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Form.submitHandlers2 (deleteItemForm "")

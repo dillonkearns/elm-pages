@@ -124,9 +124,9 @@ view maybeUrl sharedModel static =
         , Html.text <| "Hello " ++ static.data.username ++ "!"
         , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis static.data.requestTime)
         , Html.div []
-            [ Html.form [ Attr.method "post" , Attr.action "/logout" ]
+            [ Html.form [ Attr.method "post", Attr.action "/logout" ]
                 [ Html.button
-                 [ Attr.type_ "submit" ]
+                    [ Attr.type_ "submit" ]
                     [ Html.text "Logout" ]
                 ]
             ]

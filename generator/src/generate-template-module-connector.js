@@ -45,6 +45,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
 import Effect exposing (Effect)
+import ErrorPage exposing (ErrorPage)
 import HtmlPrinter
 import Lamdera.Wire3
 import Pages.Internal.String
@@ -414,7 +415,7 @@ templateSubscriptions route path model =
 
 main : ${
       phase === "browser"
-        ? "Pages.Internal.Platform.Program Model Msg PageData Shared.Data"
+        ? "Pages.Internal.Platform.Program Model Msg PageData Shared.Data ErrorPage"
         : "Pages.Internal.Platform.Cli.Program (Maybe Route)"
     }
 main =
@@ -474,6 +475,10 @@ config =
         , decodeResponse = decodeResponse
         , cmdToEffect = Effect.fromCmd
         , perform = Effect.perform
+        , errorView = ErrorPage.view
+        , errorStatusCode = ErrorPage.statusCode
+        , notFoundPage = ErrorPage.notFound
+        , internalError = ErrorPage.internalError
         }
 
 globalHeadTags : DataSource (List Head.Tag)
@@ -487,14 +492,14 @@ globalHeadTags =
         |> DataSource.map List.concat
 
 
-encodeResponse : ResponseSketch PageData Shared.Data -> Bytes.Encode.Encoder
+encodeResponse : ResponseSketch PageData Shared.Data ErrorPage -> Bytes.Encode.Encoder
 encodeResponse =
-    Pages.Internal.ResponseSketch.w3_encode_ResponseSketch w3_encode_PageData Shared.w3_encode_Data
+    Pages.Internal.ResponseSketch.w3_encode_ResponseSketch w3_encode_PageData Shared.w3_encode_Data ErrorPage.w3_encode_ErrorPage
 
 
-decodeResponse : Bytes.Decode.Decoder (ResponseSketch PageData Shared.Data)
+decodeResponse : Bytes.Decode.Decoder (ResponseSketch PageData Shared.Data ErrorPage)
 decodeResponse =
-    Pages.Internal.ResponseSketch.w3_decode_ResponseSketch w3_decode_PageData Shared.w3_decode_Data
+    Pages.Internal.ResponseSketch.w3_decode_ResponseSketch w3_decode_PageData Shared.w3_decode_Data ErrorPage.w3_decode_ErrorPage
 
 
 port hotReloadData : (Bytes -> msg) -> Sub msg
@@ -516,7 +521,7 @@ ${templates
 
 port sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd msg
 
-fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch PageData Shared.Data )
+fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch PageData Shared.Data ErrorPage )
 fetchPageData url details =
     Http.task
         { method = details |> Maybe.map (\\_ -> "POST") |> Maybe.withDefault "GET"
@@ -587,11 +592,12 @@ ${templates
   )
   .join("\n")}
 
-dataForRoute : Maybe Route -> DataSource (Server.Response.Response PageData)
+dataForRoute : Maybe Route -> DataSource (Server.Response.Response PageData ErrorPage)
 dataForRoute route =
     case route of
         Nothing ->
-            DataSource.succeed (Server.Response.render Data404NotFoundPage____ |> Server.Response.withStatusCode 404)
+            DataSource.succeed (Server.Response.render Data404NotFoundPage____ |> Server.Response.withStatusCode 404 |> Server.Response.mapError never )
+
         ${templates
           .map(
             (name) =>
