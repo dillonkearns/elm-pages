@@ -309,6 +309,7 @@ async function start(options) {
     } catch (error) {
       let isImplicitContractError = false;
       try {
+        error = error.replace("\t", "    ");
         isImplicitContractError = JSON.parse(error).errors.some(
           (errorItem) => errorItem.name === "TemplateModulesBeta"
         );
