@@ -44,7 +44,7 @@ async function ensureRequiredExecutables(options) {
     throw "I couldn't find elm on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
   try {
-    if (options.optimize === 2) { await which("elm-optimize-level-2") };
+    if (options.optimize === "2") { await which("elm-optimize-level-2") };
   } catch (error) {
     throw "I couldn't find elm-optimize-level-2 on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
@@ -226,7 +226,7 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
 async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   if (options.debug) {
     await runElmMake(options, elmEntrypointPath, outputPath, cwd);
-  } else if (options.optimize === 2) {
+  } else if (options.optimize === "2") {
     await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
   } else {
     await runElmMake(options, elmEntrypointPath, outputPath, cwd);
@@ -243,7 +243,7 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
         "--output",
         outputPath,
         ...(options.debug ? ["--debug"] : []),
-        ...(options.optimize === 1 ? ["--optimize"] : []),
+        ...(options.optimize === "1" ? ["--optimize"] : []),
         "--report",
         "json",
       ],
