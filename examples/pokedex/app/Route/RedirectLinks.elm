@@ -70,9 +70,9 @@ view :
 view maybeUrl sharedModel static =
     { title = "Placeholder"
     , body =
-        [ Route.link
-            Route.Login
-            []
-            [ Html.text "Login" ]
+        [ Route.Login
+            |> Route.link
+                []
+                [ Html.text "Login" ]
         ]
     }

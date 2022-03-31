@@ -941,8 +941,8 @@ toLink toAnchorTag route =
 
 
 {-| -}
-link : Route -> List (Attribute msg) -> List (Html msg) -> Html msg
-link route attributes children =
+link : List (Attribute msg) -> List (Html msg) -> Route -> Html msg
+link attributes children route =
     toLink
         (\\anchorAttrs ->
             Html.a

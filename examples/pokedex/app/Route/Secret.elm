@@ -122,9 +122,10 @@ view maybeUrl sharedModel static =
             , body =
                 [ Html.main_ [ Attr.style "max-width" "800px" ]
                     [ Html.h1 [] [ Html.text "You're not logged in" ]
-                    , Route.link Route.Login
-                        []
-                        [ Html.text <| "Login" ]
+                    , Route.Login
+                        |> Route.link
+                            []
+                            [ Html.text <| "Login" ]
                     ]
                 ]
             }

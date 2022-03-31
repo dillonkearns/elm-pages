@@ -89,9 +89,8 @@ view maybeUrl sharedModel static =
                             index + 1
                     in
                     li []
-                        [ Route.link (Route.PokedexNumber_ { pokedexNumber = String.fromInt pokedexNumber })
-                            []
-                            [ text name ]
+                        [ Route.PokedexNumber_ { pokedexNumber = String.fromInt pokedexNumber }
+                            |> Route.link [] [ text name ]
                         ]
                 )
                 static.data.pokemon
