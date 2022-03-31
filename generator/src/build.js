@@ -171,6 +171,11 @@ async function run(options) {
     await portDataSourceCompiled;
     const cliDone = runCli(options);
     await cliDone;
+
+    await fsPromises.rename(
+      path.join(process.cwd(), "dist/404-not-found/index.html"),
+      path.join(process.cwd(), "dist/404.html")
+    );
     await runAdapter(
       config.adapter ||
         function () {
@@ -201,7 +206,7 @@ function initWorker(basePath, whenDone) {
     newWorker.worker.once("online", () => {
       newWorker.worker.on("message", (message) => {
         if (message.tag === "all-paths") {
-          pagesReady(JSON.parse(message.data));
+          pagesReady(["/404-not-found"].concat(JSON.parse(message.data)));
         } else if (message.tag === "error") {
           process.exitCode = 1;
           console.error(restoreColorSafe(message.data));
