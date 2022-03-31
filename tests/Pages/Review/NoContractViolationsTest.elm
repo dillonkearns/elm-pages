@@ -261,7 +261,7 @@ invalid = Debug.todo ""
                           , [ Review.Test.error
                                 { message = "A core elm-pages module needs to expose something"
                                 , details =
-                                    [ "The ErrorPage module must expose `ErrorPage`, `internalError`, `notFound`, `statusCode`, `view`"
+                                    [ "The ErrorPage module must expose `ErrorPage`, `head`, `internalError`, `notFound`, `statusCode`, `view`"
                                     ]
                                 , under = "exposing (invalid)"
                                 }
@@ -315,7 +315,7 @@ routes = Debug.todo ""
     , """module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 routes = Debug.todo ""
 """
-    , """module ErrorPage exposing (ErrorPage(..), internalError, notFound, statusCode, view)
+    , """module ErrorPage exposing (ErrorPage(..), Model, Msg, head, internalError, notFound, statusCode, view)
 routes = Debug.todo ""
 """
     , """module Shared exposing (Data, Model, Msg, template)
