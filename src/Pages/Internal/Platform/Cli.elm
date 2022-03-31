@@ -36,7 +36,6 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
 import RenderRequest exposing (RenderRequest)
 import RequestsAndPending exposing (RequestsAndPending)
-import Server.Response exposing (body)
 import Task
 import TerminalText as Terminal
 import Url
@@ -573,6 +572,13 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
             case toJsPayload of
                 StaticResponses.ApiResponse ->
                     let
+                        sharedDataResult : Result BuildError sharedData
+                        sharedDataResult =
+                            StaticHttpRequest.resolve
+                                config.sharedData
+                                model.allRawResponses
+                                |> Result.mapError (StaticHttpRequest.toBuildError "")
+
                         apiResponse : Effect
                         apiResponse =
                             case model.maybeRequestJson of
@@ -601,7 +607,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                                     |> Effect.SendSinglePage
 
                                                             Ok Nothing ->
-                                                                render404Page config Nothing model (Path.fromString path) NotFoundReason.NoMatchingRoute
+                                                                render404Page config (Result.toMaybe sharedDataResult) model (Path.fromString path) NotFoundReason.NoMatchingRoute
 
                                                             Err error ->
                                                                 [ error ]
@@ -629,14 +635,20 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                     sendSinglePageProgress site model.allRawResponses config model payload
 
                                                 Ok (Just notFoundReason) ->
-                                                    render404Page config Nothing model payload.path notFoundReason
+                                                    render404Page config
+                                                        --Nothing
+                                                        (Result.toMaybe sharedDataResult)
+                                                        model
+                                                        payload.path
+                                                        notFoundReason
 
                                                 Err error ->
                                                     [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage
 
                                         RenderRequest.NotFound path ->
                                             render404Page config
-                                                Nothing
+                                                --Nothing
+                                                (Result.toMaybe sharedDataResult)
                                                 model
                                                 path
                                                 NotFoundReason.NoMatchingRoute
@@ -713,7 +725,7 @@ sendSinglePageProgress site contentJson config model info =
                                                 let
                                                     currentPage : { path : Path, route : route }
                                                     currentPage =
-                                                        { path = page, route = config.urlToRoute currentUrl }
+                                                        { path = page, route = urlToRoute config currentUrl }
 
                                                     pageModel : userModel
                                                     pageModel =
@@ -751,7 +763,7 @@ sendSinglePageProgress site contentJson config model info =
                                                 let
                                                     currentPage : { path : Path, route : route }
                                                     currentPage =
-                                                        { path = page, route = config.urlToRoute currentUrl }
+                                                        { path = page, route = urlToRoute config currentUrl }
 
                                                     pageModel : userModel
                                                     pageModel =
@@ -804,7 +816,7 @@ sendSinglePageProgress site contentJson config model info =
                 pageDataResult =
                     -- TODO OPTIMIZATION can these three be included in StaticResponses.Finish?
                     StaticHttpRequest.resolve
-                        (config.data (config.urlToRoute currentUrl))
+                        (config.data (urlToRoute config currentUrl))
                         contentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
@@ -937,38 +949,102 @@ render404Page :
     -> NotFoundReason
     -> Effect
 render404Page config sharedData model path notFoundReason =
-    let
-        notFoundDocument : { title : String, body : Html msg }
-        notFoundDocument =
-            { path = path
-            , reason = notFoundReason
-            }
-                |> NotFoundReason.document config.pathPatterns
+    if model.isDevServer then
+        let
+            byteEncodedPageData : Bytes
+            byteEncodedPageData =
+                ResponseSketch.NotFound { reason = notFoundReason, path = path }
+                    |> config.encodeResponse
+                    |> Bytes.Encode.encode
 
-        byteEncodedPageData : Bytes
-        byteEncodedPageData =
-            -- TODO how to decide which to render? Check if dev mode or not and send different response accordingly? Or is it taken care of naturally because of adapter script redirects?
-            --{ reason = notFoundReason, path = path }
-            --    |> ResponseSketch.NotFound
-            sharedData
-                |> Maybe.map (ResponseSketch.HotUpdate (config.errorPageToData config.notFoundPage))
-                |> Maybe.withDefault (ResponseSketch.NotFound { reason = notFoundReason, path = path })
-                |> config.encodeResponse
-                |> Bytes.Encode.encode
-    in
-    { route = Path.toAbsolute path
-    , contentJson = Dict.empty
-    , html = HtmlPrinter.htmlToString notFoundDocument.body
-    , errors = []
-    , head = []
-    , title = notFoundDocument.title
-    , staticHttpCache = Dict.empty
+            notFoundDocument : { title : String, body : Html msg }
+            notFoundDocument =
+                let
+                    _ =
+                        Debug.log "@@@" { number = 4, sharedData = sharedData }
+                in
+                { path = path
+                , reason = notFoundReason
+                }
+                    |> NotFoundReason.document config.pathPatterns
+        in
+        { route = Path.toAbsolute path
+        , contentJson = Dict.empty
+        , html = HtmlPrinter.htmlToString notFoundDocument.body
+        , errors = []
+        , head = []
+        , title = notFoundDocument.title
+        , staticHttpCache = Dict.empty
 
-    -- TODO can I handle caching from the JS-side only?
-    --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-    , is404 = True
-    , statusCode = 404
-    , headers = []
-    }
-        |> ToJsPayload.PageProgress
-        |> Effect.SendSinglePageNew byteEncodedPageData
+        -- TODO can I handle caching from the JS-side only?
+        --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+        , is404 = True
+        , statusCode = 404
+        , headers = []
+        }
+            |> ToJsPayload.PageProgress
+            |> Effect.SendSinglePageNew byteEncodedPageData
+
+    else
+        case sharedData of
+            Just justSharedData ->
+                let
+                    byteEncodedPageData : Bytes
+                    byteEncodedPageData =
+                        justSharedData
+                            |> ResponseSketch.HotUpdate (config.errorPageToData config.notFoundPage)
+                            |> config.encodeResponse
+                            |> Bytes.Encode.encode
+
+                    pageModel : userModel
+                    pageModel =
+                        config.init
+                            Pages.Flags.PreRenderFlags
+                            justSharedData
+                            pageData
+                            Nothing
+                            Nothing
+                            |> Tuple.first
+
+                    pageData : pageData
+                    pageData =
+                        config.errorPageToData config.notFoundPage
+
+                    pathAndRoute : { path : Path, route : route }
+                    pathAndRoute =
+                        { path = path, route = config.notFoundRoute }
+
+                    viewValue : { title : String, body : Html userMsg }
+                    viewValue =
+                        (config.view pathAndRoute
+                            Nothing
+                            justSharedData
+                            pageData
+                            |> .view
+                        )
+                            pageModel
+                in
+                { route = Path.toAbsolute path
+                , contentJson = Dict.empty
+                , html = viewValue.body |> HtmlPrinter.htmlToString
+                , errors = []
+                , head = config.view pathAndRoute Nothing justSharedData pageData |> .head
+                , title = viewValue.title
+                , staticHttpCache = Dict.empty
+                , is404 = True
+                , statusCode = 404
+                , headers = []
+                }
+                    |> ToJsPayload.PageProgress
+                    |> Effect.SendSinglePageNew byteEncodedPageData
+
+            Nothing ->
+                Debug.todo ""
+
+
+urlToRoute config url =
+    if url.path |> String.startsWith "/____elm-pages-internal____" then
+        config.notFoundRoute
+
+    else
+        config.urlToRoute url

@@ -93,4 +93,5 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
     , notFoundPage : errorPage
     , internalError : String -> errorPage
     , errorPageToData : errorPage -> pageData
+    , notFoundRoute : route
     }

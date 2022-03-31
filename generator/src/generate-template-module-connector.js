@@ -540,6 +540,7 @@ config =
         , notFoundPage = ErrorPage.notFound
         , internalError = ErrorPage.internalError
         , errorPageToData = DataErrorPage____
+        , notFoundRoute = Nothing
         }
 
 globalHeadTags : DataSource (List Head.Tag)

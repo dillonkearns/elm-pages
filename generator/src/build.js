@@ -173,8 +173,8 @@ async function run(options) {
     await cliDone;
 
     await fsPromises.rename(
-      path.join(process.cwd(), "dist/404-not-found/index.html"),
-      path.join(process.cwd(), "dist/404.html")
+      "dist/____elm-pages-internal____/404/index.html",
+      "dist/404.html"
     );
     await runAdapter(
       config.adapter ||
@@ -206,7 +206,9 @@ function initWorker(basePath, whenDone) {
     newWorker.worker.once("online", () => {
       newWorker.worker.on("message", (message) => {
         if (message.tag === "all-paths") {
-          pagesReady(["/404-not-found"].concat(JSON.parse(message.data)));
+          pagesReady(
+            ["/____elm-pages-internal____/404"].concat(JSON.parse(message.data))
+          );
         } else if (message.tag === "error") {
           process.exitCode = 1;
           console.error(restoreColorSafe(message.data));
