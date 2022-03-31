@@ -37,7 +37,8 @@ view : ErrorPage -> View msg
 view error =
     { body =
         [ Html.div []
-            [ Html.text "Hi! This is a NotFound error"
+            [ Html.text
+                "Page not found. Maybe try another URL?"
             ]
         ]
     , title = "This is a NotFound Error"
