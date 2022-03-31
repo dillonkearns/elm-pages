@@ -159,24 +159,25 @@ view page maybePageUrl globalData pageData =
         ( _, DataErrorPage____ data ) ->
             { view =
                 \\model ->
-                    --case model.page of
-                    --    ModelErrorPage____ subModel ->
-                    ErrorPage.view data
-                        --maybePageUrl
-                        --model.global
-                        ----subModel
-                        --{ data = data
-                        --, sharedData = globalData
-                        --, routeParams = {}
-                        --, path = page.path
-                        --}
-                        |> View.map MsgErrorPage____
-                        |> Shared.template.view globalData page model.global MsgGlobal
+                    case model.page of
+                        ModelErrorPage____ subModel ->
+                            ErrorPage.view data subModel
+                                --maybePageUrl
+                                --model.global
+                                ----subModel
+                                --{ data = data
+                                --, sharedData = globalData
+                                --, routeParams = {}
+                                --, path = page.path
+                                --}
+                                |> View.map MsgErrorPage____
+                                |> Shared.template.view globalData page model.global MsgGlobal
 
-            --_ ->
-            --    { title = "Model mismatch", body = Html.text <| "Model mismatch" }
-            , head = ${phase === "browser" ? "[]" : "ErrorPage.head data"}
+                        _ ->
+                            { title = "Model mismatch", body = Html.text <| "Model mismatch" }
+            , head = []
             }
+
 
 
         ${templates
@@ -289,7 +290,8 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                   )
                   .join("\n                ")}
                 _ ->
-                    ( NotFound, Effect.none )
+                    ErrorPage.init ErrorPage.notFound
+                        |> Tuple.mapBoth ModelErrorPage____ (Effect.map MsgErrorPage____)
     in
     ( { global = sharedModel
       , page = templateModel
@@ -307,7 +309,29 @@ update : Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model
 update sharedData pageData navigationKey msg model =
     case msg of
         MsgErrorPage____ msg_ ->
-            ( model , Effect.none) -- TODO wire in update
+            let
+                ( updatedPageModel, pageCmd ) =
+                    case ( model.page, pageData ) of
+                        ( ModelErrorPage____ pageModel, DataErrorPage____ thisPageData ) ->
+                            ErrorPage.update
+                                -- TODO pass in url or no?
+                                --{ data = thisPageData
+                                --, sharedData = sharedData
+                                --, routeParams = {}
+                                --, path = justPage.path
+                                --}
+                                thisPageData
+                                msg_
+                                pageModel
+                                --model.global -- TODO pass in Shared.Model
+                                |> Tuple.mapBoth ModelErrorPage____ (Effect.map MsgErrorPage____)
+
+                        _ ->
+                            ( model.page, Effect.none )
+            in
+            ( { model | page = updatedPageModel }
+            , pageCmd
+            )
 
 
         MsgGlobal msg_ ->
