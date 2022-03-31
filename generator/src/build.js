@@ -113,7 +113,7 @@ async function run(options) {
       "dist/elm-stuff/elm-pages/index.html",
       "utf-8"
     );
-    const preloads = `<link rel="modulepreload" href="${manifest["elm-stuff/elm-pages/index.html"]["file"]}" />`;
+    const preloads = `<link rel="modulepreload" href="/${manifest["elm-stuff/elm-pages/index.html"]["file"]}" />`;
 
     await fsPromises.writeFile(
       "dist/template.html",
