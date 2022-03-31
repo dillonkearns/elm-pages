@@ -517,11 +517,7 @@ startLowLevel apiRoutes staticHttpCache pages =
             , errorStatusCode = \_ -> 404
             , notFoundPage = ()
             , internalError = \_ -> ()
-            , errorView =
-                \() ->
-                    { title = "Error"
-                    , body = Html.text ""
-                    }
+            , errorPageToData = \_ -> ()
             }
 
         encodedFlags : Encode.Value
@@ -682,11 +678,7 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , errorStatusCode = \_ -> 404
             , notFoundPage = ()
             , internalError = \_ -> ()
-            , errorView =
-                \() ->
-                    { title = "Error"
-                    , body = Html.text ""
-                    }
+            , errorPageToData = \_ -> ()
             }
 
         encodedFlags : Encode.Value
