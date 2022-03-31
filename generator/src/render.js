@@ -188,8 +188,10 @@ function runElmApp(
     app.ports.sendPageData.subscribe(portHandler);
   }).finally(() => {
     addDataSourceWatcher(patternsToWatch);
-    killApp();
-    killApp = null;
+    try {
+      killApp();
+      killApp = null;
+    } catch (error) {}
   });
 }
 /**
@@ -327,11 +329,11 @@ async function readFileJobNew(req, patternsToWatch) {
     patternsToWatch.add(filePath);
 
     const fileContents = // TODO can I remove this hack?
-    (
-      await fsPromises.readFile(
-        path.join(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
-      )
-    ).toString();
+      (
+        await fsPromises.readFile(
+          path.join(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
+        )
+      ).toString();
     const parsedFile = matter(fileContents);
 
     return jsonResponse(req, {
