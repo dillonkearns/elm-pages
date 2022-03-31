@@ -80,17 +80,17 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
         -> List (ApiRoute.ApiRoute ApiRoute.Response)
     , pathPatterns : List RoutePattern
     , basePath : List String
-    , fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch pageData sharedData errorPage )
+    , fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch pageData sharedData )
     , sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd Never
     , byteEncodePageData : pageData -> Bytes.Encode.Encoder
     , byteDecodePageData : route -> Bytes.Decode.Decoder pageData
-    , encodeResponse : ResponseSketch pageData sharedData errorPage -> Bytes.Encode.Encoder
-    , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData sharedData errorPage)
+    , encodeResponse : ResponseSketch pageData sharedData -> Bytes.Encode.Encoder
+    , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData sharedData)
     , globalHeadTags : Maybe (DataSource (List Head.Tag))
     , cmdToEffect : Cmd userMsg -> effect
     , perform : (userMsg -> mappedMsg) -> Browser.Navigation.Key -> effect -> Cmd mappedMsg
-    , errorView : errorPage -> { title : String, body : Html userMsg }
     , errorStatusCode : errorPage -> Int
     , notFoundPage : errorPage
     , internalError : String -> errorPage
+    , errorPageToData : errorPage -> pageData
     }

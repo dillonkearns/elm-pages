@@ -1,6 +1,21 @@
-module ErrorPage exposing (ErrorPage(..), internalError, notFound, statusCode, view)
+module ErrorPage exposing (ErrorPage(..), Model, Msg, internalError, notFound, statusCode, view)
 
+import Head
 import Html exposing (Html)
+import View exposing (View)
+
+
+type alias Model =
+    ()
+
+
+type Msg
+    = NoOp
+
+
+head : ErrorPage -> List Head.Tag
+head errorPage =
+    []
 
 
 type ErrorPage
@@ -18,13 +33,14 @@ internalError =
     InternalError
 
 
-view : ErrorPage -> { body : Html msg, title : String }
+view : ErrorPage -> View msg
 view error =
     { body =
-        Html.div []
+        [ Html.div []
             [ Html.text "Hi! This is a NotFound error"
             ]
-    , title = "Error"
+        ]
+    , title = "This is a NotFound Error"
     }
 
 

@@ -105,6 +105,7 @@ type PageModel
           `Model${pathNormalizedName(name)} Route.${moduleName(name)}.Model\n`
       )
       .join("    | ")}
+    | ModelErrorPage____ ErrorPage.Model
     | NotFound
 
 
@@ -121,6 +122,7 @@ type Msg
         , fragment : Maybe String
         , metadata : Maybe Route
         }
+    | MsgErrorPage____ ErrorPage.Msg
     | ${templates
       .map(
         (name) =>
@@ -131,6 +133,7 @@ type Msg
 
 type PageData
     = Data404NotFoundPage____
+    | DataErrorPage____ ErrorPage
     | ${templates
       .map(
         (name) =>
@@ -153,6 +156,29 @@ view :
         }
 view page maybePageUrl globalData pageData =
     case ( page.route, pageData ) of
+        ( _, DataErrorPage____ data ) ->
+            { view =
+                \\model ->
+                    --case model.page of
+                    --    ModelErrorPage____ subModel ->
+                    ErrorPage.view data
+                        --maybePageUrl
+                        --model.global
+                        ----subModel
+                        --{ data = data
+                        --, sharedData = globalData
+                        --, routeParams = {}
+                        --, path = page.path
+                        --}
+                        |> View.map MsgErrorPage____
+                        |> Shared.template.view globalData page model.global MsgGlobal
+
+            --_ ->
+            --    { title = "Model mismatch", body = Html.text <| "Model mismatch" }
+            , head = []
+            }
+
+
         ${templates
           .map(
             (name) =>
@@ -280,6 +306,10 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
 update : Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
 update sharedData pageData navigationKey msg model =
     case msg of
+        MsgErrorPage____ msg_ ->
+            ( model , Effect.none) -- TODO wire in update
+
+
         MsgGlobal msg_ ->
             let
                 ( sharedModel, globalCmd ) =
@@ -475,10 +505,10 @@ config =
         , decodeResponse = decodeResponse
         , cmdToEffect = Effect.fromCmd
         , perform = Effect.perform
-        , errorView = ErrorPage.view
         , errorStatusCode = ErrorPage.statusCode
         , notFoundPage = ErrorPage.notFound
         , internalError = ErrorPage.internalError
+        , errorPageToData = DataErrorPage____
         }
 
 globalHeadTags : DataSource (List Head.Tag)
@@ -492,14 +522,14 @@ globalHeadTags =
         |> DataSource.map List.concat
 
 
-encodeResponse : ResponseSketch PageData Shared.Data ErrorPage -> Bytes.Encode.Encoder
+encodeResponse : ResponseSketch PageData Shared.Data -> Bytes.Encode.Encoder
 encodeResponse =
-    Pages.Internal.ResponseSketch.w3_encode_ResponseSketch w3_encode_PageData Shared.w3_encode_Data ErrorPage.w3_encode_ErrorPage
+    Pages.Internal.ResponseSketch.w3_encode_ResponseSketch w3_encode_PageData Shared.w3_encode_Data
 
 
-decodeResponse : Bytes.Decode.Decoder (ResponseSketch PageData Shared.Data ErrorPage)
+decodeResponse : Bytes.Decode.Decoder (ResponseSketch PageData Shared.Data)
 decodeResponse =
-    Pages.Internal.ResponseSketch.w3_decode_ResponseSketch w3_decode_PageData Shared.w3_decode_Data ErrorPage.w3_decode_ErrorPage
+    Pages.Internal.ResponseSketch.w3_decode_ResponseSketch w3_decode_PageData Shared.w3_decode_Data
 
 
 port hotReloadData : (Bytes -> msg) -> Sub msg
@@ -508,6 +538,10 @@ port hotReloadData : (Bytes -> msg) -> Sub msg
 byteEncodePageData : PageData -> Bytes.Encode.Encoder
 byteEncodePageData pageData =
     case pageData of
+        DataErrorPage____ thisPageData ->
+            ErrorPage.w3_encode_ErrorPage thisPageData
+
+
         Data404NotFoundPage____ ->
             Bytes.Encode.unsignedInt8 0
 
@@ -521,7 +555,7 @@ ${templates
 
 port sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd msg
 
-fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch PageData Shared.Data ErrorPage )
+fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch PageData Shared.Data )
 fetchPageData url details =
     Http.task
         { method = details |> Maybe.map (\\_ -> "POST") |> Maybe.withDefault "GET"
@@ -818,7 +852,8 @@ encodeBytes bytesEncoder items =
 
 decodeBytes : Bytes.Decode.Decoder a -> Bytes -> Result String a
 decodeBytes bytesDecoder items =
-    Lamdera.Wire3.bytesDecodeStrict bytesDecoder items
+    Bytes.Decode.decode bytesDecoder items
+    -- Lamdera.Wire3.bytesDecodeStrict bytesDecoder items
         |> Result.fromMaybe "Decoding error"
 `,
     routesModule: `module Route exposing (baseUrlAsPath, Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)

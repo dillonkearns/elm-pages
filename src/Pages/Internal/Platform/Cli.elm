@@ -601,7 +601,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                                     |> Effect.SendSinglePage
 
                                                             Ok Nothing ->
-                                                                render404Page config model (Path.fromString path) NotFoundReason.NoMatchingRoute
+                                                                render404Page config Nothing model (Path.fromString path) NotFoundReason.NoMatchingRoute
 
                                                             Err error ->
                                                                 [ error ]
@@ -629,13 +629,14 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                     sendSinglePageProgress site model.allRawResponses config model payload
 
                                                 Ok (Just notFoundReason) ->
-                                                    render404Page config model payload.path notFoundReason
+                                                    render404Page config Nothing model payload.path notFoundReason
 
                                                 Err error ->
                                                     [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage
 
                                         RenderRequest.NotFound path ->
                                             render404Page config
+                                                Nothing
                                                 model
                                                 path
                                                 NotFoundReason.NoMatchingRoute
@@ -747,7 +748,45 @@ sendSinglePageProgress site contentJson config model info =
                                                 PageServerResponse.ServerResponse serverResponse
 
                                             PageServerResponse.ErrorPage error record ->
-                                                PageServerResponse.ErrorPage error record
+                                                let
+                                                    currentPage : { path : Path, route : route }
+                                                    currentPage =
+                                                        { path = page, route = config.urlToRoute currentUrl }
+
+                                                    pageModel : userModel
+                                                    pageModel =
+                                                        config.init
+                                                            Pages.Flags.PreRenderFlags
+                                                            sharedData
+                                                            pageData
+                                                            Nothing
+                                                            (Just
+                                                                { path =
+                                                                    { path = currentPage.path
+                                                                    , query = Nothing
+                                                                    , fragment = Nothing
+                                                                    }
+                                                                , metadata = currentPage.route
+                                                                , pageUrl = Nothing
+                                                                }
+                                                            )
+                                                            |> Tuple.first
+
+                                                    pageData =
+                                                        config.errorPageToData error
+
+                                                    viewValue : { title : String, body : Html userMsg }
+                                                    viewValue =
+                                                        (config.view currentPage Nothing sharedData pageData |> .view) pageModel
+                                                in
+                                                PageServerResponse.RenderPage
+                                                    { statusCode = config.errorStatusCode error
+                                                    , headers = record.headers
+                                                    }
+                                                    { head = config.view currentPage Nothing sharedData pageData |> .head
+                                                    , view = viewValue.body |> HtmlPrinter.htmlToString
+                                                    , title = viewValue.title
+                                                    }
                                     )
 
                 currentUrl : Url.Url
@@ -823,9 +862,12 @@ sendSinglePageProgress site contentJson config model info =
                                                         |> Bytes.Encode.encode
 
                                                 PageServerResponse.ErrorPage error record ->
-                                                    ResponseSketch.ErrorPage error
-                                                        |> config.encodeResponse
-                                                        |> Bytes.Encode.encode
+                                                    -- TODO this case should never happen
+                                                    sharedDataResult
+                                                        |> Result.map (ResponseSketch.HotUpdate (config.errorPageToData error))
+                                                        |> Result.map config.encodeResponse
+                                                        |> Result.map Bytes.Encode.encode
+                                                        |> Result.withDefault (Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0))
 
                                         _ ->
                                             -- TODO handle error?
@@ -862,20 +904,13 @@ sendSinglePageProgress site contentJson config model info =
                                         |> Effect.SendSinglePage
 
                                 PageServerResponse.ErrorPage error responseInfo ->
-                                    let
-                                        rendered :
-                                            { title : String
-                                            , body : Html userMsg
-                                            }
-                                        rendered =
-                                            config.errorView error
-                                    in
+                                    -- TODO this case should never happen
                                     { route = page |> Path.toRelative
                                     , contentJson = Dict.empty
-                                    , html = HtmlPrinter.htmlToString rendered.body
+                                    , html = "UNEXPECTED!" --HtmlPrinter.htmlToString rendered.body
                                     , errors = []
                                     , head = [] -- rendered.head ++ siteData -- TODO this should call ErrorPage.head maybe?
-                                    , title = rendered.title
+                                    , title = "UNEXPECTED CASE" --rendered.title
                                     , staticHttpCache = Dict.empty
                                     , is404 = False
                                     , statusCode = config.errorStatusCode error
@@ -885,7 +920,7 @@ sendSinglePageProgress site contentJson config model info =
                                         |> Effect.SendSinglePageNew byteEncodedPageData
 
                         Just notFoundReason ->
-                            render404Page config model page notFoundReason
+                            render404Page config (Result.toMaybe sharedDataResult) model page notFoundReason
 
                 Err error ->
                     [ error ]
@@ -895,11 +930,12 @@ sendSinglePageProgress site contentJson config model info =
 
 render404Page :
     ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage
+    -> Maybe sharedData
     -> Model route
     -> Path
     -> NotFoundReason
     -> Effect
-render404Page config model path notFoundReason =
+render404Page config sharedData model path notFoundReason =
     let
         notFoundDocument : { title : String, body : Html msg }
         notFoundDocument =
@@ -910,8 +946,12 @@ render404Page config model path notFoundReason =
 
         byteEncodedPageData : Bytes
         byteEncodedPageData =
-            { reason = notFoundReason, path = path }
-                |> ResponseSketch.NotFound
+            -- TODO how to decide which to render? Check if dev mode or not and send different response accordingly? Or is it taken care of naturally because of adapter script redirects?
+            --{ reason = notFoundReason, path = path }
+            --    |> ResponseSketch.NotFound
+            sharedData
+                |> Maybe.map (ResponseSketch.HotUpdate (config.errorPageToData config.notFoundPage))
+                |> Maybe.withDefault (ResponseSketch.NotFound { reason = notFoundReason, path = path })
                 |> config.encodeResponse
                 |> Bytes.Encode.encode
     in

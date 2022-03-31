@@ -37,12 +37,12 @@ import Url exposing (Url)
 
 {-| -}
 type alias Program userModel userMsg pageData sharedData errorPage =
-    Platform.Program Flags (Model userModel pageData sharedData errorPage) (Msg userMsg pageData sharedData errorPage)
+    Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData sharedData errorPage)
 
 
 mainView :
     ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData errorPage) errorPage
-    -> Model userModel pageData sharedData errorPage
+    -> Model userModel pageData sharedData
     -> { title : String, body : Html userMsg }
 mainView config model =
     case model.notFound of
@@ -71,7 +71,10 @@ mainView config model =
                         pageData.userModel
 
                 Err error ->
-                    config.errorView error
+                    { title = "Page Data Error"
+                    , body =
+                        Html.div [] [ Html.text error ]
+                    }
 
 
 urlsToPagePath :
@@ -88,7 +91,7 @@ urlsToPagePath urls =
 
 view :
     ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData errorPage) errorPage
-    -> Model userModel pageData sharedData errorPage
+    -> Model userModel pageData sharedData
     -> Browser.Document (Msg userMsg pageData sharedData errorPage)
 view config model =
     let
@@ -124,7 +127,6 @@ type alias Flags =
 
 type InitKind shared page errorPage
     = OkPage shared page
-    | ErrorPage errorPage
     | NotFound { reason : NotFoundReason, path : Path }
 
 
@@ -134,7 +136,7 @@ init :
     -> Flags
     -> Url
     -> Maybe Browser.Navigation.Key
-    -> ( Model userModel pageData sharedData errorPage, Effect userMsg pageData sharedData userEffect errorPage )
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
 init config flags url key =
     let
         pageDataResult : Result BuildError (InitKind sharedData pageData errorPage)
@@ -153,10 +155,6 @@ init config flags url key =
                         of
                             Just (ResponseSketch.RenderPage _) ->
                                 Nothing
-
-                            Just (ResponseSketch.ErrorPage errorPage) ->
-                                ErrorPage errorPage
-                                    |> Just
 
                             Just (ResponseSketch.HotUpdate pageData shared) ->
                                 OkPage shared pageData
@@ -219,7 +217,7 @@ init config flags url key =
                 cmd =
                     UserCmd userCmd
 
-                initialModel : Model userModel pageData sharedData errorPage
+                initialModel : Model userModel pageData sharedData
                 initialModel =
                     { key = key
                     , url = url
@@ -243,21 +241,10 @@ init config flags url key =
         Ok (NotFound info) ->
             ( { key = key
               , url = url
-              , pageData = Err config.notFoundPage
+              , pageData = Err "Not found"
               , ariaNavigationAnnouncement = "Error" -- TODO use error page title for announcement?
               , userFlags = flags
               , notFound = Just info
-              }
-            , NoEffect
-            )
-
-        Ok (ErrorPage errorPage) ->
-            ( { key = key
-              , url = url
-              , pageData = Err errorPage
-              , ariaNavigationAnnouncement = "Error" -- TODO use error page title for announcement?
-              , userFlags = flags
-              , notFound = Nothing
               }
             , NoEffect
             )
@@ -268,7 +255,6 @@ init config flags url key =
               , pageData =
                     error
                         |> BuildError.errorToString
-                        |> config.internalError
                         |> Err
               , ariaNavigationAnnouncement = "Error"
               , userFlags = flags
@@ -283,20 +269,20 @@ type Msg userMsg pageData sharedData errorPage
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
-    | UpdateCacheAndUrlNew Bool Url (Result Http.Error ( Url, ResponseSketch pageData sharedData errorPage ))
+    | UpdateCacheAndUrlNew Bool Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ReloadCurrentPageData RequestInfo
 
 
 {-| -}
-type alias Model userModel pageData sharedData errorPage =
+type alias Model userModel pageData sharedData =
     { key : Maybe Browser.Navigation.Key
     , url : Url
     , ariaNavigationAnnouncement : String
     , pageData :
         Result
-            errorPage
+            String
             { userModel : userModel
             , pageData : pageData
             , sharedData : sharedData
@@ -311,7 +297,7 @@ type Effect userMsg pageData sharedData userEffect errorPage
     | NoEffect
     | BrowserLoadUrl String
     | BrowserPushUrl String
-    | FetchPageData (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData errorPage ) -> Msg userMsg pageData sharedData errorPage)
+    | FetchPageData (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
     | Batch (List (Effect userMsg pageData sharedData userEffect errorPage))
     | UserCmd userEffect
 
@@ -320,8 +306,8 @@ type Effect userMsg pageData sharedData userEffect errorPage
 update :
     ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage
     -> Msg userMsg pageData sharedData errorPage
-    -> Model userModel pageData sharedData errorPage
-    -> ( Model userModel pageData sharedData errorPage, Effect userMsg pageData sharedData userEffect errorPage )
+    -> Model userModel pageData sharedData
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
 update config appMsg model =
     case appMsg of
         LinkClicked urlRequest ->
@@ -371,7 +357,7 @@ update config appMsg model =
                                     , basePath = config.basePath
                                     }
 
-                                updatedPageData : Result errorPage { userModel : userModel, sharedData : sharedData, pageData : pageData }
+                                updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
                                 updatedPageData =
                                     Ok
                                         { userModel = userModel
@@ -437,10 +423,7 @@ update config appMsg model =
             case
                 Result.map2 Tuple.pair
                     (updateResult
-                        |> Result.mapError
-                            (\_ ->
-                                config.internalError "Http error"
-                            )
+                        |> Result.mapError (\_ -> "Http error")
                     )
                     model.pageData
             of
@@ -465,6 +448,7 @@ update config appMsg model =
                             }
 
                         ( userModel, userCmd ) =
+                            -- TODO call update on new Model for ErrorPage
                             config.update
                                 newSharedData
                                 newPageData
@@ -481,7 +465,7 @@ update config appMsg model =
                                 )
                                 previousPageData.userModel
 
-                        updatedModel : Model userModel pageData sharedData errorPage
+                        updatedModel : Model userModel pageData sharedData
                         updatedModel =
                             { model
                                 | url = newUrl
@@ -530,8 +514,9 @@ update config appMsg model =
                 |> Result.map
                     (\pageData ->
                         let
-                            newThing : Maybe (ResponseSketch pageData sharedData errorPage)
+                            newThing : Maybe (ResponseSketch pageData sharedData)
                             newThing =
+                                -- TODO if ErrorPage, call ErrorPage.init to get appropriate Model?
                                 pageDataBytes
                                     |> Bytes.Decode.decode config.decodeResponse
                         in
@@ -613,7 +598,7 @@ perform config maybeKey effect =
 {-| -}
 application :
     ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData errorPage) errorPage
-    -> Platform.Program Flags (Model userModel pageData sharedData errorPage) (Msg userMsg pageData sharedData errorPage)
+    -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData sharedData errorPage)
 application config =
     Browser.application
         { init =
