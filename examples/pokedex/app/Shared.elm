@@ -3,6 +3,7 @@ module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 import DataSource
 import Effect exposing (Effect)
 import Html exposing (Html)
+import Html.Attributes as Attr
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -94,6 +95,26 @@ view :
     -> View msg
     -> { body : Html msg, title : String }
 view sharedData page model toMsg pageView =
-    { body = Html.div [] pageView.body
+    { body =
+        Html.div
+            []
+            [ Html.nav
+                [ Attr.style "display" "flex"
+                , Attr.style "justify-content" "space-evenly"
+                ]
+                [ Route.Index
+                    |> Route.link
+                        []
+                        [ Html.text "Home" ]
+                , Route.PokedexNumber_ { pokedexNumber = "0" }
+                    |> Route.link
+                        []
+                        [ Html.text "To 404 page" ]
+                ]
+            , Html.div
+                [ Attr.style "padding" "40px"
+                ]
+                pageView.body
+            ]
     , title = pageView.title
     }
