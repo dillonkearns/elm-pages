@@ -772,6 +772,7 @@ sendSinglePageProgress site contentJson config model info =
                                                             )
                                                             |> Tuple.first
 
+                                                    pageData : pageData
                                                     pageData =
                                                         config.errorPageToData error
 
