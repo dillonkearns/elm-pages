@@ -686,14 +686,15 @@ wrapSection children =
         ]
 
 
-formModelView formModel =
-    formModel
-        |> Debug.toString
-        |> Html.text
-        |> List.singleton
-        |> Html.pre
-            [ Attr.style "white-space" "break-spaces"
-            ]
+
+--formModelView formModel =
+--    formModel
+--        |> Debug.toString
+--        |> Html.text
+--        |> List.singleton
+--        |> Html.pre
+--            [ Attr.style "white-space" "break-spaces"
+--            ]
 
 
 view :
@@ -801,7 +802,7 @@ textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
                 [ Tw.font_bold
                 ]
             ]
-            [ Html.text (Debug.toString info.status) ]
+            [ Html.text (Form.fieldStatusToString info.status) ]
         , Html.label
             ([ css
                 [ Tw.block
@@ -1119,7 +1120,7 @@ wrapPushNotificationsSection ({ errors, submitStatus } as info) children =
                     [ Tw.font_bold
                     ]
                 ]
-                [ Html.text (Debug.toString info.status) ]
+                [ Html.text (Form.fieldStatusToString info.status) ]
             , Html.div
                 [ css
                     [ Bp.sm

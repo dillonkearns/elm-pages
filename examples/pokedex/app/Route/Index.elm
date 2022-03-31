@@ -95,6 +95,5 @@ view maybeUrl sharedModel static =
                 )
                 static.data.pokemon
             )
-        , Html.text (Debug.toString static.data.envValue)
         ]
     }

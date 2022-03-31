@@ -156,12 +156,7 @@ data routeParams =
                                 )
 
                     Err error ->
-                        { todos =
-                            [ { description = Debug.toString model
-                              , id = ""
-                              }
-                            ]
-                        }
+                        { todos = [] }
                             |> Response.render
                             |> DataSource.succeed
             )
@@ -176,11 +171,7 @@ data routeParams =
                                 )
 
                     Err error ->
-                        { todos =
-                            [ { description = Debug.toString model
-                              , id = ""
-                              }
-                            ]
+                        { todos = []
                         }
                             |> Response.render
                             |> DataSource.succeed

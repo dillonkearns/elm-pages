@@ -136,6 +136,9 @@ view :
 view maybeUrl sharedModel static =
     { title = "Time"
     , body =
-        [ Html.text (static.data.request |> Debug.toString)
+        [ Html.text
+            (static.data.request.language
+                |> Maybe.withDefault "No language"
+            )
         ]
     }

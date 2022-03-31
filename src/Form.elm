@@ -17,6 +17,7 @@ module Form exposing
     , submitHandlers2, toHtml2
     , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
     , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
+    , fieldStatusToString
     )
 
 {-|
@@ -153,6 +154,22 @@ type FieldStatus
     | Focused
     | Changed
     | Blurred
+
+
+fieldStatusToString : FieldStatus -> String
+fieldStatusToString fieldStatus =
+    case fieldStatus of
+        NotVisited ->
+            "NotVisited"
+
+        Focused ->
+            "Focused"
+
+        Changed ->
+            "Changed"
+
+        Blurred ->
+            "Blurred"
 
 
 http : String -> Form error value view -> Model -> Cmd (Result Http.Error (FieldState String))
