@@ -175,7 +175,7 @@ view page maybePageUrl globalData pageData =
 
             --_ ->
             --    { title = "Model mismatch", body = Html.text <| "Model mismatch" }
-            , head = []
+            , head = ${phase === "browser" ? "[]" : "ErrorPage.head data"}
             }
 
 

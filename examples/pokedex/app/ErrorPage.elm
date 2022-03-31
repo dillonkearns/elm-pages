@@ -1,4 +1,4 @@
-module ErrorPage exposing (ErrorPage(..), Model, Msg, internalError, notFound, statusCode, view)
+module ErrorPage exposing (ErrorPage(..), Model, Msg, head, internalError, notFound, statusCode, view)
 
 import Head
 import Html exposing (Html)
