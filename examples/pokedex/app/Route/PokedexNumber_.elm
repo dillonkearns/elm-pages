@@ -51,12 +51,12 @@ data { pokedexNumber } =
             String.toInt pokedexNumber |> Maybe.withDefault -1
     in
     if asNumber < 1 then
-        --notFoundResponse "Pokedex numbers must be 1 or greater."
-        Response.errorPage ErrorPage.NotFound
+        Response.errorPage (ErrorPage.InvalidPokedexNumber pokedexNumber)
             |> DataSource.succeed
 
     else if asNumber > 898 && asNumber < 10001 || asNumber > 10194 then
-        notFoundResponse "The pokedex is empty in that range."
+        Response.errorPage (ErrorPage.MissingPokedexNumber asNumber)
+            |> DataSource.succeed
 
     else
         DataSource.map2 Data
@@ -70,14 +70,6 @@ data { pokedexNumber } =
                 )
             )
             |> DataSource.map Response.render
-
-
-notFoundResponse : String -> DataSource (Response Data ErrorPage)
-notFoundResponse message =
-    Response.plainText ("Not found.\n\n" ++ message)
-        |> Response.withStatusCode 404
-        |> Response.mapError never
-        |> DataSource.succeed
 
 
 type alias Pokemon =

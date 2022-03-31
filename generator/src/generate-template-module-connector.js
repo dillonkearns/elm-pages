@@ -290,7 +290,14 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                   )
                   .join("\n                ")}
                 _ ->
-                    ErrorPage.init ErrorPage.notFound
+                    (case pageData of
+                        DataErrorPage____ errorPage ->
+                            errorPage
+
+                        _ ->
+                            ErrorPage.notFound
+                    )
+                        |> ErrorPage.init
                         |> Tuple.mapBoth ModelErrorPage____ (Effect.map MsgErrorPage____)
     in
     ( { global = sharedModel

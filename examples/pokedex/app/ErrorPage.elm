@@ -4,6 +4,7 @@ import Effect exposing (Effect)
 import Head
 import Html exposing (Html)
 import Html.Events exposing (onClick)
+import Route
 import View exposing (View)
 
 
@@ -37,6 +38,8 @@ head errorPage =
 
 type ErrorPage
     = NotFound
+    | InvalidPokedexNumber String
+    | MissingPokedexNumber Int
     | InternalError String
 
 
@@ -52,23 +55,71 @@ internalError =
 
 view : ErrorPage -> Model -> View Msg
 view error model =
-    { body =
-        [ Html.div []
-            [ Html.p [] [ Html.text "Page not found. Maybe try another URL?" ]
-            , Html.div []
-                [ Html.button
-                    [ onClick Increment
-                    ]
-                    [ Html.text
-                        (model.count
-                            |> String.fromInt
-                        )
+    case error of
+        InvalidPokedexNumber invalidNumber ->
+            { body =
+                [ Html.div []
+                    [ Html.p []
+                        [ Html.text ("`" ++ invalidNumber ++ "`" ++ " doesn't look like a pokedex number. Make sure it's a valid number, like ")
+                        , Route.PokedexNumber_ { pokedexNumber = "25" } |> Route.link [] [ Html.text "25" ]
+                        , Html.text "."
+                        ]
+                    , Html.div []
+                        [ Html.button
+                            [ onClick Increment
+                            ]
+                            [ Html.text
+                                (model.count
+                                    |> String.fromInt
+                                )
+                            ]
+                        ]
                     ]
                 ]
-            ]
-        ]
-    , title = "This is a NotFound Error"
-    }
+            , title = "Invalid pokedex number"
+            }
+
+        MissingPokedexNumber missingNumber ->
+            { body =
+                [ Html.div []
+                    [ Html.p []
+                        [ Html.text ("`" ++ String.fromInt missingNumber ++ "`" ++ " isn't in our pokedex. This pokemon is pretty cute, though: ")
+                        , Route.PokedexNumber_ { pokedexNumber = "25" } |> Route.link [] [ Html.text "#25" ]
+                        , Html.text "."
+                        ]
+                    , Html.div []
+                        [ Html.button
+                            [ onClick Increment
+                            ]
+                            [ Html.text
+                                (model.count
+                                    |> String.fromInt
+                                )
+                            ]
+                        ]
+                    ]
+                ]
+            , title = "Invalid pokedex number"
+            }
+
+        _ ->
+            { body =
+                [ Html.div []
+                    [ Html.p [] [ Html.text "Page not found. Maybe try another URL?" ]
+                    , Html.div []
+                        [ Html.button
+                            [ onClick Increment
+                            ]
+                            [ Html.text
+                                (model.count
+                                    |> String.fromInt
+                                )
+                            ]
+                        ]
+                    ]
+                ]
+            , title = "This is a NotFound Error"
+            }
 
 
 statusCode : ErrorPage -> number
@@ -79,3 +130,9 @@ statusCode error =
 
         InternalError _ ->
             500
+
+        InvalidPokedexNumber _ ->
+            400
+
+        MissingPokedexNumber _ ->
+            404
