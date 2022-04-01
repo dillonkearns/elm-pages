@@ -38,7 +38,7 @@ import RenderRequest exposing (RenderRequest)
 import RequestsAndPending exposing (RequestsAndPending)
 import Task
 import TerminalText as Terminal
-import Url
+import Url exposing (Url)
 
 
 {-| -}
@@ -802,7 +802,7 @@ sendSinglePageProgress site contentJson config model info =
                                                     }
                                     )
 
-                currentUrl : Url.Url
+                currentUrl : Url
                 currentUrl =
                     { protocol = Url.Https
                     , host = site.canonicalUrl
@@ -949,99 +949,92 @@ render404Page :
     -> NotFoundReason
     -> Effect
 render404Page config sharedData model path notFoundReason =
-    if model.isDevServer then
-        let
-            byteEncodedPageData : Bytes
-            byteEncodedPageData =
-                ResponseSketch.NotFound { reason = notFoundReason, path = path }
-                    |> config.encodeResponse
-                    |> Bytes.Encode.encode
+    case ( model.isDevServer, sharedData ) of
+        ( False, Just justSharedData ) ->
+            let
+                byteEncodedPageData : Bytes
+                byteEncodedPageData =
+                    justSharedData
+                        |> ResponseSketch.HotUpdate (config.errorPageToData config.notFoundPage)
+                        |> config.encodeResponse
+                        |> Bytes.Encode.encode
 
-            notFoundDocument : { title : String, body : Html msg }
-            notFoundDocument =
-                let
-                    _ =
-                        Debug.log "@@@" { number = 4, sharedData = sharedData }
-                in
-                { path = path
-                , reason = notFoundReason
-                }
-                    |> NotFoundReason.document config.pathPatterns
-        in
-        { route = Path.toAbsolute path
-        , contentJson = Dict.empty
-        , html = HtmlPrinter.htmlToString notFoundDocument.body
-        , errors = []
-        , head = []
-        , title = notFoundDocument.title
-        , staticHttpCache = Dict.empty
-
-        -- TODO can I handle caching from the JS-side only?
-        --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-        , is404 = True
-        , statusCode = 404
-        , headers = []
-        }
-            |> ToJsPayload.PageProgress
-            |> Effect.SendSinglePageNew byteEncodedPageData
-
-    else
-        case sharedData of
-            Just justSharedData ->
-                let
-                    byteEncodedPageData : Bytes
-                    byteEncodedPageData =
+                pageModel : userModel
+                pageModel =
+                    config.init
+                        Pages.Flags.PreRenderFlags
                         justSharedData
-                            |> ResponseSketch.HotUpdate (config.errorPageToData config.notFoundPage)
-                            |> config.encodeResponse
-                            |> Bytes.Encode.encode
+                        pageData
+                        Nothing
+                        Nothing
+                        |> Tuple.first
 
-                    pageModel : userModel
-                    pageModel =
-                        config.init
-                            Pages.Flags.PreRenderFlags
-                            justSharedData
-                            pageData
-                            Nothing
-                            Nothing
-                            |> Tuple.first
+                pageData : pageData
+                pageData =
+                    config.errorPageToData config.notFoundPage
 
-                    pageData : pageData
-                    pageData =
-                        config.errorPageToData config.notFoundPage
+                pathAndRoute : { path : Path, route : route }
+                pathAndRoute =
+                    { path = path, route = config.notFoundRoute }
 
-                    pathAndRoute : { path : Path, route : route }
-                    pathAndRoute =
-                        { path = path, route = config.notFoundRoute }
+                viewValue : { title : String, body : Html userMsg }
+                viewValue =
+                    (config.view pathAndRoute
+                        Nothing
+                        justSharedData
+                        pageData
+                        |> .view
+                    )
+                        pageModel
+            in
+            { route = Path.toAbsolute path
+            , contentJson = Dict.empty
+            , html = viewValue.body |> HtmlPrinter.htmlToString
+            , errors = []
+            , head = config.view pathAndRoute Nothing justSharedData pageData |> .head
+            , title = viewValue.title
+            , staticHttpCache = Dict.empty
+            , is404 = True
+            , statusCode = 404
+            , headers = []
+            }
+                |> ToJsPayload.PageProgress
+                |> Effect.SendSinglePageNew byteEncodedPageData
 
-                    viewValue : { title : String, body : Html userMsg }
-                    viewValue =
-                        (config.view pathAndRoute
-                            Nothing
-                            justSharedData
-                            pageData
-                            |> .view
-                        )
-                            pageModel
-                in
-                { route = Path.toAbsolute path
-                , contentJson = Dict.empty
-                , html = viewValue.body |> HtmlPrinter.htmlToString
-                , errors = []
-                , head = config.view pathAndRoute Nothing justSharedData pageData |> .head
-                , title = viewValue.title
-                , staticHttpCache = Dict.empty
-                , is404 = True
-                , statusCode = 404
-                , headers = []
-                }
-                    |> ToJsPayload.PageProgress
-                    |> Effect.SendSinglePageNew byteEncodedPageData
+        _ ->
+            let
+                byteEncodedPageData : Bytes
+                byteEncodedPageData =
+                    ResponseSketch.NotFound { reason = notFoundReason, path = path }
+                        |> config.encodeResponse
+                        |> Bytes.Encode.encode
 
-            Nothing ->
-                Debug.todo ""
+                notFoundDocument : { title : String, body : Html msg }
+                notFoundDocument =
+                    { path = path
+                    , reason = notFoundReason
+                    }
+                        |> NotFoundReason.document config.pathPatterns
+            in
+            { route = Path.toAbsolute path
+            , contentJson = Dict.empty
+            , html = HtmlPrinter.htmlToString notFoundDocument.body
+            , errors = []
+            , head = []
+            , title = notFoundDocument.title
+            , staticHttpCache = Dict.empty
+
+            -- TODO can I handle caching from the JS-side only?
+            --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+            , is404 = True
+            , statusCode = 404
+            , headers = []
+            }
+                |> ToJsPayload.PageProgress
+                |> Effect.SendSinglePageNew byteEncodedPageData
 
 
+urlToRoute : ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage -> Url -> route
 urlToRoute config url =
     if url.path |> String.startsWith "/____elm-pages-internal____" then
         config.notFoundRoute
