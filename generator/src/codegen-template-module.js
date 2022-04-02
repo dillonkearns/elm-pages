@@ -56,6 +56,7 @@ function fileContentWithParams(
 ${serverRender ? `import Server.Request as Request\n` : ""}
 ${withState ? "\nimport Browser.Navigation" : ""}
 import DataSource exposing (DataSource)
+${serverRender ? `import ErrorPage exposing (ErrorPage)` : ""}
 import Head
 import Head.Seo as Seo
 import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
