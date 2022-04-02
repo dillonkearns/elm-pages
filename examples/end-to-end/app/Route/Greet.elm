@@ -1,6 +1,7 @@
 module Route.Greet exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
+import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
@@ -45,7 +46,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data))
+data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.map2 (\a b -> Data a b Nothing)

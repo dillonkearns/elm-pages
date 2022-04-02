@@ -2,6 +2,7 @@ module Route.Logout exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Dict
+import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
 import MySession
@@ -40,7 +41,7 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data))
+data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession

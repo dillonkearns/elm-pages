@@ -3,6 +3,7 @@ module Route.Test.ResponseHeaders exposing (Data, Model, Msg, route)
 import Base64
 import DataSource exposing (DataSource)
 import DataSource.File
+import ErrorPage exposing (ErrorPage)
 import Head
 import Html.Styled exposing (div, text)
 import Pages.PageUrl exposing (PageUrl)
@@ -39,7 +40,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.succeed
         (DataSource.succeed Data

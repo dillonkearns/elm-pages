@@ -2,6 +2,7 @@ module Route.Form exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Date exposing (Date)
+import ErrorPage exposing (ErrorPage)
 import Form exposing (Form)
 import Form.Value
 import Head
@@ -202,7 +203,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource (Server.Response.Response Data))
+data : RouteParams -> Parser (DataSource (Server.Response.Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Form.submitHandlers

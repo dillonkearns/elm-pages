@@ -1,6 +1,7 @@
 module Route.CookieTest exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
+import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
@@ -38,7 +39,7 @@ type alias Data =
     { darkMode : Maybe String }
 
 
-data : RouteParams -> Parser (DataSource (Response Data))
+data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.expectCookie "dark-mode"

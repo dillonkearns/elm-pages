@@ -23,7 +23,7 @@ routes :
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
     let
-        html : Html Never -> Response data
+        html : Html Never -> Response data Never
         html htmlValue =
             htmlToString htmlValue
                 |> Response.body
