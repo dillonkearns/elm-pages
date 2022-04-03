@@ -142,6 +142,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
 import List.NonEmpty
+import Pages.Effect exposing (RequestInfo)
 import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
 import Task
@@ -1862,7 +1863,7 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields _ _ _) =
 
 {-| -}
 toHtml2 :
-    { makeHttpRequest : Cmd msg -> msg
+    { makeHttpRequest : Cmd msg -> RequestInfo -> msg
     , reloadData : { body : ( String, String ) } -> Cmd msg
     }
     -> (List (Html.Attribute msg) -> List view -> view)
@@ -1881,19 +1882,26 @@ toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
            , FormDecoder.formDataOnSubmit
                 |> Attr.map
                     (\formFields_ ->
+                        let
+                            requestBody =
+                                formFields_
+                                    |> List.map
+                                        (\( name, value ) ->
+                                            Url.percentEncode name ++ "=" ++ Url.percentEncode value
+                                        )
+                                    |> String.join "&"
+                        in
                         config.makeHttpRequest
                             (config.reloadData
                                 { body =
                                     ( "application/x-www-form-urlencoded"
-                                    , formFields_
-                                        |> List.map
-                                            (\( name, value ) ->
-                                                Url.percentEncode name ++ "=" ++ Url.percentEncode value
-                                            )
-                                        |> String.join "&"
+                                    , requestBody
                                     )
                                 }
                             )
+                            { contentType = "application/x-www-form-urlencoded"
+                            , body = requestBody
+                            }
                     )
            ]
          ]

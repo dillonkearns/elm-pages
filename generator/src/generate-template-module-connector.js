@@ -48,9 +48,12 @@ import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import HtmlPrinter
 import Lamdera.Wire3
+import Pages.Effect
 import Pages.Internal.String
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
+import Pages.Internal.Effect
+import Pages.ProgramConfig exposing (ProgramConfig)
 import Server.Response
 import ApiRoute
 import Browser.Navigation
@@ -254,13 +257,17 @@ init :
             , metadata : Maybe Route
             , pageUrl : Maybe PageUrl
             }
-    -> ( Model, Effect Msg )
+    -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePath =
     let
         ( sharedModel, globalCmd ) =
-            currentGlobalModel |> Maybe.map (\\m -> ( m, Effect.none )) |> Maybe.withDefault (Shared.template.init userFlags maybePagePath)
+            currentGlobalModel |> Maybe.map (\\m -> ( m, Pages.Effect.none )) |> Maybe.withDefault (Shared.template.init userFlags maybePagePath)
 
         ( templateModel, templateCmd ) =
+            something
+
+        something : ( PageModel, Pages.Effect.Effect Msg (Effect Msg) )
+        something =
             case ( ( Maybe.map2 Tuple.pair (maybePagePath |> Maybe.andThen .metadata) (maybePagePath |> Maybe.map .path) ), pageData ) of
                 ${templates
                   .map(
@@ -285,7 +292,9 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                         }
                         |> Tuple.mapBoth Model${pathNormalizedName(
                           name
-                        )} (Effect.map Msg${pathNormalizedName(name)})
+                        )} (Pages.Effect.map Effect.map Msg${pathNormalizedName(
+                      name
+                    )})
 `
                   )
                   .join("\n                ")}
@@ -298,21 +307,21 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                             ErrorPage.notFound
                     )
                         |> ErrorPage.init
-                        |> Tuple.mapBoth ModelErrorPage____ (Effect.map MsgErrorPage____)
+                        |> Tuple.mapBoth ModelErrorPage____ (Pages.Effect.map Effect.map MsgErrorPage____)
     in
     ( { global = sharedModel
       , page = templateModel
       , current = maybePagePath
       }
-    , Effect.batch
+    , Pages.Effect.batch
         [ templateCmd
-        , globalCmd |> Effect.map MsgGlobal
+        , globalCmd |> Pages.Effect.map Effect.map MsgGlobal
         ]
     )
 
 
 
-update : Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
+update : Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Pages.Effect.Effect Msg ( Effect Msg ) )
 update sharedData pageData navigationKey msg model =
     case msg of
         MsgErrorPage____ msg_ ->
@@ -331,10 +340,10 @@ update sharedData pageData navigationKey msg model =
                                 msg_
                                 pageModel
                                 --model.global -- TODO pass in Shared.Model
-                                |> Tuple.mapBoth ModelErrorPage____ (Effect.map MsgErrorPage____)
+                                |> Tuple.mapBoth ModelErrorPage____ ( Pages.Effect.map Effect.map MsgErrorPage____  )
 
                         _ ->
-                            ( model.page, Effect.none )
+                            ( model.page, Pages.Effect.none )
             in
             ( { model | page = updatedPageModel }
             , pageCmd
@@ -347,7 +356,7 @@ update sharedData pageData navigationKey msg model =
                     Shared.template.update msg_ model.global
             in
             ( { model | global = sharedModel }
-            , globalCmd |> Effect.map MsgGlobal
+            , globalCmd |> Pages.Effect.map Effect.map MsgGlobal
             )
 
         OnPageChange record ->
@@ -390,7 +399,7 @@ update sharedData pageData navigationKey msg model =
                                 ( { updatedModel
                                     | global = updatedGlobalModel
                                   }
-                                , Effect.batch [ cmd, Effect.map MsgGlobal globalCmd ]
+                                , Pages.Effect.batch [ cmd, globalCmd |> Pages.Effect.map Effect.map MsgGlobal ]
                                 )
                    )
 
@@ -425,21 +434,23 @@ update sharedData pageData navigationKey msg model =
                                 model.global
                                 |> mapBoth Model${pathNormalizedName(
                                   name
-                                )} (Effect.map Msg${pathNormalizedName(name)})
+                                )} (Pages.Effect.map Effect.map Msg${pathNormalizedName(
+              name
+            )} )
                                 |> (\\( a, b, c ) ->
                                         case c of
                                             Just sharedMsg ->
                                                 ( a, b, Shared.template.update sharedMsg model.global )
 
                                             Nothing ->
-                                                ( a, b, ( model.global, Effect.none ) )
+                                                ( a, b, ( model.global, Pages.Effect.none ) )
                                    )
 
                         _ ->
-                            ( model.page, Effect.none, ( model.global, Effect.none ) )
+                            ( model.page, Pages.Effect.none, ( model.global, Pages.Effect.none ) )
             in
             ( { model | page = updatedPageModel, global = newGlobalModel }
-            , Effect.batch [ pageCmd, newGlobalCmd |> Effect.map MsgGlobal ]
+            , Pages.Effect.batch [ pageCmd, newGlobalCmd |> Pages.Effect.map Effect.map MsgGlobal ]
             )
 `
           )
@@ -486,6 +497,7 @@ main =
         : "Pages.Internal.Platform.Cli.cliApplication"
     } config
 
+-- config : ProgramConfig Msg Model (Maybe Route) PageData Shared.Data (Pages.Effect.Effect Msg (Effect Msg)) Msg ErrorPage
 config =
         { init = init Nothing
         , urlToRoute = Route.urlToRoute
@@ -534,8 +546,8 @@ config =
         , hotReloadData = hotReloadData identity
         , encodeResponse = encodeResponse
         , decodeResponse = decodeResponse
-        , cmdToEffect = Effect.fromCmd
-        , perform = Effect.perform
+        , cmdToEffect = Pages.Effect.fromCmd
+        , perform = \\a b effect -> Pages.Internal.Effect.maybePerform (Effect.perform a b) effect
         , errorStatusCode = ErrorPage.statusCode
         , notFoundPage = ErrorPage.notFound
         , internalError = ErrorPage.internalError

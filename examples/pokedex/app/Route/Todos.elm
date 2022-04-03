@@ -20,6 +20,7 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages
+import Pages.Effect exposing (RequestInfo)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -29,17 +30,20 @@ import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
 import Time
+import Url
 import View exposing (View)
 
 
 type alias Model =
-    {}
+    { requestInProgress : Bool
+    }
 
 
 type Msg
     = FormMsg Form.Msg
     | NoOp
-    | MakeHttpRequest (Cmd Msg)
+    | RequestDone
+    | MakeHttpRequest (Cmd Msg) RequestInfo
 
 
 type alias RouteParams =
@@ -64,9 +68,12 @@ init :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data RouteParams
-    -> ( Model, Effect Msg )
+    -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 init maybePageUrl sharedModel static =
-    ( {}, Effect.none )
+    ( { requestInProgress = False
+      }
+    , Pages.Effect.none
+    )
 
 
 update :
@@ -75,17 +82,42 @@ update :
     -> StaticPayload Data RouteParams
     -> Msg
     -> Model
-    -> ( Model, Effect Msg )
+    -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 update pageUrl sharedModel static msg model =
     case msg of
         FormMsg formMsg ->
-            ( model, Effect.none )
+            ( model, Pages.Effect.none )
 
         NoOp ->
-            ( model, Effect.none )
+            ( model, Pages.Effect.none )
 
-        MakeHttpRequest cmd ->
-            ( model, Effect.fromCmd cmd )
+        RequestDone ->
+            ( { model
+                | requestInProgress = False
+              }
+            , Pages.Effect.none
+            )
+
+        MakeHttpRequest cmd requestInfo ->
+            let
+                foo : Pages.Effect.Effect Msg (Effect Msg)
+                foo =
+                    Pages.Effect.submitPageData (Just requestInfo)
+                        { protocol = Url.Http
+                        , port_ = Just 1234
+                        , host = "localhost"
+                        , fragment = Nothing
+                        , query = Nothing
+                        , path = "/todos"
+                        }
+                        (\_ -> RequestDone)
+            in
+            ( { model
+                | requestInProgress = True
+              }
+            , --Pages.Effect.fromCmd cmd
+              foo
+            )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -160,7 +192,7 @@ data routeParams =
                             |> Response.render
                             |> DataSource.succeed
             )
-        , Form.submitHandlers2 newItemForm
+        , Form.submitHandlers2 (newItemForm False)
             (\model decoded ->
                 case decoded of
                     Ok okItem ->
@@ -231,19 +263,19 @@ view maybeUrl sharedModel model static =
                             ]
                     )
             )
-        , newItemForm
+        , newItemForm model.requestInProgress
             |> Form.toHtml2
                 { makeHttpRequest = MakeHttpRequest
                 , reloadData = Pages.reloadData
                 }
                 Html.form
-                (Form.init newItemForm)
+                (Form.init (newItemForm model.requestInProgress))
         ]
     }
 
 
-newItemForm : Form String TodoInput (Html Msg)
-newItemForm =
+newItemForm : Bool -> Form String TodoInput (Html Msg)
+newItemForm requestInProgress =
     Form.succeed (\description () -> TodoInput description)
         |> Form.with
             (Form.text "description"
@@ -256,7 +288,15 @@ newItemForm =
         |> Form.with
             (Form.submit
                 (\{ attrs } ->
-                    Html.button attrs [ Html.text "Submit" ]
+                    Html.button attrs
+                        [ Html.text
+                            (if requestInProgress then
+                                "Submitting..."
+
+                             else
+                                "Submit"
+                            )
+                        ]
                         |> Html.map (\_ -> NoOp)
                 )
             )

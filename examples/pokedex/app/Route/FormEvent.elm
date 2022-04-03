@@ -8,6 +8,7 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Pages.Effect
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -47,9 +48,9 @@ init :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data RouteParams
-    -> ( Model, Effect Msg )
+    -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 init maybePageUrl sharedModel static =
-    ( { formAsString = Nothing }, Effect.none )
+    ( { formAsString = Nothing }, Pages.Effect.none )
 
 
 update :
@@ -58,11 +59,11 @@ update :
     -> StaticPayload Data RouteParams
     -> Msg
     -> Model
-    -> ( Model, Effect Msg )
+    -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 update pageUrl sharedModel static msg model =
     case msg of
         OnSubmit formAsString ->
-            ( { model | formAsString = Just (toString formAsString) }, Effect.none )
+            ( { model | formAsString = Just (toString formAsString) }, Pages.Effect.none )
 
 
 toString : List ( String, String ) -> String

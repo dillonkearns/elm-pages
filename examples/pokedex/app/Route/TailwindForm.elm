@@ -15,6 +15,7 @@ import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Http
 import Icon
+import Pages.Effect
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -560,29 +561,29 @@ update _ _ _ msg model =
         FormMsg formMsg ->
             model.form
                 |> Form.update FormMsg GotFormResponse (form defaultUser) formMsg
-                |> Tuple.mapSecond Effect.fromCmd
+                |> Tuple.mapSecond Pages.Effect.fromCmd
                 |> Tuple.mapFirst (\newFormModel -> { model | form = newFormModel })
 
         GotFormResponse result ->
             case result of
                 Ok updatedFormModel ->
                     if Form.hasErrors2 model.form then
-                        ( model, Effect.none )
+                        ( model, Pages.Effect.none )
                             |> withFlash (Err "Failed to submit or had errors")
 
                     else
                         ( model
                         , Browser.Dom.setViewport 0 0
                             |> Task.perform (\() -> MovedToTop)
-                            |> Effect.fromCmd
+                            |> Pages.Effect.fromCmd
                         )
                             |> withFlash (Ok "Success! Submitted form from Elm")
 
                 Err _ ->
-                    ( model, Effect.none )
+                    ( model, Pages.Effect.none )
 
         MovedToTop ->
-            ( model, Effect.none )
+            ( model, Pages.Effect.none )
 
 
 withFlash : Result String String -> ( Model, effect ) -> ( Model, effect )
@@ -599,7 +600,7 @@ init _ _ static =
                         Ok ("Successfully received user " ++ user_.first ++ " " ++ user_.last)
                     )
       }
-    , Effect.none
+    , Pages.Effect.none
     )
 
 

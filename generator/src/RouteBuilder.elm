@@ -87,6 +87,7 @@ import DataSource.Http
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
+import Pages.Effect
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
@@ -110,8 +111,8 @@ type alias StatefulRoute routeParams data model msg =
     , head :
         StaticPayload data routeParams
         -> List Head.Tag
-    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Effect msg )
-    , update : PageUrl -> StaticPayload data routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Pages.Effect.Effect msg (Effect msg) )
+    , update : PageUrl -> StaticPayload data routeParams -> msg -> model -> Shared.Model -> ( model, Pages.Effect.Effect msg (Effect msg), Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> model -> Shared.Model -> Sub msg
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
     , kind : String
@@ -167,8 +168,8 @@ buildNoState { view } builderState =
             , head = record.head
             , data = record.data
             , staticRoutes = record.staticRoutes
-            , init = \_ _ _ -> ( {}, Effect.none )
-            , update = \_ _ _ _ _ -> ( {}, Effect.none, Nothing )
+            , init = \_ _ _ -> ( {}, Pages.Effect.none )
+            , update = \_ _ _ _ _ -> ( {}, Pages.Effect.none, Nothing )
             , subscriptions = \_ _ _ _ _ -> Sub.none
             , handleRoute = record.handleRoute
             , kind = record.kind
@@ -183,8 +184,8 @@ buildWithLocalState :
         -> model
         -> StaticPayload data routeParams
         -> View msg
-    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Effect msg )
-    , update : PageUrl -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Effect msg )
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Pages.Effect.Effect msg (Effect msg) )
+    , update : PageUrl -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Pages.Effect.Effect msg (Effect msg) )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data
@@ -227,8 +228,8 @@ buildWithSharedState :
         -> model
         -> StaticPayload data routeParams
         -> View msg
-    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Effect msg )
-    , update : PageUrl -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Pages.Effect.Effect msg (Effect msg) )
+    , update : PageUrl -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Pages.Effect.Effect msg (Effect msg), Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data

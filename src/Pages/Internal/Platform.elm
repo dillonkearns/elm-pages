@@ -24,6 +24,7 @@ import Json.Decode as Decode
 import Json.Encode
 import Pages.ContentCache as ContentCache
 import Pages.Flags
+import Pages.Internal.Effect
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
@@ -290,6 +291,34 @@ type alias Model userModel pageData sharedData =
     , notFound : Maybe { reason : NotFoundReason, path : Path }
     , userFlags : Decode.Value
     }
+
+
+fromUserEffect : Pages.Internal.Effect.Effect userMsg userEffect -> Effect userMsg pageData sharedData userEffect errorPage
+fromUserEffect effect =
+    case effect of
+        Pages.Internal.Effect.ScrollToTop ->
+            ScrollToTop
+
+        Pages.Internal.Effect.NoEffect ->
+            NoEffect
+
+        Pages.Internal.Effect.BrowserLoadUrl string ->
+            BrowserLoadUrl string
+
+        Pages.Internal.Effect.BrowserPushUrl string ->
+            BrowserPushUrl string
+
+        Pages.Internal.Effect.FetchPageData requestInfo url _ ->
+            FetchPageData requestInfo url (Debug.todo "")
+
+        --(Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
+        Pages.Internal.Effect.Batch list ->
+            list
+                |> List.map fromUserEffect
+                |> Batch
+
+        Pages.Internal.Effect.UserEffect userEffect ->
+            UserCmd userEffect
 
 
 type Effect userMsg pageData sharedData userEffect errorPage
@@ -589,7 +618,10 @@ perform config maybeKey effect =
         UserCmd cmd ->
             case maybeKey of
                 Just key ->
-                    cmd |> config.perform UserMsg key
+                    cmd
+                        |> config.perform UserMsg key
+                        -- TODO it should never be Maybe if it gets here... would be nice to remove
+                        |> Maybe.withDefault Cmd.none
 
                 Nothing ->
                     Cmd.none

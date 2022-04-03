@@ -4,6 +4,7 @@ import Effect exposing (Effect)
 import Head
 import Html exposing (Html)
 import Html.Events exposing (onClick)
+import Pages.Effect
 import Route
 import View exposing (View)
 
@@ -17,18 +18,18 @@ type alias Model =
     }
 
 
-init : ErrorPage -> ( Model, Effect Msg )
+init : ErrorPage -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 init errorPage =
     ( { count = 0 }
-    , Effect.none
+    , Pages.Effect.none
     )
 
 
-update : ErrorPage -> Msg -> Model -> ( Model, Effect Msg )
+update : ErrorPage -> Msg -> Model -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 update errorPage msg model =
     case msg of
         Increment ->
-            ( { model | count = model.count + 1 }, Effect.none )
+            ( { model | count = model.count + 1 }, Pages.Effect.none )
 
 
 head : ErrorPage -> List Head.Tag

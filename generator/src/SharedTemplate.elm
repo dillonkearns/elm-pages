@@ -3,6 +3,7 @@ module SharedTemplate exposing (SharedTemplate)
 import DataSource
 import Effect exposing (Effect)
 import Html exposing (Html)
+import Pages.Effect
 import Pages.Flags exposing (Flags)
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -23,8 +24,8 @@ type alias SharedTemplate msg sharedModel sharedData mappedMsg =
                 , metadata : Maybe Route
                 , pageUrl : Maybe PageUrl
                 }
-        -> ( sharedModel, Effect msg )
-    , update : msg -> sharedModel -> ( sharedModel, Effect msg )
+        -> ( sharedModel, Pages.Effect.Effect msg (Effect msg) )
+    , update : msg -> sharedModel -> ( sharedModel, Pages.Effect.Effect msg (Effect msg) )
     , view :
         sharedData
         ->
