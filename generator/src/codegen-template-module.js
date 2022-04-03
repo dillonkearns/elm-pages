@@ -183,10 +183,10 @@ type alias Data =
 
 ${
   serverRender
-    ? `data : RouteParams -> Request.Parser (DataSource (Response Data))
+    ? `data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =`
     : withFallback
-    ? `data : RouteParams -> DataSource (Response Data)
+    ? `data : RouteParams -> DataSource (Response Data ErrorPage)
 data routeParams =`
     : withParams
     ? `data : RouteParams -> DataSource Data
