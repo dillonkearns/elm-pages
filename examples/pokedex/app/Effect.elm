@@ -11,7 +11,7 @@ type Effect msg
     | Cmd (Cmd msg)
     | Batch (List (Effect msg))
     | GetStargazers (Result Http.Error Int -> msg)
-    | FetchPageData
+    | FetchRouteData
         { body : Maybe { contentType : String, body : String }
         , path : Maybe String
         , toMsg : Result Http.Error Url -> msg
@@ -54,8 +54,8 @@ map fn effect =
         GetStargazers toMsg ->
             GetStargazers (toMsg >> fn)
 
-        FetchPageData fetchInfo ->
-            FetchPageData
+        FetchRouteData fetchInfo ->
+            FetchRouteData
                 { body = fetchInfo.body
                 , path = fetchInfo.path
                 , toMsg = fetchInfo.toMsg >> fn
@@ -74,7 +74,7 @@ perform :
     -> Browser.Navigation.Key
     -> Effect pageMsg
     -> Cmd msg
-perform info fromPageMsg key effect =
+perform helpers fromPageMsg key effect =
     case effect of
         None ->
             Cmd.none
@@ -83,7 +83,7 @@ perform info fromPageMsg key effect =
             Cmd.map fromPageMsg cmd
 
         Batch list ->
-            Cmd.batch (List.map (perform info fromPageMsg key) list)
+            Cmd.batch (List.map (perform helpers fromPageMsg key) list)
 
         GetStargazers toMsg ->
             Http.get
@@ -92,8 +92,8 @@ perform info fromPageMsg key effect =
                 , expect = Http.expectJson (toMsg >> fromPageMsg) (Decode.field "stargazers_count" Decode.int)
                 }
 
-        FetchPageData fetchInfo ->
-            info.fetchRouteData
+        FetchRouteData fetchInfo ->
+            helpers.fetchRouteData
                 { body = fetchInfo.body
                 , path = fetchInfo.path
                 , toMsg = fetchInfo.toMsg

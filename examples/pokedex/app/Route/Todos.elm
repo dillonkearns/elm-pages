@@ -40,7 +40,7 @@ type alias Model =
 type Msg
     = FormMsg Form.Msg
     | NoOp
-    | MakeHttpRequest { contentType : String, body : String }
+    | FormSubmitted { contentType : String, body : String }
     | SubmitComplete
 
 
@@ -86,9 +86,9 @@ update pageUrl sharedModel static msg model =
         NoOp ->
             ( model, Effect.none )
 
-        MakeHttpRequest info ->
+        FormSubmitted info ->
             ( { model | submitting = True }
-            , Effect.FetchPageData
+            , Effect.FetchRouteData
                 { body = Just info
                 , path = Nothing
                 , toMsg = \_ -> SubmitComplete
@@ -234,7 +234,7 @@ view maybeUrl sharedModel model static =
                             [ Html.text item.description
                             , deleteItemForm item.id
                                 |> Form.toHtml2
-                                    { onSubmit = MakeHttpRequest }
+                                    { onSubmit = FormSubmitted }
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
                             ]
@@ -242,7 +242,7 @@ view maybeUrl sharedModel model static =
             )
         , newItemForm model.submitting
             |> Form.toHtml2
-                { onSubmit = MakeHttpRequest }
+                { onSubmit = FormSubmitted }
                 Html.form
                 (Form.init (newItemForm model.submitting))
         ]
