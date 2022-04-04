@@ -272,7 +272,6 @@ type Msg userMsg pageData sharedData errorPage
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
-    | ReloadCurrentPageData RequestInfo
 
 
 {-| -}
@@ -395,11 +394,6 @@ update config appMsg model =
                 ( model
                 , FetchPageData Nothing url (UpdateCacheAndUrlNew False url Nothing)
                 )
-
-        ReloadCurrentPageData requestInfo ->
-            ( model
-            , FetchPageData (Just requestInfo) model.url (UpdateCacheAndUrlNew False model.url Nothing)
-            )
 
         UserMsg userMsg ->
             case model.pageData of
@@ -670,16 +664,6 @@ application config =
                                 (urls.currentUrl |> config.urlToRoute |> config.routeToPath |> Path.join)
                                 pageData.userModel
                                 |> Sub.map UserMsg
-                            , config.fromJsPort
-                                |> Sub.map
-                                    (\value ->
-                                        case value |> Decode.decodeValue fromJsPortDecoder of
-                                            Ok requestInfo ->
-                                                ReloadCurrentPageData requestInfo
-
-                                            Err _ ->
-                                                PageScrollComplete
-                                    )
                             , config.hotReloadData
                                 |> Sub.map HotReloadCompleteNew
                             ]
@@ -723,24 +707,6 @@ withUserMsg config userMsg ( model, effect ) =
 
         Err _ ->
             ( model, effect )
-
-
-fromJsPortDecoder : Decode.Decoder RequestInfo
-fromJsPortDecoder =
-    Decode.field "tag" Decode.string
-        |> Decode.andThen
-            (\tag ->
-                case tag of
-                    "Reload" ->
-                        Decode.field "data"
-                            (Decode.map2 RequestInfo
-                                (Decode.field "content-type" Decode.string)
-                                (Decode.field "body" Decode.string)
-                            )
-
-                    _ ->
-                        Decode.fail <| "Unexpected tag " ++ tag
-            )
 
 
 urlPathToPath : Url -> Path
