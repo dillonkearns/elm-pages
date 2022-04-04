@@ -895,9 +895,6 @@ sendSinglePageProgress site contentJson config model info =
                                     , head = rendered.head ++ siteData
                                     , title = rendered.title
                                     , staticHttpCache = Dict.empty
-
-                                    -- TODO can I handle caching from the JS-side only?
-                                    --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
                                     , is404 = False
                                     , statusCode = responseInfo.statusCode
                                     , headers = responseInfo.headers
@@ -906,15 +903,38 @@ sendSinglePageProgress site contentJson config model info =
                                         |> Effect.SendSinglePageNew byteEncodedPageData
 
                                 PageServerResponse.ServerResponse serverResponse ->
-                                    { body = serverResponse |> PageServerResponse.toJson
-                                    , staticHttpCache = Dict.empty
+                                    PageServerResponse.toRedirect serverResponse
+                                        |> Maybe.map
+                                            (\{ location } ->
+                                                { route = page |> Path.toRelative
+                                                , contentJson = Dict.empty
+                                                , html = "This is intentionally blank HTML"
+                                                , errors = []
+                                                , head = []
+                                                , title = "This is an intentionally blank title"
+                                                , staticHttpCache = Dict.empty
+                                                , is404 = False
+                                                , statusCode =
+                                                    case includeHtml of
+                                                        RenderRequest.OnlyJson ->
+                                                            -- if this is a redirect for a `content.dat`, we don't want to send an *actual* redirect status code because the redirect needs to be handled in Elm (not by the Browser)
+                                                            200
 
-                                    -- TODO can I handle caching from the JS-side only?
-                                    --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                    , statusCode = 200
-                                    }
-                                        |> ToJsPayload.SendApiResponse
-                                        |> Effect.SendSinglePage
+                                                        RenderRequest.HtmlAndJson ->
+                                                            serverResponse.statusCode
+                                                , headers = serverResponse.headers
+                                                }
+                                                    |> ToJsPayload.PageProgress
+                                                    |> Effect.SendSinglePageNew byteEncodedPageData
+                                            )
+                                        |> Maybe.withDefault
+                                            ({ body = serverResponse |> PageServerResponse.toJson
+                                             , staticHttpCache = Dict.empty
+                                             , statusCode = serverResponse.statusCode
+                                             }
+                                                |> ToJsPayload.SendApiResponse
+                                                |> Effect.SendSinglePage
+                                            )
 
                                 PageServerResponse.ErrorPage error responseInfo ->
                                     -- TODO this case should never happen
