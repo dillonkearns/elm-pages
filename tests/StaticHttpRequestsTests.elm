@@ -512,10 +512,11 @@ startLowLevel apiRoutes staticHttpCache pages =
             , fetchPageData = \_ _ -> Task.fail Http.NetworkError
             , gotBatchSub = Sub.none
             , globalHeadTags = Nothing
-            , perform = \_ _ _ -> Cmd.none
+            , perform = \_ _ _ _ -> Cmd.none
             , cmdToEffect = \_ -> Effect.NoEffect
             , errorStatusCode = \_ -> 404
             , notFoundPage = ()
+            , notFoundRoute = Route "not-found"
             , internalError = \_ -> ()
             , errorPageToData = \_ -> ()
             }
@@ -673,10 +674,11 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
             , fetchPageData = \_ _ -> Task.fail Http.NetworkError
             , gotBatchSub = Sub.none
             , globalHeadTags = Nothing
-            , perform = \_ _ _ -> Cmd.none
+            , perform = \_ _ _ _ -> Cmd.none
             , cmdToEffect = \_ -> Effect.NoEffect
             , errorStatusCode = \_ -> 404
             , notFoundPage = ()
+            , notFoundRoute = Route "not-found"
             , internalError = \_ -> ()
             , errorPageToData = \_ -> ()
             }
