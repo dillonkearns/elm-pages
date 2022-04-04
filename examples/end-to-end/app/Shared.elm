@@ -4,6 +4,7 @@ import DataSource
 import Effect exposing (Effect)
 import Html exposing (Html)
 import Html.Styled
+import Pages.Effect
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -56,18 +57,18 @@ init :
             , metadata : route
             , pageUrl : Maybe PageUrl
             }
-    -> ( Model, Effect Msg )
+    -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 init flags maybePagePath =
     ( { showMobileMenu = False }
-    , Effect.none
+    , Pages.Effect.none
     )
 
 
-update : Msg -> Model -> ( Model, Effect Msg )
+update : Msg -> Model -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 update msg model =
     case msg of
         OnPageChange _ ->
-            ( { model | showMobileMenu = False }, Effect.none )
+            ( { model | showMobileMenu = False }, Pages.Effect.none )
 
 
 subscriptions : Path -> Model -> Sub Msg

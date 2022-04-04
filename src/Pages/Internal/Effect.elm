@@ -9,7 +9,7 @@ type Effect msg userEffect
     | NoEffect
     | BrowserLoadUrl String
     | BrowserPushUrl String
-    | FetchPageData (Maybe RequestInfo) Url (Result Http.Error Url -> msg)
+    | FetchPageData (Maybe RequestInfo) (Maybe String) (Result Http.Error Url -> msg)
     | Batch (List (Effect msg userEffect))
     | UserEffect userEffect
 

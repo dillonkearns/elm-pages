@@ -1863,8 +1863,8 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields _ _ _) =
 
 {-| -}
 toHtml2 :
-    { makeHttpRequest : Cmd msg -> RequestInfo -> msg
-    , reloadData : { body : ( String, String ) } -> Cmd msg
+    { makeHttpRequest : Pages.Effect.Effect msg userEffect -> RequestInfo -> msg
+    , onComplete : msg
     }
     -> (List (Html.Attribute msg) -> List view -> view)
     -> Model
@@ -1892,12 +1892,14 @@ toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
                                     |> String.join "&"
                         in
                         config.makeHttpRequest
-                            (config.reloadData
-                                { body =
-                                    ( "application/x-www-form-urlencoded"
-                                    , requestBody
-                                    )
-                                }
+                            (Pages.Effect.submitPageData
+                                (Just
+                                    { contentType = "application/x-www-form-urlencoded"
+                                    , body = requestBody
+                                    }
+                                )
+                                Nothing
+                                (\_ -> config.onComplete)
                             )
                             { contentType = "application/x-www-form-urlencoded"
                             , body = requestBody

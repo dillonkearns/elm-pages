@@ -7,6 +7,7 @@ import Head
 import Head.Seo as Seo
 import Html.Styled as Html
 import Http
+import Pages.Effect
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -47,9 +48,12 @@ init :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data RouteParams
-    -> ( Model, Effect Msg )
+    -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 init maybePageUrl sharedModel static =
-    ( { count = Nothing }, Effect.GetStargazers GotStargazers )
+    ( { count = Nothing }
+    , Effect.GetStargazers GotStargazers
+        |> Pages.Effect.custom
+    )
 
 
 update :
@@ -58,17 +62,17 @@ update :
     -> StaticPayload Data RouteParams
     -> Msg
     -> Model
-    -> ( Model, Effect Msg )
+    -> ( Model, Pages.Effect.Effect Msg (Effect Msg) )
 update pageUrl sharedModel static msg model =
     case msg of
         NoOp ->
-            ( model, Effect.none )
+            ( model, Pages.Effect.none )
 
         GotStargazers (Ok count) ->
-            ( { count = Just count }, Effect.none )
+            ( { count = Just count }, Pages.Effect.none )
 
         GotStargazers (Err error) ->
-            ( model, Effect.none )
+            ( model, Pages.Effect.none )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg

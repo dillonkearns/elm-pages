@@ -270,7 +270,7 @@ type Msg userMsg pageData sharedData errorPage
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
-    | UpdateCacheAndUrlNew Bool Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
+    | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ReloadCurrentPageData RequestInfo
@@ -293,8 +293,8 @@ type alias Model userModel pageData sharedData =
     }
 
 
-fromUserEffect : Pages.Internal.Effect.Effect userMsg userEffect -> Effect userMsg pageData sharedData userEffect errorPage
-fromUserEffect effect =
+fromUserEffect : Url -> Pages.Internal.Effect.Effect userMsg userEffect -> Effect userMsg pageData sharedData userEffect errorPage
+fromUserEffect currentUrl effect =
     case effect of
         Pages.Internal.Effect.ScrollToTop ->
             ScrollToTop
@@ -308,17 +308,33 @@ fromUserEffect effect =
         Pages.Internal.Effect.BrowserPushUrl string ->
             BrowserPushUrl string
 
-        Pages.Internal.Effect.FetchPageData requestInfo url _ ->
-            FetchPageData requestInfo url (Debug.todo "")
+        Pages.Internal.Effect.FetchPageData requestInfo url toUserMsg ->
+            -- TODO need to do 2 messages maybe? Because the DataSource data needs to be fed back in to the Platform.Model
+            FetchPageData requestInfo
+                currentUrl
+                (\result ->
+                    let
+                        userMsg : userMsg
+                        userMsg =
+                            result
+                                |> Result.map Tuple.first
+                                |> toUserMsg
+                    in
+                    case url of
+                        Just submitToPath ->
+                            UpdateCacheAndUrlNew True { currentUrl | path = submitToPath } (Just userMsg) result
 
-        --(Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
+                        Nothing ->
+                            UpdateCacheAndUrlNew True currentUrl (Just userMsg) result
+                )
+
         Pages.Internal.Effect.Batch list ->
             list
-                |> List.map fromUserEffect
+                |> List.map (fromUserEffect currentUrl)
                 |> Batch
 
         Pages.Internal.Effect.UserEffect userEffect ->
-            UserCmd userEffect
+            UserCmd (Pages.Internal.Effect.UserEffect userEffect)
 
 
 type Effect userMsg pageData sharedData userEffect errorPage
@@ -328,7 +344,7 @@ type Effect userMsg pageData sharedData userEffect errorPage
     | BrowserPushUrl String
     | FetchPageData (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
     | Batch (List (Effect userMsg pageData sharedData userEffect errorPage))
-    | UserCmd userEffect
+    | UserCmd (Pages.Internal.Effect.Effect userMsg userEffect)
 
 
 {-| -}
@@ -356,7 +372,7 @@ update config appMsg model =
 
                     else
                         ( model
-                        , FetchPageData Nothing url (UpdateCacheAndUrlNew True url)
+                        , FetchPageData Nothing url (UpdateCacheAndUrlNew True url Nothing)
                         )
 
                 Browser.External href ->
@@ -422,12 +438,12 @@ update config appMsg model =
 
             else
                 ( model
-                , FetchPageData Nothing url (UpdateCacheAndUrlNew False url)
+                , FetchPageData Nothing url (UpdateCacheAndUrlNew False url Nothing)
                 )
 
         ReloadCurrentPageData requestInfo ->
             ( model
-            , FetchPageData (Just requestInfo) model.url (UpdateCacheAndUrlNew False model.url)
+            , FetchPageData (Just requestInfo) model.url (UpdateCacheAndUrlNew False model.url Nothing)
             )
 
         UserMsg userMsg ->
@@ -448,7 +464,7 @@ update config appMsg model =
                 Err _ ->
                     ( model, NoEffect )
 
-        UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution updateResult ->
+        UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
             case
                 Result.map2 Tuple.pair
                     (updateResult
@@ -501,19 +517,37 @@ update config appMsg model =
                                 , pageData = Ok updatedPageData
                             }
                     in
-                    ( { updatedModel
-                        | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                      }
-                    , Batch
-                        [ UserCmd userCmd
-                        , ScrollToTop
-                        , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
-                            BrowserPushUrl newUrl.path
+                    case maybeUserMsg of
+                        Just userMsg ->
+                            ( { updatedModel
+                                | ariaNavigationAnnouncement = mainView config updatedModel |> .title
+                              }
+                            , Batch
+                                [ UserCmd userCmd
+                                , ScrollToTop
+                                , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
+                                    BrowserPushUrl newUrl.path
 
-                          else
-                            NoEffect
-                        ]
-                    )
+                                  else
+                                    NoEffect
+                                ]
+                            )
+                                |> withUserMsg config userMsg
+
+                        Nothing ->
+                            ( { updatedModel
+                                | ariaNavigationAnnouncement = mainView config updatedModel |> .title
+                              }
+                            , Batch
+                                [ UserCmd userCmd
+                                , ScrollToTop
+                                , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
+                                    BrowserPushUrl newUrl.path
+
+                                  else
+                                    NoEffect
+                                ]
+                            )
 
                 Err _ ->
                     {-
@@ -585,8 +619,35 @@ update config appMsg model =
                 |> Result.withDefault ( model, NoEffect )
 
 
-perform : ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage -> Maybe Browser.Navigation.Key -> Effect userMsg pageData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData sharedData errorPage)
-perform config maybeKey effect =
+withUserMsg :
+    ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage
+    -> userMsg
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+withUserMsg config userMsg ( model, effect ) =
+    case model.pageData of
+        Ok pageData ->
+            let
+                ( userModel, userCmd ) =
+                    config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+
+                updatedPageData : Result error { userModel : userModel, pageData : pageData, sharedData : sharedData }
+                updatedPageData =
+                    Ok { pageData | userModel = userModel }
+            in
+            ( { model | pageData = updatedPageData }
+            , Batch
+                [ effect
+                , UserCmd userCmd
+                ]
+            )
+
+        Err _ ->
+            ( model, effect )
+
+
+perform : ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage -> Url -> Maybe Browser.Navigation.Key -> Effect userMsg pageData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData sharedData errorPage)
+perform config currentUrl maybeKey effect =
     -- elm-review: known-unoptimized-recursion
     case effect of
         NoEffect ->
@@ -594,7 +655,7 @@ perform config maybeKey effect =
 
         Batch effects ->
             effects
-                |> List.map (perform config maybeKey)
+                |> List.map (perform config currentUrl maybeKey)
                 |> Cmd.batch
 
         ScrollToTop ->
@@ -618,10 +679,17 @@ perform config maybeKey effect =
         UserCmd cmd ->
             case maybeKey of
                 Just key ->
-                    cmd
-                        |> config.perform UserMsg key
+                    case
+                        cmd
+                            |> config.perform UserMsg key
+                    of
+                        Just justCmd ->
+                            justCmd
+
                         -- TODO it should never be Maybe if it gets here... would be nice to remove
-                        |> Maybe.withDefault Cmd.none
+                        Nothing ->
+                            fromUserEffect currentUrl cmd
+                                |> perform config currentUrl maybeKey
 
                 Nothing ->
                     Cmd.none
@@ -636,11 +704,11 @@ application config =
         { init =
             \flags url key ->
                 init config flags url (Just key)
-                    |> Tuple.mapSecond (perform config (Just key))
+                    |> Tuple.mapSecond (perform config url (Just key))
         , view = view config
         , update =
             \msg model ->
-                update config msg model |> Tuple.mapSecond (perform config model.key)
+                update config msg model |> Tuple.mapSecond (perform config model.url model.key)
         , subscriptions =
             \model ->
                 case model.pageData of

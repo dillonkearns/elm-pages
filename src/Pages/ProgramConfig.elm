@@ -14,6 +14,7 @@ import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
+import Pages.Internal.Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
@@ -40,8 +41,8 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
                 , metadata : route
                 , pageUrl : Maybe PageUrl
                 }
-        -> ( userModel, effect )
-    , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
+        -> ( userModel, Effect userMsg effect )
+    , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, Effect userMsg effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource sharedData
     , data : route -> DataSource (PageServerResponse pageData errorPage)
@@ -87,8 +88,8 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
     , encodeResponse : ResponseSketch pageData sharedData -> Bytes.Encode.Encoder
     , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData sharedData)
     , globalHeadTags : Maybe (DataSource (List Head.Tag))
-    , cmdToEffect : Cmd userMsg -> effect
-    , perform : (userMsg -> mappedMsg) -> Browser.Navigation.Key -> effect -> Maybe (Cmd mappedMsg)
+    , cmdToEffect : Cmd userMsg -> Effect userMsg effect
+    , perform : (userMsg -> mappedMsg) -> Browser.Navigation.Key -> Effect userMsg effect -> Maybe (Cmd mappedMsg)
     , errorStatusCode : errorPage -> Int
     , notFoundPage : errorPage
     , internalError : String -> errorPage

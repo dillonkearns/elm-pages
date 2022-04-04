@@ -7,7 +7,6 @@ import Api.Object.Todo
 import Api.Object.TodoPage
 import Api.Query
 import Api.Scalar exposing (Id(..))
-import Browser.Navigation
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -19,7 +18,6 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Pages
 import Pages.Effect exposing (RequestInfo)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -30,7 +28,6 @@ import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
 import Time
-import Url
 import View exposing (View)
 
 
@@ -43,7 +40,7 @@ type Msg
     = FormMsg Form.Msg
     | NoOp
     | RequestDone
-    | MakeHttpRequest (Cmd Msg) RequestInfo
+    | MakeHttpRequest (Pages.Effect.Effect Msg (Effect Msg)) RequestInfo
 
 
 type alias RouteParams =
@@ -98,25 +95,9 @@ update pageUrl sharedModel static msg model =
             , Pages.Effect.none
             )
 
-        MakeHttpRequest cmd requestInfo ->
-            let
-                foo : Pages.Effect.Effect Msg (Effect Msg)
-                foo =
-                    Pages.Effect.submitPageData (Just requestInfo)
-                        { protocol = Url.Http
-                        , port_ = Just 1234
-                        , host = "localhost"
-                        , fragment = Nothing
-                        , query = Nothing
-                        , path = "/todos"
-                        }
-                        (\_ -> RequestDone)
-            in
-            ( { model
-                | requestInProgress = True
-              }
-            , --Pages.Effect.fromCmd cmd
-              foo
+        MakeHttpRequest effect requestInfo ->
+            ( { model | requestInProgress = True }
+            , effect
             )
 
 
@@ -256,7 +237,7 @@ view maybeUrl sharedModel model static =
                             , deleteItemForm item.id
                                 |> Form.toHtml2
                                     { makeHttpRequest = MakeHttpRequest
-                                    , reloadData = Pages.reloadData
+                                    , onComplete = RequestDone
                                     }
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
@@ -266,7 +247,7 @@ view maybeUrl sharedModel model static =
         , newItemForm model.requestInProgress
             |> Form.toHtml2
                 { makeHttpRequest = MakeHttpRequest
-                , reloadData = Pages.reloadData
+                , onComplete = RequestDone
                 }
                 Html.form
                 (Form.init (newItemForm model.requestInProgress))

@@ -57,7 +57,7 @@ custom =
     Effect.UserEffect
 
 
-submitPageData : Maybe RequestInfo -> Url -> (Result Http.Error Url -> msg) -> Effect msg userEffect
+submitPageData : Maybe RequestInfo -> Maybe String -> (Result Http.Error Url -> msg) -> Effect msg userEffect
 submitPageData =
     Effect.FetchPageData
 
