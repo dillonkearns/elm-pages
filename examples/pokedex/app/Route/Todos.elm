@@ -7,7 +7,6 @@ import Api.Object.Todo
 import Api.Object.TodoPage
 import Api.Query
 import Api.Scalar exposing (Id(..))
-import Browser.Navigation
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -19,7 +18,6 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Pages
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
