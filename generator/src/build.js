@@ -157,6 +157,8 @@ async function run(options) {
       await compileCli;
       await compileClientDone;
     } catch (cliError) {
+      // TODO make sure not to print duplicate error output if cleaner review output is printed
+      console.error(cliError);
       const reviewOutput = JSON.parse(await runElmReview());
       const isParsingError = reviewOutput.errors.some((reviewError) => {
         return reviewError.errors.some((item) => item.rule === "ParsingError");
