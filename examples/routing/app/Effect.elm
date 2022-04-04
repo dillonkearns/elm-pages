@@ -1,12 +1,25 @@
 module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 
 import Browser.Navigation
+import Http
+import Url exposing (Url)
 
 
 type Effect msg
     = None
     | Cmd (Cmd msg)
     | Batch (List (Effect msg))
+    | FetchPageData
+        { body : Maybe { contentType : String, body : String }
+        , path : Maybe String
+        , toMsg : Result Http.Error Url -> msg
+        }
+
+
+type alias RequestInfo =
+    { contentType : String
+    , body : String
+    }
 
 
 none : Effect msg
@@ -36,9 +49,27 @@ map fn effect =
         Batch list ->
             Batch (List.map (map fn) list)
 
+        FetchPageData fetchInfo ->
+            FetchPageData
+                { body = fetchInfo.body
+                , path = fetchInfo.path
+                , toMsg = fetchInfo.toMsg >> fn
+                }
 
-perform : (pageMsg -> msg) -> Browser.Navigation.Key -> Effect pageMsg -> Cmd msg
-perform fromPageMsg key effect =
+
+perform :
+    { fetchRouteData :
+        { body : Maybe { contentType : String, body : String }
+        , path : Maybe String
+        , toMsg : Result Http.Error Url -> pageMsg
+        }
+        -> Cmd msg
+    }
+    -> (pageMsg -> msg)
+    -> Browser.Navigation.Key
+    -> Effect pageMsg
+    -> Cmd msg
+perform info fromPageMsg key effect =
     case effect of
         None ->
             Cmd.none
@@ -47,4 +78,11 @@ perform fromPageMsg key effect =
             Cmd.map fromPageMsg cmd
 
         Batch list ->
-            Cmd.batch (List.map (perform fromPageMsg key) list)
+            Cmd.batch (List.map (perform info fromPageMsg key) list)
+
+        FetchPageData fetchInfo ->
+            info.fetchRouteData
+                { body = fetchInfo.body
+                , path = fetchInfo.path
+                , toMsg = fetchInfo.toMsg
+                }
