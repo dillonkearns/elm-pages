@@ -33,13 +33,15 @@ import View exposing (View)
 
 
 type alias Model =
-    {}
+    { submitting : Bool
+    }
 
 
 type Msg
     = FormMsg Form.Msg
     | NoOp
-    | MakeHttpRequest (Cmd Msg)
+    | MakeHttpRequest { contentType : String, body : String }
+    | SubmitComplete
 
 
 type alias RouteParams =
@@ -66,7 +68,7 @@ init :
     -> StaticPayload Data RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( {}, Effect.none )
+    ( { submitting = False }, Effect.none )
 
 
 update :
@@ -84,8 +86,17 @@ update pageUrl sharedModel static msg model =
         NoOp ->
             ( model, Effect.none )
 
-        MakeHttpRequest cmd ->
-            ( model, Effect.fromCmd cmd )
+        MakeHttpRequest info ->
+            ( { model | submitting = True }
+            , Effect.FetchPageData
+                { body = Just info
+                , path = Nothing
+                , toMsg = \_ -> SubmitComplete
+                }
+            )
+
+        SubmitComplete ->
+            ( { model | submitting = False }, Effect.none )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -160,7 +171,7 @@ data routeParams =
                             |> Response.render
                             |> DataSource.succeed
             )
-        , Form.submitHandlers2 newItemForm
+        , Form.submitHandlers2 (newItemForm False)
             (\model decoded ->
                 case decoded of
                     Ok okItem ->
@@ -223,27 +234,23 @@ view maybeUrl sharedModel model static =
                             [ Html.text item.description
                             , deleteItemForm item.id
                                 |> Form.toHtml2
-                                    { makeHttpRequest = MakeHttpRequest
-                                    , reloadData = Pages.reloadData
-                                    }
+                                    { onSubmit = MakeHttpRequest }
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
                             ]
                     )
             )
-        , newItemForm
+        , newItemForm model.submitting
             |> Form.toHtml2
-                { makeHttpRequest = MakeHttpRequest
-                , reloadData = Pages.reloadData
-                }
+                { onSubmit = MakeHttpRequest }
                 Html.form
-                (Form.init newItemForm)
+                (Form.init (newItemForm model.submitting))
         ]
     }
 
 
-newItemForm : Form String TodoInput (Html Msg)
-newItemForm =
+newItemForm : Bool -> Form String TodoInput (Html Msg)
+newItemForm submitting =
     Form.succeed (\description () -> TodoInput description)
         |> Form.with
             (Form.text "description"
@@ -256,7 +263,15 @@ newItemForm =
         |> Form.with
             (Form.submit
                 (\{ attrs } ->
-                    Html.button attrs [ Html.text "Submit" ]
+                    Html.button attrs
+                        [ Html.text
+                            (if submitting then
+                                "Submitting..."
+
+                             else
+                                "Submit"
+                            )
+                        ]
                         |> Html.map (\_ -> NoOp)
                 )
             )

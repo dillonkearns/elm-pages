@@ -1862,8 +1862,7 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields _ _ _) =
 
 {-| -}
 toHtml2 :
-    { makeHttpRequest : Cmd msg -> msg
-    , reloadData : { body : ( String, String ) } -> Cmd msg
+    { onSubmit : { contentType : String, body : String } -> msg
     }
     -> (List (Html.Attribute msg) -> List view -> view)
     -> Model
@@ -1881,19 +1880,16 @@ toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
            , FormDecoder.formDataOnSubmit
                 |> Attr.map
                     (\formFields_ ->
-                        config.makeHttpRequest
-                            (config.reloadData
-                                { body =
-                                    ( "application/x-www-form-urlencoded"
-                                    , formFields_
-                                        |> List.map
-                                            (\( name, value ) ->
-                                                Url.percentEncode name ++ "=" ++ Url.percentEncode value
-                                            )
-                                        |> String.join "&"
-                                    )
-                                }
-                            )
+                        config.onSubmit
+                            { contentType = "application/x-www-form-urlencoded"
+                            , body =
+                                formFields_
+                                    |> List.map
+                                        (\( name, value ) ->
+                                            Url.percentEncode name ++ "=" ++ Url.percentEncode value
+                                        )
+                                    |> String.join "&"
+                            }
                     )
            ]
          ]

@@ -88,7 +88,18 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
     , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData sharedData)
     , globalHeadTags : Maybe (DataSource (List Head.Tag))
     , cmdToEffect : Cmd userMsg -> effect
-    , perform : (userMsg -> mappedMsg) -> Browser.Navigation.Key -> effect -> Cmd mappedMsg
+    , perform :
+        { fetchRouteData :
+            { body : Maybe { contentType : String, body : String }
+            , path : Maybe String
+            , toMsg : Result Http.Error Url -> userMsg
+            }
+            -> Cmd mappedMsg
+        }
+        -> (userMsg -> mappedMsg)
+        -> Browser.Navigation.Key
+        -> effect
+        -> Cmd mappedMsg
     , errorStatusCode : errorPage -> Int
     , notFoundPage : errorPage
     , internalError : String -> errorPage

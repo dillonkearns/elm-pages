@@ -269,7 +269,7 @@ type Msg userMsg pageData sharedData errorPage
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
-    | UpdateCacheAndUrlNew Bool Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
+    | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ReloadCurrentPageData RequestInfo
@@ -327,7 +327,7 @@ update config appMsg model =
 
                     else
                         ( model
-                        , FetchPageData Nothing url (UpdateCacheAndUrlNew True url)
+                        , FetchPageData Nothing url (UpdateCacheAndUrlNew True url Nothing)
                         )
 
                 Browser.External href ->
@@ -393,12 +393,12 @@ update config appMsg model =
 
             else
                 ( model
-                , FetchPageData Nothing url (UpdateCacheAndUrlNew False url)
+                , FetchPageData Nothing url (UpdateCacheAndUrlNew False url Nothing)
                 )
 
         ReloadCurrentPageData requestInfo ->
             ( model
-            , FetchPageData (Just requestInfo) model.url (UpdateCacheAndUrlNew False model.url)
+            , FetchPageData (Just requestInfo) model.url (UpdateCacheAndUrlNew False model.url Nothing)
             )
 
         UserMsg userMsg ->
@@ -419,7 +419,7 @@ update config appMsg model =
                 Err _ ->
                     ( model, NoEffect )
 
-        UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution updateResult ->
+        UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
             case
                 Result.map2 Tuple.pair
                     (updateResult
@@ -472,19 +472,37 @@ update config appMsg model =
                                 , pageData = Ok updatedPageData
                             }
                     in
-                    ( { updatedModel
-                        | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                      }
-                    , Batch
-                        [ UserCmd userCmd
-                        , ScrollToTop
-                        , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
-                            BrowserPushUrl newUrl.path
+                    case maybeUserMsg of
+                        Just userMsg ->
+                            ( { updatedModel
+                                | ariaNavigationAnnouncement = mainView config updatedModel |> .title
+                              }
+                            , Batch
+                                [ UserCmd userCmd
+                                , ScrollToTop
+                                , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
+                                    BrowserPushUrl newUrl.path
 
-                          else
-                            NoEffect
-                        ]
-                    )
+                                  else
+                                    NoEffect
+                                ]
+                            )
+                                |> withUserMsg config userMsg
+
+                        Nothing ->
+                            ( { updatedModel
+                                | ariaNavigationAnnouncement = mainView config updatedModel |> .title
+                              }
+                            , Batch
+                                [ UserCmd userCmd
+                                , ScrollToTop
+                                , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
+                                    BrowserPushUrl newUrl.path
+
+                                  else
+                                    NoEffect
+                                ]
+                            )
 
                 Err _ ->
                     {-
@@ -556,8 +574,8 @@ update config appMsg model =
                 |> Result.withDefault ( model, NoEffect )
 
 
-perform : ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage -> Maybe Browser.Navigation.Key -> Effect userMsg pageData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData sharedData errorPage)
-perform config maybeKey effect =
+perform : ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage -> Url -> Maybe Browser.Navigation.Key -> Effect userMsg pageData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData sharedData errorPage)
+perform config currentUrl maybeKey effect =
     -- elm-review: known-unoptimized-recursion
     case effect of
         NoEffect ->
@@ -565,7 +583,7 @@ perform config maybeKey effect =
 
         Batch effects ->
             effects
-                |> List.map (perform config maybeKey)
+                |> List.map (perform config currentUrl maybeKey)
                 |> Cmd.batch
 
         ScrollToTop ->
@@ -589,7 +607,36 @@ perform config maybeKey effect =
         UserCmd cmd ->
             case maybeKey of
                 Just key ->
-                    cmd |> config.perform UserMsg key
+                    let
+                        prepare :
+                            (Result Http.Error Url -> userMsg)
+                            -> Result Http.Error ( Url, ResponseSketch pageData sharedData )
+                            -> Msg userMsg pageData sharedData errorPage
+                        prepare toMsg info =
+                            UpdateCacheAndUrlNew True currentUrl (info |> Result.map Tuple.first |> toMsg |> Just) info
+
+                        --Bool Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
+                    in
+                    cmd
+                        |> config.perform
+                            {-
+                               fetchRouteData :
+                                       { body : Maybe { contentType : String, body : String }
+                                       , path : Maybe String
+                                       , toMsg : Result Http.Error Url -> msg
+                                       }
+                                       -> Effect msg
+                            -}
+                            { fetchRouteData =
+                                \fetchInfo ->
+                                    -- TODO check for fetchInfo.path and change current URL if Just
+                                    config.fetchPageData currentUrl fetchInfo.body
+                                        |> Task.attempt (prepare fetchInfo.toMsg)
+
+                            -- TODO map the Msg with the wrapper type (like in the PR branch)
+                            }
+                            UserMsg
+                            key
 
                 Nothing ->
                     Cmd.none
@@ -604,11 +651,11 @@ application config =
         { init =
             \flags url key ->
                 init config flags url (Just key)
-                    |> Tuple.mapSecond (perform config (Just key))
+                    |> Tuple.mapSecond (perform config url (Just key))
         , view = view config
         , update =
             \msg model ->
-                update config msg model |> Tuple.mapSecond (perform config model.key)
+                update config msg model |> Tuple.mapSecond (perform config model.url model.key)
         , subscriptions =
             \model ->
                 case model.pageData of
@@ -649,6 +696,33 @@ type alias RequestInfo =
     { contentType : String
     , body : String
     }
+
+
+withUserMsg :
+    ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage
+    -> userMsg
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+withUserMsg config userMsg ( model, effect ) =
+    case model.pageData of
+        Ok pageData ->
+            let
+                ( userModel, userCmd ) =
+                    config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+
+                updatedPageData : Result error { userModel : userModel, pageData : pageData, sharedData : sharedData }
+                updatedPageData =
+                    Ok { pageData | userModel = userModel }
+            in
+            ( { model | pageData = updatedPageData }
+            , Batch
+                [ effect
+                , UserCmd userCmd
+                ]
+            )
+
+        Err _ ->
+            ( model, effect )
 
 
 fromJsPortDecoder : Decode.Decoder RequestInfo
