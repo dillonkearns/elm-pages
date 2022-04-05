@@ -54,7 +54,7 @@ function fileContentWithParams(
   return `module Route.${pageModuleName} exposing (Model, Msg, Data, route)
 
 ${serverRender ? `import Server.Request as Request\n` : ""}
-${withState ? "\nimport Browser.Navigation" : ""}
+${withState ? "\nimport Effect exposing (Effect)" : ""}
 import DataSource exposing (DataSource)
 ${serverRender ? `import ErrorPage exposing (ErrorPage)` : ""}
 import Head
@@ -133,30 +133,29 @@ init :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data RouteParams
-    -> ( Model, Cmd Msg )
+    -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( {}, Cmd.none )
+    ( {}, Effect.none )
 
 
 update :
     PageUrl
-    -> Maybe Browser.Navigation.Key
     -> Shared.Model
     -> StaticPayload Data RouteParams
     -> Msg
     -> Model
     -> ${
       withState === "local"
-        ? "( Model, Cmd Msg )"
-        : "( Model, Cmd Msg, Maybe Shared.Msg )"
+        ? "( Model, Effect Msg )"
+        : "( Model, Effect Msg, Maybe Shared.Msg )"
     }
-update pageUrl maybeNavigationKey sharedModel static msg model =
+update pageUrl sharedModel static msg model =
     case msg of
         NoOp ->
             ${
               withState === "local"
-                ? "( model, Cmd.none )"
-                : "( model, Cmd.none, Nothing )"
+                ? "( model, Effect.none )"
+                : "( model, Effect.none, Nothing )"
             }
 
 
