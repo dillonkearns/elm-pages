@@ -95,9 +95,9 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
             , toMsg : Result Http.Error Url -> userMsg
             }
             -> Cmd mappedMsg
+        , fromPageMsg : userMsg -> mappedMsg
+        , key : Browser.Navigation.Key
         }
-        -> (userMsg -> mappedMsg)
-        -> Browser.Navigation.Key
         -> effect
         -> Cmd mappedMsg
     , errorStatusCode : errorPage -> Int

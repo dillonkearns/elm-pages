@@ -1,5 +1,5 @@
 function elmPagesUiFile() {
-  return `port module Pages exposing (builtAt)
+  return `module Pages exposing (builtAt)
 
 import Time
 import Json.Decode

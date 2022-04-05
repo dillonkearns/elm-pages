@@ -628,9 +628,9 @@ perform config currentUrl maybeKey effect =
                                         |> Task.attempt (prepare fetchInfo.toMsg)
 
                             -- TODO map the Msg with the wrapper type (like in the PR branch)
+                            , fromPageMsg = UserMsg
+                            , key = key
                             }
-                            UserMsg
-                            key
 
                 Nothing ->
                     Cmd.none

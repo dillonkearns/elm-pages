@@ -69,12 +69,14 @@ perform :
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
+
+    --, fromSharedMsg : Shared.Msg -> msg
+    , fromPageMsg : pageMsg -> msg
+    , key : Browser.Navigation.Key
     }
-    -> (pageMsg -> msg)
-    -> Browser.Navigation.Key
     -> Effect pageMsg
     -> Cmd msg
-perform info fromPageMsg key effect =
+perform ({ fetchRouteData, fromPageMsg } as info) effect =
     case effect of
         None ->
             Cmd.none
@@ -83,17 +85,16 @@ perform info fromPageMsg key effect =
             Cmd.map fromPageMsg cmd
 
         Batch list ->
-            Cmd.batch (List.map (perform info fromPageMsg key) list)
+            Cmd.batch (List.map (perform info) list)
 
         GetStargazers toMsg ->
             Http.get
-                { url =
-                    "https://api.github.com/repos/dillonkearns/elm-pages"
+                { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                 , expect = Http.expectJson (toMsg >> fromPageMsg) (Decode.field "stargazers_count" Decode.int)
                 }
 
         FetchPageData fetchInfo ->
-            info.fetchRouteData
+            fetchRouteData
                 { body = fetchInfo.body
                 , path = fetchInfo.path
                 , toMsg = fetchInfo.toMsg

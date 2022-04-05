@@ -69,12 +69,12 @@ perform :
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
+    , fromPageMsg : pageMsg -> msg
+    , key : Browser.Navigation.Key
     }
-    -> (pageMsg -> msg)
-    -> Browser.Navigation.Key
     -> Effect pageMsg
     -> Cmd msg
-perform helpers fromPageMsg key effect =
+perform ({ fromPageMsg, key } as helpers) effect =
     case effect of
         None ->
             Cmd.none
@@ -83,7 +83,7 @@ perform helpers fromPageMsg key effect =
             Cmd.map fromPageMsg cmd
 
         Batch list ->
-            Cmd.batch (List.map (perform helpers fromPageMsg key) list)
+            Cmd.batch (List.map (perform helpers) list)
 
         GetStargazers toMsg ->
             Http.get
