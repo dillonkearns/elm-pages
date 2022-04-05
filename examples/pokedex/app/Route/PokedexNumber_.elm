@@ -116,7 +116,8 @@ view :
 view maybeUrl sharedModel static =
     { title = static.data.pokemon.name
     , body =
-        [ h1 []
+        [ h1
+            []
             [ text static.data.pokemon.name
             ]
         , text (static.data.pokemon.abilities |> String.join ", ")
