@@ -15,6 +15,7 @@ const which = require("which");
 const { build } = require("vite");
 const preRenderHtml = require("./pre-render-html.js");
 const esbuild = require("esbuild");
+const { createHash } = require("crypto");
 
 let pool = [];
 let pagesReady;
@@ -107,6 +108,13 @@ async function run(options) {
     });
     const compileClientDone = compileElm(options);
     await buildComplete;
+    await compileClientDone;
+    const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
+    const withoutExtension = path.join(process.cwd(), `./dist/elm`);
+    const browserElmHash = await fingerprintElmAsset(
+      fullOutputPath,
+      withoutExtension
+    );
     const assetManifestPath = path.join(process.cwd(), "dist/manifest.json");
     const manifest = require(assetManifestPath);
     const indexTemplate = await fsPromises.readFile(
@@ -117,7 +125,12 @@ async function run(options) {
 
     await fsPromises.writeFile(
       "dist/template.html",
-      indexTemplate.replace("<!-- PLACEHOLDER_PRELOADS -->", preloads)
+      indexTemplate
+        .replace("<!-- PLACEHOLDER_PRELOADS -->", preloads)
+        .replace(
+          '<script defer src="/elm.js" type="text/javascript"></script>',
+          `<script defer src="/elm.${browserElmHash}.js" type="text/javascript"></script>`
+        )
     );
     await fsPromises.unlink(assetManifestPath);
 
@@ -299,6 +312,17 @@ async function compileElm(options) {
   }
 }
 
+async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
+  const fileHash = await fsPromises
+    .readFile(fullOutputPath, "utf8")
+    .then(getAssetHash);
+  await fsPromises.copyFile(
+    fullOutputPath,
+    `${withoutExtension}.${fileHash}.js`
+  );
+  return fileHash;
+}
+
 function elmOptimizeLevel2(outputPath, cwd) {
   return new Promise((resolve, reject) => {
     const optimizedOutputPath = outputPath + ".opt";
@@ -361,6 +385,10 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
           : "Array.from(new FormData(event.target))")
     )
   );
+}
+
+function getAssetHash(content) {
+  return createHash("sha256").update(content).digest("hex").slice(0, 8);
 }
 
 function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
