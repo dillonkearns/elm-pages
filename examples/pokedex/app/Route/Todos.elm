@@ -66,7 +66,9 @@ init :
     -> StaticPayload Data RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( { submitting = False }, Effect.none )
+    ( { submitting = False }
+    , Effect.none
+    )
 
 
 update :
