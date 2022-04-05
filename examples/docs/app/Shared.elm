@@ -1,6 +1,5 @@
 module Shared exposing (Data, Model, Msg, template)
 
-import Browser.Navigation
 import DataSource
 import DocsSection
 import Effect exposing (Effect)
@@ -44,13 +43,11 @@ type alias Data =
 type alias Model =
     { showMobileMenu : Bool
     , counter : Int
-    , navigationKey : Maybe Browser.Navigation.Key
     }
 
 
 init :
-    Maybe Browser.Navigation.Key
-    -> Pages.Flags.Flags
+    Pages.Flags.Flags
     ->
         Maybe
             { path :
@@ -62,10 +59,9 @@ init :
             , pageUrl : Maybe PageUrl
             }
     -> ( Model, Effect Msg )
-init navigationKey flags maybePagePath =
+init flags maybePagePath =
     ( { showMobileMenu = False
       , counter = 0
-      , navigationKey = navigationKey
       }
     , Effect.none
     )
