@@ -349,17 +349,18 @@ async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   if (!options.debug) {
     await elmOptimizeLevel2(outputPath, cwd);
   }
-  // await fsPromises.writeFile(
-  //   outputPath,
-  //   await fsPromises.readFile(outputPath, "utf-8")
-  // );
-  // .replace(
-  //   /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
-  //   "let appendSubmitter = (myFormData, event) => { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
-  //     (options.debug
-  //       ? "_Json_wrap([...(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event)))])"
-  //       : "[...(new FormData(event.target))")
-  // )
+  await fsPromises.writeFile(
+    outputPath,
+    (
+      await fsPromises.readFile(outputPath, "utf-8")
+    ).replace(
+      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
+      "function appendSubmitter (myFormData, event) { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
+        (options.debug
+          ? "_Json_wrap(Array.from(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event))))"
+          : "Array.from(new FormData(event.target))")
+    )
+  );
 }
 
 function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
