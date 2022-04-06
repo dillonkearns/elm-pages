@@ -3,10 +3,10 @@ module Server.Response exposing
     , json, plainText, temporaryRedirect, permanentRedirect
     , emptyBody, body, bytesBody, base64Body
     , render
+    , errorPage, mapError
     , map
     , withHeader, withHeaders, withStatusCode, withSetCookieHeader
     , toJson
-    , errorPage, mapError
     )
 
 {-|
@@ -44,6 +44,11 @@ You can use `withHeader` and `withStatusCode` to customize either type of Respon
 ## Render Responses
 
 @docs render
+
+
+## Rendering Error Pages
+
+@docs errorPage, mapError
 
 @docs map
 

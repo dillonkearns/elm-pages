@@ -126,6 +126,8 @@ Steps
 
 @docs FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
 
+@docs fieldStatusToString
+
 -}
 
 import DataSource exposing (DataSource)
@@ -156,6 +158,7 @@ type FieldStatus
     | Blurred
 
 
+{-| -}
 fieldStatusToString : FieldStatus -> String
 fieldStatusToString fieldStatus =
     case fieldStatus of
