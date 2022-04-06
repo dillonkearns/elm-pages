@@ -117,21 +117,20 @@ async function run(options) {
     );
     const assetManifestPath = path.join(process.cwd(), "dist/manifest.json");
     const manifest = require(assetManifestPath);
+    console.log({ manifest });
     const indexTemplate = await fsPromises.readFile(
       "dist/elm-stuff/elm-pages/index.html",
       "utf-8"
     );
     const preloads = `<link rel="modulepreload" href="/${manifest["elm-stuff/elm-pages/index.html"]["file"]}" />`;
 
-    await fsPromises.writeFile(
-      "dist/template.html",
-      indexTemplate
-        .replace("<!-- PLACEHOLDER_PRELOADS -->", preloads)
-        .replace(
-          '<script defer src="/elm.js" type="text/javascript"></script>',
-          `<script defer src="/elm.${browserElmHash}.js" type="text/javascript"></script>`
-        )
-    );
+    const processedIndexTemplate = indexTemplate
+      .replace("<!-- PLACEHOLDER_PRELOADS -->", preloads)
+      .replace(
+        '<script defer src="/elm.js" type="text/javascript"></script>',
+        `<script defer src="/elm.${browserElmHash}.js" type="text/javascript"></script>`
+      );
+    await fsPromises.writeFile("dist/template.html", processedIndexTemplate);
     await fsPromises.unlink(assetManifestPath);
 
     const portDataSourceCompiled = esbuild
@@ -197,7 +196,8 @@ async function run(options) {
           console.log(
             "No adapter configured in elm-pages.config.mjs. Skipping adapter step."
           );
-        }
+        },
+      processedIndexTemplate
     );
   } catch (error) {
     console.error(error);
@@ -563,7 +563,7 @@ return forceThunks(html);
   );
 }
 
-async function runAdapter(adaptFn) {
+async function runAdapter(adaptFn, processedIndexTemplate) {
   try {
     await adaptFn({
       renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
@@ -574,6 +574,7 @@ async function runAdapter(adaptFn) {
         await fsPromises.readFile("./dist/api-patterns.json", "utf-8")
       ),
       portsFilePath: "./.elm-pages/compiled-ports/port-data-source.mjs",
+      htmlTemplate: processedIndexTemplate,
     });
     console.log("Success - Adapter script complete");
   } catch (error) {
