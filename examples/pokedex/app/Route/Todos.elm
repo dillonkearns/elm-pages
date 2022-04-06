@@ -22,6 +22,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
 import Request.Fauna
+import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
@@ -162,9 +163,7 @@ data routeParams =
                     Ok id ->
                         Request.Fauna.mutationDataSource "" (deleteTodo id)
                             |> DataSource.map
-                                (\_ ->
-                                    Response.temporaryRedirect "/todos"
-                                )
+                                (\_ -> Route.redirectTo Route.Todos)
 
                     Err error ->
                         { todos = [] }
@@ -177,9 +176,7 @@ data routeParams =
                     Ok okItem ->
                         Request.Fauna.mutationDataSource "" (createTodo okItem.description)
                             |> DataSource.map
-                                (\_ ->
-                                    Response.temporaryRedirect "/todos"
-                                )
+                                (\_ -> Route.redirectTo Route.Todos)
 
                     Err error ->
                         { todos = []

@@ -97,7 +97,7 @@ redirectRoute =
     ApiRoute.succeed
         (Server.Request.succeed
             (DataSource.succeed
-                (Server.Response.temporaryRedirect "/")
+                (Route.redirectTo Route.Index)
             )
         )
         |> ApiRoute.literal "api"
@@ -163,7 +163,7 @@ logout =
             (\() sessionResult ->
                 DataSource.succeed
                     ( Session.empty
-                    , Server.Response.temporaryRedirect "/login"
+                    , Route.redirectTo Route.Login
                     )
             )
         )

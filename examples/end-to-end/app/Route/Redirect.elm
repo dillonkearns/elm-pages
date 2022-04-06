@@ -9,6 +9,7 @@ import Head.Seo as Seo
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
+import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
@@ -87,7 +88,7 @@ data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.acceptMethod ( Request.Post, [] )
-            (Request.succeed (DataSource.succeed (Response.temporaryRedirect "/hello")))
+            (Request.succeed (DataSource.succeed (Route.redirectTo Route.Hello)))
         , Request.succeed (DataSource.succeed (Response.render Data))
         ]
 

@@ -888,11 +888,11 @@ decodeBytes bytesDecoder items =
     -- Lamdera.Wire3.bytesDecodeStrict bytesDecoder items
         |> Result.fromMaybe "Decoding error"
 `,
-    routesModule: `module Route exposing (baseUrlAsPath, Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath)
+    routesModule: `module Route exposing (baseUrlAsPath, Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath, redirectTo)
 
 {-|
 
-@docs Route, link, matchers, routeToPath, toLink, urlToRoute, toPath
+@docs Route, link, matchers, routeToPath, toLink, urlToRoute, toPath, redirectTo
 
 -}
 
@@ -1017,6 +1017,13 @@ link attributes children route =
                 children
         )
         route
+
+
+redirectTo : Route -> Server.Response.Response data error
+redirectTo route =
+    route
+        |> toString
+        |> Server.Response.temporaryRedirect
 `,
   };
 }

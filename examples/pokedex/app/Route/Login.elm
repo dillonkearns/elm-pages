@@ -10,6 +10,7 @@ import Html.Attributes as Attr
 import MySession
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response exposing (Response)
@@ -56,8 +57,7 @@ data routeParams =
                     |> Maybe.withDefault Session.empty
                     |> Session.insert "name" name
                     |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                , "/greet"
-                    |> Server.Response.temporaryRedirect
+                , Route.redirectTo Route.Greet
                 )
                     |> DataSource.succeed
             )

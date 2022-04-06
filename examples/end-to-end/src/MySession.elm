@@ -3,6 +3,7 @@ module MySession exposing (..)
 import Codec
 import DataSource exposing (DataSource)
 import DataSource.Env as Env
+import Route
 import Server.Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
@@ -37,7 +38,7 @@ withSessionOrRedirect handler toRequest =
                 |> Result.withDefault
                     (DataSource.succeed
                         ( Session.empty
-                        , Response.temporaryRedirect "/login"
+                        , Route.redirectTo Route.Login
                         )
                     )
         )
@@ -61,7 +62,7 @@ expectSessionOrRedirect toRequest handler =
                 |> Maybe.withDefault
                     (DataSource.succeed
                         ( Session.empty
-                        , Response.temporaryRedirect "/login"
+                        , Route.redirectTo Route.Login
                         )
                     )
         )
