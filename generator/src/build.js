@@ -117,7 +117,6 @@ async function run(options) {
     );
     const assetManifestPath = path.join(process.cwd(), "dist/manifest.json");
     const manifest = require(assetManifestPath);
-    console.log({ manifest });
     const indexTemplate = await fsPromises.readFile(
       "dist/elm-stuff/elm-pages/index.html",
       "utf-8"
