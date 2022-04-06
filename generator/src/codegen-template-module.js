@@ -231,9 +231,9 @@ ${
     ? `view :
     Maybe PageUrl
     -> Shared.Model
-    -> templateModel
-    -> StaticPayload templateData routeParams
-    -> View templateMsg
+    -> Model
+    -> StaticPayload Data RouteParams
+    -> View Msg
 view maybeUrl sharedModel model static =
 `
     : `view :
