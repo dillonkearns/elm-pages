@@ -54,8 +54,7 @@ all =
                             ]
                         , body = Nothing
                         }
-                        """Did not match formPost because
-- Form post must have method POST, but the method was GET"""
+                        "expectFormPost did not match - expected method POST, but the method was GET"
         , test "tries multiple form post formats" <|
             \() ->
                 Request.oneOf
@@ -81,6 +80,24 @@ all =
                                     (Dict.fromList [ ( "foo", NonEmpty.singleton "bar" ) ])
                                 )
                         }
+        , test "expectFormPost with missing content-type" <|
+            \() ->
+                Request.expectFormPost
+                    (\{ field } ->
+                        field "bar"
+                    )
+                    |> expectNoMatch
+                        { method = Request.Post
+                        , headers =
+                            [ ( "content_type", "application/x-www-form-urlencoded" )
+                            ]
+                        , body =
+                            Just
+                                (FormData
+                                    (Dict.fromList [ ( "foo", NonEmpty.singleton "bar" ) ])
+                                )
+                        }
+                        """expectFormPost did not match - Was form POST but expected content-type `application/x-www-form-urlencoded` but the request didn't have a content-type header"""
         , test "one of no match" <|
             \() ->
                 Request.oneOf
@@ -104,8 +121,7 @@ all =
                         }
                         """Server.Request.oneOf failed in the following 4 ways:
 
-(1) Did not match formPost because
-- Form post must have method POST, but the method was GET
+(1) expectFormPost did not match - expected method POST, but the method was GET
 
 (2) Expected content-type to be application/json but it was application/x-www-form-urlencoded
 

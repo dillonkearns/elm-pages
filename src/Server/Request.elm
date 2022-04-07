@@ -887,25 +887,25 @@ expectFormPost toForm =
     map4 (\parsedContentType a b c -> ( ( a, parsedContentType ), b, c ))
         (rawContentType |> map (Maybe.map parseContentType))
         (matchesContentType "application/x-www-form-urlencoded")
-        (matchesMethod ( Post, [] ))
-        (rawBody
-            |> map (Maybe.withDefault "")
-         --|> andThen
-         --    (\maybeBody ->
-         --        maybeBody
-         --            |> Result.fromMaybe "Expected a form POST but this HTTP request has no body."
-         --            |> fromResult
-         --    )
+        method
+        (rawBody |> map (Maybe.withDefault "")
+         -- TODO warn of empty body in case when field decoding fails?
         )
         |> andThen
             (\( ( validContentType, parsedContentType ), validMethod, justBody ) ->
-                if not ((validContentType |> Maybe.withDefault False) && validMethod) then
+                if not ((validContentType |> Maybe.withDefault False) && validMethod == Post) then
                     Json.Decode.succeed
                         ( Err
-                            (NotFormPost
-                                { method = Just Get
-                                , contentType = parsedContentType
-                                }
+                            (ValidationError <|
+                                case ( validContentType |> Maybe.withDefault False, validMethod == Post, parsedContentType ) of
+                                    ( False, True, Just contentType_ ) ->
+                                        "expectFormPost did not match - Was form POST but expected content-type `application/x-www-form-urlencoded` and instead got `" ++ contentType_ ++ "`"
+
+                                    ( False, True, Nothing ) ->
+                                        "expectFormPost did not match - Was form POST but expected content-type `application/x-www-form-urlencoded` but the request didn't have a content-type header"
+
+                                    _ ->
+                                        "expectFormPost did not match - expected method POST, but the method was " ++ methodToString validMethod
                             )
                         , []
                         )
