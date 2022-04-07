@@ -5,7 +5,7 @@ module Form exposing
     , isSubmitting, SubmitStatus(..)
     , FieldRenderInfo, FieldStatus(..), isAtLeast
     , with, append, appendForm
-    , Field
+    , Field, map
     , withInitialValue
     , checkbox, date, time, email, hidden, multiple, int, float, password, radio, range, telephone, text, url, floatRange, search
     , submit
@@ -57,7 +57,7 @@ The form submissions are handled internally. Both tracking the submit status, an
 
 ## Fields
 
-@docs Field
+@docs Field, map
 
 
 ## Initial Values
@@ -1465,6 +1465,12 @@ withServerValidation serverValidation (Field field) =
                             -}
                             DataSource.succeed []
         }
+
+
+{-| -}
+map : (value -> mapped) -> Field error value view constraints -> Field error mapped view { constraints | wasMapped : Yes }
+map mapFn field =
+    withClientValidation (mapFn >> Ok) field
 
 
 {-| -}
