@@ -45,7 +45,7 @@ data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession
-            (Request.expectFormPost (\_ -> Request.succeed ()))
+            (Request.acceptMethod ( Request.Post, [] ) (Request.succeed ()))
             (\_ _ ->
                 ( Session.empty
                     |> Session.withFlash "message" "You have been successfully logged out."

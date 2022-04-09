@@ -1,11 +1,13 @@
 module Route.Greet exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
+import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
+import Html.Styled.Events exposing (onSubmit)
 import MySession
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -22,21 +24,52 @@ type alias Model =
     {}
 
 
-type alias Msg =
-    ()
+type Msg
+    = Logout
+    | NoOp
 
 
 type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatefulRoute RouteParams Data Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
         }
-        |> RouteBuilder.buildNoState { view = view }
+        |> RouteBuilder.buildWithLocalState
+            { view = view
+            , init = init
+            , update = update
+            , subscriptions = \_ _ _ _ _ -> Sub.none
+            }
+
+
+init :
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
+    -> ( Model, Effect Msg )
+init maybePageUrl sharedModel static =
+    ( {}, Effect.none )
+
+
+update :
+    PageUrl
+    -> Shared.Model
+    -> StaticPayload Data RouteParams
+    -> Msg
+    -> Model
+    -> ( Model, Effect Msg )
+update pageUrl sharedModel static msg model =
+    case msg of
+        NoOp ->
+            ( model, Effect.none )
+
+        Logout ->
+            ( model, Effect.Logout NoOp )
 
 
 type alias Data =
@@ -114,9 +147,10 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
+    -> Model
     -> StaticPayload Data RouteParams
     -> View Msg
-view maybeUrl sharedModel static =
+view maybeUrl sharedModel model static =
     { title = "Hello!"
     , body =
         [ static.data.flashMessage
@@ -125,7 +159,7 @@ view maybeUrl sharedModel static =
         , Html.text <| "Hello " ++ static.data.username ++ "!"
         , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis static.data.requestTime)
         , Html.div []
-            [ Html.form [ Attr.method "post", Attr.action "/logout" ]
+            [ Html.form [ Attr.method "post", Attr.action "/logout", onSubmit Logout ]
                 [ Html.button
                     [ Attr.type_ "submit" ]
                     [ Html.text "Logout" ]
