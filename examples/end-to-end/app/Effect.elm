@@ -11,6 +11,7 @@ type Effect msg
     | Cmd (Cmd msg)
     | Batch (List (Effect msg))
     | GetStargazers (Result Http.Error Int -> msg)
+    | Logout msg
     | FetchPageData
         { body : Maybe { contentType : String, body : String }
         , path : Maybe String
@@ -61,6 +62,9 @@ map fn effect =
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
+        Logout msg ->
+            Logout (fn msg)
+
 
 perform :
     { fetchRouteData :
@@ -86,6 +90,17 @@ perform ({ fetchRouteData, fromPageMsg } as info) effect =
 
         Batch list ->
             Cmd.batch (List.map (perform info) list)
+
+        Logout toMsg ->
+            fetchRouteData
+                { body =
+                    Just
+                        { contentType = "application/json"
+                        , body = ""
+                        }
+                , path = Just "/logout"
+                , toMsg = \_ -> toMsg
+                }
 
         GetStargazers toMsg ->
             Http.get
