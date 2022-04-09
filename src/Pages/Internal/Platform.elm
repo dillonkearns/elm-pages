@@ -35,6 +35,15 @@ import Task
 import Url exposing (Url)
 
 
+type Payload
+    = Payload
+
+
+type Transition
+    = Loading Path
+    | Submitting Path Payload
+
+
 {-| -}
 type alias Program userModel userMsg pageData sharedData errorPage =
     Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData sharedData errorPage)
@@ -230,6 +239,7 @@ init config flags url key =
                     , ariaNavigationAnnouncement = ""
                     , userFlags = flags
                     , notFound = Nothing
+                    , transition = Nothing
                     }
             in
             ( { initialModel
@@ -245,6 +255,7 @@ init config flags url key =
               , ariaNavigationAnnouncement = "Error" -- TODO use error page title for announcement?
               , userFlags = flags
               , notFound = Just info
+              , transition = Nothing
               }
             , NoEffect
             )
@@ -259,6 +270,7 @@ init config flags url key =
               , ariaNavigationAnnouncement = "Error"
               , userFlags = flags
               , notFound = Nothing
+              , transition = Nothing
               }
             , NoEffect
             )
@@ -272,6 +284,7 @@ type Msg userMsg pageData sharedData errorPage
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
+    | ProcessFetchResponse (Result Http.Error ( Url, ResponseSketch pageData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
 
 
 {-| -}
@@ -288,6 +301,7 @@ type alias Model userModel pageData sharedData =
             }
     , notFound : Maybe { reason : NotFoundReason, path : Path }
     , userFlags : Decode.Value
+    , transition : Maybe Transition
     }
 
 
@@ -391,9 +405,30 @@ update config appMsg model =
                     |> Result.withDefault ( model, NoEffect )
 
             else
-                ( model
+                ( { model
+                    | transition =
+                        url.path
+                            |> Path.fromString
+                            |> Loading
+                            |> Just
+                  }
                 , FetchPageData Nothing url (UpdateCacheAndUrlNew False url Nothing)
                 )
+
+        ProcessFetchResponse response toMsg ->
+            case response of
+                Ok ( _, ResponseSketch.Redirect redirectTo ) ->
+                    let
+                        currentUrl : Url
+                        currentUrl =
+                            model.url
+                    in
+                    ( model
+                    , FetchPageData Nothing { currentUrl | path = redirectTo } toMsg
+                    )
+
+                _ ->
+                    update config (toMsg response) model
 
         UserMsg userMsg ->
             case model.pageData of
@@ -595,8 +630,7 @@ perform config currentUrl maybeKey effect =
                 |> Maybe.withDefault Cmd.none
 
         FetchPageData maybeRequestInfo url toMsg ->
-            config.fetchPageData url maybeRequestInfo
-                |> Task.attempt toMsg
+            fetchRouteData toMsg config url maybeRequestInfo
 
         UserCmd cmd ->
             case maybeKey of
@@ -608,24 +642,17 @@ perform config currentUrl maybeKey effect =
                             -> Msg userMsg pageData sharedData errorPage
                         prepare toMsg info =
                             UpdateCacheAndUrlNew True currentUrl (info |> Result.map Tuple.first |> toMsg |> Just) info
-
-                        --Bool Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
                     in
                     cmd
                         |> config.perform
-                            {-
-                               fetchRouteData :
-                                       { body : Maybe { contentType : String, body : String }
-                                       , path : Maybe String
-                                       , toMsg : Result Http.Error Url -> msg
-                                       }
-                                       -> Effect msg
-                            -}
                             { fetchRouteData =
                                 \fetchInfo ->
-                                    -- TODO check for fetchInfo.path and change current URL if Just
-                                    config.fetchPageData currentUrl fetchInfo.body
-                                        |> Task.attempt (prepare fetchInfo.toMsg)
+                                    case fetchInfo.path of
+                                        Just path ->
+                                            fetchRouteData (prepare fetchInfo.toMsg) config { currentUrl | path = path } fetchInfo.body
+
+                                        Nothing ->
+                                            fetchRouteData (prepare fetchInfo.toMsg) config currentUrl fetchInfo.body
 
                             -- TODO map the Msg with the wrapper type (like in the PR branch)
                             , fromPageMsg = UserMsg
@@ -712,3 +739,85 @@ withUserMsg config userMsg ( model, effect ) =
 urlPathToPath : Url -> Path
 urlPathToPath urls =
     urls.path |> Path.fromString
+
+
+fetchRouteData :
+    (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
+    -> ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData errorPage) errorPage
+    -> Url
+    -> Maybe { contentType : String, body : String }
+    -> Cmd (Msg userMsg pageData sharedData errorPage)
+fetchRouteData toMsg config url details =
+    {-
+       TODO:
+       - [X] `toMsg` needs a parameter for the callback Msg so it can pass it on if there is a Redirect response
+       - [X] Handle ResponseSketch.Redirect in `update`
+       - [ ] Set transition state when loading
+       - [ ] Set transition state when submitting
+       - [ ] Should transition state for redirect after submit be the same as a regular load transition state?
+       - [ ] Expose transition state (in Shared?)
+       - [ ] Abort stale transitions
+       - [ ] Increment cancel key counter in Model on new transitions
+
+    -}
+    Http.request
+        { method = details |> Maybe.map (\_ -> "POST") |> Maybe.withDefault "GET"
+        , headers = []
+        , url =
+            url.path
+                |> chopForwardSlashes
+                |> String.split "/"
+                |> List.filter ((/=) "")
+                |> (\l -> l ++ [ "content.dat" ])
+                |> String.join "/"
+                |> String.append "/"
+        , body = details |> Maybe.map (\justDetails -> Http.stringBody justDetails.contentType justDetails.body) |> Maybe.withDefault Http.emptyBody
+        , expect =
+            Http.expectBytesResponse (\response -> ProcessFetchResponse response toMsg)
+                (\response ->
+                    case response of
+                        Http.BadUrl_ url_ ->
+                            Err (Http.BadUrl url_)
+
+                        Http.Timeout_ ->
+                            Err Http.Timeout
+
+                        Http.NetworkError_ ->
+                            Err Http.NetworkError
+
+                        Http.BadStatus_ metadata _ ->
+                            Err (Http.BadStatus metadata.statusCode)
+
+                        Http.GoodStatus_ _ body ->
+                            body
+                                |> Bytes.Decode.decode config.decodeResponse
+                                |> Result.fromMaybe "Decoding error"
+                                |> Result.mapError Http.BadBody
+                                |> Result.map (\okResponse -> ( url, okResponse ))
+                )
+        , timeout = Nothing
+        , tracker = Just "track"
+        }
+
+
+chopForwardSlashes : String -> String
+chopForwardSlashes =
+    chopStart "/" >> chopEnd "/"
+
+
+chopStart : String -> String -> String
+chopStart needle string =
+    if String.startsWith needle string then
+        chopStart needle (String.dropLeft (String.length needle) string)
+
+    else
+        string
+
+
+chopEnd : String -> String -> String
+chopEnd needle string =
+    if String.endsWith needle string then
+        chopEnd needle (String.dropRight (String.length needle) string)
+
+    else
+        string
