@@ -26,6 +26,7 @@ import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
+import Set exposing (Set)
 import Shared
 import Time
 import View exposing (View)
@@ -33,6 +34,7 @@ import View exposing (View)
 
 type alias Model =
     { submitting : Bool
+    , deleting : Set String
     }
 
 
@@ -40,6 +42,7 @@ type Msg
     = FormMsg Form.Msg
     | NoOp
     | FormSubmitted { contentType : String, body : String }
+    | DeleteFormSubmitted String { contentType : String, body : String }
     | SubmitComplete
 
 
@@ -67,7 +70,9 @@ init :
     -> StaticPayload Data RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( { submitting = False }
+    ( { submitting = False
+      , deleting = Set.empty
+      }
     , Effect.none
     )
 
@@ -98,6 +103,17 @@ update pageUrl sharedModel static msg model =
 
         SubmitComplete ->
             ( { model | submitting = False }, Effect.none )
+
+        DeleteFormSubmitted id record ->
+            ( { model
+                | deleting = model.deleting |> Set.insert id
+              }
+            , Effect.FetchRouteData
+                { body = Just record
+                , path = Nothing
+                , toMsg = \_ -> NoOp
+                }
+            )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -227,11 +243,18 @@ view maybeUrl sharedModel model static =
             (static.data.todos
                 |> List.map
                     (\item ->
-                        Html.li []
+                        Html.li
+                            (if model.deleting |> Set.member item.id then
+                                [ Attr.style "opacity" "0.5"
+                                ]
+
+                             else
+                                []
+                            )
                             [ Html.text item.description
                             , deleteItemForm item.id
                                 |> Form.toHtml2
-                                    { onSubmit = FormSubmitted }
+                                    { onSubmit = DeleteFormSubmitted item.id }
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
                             ]
