@@ -5,7 +5,7 @@ module Server.Request exposing
     , requestTime, optionalHeader, expectContentType, expectJsonBody
     , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap, andThen
-    , expectQueryParam
+    , queryParam, expectQueryParam
     , cookie, expectCookie
     , expectHeader
     , File, expectMultiPartFormPost
@@ -39,7 +39,7 @@ module Server.Request exposing
 
 ## Query Parameters
 
-@docs expectQueryParam
+@docs queryParam, expectQueryParam
 
 
 ## Cookies
@@ -686,6 +686,29 @@ expectQueryParam name =
                     Nothing ->
                         skipInternal (ValidationError ("Expected query param \"" ++ name ++ "\", but there were no query params."))
             )
+
+
+{-| -}
+queryParam : String -> Parser (Maybe String)
+queryParam name =
+    rawUrl
+        |> andThen
+            (\url_ ->
+                url_
+                    |> Url.fromString
+                    |> Maybe.andThen .query
+                    |> Maybe.andThen (findFirstQueryParam name)
+                    |> succeed
+            )
+
+
+findFirstQueryParam : String -> String -> Maybe String
+findFirstQueryParam name queryString =
+    queryString
+        |> QueryParams.fromString
+        |> QueryParams.toDict
+        |> Dict.get name
+        |> Maybe.andThen List.head
 
 
 {-| -}
