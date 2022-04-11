@@ -769,12 +769,14 @@ routePatterns =
                     ]
             )
             [ ${sortTemplates(templates)
-              .map((name) => {
-                return `{ kind = Route.${moduleName(
-                  name
-                )}.route.kind, pathPattern = "${routeHelpers.toPathPattern(
-                  name
-                )}" }`;
+              .flatMap((name) => {
+                let patterns = routeHelpers.toPathPatterns(name);
+                return patterns.map(
+                  (pattern) =>
+                    `{ kind = Route.${moduleName(
+                      name
+                    )}.route.kind, pathPattern = "${pattern}" }`
+                );
               })
               .join("\n            , ")}
           
