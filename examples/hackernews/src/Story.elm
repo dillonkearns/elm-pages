@@ -32,36 +32,27 @@ view story =
         , Html.span
             [ Attr.class "title"
             ]
-            (case story.url of
-                Just url ->
+            (case ( story.url, story.url |> Maybe.withDefault "" |> String.startsWith "item?id=" ) of
+                ( Just url, False ) ->
                     [ Html.a
                         [ Attr.href url
                         , Attr.target "_blank"
                         , Attr.rel "noreferrer"
                         ]
                         [ Html.text story.title ]
-
-                    {-
-                       {story.url && !story.url.startsWith("item?id=") ? (
-                             <>
-                               <a href={story.url} target="_blank" rel="noreferrer">
-                                 {story.title}
-                               </a>
-                               <span class="host"> ({story.domain})</span>
-                             </>
-                           ) : (
-                             <a href={`/item/${story.id}`}>{story.title}</a>
-                           )}
-                    -}
-                    , Html.span [ Attr.class "host" ] [ Html.text <| " (" ++ story.domain ++ ")" ]
+                    , domainView story.domain
                     ]
 
-                Nothing ->
-                    [ Html.a
-                        [-- TODO decode into custom type here? --Attr.href ("/item/" ++ story.id)
-                        ]
-                        []
+                ( Nothing, _ ) ->
+                    [ Route.Stories__Id_ { id = String.fromInt story.id }
+                        |> Route.link
+                            [-- TODO decode into custom type here? --Attr.href ("/item/" ++ story.id)
+                            ]
+                            [ Html.text story.title ]
                     ]
+
+                _ ->
+                    [ Html.text story.title ]
             )
         , Html.br []
             []
@@ -91,6 +82,20 @@ view story =
 
           else
             Html.text ""
+        ]
+
+
+domainView : String -> Html msg
+domainView domain =
+    Html.span
+        [ Attr.class "host"
+        ]
+        [ Html.text <|
+            if String.isEmpty domain then
+                ""
+
+            else
+                "(" ++ domain ++ ")"
         ]
 
 

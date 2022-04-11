@@ -11,7 +11,6 @@ import Html.Attributes as Attr
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
-import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
@@ -146,12 +145,8 @@ storyView story =
                 [ Html.h1 []
                     [ Html.text story.title ]
                 ]
-            , Html.text " ("
-            , Html.span
-                [ Attr.class "host"
-                ]
-                [ Html.text story.domain ]
-            , Html.text ")"
+            , Html.text " "
+            , Story.domainView story.domain
             , Html.p
                 [ Attr.class "meta"
                 ]
