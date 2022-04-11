@@ -9,8 +9,8 @@ import Route
 
 type alias Story =
     { title : String
-    , points : Int
-    , user : String
+    , points : Maybe Int
+    , user : Maybe String
     , url : Maybe String
     , domain : String
     , time_ago : String
@@ -28,7 +28,12 @@ view story =
         [ Html.span
             [ Attr.class "score"
             ]
-            [ Html.text (String.fromInt story.points) ]
+            [ Html.text
+                (story.points
+                    |> Maybe.map String.fromInt
+                    |> Maybe.withDefault ""
+                )
+            ]
         , Html.span
             [ Attr.class "title"
             ]
@@ -59,26 +64,36 @@ view story =
         , Html.span
             [ Attr.class "meta"
             ]
-            [ Html.text "by "
-            , Html.a [ Attr.href "TODO" ]
-                [ Html.text story.user
+            (if story.type_ == "job" then
+                [ Route.Stories__Id_ { id = String.fromInt story.id }
+                    |> Route.link
+                        []
+                        [ Html.text story.time_ago
+                        ]
                 ]
-            , Html.text (" " ++ story.time_ago ++ " | ")
-            , Route.Stories__Id_ { id = String.fromInt story.id }
-                |> Route.link
-                    []
-                    [ if story.comments_count > 0 then
-                        Html.text (String.fromInt story.comments_count ++ " comments")
 
-                      else
-                        Html.text "discuss"
+             else
+                [ Html.text "by "
+                , Html.a [ Attr.href "TODO user page link" ]
+                    [ story.user |> Maybe.withDefault "" |> Html.text
                     ]
-            ]
+                , Html.text (" " ++ story.time_ago ++ " | ")
+                , Route.Stories__Id_ { id = String.fromInt story.id }
+                    |> Route.link
+                        []
+                        [ if story.comments_count > 0 then
+                            Html.text (String.fromInt story.comments_count ++ " comments")
+
+                          else
+                            Html.text "discuss"
+                        ]
+                ]
+            )
         , if story.type_ /= "link" then
             Html.span
                 [ Attr.class "label"
                 ]
-                [ Html.text story.type_ ]
+                [ Html.text <| " " ++ story.type_ ]
 
           else
             Html.text ""
@@ -103,8 +118,8 @@ decoder : Decoder Story
 decoder =
     Json.Decode.succeed Story
         |> required "title" Json.Decode.string
-        |> optional "points" Json.Decode.int 0
-        |> optional "user" Json.Decode.string ""
+        |> required "points" (Json.Decode.nullable Json.Decode.int)
+        |> required "user" (Json.Decode.nullable Json.Decode.string)
         |> required "url" (Json.Decode.nullable Json.Decode.string)
         |> optional "domain" Json.Decode.string ""
         |> required "time_ago" Json.Decode.string

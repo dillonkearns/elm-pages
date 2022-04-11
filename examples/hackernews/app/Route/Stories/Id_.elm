@@ -150,11 +150,17 @@ storyView story =
             , Html.p
                 [ Attr.class "meta"
                 ]
-                [ Html.text <| String.fromInt story.points ++ " points | by "
+                [ case story.points of
+                    Just points ->
+                        Html.text <| (String.fromInt points ++ " points | ")
+
+                    Nothing ->
+                        Html.text ""
+                , Html.text "by "
                 , Html.a
-                    [ Attr.href <| "/users/" ++ story.user
+                    [ Attr.href <| "/users/" ++ (story.user |> Maybe.withDefault "")
                     ]
-                    [ Html.text story.user
+                    [ Html.text (story.user |> Maybe.withDefault "")
                     ]
                 , Html.text <| " " ++ story.time_ago ++ " ago"
                 ]
