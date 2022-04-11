@@ -17,7 +17,7 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
-import Story exposing (Story)
+import Story exposing (Item)
 import Url.Builder
 import View exposing (View)
 
@@ -81,7 +81,7 @@ pages =
 
 
 type alias Data =
-    { stories : List Story }
+    { stories : List Item }
 
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
@@ -119,7 +119,7 @@ data routeParams =
                             [ Url.Builder.string "page" (maybePage |> Maybe.withDefault "1")
                             ]
 
-                    getStories : DataSource (List Story)
+                    getStories : DataSource (List Item)
                     getStories =
                         DataSource.Http.get getStoriesUrl
                             (Story.decoder |> Json.Decode.list)

@@ -15,7 +15,7 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
-import Story exposing (Story)
+import Story exposing (Entry(..), Item(..))
 import View exposing (View)
 
 
@@ -78,7 +78,7 @@ pages =
 
 
 type alias Data =
-    { story : Story
+    { story : Item
     }
 
 
@@ -129,8 +129,8 @@ view maybeUrl sharedModel model static =
     }
 
 
-storyView : Story -> Html msg
-storyView story =
+storyView : Item -> Html msg
+storyView (Item story entry) =
     Html.div
         [ Attr.class "item-view"
         ]
@@ -138,7 +138,7 @@ storyView story =
             [ Attr.class "item-view-header"
             ]
             [ Html.a
-                [ Attr.href (story.url |> Maybe.withDefault "")
+                [ Attr.href story.url
                 , Attr.target "_blank"
                 , Attr.rel "noreferrer"
                 ]
@@ -150,20 +150,24 @@ storyView story =
             , Html.p
                 [ Attr.class "meta"
                 ]
-                [ case story.points of
-                    Just points ->
-                        Html.text <| (String.fromInt points ++ " points | ")
+                ((case entry of
+                    Story { points, user } ->
+                        [ Html.text <| (String.fromInt points ++ " points | ")
+                        , Html.text "by "
+                        , Html.a
+                            [ Attr.href <|
+                                "/users/"
+                                    ++ user
+                            ]
+                            [ Html.text user
+                            ]
+                        ]
 
-                    Nothing ->
-                        Html.text ""
-                , Html.text "by "
-                , Html.a
-                    [ Attr.href <| "/users/" ++ (story.user |> Maybe.withDefault "")
-                    ]
-                    [ Html.text (story.user |> Maybe.withDefault "")
-                    ]
-                , Html.text <| " " ++ story.time_ago ++ " ago"
-                ]
+                    _ ->
+                        []
+                 )
+                    ++ [ Html.text <| " " ++ story.time_ago ++ " ago" ]
+                )
             ]
         , Html.div
             [ Attr.class "item-view-comments"

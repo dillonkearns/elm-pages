@@ -3,100 +3,113 @@ module Story exposing (..)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Json.Decode exposing (Decoder)
-import Json.Decode.Pipeline exposing (optional, required)
+import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Route
 
 
-type alias Story =
+type alias StoryRecord =
+    { points : Int
+    , user : String
+    , type_ : String
+    }
+
+
+type alias Common =
     { title : String
-    , points : Maybe Int
-    , user : Maybe String
-    , url : Maybe String
+    , url : String
     , domain : String
     , time_ago : String
     , comments_count : Int
-    , type_ : String
     , id : Int
     }
 
 
-view : Story -> Html msg
-view story =
+type Item
+    = Item Common Entry
+
+
+type Entry
+    = Story StoryRecord
+    | Job
+
+
+view : Item -> Html msg
+view (Item story entry) =
     Html.li
         [ Attr.class "news-item"
         ]
         [ Html.span
             [ Attr.class "score"
             ]
-            [ Html.text
-                (story.points
-                    |> Maybe.map String.fromInt
-                    |> Maybe.withDefault ""
-                )
+            [ case entry of
+                Story { points } ->
+                    Html.text (String.fromInt points)
+
+                _ ->
+                    Html.text ""
             ]
         , Html.span
             [ Attr.class "title"
             ]
-            (case ( story.url, story.url |> Maybe.withDefault "" |> String.startsWith "item?id=" ) of
-                ( Just url, False ) ->
+            (case story.url |> String.startsWith "item?id=" of
+                False ->
                     [ Html.a
-                        [ Attr.href url
+                        [ Attr.href story.url
                         , Attr.target "_blank"
                         , Attr.rel "noreferrer"
                         ]
                         [ Html.text story.title ]
+                    , Html.text " "
                     , domainView story.domain
                     ]
 
-                ( Nothing, _ ) ->
+                _ ->
                     [ Route.Stories__Id_ { id = String.fromInt story.id }
                         |> Route.link
                             [-- TODO decode into custom type here? --Attr.href ("/item/" ++ story.id)
                             ]
                             [ Html.text story.title ]
                     ]
-
-                _ ->
-                    [ Html.text story.title ]
             )
         , Html.br []
             []
         , Html.span
             [ Attr.class "meta"
             ]
-            (if story.type_ == "job" then
-                [ Route.Stories__Id_ { id = String.fromInt story.id }
-                    |> Route.link
-                        []
-                        [ Html.text story.time_ago
-                        ]
-                ]
-
-             else
-                [ Html.text "by "
-                , Html.a [ Attr.href "TODO user page link" ]
-                    [ story.user |> Maybe.withDefault "" |> Html.text
+            (case entry of
+                Job ->
+                    [ Route.Stories__Id_ { id = String.fromInt story.id }
+                        |> Route.link
+                            []
+                            [ Html.text story.time_ago
+                            ]
                     ]
-                , Html.text (" " ++ story.time_ago ++ " | ")
-                , Route.Stories__Id_ { id = String.fromInt story.id }
-                    |> Route.link
-                        []
-                        [ if story.comments_count > 0 then
-                            Html.text (String.fromInt story.comments_count ++ " comments")
 
-                          else
-                            Html.text "discuss"
+                Story record ->
+                    [ Html.text "by "
+                    , Html.a [ Attr.href "TODO user page link" ]
+                        [ record.user |> Html.text
                         ]
-                ]
-            )
-        , if story.type_ /= "link" then
-            Html.span
-                [ Attr.class "label"
-                ]
-                [ Html.text <| " " ++ story.type_ ]
+                    , Html.text (" " ++ story.time_ago ++ " | ")
+                    , Route.Stories__Id_ { id = String.fromInt story.id }
+                        |> Route.link
+                            []
+                            [ if story.comments_count > 0 then
+                                Html.text (String.fromInt story.comments_count ++ " comments")
 
-          else
-            Html.text ""
+                              else
+                                Html.text "discuss"
+                            ]
+                    , if record.type_ /= "link" then
+                        Html.span
+                            [ Attr.class "label"
+                            ]
+                            [ Html.text <| " " ++ record.type_ ]
+
+                      else
+                        Html.text ""
+                    ]
+            )
         ]
 
 
@@ -114,15 +127,29 @@ domainView domain =
         ]
 
 
-decoder : Decoder Story
+decoder : Decoder Item
 decoder =
-    Json.Decode.succeed Story
-        |> required "title" Json.Decode.string
-        |> required "points" (Json.Decode.nullable Json.Decode.int)
-        |> required "user" (Json.Decode.nullable Json.Decode.string)
-        |> required "url" (Json.Decode.nullable Json.Decode.string)
-        |> optional "domain" Json.Decode.string ""
-        |> required "time_ago" Json.Decode.string
-        |> required "comments_count" Json.Decode.int
-        |> required "type" Json.Decode.string
-        |> required "id" Json.Decode.int
+    Json.Decode.map2 Item
+        (Json.Decode.succeed Common
+            |> required "title" Json.Decode.string
+            |> required "url" Json.Decode.string
+            |> optional "domain" Json.Decode.string ""
+            |> required "time_ago" Json.Decode.string
+            |> required "comments_count" Json.Decode.int
+            |> required "id" Json.Decode.int
+        )
+        (Json.Decode.field "type" Json.Decode.string
+            |> Json.Decode.andThen entryDecoder
+        )
+
+
+entryDecoder type_ =
+    if type_ == "job" then
+        Json.Decode.succeed Job
+
+    else
+        Json.Decode.succeed StoryRecord
+            |> required "points" Json.Decode.int
+            |> required "user" Json.Decode.string
+            |> hardcoded type_
+            |> Json.Decode.map Story
