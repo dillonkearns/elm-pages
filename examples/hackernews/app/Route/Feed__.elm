@@ -6,13 +6,14 @@ import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
-import Html
+import Html exposing (Html)
 import Html.Attributes as Attr
 import Json.Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (required)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
+import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
@@ -31,7 +32,8 @@ type Msg
 
 
 type alias RouteParams =
-    { feed : Maybe String }
+    { feed : Maybe String
+    }
 
 
 route : StatefulRoute RouteParams Data Model Msg
@@ -81,7 +83,7 @@ pages =
 
 
 type alias Data =
-    { stories : List Item }
+    { stories : List Item, currentPage : Int }
 
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
@@ -90,6 +92,12 @@ data routeParams =
         |> Request.map
             (\maybePage ->
                 let
+                    currentPage : Int
+                    currentPage =
+                        maybePage
+                            |> Maybe.andThen String.toInt
+                            |> Maybe.withDefault 1
+
                     feed : String
                     feed =
                         --const type = Astro.params.stories || "top";
@@ -116,7 +124,7 @@ data routeParams =
                     getStoriesUrl =
                         Url.Builder.crossOrigin "https://node-hnapi.herokuapp.com"
                             [ feed ]
-                            [ Url.Builder.string "page" (maybePage |> Maybe.withDefault "1")
+                            [ Url.Builder.int "page" currentPage
                             ]
 
                     getStories : DataSource (List Item)
@@ -130,7 +138,7 @@ data routeParams =
                     --)
                     --get(`https://node-hnapi.herokuapp.com/${l}?page=${page}`);
                 in
-                getStories |> DataSource.map (\stories -> Response.render { stories = stories })
+                getStories |> DataSource.map (\stories -> Response.render { stories = stories, currentPage = currentPage })
             )
 
 
@@ -163,14 +171,50 @@ view :
 view maybeUrl sharedModel model static =
     { title = "News"
     , body =
-        [ Html.main_
+        [ paginationView static.data.stories static.routeParams static.data.currentPage
+        , Html.main_
             [ Attr.class "news-list"
             ]
             [ static.data.stories
                 |> List.map Story.view
                 |> Html.ul []
-
-            --, Html.text <| "Count: " ++ String.fromInt (static.data.stories |> List.length)
             ]
         ]
     }
+
+
+paginationView : List Item -> RouteParams -> Int -> Html msg
+paginationView stories routeParams page =
+    Html.div [ Attr.class "news-view" ]
+        [ Html.div [ Attr.class "news-list-nav" ]
+            [ if page > 1 then
+                Html.a
+                    [ Attr.class "page-link"
+                    , Attr.href <| (Route.Feed__ routeParams |> Route.toString) ++ "?page=" ++ String.fromInt (page - 1)
+                    , Attr.attribute "aria-label" "Previous Page"
+                    ]
+                    [ Html.text "< prev" ]
+
+              else
+                Html.span
+                    [ Attr.class "page-link disabled"
+                    , Attr.attribute "aria-hidden" "true"
+                    ]
+                    [ Html.text "< prev" ]
+            , Html.span [] [ Html.text <| "page " ++ String.fromInt page ]
+            , if List.length stories > 28 then
+                Html.a
+                    [ Attr.class "page-link"
+                    , Attr.href <| (Route.Feed__ routeParams |> Route.toString) ++ "?page=" ++ String.fromInt (page + 1)
+                    , Attr.attribute "aria-label" "Next Page"
+                    ]
+                    [ Html.text "more >" ]
+
+              else
+                Html.span
+                    [ Attr.class "page-link"
+                    , Attr.attribute "aria-hidden" "true"
+                    ]
+                    [ Html.text "more >" ]
+            ]
+        ]
