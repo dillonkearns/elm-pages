@@ -4,6 +4,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Json.Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (optional, required)
+import Route
 
 
 type alias Story =
@@ -15,6 +16,7 @@ type alias Story =
     , time_ago : String
     , comments_count : Int
     , type_ : String
+    , id : Int
     }
 
 
@@ -71,15 +73,15 @@ view story =
                 [ Html.text story.user
                 ]
             , Html.text (" " ++ story.time_ago ++ " | ")
-            , Html.a
-                [-- TODO get story.id --Attr.href ("/stories/" ++ story.id)
-                ]
-                [ if story.comments_count > 0 then
-                    Html.text (String.fromInt story.comments_count ++ " comments")
+            , Route.Stories__Id_ { id = String.fromInt story.id }
+                |> Route.link
+                    []
+                    [ if story.comments_count > 0 then
+                        Html.text (String.fromInt story.comments_count ++ " comments")
 
-                  else
-                    Html.text "discuss"
-                ]
+                      else
+                        Html.text "discuss"
+                    ]
             ]
         , if story.type_ /= "link" then
             Html.span
@@ -103,3 +105,4 @@ decoder =
         |> required "time_ago" Json.Decode.string
         |> required "comments_count" Json.Decode.int
         |> required "type" Json.Decode.string
+        |> required "id" Json.Decode.int
