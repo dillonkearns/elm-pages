@@ -170,10 +170,7 @@ storyView story =
             [ Html.p
                 [ Attr.class "item-view-comments-header"
                 ]
-                [ --{story.comments_count
-                  --           ? story.comments_count + " comments"
-                  --           : "No comments yet."}
-                  if story.comments_count > 0 then
+                [ if story.comments_count > 0 then
                     Html.text <| String.fromInt story.comments_count ++ " comments"
 
                   else
