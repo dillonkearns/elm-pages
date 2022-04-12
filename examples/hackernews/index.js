@@ -41,6 +41,7 @@ customElements.define(
       const nestedComments =
         (this._commentBody && this._commentBody.comments) || [];
       const nested = document.createElement("ul");
+      nested.style["display"] = displayStyle;
       nestedComments.forEach((comment) => {
         const newElement = document.createElement("news-comment");
         newElement.commentBody = comment;
@@ -51,7 +52,9 @@ customElements.define(
         class="comment-children"
         style="display: ${displayStyle}"
       >
-        ${(this._commentBody && this._commentBody.content) || ""}
+        <div class="text">${
+          (this._commentBody && this._commentBody.content) || ""
+        }</div>
       </ul>`;
       this.shadow.appendChild(nested);
       this.shadow.prepend(div);
