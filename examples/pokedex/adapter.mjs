@@ -129,8 +129,8 @@ async function render(event, context) {
 
   const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
   const compiledPortsFile = path.join(__dirname, "port-data-source.mjs");
-  const renderer = require("../../../../generator/src/render");
-  const preRenderHtml = require("../../../../generator/src/pre-render-html");
+  const renderer = require("elm-pages/generator/src/render.js");
+  const preRenderHtml = require("elm-pages/generator/src/pre-render-html.js");
   try {
     const basePath = "/";
     const mode = "build";
