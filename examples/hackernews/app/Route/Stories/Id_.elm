@@ -8,6 +8,8 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -78,7 +80,7 @@ pages =
 
 
 type alias Data =
-    { story : Item
+    { story : ( Item, String )
     }
 
 
@@ -86,7 +88,10 @@ data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.succeed
         (DataSource.Http.get ("https://node-hnapi.herokuapp.com/item/" ++ routeParams.id)
-            Story.decoder
+            (Decode.map2 Tuple.pair
+                Story.decoder
+                (Decode.field "comments" (Decode.value |> Decode.map (Encode.encode 0)))
+            )
             |> DataSource.map
                 (\story ->
                     Response.render
@@ -129,8 +134,8 @@ view maybeUrl sharedModel model static =
     }
 
 
-storyView : Item -> Html msg
-storyView (Item story entry) =
+storyView : ( Item, String ) -> Html msg
+storyView ( Item story entry, commentsJson ) =
     Html.div
         [ Attr.class "item-view"
         ]
@@ -184,6 +189,14 @@ storyView (Item story entry) =
             , Html.ul
                 [ Attr.class "comment-children"
                 ]
-                []
+                ((commentsJson
+                    |> Decode.decodeString (Decode.list Decode.value)
+                    |> Result.withDefault []
+                 )
+                    |> List.map
+                        (\comment ->
+                            Html.node "news-comment" [ Attr.property "commentBody" comment ] []
+                        )
+                )
             ]
         ]
