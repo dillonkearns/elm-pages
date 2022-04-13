@@ -14,7 +14,7 @@ config =
 
 canonicalUrl : String
 canonicalUrl =
-    "https://elm-pages.com"
+    "https://hacker-news-elm-pages.netlify.app"
 
 
 head : DataSource (List Head.Tag)
