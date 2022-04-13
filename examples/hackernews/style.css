@@ -16,7 +16,7 @@ a {
 }
 
 .header {
-  background-color: #4b158a;
+  background-color: #12bf6e;
   position: fixed;
   z-index: 999;
   height: 55px;
@@ -164,7 +164,7 @@ a {
 }
 
 .news-item .score {
-  color: #4b158a;
+  color: #12bf6e;
   font-size: 1.1em;
   font-weight: 700;
   position: absolute;
@@ -189,7 +189,7 @@ a {
 
 .news-item .host a:hover,
 .news-item .meta a:hover {
-  color: #4b158a;
+  color: #12bf6e;
 }
 
 .item-view-header {
