@@ -8,6 +8,7 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Keyed
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.PageUrl exposing (PageUrl)
@@ -106,16 +107,16 @@ head :
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
+        , siteName = "elm-pages Hacker News"
         , image =
-            { url = Pages.Url.external "TODO"
+            { url = [ "images", "icon-png.png" ] |> Path.join |> Pages.Url.fromPath
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "TODO"
+        , description = "A demo of elm-pages 3 server-rendered routes."
         , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
+        , title = static.data.story |> Tuple.first |> (\(Item common _) -> common.title)
         }
         |> Seo.website
 
@@ -127,7 +128,7 @@ view :
     -> StaticPayload Data RouteParams
     -> View Msg
 view maybeUrl sharedModel model static =
-    { title = "Story"
+    { title = static.data.story |> Tuple.first |> (\(Item common _) -> common.title)
     , body =
         [ storyView static.data.story
         ]
@@ -186,16 +187,16 @@ storyView ( Item story entry, commentsJson ) =
                   else
                     Html.text "No comments yet."
                 ]
-            , Html.ul
+            , Html.Keyed.ul
                 [ Attr.class "comment-children"
                 ]
                 ((commentsJson
                     |> Decode.decodeString (Decode.list Decode.value)
                     |> Result.withDefault []
                  )
-                    |> List.map
-                        (\comment ->
-                            Html.node "news-comment" [ Attr.property "commentBody" comment ] []
+                    |> List.indexedMap
+                        (\index comment ->
+                            ( String.fromInt index, Html.node "news-comment" [ Attr.property "commentBody" comment ] [] )
                         )
                 )
             ]

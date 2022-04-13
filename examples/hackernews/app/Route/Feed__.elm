@@ -9,7 +9,6 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Json.Decode exposing (Decoder)
-import Json.Decode.Pipeline exposing (required)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -131,12 +130,6 @@ data routeParams =
                     getStories =
                         DataSource.Http.get getStoriesUrl
                             (Story.decoder |> Json.Decode.list)
-
-                    --("https://node-hnapi.herokuapp.com/"
-                    --    ++ feed
-                    --    ++ "?page="
-                    --)
-                    --get(`https://node-hnapi.herokuapp.com/${l}?page=${page}`);
                 in
                 getStories |> DataSource.map (\stories -> Response.render { stories = stories, currentPage = currentPage })
             )
@@ -148,18 +141,27 @@ head :
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
+        , siteName = "elm-pages Hacker News"
         , image =
-            { url = Pages.Url.external "TODO"
+            { url = [ "images", "icon-png.png" ] |> Path.join |> Pages.Url.fromPath
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "TODO"
+        , description = "A demo of elm-pages 3 server-rendered routes."
         , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
+        , title = title static.routeParams
         }
         |> Seo.website
+
+
+title : RouteParams -> String
+title routeParams =
+    (routeParams.feed
+        |> Maybe.map (\feedName -> feedName ++ " | ")
+        |> Maybe.withDefault ""
+    )
+        ++ "elm-pages Hacker News"
 
 
 view :
@@ -169,7 +171,7 @@ view :
     -> StaticPayload Data RouteParams
     -> View Msg
 view maybeUrl sharedModel model static =
-    { title = "News"
+    { title = title static.routeParams
     , body =
         [ paginationView static.data.stories static.routeParams static.data.currentPage
         , Html.main_
