@@ -40,7 +40,7 @@ type Payload
 
 
 type Transition
-    = Loading Path
+    = Loading Int Path
     | Submitting Path Payload
 
 
@@ -240,6 +240,7 @@ init config flags url key =
                     , userFlags = flags
                     , notFound = Nothing
                     , transition = Nothing
+                    , nextTransitionKey = 0
                     }
             in
             ( { initialModel
@@ -256,6 +257,7 @@ init config flags url key =
               , userFlags = flags
               , notFound = Just info
               , transition = Nothing
+              , nextTransitionKey = 0
               }
             , NoEffect
             )
@@ -271,6 +273,7 @@ init config flags url key =
               , userFlags = flags
               , notFound = Nothing
               , transition = Nothing
+              , nextTransitionKey = 0
               }
             , NoEffect
             )
@@ -302,6 +305,7 @@ type alias Model userModel pageData sharedData =
     , notFound : Maybe { reason : NotFoundReason, path : Path }
     , userFlags : Decode.Value
     , transition : Maybe Transition
+    , nextTransitionKey : Int
     }
 
 
@@ -310,9 +314,10 @@ type Effect userMsg pageData sharedData userEffect errorPage
     | NoEffect
     | BrowserLoadUrl String
     | BrowserPushUrl String
-    | FetchPageData (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
+    | FetchPageData Int (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
     | Batch (List (Effect userMsg pageData sharedData userEffect errorPage))
     | UserCmd userEffect
+    | CancelRequest Int
 
 
 {-| -}
@@ -339,8 +344,15 @@ update config appMsg model =
                         )
 
                     else
-                        ( model
-                        , FetchPageData Nothing url (UpdateCacheAndUrlNew True url Nothing)
+                        ( { model
+                            | transition =
+                                url.path
+                                    |> Path.fromString
+                                    |> Loading model.nextTransitionKey
+                                    |> Just
+                            , nextTransitionKey = model.nextTransitionKey + 1
+                          }
+                        , FetchPageData model.nextTransitionKey Nothing url (UpdateCacheAndUrlNew True url Nothing)
                         )
 
                 Browser.External href ->
@@ -405,27 +417,16 @@ update config appMsg model =
                     |> Result.withDefault ( model, NoEffect )
 
             else
-                ( { model
-                    | transition =
-                        url.path
-                            |> Path.fromString
-                            |> Loading
-                            |> Just
-                  }
-                , FetchPageData Nothing url (UpdateCacheAndUrlNew False url Nothing)
+                ( model
+                , NoEffect
                 )
+                    |> startNewGetLoad url.path (UpdateCacheAndUrlNew False url Nothing)
 
         ProcessFetchResponse response toMsg ->
             case response of
                 Ok ( _, ResponseSketch.Redirect redirectTo ) ->
-                    let
-                        currentUrl : Url
-                        currentUrl =
-                            model.url
-                    in
-                    ( model
-                    , FetchPageData Nothing { currentUrl | path = redirectTo } toMsg
-                    )
+                    ( model, NoEffect )
+                        |> startNewGetLoad redirectTo toMsg
 
                 _ ->
                     update config (toMsg response) model
@@ -629,8 +630,8 @@ perform config currentUrl maybeKey effect =
                     )
                 |> Maybe.withDefault Cmd.none
 
-        FetchPageData maybeRequestInfo url toMsg ->
-            fetchRouteData toMsg config url maybeRequestInfo
+        FetchPageData transitionKey maybeRequestInfo url toMsg ->
+            fetchRouteData transitionKey toMsg config url maybeRequestInfo
 
         UserCmd cmd ->
             case maybeKey of
@@ -649,10 +650,10 @@ perform config currentUrl maybeKey effect =
                                 \fetchInfo ->
                                     case fetchInfo.path of
                                         Just path ->
-                                            fetchRouteData (prepare fetchInfo.toMsg) config { currentUrl | path = path } fetchInfo.body
+                                            fetchRouteData -1 (prepare fetchInfo.toMsg) config { currentUrl | path = path } fetchInfo.body
 
                                         Nothing ->
-                                            fetchRouteData (prepare fetchInfo.toMsg) config currentUrl fetchInfo.body
+                                            fetchRouteData -1 (prepare fetchInfo.toMsg) config currentUrl fetchInfo.body
 
                             -- TODO map the Msg with the wrapper type (like in the PR branch)
                             , fromPageMsg = UserMsg
@@ -661,6 +662,9 @@ perform config currentUrl maybeKey effect =
 
                 Nothing ->
                     Cmd.none
+
+        CancelRequest transitionKey ->
+            Http.cancel (String.fromInt transitionKey)
 
 
 {-| -}
@@ -742,12 +746,13 @@ urlPathToPath urls =
 
 
 fetchRouteData :
-    (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
+    Int
+    -> (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
     -> ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData errorPage) errorPage
     -> Url
     -> Maybe { contentType : String, body : String }
     -> Cmd (Msg userMsg pageData sharedData errorPage)
-fetchRouteData toMsg config url details =
+fetchRouteData transitionKey toMsg config url details =
     {-
        TODO:
        - [X] `toMsg` needs a parameter for the callback Msg so it can pass it on if there is a Redirect response
@@ -796,7 +801,7 @@ fetchRouteData toMsg config url details =
                                 |> Result.map (\okResponse -> ( url, okResponse ))
                 )
         , timeout = Nothing
-        , tracker = Just "track"
+        , tracker = Just (String.fromInt transitionKey)
         }
 
 
@@ -821,3 +826,43 @@ chopEnd needle string =
 
     else
         string
+
+
+startNewGetLoad :
+    String
+    -> (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+startNewGetLoad pathToGet toMsg ( model, effect ) =
+    let
+        currentUrl : Url
+        currentUrl =
+            model.url
+
+        cancelIfStale : Effect userMsg pageData sharedData userEffect errorPage
+        cancelIfStale =
+            case model.transition of
+                Just (Loading transitionKey path) ->
+                    CancelRequest transitionKey
+
+                _ ->
+                    NoEffect
+    in
+    ( { model
+        | nextTransitionKey = model.nextTransitionKey + 1
+        , transition =
+            pathToGet
+                |> Path.fromString
+                |> Loading model.nextTransitionKey
+                |> Just
+      }
+    , Batch
+        [ FetchPageData
+            model.nextTransitionKey
+            Nothing
+            { currentUrl | path = pathToGet }
+            toMsg
+        , cancelIfStale
+        , effect
+        ]
+    )
