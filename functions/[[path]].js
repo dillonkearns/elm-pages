@@ -11,8 +11,8 @@
 // };
 const compiledPortsFile = "../dist/port-data-source.mjs";
 const Elm = require("../dist/elm-pages-cli.js");
-const renderer = require("./generator/src/render.js");
-const preRenderHtml = require("./generator/src/pre-render-html.js");
+const renderer = require("../generator/src/render.js");
+const preRenderHtml = require("../generator/src/pre-render-html.js");
 const htmlTemplate = `<!DOCTYPE html>
 <!-- ROOT --><html lang="en">
   <head>
