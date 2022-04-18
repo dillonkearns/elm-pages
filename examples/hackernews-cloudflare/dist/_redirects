@@ -1,0 +1,7 @@
+/stories/:id /.netlify/functions/server-render 200
+/stories/:id/content.dat /.netlify/functions/server-render 200
+/ /.netlify/functions/server-render 200
+//content.dat /.netlify/functions/server-render 200
+/:feed /.netlify/functions/server-render 200
+/:feed/content.dat /.netlify/functions/server-render 200
+

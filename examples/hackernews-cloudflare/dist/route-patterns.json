@@ -1,0 +1,1 @@
+[{"kind":"serverless","pathPattern":"/stories/:id"},{"kind":"serverless","pathPattern":"/"},{"kind":"serverless","pathPattern":"/:feed"}]
