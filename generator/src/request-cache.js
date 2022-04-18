@@ -1,8 +1,8 @@
-const path = require("path");
-const url = require("url");
+// const url = require("url");
 const fetch = require("node-fetch");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
+const cached = false;
 
 /**
  * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
@@ -22,16 +22,16 @@ function fullPath(portsHash, request, hasFsAccess) {
     request.url === "elm-pages-internal://port"
       ? { portsHash, ...request }
       : request;
-  if (hasFsAccess) {
-    return path.join(
-      process.cwd(),
-      ".elm-pages",
-      "http-response-cache",
-      requestToString(requestWithPortHash)
-    );
-  } else {
-    return path.join("/", requestToString(requestWithPortHash));
-  }
+  // if (false) {
+  //   return pathJoin(
+  //     process.cwd(),
+  //     ".elm-pages",
+  //     "http-response-cache",
+  //     requestToString(requestWithPortHash)
+  //   );
+  // } else {
+  return pathJoin("/", requestToString(requestWithPortHash));
+  // }
 }
 
 /**
@@ -42,31 +42,38 @@ function fullPath(portsHash, request, hasFsAccess) {
  * @param {boolean} hasFsAccess
  */
 function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
-  const { fs } = require("./request-cache-fs.js")(hasFsAccess);
+  console.log("@@@lookupOrPerform");
+  console.dir(rawRequest);
+  // const fs = cached ? require("./request-cache-fs.js")(hasFsAccess).fs : null;
+  const fs = null;
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
     const portsHash = (portsFile && portsFile.match(/-([^-]+)\.mjs$/)[1]) || "";
     const responsePath = fullPath(portsHash, request, hasFsAccess);
 
     // TODO check cache expiration time and delete and go to else if expired
-    if (await checkFileExists(fs, responsePath)) {
-      // console.log("Skipping request, found file.");
+    if (cached && (await checkFileExists(fs, responsePath))) {
+      console.log("Skipping request, found file.");
       resolve(responsePath);
     } else {
       let portDataSource = {};
       let portDataSourceImportError = null;
       try {
-        if (portsFile === undefined)  {
-          throw "missing"
+        if (portsFile === undefined) {
+          throw "missing";
         }
-        const portDataSourcePath = path.join(process.cwd(), portsFile);
+        const portDataSourcePath = pathJoin(process.cwd(), portsFile);
         // On Windows, we need cannot use paths directly and instead must use a file:// URL.
-        portDataSource = await import(url.pathToFileURL(portDataSourcePath).href);
+        // portDataSource = await import(
+        //   url.pathToFileURL(portDataSourcePath).href
+        // );
+        throw "TODO figure out how to do `url.pathToFileURL` in Cloudflare";
       } catch (e) {
         portDataSourceImportError = e;
       }
 
       if (request.url === "elm-pages-internal://port") {
+        console.log("!!!1");
         try {
           const { input, portName } = rawRequest.body.args[0];
 
@@ -81,11 +88,19 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
           } else if (typeof portDataSource[portName] !== "function") {
             throw `DataSource.Port.send "${portName}" was called, but it is not a function. Be sure to export a function with that name from port-data-source.js`;
           }
-          await fs.promises.writeFile(
-            responsePath,
-            JSON.stringify(jsonResponse(await portDataSource[portName](input)))
-          );
-          resolve(responsePath);
+          if (cached) {
+            // await fs.promises.writeFile(
+            //   responsePath,
+            //   JSON.stringify(
+            //     jsonResponse(await portDataSource[portName](input))
+            //   )
+            // );
+            // resolve(responsePath);
+            throw "Not implemented yet!";
+          } else {
+            console.log("@@@1");
+            resolve(jsonResponse(await portDataSource[portName](input)));
+          }
         } catch (error) {
           console.trace(error);
           reject({
@@ -94,7 +109,11 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
           });
         }
       } else {
+        console.log("!!!2");
         try {
+          console.log("@@@ start fetch");
+          const logLabel = `Fetching ${request.url}`;
+          console.time(logLabel);
           const response = await fetch(request.url, {
             method: request.method,
             body: request.body,
@@ -103,6 +122,8 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
               ...request.headers,
             },
           });
+          console.log("@@@ end fetch");
+          console.timeEnd(logLabel);
           const expectString = request.headers["elm-pages-internal"];
 
           if (response.ok || expectString === "ExpectResponse") {
@@ -130,20 +151,33 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
             } else {
               throw `Unexpected expectString ${expectString}`;
             }
+            console.log("@@@ got response", response);
 
-            await fs.promises.writeFile(
-              responsePath,
-              JSON.stringify({
+            if (cached) {
+              await fs.promises.writeFile(
+                responsePath,
+                JSON.stringify({
+                  headers: Object.fromEntries(response.headers.entries()),
+                  statusCode: response.status,
+                  body: body,
+                  bodyKind,
+                  url: response.url,
+                  statusText: response.statusText,
+                })
+              );
+
+              resolve(responsePath);
+            } else {
+              console.log("@@@2");
+              resolve({
                 headers: Object.fromEntries(response.headers.entries()),
                 statusCode: response.status,
                 body: body,
                 bodyKind,
                 url: response.url,
                 statusText: response.statusText,
-              })
-            );
-
-            resolve(responsePath);
+              });
+            }
           } else {
             console.log("@@@ request-cache1 bad HTTP response");
             reject({
@@ -152,11 +186,12 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
                 .yellow()
                 .underline(request.url)} Bad HTTP response ${response.status} ${
                 response.statusText
-                }
+              }
 `,
             });
           }
         } catch (error) {
+          console.log("!!!3");
           console.trace("@@@ request-cache2 HTTP error", error);
           reject({
             title: "DataSource.Http Error",
@@ -244,6 +279,14 @@ function requireUncached(mode, filePath) {
  */
 function jsonResponse(json) {
   return { bodyKind: "json", body: json };
+}
+
+/**
+ * @param {string[]} parts
+ * @returns {string}
+ */
+function pathJoin(...parts) {
+  return parts.join("/");
 }
 
 module.exports = { lookupOrPerform };

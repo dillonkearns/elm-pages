@@ -1,4 +1,16 @@
+const fsStub = {
+  promises: {
+    access: function () {
+      throw "";
+    },
+  },
+};
+
 module.exports = function (/** @type {boolean} */ hasFsAccess) {
+  return {
+    fs: fsStub,
+    resetInMemoryFs: () => {},
+  };
   if (hasFsAccess) {
     return {
       fs: require("fs"),

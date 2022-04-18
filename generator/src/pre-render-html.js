@@ -1,17 +1,21 @@
 const seo = require("./seo-renderer.js");
 const cliVersion = require("../../package.json").version;
-const path = require("path");
+// const path = require("path");
 
 /** @typedef { { head: any[]; errors: any[]; html: string; route: string; title: string; } } Arg */
 /** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
 
 function wrapHtml(basePath, fromElm, contentDatPayload) {
   const seoData = seo.gather(fromElm.head);
+  var base64String = btoa(
+    String.fromCharCode.apply(null, new Uint8Array(contentDatPayload.buffer))
+  );
+
   return {
     kind: "html-template",
     title: fromElm.title,
     html: fromElm.html,
-    bytesData: Buffer.from(contentDatPayload.buffer).toString("base64"),
+    bytesData: base64String, //  Buffer.from(contentDatPayload.buffer).toString("base64"),
     headTags: seoData.headTags,
     rootElement: seoData.rootElement,
   };
@@ -51,7 +55,7 @@ function templateHtml() {
   <head>
     <!-- PLACEHOLDER_PRELOADS -->
     <script defer src="/elm.js" type="text/javascript"></script>
-    <script defer src="${path.join(
+    <script defer src="${pathJoin(
       __dirname,
       "../static-code/elm-pages.js"
     )}" type="module"></script>
@@ -89,6 +93,14 @@ function replaceTemplate(processedTemplate, info) {
     .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
     .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
     .replace(/<!-- ROOT -->\S*<html lang="en">/m, info.rootElement);
+}
+
+/**
+ * @param {string[]} parts
+ * @returns {string}
+ */
+function pathJoin(...parts) {
+  return parts.join("/");
 }
 
 module.exports = {

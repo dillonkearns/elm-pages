@@ -15,7 +15,8 @@ const which = require("which");
 const { build } = require("vite");
 const preRenderHtml = require("./pre-render-html.js");
 const esbuild = require("esbuild");
-const { createHash } = require("crypto");
+// const { createHash } = require("crypto");
+const { createHash } = crypto.subtle;
 
 let pool = [];
 let pagesReady;
@@ -84,6 +85,7 @@ async function run(options) {
         return elmPagesConfig.default || {};
       })
       .catch((error) => {
+        console.error(error);
         console.warn(
           "No `elm-pages.config.mjs` file found. Using default config."
         );
@@ -315,6 +317,7 @@ async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
   const fileHash = await fsPromises
     .readFile(fullOutputPath, "utf8")
     .then(getAssetHash);
+  console.log("@@@@@@@@@@@@@ fileHash", fileHash);
   await fsPromises.copyFile(
     fullOutputPath,
     `${withoutExtension}.${fileHash}.js`

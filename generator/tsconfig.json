@@ -2,10 +2,11 @@
   "compilerOptions": {
     "types": ["node"],
     "module": "commonjs",
-    "checkJs": true,
+    "checkJs": false,
     "allowJs": true,
-    "target": "es5",
-    "strict": true,
+    "target": "es6",
+    "strict": false,
+
     "sourceMap": false,
     "resolveJsonModule": true,
     "lib": ["es2015", "es2017.object", "esnext", "dom"]

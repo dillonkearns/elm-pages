@@ -1,19 +1,20 @@
 // @ts-check
 
-const path = require("path");
-const mm = require("micromatch");
-const matter = require("gray-matter");
-const globby = require("globby");
-const fsPromises = require("fs").promises;
+// const path = require("path");
+// const mm = require("micromatch");
+// const matter = require("gray-matter");
+// const globby = require("globby");
+// const fsPromises = require("fs").promises;
 const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
 const kleur = require("kleur");
-const cookie = require("cookie-signature");
+// const cookie = require("cookie-signature");
+const cookie = null; // TODO need to figure out what to replace this with for Cloudflare
 kleur.enabled = true;
 
-process.on("unhandledRejection", (error) => {
-  console.error(error);
-});
+// process.on("unhandledRejection", (error) => {
+//   console.error(error);
+// });
 let foundErrors;
 let pendingDataSourceResponses;
 let pendingDataSourceCount;
@@ -39,10 +40,11 @@ module.exports =
     addDataSourceWatcher,
     hasFsAccess
   ) {
-    const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(
-      hasFsAccess
-    );
-    resetInMemoryFs();
+    // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(
+    //   hasFsAccess
+    // );
+    let fs = null;
+    // resetInMemoryFs();
     foundErrors = false;
     pendingDataSourceResponses = [];
     pendingDataSourceCount = 0;
@@ -245,18 +247,21 @@ async function runHttpJob(
 ) {
   pendingDataSourceCount += 1;
   try {
-    const responseFilePath = await lookupOrPerform(
+    const response = await lookupOrPerform(
       portsFile,
       mode,
       requestToPerform,
       hasFsAccess
     );
+    console.log("@@@response");
+    console.dir(response);
 
     pendingDataSourceResponses.push({
       request: requestToPerform,
-      response: JSON.parse(
-        (await fs.promises.readFile(responseFilePath, "utf8")).toString()
-      ),
+      // response: JSON.parse(
+      //   (await fs.promises.readFile(responseFilePath, "utf8")).toString()
+      // ),
+      response,
     });
   } catch (error) {
     sendError(app, error);
@@ -328,13 +333,14 @@ async function readFileJobNew(req, patternsToWatch) {
   try {
     patternsToWatch.add(filePath);
 
-    const fileContents = // TODO can I remove this hack?
-      (
-        await fsPromises.readFile(
-          path.join(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
-        )
-      ).toString();
-    const parsedFile = matter(fileContents);
+    throw "TODO - use dependency injection for CloudFlare implementation";
+    // const fileContents = // TODO can I remove this hack?
+    //   (
+    //     await fsPromises.readFile(
+    //       pathJoin(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
+    //     )
+    //   ).toString();
+    // const parsedFile = matter(fileContents);
 
     return jsonResponse(req, {
       parsedFrontmatter: parsedFile.data,
@@ -354,18 +360,19 @@ async function readFileJobNew(req, patternsToWatch) {
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
-    const matchedPaths = await globby(pattern, options);
+    throw "TODO - do a error here if in cloudflare mode... probably with dependency injection?";
+    // const matchedPaths = await globby(pattern, options);
     patternsToWatch.add(pattern);
 
-    return jsonResponse(
-      req,
-      matchedPaths.map((fullPath) => {
-        return {
-          fullPath,
-          captures: mm.capture(pattern, fullPath),
-        };
-      })
-    );
+    // return jsonResponse(
+    //   req,
+    //   matchedPaths.map((fullPath) => {
+    //     return {
+    //       fullPath,
+    //       captures: mm.capture(pattern, fullPath),
+    //     };
+    //   })
+    // );
   } catch (e) {
     console.log(`Error performing glob '${JSON.stringify(req.body)}'`);
     throw e;
@@ -458,4 +465,12 @@ function tryDecodeCookie(input, secrets) {
   } else {
     return null;
   }
+}
+
+/**
+ * @param {string[]} parts
+ * @returns {string}
+ */
+function pathJoin(...parts) {
+  return parts.join("/");
 }
