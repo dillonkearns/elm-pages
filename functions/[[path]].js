@@ -97,17 +97,14 @@ export async function onRequest(context) {
       const statusCode = renderResult.is404 ? 404 : renderResult.statusCode;
 
       if (renderResult.kind === "bytes") {
-        return new Response(
-          Buffer.from(renderResult.contentDatPayload.buffer),
-          {
-            headers: {
-              "Content-Type": "application/octet-stream",
-              "x-powered-by": "elm-pages",
-              ...renderResult.headers,
-            },
-            status: statusCode,
-          }
-        );
+        return new Response(renderResult.contentDatPayload.buffer, {
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "x-powered-by": "elm-pages",
+            ...renderResult.headers,
+          },
+          status: statusCode,
+        });
       } else if (renderResult.kind === "api-response") {
         const serverResponse = renderResult.body;
         return new Response(serverResponse.body, {
