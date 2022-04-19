@@ -5,7 +5,7 @@ const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
 const { parentPort, threadId, workerData } = require("worker_threads");
 let Elm;
 
-global.staticHttpCache = {};
+// global.staticHttpCache = {};
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);

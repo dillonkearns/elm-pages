@@ -50,7 +50,7 @@ module.exports =
     pendingDataSourceCount = 0;
     // since init/update are never called in pre-renders, and DataSource.Http is called using pure NodeJS HTTP fetching
     // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-    XMLHttpRequest = {};
+    // XMLHttpRequest = {};
     const result = await runElmApp(
       portsFile,
       basePath,
@@ -130,7 +130,7 @@ function runElmApp(
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
         if (mode === "build") {
-          global.staticHttpCache = args.staticHttpCache;
+          // global.staticHttpCache = args.staticHttpCache;
         }
 
         resolve({
@@ -142,7 +142,7 @@ function runElmApp(
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
         if (mode === "build") {
-          global.staticHttpCache = args.staticHttpCache;
+          // global.staticHttpCache = args.staticHttpCache;
         }
 
         if (isBytes) {

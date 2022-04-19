@@ -164,7 +164,7 @@ async function run(options) {
       });
     // TODO extract common code for compiling ports file?
 
-    XMLHttpRequest = {};
+    // XMLHttpRequest = {};
     const compileCli = compileCliApp(options);
     try {
       await compileCli;
