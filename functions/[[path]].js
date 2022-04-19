@@ -74,13 +74,10 @@ export async function onRequest(context) {
     console.log("res", res);
     return res;
   } else {
-    return new Response("Hello, world!");
     //     return new Response("Hello, world!");
-
-    const requestTime = new Date();
-    global.staticHttpCache = {};
-
     try {
+      const requestTime = new Date();
+      global.staticHttpCache = {};
       global.XMLHttpRequest = {};
       const basePath = "/";
       const mode = "build";
