@@ -129,9 +129,11 @@ export async function onRequest(context) {
         );
       }
     } catch (error) {
-      console.trace(error);
+      // console.trace(error);
       return new Response(
-        `<body><h1>Error</h1><pre>${error.toString()}</pre></body>`,
+        `<body><h1>Error</h1><pre>${error.toString()}</pre><div><pre>${
+          error.stack
+        }</pre></div></body>`,
         {
           status: 500,
           headers: {
