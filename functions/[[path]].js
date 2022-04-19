@@ -74,6 +74,7 @@ export async function onRequest(context) {
     console.log("res", res);
     return res;
   } else {
+    return new Response("Hello, world!");
     //     return new Response("Hello, world!");
 
     const requestTime = new Date();
