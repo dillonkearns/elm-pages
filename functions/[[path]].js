@@ -1,34 +1,10 @@
+const htmlTemplate =
+  '<!DOCTYPE html>\n<!-- ROOT --><html lang="en">\n  <head>\n    <link rel="modulepreload" href="/assets/index.1764c0d6.js" />\n    <script defer src="/elm.b49096aa.js" type="text/javascript"></script>\n    \n    \n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width,initial-scale=1" />\n    <title><!-- PLACEHOLDER_TITLE --></title>\n    <meta name="generator" content="elm-pages v2.1.11" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="theme-color" content="#ffffff" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta\n      name="apple-mobile-web-app-status-bar-style"\n      content="black-translucent"\n    />\n    <!-- PLACEHOLDER_HEAD_AND_DATA -->\n    <script type="module" crossorigin src="/assets/index.1764c0d6.js"></script>\n    <link rel="stylesheet" href="/assets/index.d0b5e347.css">\n  </head>\n  <body>\n    <div data-url="" display="none"></div>\n    <!-- PLACEHOLDER_HTML -->\n  </body>\n</html>';
+
 const compiledPortsFile = "../dist/port-data-source.mjs";
 const Elm = require("../dist/elm-pages-cli.js");
 const renderer = require("../generator/src/render.js");
 const preRenderHtml = require("../generator/src/pre-render-html.js");
-const htmlTemplate = `<!DOCTYPE html>
-<!-- ROOT --><html lang="en">
-  <head>
-    <link rel="modulepreload" href="/assets/index.1764c0d6.js" />
-    <script defer src="/elm.b49096aa.js" type="text/javascript"></script>
-    
-    
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title><!-- PLACEHOLDER_TITLE --></title>
-    <meta name="generator" content="elm-pages v2.1.11" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#ffffff" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta
-      name="apple-mobile-web-app-status-bar-style"
-      content="black-translucent"
-    />
-    <!-- PLACEHOLDER_HEAD_AND_DATA -->
-    <script type="module" crossorigin src="/assets/index.1764c0d6.js"></script>
-    <link rel="stylesheet" href="/assets/index.d0b5e347.css">
-  </head>
-  <body>
-    <div data-url="" display="none"></div>
-    <!-- PLACEHOLDER_HTML -->
-  </body>
-</html>`;
 
 export async function onRequest(context) {
   // Contents of context object

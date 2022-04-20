@@ -7,94 +7,20 @@ export default async function run({
   portsFilePath,
   htmlTemplate,
 }) {
-  console.log("Running adapter script");
-  ensureDirSync("functions/render");
-  ensureDirSync("functions/server-render");
+  ensureDirSync("functions/");
 
-  fs.copyFileSync(
-    renderFunctionFilePath,
-    "./functions/render/elm-pages-cli.js"
-  );
-  fs.copyFileSync(
-    renderFunctionFilePath,
-    "./functions/server-render/elm-pages-cli.js"
-  );
-  fs.copyFileSync(portsFilePath, "./functions/render/port-data-source.mjs");
-  fs.copyFileSync(
-    portsFilePath,
-    "./functions/server-render/port-data-source.mjs"
-  );
-
+  // TODO figure out where to put the cli.js file and port-data-source file
+  // fs.copyFileSync(
+  //   renderFunctionFilePath,
+  //   "./functions/render/elm-pages-cli.js"
+  // );
+  // fs.copyFileSync(
+  //   portsFilePath,
+  //   "./functions/server-render/port-data-source.mjs"
+  // );
   fs.writeFileSync(
-    "./functions/render/index.js",
-    rendererCode(true, htmlTemplate)
-  );
-  fs.writeFileSync(
-    "./functions/server-render/index.js",
+    "./functions/[[path]].js",
     rendererCode(false, htmlTemplate)
-  );
-  // TODO rename functions/render to functions/fallback-render
-  // TODO prepend instead of writing file
-
-  const apiServerRoutes = apiRoutePatterns.filter(isServerSide);
-
-  ensureValidRoutePatternsForNetlify(apiServerRoutes);
-
-  // TODO filter apiRoutePatterns on is server side
-  // TODO need information on whether api route is odb or serverless
-  const apiRouteRedirects = apiServerRoutes
-    .map((apiRoute) => {
-      if (apiRoute.kind === "prerender-with-fallback") {
-        return `${apiPatternToRedirectPattern(
-          apiRoute.pathPattern
-        )} /.netlify/builders/render 200`;
-      } else if (apiRoute.kind === "serverless") {
-        return `${apiPatternToRedirectPattern(
-          apiRoute.pathPattern
-        )} /.netlify/functions/server-render 200`;
-      } else {
-        throw "Unhandled 2";
-      }
-    })
-    .join("\n");
-
-  const redirectsFile =
-    routePatterns
-      .filter(isServerSide)
-      .map((route) => {
-        if (route.kind === "prerender-with-fallback") {
-          return `${route.pathPattern} /.netlify/builders/render 200
-${route.pathPattern}/content.dat /.netlify/builders/render 200`;
-        } else {
-          return `${route.pathPattern} /.netlify/functions/server-render 200
-${route.pathPattern}/content.dat /.netlify/functions/server-render 200`;
-        }
-      })
-      .join("\n") +
-    "\n" +
-    apiRouteRedirects +
-    "\n";
-
-  fs.writeFileSync("dist/_redirects", redirectsFile);
-}
-
-function ensureValidRoutePatternsForNetlify(apiRoutePatterns) {
-  const invalidNetlifyRoutes = apiRoutePatterns.filter((apiRoute) =>
-    apiRoute.pathPattern.some(({ kind }) => kind === "hybrid")
-  );
-  if (invalidNetlifyRoutes.length > 0) {
-    throw (
-      "Invalid Netlify routes!\n" +
-      invalidNetlifyRoutes
-        .map((value) => JSON.stringify(value, null, 2))
-        .join(", ")
-    );
-  }
-}
-
-function isServerSide(route) {
-  return (
-    route.kind === "prerender-with-fallback" || route.kind === "serverless"
   );
 }
 
@@ -103,172 +29,123 @@ function isServerSide(route) {
  * @param {string} htmlTemplate
  */
 function rendererCode(isOnDemand, htmlTemplate) {
-  return `const path = require("path");
-const busboy = require("busboy");
-const htmlTemplate = ${JSON.stringify(htmlTemplate)};
+  return `const htmlTemplate = ${JSON.stringify(htmlTemplate)};
 
-${
-  isOnDemand
-    ? `const { builder } = require("@netlify/functions");
-
-exports.handler = builder(render);`
-    : `
-
-exports.handler = render;`
-}
+const compiledPortsFile = "../dist/port-data-source.mjs";
+const Elm = require("../dist/elm-pages-cli.js");
+const renderer = require("../generator/src/render.js");
+const preRenderHtml = require("../generator/src/pre-render-html.js");
 
 
-/**
- * @param {import('aws-lambda').APIGatewayProxyEvent} event
- * @param {any} context
- */
-async function render(event, context) {
-  const requestTime = new Date();
-  console.log(JSON.stringify(event));
-  global.staticHttpCache = {};
+export async function onRequest(context) {
+  // Contents of context object
+  const {
+    request, // same as existing Worker API
+    env, // same as existing Worker API
+    params, // if filename includes [id] or [[path]]
+    waitUntil, // same as ctx.waitUntil in existing Worker API
+    next, // used for middleware or to fetch assets
+    data, // arbitrary space for passing data between middlewares
+  } = context;
 
-  const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
-  const compiledPortsFile = path.join(__dirname, "port-data-source.mjs");
-  const renderer = require("../../../../generator/src/render");
-  const preRenderHtml = require("../../../../generator/src/pre-render-html");
-  try {
-    const basePath = "/";
-    const mode = "build";
-    const addWatcher = () => {};
+  let { pathname } = new URL(request.url);
+  let res;
 
-    const renderResult = await renderer(
-      compiledPortsFile,
-      basePath,
-      require(compiledElmPath),
-      mode,
-      event.path,
-      await reqToJson(event, requestTime),
-      addWatcher,
-      false
-    );
-    console.log("@@@renderResult", JSON.stringify(renderResult, null, 2));
+  if (pathname.startsWith("/assets") || pathname.startsWith("/elm.")) {
+    console.log("@@@ serving asset", pathname);
+    //     next();
+    //     res = await env.ASSETS.fetch(request);
 
-    const statusCode = renderResult.is404 ? 404 : renderResult.statusCode;
+    //     res = new Response(res.body, {
+    //       headers: {
+    //         // include original cache headers, minus cache-control which
+    //         // is overridden, and etag which is no longer useful
+    //         // "cache-control": "public, immutable, max-age=31536000",
+    //         // "content-type": res.headers.get("content-type"),
+    //         "x-robots-tag": "noindex",
+    //       },
+    //     });
+    //     return res;
+    res = await next();
+    console.log("res", res);
+    return res;
+  } else {
+    //     return new Response("Hello, world!");
+    try {
+      const requestTime = new Date();
+      // global.staticHttpCache = {};
+      // global.XMLHttpRequest = {};
+      const basePath = "/";
+      const mode = "build";
+      const addWatcher = () => {};
 
-    if (renderResult.kind === "bytes") {
-      return {
-        body: Buffer.from(renderResult.contentDatPayload.buffer).toString("base64"),
-        isBase64Encoded: true,
-        headers: {
-          "Content-Type": "application/octet-stream",
-          "x-powered-by": "elm-pages",
-          ...renderResult.headers,
-        },
-        statusCode,
-      };
-    } else if (renderResult.kind === "api-response") {
-      const serverResponse = renderResult.body;
-      return {
-        body: serverResponse.body,
-        multiValueHeaders: serverResponse.headers,
-        statusCode: serverResponse.statusCode,
-        isBase64Encoded: serverResponse.isBase64Encoded,
-      };
-    } else {
-      console.log('@rendering', preRenderHtml.replaceTemplate(htmlTemplate, renderResult.htmlString))
-      return {
-        body: preRenderHtml.replaceTemplate(htmlTemplate, renderResult.htmlString),
-        headers: {
-          "Content-Type": "text/html",
-          "x-powered-by": "elm-pages",
-          ...renderResult.headers,
-        },
-        statusCode,
-      };
+      const renderResult = await renderer(
+        compiledPortsFile,
+        basePath,
+        Elm,
+        mode,
+        new URL(request.url).pathname,
+        await requestToJson(request, requestTime),
+        addWatcher,
+        false
+      );
+
+      const statusCode = renderResult.is404 ? 404 : renderResult.statusCode;
+
+      if (renderResult.kind === "bytes") {
+        return new Response(renderResult.contentDatPayload.buffer, {
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "x-powered-by": "elm-pages",
+            ...renderResult.headers,
+          },
+          status: statusCode,
+        });
+      } else if (renderResult.kind === "api-response") {
+        const serverResponse = renderResult.body;
+        return new Response(serverResponse.body, {
+          // isBase64Encoded: serverResponse.isBase64Encoded, // TODO check if base64 encoded, if it is then convert base64 string to binary
+          headers: serverResponse.headers,
+          status: serverResponse.statusCode,
+        });
+      } else {
+        return new Response(
+          preRenderHtml.replaceTemplate(htmlTemplate, renderResult.htmlString),
+          {
+            headers: {
+              "Content-Type": "text/html",
+              "x-powered-by": "elm-pages",
+              ...renderResult.headers,
+            },
+            status: statusCode,
+          }
+        );
+      }
+    } catch (error) {
+      // console.trace(error);
+      return new Response(
+        \`<body><h1>Error</h1><pre>\${error.toString()}</pre><div><pre>\${
+          error.stack
+        }</pre></div></body>\`,
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "text/html",
+            "x-powered-by": "elm-pages",
+          },
+        }
+      );
     }
-  } catch (error) {
-    console.error(error);
-    return {
-      body: \`<body><h1>Error</h1><pre>\${error.toString()}</pre></body>\`,
-      statusCode: 500,
-      headers: {
-        "Content-Type": "text/html",
-        "x-powered-by": "elm-pages",
-      },
-    };
   }
 }
-
-/**
- * @param {import('aws-lambda').APIGatewayProxyEvent} req
- * @param {Date} requestTime
- * @returns {Promise<{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }>}
- */
-function reqToJson(req, requestTime) {
-  return new Promise((resolve, reject) => {
-    if (
-      req.httpMethod && req.httpMethod.toUpperCase() === "POST" &&
-      req.headers["content-type"] &&
-      req.headers["content-type"].includes("multipart/form-data") &&
-      req.body
-    ) {
-      try {
-        console.log('@@@1');
-        const bb = busboy({
-          headers: req.headers,
-        });
-        let fields = {};
-
-        bb.on("file", (fieldname, file, info) => {
-          console.log('@@@2');
-          const { filename, encoding, mimeType } = info;
-
-          file.on("data", (data) => {
-            fields[fieldname] = {
-              filename,
-              mimeType,
-              body: data.toString(),
-            };
-          });
-        });
-
-        bb.on("field", (fieldName, value) => {
-          console.log("@@@field", fieldName, value);
-          fields[fieldName] = value;
-        });
-
-        // TODO skip parsing JSON and form data body if busboy doesn't run
-        bb.on("close", () => {
-          console.log('@@@3');
-          console.log("@@@close", fields);
-          resolve(toJsonHelper(req, requestTime, fields));
-        });
-        console.log('@@@4');
-        
-        if (req.isBase64Encoded) {
-          bb.write(Buffer.from(req.body, 'base64').toString('utf8'));
-        } else {
-          bb.write(req.body);
-        }
-      } catch (error) {
-        console.error('@@@5', error);
-        resolve(toJsonHelper(req, requestTime, null));
-      }
-    } else {
-      console.log('@@@6');
-      resolve(toJsonHelper(req, requestTime, null));
-    }
-  });
-}
-
-/**
- * @param {import('aws-lambda').APIGatewayProxyEvent} req
- * @param {Date} requestTime
- * @returns {{method: string; rawUrl: string; body: string?; headers: Record<string, string>; requestTime: number; multiPartFormData: unknown }}
- */
-function toJsonHelper(req, requestTime, multiPartFormData) {
+async function requestToJson(request, requestTime) {
   return {
-    method: req.httpMethod,
-    headers: req.headers,
-    rawUrl: req.rawUrl,
-    body: req.body,
+    method: request.method,
+    body: request.body && (await request.text()),
+    headers: request.headers,
+    rawUrl: request.url,
     requestTime: Math.round(requestTime.getTime()),
-    multiPartFormData: multiPartFormData,
+    multiPartFormData: null,
   };
 }
 `;
@@ -283,30 +160,4 @@ function ensureDirSync(dirpath) {
   } catch (err) {
     if (err.code !== "EEXIST") throw err;
   }
-}
-
-/** @typedef {{kind: 'dynamic'} | {kind: 'literal', value: string}} ApiSegment */
-
-/**
- * @param {ApiSegment[]} pathPattern
- */
-function apiPatternToRedirectPattern(pathPattern) {
-  return (
-    "/" +
-    pathPattern
-      .map((segment, index) => {
-        switch (segment.kind) {
-          case "literal": {
-            return segment.value;
-          }
-          case "dynamic": {
-            return `:dynamic${index}`;
-          }
-          default: {
-            throw "Unhandled segment: " + JSON.stringify(segment);
-          }
-        }
-      })
-      .join("/")
-  );
 }
