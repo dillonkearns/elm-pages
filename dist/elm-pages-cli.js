@@ -11002,14 +11002,14 @@ return forceThunks(html);
             }
         }
     }, $elm_community$list_extra$List$Extra$findMap = F2($elm_community$list_extra$List$Extra$findMap_fn);
-    var $author$project$Pages$Internal$Router$ensureLeadingSlash = function (path) {
-        return _String_startsWith_fn("/", path) ? path : ("/" + path);
+    var $author$project$Pages$Internal$Router$withLeadingSlash = function (string) {
+        return _String_startsWith_fn("/", string) ? string : ("/" + string);
     };
-    var $author$project$Pages$Internal$Router$stripTrailingSlash = function (path) {
-        return (_String_endsWith_fn("/", path) && ($elm$core$String$length(path) > 1)) ? $elm$core$String$dropRight_fn(1, path) : path;
+    var $author$project$Pages$Internal$Router$withTrailingSlash = function (string) {
+        return _String_endsWith_fn("/", string) ? string : (string + "/");
     };
     var $author$project$Pages$Internal$Router$normalizePath = function (path) {
-        return $author$project$Pages$Internal$Router$stripTrailingSlash($author$project$Pages$Internal$Router$ensureLeadingSlash(path));
+        return $author$project$Pages$Internal$Router$withTrailingSlash($author$project$Pages$Internal$Router$withLeadingSlash(path));
     };
     var $author$project$Pages$Internal$Router$toRegex = function (pattern) {
         return $elm$core$Maybe$withDefault_fn($elm$regex$Regex$never, $elm$regex$Regex$fromString(pattern));
@@ -11031,7 +11031,7 @@ return forceThunks(html);
     }, $author$project$Pages$Internal$Router$firstMatch = F2($author$project$Pages$Internal$Router$firstMatch_fn);
     var $author$project$Route$matchers = _List_fromArray([
         {
-            fd: "^\\/stories\\/(?:([^/]+))$",
+            fd: "^\\/stories\\/(?:([^/]+))\\/?$",
             eW: function (matches) {
                 if ((matches.b && (!matches.a.$)) && (!matches.b.b)) {
                     var id = matches.a.a;
@@ -11043,7 +11043,7 @@ return forceThunks(html);
             }
         },
         {
-            fd: "^(?:\\/([^/]+))?$",
+            fd: "^\\/(?:([^/]+))?\\/?$",
             eW: function (matches) {
                 if (matches.b && (!matches.b.b)) {
                     var feed = matches.a;
