@@ -94,8 +94,10 @@ submatches pattern path =
 normalizePath : String -> String
 normalizePath path =
     path
-        |> ensureLeadingSlash
-        |> stripTrailingSlash
+        --|> ensureLeadingSlash
+        --|> stripTrailingSlash
+        |> withLeadingSlash
+        |> withTrailingSlash
 
 
 ensureLeadingSlash : String -> String
@@ -114,3 +116,21 @@ stripTrailingSlash path =
 
     else
         path
+
+
+withLeadingSlash : String -> String
+withLeadingSlash string =
+    if string |> String.startsWith "/" then
+        string
+
+    else
+        "/" ++ string
+
+
+withTrailingSlash : String -> String
+withTrailingSlash string =
+    if string |> String.endsWith "/" then
+        string
+
+    else
+        string ++ "/"

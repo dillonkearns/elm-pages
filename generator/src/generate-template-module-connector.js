@@ -948,7 +948,7 @@ matchers : List (Pages.Internal.Router.Matcher Route)
 matchers =
     [ ${sortTemplates(templates)
       .map(
-        (name) => `{ pattern = "^${routeRegex(name).pattern}$"
+        (name) => `{ pattern = "^${routeRegex(name).pattern}\\\\/?$"
       , toRoute = ${routeRegex(name).toRoute}
      }\n`
       )
@@ -1156,7 +1156,7 @@ function routeRegex(name) {
           return [`(.*)`];
         }
         case "optional": {
-          return [`(?:\\\\/([^/]+))?`];
+          return [`\\\\/(?:([^/]+))?`];
         }
       }
     })
