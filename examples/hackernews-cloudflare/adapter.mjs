@@ -87,7 +87,12 @@ export async function onRequest(context) {
         new URL(request.url).pathname,
         await requestToJson(request, requestTime),
         addWatcher,
-        false
+        false,
+        {
+          getEnv: function (name) {
+            return env[name];
+          },
+        }
       );
 
       const statusCode = renderResult.is404 ? 404 : renderResult.statusCode;
