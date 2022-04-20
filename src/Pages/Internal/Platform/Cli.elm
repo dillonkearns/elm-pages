@@ -122,18 +122,23 @@ cliApplication config =
                                                 (\tag ->
                                                     case tag of
                                                         "BuildError" ->
-                                                            Decode.field "data"
-                                                                (Decode.map2
-                                                                    (\message title ->
-                                                                        { title = title
-                                                                        , message = message
-                                                                        , fatal = True
-                                                                        , path = "" -- TODO wire in current path here
-                                                                        }
+                                                            Decode.oneOf
+                                                                [ Decode.field "data"
+                                                                    (Decode.map2
+                                                                        (\message title ->
+                                                                            { title = title
+                                                                            , message = message
+                                                                            , fatal = True
+                                                                            , path = "" -- TODO wire in current path here
+                                                                            }
+                                                                        )
+                                                                        (Decode.field "message" Decode.string |> Decode.map Terminal.fromAnsiString)
+                                                                        (Decode.field "title" Decode.string)
                                                                     )
-                                                                    (Decode.field "message" Decode.string |> Decode.map Terminal.fromAnsiString)
-                                                                    (Decode.field "title" Decode.string)
-                                                                )
+                                                                , -- If it's not in the expected format, make sure we log whatever error we received
+                                                                  Decode.field "data" Decode.value
+                                                                    |> Decode.map (\errorJson -> BuildError.internal (Json.Encode.encode 2 errorJson))
+                                                                ]
                                                                 |> Decode.map GotBuildError
 
                                                         _ ->
