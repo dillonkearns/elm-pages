@@ -18,17 +18,13 @@ export default async function run({
   //   portsFilePath,
   //   "./functions/server-render/port-data-source.mjs"
   // );
-  fs.writeFileSync(
-    "./functions/[[path]].js",
-    rendererCode(false, htmlTemplate)
-  );
+  fs.writeFileSync("./functions/[[path]].js", rendererCode(htmlTemplate));
 }
 
 /**
- * @param {boolean} isOnDemand
  * @param {string} htmlTemplate
  */
-function rendererCode(isOnDemand, htmlTemplate) {
+function rendererCode(htmlTemplate) {
   return `const htmlTemplate = ${JSON.stringify(htmlTemplate)};
 const devMode = true;
 
