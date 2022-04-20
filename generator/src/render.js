@@ -1,10 +1,5 @@
 // @ts-check
 
-// const path = require("path");
-// const mm = require("micromatch");
-// const matter = require("gray-matter");
-// const globby = require("globby");
-// const fsPromises = require("fs").promises;
 const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
 const kleur = require("kleur");
@@ -37,7 +32,8 @@ module.exports =
     path,
     request,
     addDataSourceWatcher,
-    hasFsAccess
+    hasFsAccess,
+    libraries
   ) {
     // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(
     //   hasFsAccess
@@ -59,7 +55,8 @@ module.exports =
       request,
       addDataSourceWatcher,
       fs,
-      hasFsAccess
+      hasFsAccess,
+      libraries
     );
     return result;
   };
@@ -82,7 +79,8 @@ function runElmApp(
   request,
   addDataSourceWatcher,
   fs,
-  hasFsAccess
+  hasFsAccess,
+  libraries
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
@@ -173,7 +171,8 @@ function runElmApp(
             requestToPerform,
             fs,
             hasFsAccess,
-            patternsToWatch
+            patternsToWatch,
+            libraries
           );
         } else {
           runHttpJob(portsFile, app, mode, requestToPerform, fs, hasFsAccess);
@@ -289,30 +288,31 @@ async function runInternalJob(
   requestToPerform,
   fs,
   hasFsAccess,
-  patternsToWatch
+  patternsToWatch,
+  libraries
 ) {
   try {
     pendingDataSourceCount += 1;
 
     if (requestToPerform.url === "elm-pages-internal://read-file") {
       pendingDataSourceResponses.push(
-        await readFileJobNew(requestToPerform, patternsToWatch)
+        await readFileJobNew(libraries, requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://glob") {
       pendingDataSourceResponses.push(
-        await runGlobNew(requestToPerform, patternsToWatch)
+        await runGlobNew(libraries, requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://env") {
       pendingDataSourceResponses.push(
-        await runEnvJob(requestToPerform, patternsToWatch)
+        await runEnvJob(libraries, requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://encrypt") {
       pendingDataSourceResponses.push(
-        await runEncryptJob(requestToPerform, patternsToWatch)
+        await runEncryptJob(libraries, requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://decrypt") {
       pendingDataSourceResponses.push(
-        await runDecryptJob(requestToPerform, patternsToWatch)
+        await runDecryptJob(libraries, requestToPerform, patternsToWatch)
       );
     } else {
       throw `Unexpected internal DataSource request format: ${kleur.yellow(
@@ -320,6 +320,7 @@ async function runInternalJob(
       )}`;
     }
   } catch (error) {
+    console.trace(error);
     sendError(app, error);
   } finally {
     pendingDataSourceCount -= 1;
@@ -327,19 +328,15 @@ async function runInternalJob(
   }
 }
 
-async function readFileJobNew(req, patternsToWatch) {
+async function readFileJobNew(libraries, req, patternsToWatch) {
   const filePath = req.body.args[1];
   try {
+    const { fsPromises, matter } = libraries;
     patternsToWatch.add(filePath);
 
-    throw "TODO - use dependency injection for CloudFlare implementation";
-    // const fileContents = // TODO can I remove this hack?
-    //   (
-    //     await fsPromises.readFile(
-    //       pathJoin(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
-    //     )
-    //   ).toString();
-    // const parsedFile = matter(fileContents);
+    const fileContents = // TODO can I remove this hack?
+      (await fsPromises.readFile(pathJoin(process.cwd(), filePath))).toString();
+    const parsedFile = matter(fileContents);
 
     return jsonResponse(req, {
       parsedFrontmatter: parsedFile.data,
@@ -356,32 +353,33 @@ async function readFileJobNew(req, patternsToWatch) {
   }
 }
 
-async function runGlobNew(req, patternsToWatch) {
+async function runGlobNew(libraries, req, patternsToWatch) {
   try {
+    const { mm, globby } = libraries;
     const { pattern, options } = req.body.args[0];
-    throw "TODO - do a error here if in cloudflare mode... probably with dependency injection?";
-    // const matchedPaths = await globby(pattern, options);
+    const matchedPaths = await globby(pattern, options);
     patternsToWatch.add(pattern);
 
-    // return jsonResponse(
-    //   req,
-    //   matchedPaths.map((fullPath) => {
-    //     return {
-    //       fullPath,
-    //       captures: mm.capture(pattern, fullPath),
-    //     };
-    //   })
-    // );
+    return jsonResponse(
+      req,
+      matchedPaths.map((fullPath) => {
+        return {
+          fullPath,
+          captures: mm.capture(pattern, fullPath),
+        };
+      })
+    );
   } catch (e) {
     console.log(`Error performing glob '${JSON.stringify(req.body)}'`);
     throw e;
   }
 }
 
-async function runEnvJob(req, patternsToWatch) {
+async function runEnvJob(libraries, req, patternsToWatch) {
+  const { getEnv } = libraries;
   try {
     const expectedEnv = req.body.args[0];
-    return jsonResponse(req, process.env[expectedEnv] || null);
+    return jsonResponse(req, getEnv(expectedEnv) || null);
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
@@ -389,6 +387,7 @@ async function runEnvJob(req, patternsToWatch) {
 }
 async function runEncryptJob(req, patternsToWatch) {
   try {
+    const { crypto } = libraries;
     return jsonResponse(
       req,
       cookie.sign(
@@ -405,8 +404,9 @@ async function runEncryptJob(req, patternsToWatch) {
     };
   }
 }
-async function runDecryptJob(req, patternsToWatch) {
+async function runDecryptJob(libraries, req, patternsToWatch) {
   try {
+    const { crypto } = libraries;
     // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
     const signed = tryDecodeCookie(
       req.body.args[0].input,

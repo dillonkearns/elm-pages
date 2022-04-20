@@ -5,6 +5,11 @@ const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
 const { parentPort, threadId, workerData } = require("worker_threads");
 let Elm;
 
+const mm = require("micromatch");
+const matter = require("gray-matter");
+const globby = require("globby");
+const fsPromises = require("fs").promises;
+
 // global.staticHttpCache = {};
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
@@ -22,7 +27,16 @@ async function run({ mode, pathname, serverRequest, portsFilePath }) {
           parentPort.postMessage({ tag: "watch", data: [...patterns] });
         }
       },
-      true
+      true,
+      {
+        mm,
+        matter,
+        globby,
+        fsPromises,
+        getEnv: function (name) {
+          return process.env[name];
+        },
+      }
     );
 
     if (mode === "dev-server") {
