@@ -244,7 +244,6 @@ async function runHttpJob(
       requestToPerform,
       hasFsAccess
     );
-    console.log("@@@response");
     console.dir(response);
 
     pendingDataSourceResponses.push({
