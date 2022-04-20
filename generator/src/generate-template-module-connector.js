@@ -1151,7 +1151,7 @@ function routeRegex(name) {
           return [`(.*)`];
         }
         case "optional": {
-          return [`\\\\/(?:([^/]+))?`];
+          return [`(?:\\\\/([^/]+))?`];
         }
       }
     })
