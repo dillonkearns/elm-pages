@@ -15,8 +15,12 @@ const which = require("which");
 const { build } = require("vite");
 const preRenderHtml = require("./pre-render-html.js");
 const esbuild = require("esbuild");
-// const { createHash } = require("crypto");
-const { createHash } = crypto.subtle;
+let createHash;
+if (typeof crypto === "undefined") {
+  createHash = require("crypto").createHash;
+} else {
+  createHash = crypto.subtle.createHash;
+}
 
 let pool = [];
 let pagesReady;
