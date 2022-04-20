@@ -1,14 +1,3 @@
-// export default {
-//   fetch(request, env, context) {
-//     return new Response("Hello");
-//   },
-// };
-
-// module.exports = {
-//   fetch(request, env, context) {
-//     return new Response("Hello");
-//   },
-// };
 const compiledPortsFile = "../dist/port-data-source.mjs";
 const Elm = require("../dist/elm-pages-cli.js");
 const renderer = require("../generator/src/render.js");
@@ -142,19 +131,6 @@ export async function onRequest(context) {
     }
   }
 }
-// module.exports.onRequest = async function (context) {
-//   // Contents of context object
-//   const {
-//     request, // same as existing Worker API
-//     env, // same as existing Worker API
-//     params, // if filename includes [id] or [[path]]
-//     waitUntil, // same as ctx.waitUntil in existing Worker API
-//     next, // used for middleware or to fetch assets
-//     data, // arbitrary space for passing data between middlewares
-//   } = context;
-
-//   return new Response("Hello, world!");
-// };
 async function requestToJson(request, requestTime) {
   return {
     method: request.method,
@@ -164,12 +140,4 @@ async function requestToJson(request, requestTime) {
     requestTime: Math.round(requestTime.getTime()),
     multiPartFormData: null,
   };
-}
-
-/**
- * @param {string[]} parts
- * @returns {string}
- */
-function pathJoin(...parts) {
-  return parts.join("/");
 }
