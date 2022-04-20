@@ -88,9 +88,7 @@ function runElmApp(
   let killApp;
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
-    const route = pagePath
-      .replace(/content\.json\/?$/, "")
-      .replace(/content\.dat\/?$/, "");
+    const route = pagePath.replace(/content\.dat\/?$/, "");
 
     const modifiedRequest = { ...request, path: route };
     app = elmModule.Elm.Main.init({
