@@ -321,7 +321,6 @@ async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
   const fileHash = await fsPromises
     .readFile(fullOutputPath, "utf8")
     .then(getAssetHash);
-  console.log("@@@@@@@@@@@@@ fileHash", fileHash);
   await fsPromises.copyFile(
     fullOutputPath,
     `${withoutExtension}.${fileHash}.js`
