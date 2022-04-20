@@ -8709,7 +8709,7 @@
             }
         },
         {
-            fb: "^\\/(?:([^/]+))?$",
+            fb: "^(?:\\/([^/]+))?$",
             eU: function (matches) {
                 if (matches.b && (!matches.b.b)) {
                     var feed = matches.a;

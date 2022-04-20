@@ -589,6 +589,10 @@ port sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd m
 
 fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch PageData Shared.Data )
 fetchPageData url details =
+${
+  phase === "cli"
+    ? `    fetchPageData url details -- never called in CLI, so avoid bundling any HTTP fetching code`
+    : `
     Http.task
         { method = details |> Maybe.map (\\_ -> "POST") |> Maybe.withDefault "GET"
         , headers = []
@@ -635,7 +639,8 @@ fetchPageData url details =
                     _ ->
                         Task.succeed ( url, response )
             )
-
+`
+}
 
 
 byteDecodePageData : Maybe Route -> Bytes.Decode.Decoder PageData
