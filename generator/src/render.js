@@ -8,8 +8,7 @@
 const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
 const kleur = require("kleur");
-// const cookie = require("cookie-signature");
-const cookie = null; // TODO need to figure out what to replace this with for Cloudflare
+const cookie = require("./cookie-signature.js");
 kleur.enabled = true;
 
 // process.on("unhandledRejection", (error) => {
@@ -393,6 +392,7 @@ async function runEncryptJob(req, patternsToWatch) {
     return jsonResponse(
       req,
       cookie.sign(
+        crypto,
         JSON.stringify(req.body.args[0].values, null, 0),
         req.body.args[0].secret
       )
@@ -456,7 +456,7 @@ function sendError(app, error) {
 }
 function tryDecodeCookie(input, secrets) {
   if (secrets.length > 0) {
-    const signed = cookie.unsign(input, secrets[0]);
+    const signed = cookie.unsign(crypto, input, secrets[0]);
     if (signed) {
       return signed;
     } else {
