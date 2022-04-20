@@ -93,7 +93,6 @@ function runElmApp(
       .replace(/content\.dat\/?$/, "");
 
     const modifiedRequest = { ...request, path: route };
-    // console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
     app = elmModule.Elm.Main.init({
       flags: {
         mode,
@@ -126,9 +125,6 @@ function runElmApp(
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
-        if (mode === "build") {
-          // global.staticHttpCache = args.staticHttpCache;
-        }
 
         resolve({
           kind: "api-response",
@@ -138,9 +134,6 @@ function runElmApp(
         });
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
-        if (mode === "build") {
-          // global.staticHttpCache = args.staticHttpCache;
-        }
 
         if (isBytes) {
           resolve({

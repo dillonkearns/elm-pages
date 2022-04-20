@@ -73,8 +73,6 @@ export async function onRequest(context) {
     //     return new Response("Hello, world!");
     try {
       const requestTime = new Date();
-      // global.staticHttpCache = {};
-      // global.XMLHttpRequest = {};
       const basePath = "/";
       const mode = "build";
       const addWatcher = () => {};

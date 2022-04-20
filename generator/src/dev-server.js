@@ -253,23 +253,6 @@ async function start(options) {
         });
       }
     } else {
-      // TODO use similar logic in the workers? Or don't use cache at all?
-      // const changedPathRelative = path.relative(process.cwd(), pathThatChanged);
-      //
-      // Object.keys(global.staticHttpCache).forEach((dataSourceKey) => {
-      //   if (dataSourceKey.includes(`file://${changedPathRelative}`)) {
-      //     delete global.staticHttpCache[dataSourceKey];
-      //   } else if (
-      //     (eventName === "add" ||
-      //       eventName === "unlink" ||
-      //       eventName === "change" ||
-      //       eventName === "addDir" ||
-      //       eventName === "unlinkDir") &&
-      //     dataSourceKey.startsWith("glob://")
-      //   ) {
-      //     delete global.staticHttpCache[dataSourceKey];
-      //   }
-      // });
       clients.forEach((client) => {
         client.response.write(`data: content.dat\n\n`);
       });

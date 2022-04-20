@@ -10,8 +10,6 @@ const matter = require("gray-matter");
 const globby = require("globby");
 const fsPromises = require("fs").promises;
 
-// global.staticHttpCache = {};
-
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
   try {
