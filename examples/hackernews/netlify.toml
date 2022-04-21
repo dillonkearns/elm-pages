@@ -4,7 +4,7 @@
   command = "mkdir bin && export PATH=\"/opt/build/repo/examples/hackernews/bin:$PATH\" && echo $PATH && curl https://static.lamdera.com/bin/linux/lamdera -o bin/lamdera && chmod a+x bin/lamdera && export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install && npm run build"
 
 [[edge_functions]]
-  path = "/test"
+  path = "/test/hello"
   function = "hello"
 
 [[edge_functions]]
