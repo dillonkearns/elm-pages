@@ -12,8 +12,8 @@
   function = "server-render"
 
 [[edge_functions]]
-  path = "/job"
-  function = "edge-function"
+  path = "/edge-function"
+  function = "server-render"
 
 [dev]
   command = "npm start"
