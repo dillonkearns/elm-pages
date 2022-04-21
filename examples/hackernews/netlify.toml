@@ -7,12 +7,12 @@
   path = "/test"
   function = "hello"
 
-[[edge_functions]]
-  path = "/job"
-  function = "server-render"
+# [[edge_functions]]
+#   path = "/job"
+#   function = "server-render"
 
 [[edge_functions]]
-  path = "/edge-function"
+  path = "/my/netlify/edge/function"
   function = "server-render"
 
 [dev]
