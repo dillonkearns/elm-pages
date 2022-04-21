@@ -51,7 +51,7 @@ export default async function run({
       } else if (apiRoute.kind === "serverless") {
         return `${apiPatternToRedirectPattern(
           apiRoute.pathPattern
-        )} /.netlify/functions/server-render 200`;
+        )} /edge-function-handler 200`;
       } else {
         throw "Unhandled 2";
       }
@@ -66,8 +66,8 @@ export default async function run({
           return `${route.pathPattern} /.netlify/builders/render 200
 ${route.pathPattern}/content.dat /.netlify/builders/render 200`;
         } else {
-          return `${route.pathPattern} /.netlify/functions/server-render 200
-${route.pathPattern}/content.dat /.netlify/functions/server-render 200`;
+          return `${route.pathPattern} /edge-function 200
+${route.pathPattern}/content.dat /edge-function 200`;
         }
       })
       .join("\n") +

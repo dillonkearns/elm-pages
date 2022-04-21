@@ -12,7 +12,9 @@ const cached = false;
  * @param {Object} request
  */
 function requestToString(request) {
-  return objectHash(request);
+  // TODO this line gives an error in Deno, need to find a workaround
+  return "";
+  // return objectHash(request);
 }
 /**
  * @param {Object} request
