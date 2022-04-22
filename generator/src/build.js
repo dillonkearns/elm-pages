@@ -202,7 +202,9 @@ async function run(options) {
       processedIndexTemplate
     );
   } catch (error) {
-    console.error(error);
+    if (error) {
+      console.error(error);
+    }
     buildError = true;
     process.exitCode = 1;
   }
