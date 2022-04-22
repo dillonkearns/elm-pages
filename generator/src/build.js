@@ -19,9 +19,12 @@ const { createHash } = require("crypto");
 
 let pool = [];
 let pagesReady;
+let pagesErrored;
 let pages = new Promise((resolve, reject) => {
   pagesReady = resolve;
+  pagesErrored = reject;
 });
+let pagesReadyCalled = false;
 let activeWorkers = 0;
 let buildError = false;
 
@@ -220,12 +223,20 @@ function initWorker(basePath, whenDone) {
     newWorker.worker.once("online", () => {
       newWorker.worker.on("message", (message) => {
         if (message.tag === "all-paths") {
+          pagesReadyCalled = true;
           pagesReady(
             ["/____elm-pages-internal____/404"].concat(JSON.parse(message.data))
           );
         } else if (message.tag === "error") {
           process.exitCode = 1;
           console.error(restoreColorSafe(message.data));
+          if (!pagesReadyCalled) {
+            // when there is a build error while resolving all-paths, we don't know which pages to build so we need to short-circuit
+            // and give an error instead of trying to build the remaining pages to show as many errors as possible
+            pagesReady([]);
+            reject(message.data);
+          }
+          buildError = true;
           buildNextPage(newWorker, whenDone);
         } else if (message.tag === "done") {
           buildNextPage(newWorker, whenDone);
@@ -235,6 +246,7 @@ function initWorker(basePath, whenDone) {
       });
       newWorker.worker.on("error", (error) => {
         console.error("Unhandled worker exception", error);
+        buildError = true;
         process.exitCode = 1;
         buildNextPage(newWorker, whenDone);
       });
@@ -271,11 +283,17 @@ async function buildNextPage(thread, allComplete) {
 }
 
 function runCli(options) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const whenDone = () => {
       if (activeWorkers === 0) {
         // wait for the remaining tasks in the pool to complete once the pages queue is emptied
-        Promise.all(pool).then(resolve);
+        Promise.all(pool).then((value) => {
+          if (buildError) {
+            reject();
+          } else {
+            resolve(value);
+          }
+        });
       }
     };
     const cpuCount = os.cpus().length;
