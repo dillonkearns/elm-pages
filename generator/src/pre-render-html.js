@@ -15,7 +15,7 @@ function wrapHtml(basePath, fromElm, contentDatPayload) {
     kind: "html-template",
     title: fromElm.title,
     html: fromElm.html,
-    bytesData: base64String, //  Buffer.from(contentDatPayload.buffer).toString("base64"),
+    bytesData: base64String,
     headTags: seoData.headTags,
     rootElement: seoData.rootElement,
   };
