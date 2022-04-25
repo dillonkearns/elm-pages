@@ -737,7 +737,7 @@ view maybeUrl sharedModel model static =
                     ]
                 ]
                 [ form user
-                    |> Form.toHtml2
+                    |> Form.toHtml
                         { onSubmit = Nothing
                         , onFormMsg = Just FormMsg
                         }

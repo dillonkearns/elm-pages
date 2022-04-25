@@ -14,7 +14,6 @@ module Form exposing
     , withServerValidation
     , withMax, withMin
     , withStep
-    , toHtml2
     , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
     , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
     , fieldStatusToString
@@ -113,11 +112,6 @@ Steps
 
 
 ## Validations
-
-
-## Not Named Properly Yet
-
-@docs toHtml2
 
 
 ## Internals?
@@ -1838,68 +1832,6 @@ simplify3 field =
 
 {-| -}
 toHtml :
-    { pageReloadSubmit : Bool }
-    -> (List (Html.Attribute Msg) -> List view -> view)
-    -> Model
-    -> Form msg String value view
-    -> view
-toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields _ _ _) =
-    let
-        hasErrors_ : Bool
-        hasErrors_ =
-            hasErrors2 serverValidationErrors
-    in
-    toForm
-        ([ [ Attr.method "POST" ]
-         , if pageReloadSubmit then
-            []
-
-           else
-            [ Html.Events.onSubmit SubmitForm
-            , Attr.novalidate True
-            ]
-         ]
-            |> List.concat
-        )
-        (fields
-            |> List.reverse
-            |> List.concatMap
-                (\( nestedFields, wrapFn ) ->
-                    nestedFields
-                        |> List.reverse
-                        |> List.map
-                            (\field ->
-                                let
-                                    rawFieldState : RawFieldState String
-                                    rawFieldState =
-                                        serverValidationErrors.fields
-                                            |> Dict.get field.name
-                                            |> Maybe.withDefault initField
-
-                                    thing : RawFieldState String
-                                    thing =
-                                        { rawFieldState
-                                            | errors =
-                                                rawFieldState.errors
-                                                    ++ (serverValidationErrors.formErrors
-                                                            |> Dict.get field.name
-                                                            |> Maybe.withDefault []
-                                                       )
-                                        }
-                                in
-                                field.toHtml (Debug.todo "Is this obsolete?")
-                                    { submitStatus = serverValidationErrors.isSubmitting }
-                                    hasErrors_
-                                    (simplify3 field)
-                                    (Just thing)
-                            )
-                        |> wrapFn
-                )
-        )
-
-
-{-| -}
-toHtml2 :
     { onSubmit : Maybe ({ contentType : String, body : String } -> msg)
     , onFormMsg : Maybe (Msg -> msg)
     }
@@ -1907,7 +1839,7 @@ toHtml2 :
     -> Model
     -> Form msg String value view
     -> view
-toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
+toHtml config toForm serverValidationErrors (Form fields _ _ _) =
     let
         hasErrors_ : Bool
         hasErrors_ =
