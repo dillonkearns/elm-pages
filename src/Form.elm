@@ -2072,35 +2072,6 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
 
 
 {-| -}
-submitHandlers :
-    Form String decoded view
-    -> (Model -> Result () decoded -> DataSource data)
-    -> Parser (DataSource (Response data error))
-submitHandlers myForm toDataSource =
-    Request.oneOf
-        [ apiHandler myForm
-        , toRequest2 myForm
-            |> Request.map
-                (\userOrErrors ->
-                    userOrErrors
-                        |> DataSource.andThen
-                            (\result ->
-                                case result of
-                                    Ok ( model, decoded ) ->
-                                        Ok decoded
-                                            |> toDataSource model
-
-                                    Err model ->
-                                        Err ()
-                                            |> toDataSource model
-                            )
-                        -- TODO allow customizing headers or status code, or not?
-                        |> DataSource.map Server.Response.render
-                )
-        ]
-
-
-{-| -}
 submitHandlers2 :
     Form String decoded view
     -> (Model -> Result () decoded -> DataSource (Response data error))

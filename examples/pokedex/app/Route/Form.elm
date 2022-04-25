@@ -12,6 +12,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Route
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
@@ -205,13 +206,21 @@ type alias Data =
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Form.submitHandlers
+        [ Form.submitHandlers2
             (form defaultUser)
             (\model decoded ->
-                DataSource.succeed
-                    { user = Result.toMaybe decoded
-                    , errors = model
-                    }
+                case decoded of
+                    Ok okUser ->
+                        Route.Form
+                            |> Route.redirectTo
+                            |> DataSource.succeed
+
+                    Err _ ->
+                        { user = Nothing
+                        , errors = model
+                        }
+                            |> Server.Response.render
+                            |> DataSource.succeed
             )
         , { user = Nothing
           , errors = Form.init (form defaultUser)

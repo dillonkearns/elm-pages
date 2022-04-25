@@ -612,13 +612,14 @@ type alias Data =
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Form.submitHandlers
+        [ Form.submitHandlers2
             (form defaultUser)
             (\model decoded ->
                 DataSource.succeed
                     { user = Result.toMaybe decoded
                     , initialForm = model
                     }
+                    |> DataSource.map Response.render
             )
         , { user = Nothing
           , initialForm = Form.init (form defaultUser)
