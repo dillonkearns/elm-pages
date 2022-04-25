@@ -14,7 +14,7 @@ module Form exposing
     , withServerValidation
     , withMax, withMin
     , withStep
-    , submitHandlers2, toHtml2
+    , toHtml2
     , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
     , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
     , fieldStatusToString
@@ -117,7 +117,7 @@ Steps
 
 ## Not Named Properly Yet
 
-@docs submitHandlers2, toHtml2
+@docs toHtml2
 
 
 ## Internals?
@@ -2072,11 +2072,11 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
 
 
 {-| -}
-submitHandlers2 :
+submitHandlers :
     Form String decoded view
     -> (Model -> Result () decoded -> DataSource (Response data error))
     -> Parser (DataSource (Response data error))
-submitHandlers2 myForm toDataSource =
+submitHandlers myForm toDataSource =
     Request.oneOf
         [ apiHandler myForm
         , toRequest2 myForm

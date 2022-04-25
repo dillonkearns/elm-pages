@@ -207,7 +207,7 @@ type alias Data =
 data : RouteParams -> Parser (DataSource (Server.Response.Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Form.submitHandlers2
+        [ Form.submitHandlers
             (form defaultUser)
             (\model decoded ->
                 case decoded of

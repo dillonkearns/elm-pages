@@ -173,7 +173,7 @@ todoSelection =
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Form.submitHandlers2 (deleteItemForm "")
+        [ Form.submitHandlers (deleteItemForm "")
             (\model decoded ->
                 case decoded of
                     Ok id ->
@@ -186,7 +186,7 @@ data routeParams =
                             |> Response.render
                             |> DataSource.succeed
             )
-        , Form.submitHandlers2 (newItemForm False)
+        , Form.submitHandlers (newItemForm False)
             (\model decoded ->
                 case decoded of
                     Ok okItem ->
