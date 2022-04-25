@@ -214,7 +214,7 @@ validateCapitalized string =
         Err "Needs to be capitalized"
 
 
-form : User -> Form String User (Html Form.Msg)
+form : User -> Form Msg String User (Html Msg)
 form user =
     Form.succeed User
         |> Form.with
@@ -737,10 +737,12 @@ view maybeUrl sharedModel model static =
                     ]
                 ]
                 [ form user
-                    |> Form.toHtml { pageReloadSubmit = False }
+                    |> Form.toHtml2
+                        { onSubmit = Nothing
+                        , onFormMsg = Just FormMsg
+                        }
                         (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
                         model.form
-                    |> Html.map FormMsg
                 ]
             ]
             |> Html.toUnstyled

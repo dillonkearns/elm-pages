@@ -254,7 +254,7 @@ view maybeUrl sharedModel model static =
                             [ Html.text item.description
                             , deleteItemForm item.id
                                 |> Form.toHtml2
-                                    { onSubmit = DeleteFormSubmitted item.id }
+                                    { onSubmit = Just (DeleteFormSubmitted item.id), onFormMsg = Nothing }
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
                             ]
@@ -262,14 +262,14 @@ view maybeUrl sharedModel model static =
             )
         , newItemForm model.submitting
             |> Form.toHtml2
-                { onSubmit = FormSubmitted }
+                { onSubmit = Just FormSubmitted, onFormMsg = Nothing }
                 Html.form
                 (Form.init (newItemForm model.submitting))
         ]
     }
 
 
-newItemForm : Bool -> Form String TodoInput (Html Msg)
+newItemForm : Bool -> Form Msg String TodoInput (Html Msg)
 newItemForm submitting =
     Form.succeed (\description () -> TodoInput description)
         |> Form.with
@@ -297,7 +297,7 @@ newItemForm submitting =
             )
 
 
-deleteItemForm : String -> Form String String (Html Msg)
+deleteItemForm : String -> Form Msg String String (Html Msg)
 deleteItemForm id =
     Form.succeed
         (\id_ _ -> id_)

@@ -76,7 +76,7 @@ errorsView errors =
             Html.div [] []
 
 
-form : User -> Form String User (Html Form.Msg)
+form : User -> Form Msg String User (Html Msg)
 form user =
     Form.succeed User
         |> Form.with
@@ -211,8 +211,10 @@ data routeParams =
             (\model decoded ->
                 case decoded of
                     Ok okUser ->
-                        Route.Form
-                            |> Route.redirectTo
+                        { user = Just okUser
+                        , errors = model
+                        }
+                            |> Server.Response.render
                             |> DataSource.succeed
 
                     Err _ ->
@@ -280,7 +282,7 @@ view maybeUrl sharedModel static =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
-            |> Form.toHtml { pageReloadSubmit = True } Html.form static.data.errors
+            |> Form.toHtml2 { onSubmit = Nothing, onFormMsg = Nothing } Html.form static.data.errors
             |> Html.map (\_ -> ())
         ]
     }

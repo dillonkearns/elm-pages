@@ -175,7 +175,7 @@ fieldStatusToString fieldStatus =
             "Blurred"
 
 
-http : String -> Form error value view -> Model -> Cmd (Result Http.Error (FieldState String))
+http : String -> Form msg error value view -> Model -> Cmd (Result Http.Error (FieldState String))
 http url_ (Form _ _ _ _) model =
     Http.request
         { method = "POST"
@@ -215,12 +215,12 @@ http url_ (Form _ _ _ _) model =
 
 
 {-| -}
-type Form error value view
+type Form msg error value view
     = Form
         -- TODO either make this a Dict and include the client-side validations here
         -- OR create a new Dict with ( name => client-side validation ( name -> Result String () )
         (List
-            ( List (FieldInfoSimple error view)
+            ( List (FieldInfoSimple msg error view)
             , List view -> List view
             )
         )
@@ -240,8 +240,8 @@ type Form error value view
 
 
 {-| -}
-type Field error value view constraints
-    = Field (FieldInfo error value view)
+type Field msg error value view constraints
+    = Field (FieldInfo msg error value view)
 
 
 {-| -}
@@ -251,14 +251,15 @@ type alias FormInfo =
 
 
 {-| -}
-type alias FieldInfoSimple error view =
+type alias FieldInfoSimple msg error view =
     { name : String
     , initialValue : Maybe String
     , type_ : String
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List error)
     , toHtml :
-        FormInfo
+        Maybe (Msg -> msg)
+        -> FormInfo
         -> Bool
         -> FinalFieldInfo error
         -> Maybe (RawFieldState error)
@@ -276,14 +277,15 @@ type alias RawFieldState error =
     }
 
 
-type alias FieldInfo error value view =
+type alias FieldInfo msg error value view =
     { name : String
     , initialValue : Maybe String
     , type_ : String
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List error)
     , toHtml :
-        FormInfo
+        Maybe (Msg -> msg)
+        -> FormInfo
         -> Bool
         -> FinalFieldInfo error
         -> Maybe (RawFieldState error)
@@ -305,7 +307,7 @@ type alias FinalFieldInfo error =
 
 
 {-| -}
-succeed : constructor -> Form error constructor view
+succeed : constructor -> Form msg error constructor view
 succeed constructor =
     Form []
         (\_ -> Request.succeed (Ok ( constructor, [] )))
@@ -314,7 +316,7 @@ succeed constructor =
 
 
 {-| -}
-runClientValidations : Model -> Form String value view -> Result (List ( String, List String )) ( value, List ( String, List String ) )
+runClientValidations : Model -> Form msg String value view -> Result (List ( String, List String )) ( value, List ( String, List String ) )
 runClientValidations model (Form _ _ _ modelToValue) =
     modelToValue model.fields
 
@@ -363,10 +365,10 @@ rawValues model =
             )
 
 
-runValidation : Form error value view -> { name : String, value : String } -> List error
+runValidation : Form msg error value view -> { name : String, value : String } -> List error
 runValidation (Form fields _ _ _) newInput =
     let
-        matchingDecoder : Maybe (FieldInfoSimple error view)
+        matchingDecoder : Maybe (FieldInfoSimple msg error view)
         matchingDecoder =
             fields
                 |> List.Extra.findMap
@@ -427,7 +429,7 @@ isAtLeast atLeastStatus currentStatus =
 
 
 {-| -}
-update : (Msg -> msg) -> (Result Http.Error (FieldState String) -> msg) -> Form String value view -> Msg -> Model -> ( Model, Cmd msg )
+update : (Msg -> msg) -> (Result Http.Error (FieldState String) -> msg) -> Form msg String value view -> Msg -> Model -> ( Model, Cmd msg )
 update toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
     case msg of
         OnFieldInput { name, value } ->
@@ -524,6 +526,8 @@ update toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
 
             else
                 ( { model | isSubmitting = Submitting }
+                  -- TODO use Effect.submit
+                  -- TODO remove hardcoded "/tailwind-form"
                 , http "/tailwind-form" form model |> Cmd.map GotFormResponse |> Cmd.map toMsg
                 )
 
@@ -551,7 +555,7 @@ initField =
 
 
 {-| -}
-init : Form String value view -> Model
+init : Form msg String value view -> Model
 init ((Form fields _ _ modelToValue) as form) =
     let
         initialFields : Dict String { raw : Maybe String, errors : List String, status : FieldStatus }
@@ -609,21 +613,22 @@ nonEmptyString string =
 
 
 toInputRecord :
-    FormInfo
+    Maybe (Msg -> msg)
+    -> FormInfo
     -> String
     -> Maybe String
     -> Maybe (RawFieldState error)
     -> FinalFieldInfo error
-    -> FieldRenderInfo error
-toInputRecord formInfo name maybeValue info field =
+    -> FieldRenderInfo msg error
+toInputRecord maybeToMsg formInfo name maybeValue info field =
     { toInput =
         ([ name |> nonEmptyString |> Maybe.map Attr.name
          , maybeValue
             |> Maybe.withDefault name
             |> Attr.id
             |> Just
-         , Html.Events.onFocus (OnFieldFocus { name = name }) |> Just
-         , Html.Events.onBlur (OnBlur { name = name }) |> Just
+         , Maybe.map (\toMsg -> Html.Events.onFocus (toMsg (OnFieldFocus { name = name }))) maybeToMsg
+         , Maybe.map (\toMsg -> Html.Events.onBlur (toMsg (OnBlur { name = name }))) maybeToMsg
          , case ( maybeValue, info ) of
             ( Just value, _ ) ->
                 Attr.value value |> Just
@@ -635,28 +640,32 @@ toInputRecord formInfo name maybeValue info field =
                 valueAttr field field.initialValue
          , field.type_ |> Attr.type_ |> Just
          , field.required |> Attr.required |> Just
-         , if field.type_ == "checkbox" then
-            Html.Events.onCheck
-                (\checkState ->
-                    OnFieldInput
-                        { name = name
-                        , value =
-                            if checkState then
-                                "on"
+         , Maybe.map
+            (\toMsg ->
+                if field.type_ == "checkbox" then
+                    Html.Events.onCheck
+                        (\checkState ->
+                            OnFieldInput
+                                { name = name
+                                , value =
+                                    if checkState then
+                                        "on"
 
-                            else
-                                ""
-                        }
-                )
-                |> Just
+                                    else
+                                        ""
+                                }
+                                |> toMsg
+                        )
 
-           else
-            Html.Events.onInput
-                (\newValue ->
-                    OnFieldInput
-                        { name = name, value = newValue }
-                )
-                |> Just
+                else
+                    Html.Events.onInput
+                        (\newValue ->
+                            OnFieldInput
+                                { name = name, value = newValue }
+                                |> toMsg
+                        )
+            )
+            maybeToMsg
          ]
             |> List.filterMap identity
         )
@@ -685,20 +694,19 @@ toHtmlProperties properties =
 
 
 toRadioInputRecord :
-    FormInfo
+    Maybe (Msg -> msg)
+    -> FormInfo
     -> String
     -> String
     -> Maybe (RawFieldState error)
     -> FinalFieldInfo error
-    -> FieldRenderInfo error
-toRadioInputRecord formInfo name itemValue info field =
+    -> FieldRenderInfo msg error
+toRadioInputRecord maybeToMsg formInfo name itemValue info field =
     { toInput =
         ([ name |> nonEmptyString |> Maybe.map Attr.name
          , itemValue
             |> Attr.id
             |> Just
-         , Html.Events.onFocus (OnFieldFocus { name = name }) |> Just
-         , Html.Events.onBlur (OnBlur { name = name }) |> Just
          , Attr.value itemValue |> Just
          , field.type_ |> Attr.type_ |> Just
          , field.required |> Attr.required |> Just
@@ -707,22 +715,31 @@ toRadioInputRecord formInfo name itemValue info field =
 
            else
             Nothing
-         , Html.Events.onCheck
-            (\checkState ->
-                OnFieldInput
-                    { name = name
-                    , value =
-                        if checkState then
-                            itemValue
-
-                        else
-                            ""
-                    }
-            )
-            |> Just
          ]
             |> List.filterMap identity
         )
+            ++ (Maybe.map
+                    (\toMsg ->
+                        [ Html.Events.onFocus (toMsg (OnFieldFocus { name = name }))
+                        , Html.Events.onBlur (toMsg (OnBlur { name = name }))
+                        , Html.Events.onCheck
+                            (\checkState ->
+                                OnFieldInput
+                                    { name = name
+                                    , value =
+                                        if checkState then
+                                            itemValue
+
+                                        else
+                                            ""
+                                    }
+                                    |> toMsg
+                            )
+                        ]
+                    )
+                    maybeToMsg
+                    |> Maybe.withDefault []
+               )
             ++ toHtmlProperties field.properties
     , toLabel =
         [ itemValue |> Attr.for
@@ -753,11 +770,12 @@ valueAttr field stringValue =
 text :
     String
     ->
-        (FieldRenderInfo error
+        (FieldRenderInfo msg error
          -> view
         )
     ->
         Field
+            msg
             error
             (Maybe String)
             view
@@ -774,8 +792,8 @@ text name toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+            \maybeToMsg formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord maybeToMsg formInfo name Nothing info fieldInfo)
         , decode =
             \rawValue ->
                 Ok
@@ -794,9 +812,10 @@ text name toHtmlFn =
 hidden :
     String
     -> String
-    -> (List (Html.Attribute Msg) -> view)
+    -> (List (Html.Attribute msg) -> view)
     ->
         Field
+            msg
             error
             String
             view
@@ -812,9 +831,9 @@ hidden name _ toHtmlFn =
         -- TODO shouldn't be possible to include any server-side validations on hidden fields
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
+            \maybeToMsg formInfo _ fieldInfo info ->
                 -- TODO shouldn't be possible to add any validations or chain anything
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo |> .toInput)
+                toHtmlFn (toInputRecord maybeToMsg formInfo name Nothing info fieldInfo |> .toInput)
         , decode =
             \rawValue ->
                 Ok ( rawValue |> Maybe.withDefault "", [] )
@@ -830,7 +849,7 @@ radio :
     -> ( ( String, item ), List ( String, item ) )
     ->
         (item
-         -> FieldRenderInfo error
+         -> FieldRenderInfo msg error
          -> view
         )
     ->
@@ -843,6 +862,7 @@ radio :
         )
     ->
         Field
+            msg
             error
             (Maybe item)
             view
@@ -883,9 +903,9 @@ radio name invalidError nonEmptyItemMapping toHtmlFn wrapFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
+            \maybeToMsg formInfo _ fieldInfo info ->
                 items
-                    |> List.map (\item -> toHtmlFn item (toRadioInputRecord formInfo name (toString item) info fieldInfo))
+                    |> List.map (\item -> toHtmlFn item (toRadioInputRecord maybeToMsg formInfo name (toString item) info fieldInfo))
                     |> wrapFn { errors = info |> Maybe.map .errors |> Maybe.withDefault [], submitStatus = formInfo.submitStatus, status = info |> Maybe.map .status |> Maybe.withDefault NotVisited }
         , decode =
             \raw ->
@@ -920,12 +940,12 @@ toFieldResult result =
 
 {-| -}
 submit :
-    ({ attrs : List (Html.Attribute Msg)
+    ({ attrs : List (Html.Attribute msg)
      , formHasErrors : Bool
      }
      -> view
     )
-    -> Field error () view {}
+    -> Field msg error () view {}
 submit toHtmlFn =
     Field
         { name = ""
@@ -934,7 +954,8 @@ submit toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \_ formHasErrors _ _ ->
+            \maybeToMsg _ formHasErrors _ _ ->
+                -- TODO use maybeToMsg here?
                 toHtmlFn
                     { attrs =
                         [ Attr.type_ "submit"
@@ -956,11 +977,12 @@ int :
     String
     -> { invalid : String -> error }
     ->
-        (FieldRenderInfo error
+        (FieldRenderInfo msg error
          -> view
         )
     ->
         Field
+            msg
             error
             (Maybe Int)
             view
@@ -978,8 +1000,8 @@ int name toError toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+            \maybeToMsg formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord maybeToMsg formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 (case rawString of
@@ -1005,11 +1027,12 @@ float :
     String
     -> { invalid : String -> error }
     ->
-        (FieldRenderInfo error
+        (FieldRenderInfo msg error
          -> view
         )
     ->
         Field
+            msg
             error
             (Maybe Float)
             view
@@ -1027,8 +1050,8 @@ float name toError toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+            \maybeToMsg formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord maybeToMsg formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 (case rawString of
@@ -1062,10 +1085,10 @@ range :
         , max : Int
         }
     ->
-        (FieldRenderInfo error
+        (FieldRenderInfo msg error
          -> view
         )
-    -> Field error Int view {}
+    -> Field msg error Int view {}
 range name toError options toHtmlFn =
     Field
         { name = name
@@ -1074,8 +1097,8 @@ range name toError options toHtmlFn =
         , required = True
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+            \maybeToMsg formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord maybeToMsg formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 (rawString
@@ -1116,11 +1139,12 @@ floatRange :
         , max : Float
         }
     ->
-        (FieldRenderInfo error
+        (FieldRenderInfo msg error
          -> view
         )
     ->
         Field
+            msg
             error
             Float
             view
@@ -1134,8 +1158,8 @@ floatRange name toError options toHtmlFn =
         , required = True
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+            \maybeToMsg formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord maybeToMsg formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 (rawString
@@ -1167,11 +1191,12 @@ date :
     String
     -> { invalid : String -> error }
     ->
-        (FieldRenderInfo error
+        (FieldRenderInfo msg error
          -> view
         )
     ->
         Field
+            msg
             error
             (Maybe Date)
             view
@@ -1189,8 +1214,8 @@ date name toError toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+            \maybeToMsg formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord maybeToMsg formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 (if (rawString |> Maybe.withDefault "") == "" then
@@ -1220,11 +1245,12 @@ time :
     String
     -> { invalid : String -> error }
     ->
-        (FieldRenderInfo error
+        (FieldRenderInfo msg error
          -> view
         )
     ->
         Field
+            msg
             error
             (Maybe TimeOfDay)
             view
@@ -1242,8 +1268,8 @@ time name toError toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+            \maybeToMsg formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord maybeToMsg formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 (if (rawString |> Maybe.withDefault "") == "" then
@@ -1284,9 +1310,9 @@ validateRequiredField toError maybeRaw =
 
 
 {-| -}
-type alias FieldRenderInfo error =
-    { toInput : List (Html.Attribute Msg)
-    , toLabel : List (Html.Attribute Msg)
+type alias FieldRenderInfo msg error =
+    { toInput : List (Html.Attribute msg)
+    , toLabel : List (Html.Attribute msg)
     , errors : List error
     , submitStatus : SubmitStatus
     , status : FieldStatus
@@ -1298,11 +1324,12 @@ checkbox :
     String
     -> Bool
     ->
-        (FieldRenderInfo error
+        (FieldRenderInfo msg error
          -> view
         )
     ->
         Field
+            msg
             error
             Bool
             view
@@ -1321,8 +1348,8 @@ checkbox name initial toHtmlFn =
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , toHtml =
-            \formInfo _ fieldInfo info ->
-                toHtmlFn (toInputRecord formInfo name Nothing info fieldInfo)
+            \maybeToMsg formInfo _ fieldInfo info ->
+                toHtmlFn (toInputRecord maybeToMsg formInfo name Nothing info fieldInfo)
         , decode =
             \rawString ->
                 Ok (rawString == Just "on")
@@ -1332,36 +1359,36 @@ checkbox name initial toHtmlFn =
 
 
 {-| -}
-withMin : Form.Value.Value valueType -> Field error value view { constraints | min : valueType } -> Field error value view constraints
+withMin : Form.Value.Value valueType -> Field msg error value view { constraints | min : valueType } -> Field msg error value view constraints
 withMin min field =
     withStringProperty ( "min", Form.Value.toString min ) field
 
 
 {-| -}
-withMax : Form.Value.Value valueType -> Field error value view { constraints | max : valueType } -> Field error value view constraints
+withMax : Form.Value.Value valueType -> Field msg error value view { constraints | max : valueType } -> Field msg error value view constraints
 withMax max field =
     withStringProperty ( "max", Form.Value.toString max ) field
 
 
 {-| -}
-withStep : Form.Value.Value valueType -> Field error value view { constraints | step : valueType } -> Field error value view constraints
+withStep : Form.Value.Value valueType -> Field msg error value view { constraints | step : valueType } -> Field msg error value view constraints
 withStep max field =
     withStringProperty ( "step", Form.Value.toString max ) field
 
 
 {-| -}
-withInitialValue : Form.Value.Value valueType -> Field error value view { constraints | initial : valueType } -> Field error value view constraints
+withInitialValue : Form.Value.Value valueType -> Field msg error value view { constraints | initial : valueType } -> Field msg error value view constraints
 withInitialValue initialValue (Field field) =
     Field { field | initialValue = Just (Form.Value.toString initialValue) }
 
 
 {-| -}
-multiple : Field error value view { constraints | multiple : () } -> Field error value view constraints
+multiple : Field msg error value view { constraints | multiple : () } -> Field msg error value view constraints
 multiple (Field field) =
     Field { field | properties = ( "multiple", Encode.bool True ) :: field.properties }
 
 
-withStringProperty : ( String, String ) -> Field error value view constraints1 -> Field error value view constraints2
+withStringProperty : ( String, String ) -> Field msg error value view constraints1 -> Field msg error value view constraints2
 withStringProperty ( key, value ) (Field field) =
     Field { field | properties = ( key, Encode.string value ) :: field.properties }
 
@@ -1381,6 +1408,7 @@ required :
     error
     ->
         Field
+            msg
             error
             (Maybe value)
             view
@@ -1388,7 +1416,7 @@ required :
                 | required : ()
                 , wasMapped : No
             }
-    -> Field error value view { constraints | wasMapped : No }
+    -> Field msg error value view { constraints | wasMapped : No }
 required missingError (Field field) =
     Field
         { name = field.name
@@ -1413,37 +1441,37 @@ required missingError (Field field) =
 
 
 {-| -}
-telephone : Field error value view { constraints | plainText : () } -> Field error value view constraints
+telephone : Field msg error value view { constraints | plainText : () } -> Field msg error value view constraints
 telephone (Field field) =
     Field { field | type_ = "tel" }
 
 
 {-| -}
-search : Field error value view { constraints | plainText : () } -> Field error value view constraints
+search : Field msg error value view { constraints | plainText : () } -> Field msg error value view constraints
 search (Field field) =
     Field { field | type_ = "search" }
 
 
 {-| -}
-password : Field error value view { constraints | plainText : () } -> Field error value view constraints
+password : Field msg error value view { constraints | plainText : () } -> Field msg error value view constraints
 password (Field field) =
     Field { field | type_ = "password" }
 
 
 {-| -}
-email : Field error value view { constraints | plainText : () } -> Field error value view constraints
+email : Field msg error value view { constraints | plainText : () } -> Field msg error value view constraints
 email (Field field) =
     Field { field | type_ = "email" }
 
 
 {-| -}
-url : Field error value view { constraints | plainText : () } -> Field error value view constraints
+url : Field msg error value view { constraints | plainText : () } -> Field msg error value view constraints
 url (Field field) =
     Field { field | type_ = "url" }
 
 
 {-| -}
-withServerValidation : (value -> DataSource (List error)) -> Field error value view constraints -> Field error value view constraints
+withServerValidation : (value -> DataSource (List error)) -> Field msg error value view constraints -> Field msg error value view constraints
 withServerValidation serverValidation (Field field) =
     Field
         { field
@@ -1468,13 +1496,13 @@ withServerValidation serverValidation (Field field) =
 
 
 {-| -}
-map : (value -> mapped) -> Field error value view constraints -> Field error mapped view { constraints | wasMapped : Yes }
+map : (value -> mapped) -> Field msg error value view constraints -> Field msg error mapped view { constraints | wasMapped : Yes }
 map mapFn field =
     withClientValidation (mapFn >> Ok) field
 
 
 {-| -}
-withClientValidation : (value -> Result error mapped) -> Field error value view constraints -> Field error mapped view { constraints | wasMapped : Yes }
+withClientValidation : (value -> Result error mapped) -> Field msg error value view constraints -> Field msg error mapped view { constraints | wasMapped : Yes }
 withClientValidation mapFn (Field field) =
     Field
         { name = field.name
@@ -1499,7 +1527,7 @@ withClientValidation mapFn (Field field) =
 
 
 {-| -}
-withClientValidation2 : (value -> Result (List error) ( mapped, List error )) -> Field error value view constraints -> Field error mapped view { constraints | wasMapped : Yes }
+withClientValidation2 : (value -> Result (List error) ( mapped, List error )) -> Field msg error value view constraints -> Field msg error mapped view { constraints | wasMapped : Yes }
 withClientValidation2 mapFn (Field field) =
     Field
         { name = field.name
@@ -1523,7 +1551,7 @@ withClientValidation2 mapFn (Field field) =
 
 
 {-| -}
-with : Field error value view constraints -> Form error (value -> form) view -> Form error form view
+with : Field msg error value view constraints -> Form msg error (value -> form) view -> Form msg error form view
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
         thing : (String -> Parser (Maybe String)) -> Parser (DataSource (List ( String, RawFieldState error )))
@@ -1660,7 +1688,7 @@ map2ResultWithErrors mapFn result1 result2 =
             Err errors2
 
 
-addField : FieldInfo error value view -> List ( List (FieldInfoSimple error view), List view -> List view ) -> List ( List (FieldInfoSimple error view), List view -> List view )
+addField : FieldInfo msg error value view -> List ( List (FieldInfoSimple msg error view), List view -> List view ) -> List ( List (FieldInfoSimple msg error view), List view -> List view )
 addField field list =
     case list of
         [] ->
@@ -1672,7 +1700,7 @@ addField field list =
 
 
 {-| -}
-append : Field error value view constraints -> Form error form view -> Form error form view
+append : Field msg error value view constraints -> Form msg error form view -> Form msg error form view
 append (Field field) (Form fields decoder serverValidations modelToValue) =
     Form
         --(field :: fields)
@@ -1683,7 +1711,7 @@ append (Field field) (Form fields decoder serverValidations modelToValue) =
 
 
 {-| -}
-validate : (form -> List ( String, List error )) -> Form error form view -> Form error form view
+validate : (form -> List ( String, List error )) -> Form msg error form view -> Form msg error form view
 validate validateFn (Form fields decoder serverValidations modelToValue) =
     Form fields
         decoder
@@ -1708,7 +1736,7 @@ validate validateFn (Form fields decoder serverValidations modelToValue) =
 
 
 {-| -}
-appendForm : (form1 -> form2 -> form) -> Form error form1 view -> Form error form2 view -> Form error form view
+appendForm : (form1 -> form2 -> form) -> Form msg error form1 view -> Form msg error form2 view -> Form msg error form view
 appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form fields2 decoder2 serverValidations2 modelToValue2) =
     Form
         -- TODO is this ordering correct?
@@ -1733,7 +1761,7 @@ appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form 
 
 
 {-| -}
-wrap : (List view -> view) -> Form error form view -> Form error form view
+wrap : (List view -> view) -> Form msg error form view -> Form msg error form view
 wrap newWrapFn (Form fields decoder serverValidations modelToValue) =
     Form (wrapFields fields newWrapFn) decoder serverValidations modelToValue
 
@@ -1741,13 +1769,13 @@ wrap newWrapFn (Form fields decoder serverValidations modelToValue) =
 {-| -}
 wrapFields :
     List
-        ( List (FieldInfoSimple error view)
+        ( List (FieldInfoSimple msg error view)
         , List view -> List view
         )
     -> (List view -> view)
     ->
         List
-            ( List (FieldInfoSimple error view)
+            ( List (FieldInfoSimple msg error view)
             , List view -> List view
             )
 wrapFields fields newWrapFn =
@@ -1763,7 +1791,7 @@ wrapFields fields newWrapFn =
                 :: others
 
 
-simplify2 : FieldInfo error value view -> FieldInfoSimple error view
+simplify2 : FieldInfo msg error value view -> FieldInfoSimple msg error view
 simplify2 field =
     { name = field.name
     , initialValue = field.initialValue
@@ -1787,7 +1815,7 @@ simplify2 field =
     }
 
 
-simplify3 : FieldInfoSimple error view -> FinalFieldInfo error
+simplify3 : FieldInfoSimple msg error view -> FinalFieldInfo error
 simplify3 field =
     { name = field.name
     , initialValue = field.initialValue
@@ -1813,7 +1841,7 @@ toHtml :
     { pageReloadSubmit : Bool }
     -> (List (Html.Attribute Msg) -> List view -> view)
     -> Model
-    -> Form String value view
+    -> Form msg String value view
     -> view
 toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields _ _ _) =
     let
@@ -1859,7 +1887,8 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields _ _ _) =
                                                        )
                                         }
                                 in
-                                field.toHtml { submitStatus = serverValidationErrors.isSubmitting }
+                                field.toHtml (Debug.todo "Is this obsolete?")
+                                    { submitStatus = serverValidationErrors.isSubmitting }
                                     hasErrors_
                                     (simplify3 field)
                                     (Just thing)
@@ -1871,11 +1900,12 @@ toHtml { pageReloadSubmit } toForm serverValidationErrors (Form fields _ _ _) =
 
 {-| -}
 toHtml2 :
-    { onSubmit : { contentType : String, body : String } -> msg
+    { onSubmit : Maybe ({ contentType : String, body : String } -> msg)
+    , onFormMsg : Maybe (Msg -> msg)
     }
     -> (List (Html.Attribute msg) -> List view -> view)
     -> Model
-    -> Form String value view
+    -> Form msg String value view
     -> view
 toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
     let
@@ -1885,22 +1915,29 @@ toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
     in
     toForm
         ([ [ Attr.method "POST" ]
-         , [ Attr.novalidate True
-           , FormDecoder.formDataOnSubmit
-                |> Attr.map
-                    (\formFields_ ->
-                        config.onSubmit
-                            { contentType = "application/x-www-form-urlencoded"
-                            , body =
-                                formFields_
-                                    |> List.map
-                                        (\( name, value ) ->
-                                            Url.percentEncode name ++ "=" ++ Url.percentEncode value
-                                        )
-                                    |> String.join "&"
-                            }
+         , [ Attr.novalidate True |> Just
+
+           --, Html.Events.onSubmit SubmitForm |> Just
+           , config.onSubmit
+                |> Maybe.map
+                    (\onSubmit ->
+                        FormDecoder.formDataOnSubmit
+                            |> Attr.map
+                                (\formFields_ ->
+                                    onSubmit
+                                        { contentType = "application/x-www-form-urlencoded"
+                                        , body =
+                                            formFields_
+                                                |> List.map
+                                                    (\( name, value ) ->
+                                                        Url.percentEncode name ++ "=" ++ Url.percentEncode value
+                                                    )
+                                                |> String.join "&"
+                                        }
+                                )
                     )
            ]
+            |> List.filterMap identity
          ]
             |> List.concat
         )
@@ -1930,7 +1967,8 @@ toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
                                                        )
                                         }
                                 in
-                                field.toHtml { submitStatus = serverValidationErrors.isSubmitting }
+                                field.toHtml config.onFormMsg
+                                    { submitStatus = serverValidationErrors.isSubmitting }
                                     hasErrors_
                                     (simplify3 field)
                                     (Just thing)
@@ -1941,7 +1979,7 @@ toHtml2 config toForm serverValidationErrors (Form fields _ _ _) =
 
 
 apiHandler :
-    Form String value view
+    Form msg String value view
     -> Parser (DataSource (Response response error))
 apiHandler (Form _ decoder serverValidations _) =
     let
@@ -1978,20 +2016,20 @@ apiHandler (Form _ decoder serverValidations _) =
                     )
         )
         (Request.expectFormPost
-            (\{ field } ->
-                decoder (\string -> field string |> Request.map Just)
+            (\{ optionalField } ->
+                decoder (\string -> optionalField string)
             )
         )
         (Request.expectFormPost
-            (\{ field } ->
-                serverValidations (\string -> field string |> Request.map Just)
+            (\{ optionalField } ->
+                serverValidations (\string -> optionalField string)
             )
         )
         |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
 
 
 toRequest2 :
-    Form String value view
+    Form msg String value view
     ->
         Parser
             (DataSource
@@ -2022,13 +2060,13 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
                     )
         )
         (Request.expectFormPost
-            (\{ field } ->
-                decoder (\fieldName -> field fieldName |> Request.map Just)
+            (\{ optionalField } ->
+                decoder (\fieldName -> optionalField fieldName)
             )
         )
         (Request.expectFormPost
-            (\{ field } ->
-                serverValidations (\string -> field string |> Request.map Just)
+            (\{ optionalField } ->
+                serverValidations (\string -> optionalField string)
                     |> Request.map
                         (DataSource.map
                             (\thing ->
@@ -2073,7 +2111,7 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
 
 {-| -}
 submitHandlers :
-    Form String decoded view
+    Form msg String decoded view
     -> (Model -> Result () decoded -> DataSource (Response data error))
     -> Parser (DataSource (Response data error))
 submitHandlers myForm toDataSource =
