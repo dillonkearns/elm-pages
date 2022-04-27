@@ -177,8 +177,8 @@ type Form msg error value view
             , List view -> List view
             )
         )
-        ((String -> Parser (Maybe String)) -> Parser (Result (List ( String, List error )) ( value, List ( String, List error ) )))
-        ((String -> Parser (Maybe String))
+        (FieldParsers -> Parser (Result (List ( String, List error )) ( value, List ( String, List error ) )))
+        (FieldParsers
          ->
             Parser
                 (DataSource
@@ -1516,11 +1516,15 @@ withClientValidation2 mapFn (Field field) =
         }
 
 
+type alias FieldParsers =
+    { required : String -> Parser (Maybe String), optional : String -> Parser (Maybe String) }
+
+
 {-| -}
 with : Field msg error value view constraints -> Form msg error (value -> form) view -> Form msg error form view
 with (Field field) (Form fields decoder serverValidations modelToValue) =
     let
-        thing : (String -> Parser (Maybe String)) -> Parser (DataSource (List ( String, RawFieldState error )))
+        thing : FieldParsers -> Parser (DataSource (List ( String, RawFieldState error )))
         thing expectFormField =
             Request.map2
                 (\arg1 arg2 ->
@@ -1541,17 +1545,34 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                 (serverValidations expectFormField)
                 (field.name
                     |> nonEmptyString
-                    |> Maybe.map expectFormField
+                    |> Maybe.map
+                        ((if field.type_ == "checkbox" then
+                            .optional
+
+                          else
+                            .required
+                         )
+                            expectFormField
+                        )
                     |> Maybe.withDefault (Request.succeed Nothing)
                 )
 
-        withDecoder : (String -> Parser (Maybe String)) -> Parser (Result (List ( String, List error )) ( form, List ( String, List error ) ))
+        withDecoder : FieldParsers -> Parser (Result (List ( String, List error )) ( form, List ( String, List error ) ))
         withDecoder expectFormField =
             Request.map2
                 (combineWithDecoder field.name)
                 (field.name
                     |> nonEmptyString
-                    |> Maybe.map expectFormField
+                    -- TODO is checkbox the only one that should use optional?
+                    |> Maybe.map
+                        ((if field.type_ == "checkbox" then
+                            .optional
+
+                          else
+                            .required
+                         )
+                            expectFormField
+                        )
                     |> Maybe.withDefault (Request.succeed Nothing)
                     |> Request.map
                         (\myValue ->
@@ -1914,13 +1935,19 @@ apiHandler (Form _ decoder serverValidations _) =
                     )
         )
         (Request.expectFormPost
-            (\{ field } ->
-                decoder (\string -> field string |> Request.map Just)
+            (\{ field, optionalField } ->
+                decoder
+                    { required = \string -> field string |> Request.map Just
+                    , optional = optionalField
+                    }
             )
         )
         (Request.expectFormPost
-            (\{ field } ->
-                serverValidations (\string -> field string |> Request.map Just)
+            (\{ field, optionalField } ->
+                serverValidations
+                    { required = \string -> field string |> Request.map Just
+                    , optional = optionalField
+                    }
             )
         )
         |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
@@ -1958,13 +1985,19 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
                     )
         )
         (Request.expectFormPost
-            (\{ field } ->
-                decoder (\fieldName -> field fieldName |> Request.map Just)
+            (\{ field, optionalField } ->
+                decoder
+                    { required = \string -> field string |> Request.map Just
+                    , optional = optionalField
+                    }
             )
         )
         (Request.expectFormPost
-            (\{ field } ->
-                serverValidations (\string -> field string |> Request.map Just)
+            (\{ field, optionalField } ->
+                serverValidations
+                    { required = \string -> field string |> Request.map Just
+                    , optional = optionalField
+                    }
                     |> Request.map
                         (DataSource.map
                             (\thing ->
