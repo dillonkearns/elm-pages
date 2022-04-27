@@ -41,8 +41,8 @@ type alias Model =
 type Msg
     = FormMsg Form.Msg
     | NoOp
-    | FormSubmitted { contentType : String, body : String }
-    | DeleteFormSubmitted String { contentType : String, body : String }
+    | FormSubmitted (List ( String, String ))
+    | DeleteFormSubmitted String (List ( String, String ))
     | SubmitComplete
 
 
@@ -92,11 +92,12 @@ update pageUrl sharedModel static msg model =
         NoOp ->
             ( model, Effect.none )
 
-        FormSubmitted info ->
+        FormSubmitted submitEvent ->
             ( { model | submitting = True }
-            , Effect.FetchRouteData
-                { body = Just info
+            , Effect.Submit
+                { values = submitEvent
                 , path = Nothing
+                , method = Just "POST"
                 , toMsg = \_ -> SubmitComplete
                 }
             )
@@ -104,14 +105,15 @@ update pageUrl sharedModel static msg model =
         SubmitComplete ->
             ( { model | submitting = False }, Effect.none )
 
-        DeleteFormSubmitted id record ->
+        DeleteFormSubmitted id submitEvent ->
             ( { model
                 | deleting = model.deleting |> Set.insert id
               }
-            , Effect.FetchRouteData
-                { body = Just record
+            , Effect.Submit
+                { values = submitEvent
                 , path = Nothing
-                , toMsg = \_ -> NoOp
+                , method = Just "POST"
+                , toMsg = \_ -> SubmitComplete
                 }
             )
 

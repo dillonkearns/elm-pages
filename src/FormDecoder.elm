@@ -1,9 +1,10 @@
-module FormDecoder exposing (formDataOnSubmit)
+module FormDecoder exposing (encodeFormData, formDataOnSubmit)
 
 import Html
 import Html.Events
 import Json.Decode as Decode
 import Json.Encode
+import Url
 
 
 formDataOnSubmit : Html.Attribute (List ( String, String ))
@@ -44,3 +45,16 @@ tuplesDecoder =
             (Decode.index 0 Decode.string)
             (Decode.index 1 Decode.string)
         )
+
+
+encodeFormData : List ( String, String ) -> { contentType : String, body : String }
+encodeFormData formFields_ =
+    { contentType = "application/x-www-form-urlencoded"
+    , body =
+        formFields_
+            |> List.map
+                (\( name, value ) ->
+                    Url.percentEncode name ++ "=" ++ Url.percentEncode value
+                )
+            |> String.join "&"
+    }

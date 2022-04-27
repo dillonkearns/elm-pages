@@ -17,6 +17,7 @@ import Browser.Navigation
 import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Decode
+import FormDecoder
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
@@ -656,6 +657,19 @@ perform config currentUrl maybeKey effect =
                                             fetchRouteData -1 (prepare fetchInfo.toMsg) config currentUrl fetchInfo.body
 
                             -- TODO map the Msg with the wrapper type (like in the PR branch)
+                            , submit =
+                                \fetchInfo ->
+                                    let
+                                        urlToSubmitTo : Url
+                                        urlToSubmitTo =
+                                            case fetchInfo.path of
+                                                Just path ->
+                                                    { currentUrl | path = path }
+
+                                                Nothing ->
+                                                    currentUrl
+                                    in
+                                    fetchRouteData -1 (prepare fetchInfo.toMsg) config urlToSubmitTo (Just (FormDecoder.encodeFormData fetchInfo.values))
                             , fromPageMsg = UserMsg
                             , key = key
                             }

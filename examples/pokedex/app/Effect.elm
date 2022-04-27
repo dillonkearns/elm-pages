@@ -16,6 +16,12 @@ type Effect msg
         , path : Maybe String
         , toMsg : Result Http.Error Url -> msg
         }
+    | Submit
+        { values : List ( String, String )
+        , path : Maybe (List String)
+        , method : Maybe String
+        , toMsg : Result Http.Error Url -> msg
+        }
 
 
 type alias RequestInfo =
@@ -61,10 +67,26 @@ map fn effect =
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
+        Submit fetchInfo ->
+            Submit
+                { values = fetchInfo.values
+                , path = fetchInfo.path
+                , method = fetchInfo.method
+                , toMsg = fetchInfo.toMsg >> fn
+                }
+
 
 perform :
     { fetchRouteData :
         { body : Maybe { contentType : String, body : String }
+        , path : Maybe String
+        , toMsg : Result Http.Error Url -> pageMsg
+        }
+        -> Cmd msg
+    , submit :
+        { values : List ( String, String )
+        , encType : Maybe String
+        , method : Maybe String
         , path : Maybe String
         , toMsg : Result Http.Error Url -> pageMsg
         }
@@ -97,4 +119,13 @@ perform ({ fromPageMsg, key } as helpers) effect =
                 { body = fetchInfo.body
                 , path = fetchInfo.path
                 , toMsg = fetchInfo.toMsg
+                }
+
+        Submit record ->
+            helpers.submit
+                { values = record.values
+                , path = Nothing --fetchInfo.path
+                , method = record.method
+                , encType = Nothing -- TODO
+                , toMsg = record.toMsg
                 }

@@ -169,45 +169,6 @@ fieldStatusToString fieldStatus =
             "Blurred"
 
 
-http : String -> Form msg error value view -> Model -> Cmd (Result Http.Error (FieldState String))
-http url_ (Form _ _ _ _) model =
-    Http.request
-        { method = "POST"
-        , headers =
-            [ Http.header "accept" "application/json"
-            ]
-        , body =
-            model.fields
-                |> Dict.toList
-                |> List.map
-                    (\( name, { raw } ) ->
-                        Url.percentEncode name
-                            ++ "="
-                            ++ Url.percentEncode
-                                (raw |> Maybe.withDefault "")
-                    )
-                |> String.join "&"
-                |> Http.stringBody "application/x-www-form-urlencoded"
-        , expect =
-            Http.expectJson identity
-                (Decode.dict
-                    (Decode.map2
-                        (\raw errors ->
-                            { raw = raw
-                            , errors = errors
-                            , status = NotVisited
-                            }
-                        )
-                        (Decode.field "raw" (Decode.nullable Decode.string))
-                        (Decode.field "errors" (Decode.list Decode.string))
-                    )
-                )
-        , timeout = Nothing
-        , tracker = Nothing
-        , url = url_
-        }
-
-
 {-| -}
 type Form msg error value view
     = Form
@@ -231,6 +192,13 @@ type Form msg error value view
                 )
         )
         (FieldState error -> Result (List ( String, List error )) ( value, List ( String, List error ) ))
+
+
+type alias FormConfig =
+    -- TODO wire this up as a param in `Form` type
+    { method : Maybe String
+    , url : Maybe String
+    }
 
 
 {-| -}
@@ -522,11 +490,14 @@ update toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
                 ( { model | isSubmitting = Submitting }
                   -- TODO use Effect.submit
                   -- TODO remove hardcoded "/tailwind-form"
-                , http "/tailwind-form" form model |> Cmd.map GotFormResponse |> Cmd.map toMsg
+                  -- TODO use `effect` instead of `Cmd` - let user pass in effect for submit
+                , Cmd.none
+                  -- http "/tailwind-form" form model |> Cmd.map GotFormResponse |> Cmd.map toMsg
                 )
 
         GotFormResponse result ->
             let
+                -- TODO pass in the callback to the perform function passed in by user
                 responseTask : Cmd msg
                 responseTask =
                     Task.succeed () |> Task.perform (\() -> onResponse result)
@@ -1832,7 +1803,7 @@ simplify3 field =
 
 {-| -}
 toHtml :
-    { onSubmit : Maybe ({ contentType : String, body : String } -> msg)
+    { onSubmit : Maybe (List ( String, String ) -> msg)
     , onFormMsg : Maybe (Msg -> msg)
     }
     -> (List (Html.Attribute msg) -> List view -> view)
@@ -1849,25 +1820,41 @@ toHtml config toForm serverValidationErrors (Form fields _ _ _) =
         ([ [ Attr.method "POST" ]
          , [ Attr.novalidate True |> Just
 
+           -- TODO wire up SubmitForm Msg
            --, Html.Events.onSubmit SubmitForm |> Just
            , config.onSubmit
                 |> Maybe.map
                     (\onSubmit ->
-                        FormDecoder.formDataOnSubmit
-                            |> Attr.map
-                                (\formFields_ ->
-                                    onSubmit
-                                        { contentType = "application/x-www-form-urlencoded"
-                                        , body =
-                                            formFields_
-                                                |> List.map
-                                                    (\( name, value ) ->
-                                                        Url.percentEncode name ++ "=" ++ Url.percentEncode value
-                                                    )
-                                                |> String.join "&"
-                                        }
-                                )
+                        case config.onFormMsg of
+                            Just onFormMsg ->
+                                --FormDecoder.formDataOnSubmit |> Attr.map onSubmit
+                                -- TODO need to run both the user's `onSubmit` as well as the internal Form.Msg here
+                                -- How to do both???
+                                FormDecoder.formDataOnSubmit |> Attr.map (\_ -> onFormMsg SubmitForm)
+
+                            --onSubmit
+                            Nothing ->
+                                FormDecoder.formDataOnSubmit |> Attr.map onSubmit
                     )
+
+           --, config.onSubmit
+           --     |> Maybe.map
+           --         (\onSubmit ->
+           --             FormDecoder.formDataOnSubmit
+           --                 |> Attr.map
+           --                     (\formFields_ ->
+           --                         onSubmit
+           --                             { contentType = "application/x-www-form-urlencoded"
+           --                             , body =
+           --                                 formFields_
+           --                                     |> List.map
+           --                                         (\( name, value ) ->
+           --                                             Url.percentEncode name ++ "=" ++ Url.percentEncode value
+           --                                         )
+           --                                     |> String.join "&"
+           --                             }
+           --                     )
+           --         )
            ]
             |> List.filterMap identity
          ]
@@ -1948,13 +1935,13 @@ apiHandler (Form _ decoder serverValidations _) =
                     )
         )
         (Request.expectFormPost
-            (\{ optionalField } ->
-                decoder (\string -> optionalField string)
+            (\{ field } ->
+                decoder (\string -> field string |> Request.map Just)
             )
         )
         (Request.expectFormPost
-            (\{ optionalField } ->
-                serverValidations (\string -> optionalField string)
+            (\{ field } ->
+                serverValidations (\string -> field string |> Request.map Just)
             )
         )
         |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
@@ -1992,13 +1979,13 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
                     )
         )
         (Request.expectFormPost
-            (\{ optionalField } ->
-                decoder (\fieldName -> optionalField fieldName)
+            (\{ field } ->
+                decoder (\fieldName -> field fieldName |> Request.map Just)
             )
         )
         (Request.expectFormPost
-            (\{ optionalField } ->
-                serverValidations (\string -> optionalField string)
+            (\{ field } ->
+                serverValidations (\string -> field string |> Request.map Just)
                     |> Request.map
                         (DataSource.map
                             (\thing ->
