@@ -134,14 +134,12 @@ import Html
 import Html.Attributes as Attr
 import Html.Events
 import Http
-import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
 import List.NonEmpty
 import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
-import Task
-import Url
+import Url exposing (Url)
 
 
 {-| -}
@@ -288,8 +286,8 @@ type Msg
     = OnFieldInput { name : String, value : String }
     | OnFieldFocus { name : String }
     | OnBlur { name : String }
-    | SubmitForm
-    | GotFormResponse (Result Http.Error (FieldState String))
+    | SubmitForm (List ( String, String ))
+    | GotFormResponse (Result Http.Error Url)
 
 
 {-| -}
@@ -391,8 +389,16 @@ isAtLeast atLeastStatus currentStatus =
 
 
 {-| -}
-update : (Msg -> msg) -> (Result Http.Error (FieldState String) -> msg) -> Form msg String value view -> Msg -> Model -> ( Model, Cmd msg )
-update toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
+update :
+    ({ values : List ( String, String ), path : Maybe (List String), method : Maybe String, toMsg : Result Http.Error Url -> Msg } -> effect)
+    -> effect
+    -> (Msg -> msg)
+    -> (Result Http.Error (FieldState String) -> msg)
+    -> Form msg String value view
+    -> Msg
+    -> Model
+    -> ( Model, effect )
+update submitEffect noEffect toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
     case msg of
         OnFieldInput { name, value } ->
             let
@@ -436,7 +442,7 @@ update toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
                             errors
                                 |> Dict.fromList
             in
-            ( initialModel, Cmd.none )
+            ( initialModel, noEffect )
 
         OnFieldFocus record ->
             ( { model
@@ -456,7 +462,7 @@ update toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
                                         Nothing
                             )
               }
-            , Cmd.none
+            , noEffect
             )
 
         OnBlur record ->
@@ -477,38 +483,33 @@ update toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
                                         Nothing
                             )
               }
-            , Cmd.none
+            , noEffect
             )
 
-        SubmitForm ->
+        SubmitForm values ->
             if hasErrors2 model then
                 ( { model | isSubmitting = Submitted }
-                , Cmd.none
+                , noEffect
                 )
 
             else
                 ( { model | isSubmitting = Submitting }
-                  -- TODO use Effect.submit
-                  -- TODO remove hardcoded "/tailwind-form"
-                  -- TODO use `effect` instead of `Cmd` - let user pass in effect for submit
-                , Cmd.none
-                  -- http "/tailwind-form" form model |> Cmd.map GotFormResponse |> Cmd.map toMsg
+                , submitEffect
+                    { values = values
+                    , path = Nothing -- TODO remove hardcoding
+                    , method = Just "POST" -- TODO remove hardcoding
+                    , toMsg = GotFormResponse
+                    }
                 )
 
         GotFormResponse result ->
-            let
-                -- TODO pass in the callback to the perform function passed in by user
-                responseTask : Cmd msg
-                responseTask =
-                    Task.succeed () |> Task.perform (\() -> onResponse result)
-            in
             case result of
-                Ok fieldData ->
-                    ( { model | isSubmitting = Submitted, fields = fieldData }, responseTask )
+                Ok _ ->
+                    ( { model | isSubmitting = Submitted }, noEffect )
 
                 Err _ ->
-                    -- TODO handle errors - form submission status similar to RemoteData (or with RemoteData type dependency)?
-                    ( { model | isSubmitting = Submitted }, responseTask )
+                    -- TODO should there be a different state for Errors?
+                    ( { model | isSubmitting = Submitted }, noEffect )
 
 
 initField : RawFieldState error
@@ -1803,6 +1804,8 @@ simplify3 field =
 
 {-| -}
 toHtml :
+    -- TODO make onSubmit/onFormMsg mutually exclusive?
+    -- TODO pass in the path, method, etc. in onSubmit so it can be passed directly to `Effect.Submit`
     { onSubmit : Maybe (List ( String, String ) -> msg)
     , onFormMsg : Maybe (Msg -> msg)
     }
@@ -1819,42 +1822,18 @@ toHtml config toForm serverValidationErrors (Form fields _ _ _) =
     toForm
         ([ [ Attr.method "POST" ]
          , [ Attr.novalidate True |> Just
+           , case ( config.onFormMsg, config.onSubmit ) of
+                ( Just onFormMsg, _ ) ->
+                    --FormDecoder.formDataOnSubmit |> Attr.map onSubmit
+                    -- TODO need to run both the user's `onSubmit` as well as the internal Form.Msg here
+                    -- How to do both???
+                    FormDecoder.formDataOnSubmit |> Attr.map (SubmitForm >> onFormMsg) |> Just
 
-           -- TODO wire up SubmitForm Msg
-           --, Html.Events.onSubmit SubmitForm |> Just
-           , config.onSubmit
-                |> Maybe.map
-                    (\onSubmit ->
-                        case config.onFormMsg of
-                            Just onFormMsg ->
-                                --FormDecoder.formDataOnSubmit |> Attr.map onSubmit
-                                -- TODO need to run both the user's `onSubmit` as well as the internal Form.Msg here
-                                -- How to do both???
-                                FormDecoder.formDataOnSubmit |> Attr.map (\_ -> onFormMsg SubmitForm)
+                ( Nothing, Just onSubmit ) ->
+                    FormDecoder.formDataOnSubmit |> Attr.map onSubmit |> Just
 
-                            --onSubmit
-                            Nothing ->
-                                FormDecoder.formDataOnSubmit |> Attr.map onSubmit
-                    )
-
-           --, config.onSubmit
-           --     |> Maybe.map
-           --         (\onSubmit ->
-           --             FormDecoder.formDataOnSubmit
-           --                 |> Attr.map
-           --                     (\formFields_ ->
-           --                         onSubmit
-           --                             { contentType = "application/x-www-form-urlencoded"
-           --                             , body =
-           --                                 formFields_
-           --                                     |> List.map
-           --                                         (\( name, value ) ->
-           --                                             Url.percentEncode name ++ "=" ++ Url.percentEncode value
-           --                                         )
-           --                                     |> String.join "&"
-           --                             }
-           --                     )
-           --         )
+                ( Nothing, Nothing ) ->
+                    Nothing
            ]
             |> List.filterMap identity
          ]

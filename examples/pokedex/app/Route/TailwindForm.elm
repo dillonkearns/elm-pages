@@ -559,8 +559,7 @@ update _ _ _ msg model =
     case msg of
         FormMsg formMsg ->
             model.form
-                |> Form.update FormMsg GotFormResponse (form defaultUser) formMsg
-                |> Tuple.mapSecond Effect.fromCmd
+                |> Form.update (Effect.Submit >> Effect.map FormMsg) Effect.None FormMsg GotFormResponse (form defaultUser) formMsg
                 |> Tuple.mapFirst (\newFormModel -> { model | form = newFormModel })
 
         GotFormResponse result ->
