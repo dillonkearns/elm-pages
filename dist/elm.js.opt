@@ -427,10 +427,10 @@
         }
     }
     function _Debug_regionToString(region) {
-        if (region.k.dM === region.i.dM) {
-            return "on line " + region.k.dM;
+        if (region.k.eB === region.i.eB) {
+            return "on line " + region.k.eB;
         }
-        return "on lines " + region.k.dM + " through " + region.i.dM;
+        return "on lines " + region.k.eB + " through " + region.i.eB;
     }
     // EQUALITY
     function _Utils_eq(x, y) {
@@ -1407,7 +1407,7 @@
     }
     // PROGRAMS
     var _Platform_worker_fn = function (impl, flagDecoder, debugMetadata, args) {
-        return _Platform_initialize(flagDecoder, args, impl.ex, impl.cf, impl.eR, function () { return function () { }; });
+        return _Platform_initialize(flagDecoder, args, impl.fa, impl.db, impl.fj, function () { return function () { }; });
     }, _Platform_worker = F4(_Platform_worker_fn);
     // INITIALIZE A PROGRAM
     function _Platform_initialize(flagDecoder, args, init, update, subscriptions, stepperBuilder) {
@@ -1978,9 +1978,9 @@
     }, _VirtualDom_mapEventTuple = F2(_VirtualDom_mapEventTuple_fn);
     var _VirtualDom_mapEventRecord_fn = function (func, record) {
         return {
-            by: func(record.by),
-            d0: record.d0,
-            dY: record.dY
+            cr: func(record.cr),
+            eT: record.eT,
+            eP: record.eP
         };
     }, _VirtualDom_mapEventRecord = F2(_VirtualDom_mapEventRecord_fn);
     // ORGANIZE FACTS
@@ -2142,10 +2142,10 @@
             // 2 = MayPreventDefault
             // 3 = Custom
             var value = result.a;
-            var message = !tag ? value : tag < 3 ? value.a : value.by;
-            var stopPropagation = tag == 1 ? value.b : tag == 3 && value.d0;
+            var message = !tag ? value : tag < 3 ? value.a : value.cr;
+            var stopPropagation = tag == 1 ? value.b : tag == 3 && value.eT;
             var currentEventNode = (stopPropagation && event.stopPropagation(),
-                (tag == 2 ? value.b : tag == 3 && value.dY) && event.preventDefault(),
+                (tag == 2 ? value.b : tag == 3 && value.eP) && event.preventDefault(),
                 eventNode);
             var tagger;
             var i;
@@ -2799,8 +2799,8 @@
     // ELEMENT
     var _Debugger_element;
     var _Browser_element = _Debugger_element || F4(function (impl, flagDecoder, debugMetadata, args) {
-        return _Platform_initialize(flagDecoder, args, impl.ex, impl.cf, impl.eR, function (sendToApp, initialModel) {
-            var view = impl.aR;
+        return _Platform_initialize(flagDecoder, args, impl.fa, impl.db, impl.fj, function (sendToApp, initialModel) {
+            var view = impl.bm;
             /**/
             var domNode = args["node"];
             //*/
@@ -2819,21 +2819,21 @@
     // DOCUMENT
     var _Debugger_document;
     var _Browser_document = _Debugger_document || F4(function (impl, flagDecoder, debugMetadata, args) {
-        return _Platform_initialize(flagDecoder, args, impl.ex, impl.cf, impl.eR, function (sendToApp, initialModel) {
-            var divertHrefToApp = impl.ff && impl.ff(sendToApp);
-            var view = impl.aR;
+        return _Platform_initialize(flagDecoder, args, impl.fa, impl.db, impl.fj, function (sendToApp, initialModel) {
+            var divertHrefToApp = impl.fx && impl.fx(sendToApp);
+            var view = impl.bm;
             var title = _VirtualDom_doc.title;
             var bodyNode = _VirtualDom_doc.body;
             var currNode = _VirtualDom_virtualize(bodyNode);
             return _Browser_makeAnimator(initialModel, function (model) {
                 _VirtualDom_divertHrefToApp = divertHrefToApp;
                 var doc = view(model);
-                var nextNode = _VirtualDom_nodeNS_fn(_VirtualDom_node_a0, "body")(_List_Nil)(doc.dl);
+                var nextNode = _VirtualDom_nodeNS_fn(_VirtualDom_node_a0, "body")(_List_Nil)(doc.ed);
                 var patches = _VirtualDom_diff(currNode, nextNode);
                 bodyNode = _VirtualDom_applyPatches(bodyNode, currNode, patches, sendToApp);
                 currNode = nextNode;
                 _VirtualDom_divertHrefToApp = 0;
-                (title !== doc.a6) && (_VirtualDom_doc.title = title = doc.a6);
+                (title !== doc.bR) && (_VirtualDom_doc.title = title = doc.bR);
             });
         });
     });
@@ -2867,7 +2867,7 @@
         var onUrlRequest = impl.hm;
         var key = function () { key.a(onUrlChange(_Browser_getUrl())); };
         return _Browser_document({
-            ff: function (sendToApp) {
+            fx: function (sendToApp) {
                 key.a = sendToApp;
                 _Browser_window.addEventListener("popstate", key);
                 _Browser_window.navigator.userAgent.indexOf("Trident") < 0 || _Browser_window.addEventListener("hashchange", key);
@@ -2878,20 +2878,20 @@
                         var curr = _Browser_getUrl();
                         var next = $elm$url$Url$fromString(href).a;
                         sendToApp(onUrlRequest((next
-                            && curr.cP === next.cP
-                            && curr.cA === next.cA
-                            && curr.cN.a === next.cN.a)
+                            && curr.dM === next.dM
+                            && curr.dy === next.dy
+                            && curr.dK.a === next.dK.a)
                             ? $elm$browser$Browser$Internal(next)
                             : $elm$browser$Browser$External(href)));
                     }
                 });
             },
-            ex: function (flags) {
-                return A3(impl.ex, flags, _Browser_getUrl(), key);
+            fa: function (flags) {
+                return A3(impl.fa, flags, _Browser_getUrl(), key);
             },
-            aR: impl.aR,
-            cf: impl.cf,
-            eR: impl.eR
+            bm: impl.bm,
+            db: impl.db,
+            fj: impl.fj
         });
     }
     function _Browser_getUrl() {
@@ -2933,17 +2933,17 @@
     // PAGE VISIBILITY
     function _Browser_visibilityInfo() {
         return (typeof _VirtualDom_doc.hidden !== "undefined")
-            ? { gX: "hidden", gy: "visibilitychange" }
+            ? { gY: "hidden", gz: "visibilitychange" }
             :
                 (typeof _VirtualDom_doc.mozHidden !== "undefined")
-                    ? { gX: "mozHidden", gy: "mozvisibilitychange" }
+                    ? { gY: "mozHidden", gz: "mozvisibilitychange" }
                     :
                         (typeof _VirtualDom_doc.msHidden !== "undefined")
-                            ? { gX: "msHidden", gy: "msvisibilitychange" }
+                            ? { gY: "msHidden", gz: "msvisibilitychange" }
                             :
                                 (typeof _VirtualDom_doc.webkitHidden !== "undefined")
-                                    ? { gX: "webkitHidden", gy: "webkitvisibilitychange" }
-                                    : { gX: "hidden", gy: "visibilitychange" };
+                                    ? { gY: "webkitHidden", gz: "webkitvisibilitychange" }
+                                    : { gY: "hidden", gz: "visibilitychange" };
     }
     // ANIMATION FRAMES
     function _Browser_rAF() {
@@ -2989,12 +2989,12 @@
     // WINDOW VIEWPORT
     function _Browser_getViewport() {
         return {
-            aL: _Browser_getScene(),
-            aS: {
-                am: _Browser_window.pageXOffset,
-                an: _Browser_window.pageYOffset,
-                al: _Browser_doc.documentElement.clientWidth,
-                ac: _Browser_doc.documentElement.clientHeight
+            bd: _Browser_getScene(),
+            bn: {
+                aF: _Browser_window.pageXOffset,
+                aG: _Browser_window.pageYOffset,
+                aE: _Browser_doc.documentElement.clientWidth,
+                au: _Browser_doc.documentElement.clientHeight
             }
         };
     }
@@ -3002,8 +3002,8 @@
         var body = _Browser_doc.body;
         var elem = _Browser_doc.documentElement;
         return {
-            al: Math.max(body.scrollWidth, body.offsetWidth, elem.scrollWidth, elem.offsetWidth, elem.clientWidth),
-            ac: Math.max(body.scrollHeight, body.offsetHeight, elem.scrollHeight, elem.offsetHeight, elem.clientHeight)
+            aE: Math.max(body.scrollWidth, body.offsetWidth, elem.scrollWidth, elem.offsetWidth, elem.clientWidth),
+            au: Math.max(body.scrollHeight, body.offsetHeight, elem.scrollHeight, elem.offsetHeight, elem.clientHeight)
         };
     }
     var _Browser_setViewport_fn = function (x, y) {
@@ -3016,15 +3016,15 @@
     function _Browser_getViewportOf(id) {
         return _Browser_withNode(id, function (node) {
             return {
-                aL: {
-                    al: node.scrollWidth,
-                    ac: node.scrollHeight
+                bd: {
+                    aE: node.scrollWidth,
+                    au: node.scrollHeight
                 },
-                aS: {
-                    am: node.scrollLeft,
-                    an: node.scrollTop,
-                    al: node.clientWidth,
-                    ac: node.clientHeight
+                bn: {
+                    aF: node.scrollLeft,
+                    aG: node.scrollTop,
+                    aE: node.clientWidth,
+                    au: node.clientHeight
                 }
             };
         });
@@ -3043,18 +3043,18 @@
             var x = _Browser_window.pageXOffset;
             var y = _Browser_window.pageYOffset;
             return {
-                aL: _Browser_getScene(),
-                aS: {
-                    am: x,
-                    an: y,
-                    al: _Browser_doc.documentElement.clientWidth,
-                    ac: _Browser_doc.documentElement.clientHeight
+                bd: _Browser_getScene(),
+                bn: {
+                    aF: x,
+                    aG: y,
+                    aE: _Browser_doc.documentElement.clientWidth,
+                    au: _Browser_doc.documentElement.clientHeight
                 },
-                dA: {
-                    am: x + rect.left,
-                    an: y + rect.top,
-                    al: rect.width,
-                    ac: rect.height
+                eq: {
+                    aF: x + rect.left,
+                    aG: y + rect.top,
+                    aE: rect.width,
+                    au: rect.height
                 }
             };
         });
@@ -3236,34 +3236,34 @@
     var _Http_toTask_fn = function (router, toTask, request) {
         return _Scheduler_binding(function (callback) {
             function done(response) {
-                callback(toTask(request.gK.a(response)));
+                callback(toTask(request.gL.a(response)));
             }
             var xhr = new XMLHttpRequest();
             xhr.addEventListener("error", function () { done($elm$http$Http$NetworkError_); });
             xhr.addEventListener("timeout", function () { done($elm$http$Http$Timeout_); });
-            xhr.addEventListener("load", function () { done(_Http_toResponse(request.gK.b, xhr)); });
+            xhr.addEventListener("load", function () { done(_Http_toResponse(request.gL.b, xhr)); });
             $elm$core$Maybe$isJust(request.hU) && _Http_track(router, xhr, request.hU.a);
             try {
-                xhr.open(request.dP, request.ej, true);
+                xhr.open(request.eE, request.e2, true);
             }
             catch (e) {
-                return done($elm$http$Http$BadUrl_(request.ej));
+                return done($elm$http$Http$BadUrl_(request.e2));
             }
             _Http_configureRequest(xhr, request);
-            request.dl.a && xhr.setRequestHeader("Content-Type", request.dl.a);
-            xhr.send(request.dl.b);
+            request.ed.a && xhr.setRequestHeader("Content-Type", request.ed.a);
+            xhr.send(request.ed.b);
             return function () { xhr.c = true; xhr.abort(); };
         });
     }, _Http_toTask = F3(_Http_toTask_fn);
     // CONFIGURE
     function _Http_configureRequest(xhr, request) {
-        for (var headers = request.dH; headers.b; headers = headers.b) // WHILE_CONS
+        for (var headers = request.ew; headers.b; headers = headers.b) // WHILE_CONS
          {
             xhr.setRequestHeader(headers.a.a, headers.a.b);
         }
         xhr.timeout = request.hS.a || 0;
-        xhr.responseType = request.gK.d;
-        xhr.withCredentials = request.go;
+        xhr.responseType = request.gL.d;
+        xhr.withCredentials = request.gp;
     }
     // RESPONSES
     function _Http_toResponse(toBody, xhr) {
@@ -3272,10 +3272,10 @@
     // METADATA
     function _Http_toMetadata(xhr) {
         return {
-            ej: xhr.responseURL,
-            Y: xhr.status,
-            a4: xhr.statusText,
-            dH: _Http_parseHeaders(xhr.getAllResponseHeaders())
+            e2: xhr.responseURL,
+            ap: xhr.status,
+            bI: xhr.statusText,
+            ew: _Http_parseHeaders(xhr.getAllResponseHeaders())
         };
     }
     // HEADERS
@@ -3438,7 +3438,7 @@
         if (options.g9) {
             flags += "m";
         }
-        if (options.gx) {
+        if (options.gy) {
             flags += "i";
         }
         try {
@@ -3870,15 +3870,15 @@
         }
     }, $elm$core$Array$treeFromBuilder = F2($elm$core$Array$treeFromBuilder_fn);
     var $elm$core$Array$builderToArray_fn = function (reverseNodeList, builder) {
-        if (!builder.z) {
-            return $elm$core$Array$Array_elm_builtin_fn($elm$core$Elm$JsArray$length(builder.E), $elm$core$Array$shiftStep, $elm$core$Elm$JsArray$empty, builder.E);
+        if (!builder.A) {
+            return $elm$core$Array$Array_elm_builtin_fn($elm$core$Elm$JsArray$length(builder.G), $elm$core$Array$shiftStep, $elm$core$Elm$JsArray$empty, builder.G);
         }
         else {
-            var treeLen = builder.z * $elm$core$Array$branchFactor;
+            var treeLen = builder.A * $elm$core$Array$branchFactor;
             var depth = $elm$core$Basics$floor($elm$core$Basics$logBase_fn($elm$core$Array$branchFactor, treeLen - 1));
-            var correctNodeList = reverseNodeList ? $elm$core$List$reverse(builder.F) : builder.F;
-            var tree = $elm$core$Array$treeFromBuilder_fn(correctNodeList, builder.z);
-            return $elm$core$Array$Array_elm_builtin_fn($elm$core$Elm$JsArray$length(builder.E) + treeLen, $elm$core$Basics$max_fn(5, depth * $elm$core$Array$shiftStep), tree, builder.E);
+            var correctNodeList = reverseNodeList ? $elm$core$List$reverse(builder.J) : builder.J;
+            var tree = $elm$core$Array$treeFromBuilder_fn(correctNodeList, builder.A);
+            return $elm$core$Array$Array_elm_builtin_fn($elm$core$Elm$JsArray$length(builder.G) + treeLen, $elm$core$Basics$max_fn(5, depth * $elm$core$Array$shiftStep), tree, builder.G);
         }
     }, $elm$core$Array$builderToArray = F2($elm$core$Array$builderToArray_fn);
     var $elm$core$Basics$idiv = _Basics_idiv;
@@ -3886,7 +3886,7 @@
     var $elm$core$Array$initializeHelp_fn = function (fn, fromIndex, len, nodeList, tail) {
         initializeHelp: while (true) {
             if (fromIndex < 0) {
-                return $elm$core$Array$builderToArray_fn(false, { F: nodeList, z: (len / $elm$core$Array$branchFactor) | 0, E: tail });
+                return $elm$core$Array$builderToArray_fn(false, { J: nodeList, A: (len / $elm$core$Array$branchFactor) | 0, G: tail });
             }
             else {
                 var leaf = $elm$core$Array$Leaf(_JsArray_initialize_fn($elm$core$Array$branchFactor, fromIndex, fn));
@@ -3949,7 +3949,7 @@
     var $elm$url$Url$Http = 0;
     var $elm$url$Url$Https = 1;
     var $elm$url$Url$Url_fn = function (protocol, host, port_, path, query, fragment) {
-        return { R: fragment, cA: host, b5: path, cN: port_, cP: protocol, T: query };
+        return { ae: fragment, dy: host, c3: path, dK: port_, dM: protocol, ak: query };
     }, $elm$url$Url$Url = F6($elm$url$Url$Url_fn);
     var $elm$core$String$contains = _String_contains;
     var $elm$core$String$length = _String_length;
@@ -4292,10 +4292,10 @@
     var $author$project$TerminalText$Style_fn = function (a, b) {
         return { $: 0, a: a, b: b };
     }, $author$project$TerminalText$Style = F2($author$project$TerminalText$Style_fn);
-    var $author$project$TerminalText$blankStyle = { bf: false, P: $elm$core$Maybe$Nothing, bL: false };
+    var $author$project$TerminalText$blankStyle = { b2: false, aa: $elm$core$Maybe$Nothing, cK: false };
     var $author$project$TerminalText$cyan = function (inner) {
         return $author$project$TerminalText$Style_fn(_Utils_update($author$project$TerminalText$blankStyle, {
-            P: $elm$core$Maybe$Just($vito$elm_ansi$Ansi$Cyan)
+            aa: $elm$core$Maybe$Just($vito$elm_ansi$Ansi$Cyan)
         }), inner);
     };
     var $author$project$TerminalText$text = function (value) {
@@ -4348,7 +4348,7 @@
         var ansiStyle = _v0.a;
         var innerText = _v0.b;
         return $elm$core$String$concat(_List_fromArray([
-            $author$project$TerminalText$colorToString($elm$core$Maybe$withDefault_fn($vito$elm_ansi$Ansi$White, ansiStyle.P)),
+            $author$project$TerminalText$colorToString($elm$core$Maybe$withDefault_fn($vito$elm_ansi$Ansi$White, ansiStyle.aa)),
             innerText,
             $author$project$TerminalText$resetColors
         ]));
@@ -4357,7 +4357,7 @@
         return $elm$core$String$join_fn("", $elm$core$List$map_fn($author$project$TerminalText$toString_, list));
     };
     var $author$project$BuildError$errorToString = function (error) {
-        return $author$project$TerminalText$toString(_Utils_ap($author$project$BuildError$banner(error.a6), error.by));
+        return $author$project$TerminalText$toString(_Utils_ap($author$project$BuildError$banner(error.bR), error.cr));
     };
     var $elm$json$Json$Decode$field = _Json_decodeField;
     var $elm$core$Result$fromMaybe_fn = function (err, maybe) {
@@ -4382,7 +4382,7 @@
     var $elm$html$Html$Attributes$id_a0 = "id", $elm$html$Html$Attributes$id = $elm$html$Html$Attributes$stringProperty($elm$html$Html$Attributes$id_a0);
     var $elm$html$Html$li = _VirtualDom_nodeNS_fn(_VirtualDom_node_a0, "li"), $elm$html$Html$li_fn = $elm$html$Html$li.f;
     var $author$project$Pages$Internal$NotFoundReason$moduleName = function (moduleContext) {
-        return $elm$core$String$join_fn("/", _List_Cons("src", moduleContext.fX)) + ".elm";
+        return $elm$core$String$join_fn("/", _List_Cons("src", moduleContext.f$)) + ".elm";
     };
     var $elm$html$Html$p = _VirtualDom_nodeNS_fn(_VirtualDom_node_a0, "p"), $elm$html$Html$p_fn = $elm$html$Html$p.f;
     var $author$project$Pages$Internal$NotFoundReason$recordToString = function (fields) {
@@ -4415,7 +4415,7 @@
                     _VirtualDom_style_fn("border-bottom", "dotted 2px"),
                     _VirtualDom_style_fn("font-weight", "bold")
                 ]), _List_fromArray([
-                    $elm$html$Html$text($author$project$Pages$Internal$NotFoundReason$recordToString(moduleContext.b2))
+                    $elm$html$Html$text($author$project$Pages$Internal$NotFoundReason$recordToString(moduleContext.c_))
                 ]))
             ]));
         }
@@ -4430,7 +4430,7 @@
                     _VirtualDom_style_fn("border-bottom", "dotted 2px"),
                     _VirtualDom_style_fn("font-weight", "bold")
                 ]), _List_fromArray([
-                    $elm$html$Html$text($author$project$Pages$Internal$NotFoundReason$recordToString(moduleContext.b2))
+                    $elm$html$Html$text($author$project$Pages$Internal$NotFoundReason$recordToString(moduleContext.c_))
                 ])),
                 $elm$html$Html$br_fn(_List_Nil, _List_Nil),
                 $elm$html$Html$br_fn(_List_Nil, _List_Nil),
@@ -4486,11 +4486,11 @@
     };
     var $author$project$Pages$Internal$RoutePattern$view = function (routePattern) {
         return $elm$html$Html$span_fn(_List_Nil, function () {
-            var _v0 = routePattern.et;
+            var _v0 = routePattern.e8;
             if (_v0.$ === 1) {
                 return _List_fromArray([
                     $elm$html$Html$code_fn(_List_Nil, _List_fromArray([
-                        $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.eP))
+                        $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.fh))
                     ]))
                 ]);
             }
@@ -4500,25 +4500,25 @@
                         var optionalName = _v0.a.a;
                         return _List_fromArray([
                             $elm$html$Html$code_fn(_List_Nil, _List_fromArray([
-                                $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.eP))
+                                $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.fh))
                             ])),
                             $elm$html$Html$text(" or "),
                             $elm$html$Html$code_fn(_List_Nil, _List_fromArray([
-                                $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.eP) + ("/:" + optionalName))
+                                $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.fh) + ("/:" + optionalName))
                             ]))
                         ]);
                     case 1:
                         var _v1 = _v0.a;
                         return _List_fromArray([
                             $elm$html$Html$code_fn(_List_Nil, _List_fromArray([
-                                $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.eP))
+                                $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.fh))
                             ]))
                         ]);
                     default:
                         var _v2 = _v0.a;
                         return _List_fromArray([
                             $elm$html$Html$code_fn(_List_Nil, _List_fromArray([
-                                $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.eP))
+                                $elm$html$Html$text($author$project$Pages$Internal$RoutePattern$toString_(routePattern.fh))
                             ]))
                         ]);
                 }
@@ -4527,17 +4527,17 @@
     };
     var $author$project$Pages$Internal$NotFoundReason$document_fn = function (pathPatterns, payload) {
         return {
-            dl: $elm$html$Html$div_fn(_List_fromArray([
+            ed: $elm$html$Html$div_fn(_List_fromArray([
                 $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$id_a0, "not-found-reason"),
                 _VirtualDom_style_fn("padding", "30px")
             ]), function () {
-                var _v0 = payload.cR;
+                var _v0 = payload.dP;
                 switch (_v0.$) {
                     case 0:
                         return _List_fromArray([
                             $elm$html$Html$text("No route found for "),
                             $elm$html$Html$code_fn(_List_Nil, _List_fromArray([
-                                $elm$html$Html$text($author$project$Path$toAbsolute(payload.b5))
+                                $elm$html$Html$text($author$project$Path$toAbsolute(payload.c3))
                             ])),
                             $elm$html$Html$text(" Did you mean to go to one of these routes:"),
                             $elm$html$Html$ul_fn(_List_fromArray([
@@ -4558,13 +4558,13 @@
                                 $elm$html$Html$text("Page Not Found")
                             ])),
                             $elm$html$Html$code_fn(_List_Nil, _List_fromArray([
-                                $elm$html$Html$text($author$project$Path$toAbsolute(payload.b5))
+                                $elm$html$Html$text($author$project$Path$toAbsolute(payload.c3))
                             ])),
                             $elm$html$Html$text(" successfully matched the route "),
                             $elm$html$Html$br_fn(_List_Nil, _List_Nil),
                             $elm$html$Html$br_fn(_List_Nil, _List_Nil),
                             $elm$html$Html$code_fn(_List_Nil, _List_fromArray([
-                                $author$project$Pages$Internal$RoutePattern$view(moduleContext.f8)
+                                $author$project$Pages$Internal$RoutePattern$view(moduleContext.ga)
                             ])),
                             $elm$html$Html$br_fn(_List_Nil, _List_Nil),
                             $elm$html$Html$br_fn(_List_Nil, _List_Nil),
@@ -4583,7 +4583,7 @@
                         ]);
                 }
             }()),
-            a6: "Page not found"
+            bR: "Page not found"
         };
     }, $author$project$Pages$Internal$NotFoundReason$document = F2($author$project$Pages$Internal$NotFoundReason$document_fn);
     var $author$project$Path$Path = $elm$core$Basics$identity;
@@ -4657,33 +4657,33 @@
     }, $elm$core$List$filter = F2($elm$core$List$filter_fn);
     var $elm$core$Basics$neq = _Utils_notEqual;
     var $author$project$Pages$ContentCache$pathForUrl = function (_v0) {
-        var basePath = _v0.gs;
-        var currentUrl = _v0.gA;
-        return $elm$core$List$drop_fn($elm$core$List$length(basePath), $elm$core$List$filter_fn($elm$core$Basics$neq(""), $elm$core$String$split_fn("/", $elm$core$Basics$composeR_fn($author$project$Pages$Internal$String$chopForwardSlashes_a0, $author$project$Pages$Internal$String$chopForwardSlashes_a1, currentUrl.b5))));
+        var basePath = _v0.gt;
+        var currentUrl = _v0.gB;
+        return $elm$core$List$drop_fn($elm$core$List$length(basePath), $elm$core$List$filter_fn($elm$core$Basics$neq(""), $elm$core$String$split_fn("/", $elm$core$Basics$composeR_fn($author$project$Pages$Internal$String$chopForwardSlashes_a0, $author$project$Pages$Internal$String$chopForwardSlashes_a1, currentUrl.c3))));
     };
     var $author$project$Pages$Internal$Platform$mainView_fn = function (config, model) {
-        var _v0 = model.ae;
+        var _v0 = model.aw;
         if (!_v0.$) {
             var info = _v0.a;
             return $author$project$Pages$Internal$NotFoundReason$document_fn(config.ho, info);
         }
         else {
-            var _v1 = model.g;
+            var _v1 = model.h;
             if (!_v1.$) {
                 var pageData = _v1.a;
-                var urls = { gs: config.gs, gA: model.ej };
-                return A4(config.aR, {
-                    b5: $author$project$Path$join($author$project$Pages$ContentCache$pathForUrl(urls)),
-                    hE: config.hX(model.ej)
-                }, $elm$core$Maybe$Nothing, pageData.b7, pageData.g).aR(pageData.B);
+                var urls = { gt: config.gt, gB: model.e2 };
+                return A4(config.bm, {
+                    c3: $author$project$Path$join($author$project$Pages$ContentCache$pathForUrl(urls)),
+                    hE: config.hX(model.e2)
+                }, $elm$core$Maybe$Nothing, pageData.c5, pageData.h).bm(pageData.C);
             }
             else {
                 var error = _v1.a;
                 return {
-                    dl: $elm$html$Html$div_fn(_List_Nil, _List_fromArray([
+                    ed: $elm$html$Html$div_fn(_List_Nil, _List_fromArray([
                         $elm$html$Html$text(error)
                     ])),
-                    a6: "Page Data Error"
+                    bR: "Page Data Error"
                 };
             }
         }
@@ -4704,32 +4704,32 @@
             case 0:
                 var missingKey = error.a;
                 return {
-                    cu: true,
-                    by: _List_fromArray([
+                    dv: true,
+                    cr: _List_fromArray([
                         $author$project$TerminalText$text(missingKey)
                     ]),
-                    b5: path,
-                    a6: "Missing Http Response"
+                    c3: path,
+                    bR: "Missing Http Response"
                 };
             case 1:
                 var decodeErrorMessage = error.a;
                 return {
-                    cu: true,
-                    by: _List_fromArray([
+                    dv: true,
+                    cr: _List_fromArray([
                         $author$project$TerminalText$text(decodeErrorMessage)
                     ]),
-                    b5: path,
-                    a6: "Static Http Decoding Error"
+                    c3: path,
+                    bR: "Static Http Decoding Error"
                 };
             default:
                 var decodeErrorMessage = error.a;
                 return {
-                    cu: true,
-                    by: _List_fromArray([
+                    dv: true,
+                    cr: _List_fromArray([
                         $author$project$TerminalText$text("I ran into a call to `DataSource.fail` with message: " + decodeErrorMessage)
                     ]),
-                    b5: path,
-                    a6: "Called Static Http Fail"
+                    c3: path,
+                    bR: "Called Static Http Fail"
                 };
         }
     }, $author$project$Pages$StaticHttpRequest$toBuildError = F2($author$project$Pages$StaticHttpRequest$toBuildError_fn);
@@ -4946,7 +4946,7 @@
         }
     };
     var $author$project$Pages$Internal$Platform$urlsToPagePath = function (urls) {
-        return $author$project$Path$join($elm$core$List$drop_fn($elm$core$List$length(urls.gs), $elm$core$List$filter_fn($elm$core$Basics$neq(""), $elm$core$String$split_fn("/", $elm$core$Basics$composeR_fn($author$project$Pages$Internal$String$chopForwardSlashes_a0, $author$project$Pages$Internal$String$chopForwardSlashes_a1, urls.gA.b5)))));
+        return $author$project$Path$join($elm$core$List$drop_fn($elm$core$List$length(urls.gt), $elm$core$List$filter_fn($elm$core$Basics$neq(""), $elm$core$String$split_fn("/", $elm$core$Basics$composeR_fn($author$project$Pages$Internal$String$chopForwardSlashes_a0, $author$project$Pages$Internal$String$chopForwardSlashes_a1, urls.gB.c3)))));
     };
     var $elm$json$Json$Decode$value = _Json_decodeValue;
     var $elm$core$Result$withDefault_fn = function (def, result) {
@@ -4959,8 +4959,8 @@
         }
     }, $elm$core$Result$withDefault = F2($elm$core$Result$withDefault_fn);
     var $author$project$Pages$Internal$Platform$init_fn = function (config, flags, url, key) {
-        var pageDataResult = $elm$core$Result$fromMaybe_fn($author$project$Pages$StaticHttpRequest$toBuildError_fn(url.b5, $author$project$Pages$StaticHttpRequest$DecoderError("Bytes decode error")), $elm$core$Maybe$andThen_fn(function (justBytes) {
-            var _v3 = $elm$bytes$Bytes$Decode$decode_fn(config.gE, justBytes);
+        var pageDataResult = $elm$core$Result$fromMaybe_fn($author$project$Pages$StaticHttpRequest$toBuildError_fn(url.c3, $author$project$Pages$StaticHttpRequest$DecoderError("Bytes decode error")), $elm$core$Maybe$andThen_fn(function (justBytes) {
+            var _v3 = $elm$bytes$Bytes$Decode$decode_fn(config.gF, justBytes);
             _v3$3: while (true) {
                 if (!_v3.$) {
                     switch (_v3.a.$) {
@@ -4990,62 +4990,62 @@
                 var sharedData = _v1.a;
                 var pageData = _v1.b;
                 var userFlags = $author$project$Pages$Flags$BrowserFlags($elm$core$Result$withDefault_fn($elm$json$Json$Encode$null, _Json_run_fn(_Json_decodeField_fn("userFlags", $elm$json$Json$Decode$value), flags)));
-                var urls = { gs: config.gs, gA: url };
+                var urls = { gt: config.gt, gB: url };
                 var pagePath = $author$project$Pages$Internal$Platform$urlsToPagePath(urls);
-                var _v2 = A5(config.ex, userFlags, sharedData, pageData, key, $elm$core$Maybe$Just({
-                    W: config.hX(url),
-                    a2: $elm$core$Maybe$Just({
-                        R: url.R,
-                        cA: url.cA,
-                        b5: pagePath,
-                        cN: url.cN,
-                        cP: url.cP,
-                        T: $elm$core$Maybe$map_fn($author$project$QueryParams$fromString, url.T)
+                var _v2 = A5(config.fa, userFlags, sharedData, pageData, key, $elm$core$Maybe$Just({
+                    an: config.hX(url),
+                    bG: $elm$core$Maybe$Just({
+                        ae: url.ae,
+                        dy: url.dy,
+                        c3: pagePath,
+                        dK: url.dK,
+                        dM: url.dM,
+                        ak: $elm$core$Maybe$map_fn($author$project$QueryParams$fromString, url.ak)
                     }),
-                    b5: { R: url.R, b5: pagePath, T: url.T }
+                    c3: { ae: url.ae, c3: pagePath, ak: url.ak }
                 }));
                 var userModel = _v2.a;
                 var userCmd = _v2.b;
                 var cmd = $author$project$Pages$Internal$Platform$UserCmd(userCmd);
                 var initialModel = {
-                    _: "",
-                    g4: key,
-                    L: 0,
-                    ae: $elm$core$Maybe$Nothing,
-                    g: $elm$core$Result$Ok({ g: pageData, b7: sharedData, B: userModel }),
-                    az: $elm$core$Maybe$Nothing,
-                    ej: url,
-                    c6: flags
+                    ar: "",
+                    g5: key,
+                    S: 0,
+                    aw: $elm$core$Maybe$Nothing,
+                    h: $elm$core$Result$Ok({ h: pageData, c5: sharedData, C: userModel }),
+                    aX: $elm$core$Maybe$Nothing,
+                    e2: url,
+                    d1: flags
                 };
                 return _Utils_Tuple2(_Utils_update(initialModel, {
-                    _: $author$project$Pages$Internal$Platform$mainView_fn(config, initialModel).a6
+                    ar: $author$project$Pages$Internal$Platform$mainView_fn(config, initialModel).bR
                 }), cmd);
             }
             else {
                 var info = pageDataResult.a.a;
                 return _Utils_Tuple2({
-                    _: "Error",
-                    g4: key,
-                    L: 0,
-                    ae: $elm$core$Maybe$Just(info),
-                    g: $elm$core$Result$Err("Not found"),
-                    az: $elm$core$Maybe$Nothing,
-                    ej: url,
-                    c6: flags
+                    ar: "Error",
+                    g5: key,
+                    S: 0,
+                    aw: $elm$core$Maybe$Just(info),
+                    h: $elm$core$Result$Err("Not found"),
+                    aX: $elm$core$Maybe$Nothing,
+                    e2: url,
+                    d1: flags
                 }, $author$project$Pages$Internal$Platform$NoEffect);
             }
         }
         else {
             var error = pageDataResult.a;
             return _Utils_Tuple2({
-                _: "Error",
-                g4: key,
-                L: 0,
-                ae: $elm$core$Maybe$Nothing,
-                g: $elm$core$Result$Err($author$project$BuildError$errorToString(error)),
-                az: $elm$core$Maybe$Nothing,
-                ej: url,
-                c6: flags
+                ar: "Error",
+                g5: key,
+                S: 0,
+                aw: $elm$core$Maybe$Nothing,
+                h: $elm$core$Result$Err($author$project$BuildError$errorToString(error)),
+                aX: $elm$core$Maybe$Nothing,
+                e2: url,
+                d1: flags
             }, $author$project$Pages$Internal$Platform$NoEffect);
         }
     }, $author$project$Pages$Internal$Platform$init = F4($author$project$Pages$Internal$Platform$init_fn);
@@ -5064,7 +5064,7 @@
         return { $: 0, a: a };
     };
     var $elm$http$Http$State_fn = function (reqs, subs) {
-        return { cS: reqs, c_: subs };
+        return { dQ: reqs, dZ: subs };
     }, $elm$http$Http$State = F2($elm$http$Http$State_fn);
     var $elm$core$Dict$RBEmpty_elm_builtin = { $: -2 };
     var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
@@ -5534,7 +5534,7 @@
     var $elm$http$Http$onEffects_fn = function (router, cmds, subs, state) {
         return _Scheduler_andThen_fn(function (reqs) {
             return $elm$core$Task$succeed($elm$http$Http$State_fn(reqs, subs));
-        }, $elm$http$Http$updateReqs_fn(router, cmds, state.cS));
+        }, $elm$http$Http$updateReqs_fn(router, cmds, state.dQ));
     }, $elm$http$Http$onEffects = F4($elm$http$Http$onEffects_fn);
     var $elm$core$List$maybeCons_fn = function (f, mx, xs) {
         var _v0 = f(mx);
@@ -5559,7 +5559,7 @@
         var progress = _v0.b;
         return _Scheduler_andThen_fn(function (_v1) {
             return $elm$core$Task$succeed(state);
-        }, $elm$core$Task$sequence($elm$core$List$filterMap_fn(A3($elm$http$Http$maybeSend, router, tracker, progress), state.c_)));
+        }, $elm$core$Task$sequence($elm$core$List$filterMap_fn(A3($elm$http$Http$maybeSend, router, tracker, progress), state.dZ)));
     }, $elm$http$Http$onSelfMsg = F3($elm$http$Http$onSelfMsg_fn);
     var $elm$http$Http$Request = function (a) {
         return { $: 1, a: a };
@@ -5572,14 +5572,14 @@
         else {
             var r = cmd.a;
             return $elm$http$Http$Request({
-                go: r.go,
-                dl: r.dl,
-                gK: _Http_mapExpect_fn(func, r.gK),
-                dH: r.dH,
-                dP: r.dP,
+                gp: r.gp,
+                ed: r.ed,
+                gL: _Http_mapExpect_fn(func, r.gL),
+                ew: r.ew,
+                eE: r.eE,
                 hS: r.hS,
                 hU: r.hU,
-                ej: r.ej
+                e2: r.e2
             });
         }
     }, $elm$http$Http$cmdMap = F2($elm$http$Http$cmdMap_fn);
@@ -5664,15 +5664,15 @@
         }
     }, $elm$core$Result$mapError = F2($elm$core$Result$mapError_fn);
     var $elm$http$Http$request = function (r) {
-        return $elm$http$Http$command($elm$http$Http$Request({ go: false, dl: r.dl, gK: r.gK, dH: r.dH, dP: r.dP, hS: r.hS, hU: r.hU, ej: r.ej }));
+        return $elm$http$Http$command($elm$http$Http$Request({ gp: false, ed: r.ed, gL: r.gL, ew: r.ew, eE: r.eE, hS: r.hS, hU: r.hU, e2: r.e2 }));
     };
     var $elm$http$Http$stringBody = _Http_pair;
     var $author$project$Pages$Internal$Platform$fetchRouteData_fn = function (transitionKey, toMsg, config, url, details) {
         return $elm$http$Http$request({
-            dl: $elm$core$Maybe$withDefault_fn($elm$http$Http$emptyBody, $elm$core$Maybe$map_fn(function (justDetails) {
-                return _Http_pair_fn(justDetails.aY, justDetails.dl);
+            ed: $elm$core$Maybe$withDefault_fn($elm$http$Http$emptyBody, $elm$core$Maybe$map_fn(function (justDetails) {
+                return _Http_pair_fn(justDetails.bx, justDetails.ed);
             }, details)),
-            gK: $elm$http$Http$expectBytesResponse_fn(function (response) {
+            gL: $elm$http$Http$expectBytesResponse_fn(function (response) {
                 return $author$project$Pages$Internal$Platform$ProcessFetchResponse_fn(response, toMsg);
             }, function (response) {
                 switch (response.$) {
@@ -5685,23 +5685,23 @@
                         return $elm$core$Result$Err($elm$http$Http$NetworkError);
                     case 3:
                         var metadata = response.a;
-                        return $elm$core$Result$Err($elm$http$Http$BadStatus(metadata.Y));
+                        return $elm$core$Result$Err($elm$http$Http$BadStatus(metadata.ap));
                     default:
                         var body = response.b;
                         return $elm$core$Result$map_fn(function (okResponse) {
                             return _Utils_Tuple2(url, okResponse);
-                        }, $elm$core$Result$mapError_fn($elm$http$Http$BadBody, $elm$core$Result$fromMaybe_fn("Decoding error", $elm$bytes$Bytes$Decode$decode_fn(config.gE, body))));
+                        }, $elm$core$Result$mapError_fn($elm$http$Http$BadBody, $elm$core$Result$fromMaybe_fn("Decoding error", $elm$bytes$Bytes$Decode$decode_fn(config.gF, body))));
                 }
             }),
-            dH: _List_Nil,
-            dP: $elm$core$Maybe$withDefault_fn("GET", $elm$core$Maybe$map_fn(function (_v1) {
+            ew: _List_Nil,
+            eE: $elm$core$Maybe$withDefault_fn("GET", $elm$core$Maybe$map_fn(function (_v1) {
                 return "POST";
             }, details)),
             hS: $elm$core$Maybe$Nothing,
             hU: $elm$core$Maybe$Just($elm$core$String$fromInt(transitionKey)),
-            ej: _String_append_fn("/", $elm$core$String$join_fn("/", function (l) {
+            e2: _String_append_fn("/", $elm$core$String$join_fn("/", function (l) {
                 return _Utils_ap(l, _List_fromArray(["content.dat"]));
-            }($elm$core$List$filter_fn($elm$core$Basics$neq(""), $elm$core$String$split_fn("/", $elm$core$Basics$composeR_fn($author$project$Pages$Internal$Platform$chopForwardSlashes_a0, $author$project$Pages$Internal$Platform$chopForwardSlashes_a1, url.b5))))))
+            }($elm$core$List$filter_fn($elm$core$Basics$neq(""), $elm$core$String$split_fn("/", $elm$core$Basics$composeR_fn($author$project$Pages$Internal$Platform$chopForwardSlashes_a0, $author$project$Pages$Internal$Platform$chopForwardSlashes_a1, url.c3))))))
         });
     }, $author$project$Pages$Internal$Platform$fetchRouteData = F5($author$project$Pages$Internal$Platform$fetchRouteData_fn);
     var $elm$browser$Browser$Navigation$load = _Browser_load;
@@ -5741,18 +5741,18 @@
                         return $author$project$Pages$Internal$Platform$UpdateCacheAndUrlNew_fn(true, currentUrl, $elm$core$Maybe$Just(toMsg($elm$core$Result$map_fn($elm$core$Tuple$first, info))), info);
                     });
                     return A2(config.hp, {
-                        gO: function (fetchInfo) {
-                            var _v3 = fetchInfo.b5;
+                        gP: function (fetchInfo) {
+                            var _v3 = fetchInfo.c3;
                             if (!_v3.$) {
                                 var path = _v3.a;
-                                return $author$project$Pages$Internal$Platform$fetchRouteData_fn(-1, prepare(fetchInfo.c4), config, _Utils_update(currentUrl, { b5: path }), fetchInfo.dl);
+                                return $author$project$Pages$Internal$Platform$fetchRouteData_fn(-1, prepare(fetchInfo.d0), config, _Utils_update(currentUrl, { c3: path }), fetchInfo.ed);
                             }
                             else {
-                                return $author$project$Pages$Internal$Platform$fetchRouteData_fn(-1, prepare(fetchInfo.c4), config, currentUrl, fetchInfo.dl);
+                                return $author$project$Pages$Internal$Platform$fetchRouteData_fn(-1, prepare(fetchInfo.d0), config, currentUrl, fetchInfo.ed);
                             }
                         },
-                        gS: $author$project$Pages$Internal$Platform$UserMsg,
-                        g4: key
+                        gT: $author$project$Pages$Internal$Platform$UserMsg,
+                        g5: key
                     }, cmd);
                 }
                 else {
@@ -5824,9 +5824,9 @@
     var $author$project$Pages$Internal$Platform$startNewGetLoad_fn = function (pathToGet, toMsg, _v0) {
         var model = _v0.a;
         var effect = _v0.b;
-        var currentUrl = model.ej;
+        var currentUrl = model.e2;
         var cancelIfStale = function () {
-            var _v1 = model.az;
+            var _v1 = model.aX;
             if ((!_v1.$) && (!_v1.a.$)) {
                 var _v2 = _v1.a;
                 var transitionKey = _v2.a;
@@ -5838,10 +5838,10 @@
             }
         }();
         return _Utils_Tuple2(_Utils_update(model, {
-            L: model.L + 1,
-            az: $elm$core$Maybe$Just($author$project$Pages$Internal$Platform$Loading_fn(model.L, $author$project$Path$fromString(pathToGet)))
+            S: model.S + 1,
+            aX: $elm$core$Maybe$Just($author$project$Pages$Internal$Platform$Loading_fn(model.S, $author$project$Path$fromString(pathToGet)))
         }), $author$project$Pages$Internal$Platform$Batch(_List_fromArray([
-            $author$project$Pages$Internal$Platform$FetchPageData_fn(model.L, $elm$core$Maybe$Nothing, _Utils_update(currentUrl, { b5: pathToGet }), toMsg),
+            $author$project$Pages$Internal$Platform$FetchPageData_fn(model.S, $elm$core$Maybe$Nothing, _Utils_update(currentUrl, { c3: pathToGet }), toMsg),
             cancelIfStale,
             effect
         ])));
@@ -5866,7 +5866,7 @@
     }, $elm$url$Url$addPrefixed = F3($elm$url$Url$addPrefixed_fn);
     var $elm$url$Url$toString = function (url) {
         var http = function () {
-            var _v0 = url.cP;
+            var _v0 = url.dM;
             if (!_v0) {
                 return "http://";
             }
@@ -5874,22 +5874,22 @@
                 return "https://";
             }
         }();
-        return $elm$url$Url$addPrefixed_fn("#", url.R, $elm$url$Url$addPrefixed_fn("?", url.T, _Utils_ap($elm$url$Url$addPort_fn(url.cN, _Utils_ap(http, url.cA)), url.b5)));
+        return $elm$url$Url$addPrefixed_fn("#", url.ae, $elm$url$Url$addPrefixed_fn("?", url.ak, _Utils_ap($elm$url$Url$addPort_fn(url.dK, _Utils_ap(http, url.dy)), url.c3)));
     };
     var $author$project$Pages$Internal$Platform$urlPathToPath = function (urls) {
-        return $author$project$Path$fromString(urls.b5);
+        return $author$project$Path$fromString(urls.c3);
     };
     var $author$project$Pages$Internal$Platform$withUserMsg_fn = function (config, userMsg, _v0) {
         var model = _v0.a;
         var effect = _v0.b;
-        var _v1 = model.g;
+        var _v1 = model.h;
         if (!_v1.$) {
             var pageData = _v1.a;
-            var _v2 = A5(config.cf, pageData.b7, pageData.g, model.g4, userMsg, pageData.B);
+            var _v2 = A5(config.db, pageData.c5, pageData.h, model.g5, userMsg, pageData.C);
             var userModel = _v2.a;
             var userCmd = _v2.b;
-            var updatedPageData = $elm$core$Result$Ok(_Utils_update(pageData, { B: userModel }));
-            return _Utils_Tuple2(_Utils_update(model, { g: updatedPageData }), $author$project$Pages$Internal$Platform$Batch(_List_fromArray([
+            var updatedPageData = $elm$core$Result$Ok(_Utils_update(pageData, { C: userModel }));
+            return _Utils_Tuple2(_Utils_update(model, { h: updatedPageData }), $author$project$Pages$Internal$Platform$Batch(_List_fromArray([
                 effect,
                 $author$project$Pages$Internal$Platform$UserCmd(userCmd)
             ])));
@@ -5905,11 +5905,11 @@
                     var urlRequest = appMsg.a;
                     if (!urlRequest.$) {
                         var url = urlRequest.a;
-                        var navigatingToSamePage = _Utils_eq(url.b5, model.ej.b5) && (!_Utils_eq(url, model.ej));
+                        var navigatingToSamePage = _Utils_eq(url.c3, model.e2.c3) && (!_Utils_eq(url, model.e2));
                         return navigatingToSamePage ? _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$BrowserLoadUrl($elm$url$Url$toString(url))) : _Utils_Tuple2(_Utils_update(model, {
-                            L: model.L + 1,
-                            az: $elm$core$Maybe$Just($author$project$Pages$Internal$Platform$Loading_fn(model.L, $author$project$Path$fromString(url.b5)))
-                        }), $author$project$Pages$Internal$Platform$FetchPageData_fn(model.L, $elm$core$Maybe$Nothing, url, A3($author$project$Pages$Internal$Platform$UpdateCacheAndUrlNew, true, url, $elm$core$Maybe$Nothing)));
+                            S: model.S + 1,
+                            aX: $elm$core$Maybe$Just($author$project$Pages$Internal$Platform$Loading_fn(model.S, $author$project$Path$fromString(url.c3)))
+                        }), $author$project$Pages$Internal$Platform$FetchPageData_fn(model.S, $elm$core$Maybe$Nothing, url, A3($author$project$Pages$Internal$Platform$UpdateCacheAndUrlNew, true, url, $elm$core$Maybe$Nothing)));
                     }
                     else {
                         var href = urlRequest.a;
@@ -5917,22 +5917,22 @@
                     }
                 case 1:
                     var url = appMsg.a;
-                    var navigatingToSamePage = _Utils_eq(url.b5, model.ej.b5);
+                    var navigatingToSamePage = _Utils_eq(url.c3, model.e2.c3);
                     return navigatingToSamePage ? $elm$core$Result$withDefault_fn(_Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect), $elm$core$Result$map_fn(function (pageData) {
-                        var urls = { gs: config.gs, gA: url };
-                        var _v2 = A5(config.cf, pageData.b7, pageData.g, model.g4, config.f0({
-                            R: url.R,
-                            cA: model.ej.cA,
-                            W: config.hX(url),
-                            b5: $author$project$Pages$Internal$Platform$urlPathToPath(urls.gA),
-                            cN: model.ej.cN,
-                            cP: model.ej.cP,
-                            T: url.T
-                        }), pageData.B);
+                        var urls = { gt: config.gt, gB: url };
+                        var _v2 = A5(config.db, pageData.c5, pageData.h, model.g5, config.f3({
+                            ae: url.ae,
+                            dy: model.e2.dy,
+                            an: config.hX(url),
+                            c3: $author$project$Pages$Internal$Platform$urlPathToPath(urls.gB),
+                            dK: model.e2.dK,
+                            dM: model.e2.dM,
+                            ak: url.ak
+                        }), pageData.C);
                         var userModel = _v2.a;
-                        var updatedPageData = $elm$core$Result$Ok({ g: pageData.g, b7: pageData.b7, B: userModel });
-                        return _Utils_Tuple2(_Utils_update(model, { g: updatedPageData, ej: url }), $author$project$Pages$Internal$Platform$NoEffect);
-                    }, model.g)) : $author$project$Pages$Internal$Platform$startNewGetLoad_fn(url.b5, A3($author$project$Pages$Internal$Platform$UpdateCacheAndUrlNew, false, url, $elm$core$Maybe$Nothing), _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect));
+                        var updatedPageData = $elm$core$Result$Ok({ h: pageData.h, c5: pageData.c5, C: userModel });
+                        return _Utils_Tuple2(_Utils_update(model, { h: updatedPageData, e2: url }), $author$project$Pages$Internal$Platform$NoEffect);
+                    }, model.h)) : $author$project$Pages$Internal$Platform$startNewGetLoad_fn(url.c3, A3($author$project$Pages$Internal$Platform$UpdateCacheAndUrlNew, false, url, $elm$core$Maybe$Nothing), _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect));
                 case 6:
                     var response = appMsg.a;
                     var toMsg = appMsg.b;
@@ -5950,14 +5950,14 @@
                     }
                 case 2:
                     var userMsg = appMsg.a;
-                    var _v5 = model.g;
+                    var _v5 = model.h;
                     if (!_v5.$) {
                         var pageData = _v5.a;
-                        var _v6 = A5(config.cf, pageData.b7, pageData.g, model.g4, userMsg, pageData.B);
+                        var _v6 = A5(config.db, pageData.c5, pageData.h, model.g5, userMsg, pageData.C);
                         var userModel = _v6.a;
                         var userCmd = _v6.b;
-                        var updatedPageData = $elm$core$Result$Ok(_Utils_update(pageData, { B: userModel }));
-                        return _Utils_Tuple2(_Utils_update(model, { g: updatedPageData }), $author$project$Pages$Internal$Platform$UserCmd(userCmd));
+                        var updatedPageData = $elm$core$Result$Ok(_Utils_update(pageData, { C: userModel }));
+                        return _Utils_Tuple2(_Utils_update(model, { h: updatedPageData }), $author$project$Pages$Internal$Platform$UserCmd(userCmd));
                     }
                     else {
                         return _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect);
@@ -5969,7 +5969,7 @@
                     var updateResult = appMsg.d;
                     var _v7 = $elm$core$Result$map2_fn($elm$core$Tuple$pair, $elm$core$Result$mapError_fn(function (_v8) {
                         return "Http error";
-                    }, updateResult), model.g);
+                    }, updateResult), model.h);
                     if (!_v7.$) {
                         var _v9 = _v7.a;
                         var _v10 = _v9.a;
@@ -5980,50 +5980,50 @@
                             switch (newData.$) {
                                 case 0:
                                     var pageData = newData.a;
-                                    return _Utils_Tuple2(pageData, previousPageData.b7);
+                                    return _Utils_Tuple2(pageData, previousPageData.c5);
                                 case 1:
                                     var pageData = newData.a;
                                     var sharedData = newData.b;
                                     return _Utils_Tuple2(pageData, sharedData);
                                 default:
-                                    return _Utils_Tuple2(previousPageData.g, previousPageData.b7);
+                                    return _Utils_Tuple2(previousPageData.h, previousPageData.c5);
                             }
                         }();
                         var newPageData = _v11.a;
                         var newSharedData = _v11.b;
-                        var _v13 = A5(config.cf, newSharedData, newPageData, model.g4, config.f0({
-                            R: newUrl.R,
-                            cA: model.ej.cA,
-                            W: config.hX(newUrl),
-                            b5: $author$project$Pages$Internal$Platform$urlPathToPath(newUrl),
-                            cN: model.ej.cN,
-                            cP: model.ej.cP,
-                            T: newUrl.T
-                        }), previousPageData.B);
+                        var _v13 = A5(config.db, newSharedData, newPageData, model.g5, config.f3({
+                            ae: newUrl.ae,
+                            dy: model.e2.dy,
+                            an: config.hX(newUrl),
+                            c3: $author$project$Pages$Internal$Platform$urlPathToPath(newUrl),
+                            dK: model.e2.dK,
+                            dM: model.e2.dM,
+                            ak: newUrl.ak
+                        }), previousPageData.C);
                         var userModel = _v13.a;
                         var userCmd = _v13.b;
-                        var updatedPageData = { g: newPageData, b7: newSharedData, B: userModel };
+                        var updatedPageData = { h: newPageData, c5: newSharedData, C: userModel };
                         var updatedModel = _Utils_update(model, {
-                            g: $elm$core$Result$Ok(updatedPageData),
-                            ej: newUrl
+                            h: $elm$core$Result$Ok(updatedPageData),
+                            e2: newUrl
                         });
                         if (!maybeUserMsg.$) {
                             var userMsg = maybeUserMsg.a;
                             return $author$project$Pages$Internal$Platform$withUserMsg_fn(config, userMsg, _Utils_Tuple2(_Utils_update(updatedModel, {
-                                _: $author$project$Pages$Internal$Platform$mainView_fn(config, updatedModel).a6
+                                ar: $author$project$Pages$Internal$Platform$mainView_fn(config, updatedModel).bR
                             }), $author$project$Pages$Internal$Platform$Batch(_List_fromArray([
                                 $author$project$Pages$Internal$Platform$UserCmd(userCmd),
                                 $author$project$Pages$Internal$Platform$ScrollToTop,
-                                (fromLinkClick || (!_Utils_eq(urlWithoutRedirectResolution.b5, newUrl.b5))) ? $author$project$Pages$Internal$Platform$BrowserPushUrl(newUrl.b5) : $author$project$Pages$Internal$Platform$NoEffect
+                                (fromLinkClick || (!_Utils_eq(urlWithoutRedirectResolution.c3, newUrl.c3))) ? $author$project$Pages$Internal$Platform$BrowserPushUrl(newUrl.c3) : $author$project$Pages$Internal$Platform$NoEffect
                             ]))));
                         }
                         else {
                             return _Utils_Tuple2(_Utils_update(updatedModel, {
-                                _: $author$project$Pages$Internal$Platform$mainView_fn(config, updatedModel).a6
+                                ar: $author$project$Pages$Internal$Platform$mainView_fn(config, updatedModel).bR
                             }), $author$project$Pages$Internal$Platform$Batch(_List_fromArray([
                                 $author$project$Pages$Internal$Platform$UserCmd(userCmd),
                                 $author$project$Pages$Internal$Platform$ScrollToTop,
-                                (fromLinkClick || (!_Utils_eq(urlWithoutRedirectResolution.b5, newUrl.b5))) ? $author$project$Pages$Internal$Platform$BrowserPushUrl(newUrl.b5) : $author$project$Pages$Internal$Platform$NoEffect
+                                (fromLinkClick || (!_Utils_eq(urlWithoutRedirectResolution.c3, newUrl.c3))) ? $author$project$Pages$Internal$Platform$BrowserPushUrl(newUrl.c3) : $author$project$Pages$Internal$Platform$NoEffect
                             ])));
                         }
                     }
@@ -6035,28 +6035,28 @@
                 default:
                     var pageDataBytes = appMsg.a;
                     return $elm$core$Result$withDefault_fn(_Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect), $elm$core$Result$map_fn(function (pageData) {
-                        var newThing = $elm$bytes$Bytes$Decode$decode_fn(config.gE, pageDataBytes);
+                        var newThing = $elm$bytes$Bytes$Decode$decode_fn(config.gF, pageDataBytes);
                         _v15$3: while (true) {
                             if (!newThing.$) {
                                 switch (newThing.a.$) {
                                     case 0:
                                         var newPageData = newThing.a.a;
                                         return _Utils_Tuple2(_Utils_update(model, {
-                                            ae: $elm$core$Maybe$Nothing,
-                                            g: $elm$core$Result$Ok({ g: newPageData, b7: pageData.b7, B: pageData.B })
+                                            aw: $elm$core$Maybe$Nothing,
+                                            h: $elm$core$Result$Ok({ h: newPageData, c5: pageData.c5, C: pageData.C })
                                         }), $author$project$Pages$Internal$Platform$NoEffect);
                                     case 1:
                                         var _v16 = newThing.a;
                                         var newPageData = _v16.a;
                                         var newSharedData = _v16.b;
                                         return _Utils_Tuple2(_Utils_update(model, {
-                                            ae: $elm$core$Maybe$Nothing,
-                                            g: $elm$core$Result$Ok({ g: newPageData, b7: newSharedData, B: pageData.B })
+                                            aw: $elm$core$Maybe$Nothing,
+                                            h: $elm$core$Result$Ok({ h: newPageData, c5: newSharedData, C: pageData.C })
                                         }), $author$project$Pages$Internal$Platform$NoEffect);
                                     case 3:
                                         var info = newThing.a.a;
                                         return _Utils_Tuple2(_Utils_update(model, {
-                                            ae: $elm$core$Maybe$Just(info)
+                                            aw: $elm$core$Maybe$Just(info)
                                         }), $author$project$Pages$Internal$Platform$NoEffect);
                                     default:
                                         break _v15$3;
@@ -6067,7 +6067,7 @@
                             }
                         }
                         return _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect);
-                    }, model.g));
+                    }, model.h));
             }
         }
     }, $author$project$Pages$Internal$Platform$update = F3($author$project$Pages$Internal$Platform$update_fn);
@@ -6108,42 +6108,42 @@
     };
     var $author$project$Pages$Internal$Platform$view_fn = function (config, model) {
         var _v0 = $author$project$Pages$Internal$Platform$mainView_fn(config, model);
-        var body = _v0.dl;
-        var title = _v0.a6;
+        var body = _v0.ed;
+        var title = _v0.bR;
         return {
-            dl: _List_fromArray([
-                $author$project$Pages$Internal$Platform$onViewChangeElement(model.ej),
+            ed: _List_fromArray([
+                $author$project$Pages$Internal$Platform$onViewChangeElement(model.e2),
                 _VirtualDom_map_fn($author$project$Pages$Internal$Platform$UserMsg, body),
-                $author$project$AriaLiveAnnouncer$view(model._)
+                $author$project$AriaLiveAnnouncer$view(model.ar)
             ]),
-            a6: title
+            bR: title
         };
     }, $author$project$Pages$Internal$Platform$view = F2($author$project$Pages$Internal$Platform$view_fn);
     var $author$project$Pages$Internal$Platform$application = function (config) {
         return $elm$browser$Browser$application({
-            ex: F3(function (flags, url, key) {
+            fa: F3(function (flags, url, key) {
                 return $elm$core$Tuple$mapSecond_fn(A3($author$project$Pages$Internal$Platform$perform, config, url, $elm$core$Maybe$Just(key)), $author$project$Pages$Internal$Platform$init_fn(config, flags, url, $elm$core$Maybe$Just(key)));
             }),
             hl: $author$project$Pages$Internal$Platform$UrlChanged,
             hm: $author$project$Pages$Internal$Platform$LinkClicked,
-            eR: function (model) {
-                var _v0 = model.g;
+            fj: function (model) {
+                var _v0 = model.h;
                 if (!_v0.$) {
                     var pageData = _v0.a;
-                    var urls = { gA: model.ej };
+                    var urls = { gB: model.e2 };
                     return $elm$core$Platform$Sub$batch(_List_fromArray([
-                        _Platform_map_fn($author$project$Pages$Internal$Platform$UserMsg, A3(config.eR, config.hX(model.ej), $author$project$Path$join(config.hF(config.hX(urls.gA))), pageData.B)),
-                        _Platform_map_fn($author$project$Pages$Internal$Platform$HotReloadCompleteNew, config.gY)
+                        _Platform_map_fn($author$project$Pages$Internal$Platform$UserMsg, A3(config.fj, config.hX(model.e2), $author$project$Path$join(config.hF(config.hX(urls.gB))), pageData.C)),
+                        _Platform_map_fn($author$project$Pages$Internal$Platform$HotReloadCompleteNew, config.gZ)
                     ]));
                 }
                 else {
-                    return _Platform_map_fn($author$project$Pages$Internal$Platform$HotReloadCompleteNew, config.gY);
+                    return _Platform_map_fn($author$project$Pages$Internal$Platform$HotReloadCompleteNew, config.gZ);
                 }
             },
-            cf: F2(function (msg, model) {
-                return $elm$core$Tuple$mapSecond_fn(A3($author$project$Pages$Internal$Platform$perform, config, model.ej, model.g4), $author$project$Pages$Internal$Platform$update_fn(config, msg, model));
+            db: F2(function (msg, model) {
+                return $elm$core$Tuple$mapSecond_fn(A3($author$project$Pages$Internal$Platform$perform, config, model.e2, model.g5), $author$project$Pages$Internal$Platform$update_fn(config, msg, model));
             }),
-            aR: $author$project$Pages$Internal$Platform$view(config)
+            bm: $author$project$Pages$Internal$Platform$view(config)
         });
     };
     var $author$project$Main$DataErrorPage____ = function (a) {
@@ -6278,14 +6278,14 @@
     };
     var $lamdera$codecs$Lamdera$Wire3$decodeString = $elm$bytes$Bytes$Decode$andThen_fn($elm$bytes$Bytes$Decode$string, $lamdera$codecs$Lamdera$Wire3$decodeInt64);
     var $author$project$Story$w3_decode_Common = $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeString, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeString, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeString, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeInt, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeString, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeInt, $lamdera$codecs$Lamdera$Wire3$succeedDecode(F6(function (comments_count0, domain0, id0, time_ago0, title0, url0) {
-        return { fz: comments_count0, gG: domain0, g$: id0, hR: time_ago0, a6: title0, ej: url0 };
+        return { fH: comments_count0, gH: domain0, g0: id0, hR: time_ago0, bR: title0, e2: url0 };
     }))))))));
     var $author$project$Story$Job = { $: 1 };
     var $author$project$Story$Story = function (a) {
         return { $: 0, a: a };
     };
     var $author$project$Story$w3_decode_StoryRecord = $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeString, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeString, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeInt, $lamdera$codecs$Lamdera$Wire3$succeedDecode(F3(function (points0, type_0, user0) {
-        return { hr: points0, ce: type_0, hY: user0 };
+        return { hr: points0, da: type_0, hY: user0 };
     })))));
     var $author$project$Story$w3_decode_Entry = $elm$bytes$Bytes$Decode$andThen_fn(function (w3v) {
         switch (w3v) {
@@ -6306,7 +6306,7 @@
         }
     }, $lamdera$codecs$Lamdera$Wire3$decodeUnsignedInt8);
     var $author$project$Route$Feed__$w3_decode_Data = $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeList($author$project$Story$w3_decode_Item), $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeInt, $lamdera$codecs$Lamdera$Wire3$succeedDecode(F2(function (currentPage0, stories0) {
-        return { bQ: currentPage0, bH: stories0 };
+        return { cO: currentPage0, cE: stories0 };
     }))));
     var $lamdera$codecs$Lamdera$Wire3$decodePair_fn = function (c_a, c_b) {
         return $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn(c_b, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn(c_a, $elm$bytes$Bytes$Decode$succeed(F2(function (a, b) {
@@ -6314,7 +6314,7 @@
         }))));
     }, $lamdera$codecs$Lamdera$Wire3$decodePair = F2($lamdera$codecs$Lamdera$Wire3$decodePair_fn);
     var $author$project$Route$Stories$Id_$w3_decode_Data = $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodePair_fn($author$project$Story$w3_decode_Item, $lamdera$codecs$Lamdera$Wire3$decodeString), $lamdera$codecs$Lamdera$Wire3$succeedDecode(function (story0) {
-        return { bI: story0 };
+        return { cF: story0 };
     }));
     var $author$project$Main$byteDecodePageData = function (route) {
         if (route.$ === 1) {
@@ -6379,18 +6379,18 @@
     };
     var $author$project$Story$w3_encode_Common = function (w3_rec_var0) {
         return $lamdera$codecs$Lamdera$Wire3$encodeSequenceWithoutLength(_List_fromArray([
-            $lamdera$codecs$Lamdera$Wire3$encodeInt(w3_rec_var0.fz),
-            $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.gG),
-            $lamdera$codecs$Lamdera$Wire3$encodeInt(w3_rec_var0.g$),
+            $lamdera$codecs$Lamdera$Wire3$encodeInt(w3_rec_var0.fH),
+            $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.gH),
+            $lamdera$codecs$Lamdera$Wire3$encodeInt(w3_rec_var0.g0),
             $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.hR),
-            $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.a6),
-            $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.ej)
+            $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.bR),
+            $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.e2)
         ]));
     };
     var $author$project$Story$w3_encode_StoryRecord = function (w3_rec_var0) {
         return $lamdera$codecs$Lamdera$Wire3$encodeSequenceWithoutLength(_List_fromArray([
             $lamdera$codecs$Lamdera$Wire3$encodeInt(w3_rec_var0.hr),
-            $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.ce),
+            $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.da),
             $lamdera$codecs$Lamdera$Wire3$encodeString(w3_rec_var0.hY)
         ]));
     };
@@ -6419,8 +6419,8 @@
     };
     var $author$project$Route$Feed__$w3_encode_Data = function (w3_rec_var0) {
         return $lamdera$codecs$Lamdera$Wire3$encodeSequenceWithoutLength(_List_fromArray([
-            $lamdera$codecs$Lamdera$Wire3$encodeInt(w3_rec_var0.bQ),
-            $lamdera$codecs$Lamdera$Wire3$encodeList_fn($author$project$Story$w3_encode_Item, w3_rec_var0.bH)
+            $lamdera$codecs$Lamdera$Wire3$encodeInt(w3_rec_var0.cO),
+            $lamdera$codecs$Lamdera$Wire3$encodeList_fn($author$project$Story$w3_encode_Item, w3_rec_var0.cE)
         ]));
     };
     var $lamdera$codecs$Lamdera$Wire3$encodePair_fn = function (c_a, c_b, _v0) {
@@ -6433,7 +6433,7 @@
     }, $lamdera$codecs$Lamdera$Wire3$encodePair = F3($lamdera$codecs$Lamdera$Wire3$encodePair_fn);
     var $author$project$Route$Stories$Id_$w3_encode_Data = function (w3_rec_var0) {
         return $lamdera$codecs$Lamdera$Wire3$encodeSequenceWithoutLength(_List_fromArray([
-            $lamdera$codecs$Lamdera$Wire3$encodePair_fn($author$project$Story$w3_encode_Item, $lamdera$codecs$Lamdera$Wire3$encodeString, w3_rec_var0.bI)
+            $lamdera$codecs$Lamdera$Wire3$encodePair_fn($author$project$Story$w3_encode_Item, $lamdera$codecs$Lamdera$Wire3$encodeString, w3_rec_var0.cF)
         ]));
     };
     var $author$project$ErrorPage$w3_encode_ErrorPage = function (w3v) {
@@ -6534,28 +6534,28 @@
         }
     }, $author$project$Server$Response$mapError = F2($author$project$Server$Response$mapError_fn);
     var $author$project$Server$Response$render = function (data) {
-        return $author$project$PageServerResponse$RenderPage_fn({ dH: _List_Nil, Y: 200 }, data);
+        return $author$project$PageServerResponse$RenderPage_fn({ ew: _List_Nil, ap: 200 }, data);
     };
     var $author$project$RouteBuilder$buildWithLocalState_fn = function (config, builderState) {
         var record = builderState;
         return {
-            aE: record.aE,
-            e3: record.e3,
-            dG: record.dG,
-            ex: config.ex,
-            eB: record.eB,
-            gd: record.gd,
-            eR: F5(function (maybePageUrl, routeParams, path, model, sharedModel) {
-                return A5(config.eR, maybePageUrl, routeParams, path, sharedModel, model);
+            a2: record.a2,
+            fr: record.fr,
+            ev: record.ev,
+            fa: config.fa,
+            fb: record.fb,
+            ge: record.ge,
+            fj: F5(function (maybePageUrl, routeParams, path, model, sharedModel) {
+                return A5(config.fj, maybePageUrl, routeParams, path, sharedModel, model);
             }),
-            cf: F5(function (pageUrl, staticPayload, msg, model, sharedModel) {
-                var _v1 = A5(config.cf, pageUrl, sharedModel, staticPayload, msg, model);
+            db: F5(function (pageUrl, staticPayload, msg, model, sharedModel) {
+                var _v1 = A5(config.db, pageUrl, sharedModel, staticPayload, msg, model);
                 var updatedModel = _v1.a;
                 var cmd = _v1.b;
                 return _Utils_Tuple3(updatedModel, cmd, $elm$core$Maybe$Nothing);
             }),
-            aR: F3(function (model, sharedModel, staticPayload) {
-                return A3(config.aR, model, sharedModel, staticPayload);
+            bm: F3(function (model, sharedModel, staticPayload) {
+                return A3(config.bm, model, sharedModel, staticPayload);
             })
         };
     }, $author$project$RouteBuilder$buildWithLocalState = F2($author$project$RouteBuilder$buildWithLocalState_fn);
@@ -6570,29 +6570,29 @@
         return { $: 0, a: a };
     };
     var $author$project$Head$Seo$buildSummary_fn = function (_v0, summarySize) {
-        var locale = _v0.ad;
-        var siteName = _v0.ah;
-        var description = _v0.gF;
-        var canonicalUrlOverride = _v0.U;
-        var image = _v0.N;
-        var title = _v0.a6;
+        var locale = _v0.av;
+        var siteName = _v0.aB;
+        var description = _v0.gG;
+        var canonicalUrlOverride = _v0.am;
+        var image = _v0.W;
+        var title = _v0.bR;
         return {
-            aU: _List_Nil,
-            aC: $elm$core$Maybe$Nothing,
-            U: canonicalUrlOverride,
-            gF: description,
-            N: image,
-            ad: locale,
-            ah: siteName,
-            a6: title,
-            a7: $author$project$Head$Twitter$Summary({
-                gF: $elm$core$Maybe$Just(description),
-                N: $elm$core$Maybe$Just({ Z: image.Z, ej: image.ej }),
-                fg: $elm$core$Maybe$Nothing,
+            bq: _List_Nil,
+            a_: $elm$core$Maybe$Nothing,
+            am: canonicalUrlOverride,
+            gG: description,
+            W: image,
+            av: locale,
+            aB: siteName,
+            bR: title,
+            bS: $author$project$Head$Twitter$Summary({
+                gG: $elm$core$Maybe$Just(description),
+                W: $elm$core$Maybe$Just({ aq: image.aq, e2: image.e2 }),
+                fy: $elm$core$Maybe$Nothing,
                 hO: summarySize,
-                a6: title
+                bR: title
             }),
-            aQ: $elm$core$Maybe$Nothing
+            bl: $elm$core$Maybe$Nothing
         };
     }, $author$project$Head$Seo$buildSummary = F2($author$project$Head$Seo$buildSummary_fn);
     var $author$project$Head$Seo$summary = function (config) {
@@ -6601,7 +6601,7 @@
     var $author$project$Route$Feed__$title = function (routeParams) {
         return $elm$core$Maybe$withDefault_fn("", $elm$core$Maybe$map_fn(function (feedName) {
             return feedName + " | ";
-        }, routeParams.gM)) + "elm-pages Hacker News";
+        }, routeParams.gN)) + "elm-pages Hacker News";
     };
     var $author$project$Head$Seo$Content_fn = function (a, b) {
         return { $: 0, a: a, b: b };
@@ -6621,7 +6621,7 @@
         return { $: 0, a: a };
     };
     var $author$project$Head$node_fn = function (name, attributes) {
-        return $author$project$Head$Tag({ bO: attributes, ha: name });
+        return $author$project$Head$Tag({ cM: attributes, ha: name });
     }, $author$project$Head$node = F2($author$project$Head$node_fn);
     var $author$project$Head$Raw = function (a) {
         return { $: 0, a: a };
@@ -6689,100 +6689,100 @@
                 case 0:
                     var details = card.a;
                     return _List_fromArray([
-                        _Utils_Tuple2("twitter:title", $elm$core$Maybe$Just($author$project$Head$raw(details.a6))),
-                        _Utils_Tuple2("twitter:site", $elm$core$Maybe$map_fn($author$project$Head$raw, details.fg)),
-                        _Utils_Tuple2("twitter:description", $elm$core$Maybe$map_fn($author$project$Head$raw, details.gF)),
+                        _Utils_Tuple2("twitter:title", $elm$core$Maybe$Just($author$project$Head$raw(details.bR))),
+                        _Utils_Tuple2("twitter:site", $elm$core$Maybe$map_fn($author$project$Head$raw, details.fy)),
+                        _Utils_Tuple2("twitter:description", $elm$core$Maybe$map_fn($author$project$Head$raw, details.gG)),
                         _Utils_Tuple2("twitter:image", $elm$core$Maybe$map_fn($author$project$Head$urlAttribute, $elm$core$Maybe$map_fn(function ($) {
-                            return $.ej;
-                        }, details.N))),
+                            return $.e2;
+                        }, details.W))),
                         _Utils_Tuple2("twitter:image:alt", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn(function ($) {
-                            return $.Z;
-                        }, details.N)))
+                            return $.aq;
+                        }, details.W)))
                     ]);
                 case 1:
                     var details = card.a;
                     return _List_fromArray([
-                        _Utils_Tuple2("twitter:title", $elm$core$Maybe$Just($author$project$Head$raw(details.a6))),
-                        _Utils_Tuple2("twitter:site", $elm$core$Maybe$Just($author$project$Head$raw(details.fg))),
-                        _Utils_Tuple2("twitter:description", $elm$core$Maybe$map_fn($author$project$Head$raw, details.gF)),
+                        _Utils_Tuple2("twitter:title", $elm$core$Maybe$Just($author$project$Head$raw(details.bR))),
+                        _Utils_Tuple2("twitter:site", $elm$core$Maybe$Just($author$project$Head$raw(details.fy))),
+                        _Utils_Tuple2("twitter:description", $elm$core$Maybe$map_fn($author$project$Head$raw, details.gG)),
                         _Utils_Tuple2("twitter:image", $elm$core$Maybe$map_fn($author$project$Head$urlAttribute, $elm$core$Maybe$map_fn(function ($) {
-                            return $.ej;
-                        }, details.N))),
+                            return $.e2;
+                        }, details.W))),
                         _Utils_Tuple2("twitter:image:alt", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn(function ($) {
-                            return $.Z;
-                        }, details.N))),
-                        _Utils_Tuple2("twitter:app:name:iphone", $elm$core$Maybe$map_fn($author$project$Head$raw, details.de)),
-                        _Utils_Tuple2("twitter:app:name:ipad", $elm$core$Maybe$map_fn($author$project$Head$raw, details.dd)),
-                        _Utils_Tuple2("twitter:app:name:googleplay", $elm$core$Maybe$map_fn($author$project$Head$raw, details.dc)),
-                        _Utils_Tuple2("twitter:app:id:iphone", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, details.db))),
-                        _Utils_Tuple2("twitter:app:id:ipad", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, details.da))),
-                        _Utils_Tuple2("twitter:app:id:googleplay", $elm$core$Maybe$map_fn($author$project$Head$raw, details.c9)),
-                        _Utils_Tuple2("twitter:app:url:iphone", $elm$core$Maybe$map_fn($author$project$Head$raw, details.dh)),
-                        _Utils_Tuple2("twitter:app:url:ipad", $elm$core$Maybe$map_fn($author$project$Head$raw, details.dg)),
-                        _Utils_Tuple2("twitter:app:url:googleplay", $elm$core$Maybe$map_fn($author$project$Head$raw, details.df)),
-                        _Utils_Tuple2("twitter:app:country", $elm$core$Maybe$map_fn($author$project$Head$raw, details.c8))
+                            return $.aq;
+                        }, details.W))),
+                        _Utils_Tuple2("twitter:app:name:iphone", $elm$core$Maybe$map_fn($author$project$Head$raw, details.d8)),
+                        _Utils_Tuple2("twitter:app:name:ipad", $elm$core$Maybe$map_fn($author$project$Head$raw, details.d7)),
+                        _Utils_Tuple2("twitter:app:name:googleplay", $elm$core$Maybe$map_fn($author$project$Head$raw, details.d6)),
+                        _Utils_Tuple2("twitter:app:id:iphone", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, details.d5))),
+                        _Utils_Tuple2("twitter:app:id:ipad", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, details.d4))),
+                        _Utils_Tuple2("twitter:app:id:googleplay", $elm$core$Maybe$map_fn($author$project$Head$raw, details.d3)),
+                        _Utils_Tuple2("twitter:app:url:iphone", $elm$core$Maybe$map_fn($author$project$Head$raw, details.eb)),
+                        _Utils_Tuple2("twitter:app:url:ipad", $elm$core$Maybe$map_fn($author$project$Head$raw, details.ea)),
+                        _Utils_Tuple2("twitter:app:url:googleplay", $elm$core$Maybe$map_fn($author$project$Head$raw, details.d9)),
+                        _Utils_Tuple2("twitter:app:country", $elm$core$Maybe$map_fn($author$project$Head$raw, details.d2))
                     ]);
                 default:
                     var details = card.a;
                     return _List_fromArray([
-                        _Utils_Tuple2("twitter:title", $elm$core$Maybe$Just($author$project$Head$raw(details.a6))),
-                        _Utils_Tuple2("twitter:site", $elm$core$Maybe$Just($author$project$Head$raw(details.fg))),
-                        _Utils_Tuple2("twitter:description", $elm$core$Maybe$map_fn($author$project$Head$raw, details.gF)),
-                        _Utils_Tuple2("twitter:image", $elm$core$Maybe$Just($author$project$Head$urlAttribute(details.N.ej))),
-                        _Utils_Tuple2("twitter:image:alt", $elm$core$Maybe$Just($author$project$Head$raw(details.N.Z)))
+                        _Utils_Tuple2("twitter:title", $elm$core$Maybe$Just($author$project$Head$raw(details.bR))),
+                        _Utils_Tuple2("twitter:site", $elm$core$Maybe$Just($author$project$Head$raw(details.fy))),
+                        _Utils_Tuple2("twitter:description", $elm$core$Maybe$map_fn($author$project$Head$raw, details.gG)),
+                        _Utils_Tuple2("twitter:image", $elm$core$Maybe$Just($author$project$Head$urlAttribute(details.W.e2))),
+                        _Utils_Tuple2("twitter:image:alt", $elm$core$Maybe$Just($author$project$Head$raw(details.W.aq)))
                     ]);
             }
         }());
     };
     var $author$project$Head$Seo$tagsForAudio = function (audio) {
         return _List_fromArray([
-            _Utils_Tuple2("og:audio", $elm$core$Maybe$Just($author$project$Head$raw(audio.ej))),
-            _Utils_Tuple2("og:audio:secure_url", $elm$core$Maybe$Just($author$project$Head$raw(audio.ej))),
-            _Utils_Tuple2("og:audio:type", $elm$core$Maybe$map_fn($author$project$Head$raw, audio.K))
+            _Utils_Tuple2("og:audio", $elm$core$Maybe$Just($author$project$Head$raw(audio.e2))),
+            _Utils_Tuple2("og:audio:secure_url", $elm$core$Maybe$Just($author$project$Head$raw(audio.e2))),
+            _Utils_Tuple2("og:audio:type", $elm$core$Maybe$map_fn($author$project$Head$raw, audio.R))
         ]);
     };
     var $author$project$Head$Seo$tagsForImage = function (image) {
         return _List_fromArray([
-            _Utils_Tuple2("og:image", $elm$core$Maybe$Just($author$project$Head$urlAttribute(image.ej))),
-            _Utils_Tuple2("og:image:secure_url", $elm$core$Maybe$Just($author$project$Head$urlAttribute(image.ej))),
-            _Utils_Tuple2("og:image:alt", $elm$core$Maybe$Just($author$project$Head$raw(image.Z))),
+            _Utils_Tuple2("og:image", $elm$core$Maybe$Just($author$project$Head$urlAttribute(image.e2))),
+            _Utils_Tuple2("og:image:secure_url", $elm$core$Maybe$Just($author$project$Head$urlAttribute(image.e2))),
+            _Utils_Tuple2("og:image:alt", $elm$core$Maybe$Just($author$project$Head$raw(image.aq))),
             _Utils_Tuple2("og:image:width", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, $elm$core$Maybe$map_fn(function ($) {
-                return $.al;
-            }, image.Q)))),
+                return $.aE;
+            }, image.ab)))),
             _Utils_Tuple2("og:image:height", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, $elm$core$Maybe$map_fn(function ($) {
-                return $.ac;
-            }, image.Q))))
+                return $.au;
+            }, image.ab))))
         ]);
     };
     var $author$project$Head$Seo$tagsForVideo = function (video) {
         return _List_fromArray([
-            _Utils_Tuple2("og:video", $elm$core$Maybe$Just($author$project$Head$raw(video.ej))),
-            _Utils_Tuple2("og:video:secure_url", $elm$core$Maybe$Just($author$project$Head$raw(video.ej))),
+            _Utils_Tuple2("og:video", $elm$core$Maybe$Just($author$project$Head$raw(video.e2))),
+            _Utils_Tuple2("og:video:secure_url", $elm$core$Maybe$Just($author$project$Head$raw(video.e2))),
             _Utils_Tuple2("og:video:width", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, $elm$core$Maybe$map_fn(function ($) {
-                return $.al;
-            }, video.Q)))),
+                return $.aE;
+            }, video.ab)))),
             _Utils_Tuple2("og:video:height", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, $elm$core$Maybe$map_fn(function ($) {
-                return $.ac;
-            }, video.Q))))
+                return $.au;
+            }, video.ab))))
         ]);
     };
     var $author$project$Head$Seo$tagsForCommon = function (common) {
-        return _Utils_ap($author$project$Head$Seo$tagsForImage(common.N), _Utils_ap($elm$core$Maybe$withDefault_fn(_List_Nil, $elm$core$Maybe$map_fn($author$project$Head$Seo$tagsForAudio, common.aC)), _Utils_ap($elm$core$Maybe$withDefault_fn(_List_Nil, $elm$core$Maybe$map_fn($author$project$Head$Seo$tagsForVideo, common.aQ)), _Utils_ap(_List_fromArray([
-            _Utils_Tuple2("og:title", $elm$core$Maybe$Just($author$project$Head$raw(common.a6))),
-            _Utils_Tuple2("og:url", $elm$core$Maybe$Just($elm$core$Maybe$withDefault_fn($author$project$Head$currentPageFullUrl, $elm$core$Maybe$map_fn($author$project$Head$raw, common.U)))),
-            _Utils_Tuple2("og:description", $elm$core$Maybe$Just($author$project$Head$raw(common.gF))),
-            _Utils_Tuple2("og:site_name", $elm$core$Maybe$Just($author$project$Head$raw(common.ah))),
-            _Utils_Tuple2("og:locale", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($author$project$Head$Seo$localeToString, common.ad)))
+        return _Utils_ap($author$project$Head$Seo$tagsForImage(common.W), _Utils_ap($elm$core$Maybe$withDefault_fn(_List_Nil, $elm$core$Maybe$map_fn($author$project$Head$Seo$tagsForAudio, common.a_)), _Utils_ap($elm$core$Maybe$withDefault_fn(_List_Nil, $elm$core$Maybe$map_fn($author$project$Head$Seo$tagsForVideo, common.bl)), _Utils_ap(_List_fromArray([
+            _Utils_Tuple2("og:title", $elm$core$Maybe$Just($author$project$Head$raw(common.bR))),
+            _Utils_Tuple2("og:url", $elm$core$Maybe$Just($elm$core$Maybe$withDefault_fn($author$project$Head$currentPageFullUrl, $elm$core$Maybe$map_fn($author$project$Head$raw, common.am)))),
+            _Utils_Tuple2("og:description", $elm$core$Maybe$Just($author$project$Head$raw(common.gG))),
+            _Utils_Tuple2("og:site_name", $elm$core$Maybe$Just($author$project$Head$raw(common.aB))),
+            _Utils_Tuple2("og:locale", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($author$project$Head$Seo$localeToString, common.av)))
         ]), _Utils_ap($elm$core$List$map_fn(function (alternateLocale) {
             return _Utils_Tuple2("og:locale:alternate", $elm$core$Maybe$Just($author$project$Head$raw($author$project$Head$Seo$localeToString(alternateLocale))));
-        }, common.aU), $author$project$Head$Twitter$rawTags(common.a7))))));
+        }, common.bq), $author$project$Head$Twitter$rawTags(common.bS))))));
     };
     var $author$project$Head$Seo$tags = function (_v0) {
         var common = _v0.a;
         var details = _v0.b;
         return $elm$core$List$append_fn(_List_fromArray([
-            $author$project$Head$canonicalLink(common.U),
-            $author$project$Head$metaName_fn("description", $author$project$Head$raw(common.gF))
+            $author$project$Head$canonicalLink(common.am),
+            $author$project$Head$metaName_fn("description", $author$project$Head$raw(common.gG))
         ]), $elm$core$List$filterMap_fn(function (_v2) {
             var name = _v2.a;
             var maybeContent = _v2.b;
@@ -6799,37 +6799,37 @@
                     var articleDetails = details.a;
                     return _Utils_ap(_List_fromArray([
                         _Utils_Tuple2("og:type", $elm$core$Maybe$Just($author$project$Head$raw("article"))),
-                        _Utils_Tuple2("article:section", $elm$core$Maybe$map_fn($author$project$Head$raw, articleDetails.d$)),
-                        _Utils_Tuple2("article:published_time", $elm$core$Maybe$map_fn($author$project$Head$raw, articleDetails.dZ)),
-                        _Utils_Tuple2("article:modified_time", $elm$core$Maybe$map_fn($author$project$Head$raw, articleDetails.dQ)),
-                        _Utils_Tuple2("article:expiration_time", $elm$core$Maybe$map_fn($author$project$Head$raw, articleDetails.dC))
+                        _Utils_Tuple2("article:section", $elm$core$Maybe$map_fn($author$project$Head$raw, articleDetails.eS)),
+                        _Utils_Tuple2("article:published_time", $elm$core$Maybe$map_fn($author$project$Head$raw, articleDetails.eQ)),
+                        _Utils_Tuple2("article:modified_time", $elm$core$Maybe$map_fn($author$project$Head$raw, articleDetails.eF)),
+                        _Utils_Tuple2("article:expiration_time", $elm$core$Maybe$map_fn($author$project$Head$raw, articleDetails.es))
                     ]), $elm$core$List$map_fn(function (tag) {
                         return _Utils_Tuple2("article:tag", $elm$core$Maybe$Just($author$project$Head$raw(tag)));
-                    }, articleDetails.aO));
+                    }, articleDetails.bg));
                 case 2:
                     var bookDetails = details.a;
                     return _Utils_ap(_List_fromArray([
                         _Utils_Tuple2("og:type", $elm$core$Maybe$Just($author$project$Head$raw("book"))),
-                        _Utils_Tuple2("og:isbn", $elm$core$Maybe$map_fn($author$project$Head$raw, bookDetails.dK)),
-                        _Utils_Tuple2("og:release_date", $elm$core$Maybe$map_fn($author$project$Head$raw, bookDetails.d_))
+                        _Utils_Tuple2("og:isbn", $elm$core$Maybe$map_fn($author$project$Head$raw, bookDetails.ey)),
+                        _Utils_Tuple2("og:release_date", $elm$core$Maybe$map_fn($author$project$Head$raw, bookDetails.eR))
                     ]), $elm$core$List$map_fn(function (tag) {
                         return _Utils_Tuple2("book:tag", $elm$core$Maybe$Just($author$project$Head$raw(tag)));
-                    }, bookDetails.aO));
+                    }, bookDetails.bg));
                 case 3:
                     var songDetails = details.a;
                     return _List_fromArray([
                         _Utils_Tuple2("og:type", $elm$core$Maybe$Just($author$project$Head$raw("music.song"))),
-                        _Utils_Tuple2("music:duration", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, songDetails.dz))),
-                        _Utils_Tuple2("music:album:disc", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, songDetails.dx))),
-                        _Utils_Tuple2("music:album:track", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, songDetails.eg)))
+                        _Utils_Tuple2("music:duration", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, songDetails.ep))),
+                        _Utils_Tuple2("music:album:disc", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, songDetails.en))),
+                        _Utils_Tuple2("music:album:track", $elm$core$Maybe$map_fn($author$project$Head$raw, $elm$core$Maybe$map_fn($elm$core$String$fromInt, songDetails.e0)))
                     ]);
                 default:
                     var profileDetails = details.a;
                     return _List_fromArray([
                         _Utils_Tuple2("og:type", $elm$core$Maybe$Just($author$project$Head$raw("profile"))),
-                        _Utils_Tuple2("profile:first_name", $elm$core$Maybe$Just($author$project$Head$raw(profileDetails.dD))),
-                        _Utils_Tuple2("profile:last_name", $elm$core$Maybe$Just($author$project$Head$raw(profileDetails.dL))),
-                        _Utils_Tuple2("profile:username", $elm$core$Maybe$map_fn($author$project$Head$raw, profileDetails.ek))
+                        _Utils_Tuple2("profile:first_name", $elm$core$Maybe$Just($author$project$Head$raw(profileDetails.et))),
+                        _Utils_Tuple2("profile:last_name", $elm$core$Maybe$Just($author$project$Head$raw(profileDetails.eA))),
+                        _Utils_Tuple2("profile:username", $elm$core$Maybe$map_fn($author$project$Head$raw, profileDetails.e3))
                     ]);
             }
         }())));
@@ -6839,17 +6839,17 @@
     };
     var $author$project$Route$Feed__$head = function (_static) {
         return $author$project$Head$Seo$website($author$project$Head$Seo$summary({
-            U: $elm$core$Maybe$Nothing,
-            gF: "A demo of elm-pages 3 server-rendered routes.",
-            N: {
-                Z: "elm-pages logo",
-                Q: $elm$core$Maybe$Nothing,
-                K: $elm$core$Maybe$Nothing,
-                ej: $author$project$Pages$Url$fromPath($author$project$Path$join(_List_fromArray(["images", "icon-png.png"])))
+            am: $elm$core$Maybe$Nothing,
+            gG: "A demo of elm-pages 3 server-rendered routes.",
+            W: {
+                aq: "elm-pages logo",
+                ab: $elm$core$Maybe$Nothing,
+                R: $elm$core$Maybe$Nothing,
+                e2: $author$project$Pages$Url$fromPath($author$project$Path$join(_List_fromArray(["images", "icon-png.png"])))
             },
-            ad: $elm$core$Maybe$Nothing,
-            ah: "elm-pages Hacker News",
-            a6: $author$project$Route$Feed__$title(_static.cT)
+            av: $elm$core$Maybe$Nothing,
+            aB: "elm-pages Hacker News",
+            bR: $author$project$Route$Feed__$title(_static.dR)
         }));
     };
     var $author$project$Effect$None = { $: 0 };
@@ -7032,14 +7032,14 @@
                 return "Did not match formPost because\n" + $elm$core$String$join_fn("\n", $elm$core$List$filterMap_fn($elm$core$Basics$identity, _List_fromArray([
                     $elm$core$Maybe$map_fn(function (method_) {
                         return "- Form post must have method POST, but the method was " + $author$project$Server$Request$methodToString(method_);
-                    }, record.dP),
+                    }, record.eE),
                     $elm$core$Maybe$map_fn(function (contentType) {
                         return "- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was " + contentType;
-                    }, record.aY)
+                    }, record.bx)
                 ])));
             default:
                 var record = validationError_.a;
-                return "Missing query param \"" + (record.cK + ("\". Query string was `" + (record.ci + "`")));
+                return "Missing query param \"" + (record.dG + ("\". Query string was `" + (record.dh + "`")));
         }
     };
     var $turboMaCk$non_empty_list_alias$List$NonEmpty$toList = function (_v0) {
@@ -7155,14 +7155,14 @@
     }, $elm$json$Json$Encode$list = F2($elm$json$Json$Encode$list_fn);
     var $author$project$Pages$StaticHttp$Request$hash = function (requestDetails) {
         return $elm$core$String$fromInt($robinheghan$fnv1a$FNV1a$hash(_Json_encode_fn(0, $elm$json$Json$Encode$object(_List_fromArray([
-            _Utils_Tuple2("method", $elm$json$Json$Encode$string(requestDetails.dP)),
-            _Utils_Tuple2("url", $elm$json$Json$Encode$string(requestDetails.ej)),
-            _Utils_Tuple2("headers", $elm$json$Json$Encode$list_fn($author$project$Pages$StaticHttp$Request$hashHeader, requestDetails.dH)),
-            _Utils_Tuple2("body", $author$project$Pages$Internal$StaticHttpBody$encode(requestDetails.dl))
+            _Utils_Tuple2("method", $elm$json$Json$Encode$string(requestDetails.eE)),
+            _Utils_Tuple2("url", $elm$json$Json$Encode$string(requestDetails.e2)),
+            _Utils_Tuple2("headers", $elm$json$Json$Encode$list_fn($author$project$Pages$StaticHttp$Request$hashHeader, requestDetails.ew)),
+            _Utils_Tuple2("body", $author$project$Pages$Internal$StaticHttpBody$encode(requestDetails.ed))
         ])))));
     };
     var $author$project$DataSource$Http$requestToString = function (requestDetails) {
-        return requestDetails.ej;
+        return requestDetails.e2;
     };
     var $author$project$DataSource$Http$toResult = function (result) {
         if (result.$ === 1) {
@@ -7176,7 +7176,7 @@
     };
     var $author$project$DataSource$Http$request_fn = function (request__, expect) {
         var request_ = _Utils_update(request__, {
-            dH: _List_Cons(_Utils_Tuple2("elm-pages-internal", $author$project$DataSource$Http$expectToString(expect)), request__.dH)
+            ew: _List_Cons(_Utils_Tuple2("elm-pages-internal", $author$project$DataSource$Http$expectToString(expect)), request__.ew)
         });
         return $author$project$Pages$StaticHttpRequest$Request_fn(_List_fromArray([request_]), F2(function (maybeMockResolver, rawResponseDict) {
             return $author$project$DataSource$Http$toResult($elm$core$Result$andThen_fn(function (_v2) {
@@ -7207,8 +7207,8 @@
                                         var mapResponse = _v3.a.a;
                                         var asStringBody = _v3.b.a;
                                         var rawResponse = _v3.c.a;
-                                        var asMetadata = { dH: rawResponse.dH, Y: rawResponse.Y, a4: rawResponse.a4, ej: rawResponse.ej };
-                                        var rawResponseToResponse = ((200 <= rawResponse.Y) && (rawResponse.Y < 300)) ? $author$project$DataSource$Http$GoodStatus__fn(asMetadata, asStringBody) : $author$project$DataSource$Http$BadStatus__fn(asMetadata, asStringBody);
+                                        var asMetadata = { ew: rawResponse.ew, ap: rawResponse.ap, bI: rawResponse.bI, e2: rawResponse.e2 };
+                                        var rawResponseToResponse = ((200 <= rawResponse.ap) && (rawResponse.ap < 300)) ? $author$project$DataSource$Http$GoodStatus__fn(asMetadata, asStringBody) : $author$project$DataSource$Http$BadStatus__fn(asMetadata, asStringBody);
                                         return $elm$core$Result$Ok(mapResponse(rawResponseToResponse));
                                     }
                                     else {
@@ -7224,8 +7224,8 @@
                                         var mapResponse = _v3.a.a;
                                         var rawBytesBody = _v3.b.a;
                                         var rawResponse = _v3.c.a;
-                                        var asMetadata = { dH: rawResponse.dH, Y: rawResponse.Y, a4: rawResponse.a4, ej: rawResponse.ej };
-                                        var rawResponseToResponse = ((200 <= rawResponse.Y) && (rawResponse.Y < 300)) ? $author$project$DataSource$Http$GoodStatus__fn(asMetadata, rawBytesBody) : $author$project$DataSource$Http$BadStatus__fn(asMetadata, rawBytesBody);
+                                        var asMetadata = { ew: rawResponse.ew, ap: rawResponse.ap, bI: rawResponse.bI, e2: rawResponse.e2 };
+                                        var rawResponseToResponse = ((200 <= rawResponse.ap) && (rawResponse.ap < 300)) ? $author$project$DataSource$Http$GoodStatus__fn(asMetadata, rawBytesBody) : $author$project$DataSource$Http$BadStatus__fn(asMetadata, rawBytesBody);
                                         return $elm$core$Result$Ok(mapResponse(rawResponseToResponse));
                                     }
                                     else {
@@ -7271,7 +7271,7 @@
     }, $author$project$DataSource$Http$request = F2($author$project$DataSource$Http$request_fn);
     var $author$project$DataSource$Http$get_fn = function (url, decoder) {
         return $author$project$DataSource$Http$request_fn(function (okUrl) {
-            return { dl: $author$project$DataSource$Http$emptyBody, dH: _List_Nil, dP: "GET", ej: okUrl };
+            return { ed: $author$project$DataSource$Http$emptyBody, ew: _List_Nil, eE: "GET", e2: okUrl };
         }(url), $author$project$DataSource$Http$expectJson(decoder));
     }, $author$project$DataSource$Http$get = F2($author$project$DataSource$Http$get_fn);
     var $author$project$Server$Request$getDecoder = function (_v0) {
@@ -7303,10 +7303,10 @@
         return $author$project$Pages$StaticHttpRequest$ApiRoute(value);
     };
     var $author$project$RouteBuilder$serverRender = function (_v0) {
-        var head = _v0.dG;
-        var data = _v0.aE;
+        var head = _v0.ev;
+        var data = _v0.a2;
         return {
-            aE: function (routeParams) {
+            a2: function (routeParams) {
                 return $author$project$DataSource$andThen_fn(function (rendered) {
                     if (!rendered.$) {
                         var okRendered = rendered.a;
@@ -7318,13 +7318,13 @@
                     }
                 }, $author$project$DataSource$Http$get_fn("$$elm-pages$$headers", $author$project$Server$Request$getDecoder(data(routeParams))));
             },
-            e3: F3(function (moduleContext, toRecord, routeParams) {
+            fr: F3(function (moduleContext, toRecord, routeParams) {
                 return $author$project$DataSource$succeed($elm$core$Maybe$Nothing);
             }),
-            dG: head,
-            eB: "serverless",
-            bF: true,
-            gd: $author$project$DataSource$succeed(_List_Nil)
+            ev: head,
+            fb: "serverless",
+            cC: true,
+            ge: $author$project$DataSource$succeed(_List_Nil)
         };
     };
     var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
@@ -7366,13 +7366,13 @@
             var params = route.a;
             return $elm$core$List$concat(_List_fromArray([
                 _List_fromArray(["stories"]),
-                _List_fromArray([params.g$])
+                _List_fromArray([params.g0])
             ]));
         }
         else {
             var params = route.a;
             return $elm$core$List$concat(_List_fromArray([
-                $author$project$Pages$Internal$Router$maybeToList(params.gM)
+                $author$project$Pages$Internal$Router$maybeToList(params.gN)
             ]));
         }
     };
@@ -7464,26 +7464,26 @@
             $elm$html$Html$span_fn(_List_fromArray([
                 $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$class_a0, "title")
             ]), function () {
-                var _v2 = _String_startsWith_fn("item?id=", story.ej);
+                var _v2 = _String_startsWith_fn("item?id=", story.e2);
                 if (!_v2) {
                     return _List_fromArray([
                         $elm$html$Html$a_fn(_List_fromArray([
-                            $elm$html$Html$Attributes$href(story.ej),
+                            $elm$html$Html$Attributes$href(story.e2),
                             $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$target_a0, "_blank"),
                             _VirtualDom_attribute_fn($elm$html$Html$Attributes$rel_a0, "noreferrer")
                         ]), _List_fromArray([
-                            $elm$html$Html$text(story.a6)
+                            $elm$html$Html$text(story.bR)
                         ])),
                         $elm$html$Html$text(" "),
-                        $author$project$Story$domainView(story.gG)
+                        $author$project$Story$domainView(story.gH)
                     ]);
                 }
                 else {
                     return _List_fromArray([
                         $author$project$Route$link_fn(_List_Nil, _List_fromArray([
-                            $elm$html$Html$text(story.a6)
+                            $elm$html$Html$text(story.bR)
                         ]), $author$project$Route$Stories__Id_({
-                            g$: $elm$core$String$fromInt(story.g$)
+                            g0: $elm$core$String$fromInt(story.g0)
                         }))
                     ]);
                 }
@@ -7497,7 +7497,7 @@
                         $author$project$Route$link_fn(_List_Nil, _List_fromArray([
                             $elm$html$Html$text(story.hR)
                         ]), $author$project$Route$Stories__Id_({
-                            g$: $elm$core$String$fromInt(story.g$)
+                            g0: $elm$core$String$fromInt(story.g0)
                         }))
                     ]);
                 }
@@ -7512,14 +7512,14 @@
                         ])),
                         $elm$html$Html$text(" " + (story.hR + " | ")),
                         $author$project$Route$link_fn(_List_Nil, _List_fromArray([
-                            (story.fz > 0) ? $elm$html$Html$text($elm$core$String$fromInt(story.fz) + " comments") : $elm$html$Html$text("discuss")
+                            (story.fH > 0) ? $elm$html$Html$text($elm$core$String$fromInt(story.fH) + " comments") : $elm$html$Html$text("discuss")
                         ]), $author$project$Route$Stories__Id_({
-                            g$: $elm$core$String$fromInt(story.g$)
+                            g0: $elm$core$String$fromInt(story.g0)
                         })),
-                        (record.ce !== "link") ? $elm$html$Html$span_fn(_List_fromArray([
+                        (record.da !== "link") ? $elm$html$Html$span_fn(_List_fromArray([
                             $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$class_a0, "label")
                         ]), _List_fromArray([
-                            $elm$html$Html$text(" " + record.ce)
+                            $elm$html$Html$text(" " + record.da)
                         ])) : $elm$html$Html$text("")
                     ]);
                 }
@@ -7528,39 +7528,39 @@
     };
     var $author$project$Route$Feed__$view_fn = function (maybeUrl, sharedModel, model, _static) {
         return {
-            dl: _List_fromArray([
-                $author$project$Route$Feed__$paginationView_fn(_static.aE.bH, _static.cT, _static.aE.bQ),
+            ed: _List_fromArray([
+                $author$project$Route$Feed__$paginationView_fn(_static.a2.cE, _static.dR, _static.a2.cO),
                 $elm$html$Html$main__fn(_List_fromArray([
                     $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$class_a0, "news-list")
                 ]), _List_fromArray([
-                    $elm$html$Html$ul_fn(_List_Nil, $elm$core$List$map_fn($author$project$Story$view, _static.aE.bH))
+                    $elm$html$Html$ul_fn(_List_Nil, $elm$core$List$map_fn($author$project$Story$view, _static.a2.cE))
                 ]))
             ]),
-            a6: $author$project$Route$Feed__$title(_static.cT)
+            bR: $author$project$Route$Feed__$title(_static.dR)
         };
     }, $author$project$Route$Feed__$view = F4($author$project$Route$Feed__$view_fn);
-    var $author$project$Route$Feed__$route = $author$project$RouteBuilder$buildWithLocalState_fn({ ex: $author$project$Route$Feed__$init, eR: $author$project$Route$Feed__$subscriptions, cf: $author$project$Route$Feed__$update, aR: $author$project$Route$Feed__$view }, $author$project$RouteBuilder$serverRender({
-        aE: function (_v0) {
+    var $author$project$Route$Feed__$route = $author$project$RouteBuilder$buildWithLocalState_fn({ fa: $author$project$Route$Feed__$init, fj: $author$project$Route$Feed__$subscriptions, db: $author$project$Route$Feed__$update, bm: $author$project$Route$Feed__$view }, $author$project$RouteBuilder$serverRender({
+        a2: function (_v0) {
             return $author$project$Server$Request$oneOf(_List_Nil);
         },
-        dG: $author$project$Route$Feed__$head
+        ev: $author$project$Route$Feed__$head
     }));
     var $author$project$Route$Stories$Id_$head = function (_static) {
         return $author$project$Head$Seo$website($author$project$Head$Seo$summary({
-            U: $elm$core$Maybe$Nothing,
-            gF: "A demo of elm-pages 3 server-rendered routes.",
-            N: {
-                Z: "elm-pages logo",
-                Q: $elm$core$Maybe$Nothing,
-                K: $elm$core$Maybe$Nothing,
-                ej: $author$project$Pages$Url$fromPath($author$project$Path$join(_List_fromArray(["images", "icon-png.png"])))
+            am: $elm$core$Maybe$Nothing,
+            gG: "A demo of elm-pages 3 server-rendered routes.",
+            W: {
+                aq: "elm-pages logo",
+                ab: $elm$core$Maybe$Nothing,
+                R: $elm$core$Maybe$Nothing,
+                e2: $author$project$Pages$Url$fromPath($author$project$Path$join(_List_fromArray(["images", "icon-png.png"])))
             },
-            ad: $elm$core$Maybe$Nothing,
-            ah: "elm-pages Hacker News",
-            a6: function (_v0) {
+            av: $elm$core$Maybe$Nothing,
+            aB: "elm-pages Hacker News",
+            bR: function (_v0) {
                 var common = _v0.a;
-                return common.a6;
-            }(_static.aE.bI.a)
+                return common.bR;
+            }(_static.a2.cF.a)
         }));
     };
     var $author$project$Route$Stories$Id_$init_fn = function (maybePageUrl, sharedModel, _static) {
@@ -7599,16 +7599,16 @@
                 $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$class_a0, "item-view-header")
             ]), _List_fromArray([
                 $elm$html$Html$a_fn(_List_fromArray([
-                    $elm$html$Html$Attributes$href(story.ej),
+                    $elm$html$Html$Attributes$href(story.e2),
                     $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$target_a0, "_blank"),
                     _VirtualDom_attribute_fn($elm$html$Html$Attributes$rel_a0, "noreferrer")
                 ]), _List_fromArray([
                     $elm$html$Html$h1_fn(_List_Nil, _List_fromArray([
-                        $elm$html$Html$text(story.a6)
+                        $elm$html$Html$text(story.bR)
                     ]))
                 ])),
                 $elm$html$Html$text(" "),
-                $author$project$Story$domainView(story.gG),
+                $author$project$Story$domainView(story.gH),
                 $elm$html$Html$p_fn(_List_fromArray([
                     $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$class_a0, "meta")
                 ]), _Utils_ap(function () {
@@ -7638,7 +7638,7 @@
                 $elm$html$Html$p_fn(_List_fromArray([
                     $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$class_a0, "item-view-comments-header")
                 ]), _List_fromArray([
-                    (story.fz > 0) ? $elm$html$Html$text($elm$core$String$fromInt(story.fz) + " comments") : $elm$html$Html$text("No comments yet.")
+                    (story.fH > 0) ? $elm$html$Html$text($elm$core$String$fromInt(story.fH) + " comments") : $elm$html$Html$text("No comments yet.")
                 ])),
                 A2($elm$html$Html$Keyed$ul, _List_fromArray([
                     $elm$html$Html$Attributes$stringProperty_fn($elm$html$Html$Attributes$class_a0, "comment-children")
@@ -7652,30 +7652,30 @@
     };
     var $author$project$Route$Stories$Id_$view_fn = function (maybeUrl, sharedModel, model, _static) {
         return {
-            dl: _List_fromArray([
-                $author$project$Route$Stories$Id_$storyView(_static.aE.bI)
+            ed: _List_fromArray([
+                $author$project$Route$Stories$Id_$storyView(_static.a2.cF)
             ]),
-            a6: function (_v0) {
+            bR: function (_v0) {
                 var common = _v0.a;
-                return common.a6;
-            }(_static.aE.bI.a)
+                return common.bR;
+            }(_static.a2.cF.a)
         };
     }, $author$project$Route$Stories$Id_$view = F4($author$project$Route$Stories$Id_$view_fn);
-    var $author$project$Route$Stories$Id_$route = $author$project$RouteBuilder$buildWithLocalState_fn({ ex: $author$project$Route$Stories$Id_$init, eR: $author$project$Route$Stories$Id_$subscriptions, cf: $author$project$Route$Stories$Id_$update, aR: $author$project$Route$Stories$Id_$view }, $author$project$RouteBuilder$serverRender({
-        aE: function (_v0) {
+    var $author$project$Route$Stories$Id_$route = $author$project$RouteBuilder$buildWithLocalState_fn({ fa: $author$project$Route$Stories$Id_$init, fj: $author$project$Route$Stories$Id_$subscriptions, db: $author$project$Route$Stories$Id_$update, bm: $author$project$Route$Stories$Id_$view }, $author$project$RouteBuilder$serverRender({
+        a2: function (_v0) {
             return $author$project$Server$Request$oneOf(_List_Nil);
         },
-        dG: $author$project$Route$Stories$Id_$head
+        ev: $author$project$Route$Stories$Id_$head
     }));
     var $author$project$Server$Response$withStatusCode_fn = function (statusCode, serverResponse) {
         switch (serverResponse.$) {
             case 0:
                 var response = serverResponse.a;
                 var data = serverResponse.b;
-                return $author$project$PageServerResponse$RenderPage_fn(_Utils_update(response, { Y: statusCode }), data);
+                return $author$project$PageServerResponse$RenderPage_fn(_Utils_update(response, { ap: statusCode }), data);
             case 1:
                 var response = serverResponse.a;
-                return $author$project$PageServerResponse$ServerResponse(_Utils_update(response, { Y: statusCode }));
+                return $author$project$PageServerResponse$ServerResponse(_Utils_update(response, { ap: statusCode }));
             default:
                 var error = serverResponse.a;
                 return $elm$core$Basics$never(error);
@@ -7688,11 +7688,11 @@
         else {
             if (route.a.$ === 1) {
                 var routeParams = route.a.a;
-                return $author$project$DataSource$map_fn($author$project$Server$Response$map($author$project$Main$DataFeed__), $author$project$Route$Feed__$route.aE(routeParams));
+                return $author$project$DataSource$map_fn($author$project$Server$Response$map($author$project$Main$DataFeed__), $author$project$Route$Feed__$route.a2(routeParams));
             }
             else {
                 var routeParams = route.a.a;
-                return $author$project$DataSource$map_fn($author$project$Server$Response$map($author$project$Main$DataStories__Id_), $author$project$Route$Stories$Id_$route.aE(routeParams));
+                return $author$project$DataSource$map_fn($author$project$Server$Response$map($author$project$Main$DataStories__Id_), $author$project$Route$Stories$Id_$route.a2(routeParams));
             }
         }
     };
@@ -7795,10 +7795,10 @@
         }
     }, $lamdera$codecs$Lamdera$Wire3$decodeUnsignedInt8);
     var $author$project$Pages$Internal$RoutePattern$w3_decode_RoutePattern = $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeList($author$project$Pages$Internal$RoutePattern$w3_decode_Segment), $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeMaybe($author$project$Pages$Internal$RoutePattern$w3_decode_Ending), $lamdera$codecs$Lamdera$Wire3$succeedDecode(F2(function (ending0, segments0) {
-        return { et: ending0, eP: segments0 };
+        return { e8: ending0, fh: segments0 };
     }))));
     var $author$project$Pages$Internal$NotFoundReason$w3_decode_ModuleContext = $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($author$project$Pages$Internal$RoutePattern$w3_decode_RoutePattern, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeList($lamdera$codecs$Lamdera$Wire3$decodeString), $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($author$project$Pages$Internal$NotFoundReason$w3_decode_Record, $lamdera$codecs$Lamdera$Wire3$succeedDecode(F3(function (matchedRouteParams0, moduleName0, routePattern0) {
-        return { b2: matchedRouteParams0, fX: moduleName0, f8: routePattern0 };
+        return { c_: matchedRouteParams0, f$: moduleName0, ga: routePattern0 };
     })))));
     var $author$project$Pages$Internal$NotFoundReason$w3_decode_NotFoundReason = $elm$bytes$Bytes$Decode$andThen_fn(function (w3v) {
         switch (w3v) {
@@ -7829,7 +7829,7 @@
                     return $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn(w3_x_c_shared, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn(w3_x_c_data, $lamdera$codecs$Lamdera$Wire3$succeedDecode($author$project$Pages$Internal$ResponseSketch$HotUpdate)));
                 case 1:
                     return $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($author$project$Pages$Internal$NotFoundReason$w3_decode_NotFoundReason, $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($author$project$Path$w3_decode_Path, $lamdera$codecs$Lamdera$Wire3$succeedDecode(F2(function (path0, reason0) {
-                        return { b5: path0, cR: reason0 };
+                        return { c3: path0, dP: reason0 };
                     })))), $lamdera$codecs$Lamdera$Wire3$succeedDecode($author$project$Pages$Internal$ResponseSketch$NotFound));
                 case 2:
                     return $lamdera$codecs$Lamdera$Wire3$andMapDecode_fn($lamdera$codecs$Lamdera$Wire3$decodeString, $lamdera$codecs$Lamdera$Wire3$succeedDecode($author$project$Pages$Internal$ResponseSketch$Redirect));
@@ -7922,15 +7922,15 @@
     };
     var $author$project$Pages$Internal$RoutePattern$w3_encode_RoutePattern = function (w3_rec_var0) {
         return $lamdera$codecs$Lamdera$Wire3$encodeSequenceWithoutLength(_List_fromArray([
-            $lamdera$codecs$Lamdera$Wire3$encodeMaybe_fn($author$project$Pages$Internal$RoutePattern$w3_encode_Ending, w3_rec_var0.et),
-            $lamdera$codecs$Lamdera$Wire3$encodeList_fn($author$project$Pages$Internal$RoutePattern$w3_encode_Segment, w3_rec_var0.eP)
+            $lamdera$codecs$Lamdera$Wire3$encodeMaybe_fn($author$project$Pages$Internal$RoutePattern$w3_encode_Ending, w3_rec_var0.e8),
+            $lamdera$codecs$Lamdera$Wire3$encodeList_fn($author$project$Pages$Internal$RoutePattern$w3_encode_Segment, w3_rec_var0.fh)
         ]));
     };
     var $author$project$Pages$Internal$NotFoundReason$w3_encode_ModuleContext = function (w3_rec_var0) {
         return $lamdera$codecs$Lamdera$Wire3$encodeSequenceWithoutLength(_List_fromArray([
-            $lamdera$codecs$Lamdera$Wire3$encodeList_fn($author$project$Pages$Internal$NotFoundReason$w3_encode_Record_a0, w3_rec_var0.b2),
-            $lamdera$codecs$Lamdera$Wire3$encodeList_fn($lamdera$codecs$Lamdera$Wire3$encodeString, w3_rec_var0.fX),
-            $author$project$Pages$Internal$RoutePattern$w3_encode_RoutePattern(w3_rec_var0.f8)
+            $lamdera$codecs$Lamdera$Wire3$encodeList_fn($author$project$Pages$Internal$NotFoundReason$w3_encode_Record_a0, w3_rec_var0.c_),
+            $lamdera$codecs$Lamdera$Wire3$encodeList_fn($lamdera$codecs$Lamdera$Wire3$encodeString, w3_rec_var0.f$),
+            $author$project$Pages$Internal$RoutePattern$w3_encode_RoutePattern(w3_rec_var0.ga)
         ]));
     };
     var $author$project$Pages$Internal$NotFoundReason$w3_encode_NotFoundReason = function (w3v) {
@@ -7986,8 +7986,8 @@
                     $lamdera$codecs$Lamdera$Wire3$encodeUnsignedInt8(1),
                     function (w3_rec_var0) {
                         return $lamdera$codecs$Lamdera$Wire3$encodeSequenceWithoutLength(_List_fromArray([
-                            $author$project$Path$w3_encode_Path(w3_rec_var0.b5),
-                            $author$project$Pages$Internal$NotFoundReason$w3_encode_NotFoundReason(w3_rec_var0.cR)
+                            $author$project$Path$w3_encode_Path(w3_rec_var0.c3),
+                            $author$project$Pages$Internal$NotFoundReason$w3_encode_NotFoundReason(w3_rec_var0.dP)
                         ]));
                     }(v0)
                 ]));
@@ -8022,24 +8022,24 @@
         }
     };
     var $elm$http$Http$task = function (r) {
-        return _Http_toTask_fn(0, $elm$http$Http$resultToTask, { go: false, dl: r.dl, gK: r.hB, dH: r.dH, dP: r.dP, hS: r.hS, hU: $elm$core$Maybe$Nothing, ej: r.ej });
+        return _Http_toTask_fn(0, $elm$http$Http$resultToTask, { gp: false, ed: r.ed, gL: r.hB, ew: r.ew, eE: r.eE, hS: r.hS, hU: $elm$core$Maybe$Nothing, e2: r.e2 });
     };
     var $author$project$Main$fetchPageData_fn = function (url, details) {
         return _Scheduler_andThen_fn(function (_v2) {
             var response = _v2.b;
             if (response.$ === 2) {
                 var location = response.a;
-                return $author$project$Main$fetchPageData_fn(_Utils_update(url, { b5: location }), $elm$core$Maybe$Nothing);
+                return $author$project$Main$fetchPageData_fn(_Utils_update(url, { c3: location }), $elm$core$Maybe$Nothing);
             }
             else {
                 return $elm$core$Task$succeed(_Utils_Tuple2(url, response));
             }
         }, $elm$http$Http$task({
-            dl: $elm$core$Maybe$withDefault_fn($elm$http$Http$emptyBody, $elm$core$Maybe$map_fn(function (justDetails) {
-                return _Http_pair_fn(justDetails.aY, justDetails.dl);
+            ed: $elm$core$Maybe$withDefault_fn($elm$http$Http$emptyBody, $elm$core$Maybe$map_fn(function (justDetails) {
+                return _Http_pair_fn(justDetails.bx, justDetails.ed);
             }, details)),
-            dH: _List_Nil,
-            dP: $elm$core$Maybe$withDefault_fn("GET", $elm$core$Maybe$map_fn(function (_v0) {
+            ew: _List_Nil,
+            eE: $elm$core$Maybe$withDefault_fn("GET", $elm$core$Maybe$map_fn(function (_v0) {
                 return "POST";
             }, details)),
             hB: _Http_expect_fn($elm$http$Http$bytesResolver_a0, $elm$http$Http$bytesResolver_a1, function (response) {
@@ -8053,7 +8053,7 @@
                         return $elm$core$Result$Err($elm$http$Http$NetworkError);
                     case 3:
                         var metadata = response.a;
-                        return $elm$core$Result$Err($elm$http$Http$BadStatus(metadata.Y));
+                        return $elm$core$Result$Err($elm$http$Http$BadStatus(metadata.ap));
                     default:
                         var body = response.b;
                         return $elm$core$Result$map_fn(function (okResponse) {
@@ -8062,9 +8062,9 @@
                 }
             }),
             hS: $elm$core$Maybe$Nothing,
-            ej: _String_append_fn("/", $elm$core$String$join_fn("/", function (l) {
+            e2: _String_append_fn("/", $elm$core$String$join_fn("/", function (l) {
                 return _Utils_ap(l, _List_fromArray(["content.dat"]));
-            }($elm$core$List$filter_fn($elm$core$Basics$neq(""), $elm$core$String$split_fn("/", $elm$core$Basics$composeR_fn($author$project$Pages$Internal$String$chopForwardSlashes_a0, $author$project$Pages$Internal$String$chopForwardSlashes_a1, url.b5))))))
+            }($elm$core$List$filter_fn($elm$core$Basics$neq(""), $elm$core$String$split_fn("/", $elm$core$Basics$composeR_fn($author$project$Pages$Internal$String$chopForwardSlashes_a0, $author$project$Pages$Internal$String$chopForwardSlashes_a1, url.c3))))))
         }));
     }, $author$project$Main$fetchPageData = F2($author$project$Main$fetchPageData_fn);
     var $author$project$Effect$Cmd = function (a) {
@@ -8091,32 +8091,32 @@
         else {
             if (maybeRoute.a.$ === 1) {
                 var routeParams = maybeRoute.a.a;
-                return A3($author$project$Route$Feed__$route.e3, {
-                    fX: _List_fromArray(["Feed__"]),
-                    f8: {
-                        et: $elm$core$Maybe$Just($author$project$Pages$Internal$RoutePattern$Optional("feed")),
-                        eP: _List_Nil
+                return A3($author$project$Route$Feed__$route.fr, {
+                    f$: _List_fromArray(["Feed__"]),
+                    ga: {
+                        e8: $elm$core$Maybe$Just($author$project$Pages$Internal$RoutePattern$Optional("feed")),
+                        fh: _List_Nil
                     }
                 }, function (param) {
                     return _List_fromArray([
-                        _Utils_Tuple2("feed", $author$project$Main$maybeToString(param.gM))
+                        _Utils_Tuple2("feed", $author$project$Main$maybeToString(param.gN))
                     ]);
                 }, routeParams);
             }
             else {
                 var routeParams = maybeRoute.a.a;
-                return A3($author$project$Route$Stories$Id_$route.e3, {
-                    fX: _List_fromArray(["Stories", "Id_"]),
-                    f8: {
-                        et: $elm$core$Maybe$Nothing,
-                        eP: _List_fromArray([
+                return A3($author$project$Route$Stories$Id_$route.fr, {
+                    f$: _List_fromArray(["Stories", "Id_"]),
+                    ga: {
+                        e8: $elm$core$Maybe$Nothing,
+                        fh: _List_fromArray([
                             $author$project$Pages$Internal$RoutePattern$StaticSegment("stories"),
                             $author$project$Pages$Internal$RoutePattern$DynamicSegment("id")
                         ])
                     }
                 }, function (param) {
                     return _List_fromArray([
-                        _Utils_Tuple2("id", $author$project$Main$stringToString(param.g$))
+                        _Utils_Tuple2("id", $author$project$Main$stringToString(param.g0))
                     ]);
                 }, routeParams);
             }
@@ -8147,7 +8147,7 @@
     };
     var $author$project$Effect$batch = $author$project$Effect$Batch;
     var $author$project$ErrorPage$init = function (errorPage) {
-        return _Utils_Tuple2({ aZ: 0 }, $author$project$Effect$none);
+        return _Utils_Tuple2({ by: 0 }, $author$project$Effect$none);
     };
     var $author$project$Effect$FetchRouteData = function (a) {
         return { $: 3, a: a };
@@ -8166,9 +8166,9 @@
             default:
                 var fetchInfo = effect.a;
                 return $author$project$Effect$FetchRouteData({
-                    dl: fetchInfo.dl,
-                    b5: fetchInfo.b5,
-                    c4: A2($elm$core$Basics$composeR, fetchInfo.c4, fn)
+                    ed: fetchInfo.ed,
+                    c3: fetchInfo.c3,
+                    d0: A2($elm$core$Basics$composeR, fetchInfo.d0, fn)
                 });
         }
     }, $author$project$Effect$map = F2($author$project$Effect$map_fn);
@@ -8211,14 +8211,14 @@
         return { $: 0, a: a };
     };
     var $author$project$Shared$init_fn = function (flags, maybePagePath) {
-        return _Utils_Tuple2({ b8: false }, $author$project$Effect$none);
+        return _Utils_Tuple2({ c6: false }, $author$project$Effect$none);
     }, $author$project$Shared$init = F2($author$project$Shared$init_fn);
     var $author$project$Shared$subscriptions_fn = function (_v0, _v1) {
         return $elm$core$Platform$Sub$none;
     }, $author$project$Shared$subscriptions = F2($author$project$Shared$subscriptions_fn);
     var $author$project$Shared$update_fn = function (msg, model) {
         if (!msg.$) {
-            return _Utils_Tuple2(_Utils_update(model, { b8: false }), $author$project$Effect$none);
+            return _Utils_Tuple2(_Utils_update(model, { c6: false }), $author$project$Effect$none);
         }
         else {
             var globalMsg = msg.a;
@@ -8281,29 +8281,29 @@
     ]));
     var $author$project$Shared$view_fn = function (sharedData, page, model, toMsg, pageView) {
         return {
-            dl: $elm$html$Html$div_fn(_List_Nil, _List_Cons($author$project$Shared$headerView, pageView.dl)),
-            a6: pageView.a6
+            ed: $elm$html$Html$div_fn(_List_Nil, _List_Cons($author$project$Shared$headerView, pageView.ed)),
+            bR: pageView.bR
         };
     }, $author$project$Shared$view = F5($author$project$Shared$view_fn);
     var $author$project$Shared$template = {
-        aE: $author$project$DataSource$fail(""),
-        ex: $author$project$Shared$init,
-        f0: $elm$core$Maybe$Just($author$project$Shared$OnPageChange),
-        eR: $author$project$Shared$subscriptions,
-        cf: $author$project$Shared$update,
-        aR: $author$project$Shared$view
+        a2: $author$project$DataSource$fail(""),
+        fa: $author$project$Shared$init,
+        f3: $elm$core$Maybe$Just($author$project$Shared$OnPageChange),
+        fj: $author$project$Shared$subscriptions,
+        db: $author$project$Shared$update,
+        bm: $author$project$Shared$view
     };
     var $author$project$Main$init_fn = function (currentGlobalModel, userFlags, sharedData, pageData, navigationKey, maybePagePath) {
-        var _v0 = $elm$core$Maybe$withDefault_fn(A2($author$project$Shared$template.ex, userFlags, maybePagePath), $elm$core$Maybe$map_fn(function (m) {
+        var _v0 = $elm$core$Maybe$withDefault_fn(A2($author$project$Shared$template.fa, userFlags, maybePagePath), $elm$core$Maybe$map_fn(function (m) {
             return _Utils_Tuple2(m, $author$project$Effect$none);
         }, currentGlobalModel));
         var sharedModel = _v0.a;
         var globalCmd = _v0.b;
         var _v1 = function () {
             var _v2 = _Utils_Tuple2($elm$core$Maybe$map2_fn($elm$core$Tuple$pair, $elm$core$Maybe$andThen_fn(function ($) {
-                return $.W;
+                return $.an;
             }, maybePagePath), $elm$core$Maybe$map_fn(function ($) {
-                return $.b5;
+                return $.c3;
             }, maybePagePath)), pageData);
             _v2$2: while (true) {
                 if (!_v2.a.$) {
@@ -8313,9 +8313,9 @@
                             var routeParams = _v3.a.a;
                             var justPath = _v3.b;
                             var thisPageData = _v2.b.a;
-                            return $elm$core$Tuple$mapBoth_fn($author$project$Main$ModelFeed__, $author$project$Effect$map($author$project$Main$MsgFeed__), A3($author$project$Route$Feed__$route.ex, $elm$core$Maybe$andThen_fn(function ($) {
-                                return $.a2;
-                            }, maybePagePath), sharedModel, { aE: thisPageData, b5: justPath.b5, cT: routeParams, b7: sharedData }));
+                            return $elm$core$Tuple$mapBoth_fn($author$project$Main$ModelFeed__, $author$project$Effect$map($author$project$Main$MsgFeed__), A3($author$project$Route$Feed__$route.fa, $elm$core$Maybe$andThen_fn(function ($) {
+                                return $.bG;
+                            }, maybePagePath), sharedModel, { a2: thisPageData, c3: justPath.c3, dR: routeParams, c5: sharedData }));
                         }
                         else {
                             break _v2$2;
@@ -8327,9 +8327,9 @@
                             var routeParams = _v4.a.a;
                             var justPath = _v4.b;
                             var thisPageData = _v2.b.a;
-                            return $elm$core$Tuple$mapBoth_fn($author$project$Main$ModelStories__Id_, $author$project$Effect$map($author$project$Main$MsgStories__Id_), A3($author$project$Route$Stories$Id_$route.ex, $elm$core$Maybe$andThen_fn(function ($) {
-                                return $.a2;
-                            }, maybePagePath), sharedModel, { aE: thisPageData, b5: justPath.b5, cT: routeParams, b7: sharedData }));
+                            return $elm$core$Tuple$mapBoth_fn($author$project$Main$ModelStories__Id_, $author$project$Effect$map($author$project$Main$MsgStories__Id_), A3($author$project$Route$Stories$Id_$route.fa, $elm$core$Maybe$andThen_fn(function ($) {
+                                return $.bG;
+                            }, maybePagePath), sharedModel, { a2: thisPageData, c3: justPath.c3, dR: routeParams, c5: sharedData }));
                         }
                         else {
                             break _v2$2;
@@ -8352,15 +8352,15 @@
         }();
         var templateModel = _v1.a;
         var templateCmd = _v1.b;
-        return _Utils_Tuple2({ ab: maybePagePath, j: sharedModel, A: templateModel }, $author$project$Effect$batch(_List_fromArray([
+        return _Utils_Tuple2({ at: maybePagePath, j: sharedModel, B: templateModel }, $author$project$Effect$batch(_List_fromArray([
             templateCmd,
             $author$project$Effect$map_fn($author$project$Main$MsgGlobal, globalCmd)
         ])));
     }, $author$project$Main$init = F6($author$project$Main$init_fn);
     var $author$project$ErrorPage$internalError = $author$project$ErrorPage$InternalError;
     var $author$project$Effect$perform_fn = function (helpers, effect) {
-        var key = helpers.g4;
-        var fromPageMsg = helpers.gS;
+        var key = helpers.g5;
+        var fromPageMsg = helpers.gT;
         switch (effect.$) {
             case 0:
                 return $elm$core$Platform$Cmd$none;
@@ -8372,26 +8372,26 @@
                 return $elm$core$Platform$Cmd$batch($elm$core$List$map_fn($author$project$Effect$perform(helpers), list));
             default:
                 var fetchInfo = effect.a;
-                return helpers.gO({ dl: fetchInfo.dl, b5: fetchInfo.b5, c4: fetchInfo.c4 });
+                return helpers.gP({ ed: fetchInfo.ed, c3: fetchInfo.c3, d0: fetchInfo.d0 });
         }
     }, $author$project$Effect$perform = F2($author$project$Effect$perform_fn);
     var $author$project$Main$routePatterns3 = _List_fromArray([
         {
-            et: $elm$core$Maybe$Nothing,
-            eP: _List_fromArray([
+            e8: $elm$core$Maybe$Nothing,
+            fh: _List_fromArray([
                 $author$project$Pages$Internal$RoutePattern$StaticSegment("stories"),
                 $author$project$Pages$Internal$RoutePattern$DynamicSegment("id")
             ])
         },
         {
-            et: $elm$core$Maybe$Just($author$project$Pages$Internal$RoutePattern$Optional("feed")),
-            eP: _List_Nil
+            e8: $elm$core$Maybe$Just($author$project$Pages$Internal$RoutePattern$Optional("feed")),
+            fh: _List_Nil
         }
     ]);
     var $lamdera$codecs$Lamdera$Wire3$encodeBytes_ = _LamderaCodecs_encodeBytes;
     var $author$project$Main$sendPageData = _Platform_outgoingPort("sendPageData", function ($) {
         return $elm$json$Json$Encode$object(_List_fromArray([
-            _Utils_Tuple2("binaryPageData", $lamdera$codecs$Lamdera$Wire3$encodeBytes_($.gt)),
+            _Utils_Tuple2("binaryPageData", $lamdera$codecs$Lamdera$Wire3$encodeBytes_($.gu)),
             _Utils_Tuple2("oldThing", $elm$core$Basics$identity($.hk))
         ]));
     });
@@ -8404,14 +8404,14 @@
         }
     };
     var $author$project$Main$templateSubscriptions_fn = function (route, path, model) {
-        var _v0 = _Utils_Tuple2(model.A, route);
+        var _v0 = _Utils_Tuple2(model.B, route);
         _v0$2: while (true) {
             if (!_v0.b.$) {
                 if (_v0.b.a.$ === 1) {
                     if (!_v0.a.$) {
                         var templateModel = _v0.a.a;
                         var routeParams = _v0.b.a.a;
-                        return _Platform_map_fn($author$project$Main$MsgFeed__, A5($author$project$Route$Feed__$route.eR, $elm$core$Maybe$Nothing, routeParams, path, templateModel, model.j));
+                        return _Platform_map_fn($author$project$Main$MsgFeed__, A5($author$project$Route$Feed__$route.fj, $elm$core$Maybe$Nothing, routeParams, path, templateModel, model.j));
                     }
                     else {
                         break _v0$2;
@@ -8421,7 +8421,7 @@
                     if (_v0.a.$ === 1) {
                         var templateModel = _v0.a.a;
                         var routeParams = _v0.b.a.a;
-                        return _Platform_map_fn($author$project$Main$MsgStories__Id_, A5($author$project$Route$Stories$Id_$route.eR, $elm$core$Maybe$Nothing, routeParams, path, templateModel, model.j));
+                        return _Platform_map_fn($author$project$Main$MsgStories__Id_, A5($author$project$Route$Stories$Id_$route.fj, $elm$core$Maybe$Nothing, routeParams, path, templateModel, model.j));
                     }
                     else {
                         break _v0$2;
@@ -8484,29 +8484,29 @@
         return _Utils_Tuple3(fnA(a), fnB(b), c);
     }, $author$project$Main$mapBoth = F3($author$project$Main$mapBoth_fn);
     var $author$project$ErrorPage$update_fn = function (errorPage, msg, model) {
-        return _Utils_Tuple2(_Utils_update(model, { aZ: model.aZ + 1 }), $author$project$Effect$none);
+        return _Utils_Tuple2(_Utils_update(model, { by: model.by + 1 }), $author$project$Effect$none);
     }, $author$project$ErrorPage$update = F3($author$project$ErrorPage$update_fn);
     var $author$project$Main$update_fn = function (sharedData, pageData, navigationKey, msg, model) {
         switch (msg.$) {
             case 2:
                 var msg_ = msg.a;
                 var _v1 = function () {
-                    var _v2 = _Utils_Tuple2(model.A, pageData);
+                    var _v2 = _Utils_Tuple2(model.B, pageData);
                     if ((_v2.a.$ === 2) && (_v2.b.$ === 1)) {
                         var pageModel = _v2.a.a;
                         var thisPageData = _v2.b.a;
                         return $elm$core$Tuple$mapBoth_fn($author$project$Main$ModelErrorPage____, $author$project$Effect$map($author$project$Main$MsgErrorPage____), $author$project$ErrorPage$update_fn(thisPageData, msg_, pageModel));
                     }
                     else {
-                        return _Utils_Tuple2(model.A, $author$project$Effect$none);
+                        return _Utils_Tuple2(model.B, $author$project$Effect$none);
                     }
                 }();
                 var updatedPageModel = _v1.a;
                 var pageCmd = _v1.b;
-                return _Utils_Tuple2(_Utils_update(model, { A: updatedPageModel }), pageCmd);
+                return _Utils_Tuple2(_Utils_update(model, { B: updatedPageModel }), pageCmd);
             case 0:
                 var msg_ = msg.a;
-                var _v3 = A2($author$project$Shared$template.cf, msg_, model.j);
+                var _v3 = A2($author$project$Shared$template.db, msg_, model.j);
                 var sharedModel = _v3.a;
                 var globalCmd = _v3.b;
                 return _Utils_Tuple2(_Utils_update(model, { j: sharedModel }), $author$project$Effect$map_fn($author$project$Main$MsgGlobal, globalCmd));
@@ -8515,13 +8515,13 @@
                 return function (_v4) {
                     var updatedModel = _v4.a;
                     var cmd = _v4.b;
-                    var _v5 = $author$project$Shared$template.f0;
+                    var _v5 = $author$project$Shared$template.f3;
                     if (_v5.$ === 1) {
                         return _Utils_Tuple2(updatedModel, cmd);
                     }
                     else {
                         var thingy = _v5.a;
-                        var _v6 = A2($author$project$Shared$template.cf, thingy({ R: record.R, b5: record.b5, T: record.T }), model.j);
+                        var _v6 = A2($author$project$Shared$template.db, thingy({ ae: record.ae, c3: record.c3, ak: record.ak }), model.j);
                         var updatedGlobalModel = _v6.a;
                         var globalCmd = _v6.b;
                         return _Utils_Tuple2(_Utils_update(updatedModel, { j: updatedGlobalModel }), $author$project$Effect$batch(_List_fromArray([
@@ -8530,29 +8530,29 @@
                         ])));
                     }
                 }($author$project$Main$init_fn($elm$core$Maybe$Just(model.j), $author$project$Pages$Flags$PreRenderFlags, sharedData, pageData, navigationKey, $elm$core$Maybe$Just({
-                    W: record.W,
-                    a2: $elm$core$Maybe$Just({
-                        R: record.R,
-                        cA: record.cA,
-                        b5: record.b5,
-                        cN: record.cN,
-                        cP: record.cP,
-                        T: $elm$core$Maybe$map_fn($author$project$QueryParams$fromString, record.T)
+                    an: record.an,
+                    bG: $elm$core$Maybe$Just({
+                        ae: record.ae,
+                        dy: record.dy,
+                        c3: record.c3,
+                        dK: record.dK,
+                        dM: record.dM,
+                        ak: $elm$core$Maybe$map_fn($author$project$QueryParams$fromString, record.ak)
                     }),
-                    b5: { R: record.R, b5: record.b5, T: record.T }
+                    c3: { ae: record.ae, c3: record.c3, ak: record.ak }
                 })));
             case 3:
                 var msg_ = msg.a;
                 var _v7 = function () {
-                    var _v9 = _Utils_Tuple3(model.A, pageData, $elm$core$Maybe$map3_fn_unwrapped(function (a, b, c) {
+                    var _v9 = _Utils_Tuple3(model.B, pageData, $elm$core$Maybe$map3_fn_unwrapped(function (a, b, c) {
                         return _Utils_Tuple3(a, b, c);
                     }, $elm$core$Maybe$andThen_fn(function ($) {
-                        return $.W;
-                    }, model.ab), $elm$core$Maybe$andThen_fn(function ($) {
-                        return $.a2;
-                    }, model.ab), $elm$core$Maybe$map_fn(function ($) {
-                        return $.b5;
-                    }, model.ab)));
+                        return $.an;
+                    }, model.at), $elm$core$Maybe$andThen_fn(function ($) {
+                        return $.bG;
+                    }, model.at), $elm$core$Maybe$map_fn(function ($) {
+                        return $.c3;
+                    }, model.at)));
                     if ((((!_v9.a.$) && (_v9.b.$ === 2)) && (!_v9.c.$)) && (_v9.c.a.a.$ === 1)) {
                         var pageModel = _v9.a.a;
                         var thisPageData = _v9.b.a;
@@ -8566,15 +8566,15 @@
                             var c = _v11.c;
                             if (!c.$) {
                                 var sharedMsg = c.a;
-                                return _Utils_Tuple3(a, b, A2($author$project$Shared$template.cf, sharedMsg, model.j));
+                                return _Utils_Tuple3(a, b, A2($author$project$Shared$template.db, sharedMsg, model.j));
                             }
                             else {
                                 return _Utils_Tuple3(a, b, _Utils_Tuple2(model.j, $author$project$Effect$none));
                             }
-                        }($author$project$Main$mapBoth_fn($author$project$Main$ModelFeed__, $author$project$Effect$map($author$project$Main$MsgFeed__), A5($author$project$Route$Feed__$route.cf, pageUrl, { aE: thisPageData, b5: justPage.b5, cT: routeParams, b7: sharedData }, msg_, pageModel, model.j)));
+                        }($author$project$Main$mapBoth_fn($author$project$Main$ModelFeed__, $author$project$Effect$map($author$project$Main$MsgFeed__), A5($author$project$Route$Feed__$route.db, pageUrl, { a2: thisPageData, c3: justPage.c3, dR: routeParams, c5: sharedData }, msg_, pageModel, model.j)));
                     }
                     else {
-                        return _Utils_Tuple3(model.A, $author$project$Effect$none, _Utils_Tuple2(model.j, $author$project$Effect$none));
+                        return _Utils_Tuple3(model.B, $author$project$Effect$none, _Utils_Tuple2(model.j, $author$project$Effect$none));
                     }
                 }();
                 var updatedPageModel = _v7.a;
@@ -8582,22 +8582,22 @@
                 var _v8 = _v7.c;
                 var newGlobalModel = _v8.a;
                 var newGlobalCmd = _v8.b;
-                return _Utils_Tuple2(_Utils_update(model, { j: newGlobalModel, A: updatedPageModel }), $author$project$Effect$batch(_List_fromArray([
+                return _Utils_Tuple2(_Utils_update(model, { j: newGlobalModel, B: updatedPageModel }), $author$project$Effect$batch(_List_fromArray([
                     pageCmd,
                     $author$project$Effect$map_fn($author$project$Main$MsgGlobal, newGlobalCmd)
                 ])));
             default:
                 var msg_ = msg.a;
                 var _v13 = function () {
-                    var _v15 = _Utils_Tuple3(model.A, pageData, $elm$core$Maybe$map3_fn_unwrapped(function (a, b, c) {
+                    var _v15 = _Utils_Tuple3(model.B, pageData, $elm$core$Maybe$map3_fn_unwrapped(function (a, b, c) {
                         return _Utils_Tuple3(a, b, c);
                     }, $elm$core$Maybe$andThen_fn(function ($) {
-                        return $.W;
-                    }, model.ab), $elm$core$Maybe$andThen_fn(function ($) {
-                        return $.a2;
-                    }, model.ab), $elm$core$Maybe$map_fn(function ($) {
-                        return $.b5;
-                    }, model.ab)));
+                        return $.an;
+                    }, model.at), $elm$core$Maybe$andThen_fn(function ($) {
+                        return $.bG;
+                    }, model.at), $elm$core$Maybe$map_fn(function ($) {
+                        return $.c3;
+                    }, model.at)));
                     if ((((_v15.a.$ === 1) && (_v15.b.$ === 3)) && (!_v15.c.$)) && (!_v15.c.a.a.$)) {
                         var pageModel = _v15.a.a;
                         var thisPageData = _v15.b.a;
@@ -8611,15 +8611,15 @@
                             var c = _v17.c;
                             if (!c.$) {
                                 var sharedMsg = c.a;
-                                return _Utils_Tuple3(a, b, A2($author$project$Shared$template.cf, sharedMsg, model.j));
+                                return _Utils_Tuple3(a, b, A2($author$project$Shared$template.db, sharedMsg, model.j));
                             }
                             else {
                                 return _Utils_Tuple3(a, b, _Utils_Tuple2(model.j, $author$project$Effect$none));
                             }
-                        }($author$project$Main$mapBoth_fn($author$project$Main$ModelStories__Id_, $author$project$Effect$map($author$project$Main$MsgStories__Id_), A5($author$project$Route$Stories$Id_$route.cf, pageUrl, { aE: thisPageData, b5: justPage.b5, cT: routeParams, b7: sharedData }, msg_, pageModel, model.j)));
+                        }($author$project$Main$mapBoth_fn($author$project$Main$ModelStories__Id_, $author$project$Effect$map($author$project$Main$MsgStories__Id_), A5($author$project$Route$Stories$Id_$route.db, pageUrl, { a2: thisPageData, c3: justPage.c3, dR: routeParams, c5: sharedData }, msg_, pageModel, model.j)));
                     }
                     else {
-                        return _Utils_Tuple3(model.A, $author$project$Effect$none, _Utils_Tuple2(model.j, $author$project$Effect$none));
+                        return _Utils_Tuple3(model.B, $author$project$Effect$none, _Utils_Tuple2(model.j, $author$project$Effect$none));
                     }
                 }();
                 var updatedPageModel = _v13.a;
@@ -8627,14 +8627,14 @@
                 var _v14 = _v13.c;
                 var newGlobalModel = _v14.a;
                 var newGlobalCmd = _v14.b;
-                return _Utils_Tuple2(_Utils_update(model, { j: newGlobalModel, A: updatedPageModel }), $author$project$Effect$batch(_List_fromArray([
+                return _Utils_Tuple2(_Utils_update(model, { j: newGlobalModel, B: updatedPageModel }), $author$project$Effect$batch(_List_fromArray([
                     pageCmd,
                     $author$project$Effect$map_fn($author$project$Main$MsgGlobal, newGlobalCmd)
                 ])));
         }
     }, $author$project$Main$update = F5($author$project$Main$update_fn);
     var $elm$regex$Regex$Match_fn = function (match, index, number, submatches) {
-        return { a: index, cJ: match, dS: number, ge: submatches };
+        return { a: index, a9: match, eJ: number, gf: submatches };
     }, $elm$regex$Regex$Match = F4($elm$regex$Regex$Match_fn);
     var $elm$regex$Regex$contains = _Regex_contains;
     var $elm_community$list_extra$List$Extra$findMap_fn = function (f, list) {
@@ -8670,7 +8670,7 @@
     };
     var $elm$regex$Regex$fromStringWith = _Regex_fromStringWith;
     var $elm$regex$Regex$fromString = function (string) {
-        return _Regex_fromStringWith_fn({ gx: false, g9: false }, string);
+        return _Regex_fromStringWith_fn({ gy: false, g9: false }, string);
     };
     var $elm$regex$Regex$never = _Regex_never;
     var $author$project$Pages$Internal$Router$toRegex = function (pattern) {
@@ -8682,26 +8682,26 @@
     var $elm$regex$Regex$find_a0 = _Regex_infinity, $elm$regex$Regex$find = _Regex_findAtMost($elm$regex$Regex$find_a0);
     var $author$project$Pages$Internal$Router$submatches_fn = function (pattern, path) {
         return $elm$core$List$concatMap_fn(function ($) {
-            return $.ge;
+            return $.gf;
         }, _Regex_findAtMost_fn($elm$regex$Regex$find_a0, $elm$core$Maybe$withDefault_fn($elm$regex$Regex$never, $elm$regex$Regex$fromString(pattern)), path));
     }, $author$project$Pages$Internal$Router$submatches = F2($author$project$Pages$Internal$Router$submatches_fn);
     var $author$project$Pages$Internal$Router$tryMatch_fn = function (_v0, path) {
-        var toRoute = _v0.eU;
-        var pattern = _v0.fb;
+        var toRoute = _v0.fk;
+        var pattern = _v0.fu;
         return toRoute($author$project$Pages$Internal$Router$submatches_fn(pattern, $author$project$Pages$Internal$Router$normalizePath(path)));
     }, $author$project$Pages$Internal$Router$tryMatch = F2($author$project$Pages$Internal$Router$tryMatch_fn);
     var $author$project$Pages$Internal$Router$firstMatch_fn = function (matchers, path) {
         return $elm_community$list_extra$List$Extra$findMap_fn(function (matcher) {
-            return _Regex_contains_fn($author$project$Pages$Internal$Router$toRegex(matcher.fb), $author$project$Pages$Internal$Router$normalizePath(path)) ? $author$project$Pages$Internal$Router$tryMatch_fn(matcher, path) : $elm$core$Maybe$Nothing;
+            return _Regex_contains_fn($author$project$Pages$Internal$Router$toRegex(matcher.fu), $author$project$Pages$Internal$Router$normalizePath(path)) ? $author$project$Pages$Internal$Router$tryMatch_fn(matcher, path) : $elm$core$Maybe$Nothing;
         }, matchers);
     }, $author$project$Pages$Internal$Router$firstMatch = F2($author$project$Pages$Internal$Router$firstMatch_fn);
     var $author$project$Route$matchers = _List_fromArray([
         {
-            fb: "^\\/stories\\/(?:([^/]+))\\/?$",
-            eU: function (matches) {
+            fu: "^\\/stories\\/(?:([^/]+))\\/?$",
+            fk: function (matches) {
                 if ((matches.b && (!matches.a.$)) && (!matches.b.b)) {
                     var id = matches.a.a;
-                    return $elm$core$Maybe$Just($author$project$Route$Stories__Id_({ g$: id }));
+                    return $elm$core$Maybe$Just($author$project$Route$Stories__Id_({ g0: id }));
                 }
                 else {
                     return $elm$core$Maybe$Nothing;
@@ -8709,11 +8709,11 @@
             }
         },
         {
-            fb: "^\\/(?:([^/]+))?\\/?$",
-            eU: function (matches) {
+            fu: "^\\/(?:([^/]+))?\\/?$",
+            fk: function (matches) {
                 if (matches.b && (!matches.b.b)) {
                     var feed = matches.a;
-                    return $elm$core$Maybe$Just($author$project$Route$Feed__({ gM: feed }));
+                    return $elm$core$Maybe$Just($author$project$Route$Feed__({ gN: feed }));
                 }
                 else {
                     return $elm$core$Maybe$Nothing;
@@ -8725,12 +8725,12 @@
         return _String_startsWith_fn($author$project$Route$baseUrl, path) ? $elm$core$String$dropLeft_fn($elm$core$String$length($author$project$Route$baseUrl), path) : path;
     };
     var $author$project$Route$urlToRoute = function (url) {
-        return $author$project$Pages$Internal$Router$firstMatch_fn($author$project$Route$matchers, $author$project$Route$withoutBaseUrl(url.b5));
+        return $author$project$Pages$Internal$Router$firstMatch_fn($author$project$Route$matchers, $author$project$Route$withoutBaseUrl(url.c3));
     };
     var $author$project$View$map_fn = function (fn, doc) {
         return {
-            dl: $elm$core$List$map_fn($elm$html$Html$map(fn), doc.dl),
-            a6: doc.a6
+            ed: $elm$core$List$map_fn($elm$html$Html$map(fn), doc.ed),
+            bR: doc.bR
         };
     }, $author$project$View$map = F2($author$project$View$map_fn);
     var $author$project$ErrorPage$Increment = 0;
@@ -8747,7 +8747,7 @@
     };
     var $author$project$ErrorPage$view_fn = function (error, model) {
         return {
-            dl: _List_fromArray([
+            ed: _List_fromArray([
                 $elm$html$Html$div_fn(_List_Nil, _List_fromArray([
                     $elm$html$Html$p_fn(_List_Nil, _List_fromArray([
                         $elm$html$Html$text("Page not found. Maybe try another URL?")
@@ -8756,12 +8756,12 @@
                         $elm$html$Html$button_fn(_List_fromArray([
                             $elm$html$Html$Events$onClick(0)
                         ]), _List_fromArray([
-                            $elm$html$Html$text($elm$core$String$fromInt(model.aZ))
+                            $elm$html$Html$text($elm$core$String$fromInt(model.by))
                         ]))
                     ]))
                 ]))
             ]),
-            a6: "This is a NotFound Error"
+            bR: "This is a NotFound Error"
         };
     }, $author$project$ErrorPage$view = F2($author$project$ErrorPage$view_fn);
     var $author$project$Main$view_fn = function (page, maybePageUrl, globalData, pageData) {
@@ -8771,17 +8771,17 @@
                 case 1:
                     var data = _v0.b.a;
                     return {
-                        dG: _List_Nil,
-                        aR: function (model) {
-                            var _v1 = model.A;
+                        ev: _List_Nil,
+                        bm: function (model) {
+                            var _v1 = model.B;
                             if (_v1.$ === 2) {
                                 var subModel = _v1.a;
-                                return A5($author$project$Shared$template.aR, globalData, page, model.j, $author$project$Main$MsgGlobal, $author$project$View$map_fn($author$project$Main$MsgErrorPage____, $author$project$ErrorPage$view_fn(data, subModel)));
+                                return A5($author$project$Shared$template.bm, globalData, page, model.j, $author$project$Main$MsgGlobal, $author$project$View$map_fn($author$project$Main$MsgErrorPage____, $author$project$ErrorPage$view_fn(data, subModel)));
                             }
                             else {
                                 return {
-                                    dl: $elm$html$Html$text("Model mismatch"),
-                                    a6: "Model mismatch"
+                                    ed: $elm$html$Html$text("Model mismatch"),
+                                    bR: "Model mismatch"
                                 };
                             }
                         }
@@ -8791,17 +8791,17 @@
                         var s = _v0.a.a.a;
                         var data = _v0.b.a;
                         return {
-                            dG: _List_Nil,
-                            aR: function (model) {
-                                var _v2 = model.A;
+                            ev: _List_Nil,
+                            bm: function (model) {
+                                var _v2 = model.B;
                                 if (!_v2.$) {
                                     var subModel = _v2.a;
-                                    return A5($author$project$Shared$template.aR, globalData, page, model.j, $author$project$Main$MsgGlobal, $author$project$View$map_fn($author$project$Main$MsgFeed__, A4($author$project$Route$Feed__$route.aR, maybePageUrl, model.j, subModel, { aE: data, b5: page.b5, cT: s, b7: globalData })));
+                                    return A5($author$project$Shared$template.bm, globalData, page, model.j, $author$project$Main$MsgGlobal, $author$project$View$map_fn($author$project$Main$MsgFeed__, A4($author$project$Route$Feed__$route.bm, maybePageUrl, model.j, subModel, { a2: data, c3: page.c3, dR: s, c5: globalData })));
                                 }
                                 else {
                                     return {
-                                        dl: $elm$html$Html$text("Model mismatch"),
-                                        a6: "Model mismatch"
+                                        ed: $elm$html$Html$text("Model mismatch"),
+                                        bR: "Model mismatch"
                                     };
                                 }
                             }
@@ -8815,17 +8815,17 @@
                         var s = _v0.a.a.a;
                         var data = _v0.b.a;
                         return {
-                            dG: _List_Nil,
-                            aR: function (model) {
-                                var _v3 = model.A;
+                            ev: _List_Nil,
+                            bm: function (model) {
+                                var _v3 = model.B;
                                 if (_v3.$ === 1) {
                                     var subModel = _v3.a;
-                                    return A5($author$project$Shared$template.aR, globalData, page, model.j, $author$project$Main$MsgGlobal, $author$project$View$map_fn($author$project$Main$MsgStories__Id_, A4($author$project$Route$Stories$Id_$route.aR, maybePageUrl, model.j, subModel, { aE: data, b5: page.b5, cT: s, b7: globalData })));
+                                    return A5($author$project$Shared$template.bm, globalData, page, model.j, $author$project$Main$MsgGlobal, $author$project$View$map_fn($author$project$Main$MsgStories__Id_, A4($author$project$Route$Stories$Id_$route.bm, maybePageUrl, model.j, subModel, { a2: data, c3: page.c3, dR: s, c5: globalData })));
                                 }
                                 else {
                                     return {
-                                        dl: $elm$html$Html$text("Model mismatch"),
-                                        a6: "Model mismatch"
+                                        ed: $elm$html$Html$text("Model mismatch"),
+                                        bR: "Model mismatch"
                                     };
                                 }
                             }
@@ -8839,60 +8839,60 @@
             }
         }
         return {
-            dG: _List_Nil,
-            aR: function (_v4) {
+            ev: _List_Nil,
+            bm: function (_v4) {
                 return {
-                    dl: $elm$html$Html$div_fn(_List_Nil, _List_fromArray([
+                    ed: $elm$html$Html$div_fn(_List_Nil, _List_fromArray([
                         $elm$html$Html$text("This page could not be found.")
                     ])),
-                    a6: "Page not found"
+                    bR: "Page not found"
                 };
             }
         };
     }, $author$project$Main$view = F4($author$project$Main$view_fn);
     var $author$project$Main$config = {
-        gq: function (_v0) {
+        gr: function (_v0) {
             return _List_Nil;
         },
-        gs: _List_Nil,
-        gv: $author$project$Main$byteDecodePageData,
-        gw: $author$project$Main$byteEncodePageData,
-        gz: $author$project$Effect$fromCmd,
-        aE: $author$project$Main$dataForRoute,
-        gE: $author$project$Main$decodeResponse,
-        gH: $author$project$Main$encodeResponse,
-        gI: $author$project$Main$DataErrorPage____,
-        gJ: $author$project$ErrorPage$statusCode,
-        gN: $author$project$Main$fetchPageData,
-        gR: $author$project$Main$fromJsPort($elm$core$Basics$identity),
-        gT: $author$project$DataSource$succeed(_List_Nil),
-        dF: $elm$core$Maybe$Nothing,
-        gU: $elm$core$Platform$Sub$none,
-        e3: $author$project$Main$handleRoute,
-        gY: $author$project$Main$hotReloadData($elm$core$Basics$identity),
-        ex: $author$project$Main$init($elm$core$Maybe$Nothing),
-        g1: $author$project$ErrorPage$internalError,
+        gt: _List_Nil,
+        gw: $author$project$Main$byteDecodePageData,
+        gx: $author$project$Main$byteEncodePageData,
+        gA: $author$project$Effect$fromCmd,
+        a2: $author$project$Main$dataForRoute,
+        gF: $author$project$Main$decodeResponse,
+        gI: $author$project$Main$encodeResponse,
+        gJ: $author$project$Main$DataErrorPage____,
+        gK: $author$project$ErrorPage$statusCode,
+        gO: $author$project$Main$fetchPageData,
+        gS: $author$project$Main$fromJsPort($elm$core$Basics$identity),
+        gU: $author$project$DataSource$succeed(_List_Nil),
+        eu: $elm$core$Maybe$Nothing,
+        gV: $elm$core$Platform$Sub$none,
+        fr: $author$project$Main$handleRoute,
+        gZ: $author$project$Main$hotReloadData($elm$core$Basics$identity),
+        fa: $author$project$Main$init($elm$core$Maybe$Nothing),
+        g2: $author$project$ErrorPage$internalError,
         hi: $author$project$ErrorPage$notFound,
         hj: $elm$core$Maybe$Nothing,
-        f0: $author$project$Main$OnPageChange,
+        f3: $author$project$Main$OnPageChange,
         ho: $author$project$Main$routePatterns3,
         hp: $author$project$Effect$perform,
         hF: function (route) {
             return $elm$core$Maybe$withDefault_fn(_List_Nil, $elm$core$Maybe$map_fn($author$project$Route$routeToPath, route));
         },
         hK: $author$project$Main$sendPageData,
-        b7: $author$project$Shared$template.aE,
+        c5: $author$project$Shared$template.a2,
         hM: $elm$core$Maybe$Nothing,
-        eR: F3(function (route, path, model) {
+        fj: F3(function (route, path, model) {
             return $elm$core$Platform$Sub$batch(_List_fromArray([
-                _Platform_map_fn($author$project$Main$MsgGlobal, A2($author$project$Shared$template.eR, path, model.j)),
+                _Platform_map_fn($author$project$Main$MsgGlobal, A2($author$project$Shared$template.fj, path, model.j)),
                 $author$project$Main$templateSubscriptions_fn(route, path, model)
             ]));
         }),
         hT: $author$project$Main$toJsPort,
-        cf: $author$project$Main$update,
+        db: $author$project$Main$update,
         hX: $author$project$Route$urlToRoute,
-        aR: $author$project$Main$view
+        bm: $author$project$Main$view
     };
     var $author$project$Main$main = $author$project$Pages$Internal$Platform$application($author$project$Main$config);
     _Platform_export({ "Main": { "init": $author$project$Main$main($elm$json$Json$Decode$value)(0) } });
