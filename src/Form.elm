@@ -1841,6 +1841,7 @@ toHtml config toForm serverValidationErrors (Form fields _ _ _) =
             hasErrors2 serverValidationErrors
     in
     toForm
+        -- TODO get method from config
         ([ [ Attr.method "POST" ]
          , [ Attr.novalidate True |> Just
            , case ( config.onFormMsg, config.onSubmit ) of
