@@ -17,6 +17,7 @@ module Form exposing
     , hasErrors, rawValues, runClientValidations, withClientValidation, withRecoverableClientValidation
     , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
     , fieldStatusToString
+    --, withFormGetMethod, withFormUrl
     )
 
 {-|
@@ -137,6 +138,7 @@ import Http
 import Json.Encode as Encode
 import List.Extra
 import List.NonEmpty
+import Path
 import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
 import Url exposing (Url)
@@ -190,6 +192,7 @@ type Form msg error value view
                 )
         )
         (FieldState error -> Result (List ( String, List error )) ( value, List ( String, List error ) ))
+        FormConfig
 
 
 type alias FormConfig =
@@ -273,11 +276,14 @@ succeed constructor =
         (\_ -> Request.succeed (Ok ( constructor, [] )))
         (\_ -> Request.succeed (DataSource.succeed []))
         (\_ -> Ok ( constructor, [] ))
+        { url = Nothing
+        , method = Nothing
+        }
 
 
 {-| -}
 runClientValidations : Model -> Form msg String value view -> Result (List ( String, List String )) ( value, List ( String, List String ) )
-runClientValidations model (Form _ _ _ modelToValue) =
+runClientValidations model (Form _ _ _ modelToValue config) =
     modelToValue model.fields
 
 
@@ -326,7 +332,7 @@ rawValues model =
 
 
 runValidation : Form msg error value view -> { name : String, value : String } -> List error
-runValidation (Form fields _ _ _) newInput =
+runValidation (Form fields _ _ _ _) newInput =
     let
         matchingDecoder : Maybe (FieldInfoSimple msg error view)
         matchingDecoder =
@@ -397,7 +403,7 @@ update :
     -> Msg
     -> Model
     -> ( Model, effect )
-update submitEffect noEffect toMsg ((Form _ _ _ modelToValue) as form) msg model =
+update submitEffect noEffect toMsg ((Form _ _ _ modelToValue config) as form) msg model =
     case msg of
         OnFieldInput { name, value } ->
             let
@@ -495,8 +501,10 @@ update submitEffect noEffect toMsg ((Form _ _ _ modelToValue) as form) msg model
                 ( { model | isSubmitting = Submitting }
                 , submitEffect
                     { values = values
-                    , path = Nothing -- TODO remove hardcoding
-                    , method = Just "POST" -- TODO remove hardcoding
+
+                    -- TODO what to do if it's an external URL?
+                    , path = config.url |> Maybe.map Path.fromString |> Maybe.map Path.toSegments
+                    , method = config.method
                     , toMsg = GotFormResponse >> toMsg
                     }
                 )
@@ -521,7 +529,7 @@ initField =
 
 {-| -}
 init : Form msg String value view -> Model
-init ((Form fields _ _ modelToValue) as form) =
+init ((Form fields _ _ modelToValue _) as form) =
     let
         initialFields : Dict String { raw : Maybe String, errors : List String, status : FieldStatus }
         initialFields =
@@ -1519,9 +1527,23 @@ type alias FieldParsers =
     { required : String -> Parser (Maybe String), optional : String -> Parser (Maybe String) }
 
 
+{-| By default, Forms in this API use the POST method. See <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method>.
+-}
+withFormGetMethod : Form msg error form view -> Form msg error form view
+withFormGetMethod (Form fields decoder serverValidations modelToValue config) =
+    Form fields decoder serverValidations modelToValue { config | method = Just "GET" }
+
+
+{-| Set the URL to submit to.
+-}
+withFormUrl : String -> Form msg error form view -> Form msg error form view
+withFormUrl formUrl (Form fields decoder serverValidations modelToValue config) =
+    Form fields decoder serverValidations modelToValue { config | url = Just formUrl }
+
+
 {-| -}
 with : Field msg error value view constraints -> Form msg error (value -> form) view -> Form msg error form view
-with (Field field) (Form fields decoder serverValidations modelToValue) =
+with (Field field) (Form fields decoder serverValidations modelToValue config) =
     let
         thing : FieldParsers -> Parser (DataSource (List ( String, RawFieldState error )))
         thing expectFormField =
@@ -1624,6 +1646,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue) =
                                 )
                             )
         )
+        config
 
 
 combineWithDecoder :
@@ -1687,18 +1710,19 @@ addField field list =
 
 {-| -}
 append : Field msg error value view constraints -> Form msg error form view -> Form msg error form view
-append (Field field) (Form fields decoder serverValidations modelToValue) =
+append (Field field) (Form fields decoder serverValidations modelToValue config) =
     Form
         --(field :: fields)
         (addField field fields)
         decoder
         serverValidations
         modelToValue
+        config
 
 
 {-| -}
 validate : (form -> List ( String, List error )) -> Form msg error form view -> Form msg error form view
-validate validateFn (Form fields decoder serverValidations modelToValue) =
+validate validateFn (Form fields decoder serverValidations modelToValue config) =
     Form fields
         decoder
         serverValidations
@@ -1719,11 +1743,12 @@ validate validateFn (Form fields decoder serverValidations modelToValue) =
                             Err (errorsSoFar ++ newErrors)
                     )
         )
+        config
 
 
 {-| -}
 appendForm : (form1 -> form2 -> form) -> Form msg error form1 view -> Form msg error form2 view -> Form msg error form view
-appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form fields2 decoder2 serverValidations2 modelToValue2) =
+appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1 config1) (Form fields2 decoder2 serverValidations2 modelToValue2 config2) =
     Form
         -- TODO is this ordering correct?
         (fields1 ++ fields2)
@@ -1744,12 +1769,25 @@ appendForm mapFn (Form fields1 decoder1 serverValidations1 modelToValue1) (Form 
                 (modelToValue1 model)
                 (modelToValue2 model)
         )
+        { url = maybeOr config1.url config2.url
+        , method = maybeOr config1.method config2.method
+        }
+
+
+maybeOr : Maybe a -> Maybe a -> Maybe a
+maybeOr maybe1 maybe2 =
+    case maybe1 of
+        Just value1 ->
+            Just value1
+
+        Nothing ->
+            maybe2
 
 
 {-| -}
 wrap : (List view -> view) -> Form msg error form view -> Form msg error form view
-wrap newWrapFn (Form fields decoder serverValidations modelToValue) =
-    Form (wrapFields fields newWrapFn) decoder serverValidations modelToValue
+wrap newWrapFn (Form fields decoder serverValidations modelToValue config) =
+    Form (wrapFields fields newWrapFn) decoder serverValidations modelToValue config
 
 
 {-| -}
@@ -1835,10 +1873,13 @@ toStatelessHtml :
     -> Model
     -> Form msg String value view
     -> view
-toStatelessHtml maybeOnSubmit toForm serverValidationErrors (Form fields _ _ _) =
+toStatelessHtml maybeOnSubmit toForm serverValidationErrors (Form fields _ _ _ config) =
     toForm
         -- TODO get method from config
-        ([ [ Attr.method "POST" ]
+        ([ [ config.method
+                |> Maybe.withDefault "POST"
+                |> Attr.method
+           ]
          , [ Attr.novalidate True |> Just
            , case maybeOnSubmit of
                 Just onSubmit ->
@@ -1889,7 +1930,7 @@ toStatefulHtml :
     -> Model
     -> Form msg String value view
     -> view
-toStatefulHtml fromFormMsg toForm serverValidationErrors (Form fields _ _ _) =
+toStatefulHtml fromFormMsg toForm serverValidationErrors (Form fields _ _ _ _) =
     toForm
         [ -- TODO get method from config
           Attr.method "POST"
@@ -1949,7 +1990,7 @@ renderedFields onFormMsg serverValidationErrors fields =
 apiHandler :
     Form msg String value view
     -> Parser (DataSource (Response response error))
-apiHandler (Form _ decoder serverValidations _) =
+apiHandler (Form _ decoder serverValidations _ config) =
     let
         encodeErrors : List ( String, RawFieldState String ) -> Encode.Value
         encodeErrors errors =
@@ -2009,7 +2050,7 @@ toRequest2 :
             (DataSource
                 (Result Model ( Model, value ))
             )
-toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
+toRequest2 ((Form _ decoder serverValidations modelToValue config) as form) =
     Request.map2
         (\decoded errors ->
             errors
