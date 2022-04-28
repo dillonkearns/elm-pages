@@ -324,8 +324,9 @@ async function readFileJobNew(libraries, req, patternsToWatch) {
     const { fsPromises, matter } = libraries;
     patternsToWatch.add(filePath);
 
-    const fileContents = // TODO can I remove this hack?
-      (await fsPromises.readFile(pathJoin(process.cwd(), filePath))).toString();
+    const fileContents = (
+      await fsPromises.readFile(pathJoin(process.cwd(), filePath))
+    ).toString();
     const parsedFile = matter(fileContents);
 
     return jsonResponse(req, {
