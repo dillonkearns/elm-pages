@@ -565,7 +565,7 @@ update _ _ _ msg model =
         GotFormResponse result ->
             case result of
                 Ok updatedFormModel ->
-                    if Form.hasErrors2 model.form then
+                    if Form.hasErrors model.form then
                         ( model, Effect.none )
                             |> withFlash (Err "Failed to submit or had errors")
 

@@ -14,7 +14,7 @@ module Form exposing
     , withServerValidation
     , withMax, withMin
     , withStep
-    , hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
+    , hasErrors, rawValues, runClientValidations, withClientValidation, withClientValidation2
     , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
     , fieldStatusToString
     )
@@ -116,7 +116,7 @@ Steps
 
 ## Internals?
 
-@docs hasErrors2, rawValues, runClientValidations, withClientValidation, withClientValidation2
+@docs hasErrors, rawValues, runClientValidations, withClientValidation, withClientValidation2
 
 @docs FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
 
@@ -488,7 +488,7 @@ update submitEffect noEffect toMsg onResponse ((Form _ _ _ modelToValue) as form
             )
 
         SubmitForm values ->
-            if hasErrors2 model then
+            if hasErrors model then
                 ( { model | isSubmitting = Submitted }
                 , noEffect
                 )
@@ -1908,9 +1908,9 @@ renderedFields :
     -> List view
 renderedFields onFormMsg serverValidationErrors fields =
     let
-        hasErrors_ : Bool
-        hasErrors_ =
-            hasErrors2 serverValidationErrors
+        hasErrors__ : Bool
+        hasErrors__ =
+            hasErrors serverValidationErrors
     in
     fields
         |> List.reverse
@@ -1940,7 +1940,7 @@ renderedFields onFormMsg serverValidationErrors fields =
                             in
                             field.toHtml onFormMsg
                                 { submitStatus = serverValidationErrors.isSubmitting }
-                                hasErrors_
+                                hasErrors__
                                 (simplify3 field)
                                 (Just thing)
                         )
@@ -1976,7 +1976,7 @@ apiHandler (Form _ decoder serverValidations _) =
             errors
                 |> DataSource.map
                     (\validationErrors ->
-                        if hasErrors validationErrors then
+                        if hasErrors_ validationErrors then
                             Server.Response.json
                                 (validationErrors |> encodeErrors)
 
@@ -2119,8 +2119,8 @@ submitHandlers myForm toDataSource =
         ]
 
 
-hasErrors : List ( String, RawFieldState error ) -> Bool
-hasErrors validationErrors =
+hasErrors_ : List ( String, RawFieldState error ) -> Bool
+hasErrors_ validationErrors =
     List.any
         (\( _, entry ) ->
             entry.errors |> List.isEmpty |> not
@@ -2129,8 +2129,8 @@ hasErrors validationErrors =
 
 
 {-| -}
-hasErrors2 : Model -> Bool
-hasErrors2 model =
+hasErrors : Model -> Bool
+hasErrors model =
     Dict.Extra.any
         (\_ entry ->
             entry.errors |> List.isEmpty |> not
