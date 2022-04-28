@@ -2074,6 +2074,7 @@ toRequest2 ((Form _ decoder serverValidations modelToValue config) as form) =
                                 Err model
                     )
         )
+        -- TODO use custom method here (allow GET)
         (Request.expectFormPost
             (\{ field, optionalField } ->
                 decoder
@@ -2082,6 +2083,7 @@ toRequest2 ((Form _ decoder serverValidations modelToValue config) as form) =
                     }
             )
         )
+        -- TODO use custom method here (allow GET)
         (Request.expectFormPost
             (\{ field, optionalField } ->
                 serverValidations
