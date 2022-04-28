@@ -2043,14 +2043,14 @@ apiHandler (Form _ decoder serverValidations _ config) =
         |> Request.acceptContentTypes (List.NonEmpty.singleton "application/json")
 
 
-toRequest2 :
+renderRequestParser :
     Form msg String value view
     ->
         Parser
             (DataSource
                 (Result Model ( Model, value ))
             )
-toRequest2 ((Form _ decoder serverValidations modelToValue config) as form) =
+renderRequestParser ((Form _ decoder serverValidations modelToValue config) as form) =
     Request.map2
         (\decoded errors ->
             errors
@@ -2141,7 +2141,7 @@ submitHandlers :
 submitHandlers myForm toDataSource =
     Request.oneOf
         [ apiHandler myForm
-        , toRequest2 myForm
+        , renderRequestParser myForm
             |> Request.map
                 (\userOrErrors ->
                     userOrErrors
