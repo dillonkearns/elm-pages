@@ -1,5 +1,5 @@
 module Form exposing
-    ( Model, Msg(..), init, update, submitHandlers, toHtml, ServerUpdate
+    ( Model, Msg(..), init, update, submitHandlers, toStatefulHtml, toStatelessHtml, ServerUpdate
     , Form(..), succeed
     , wrap, wrapFields
     , isSubmitting, SubmitStatus(..)
@@ -24,7 +24,7 @@ module Form exposing
 
 ## Wiring
 
-@docs Model, Msg, init, update, submitHandlers, toHtml, ServerUpdate
+@docs Model, Msg, init, update, submitHandlers, toStatefulHtml, toStatelessHtml, ServerUpdate
 
 
 ## Defining a Form
@@ -1823,40 +1823,81 @@ simplify3 field =
 -}
 
 
-{-| -}
-toHtml :
-    -- TODO make onSubmit/onFormMsg mutually exclusive?
-    -- TODO pass in the path, method, etc. in onSubmit so it can be passed directly to `Effect.Submit`
-    { onSubmit : Maybe (List ( String, String ) -> msg)
-    , onFormMsg : Maybe (Msg -> msg)
-    }
+{-| Renders a Form with no input event listeners so that input is managed by the browser.
+
+Before the app is hydrated, forms rendered with any of the functions in this API will work. You can progressively enhance
+with client-side form submissions by passing in a `Just` as the first argument to this function and then
+performing a client-side submit onSubmit (usually with Effect.Perform).
+
+-}
+toStatelessHtml :
+    Maybe (List ( String, String ) -> msg)
     -> (List (Html.Attribute msg) -> List view -> view)
     -> Model
     -> Form msg String value view
     -> view
-toHtml config toForm serverValidationErrors (Form fields _ _ _) =
+toStatelessHtml maybeOnSubmit toForm serverValidationErrors (Form fields _ _ _) =
     toForm
         -- TODO get method from config
         ([ [ Attr.method "POST" ]
          , [ Attr.novalidate True |> Just
-           , case ( config.onFormMsg, config.onSubmit ) of
-                ( Just onFormMsg, _ ) ->
-                    --FormDecoder.formDataOnSubmit |> Attr.map onSubmit
-                    -- TODO need to run both the user's `onSubmit` as well as the internal Form.Msg here
-                    -- How to do both???
-                    FormDecoder.formDataOnSubmit |> Attr.map (SubmitForm >> onFormMsg) |> Just
-
-                ( Nothing, Just onSubmit ) ->
+           , case maybeOnSubmit of
+                Just onSubmit ->
                     FormDecoder.formDataOnSubmit |> Attr.map onSubmit |> Just
 
-                ( Nothing, Nothing ) ->
+                Nothing ->
                     Nothing
            ]
             |> List.filterMap identity
          ]
             |> List.concat
         )
-        (renderedFields config.onFormMsg serverValidationErrors fields)
+        (renderedFields Nothing serverValidationErrors fields)
+
+
+{-| Similar to `toStatelessHtml`, but this version progressively enhances the `<form>` element with client-side validations.
+
+This requires you to wire up a `Form.Model` in your page's Model:
+
+    type Msg
+        = FormMsg Form.Msg
+
+    type alias Model =
+        { form : Form.Model
+        }
+
+    update _ _ _ msg model =
+        case msg of
+            FormMsg formMsg ->
+                model.form
+                    |> Form.update (Effect.Submit >> Effect.map FormMsg) Effect.None FormMsg GotFormResponse form formMsg
+                    |> Tuple.mapFirst (\newFormModel -> { model | form = newFormModel })
+
+    view _ _ model _ =
+        { title = "Form Example"
+        , body =
+            [ form user
+                |> Form.toStatefulHtml FormMsg
+                    (\attrs children -> Html.form attrs children)
+                    model.form
+            ]
+        }
+
+-}
+toStatefulHtml :
+    (Msg -> msg)
+    -> (List (Html.Attribute msg) -> List view -> view)
+    -> Model
+    -> Form msg String value view
+    -> view
+toStatefulHtml fromFormMsg toForm serverValidationErrors (Form fields _ _ _) =
+    toForm
+        [ -- TODO get method from config
+          Attr.method "POST"
+        , Attr.novalidate True
+        , FormDecoder.formDataOnSubmit |> Attr.map (SubmitForm >> fromFormMsg)
+        ]
+        (renderedFields (Just fromFormMsg) serverValidationErrors fields)
 
 
 renderedFields :

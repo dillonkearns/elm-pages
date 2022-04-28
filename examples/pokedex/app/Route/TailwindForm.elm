@@ -736,10 +736,7 @@ view maybeUrl sharedModel model static =
                     ]
                 ]
                 [ form user
-                    |> Form.toHtml
-                        { onSubmit = Nothing
-                        , onFormMsg = Just FormMsg
-                        }
+                    |> Form.toStatefulHtml FormMsg
                         (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
                         model.form
                 ]

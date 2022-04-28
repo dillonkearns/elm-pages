@@ -255,16 +255,16 @@ view maybeUrl sharedModel model static =
                             )
                             [ Html.text item.description
                             , deleteItemForm item.id
-                                |> Form.toHtml
-                                    { onSubmit = Just (DeleteFormSubmitted item.id), onFormMsg = Nothing }
+                                |> Form.toStatelessHtml
+                                    (Just (DeleteFormSubmitted item.id))
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
                             ]
                     )
             )
         , newItemForm model.submitting
-            |> Form.toHtml
-                { onSubmit = Just FormSubmitted, onFormMsg = Nothing }
+            |> Form.toStatelessHtml
+                (Just FormSubmitted)
                 Html.form
                 (Form.init (newItemForm model.submitting))
         ]

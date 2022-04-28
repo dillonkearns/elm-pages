@@ -282,7 +282,7 @@ view maybeUrl sharedModel static =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
-            |> Form.toHtml { onSubmit = Nothing, onFormMsg = Nothing } Html.form static.data.errors
+            |> Form.toStatelessHtml Nothing Html.form static.data.errors
             |> Html.map (\_ -> ())
         ]
     }
