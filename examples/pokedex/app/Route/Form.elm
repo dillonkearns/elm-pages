@@ -2,7 +2,6 @@ module Route.Form exposing (Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Date exposing (Date)
-import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import Form exposing (Form)
 import Form.Value
@@ -12,7 +11,6 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Route
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
