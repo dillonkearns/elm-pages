@@ -390,16 +390,14 @@ isAtLeast atLeastStatus currentStatus =
 
 {-| -}
 update :
-    ({ values : List ( String, String ), path : Maybe (List String), method : Maybe String, toMsg : Result Http.Error Url -> Msg } -> effect)
+    ({ values : List ( String, String ), path : Maybe (List String), method : Maybe String, toMsg : Result Http.Error Url -> msg } -> effect)
     -> effect
     -> (Msg -> msg)
-    -> (Result Http.Error (FieldState String) -> msg)
     -> Form msg String value view
     -> Msg
     -> Model
     -> ( Model, effect )
-update submitEffect noEffect toMsg onResponse ((Form _ _ _ modelToValue) as form) msg model =
-    -- TODO remove onResponse since it is unused
+update submitEffect noEffect toMsg ((Form _ _ _ modelToValue) as form) msg model =
     case msg of
         OnFieldInput { name, value } ->
             let
@@ -499,7 +497,7 @@ update submitEffect noEffect toMsg onResponse ((Form _ _ _ modelToValue) as form
                     { values = values
                     , path = Nothing -- TODO remove hardcoding
                     , method = Just "POST" -- TODO remove hardcoding
-                    , toMsg = GotFormResponse
+                    , toMsg = GotFormResponse >> toMsg
                     }
                 )
 

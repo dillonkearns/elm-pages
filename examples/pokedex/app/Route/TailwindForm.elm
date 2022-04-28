@@ -25,6 +25,7 @@ import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 import Task
 import Time
+import Url exposing (Url)
 import View exposing (View)
 
 
@@ -36,7 +37,6 @@ type alias Model =
 
 type Msg
     = FormMsg Form.Msg
-    | GotFormResponse (Result Http.Error Form.ServerUpdate)
     | MovedToTop
 
 
@@ -304,6 +304,10 @@ form user =
                                 birthDate |> Date.toIsoString
                         in
                         if birthDate == Date.fromCalendarDate 1969 Time.Jul 20 then
+                            let
+                                _ =
+                                    Debug.log "Validation error!!!" birthDate
+                            in
                             DataSource.succeed [ "No way, that's when the moon landing happened!" ]
 
                         else
@@ -555,30 +559,24 @@ route =
             }
 
 
-update _ _ _ msg model =
+update _ _ static msg model =
     case msg of
         FormMsg formMsg ->
             model.form
-                |> Form.update (Effect.Submit >> Effect.map FormMsg) Effect.None FormMsg GotFormResponse (form defaultUser) formMsg
+                |> Form.update Effect.Submit Effect.None FormMsg (form defaultUser) formMsg
                 |> Tuple.mapFirst (\newFormModel -> { model | form = newFormModel })
+                |> (case formMsg of
+                        Form.GotFormResponse _ ->
+                            if Form.hasErrors static.data.initialForm then
+                                -- TODO this case isn't working as expected - is the data stale?
+                                withFlash (Err "Failed to submit or had errors")
 
-        GotFormResponse result ->
-            case result of
-                Ok updatedFormModel ->
-                    if Form.hasErrors model.form then
-                        ( model, Effect.none )
-                            |> withFlash (Err "Failed to submit or had errors")
+                            else
+                                withFlash (Ok "Success! Submitted form from Elm")
 
-                    else
-                        ( model
-                        , Browser.Dom.setViewport 0 0
-                            |> Task.perform (\() -> MovedToTop)
-                            |> Effect.fromCmd
-                        )
-                            |> withFlash (Ok "Success! Submitted form from Elm")
-
-                Err _ ->
-                    ( model, Effect.none )
+                        _ ->
+                            identity
+                   )
 
         MovedToTop ->
             ( model, Effect.none )
