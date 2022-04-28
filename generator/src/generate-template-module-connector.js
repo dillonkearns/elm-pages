@@ -527,7 +527,6 @@ config =
           .filter((segment) => segment !== "")
           .map((segment) => `"${segment}"`)
           .join(", ")} ]
-        , fetchPageData = fetchPageData
         , sendPageData = sendPageData
         , byteEncodePageData = byteEncodePageData
         , byteDecodePageData = byteDecodePageData
@@ -586,56 +585,6 @@ ${templates
   .join("\n")}
 
 port sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd msg
-
-fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch PageData Shared.Data )
-fetchPageData url details =
-    Http.task
-        { method = details |> Maybe.map (\\_ -> "POST") |> Maybe.withDefault "GET"
-        , headers = []
-        , url =
-            url.path
-                |> Pages.Internal.String.chopForwardSlashes
-                |> String.split "/"
-                |> List.filter ((/=) "")
-                |> (\\l -> l ++ [ "content.dat" ])
-                |> String.join "/"
-                |> String.append "/"
-        , body = details |> Maybe.map (\\justDetails -> Http.stringBody justDetails.contentType justDetails.body) |> Maybe.withDefault Http.emptyBody
-        , resolver =
-            Http.bytesResolver
-                (\\response ->
-                    case response of
-                        Http.BadUrl_ url_ ->
-                            Err (Http.BadUrl url_)
-
-                        Http.Timeout_ ->
-                            Err Http.Timeout
-
-                        Http.NetworkError_ ->
-                            Err Http.NetworkError
-
-                        Http.BadStatus_ metadata _ ->
-                            Err (Http.BadStatus metadata.statusCode)
-
-                        Http.GoodStatus_ _ body ->
-                            body
-                                |> decodeBytes decodeResponse
-                                |> Result.mapError Http.BadBody
-                                |> Result.map (\\okResponse -> ( url, okResponse ))
-                )
-        , timeout = Nothing
-        }
-        |> Task.andThen
-            (\\( _, response ) ->
-                case response of
-                    Pages.Internal.ResponseSketch.Redirect location ->
-                        -- TODO what if it redirects to external URL? Need to handle that somehow, or is it an error?
-                        fetchPageData { url | path = location } Nothing
-
-                    _ ->
-                        Task.succeed ( url, response )
-            )
-
 
 
 byteDecodePageData : Maybe Route -> Bytes.Decode.Decoder PageData

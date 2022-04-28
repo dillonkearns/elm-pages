@@ -80,7 +80,6 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
         -> List (ApiRoute.ApiRoute ApiRoute.Response)
     , pathPatterns : List RoutePattern
     , basePath : List String
-    , fetchPageData : Url -> Maybe { contentType : String, body : String } -> Task Http.Error ( Url, ResponseSketch pageData sharedData )
     , sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd Never
     , byteEncodePageData : pageData -> Bytes.Encode.Encoder
     , byteDecodePageData : route -> Bytes.Decode.Decoder pageData
