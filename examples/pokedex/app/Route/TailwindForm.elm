@@ -245,7 +245,7 @@ form user =
                         else
                             DataSource.succeed []
                     )
-                |> Form.withClientValidation2
+                |> Form.withRecoverableClientValidation
                     (\username ->
                         Ok
                             ( username
@@ -256,7 +256,7 @@ form user =
                                 []
                             )
                     )
-                |> Form.withClientValidation2
+                |> Form.withRecoverableClientValidation
                     (\username ->
                         Ok
                             ( username
@@ -267,7 +267,7 @@ form user =
                                 []
                             )
                     )
-                |> Form.withClientValidation2
+                |> Form.withRecoverableClientValidation
                     (\username ->
                         Ok
                             ( username
@@ -422,7 +422,7 @@ form user =
                         "acceptTerms"
                         False
                         (checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." })
-                        |> Form.withClientValidation2
+                        |> Form.withRecoverableClientValidation
                             (\checked ->
                                 if checked then
                                     Ok ( (), [] )

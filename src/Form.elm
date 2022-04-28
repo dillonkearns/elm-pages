@@ -14,7 +14,7 @@ module Form exposing
     , withServerValidation
     , withMax, withMin
     , withStep
-    , hasErrors, rawValues, runClientValidations, withClientValidation, withClientValidation2
+    , hasErrors, rawValues, runClientValidations, withClientValidation, withRecoverableClientValidation
     , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
     , fieldStatusToString
     )
@@ -81,7 +81,7 @@ The form submissions are handled internally. Both tracking the submit status, an
 
 Whenever possible, it's best to use the platform. For example, if you mark a field as number, the UI will give you number inputs. If you use an email input field, a mobile phone can display a special email input keyboard, or a desktop browser can suggest autofill input based on that.
 
-A Date type can be entered with the native date picker UI of the user's browser, which can be mobile-friendly by using the native mobile browser's built-in UI. But this also implies a validation, and can't be parsed into an Elm type. So you get two for the price of one. A UI, and a valdation. The validations are run on both client and server, so you can trust them without having to maintain duplicate logic for the server-side.
+A Date type can be entered with the native date picker UI of the user's browser, which can be mobile-friendly by using the native mobile browser's built-in UI. But this also implies a validation, and can't be parsed into an Elm type. So you get two for the price of one. A UI, and a validation. The validations are run on both client and server, so you can trust them without having to maintain duplicate logic for the server-side.
 
 
 ### Required
@@ -116,7 +116,7 @@ Steps
 
 ## Internals?
 
-@docs hasErrors, rawValues, runClientValidations, withClientValidation, withClientValidation2
+@docs hasErrors, rawValues, runClientValidations, withClientValidation, withRecoverableClientValidation
 
 @docs FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
 
@@ -1494,8 +1494,8 @@ withClientValidation mapFn (Field field) =
 
 
 {-| -}
-withClientValidation2 : (value -> Result (List error) ( mapped, List error )) -> Field msg error value view constraints -> Field msg error mapped view { constraints | wasMapped : Yes }
-withClientValidation2 mapFn (Field field) =
+withRecoverableClientValidation : (value -> Result (List error) ( mapped, List error )) -> Field msg error value view constraints -> Field msg error mapped view { constraints | wasMapped : Yes }
+withRecoverableClientValidation mapFn (Field field) =
     Field
         { name = field.name
         , initialValue = field.initialValue
