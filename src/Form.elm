@@ -2063,6 +2063,7 @@ toRequest2 ((Form _ decoder serverValidations modelToValue) as form) =
                                                                 { name = fieldName
                                                                 , value = fieldValue.raw |> Maybe.withDefault ""
                                                                 }
+                                                                ++ fieldValue.errors
                                                     }
                                                 )
 
