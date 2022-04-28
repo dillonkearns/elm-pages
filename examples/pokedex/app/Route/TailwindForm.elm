@@ -568,7 +568,7 @@ update _ _ static msg model =
                 |> (case formMsg of
                         Form.GotFormResponse _ ->
                             if Form.hasErrors static.data.initialForm then
-                                -- TODO this case isn't working as expected - is the data stale?
+                                -- TODO this case is never hit because `init` is called again
                                 withFlash (Err "Failed to submit or had errors")
 
                             else
@@ -593,7 +593,11 @@ init _ _ static =
             static.data.user
                 |> Maybe.map
                     (\user_ ->
-                        Ok ("Successfully received user " ++ user_.first ++ " " ++ user_.last)
+                        if Form.hasErrors static.data.initialForm then
+                            Err "Got errors"
+
+                        else
+                            Ok ("Successfully received user " ++ user_.first ++ " " ++ user_.last)
                     )
       }
     , Effect.none
