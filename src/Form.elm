@@ -1835,11 +1835,6 @@ toHtml :
     -> Form msg String value view
     -> view
 toHtml config toForm serverValidationErrors (Form fields _ _ _) =
-    let
-        hasErrors_ : Bool
-        hasErrors_ =
-            hasErrors2 serverValidationErrors
-    in
     toForm
         -- TODO get method from config
         ([ [ Attr.method "POST" ]
@@ -1861,41 +1856,49 @@ toHtml config toForm serverValidationErrors (Form fields _ _ _) =
          ]
             |> List.concat
         )
-        (fields
-            |> List.reverse
-            |> List.concatMap
-                (\( nestedFields, wrapFn ) ->
-                    nestedFields
-                        |> List.reverse
-                        |> List.map
-                            (\field ->
-                                let
-                                    rawFieldState : RawFieldState String
-                                    rawFieldState =
-                                        serverValidationErrors.fields
-                                            |> Dict.get field.name
-                                            |> Maybe.withDefault initField
+        (renderedFields config serverValidationErrors fields)
 
-                                    thing : RawFieldState String
-                                    thing =
-                                        { rawFieldState
-                                            | errors =
-                                                rawFieldState.errors
-                                                    ++ (serverValidationErrors.formErrors
-                                                            |> Dict.get field.name
-                                                            |> Maybe.withDefault []
-                                                       )
-                                        }
-                                in
-                                field.toHtml config.onFormMsg
-                                    { submitStatus = serverValidationErrors.isSubmitting }
-                                    hasErrors_
-                                    (simplify3 field)
-                                    (Just thing)
-                            )
-                        |> wrapFn
-                )
-        )
+
+renderedFields config serverValidationErrors fields =
+    let
+        hasErrors_ : Bool
+        hasErrors_ =
+            hasErrors2 serverValidationErrors
+    in
+    fields
+        |> List.reverse
+        |> List.concatMap
+            (\( nestedFields, wrapFn ) ->
+                nestedFields
+                    |> List.reverse
+                    |> List.map
+                        (\field ->
+                            let
+                                rawFieldState : RawFieldState String
+                                rawFieldState =
+                                    serverValidationErrors.fields
+                                        |> Dict.get field.name
+                                        |> Maybe.withDefault initField
+
+                                thing : RawFieldState String
+                                thing =
+                                    { rawFieldState
+                                        | errors =
+                                            rawFieldState.errors
+                                                ++ (serverValidationErrors.formErrors
+                                                        |> Dict.get field.name
+                                                        |> Maybe.withDefault []
+                                                   )
+                                    }
+                            in
+                            field.toHtml config.onFormMsg
+                                { submitStatus = serverValidationErrors.isSubmitting }
+                                hasErrors_
+                                (simplify3 field)
+                                (Just thing)
+                        )
+                    |> wrapFn
+            )
 
 
 apiHandler :
