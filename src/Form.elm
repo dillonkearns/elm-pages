@@ -1856,10 +1856,15 @@ toHtml config toForm serverValidationErrors (Form fields _ _ _) =
          ]
             |> List.concat
         )
-        (renderedFields config serverValidationErrors fields)
+        (renderedFields config.onFormMsg serverValidationErrors fields)
 
 
-renderedFields config serverValidationErrors fields =
+renderedFields :
+    Maybe (Msg -> msg)
+    -> Model
+    -> List ( List (FieldInfoSimple msg String view), List view -> List view )
+    -> List view
+renderedFields onFormMsg serverValidationErrors fields =
     let
         hasErrors_ : Bool
         hasErrors_ =
@@ -1891,7 +1896,7 @@ renderedFields config serverValidationErrors fields =
                                                    )
                                     }
                             in
-                            field.toHtml config.onFormMsg
+                            field.toHtml onFormMsg
                                 { submitStatus = serverValidationErrors.isSubmitting }
                                 hasErrors_
                                 (simplify3 field)
