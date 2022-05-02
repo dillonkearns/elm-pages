@@ -10,15 +10,12 @@ export default async function run({
   ensureDirSync("functions/");
 
   // TODO figure out where to put the cli.js file and port-data-source file
-  // fs.copyFileSync(
-  //   renderFunctionFilePath,
-  //   "./functions/render/elm-pages-cli.js"
-  // );
+  fs.copyFileSync(renderFunctionFilePath, "./dist/elm-pages-cli.js");
   // fs.copyFileSync(
   //   portsFilePath,
   //   "./functions/server-render/port-data-source.mjs"
   // );
-  fs.writeFileSync("./functions/[[path]].js", rendererCode(htmlTemplate));
+  fs.writeFileSync("../../functions/[[path]].js", rendererCode(htmlTemplate));
 }
 
 /**
@@ -29,7 +26,7 @@ function rendererCode(htmlTemplate) {
 const devMode = true;
 
 const compiledPortsFile = "../dist/port-data-source.mjs";
-const Elm = require("../dist/elm-pages-cli.js");
+const Elm = require("./examples/hackernews-cloudflare/dist/elm-pages-cli.js");
 const renderer = require("../generator/src/render.js");
 const preRenderHtml = require("../generator/src/pre-render-html.js");
 
