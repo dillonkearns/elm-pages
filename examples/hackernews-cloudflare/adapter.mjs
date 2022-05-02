@@ -27,7 +27,7 @@ function rendererCode(htmlTemplate) {
 const devMode = true;
 
 const compiledPortsFile = "../dist/port-data-source.mjs";
-const Elm = require("./examples/hackernews-cloudflare/dist/elm-pages-cli.js");
+const Elm = require("../examples/hackernews-cloudflare/dist/elm-pages-cli.js");
 const renderer = require("../generator/src/render.js");
 const preRenderHtml = require("../generator/src/pre-render-html.js");
 
