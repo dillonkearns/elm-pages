@@ -10,6 +10,7 @@ export default async function run({
   ensureDirSync("functions/");
 
   // TODO figure out where to put the cli.js file and port-data-source file
+  ensureDirSync("../../functions");
   fs.copyFileSync(renderFunctionFilePath, "./dist/elm-pages-cli.js");
   // fs.copyFileSync(
   //   portsFilePath,
