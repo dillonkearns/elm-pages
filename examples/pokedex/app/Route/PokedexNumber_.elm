@@ -1,4 +1,4 @@
-module Route.PokedexNumber_ exposing (Data, Model, Msg, route)
+module Route.PokedexNumber_ exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.Http
@@ -28,7 +28,7 @@ type alias RouteParams =
     { pokedexNumber : String }
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRenderWithFallback
         { head = head
@@ -79,7 +79,7 @@ type alias Pokemon =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -108,10 +108,14 @@ type alias Data =
     }
 
 
+type alias ActionData =
+    {}
+
+
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = static.data.pokemon.name

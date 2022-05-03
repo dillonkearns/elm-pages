@@ -1,4 +1,4 @@
-module Route.Form exposing (Data, Model, Msg, route)
+module Route.Form exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Date exposing (Date)
@@ -186,11 +186,12 @@ form user =
             )
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip "No action."
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -199,6 +200,10 @@ type alias Data =
     { user : Maybe User
     , errors : Form.Model
     }
+
+
+type alias ActionData =
+    {}
 
 
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
@@ -232,7 +237,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -254,7 +259,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     let

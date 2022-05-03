@@ -1,4 +1,4 @@
-module Route.Login exposing (Data, Model, Msg, route)
+module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
@@ -31,11 +31,12 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip "No action."
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -85,7 +86,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -109,10 +110,14 @@ type alias Data =
     }
 
 
+type alias ActionData =
+    {}
+
+
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "Login"

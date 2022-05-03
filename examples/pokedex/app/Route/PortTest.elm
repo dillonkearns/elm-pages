@@ -1,4 +1,4 @@
-module Route.PortTest exposing (Data, Model, Msg, route)
+module Route.PortTest exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.Port
@@ -26,7 +26,7 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -40,6 +40,10 @@ type alias Data =
     }
 
 
+type alias ActionData =
+    {}
+
+
 data : DataSource Data
 data =
     DataSource.succeed Data
@@ -47,7 +51,7 @@ data =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     []
@@ -56,7 +60,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "Placeholder"

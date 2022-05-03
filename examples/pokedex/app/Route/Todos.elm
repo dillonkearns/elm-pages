@@ -1,4 +1,4 @@
-module Route.Todos exposing (Data, Model, Msg, route)
+module Route.Todos exposing (ActionData, Data, Model, Msg, route)
 
 import Api.InputObject
 import Api.Mutation
@@ -50,11 +50,12 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip "No action."
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -67,7 +68,7 @@ route =
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( { submitting = False
@@ -80,7 +81,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
@@ -126,6 +127,10 @@ subscriptions maybePageUrl routeParams path sharedModel model =
 type alias Data =
     { todos : List Todo
     }
+
+
+type alias ActionData =
+    {}
 
 
 type alias Todo =
@@ -213,7 +218,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -236,7 +241,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel model static =
     { title = "Todos"

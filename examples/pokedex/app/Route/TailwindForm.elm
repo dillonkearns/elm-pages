@@ -1,4 +1,4 @@
-module Route.TailwindForm exposing (Data, Model, Msg, route)
+module Route.TailwindForm exposing (ActionData, Data, Model, Msg, route)
 
 import Browser.Dom
 import Css exposing (Color)
@@ -545,11 +545,12 @@ cancelButton =
         [ Html.text "Cancel" ]
 
 
-route : StatefulRoute RouteParams Data Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip "No action."
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -610,6 +611,10 @@ type alias Data =
     }
 
 
+type alias ActionData =
+    {}
+
+
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
@@ -632,7 +637,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -703,7 +708,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel model static =
     let
