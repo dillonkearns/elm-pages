@@ -1036,6 +1036,9 @@ redirectTo route =
         |> toString
         |> Server.Response.temporaryRedirect
 `,
+    fetcherModules: templates.map((name) => {
+      return [name, fetcherModule(name)];
+    }),
   };
 }
 
@@ -1217,6 +1220,84 @@ function prefixThing(param) {
       return "";
     }
   }
+}
+
+function fetcherModule(name) {
+  let moduleName = name.join(".");
+  // TODO need to account for splat routes/etc.
+  let modulePath = name.join("/");
+  let fetcherPath = routeHelpers
+    .parseRouteParamsWithStatic(name)
+    .map((param) => {
+      switch (param.kind) {
+        case "static": {
+          return param.name === "Index"
+            ? `[]`
+            : `[ "${camelToKebab(param.name)}" ]`;
+        }
+        case "optional": {
+          return `Pages.Internal.Router.maybeToList params.${param.name}`;
+        }
+        case "required-splat": {
+          return `Pages.Internal.Router.nonEmptyToList params.${param.name}`;
+        }
+        case "dynamic": {
+          return `[ params.${param.name} ]`;
+        }
+        case "optional-splat": {
+          return `params.${param.name}`;
+        }
+      }
+    })
+    .join(", ");
+
+  return `module Fetcher.${moduleName} exposing (load, submit)
+
+{-| -}
+
+import Effect exposing (Effect)
+import FormDecoder
+import Http
+import Route.${moduleName}
+
+
+{-| -}
+load : Effect (Result Http.Error Route.${moduleName}.Data)
+load =
+    Http.request
+        { expect = Http.expectBytes identity Route.${moduleName}.w3_decode_Data
+        , tracker = Nothing
+        , body = Http.emptyBody
+        , headers = []
+        , url = ${fetcherPath}  |> String.join "/"
+        , method = "GET"
+        , timeout = Nothing
+        }
+        |> Effect.fromCmd
+
+
+{-| -}
+submit :
+    { headers : List ( String, String )
+    , formFields : List ( String, String )
+    }
+    -> Effect (Result Http.Error Route.${moduleName}.ActionData)
+submit options =
+    let
+        { contentType, body } =
+            FormDecoder.encodeFormData options.formFields
+    in
+    Http.request
+        { expect = Http.expectBytes identity Route.${moduleName}.w3_decode_ActionData
+        , tracker = Nothing
+        , body = Http.stringBody contentType body
+        , headers = options.headers |> List.map (\\( key, value ) -> Http.header key value)
+        , url = ${fetcherPath} ++ [ "content.dat" ] |> String.join "/"
+        , method = "POST"
+        , timeout = Nothing
+        }
+        |> Effect.fromCmd
+`;
 }
 
 /**

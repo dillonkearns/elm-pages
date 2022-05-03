@@ -20,6 +20,7 @@ async function generate(basePath) {
   const browserCode = generateTemplateModuleConnector(basePath, "browser");
   ensureDirSync("./elm-stuff");
   ensureDirSync("./.elm-pages");
+  ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages/.elm-pages");
 
   const uiFileContent = elmPagesUiFile();
@@ -49,10 +50,25 @@ async function generate(basePath) {
     ),
     fs.promises.writeFile("./.elm-pages/Main.elm", browserCode.mainModule),
     fs.promises.writeFile("./.elm-pages/Route.elm", browserCode.routesModule),
+    writeFetcherModules("./.elm-pages", browserCode.fetcherModules),
+    writeFetcherModules(
+      "./elm-stuff/elm-pages/.elm-pages/",
+      browserCode.fetcherModules
+    ),
     // write modified elm.json to elm-stuff/elm-pages/
     copyModifiedElmJson(),
     ...(await listFiles("./Pages/Internal")).map(copyToBoth),
   ]);
+}
+
+function writeFetcherModules(basePath, fetcherData) {
+  Promise.all(
+    fetcherData.map(([name, fileContent]) => {
+      let filePath = path.join(basePath, `/Fetcher/${name.join("/")}.elm`);
+      ensureDirSync(path.dirname(filePath));
+      return fs.promises.writeFile(filePath, fileContent);
+    })
+  );
 }
 
 async function newCopyBoth(modulePath) {

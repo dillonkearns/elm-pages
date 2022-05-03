@@ -3,7 +3,7 @@ module Route.Hello exposing (ActionData, Data, Model, Msg, route)
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Fetcher.Route.Signup
+import Fetcher.Signup
 import Head
 import Head.Seo as Seo
 import Html
@@ -54,7 +54,7 @@ init :
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}
-    , Fetcher.Route.Signup.submit
+    , Fetcher.Signup.submit
         { headers = []
         , formFields =
             [ ( "first", "Jane" )
