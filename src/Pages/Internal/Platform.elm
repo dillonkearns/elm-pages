@@ -47,12 +47,12 @@ type Transition
 
 {-| -}
 type alias Program userModel userMsg pageData actionData sharedData errorPage =
-    Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
+    Platform.Program Flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
 
 
 mainView :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
-    -> Model userModel pageData sharedData
+    -> Model userModel pageData actionData sharedData
     -> { title : String, body : Html userMsg }
 mainView config model =
     case model.notFound of
@@ -76,6 +76,7 @@ mainView config model =
                         Nothing
                         pageData.sharedData
                         pageData.pageData
+                        pageData.actionData
                         |> .view
                     )
                         pageData.userModel
@@ -101,7 +102,7 @@ urlsToPagePath urls =
 
 view :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
-    -> Model userModel pageData sharedData
+    -> Model userModel pageData actionData sharedData
     -> Browser.Document (Msg userMsg pageData actionData sharedData errorPage)
 view config model =
     let
@@ -135,8 +136,8 @@ type alias Flags =
     Decode.Value
 
 
-type InitKind shared page errorPage
-    = OkPage shared page
+type InitKind shared page actionData errorPage
+    = OkPage shared page (Maybe actionData)
     | NotFound { reason : NotFoundReason, path : Path }
 
 
@@ -146,10 +147,10 @@ init :
     -> Flags
     -> Url
     -> Maybe Browser.Navigation.Key
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 init config flags url key =
     let
-        pageDataResult : Result BuildError (InitKind sharedData pageData errorPage)
+        pageDataResult : Result BuildError (InitKind sharedData pageData actionData errorPage)
         pageDataResult =
             flags
                 |> Decode.decodeValue (Decode.field "pageDataBase64" Decode.string)
@@ -166,8 +167,8 @@ init config flags url key =
                             Just (ResponseSketch.RenderPage _ _) ->
                                 Nothing
 
-                            Just (ResponseSketch.HotUpdate pageData shared _) ->
-                                OkPage shared pageData
+                            Just (ResponseSketch.HotUpdate pageData shared actionData) ->
+                                OkPage shared pageData actionData
                                     |> Just
 
                             Just (ResponseSketch.NotFound notFound) ->
@@ -183,7 +184,7 @@ init config flags url key =
                     )
     in
     case pageDataResult of
-        Ok (OkPage sharedData pageData) ->
+        Ok (OkPage sharedData pageData actionData) ->
             let
                 urls : { currentUrl : Url, basePath : List String }
                 urls =
@@ -221,13 +222,13 @@ init config flags url key =
                                 , fragment = url.fragment
                                 }
                         }
-                        |> config.init userFlags sharedData pageData key
+                        |> config.init userFlags sharedData pageData actionData key
 
                 cmd : Effect userMsg pageData actionData sharedData userEffect errorPage
                 cmd =
                     UserCmd userCmd
 
-                initialModel : Model userModel pageData sharedData
+                initialModel : Model userModel pageData actionData sharedData
                 initialModel =
                     { key = key
                     , url = url
@@ -236,6 +237,7 @@ init config flags url key =
                             { pageData = pageData
                             , sharedData = sharedData
                             , userModel = userModel
+                            , actionData = actionData
                             }
                     , ariaNavigationAnnouncement = ""
                     , userFlags = flags
@@ -292,7 +294,7 @@ type Msg userMsg pageData actionData sharedData errorPage
 
 
 {-| -}
-type alias Model userModel pageData sharedData =
+type alias Model userModel pageData actionData sharedData =
     { key : Maybe Browser.Navigation.Key
     , url : Url
     , ariaNavigationAnnouncement : String
@@ -302,6 +304,7 @@ type alias Model userModel pageData sharedData =
             { userModel : userModel
             , pageData : pageData
             , sharedData : sharedData
+            , actionData : Maybe actionData
             }
     , notFound : Maybe { reason : NotFoundReason, path : Path }
     , userFlags : Decode.Value
@@ -325,8 +328,8 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
 update :
     ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Msg userMsg pageData actionData sharedData errorPage
-    -> Model userModel pageData sharedData
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> Model userModel pageData actionData sharedData
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 update config appMsg model =
     case appMsg of
         LinkClicked urlRequest ->
@@ -383,12 +386,13 @@ update config appMsg model =
                                     , basePath = config.basePath
                                     }
 
-                                updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
+                                updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData, actionData : Maybe actionData }
                                 updatedPageData =
                                     Ok
                                         { userModel = userModel
                                         , sharedData = pageData.sharedData
                                         , pageData = pageData.pageData
+                                        , actionData = pageData.actionData
                                         }
 
                                 ( userModel, _ ) =
@@ -439,7 +443,7 @@ update config appMsg model =
                         ( userModel, userCmd ) =
                             config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
-                        updatedPageData : Result error { userModel : userModel, pageData : pageData, sharedData : sharedData }
+                        updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
                         updatedPageData =
                             Ok { pageData | userModel = userModel }
                     in
@@ -460,22 +464,23 @@ update config appMsg model =
             of
                 Ok ( ( newUrl, newData ), previousPageData ) ->
                     let
-                        ( newPageData, newSharedData ) =
+                        ( newPageData, newSharedData, newActionData ) =
                             case newData of
-                                ResponseSketch.RenderPage pageData _ ->
-                                    ( pageData, previousPageData.sharedData )
+                                ResponseSketch.RenderPage pageData actionData ->
+                                    ( pageData, previousPageData.sharedData, actionData )
 
-                                ResponseSketch.HotUpdate pageData sharedData _ ->
-                                    ( pageData, sharedData )
+                                ResponseSketch.HotUpdate pageData sharedData actionData ->
+                                    ( pageData, sharedData, actionData )
 
                                 _ ->
-                                    ( previousPageData.pageData, previousPageData.sharedData )
+                                    ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
 
-                        updatedPageData : { userModel : userModel, sharedData : sharedData, pageData : pageData }
+                        updatedPageData : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
                         updatedPageData =
                             { userModel = userModel
                             , sharedData = newSharedData
                             , pageData = newPageData
+                            , actionData = newActionData
                             }
 
                         ( userModel, userCmd ) =
@@ -496,7 +501,7 @@ update config appMsg model =
                                 )
                                 previousPageData.userModel
 
-                        updatedModel : Model userModel pageData sharedData
+                        updatedModel : Model userModel pageData actionData sharedData
                         updatedModel =
                             { model
                                 | url = newUrl
@@ -570,26 +575,28 @@ update config appMsg model =
                                     |> Bytes.Decode.decode config.decodeResponse
                         in
                         case newThing of
-                            Just (ResponseSketch.RenderPage newPageData _) ->
+                            Just (ResponseSketch.RenderPage newPageData newActionData) ->
                                 ( { model
                                     | pageData =
                                         Ok
                                             { userModel = pageData.userModel
                                             , sharedData = pageData.sharedData
                                             , pageData = newPageData
+                                            , actionData = newActionData
                                             }
                                     , notFound = Nothing
                                   }
                                 , NoEffect
                                 )
 
-                            Just (ResponseSketch.HotUpdate newPageData newSharedData _) ->
+                            Just (ResponseSketch.HotUpdate newPageData newSharedData newActionData) ->
                                 ( { model
                                     | pageData =
                                         Ok
                                             { userModel = pageData.userModel
                                             , sharedData = newSharedData
                                             , pageData = newPageData
+                                            , actionData = newActionData
                                             }
                                     , notFound = Nothing
                                   }
@@ -684,7 +691,7 @@ perform config currentUrl maybeKey effect =
 {-| -}
 application :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
-    -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
+    -> Platform.Program Flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
 application config =
     Browser.application
         { init =
@@ -730,8 +737,8 @@ type alias RequestInfo =
 withUserMsg :
     ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> userMsg
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 withUserMsg config userMsg ( model, effect ) =
     case model.pageData of
         Ok pageData ->
@@ -739,7 +746,7 @@ withUserMsg config userMsg ( model, effect ) =
                 ( userModel, userCmd ) =
                     config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
-                updatedPageData : Result error { userModel : userModel, pageData : pageData, sharedData : sharedData }
+                updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
                 updatedPageData =
                     Ok { pageData | userModel = userModel }
             in
@@ -845,8 +852,8 @@ chopEnd needle string =
 startNewGetLoad :
     String
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 startNewGetLoad pathToGet toMsg ( model, effect ) =
     let
         currentUrl : Url

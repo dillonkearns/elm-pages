@@ -431,7 +431,25 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                             StaticResponses.renderSingleRoute
                                 (if isAction then
                                     config.action serverRequestPayload.frontmatter
-                                        |> DataSource.map (\_ -> ())
+                                        |> DataSource.andThen
+                                            (\something ->
+                                                case something of
+                                                    PageServerResponse.ErrorPage _ _ ->
+                                                        DataSource.succeed something
+                                                            |> DataSource.map (\_ -> ())
+
+                                                    PageServerResponse.RenderPage _ actionData ->
+                                                        -- TODO call `config.data` here to resolve data?
+                                                        --DataSource.succeed something
+                                                        DataSource.map3 (\_ _ _ -> ())
+                                                            (config.data serverRequestPayload.frontmatter)
+                                                            config.sharedData
+                                                            (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
+
+                                                    PageServerResponse.ServerResponse _ ->
+                                                        DataSource.succeed something
+                                                            |> DataSource.map (\_ -> ())
+                                            )
                                     -- TODO do loader or action based on METHOD
 
                                  else
@@ -760,6 +778,20 @@ sendSinglePageProgress site contentJson config model info =
                                     )
 
                         RenderRequest.HtmlAndJson ->
+                            let
+                                maybeActionData : Maybe actionData
+                                maybeActionData =
+                                    if isAction then
+                                        case actionDataResult of
+                                            Ok (PageServerResponse.RenderPage _ actionData) ->
+                                                Just actionData
+
+                                            _ ->
+                                                Nothing
+
+                                    else
+                                        Nothing
+                            in
                             Result.map2 Tuple.pair pageDataResult sharedDataResult
                                 |> Result.map
                                     (\( pageData_, sharedData ) ->
@@ -776,6 +808,7 @@ sendSinglePageProgress site contentJson config model info =
                                                             Pages.Flags.PreRenderFlags
                                                             sharedData
                                                             pageData
+                                                            maybeActionData
                                                             Nothing
                                                             (Just
                                                                 { path =
@@ -791,10 +824,10 @@ sendSinglePageProgress site contentJson config model info =
 
                                                     viewValue : { title : String, body : Html userMsg }
                                                     viewValue =
-                                                        (config.view currentPage Nothing sharedData pageData |> .view) pageModel
+                                                        (config.view currentPage Nothing sharedData pageData Nothing |> .view) pageModel
                                                 in
                                                 PageServerResponse.RenderPage responseInfo
-                                                    { head = config.view currentPage Nothing sharedData pageData |> .head
+                                                    { head = config.view currentPage Nothing sharedData pageData Nothing |> .head
                                                     , view = viewValue.body |> HtmlPrinter.htmlToString
                                                     , title = viewValue.title
                                                     }
@@ -815,6 +848,7 @@ sendSinglePageProgress site contentJson config model info =
                                                             sharedData
                                                             pageData
                                                             Nothing
+                                                            Nothing
                                                             (Just
                                                                 { path =
                                                                     { path = currentPage.path
@@ -833,13 +867,13 @@ sendSinglePageProgress site contentJson config model info =
 
                                                     viewValue : { title : String, body : Html userMsg }
                                                     viewValue =
-                                                        (config.view currentPage Nothing sharedData pageData |> .view) pageModel
+                                                        (config.view currentPage Nothing sharedData pageData Nothing |> .view) pageModel
                                                 in
                                                 PageServerResponse.RenderPage
                                                     { statusCode = config.errorStatusCode error
                                                     , headers = record.headers
                                                     }
-                                                    { head = config.view currentPage Nothing sharedData pageData |> .head
+                                                    { head = config.view currentPage Nothing sharedData pageData Nothing |> .head
                                                     , view = viewValue.body |> HtmlPrinter.htmlToString
                                                     , title = viewValue.title
                                                     }
@@ -908,9 +942,14 @@ sendSinglePageProgress site contentJson config model info =
                                                                 --    -- TODO remove hardcoded actionData
                                                                 --    |> config.encodeResponse
                                                                 --    |> Bytes.Encode.encode
-                                                                actionData
-                                                                    -- TODO remove hardcoded actionData
-                                                                    |> config.encodeAction
+                                                                --actionData
+                                                                --    -- TODO remove hardcoded actionData
+                                                                --    |> config.encodeAction
+                                                                --    |> Bytes.Encode.encode
+                                                                sharedDataResult
+                                                                    |> Result.map (\sharedData -> ResponseSketch.HotUpdate pageData sharedData (Just actionData))
+                                                                    |> Result.withDefault (ResponseSketch.RenderPage pageData (Just actionData))
+                                                                    |> config.encodeResponse
                                                                     |> Bytes.Encode.encode
 
                                                             _ ->
@@ -1063,6 +1102,7 @@ render404Page config sharedData model path notFoundReason =
                         pageData
                         Nothing
                         Nothing
+                        Nothing
                         |> Tuple.first
 
                 pageData : pageData
@@ -1079,6 +1119,7 @@ render404Page config sharedData model path notFoundReason =
                         Nothing
                         justSharedData
                         pageData
+                        Nothing
                         |> .view
                     )
                         pageModel
@@ -1087,7 +1128,7 @@ render404Page config sharedData model path notFoundReason =
             , contentJson = Dict.empty
             , html = viewValue.body |> HtmlPrinter.htmlToString
             , errors = []
-            , head = config.view pathAndRoute Nothing justSharedData pageData |> .head
+            , head = config.view pathAndRoute Nothing justSharedData pageData Nothing |> .head
             , title = viewValue.title
             , staticHttpCache = Dict.empty
             , is404 = True
@@ -1137,3 +1178,7 @@ urlToRoute config url =
 
     else
         config.urlToRoute url
+
+
+triple a b c =
+    ( a, b, c )

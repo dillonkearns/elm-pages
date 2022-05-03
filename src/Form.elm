@@ -2140,8 +2140,8 @@ submitHandlers :
     -> Parser (DataSource (Response data error))
 submitHandlers myForm toDataSource =
     Request.oneOf
-        [ apiHandler myForm
-        , renderRequestParser myForm
+        [ --apiHandler myForm
+          renderRequestParser myForm
             |> Request.map
                 (\userOrErrors ->
                     userOrErrors

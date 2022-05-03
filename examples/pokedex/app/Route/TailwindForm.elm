@@ -550,7 +550,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action = action
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -560,24 +560,25 @@ route =
             }
 
 
+action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
+action routeParams =
+    Form.submitHandlers
+        (form defaultUser)
+        (\model decoded ->
+            DataSource.succeed
+                { user = Result.toMaybe decoded
+                , initialForm = model
+                }
+                |> DataSource.map Response.render
+        )
+
+
 update _ _ static msg model =
     case msg of
         FormMsg formMsg ->
             model.form
                 |> Form.update Effect.Submit Effect.None FormMsg (form defaultUser) formMsg
                 |> Tuple.mapFirst (\newFormModel -> { model | form = newFormModel })
-                |> (case formMsg of
-                        Form.GotFormResponse _ ->
-                            if Form.hasErrors static.data.initialForm then
-                                -- TODO this case is never hit because `init` is called again
-                                withFlash (Err "Failed to submit or had errors")
-
-                            else
-                                withFlash (Ok "Success! Submitted form from Elm")
-
-                        _ ->
-                            identity
-                   )
 
         MovedToTop ->
             ( model, Effect.none )
@@ -589,16 +590,21 @@ withFlash flashMessage ( model, cmd ) =
 
 
 init _ _ static =
-    ( { form = static.data.initialForm
+    let
+        _ =
+            Debug.log "@@@static.action" static.action
+    in
+    ( { form = static.action |> Maybe.map .initialForm |> Maybe.withDefault (Form.init (form defaultUser))
       , flashMessage =
-            static.data.user
+            static.action
                 |> Maybe.map
-                    (\user_ ->
-                        if Form.hasErrors static.data.initialForm then
+                    (\actionData ->
+                        if Form.hasErrors actionData.initialForm then
                             Err "Got errors"
 
                         else
-                            Ok ("Successfully received user " ++ user_.first ++ " " ++ user_.last)
+                            --Ok ("Successfully received user " ++ actionData.user.first ++ " " ++ actionData.user.last)
+                            Ok ""
                     )
       }
     , Effect.none
@@ -606,30 +612,19 @@ init _ _ static =
 
 
 type alias Data =
+    {}
+
+
+type alias ActionData =
     { user : Maybe User
     , initialForm : Form.Model
     }
 
 
-type alias ActionData =
-    {}
-
-
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Form.submitHandlers
-            (form defaultUser)
-            (\model decoded ->
-                DataSource.succeed
-                    { user = Result.toMaybe decoded
-                    , initialForm = model
-                    }
-                    |> DataSource.map Response.render
-            )
-        , { user = Nothing
-          , initialForm = Form.init (form defaultUser)
-          }
+        [ {}
             |> Response.render
             |> DataSource.succeed
             |> Request.succeed
@@ -714,7 +709,8 @@ view maybeUrl sharedModel model static =
     let
         user : User
         user =
-            static.data.user
+            static.action
+                |> Maybe.andThen .user
                 |> Maybe.withDefault defaultUser
     in
     { title = "Form Example"

@@ -28,6 +28,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         Pages.Flags.Flags
         -> sharedData
         -> pageData
+        -> Maybe actionData
         -> Maybe Browser.Navigation.Key
         ->
             Maybe
@@ -52,6 +53,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> Maybe PageUrl
         -> sharedData
         -> pageData
+        -> Maybe actionData
         ->
             { view : userModel -> { title : String, body : Html userMsg }
             , head : List Head.Tag

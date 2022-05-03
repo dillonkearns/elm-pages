@@ -161,11 +161,12 @@ view :
     -> Maybe PageUrl
     -> Shared.Data
     -> PageData
+    -> Maybe ActionData
     ->
         { view : Model -> { title : String, body : Html Msg }
         , head : List Head.Tag
         }
-view page maybePageUrl globalData pageData =
+view page maybePageUrl globalData pageData actionData =
     case ( page.route, pageData ) of
         ( _, DataErrorPage____ data ) ->
             { view =
@@ -199,6 +200,14 @@ view page maybePageUrl globalData pageData =
                   ? `Route.${routeHelpers.routeVariant(name)}`
                   : `(Route.${routeHelpers.routeVariant(name)} s)`
               }, Data${routeHelpers.routeVariant(name)} data ) ->
+                  let
+                      actionDataOrNothing =
+                          case actionData of
+                              Just (ActionData${routeHelpers.routeVariant(
+                                name
+                              )} justActionData) -> Just justActionData
+                              _ -> Nothing
+                  in
                   { view =
                       \\model ->
                           case model.page of
@@ -212,7 +221,7 @@ view page maybePageUrl globalData pageData =
                                       , routeParams = ${
                                         emptyRouteParams(name) ? "{}" : "s"
                                       }
-                                      , action = Nothing
+                                      , action = actionDataOrNothing
                                       , path = page.path
                                       }
                                       |> View.map Msg${pathNormalizedName(name)}
@@ -256,6 +265,7 @@ init :
     -> Pages.Flags.Flags
     -> Shared.Data
     -> PageData
+    -> Maybe ActionData
     -> Maybe Browser.Navigation.Key
     ->
         Maybe
@@ -268,7 +278,7 @@ init :
             , pageUrl : Maybe PageUrl
             }
     -> ( Model, Effect Msg )
-init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePath =
+init currentGlobalModel userFlags sharedData pageData actionData navigationKey maybePagePath =
     let
         ( sharedModel, globalCmd ) =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Effect.none )) |> Maybe.withDefault (Shared.template.init userFlags maybePagePath)
@@ -286,12 +296,20 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                     }, justPath ), Data${pathNormalizedName(
                       name
                     )} thisPageData ) ->
+                    let
+                        actionDataOrNothing =
+                            case actionData of
+                                Just (ActionData${routeHelpers.routeVariant(
+                                  name
+                                )} justActionData) -> Just justActionData
+                                _ -> Nothing
+                    in
                     Route.${moduleName(name)}.route.init
                         (Maybe.andThen .pageUrl maybePagePath)
                         sharedModel
                         { data = thisPageData
                         , sharedData = sharedData
-                        , action = Nothing
+                        , action = actionDataOrNothing
                         , routeParams = ${
                           emptyRouteParams(name) ? "{}" : "routeParams"
                         }
@@ -365,7 +383,7 @@ update sharedData pageData navigationKey msg model =
             )
 
         OnPageChange record ->
-            (init (Just model.global) Pages.Flags.PreRenderFlags sharedData pageData navigationKey <|
+            (init (Just model.global) Pages.Flags.PreRenderFlags sharedData pageData Nothing navigationKey <|
                 Just
                     { path =
                         { path = record.path
@@ -1271,7 +1289,7 @@ load =
         , tracker = Nothing
         , body = Http.emptyBody
         , headers = []
-        , url = ${fetcherPath}  |> String.join "/"
+        , url = [ ${fetcherPath} ] |> List.concat |> String.join "/"
         , method = "GET"
         , timeout = Nothing
         }
@@ -1294,7 +1312,11 @@ submit options =
         , tracker = Nothing
         , body = Http.stringBody contentType body
         , headers = options.headers |> List.map (\\( key, value ) -> Http.header key value)
-        , url = ${fetcherPath} ++ [ "content.dat" ] |> String.join "/"
+        , url = ${
+          fetcherPath === ""
+            ? '"/content.dat"'
+            : `[ ${fetcherPath}, [ "content.dat" ] ] |> List.concat |> String.join "/"`
+        }
         , method = "POST"
         , timeout = Nothing
         }
