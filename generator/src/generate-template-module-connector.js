@@ -903,7 +903,7 @@ decodeBytes bytesDecoder items =
 
 {-|
 
-@docs Route, link, matchers, routeToPath, toLink, urlToRoute, toPath, redirectTo, toString
+@docs Route, link, matchers, routeToPath, toLink, urlToRoute, toPath, redirectTo, toString, baseUrlAsPath
 
 -}
 
@@ -934,6 +934,7 @@ baseUrl =
     "${basePath}"
 
 
+{-| -}
 baseUrlAsPath : List String
 baseUrlAsPath =
     baseUrl
@@ -1030,6 +1031,7 @@ link attributes children route =
         route
 
 
+{-| -}
 redirectTo : Route -> Server.Response.Response data error
 redirectTo route =
     route
