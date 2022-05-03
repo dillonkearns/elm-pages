@@ -98,20 +98,21 @@ import View exposing (View)
 
 
 {-| -}
-type alias StatefulRoute routeParams data model msg =
+type alias StatefulRoute routeParams data action model msg =
     { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
+    , action : routeParams -> DataSource (Server.Response.Response action ErrorPage)
     , staticRoutes : DataSource (List routeParams)
     , view :
         Maybe PageUrl
         -> Shared.Model
         -> model
-        -> StaticPayload data routeParams
+        -> StaticPayload data action routeParams
         -> View msg
     , head :
-        StaticPayload data routeParams
+        StaticPayload data action routeParams
         -> List Head.Tag
-    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Effect msg )
-    , update : PageUrl -> StaticPayload data routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
+    , update : PageUrl -> StaticPayload data action routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> model -> Shared.Model -> Sub msg
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
     , kind : String
@@ -119,26 +120,28 @@ type alias StatefulRoute routeParams data model msg =
 
 
 {-| -}
-type alias StatelessRoute routeParams data =
-    StatefulRoute routeParams data {} ()
+type alias StatelessRoute routeParams data action =
+    StatefulRoute routeParams data action {} ()
 
 
 {-| -}
-type alias StaticPayload data routeParams =
+type alias StaticPayload data action routeParams =
     { data : data
     , sharedData : Shared.Data
     , routeParams : routeParams
     , path : Path
+    , action : Maybe action
     }
 
 
 {-| -}
-type Builder routeParams data
+type Builder routeParams data action
     = WithData
         { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
+        , action : routeParams -> DataSource (Server.Response.Response action ErrorPage)
         , staticRoutes : DataSource (List routeParams)
         , head :
-            StaticPayload data routeParams
+            StaticPayload data action routeParams
             -> List Head.Tag
         , serverless : Bool
         , handleRoute :
@@ -155,17 +158,18 @@ buildNoState :
     { view :
         Maybe PageUrl
         -> Shared.Model
-        -> StaticPayload data routeParams
+        -> StaticPayload data action routeParams
         -> View ()
     }
-    -> Builder routeParams data
-    -> StatefulRoute routeParams data {} ()
+    -> Builder routeParams data action
+    -> StatefulRoute routeParams data action {} ()
 buildNoState { view } builderState =
     case builderState of
         WithData record ->
             { view = \maybePageUrl sharedModel _ -> view maybePageUrl sharedModel
             , head = record.head
             , data = record.data
+            , action = record.action
             , staticRoutes = record.staticRoutes
             , init = \_ _ _ -> ( {}, Effect.none )
             , update = \_ _ _ _ _ -> ( {}, Effect.none, Nothing )
@@ -181,14 +185,14 @@ buildWithLocalState :
         Maybe PageUrl
         -> Shared.Model
         -> model
-        -> StaticPayload data routeParams
+        -> StaticPayload data action routeParams
         -> View msg
-    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Effect msg )
-    , update : PageUrl -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Effect msg )
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
+    , update : PageUrl -> Shared.Model -> StaticPayload data action routeParams -> msg -> model -> ( model, Effect msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
-    -> Builder routeParams data
-    -> StatefulRoute routeParams data model msg
+    -> Builder routeParams data action
+    -> StatefulRoute routeParams data action model msg
 buildWithLocalState config builderState =
     case builderState of
         WithData record ->
@@ -197,6 +201,7 @@ buildWithLocalState config builderState =
                     config.view model sharedModel staticPayload
             , head = record.head
             , data = record.data
+            , action = record.action
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
@@ -225,20 +230,21 @@ buildWithSharedState :
         Maybe PageUrl
         -> Shared.Model
         -> model
-        -> StaticPayload data routeParams
+        -> StaticPayload data action routeParams
         -> View msg
-    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data routeParams -> ( model, Effect msg )
-    , update : PageUrl -> Shared.Model -> StaticPayload data routeParams -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
+    , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
+    , update : PageUrl -> Shared.Model -> StaticPayload data action routeParams -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
-    -> Builder routeParams data
-    -> StatefulRoute routeParams data model msg
+    -> Builder routeParams data action
+    -> StatefulRoute routeParams data action model msg
 buildWithSharedState config builderState =
     case builderState of
         WithData record ->
             { view = config.view
             , head = record.head
             , data = record.data
+            , action = record.action
             , staticRoutes = record.staticRoutes
             , init = config.init
             , update =
@@ -259,12 +265,13 @@ buildWithSharedState config builderState =
 {-| -}
 single :
     { data : DataSource data
-    , head : StaticPayload data {} -> List Head.Tag
+    , head : StaticPayload data action {} -> List Head.Tag
     }
-    -> Builder {} data
+    -> Builder {} data action
 single { data, head } =
     WithData
         { data = \_ -> data |> DataSource.map Server.Response.render
+        , action = \_ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
@@ -277,12 +284,13 @@ single { data, head } =
 preRender :
     { data : routeParams -> DataSource data
     , pages : DataSource (List routeParams)
-    , head : StaticPayload data routeParams -> List Head.Tag
+    , head : StaticPayload data action routeParams -> List Head.Tag
     }
-    -> Builder routeParams data
+    -> Builder routeParams data action
 preRender { data, head, pages } =
     WithData
         { data = data >> DataSource.map Server.Response.render
+        , action = \_ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -314,12 +322,13 @@ preRender { data, head, pages } =
 preRenderWithFallback :
     { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
     , pages : DataSource (List routeParams)
-    , head : StaticPayload data routeParams -> List Head.Tag
+    , head : StaticPayload data action routeParams -> List Head.Tag
     }
-    -> Builder routeParams data
+    -> Builder routeParams data action
 preRenderWithFallback { data, head, pages } =
     WithData
         { data = data
+        , action = \_ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -333,10 +342,11 @@ preRenderWithFallback { data, head, pages } =
 {-| -}
 serverRender :
     { data : routeParams -> Server.Request.Parser (DataSource (Server.Response.Response data ErrorPage))
-    , head : StaticPayload data routeParams -> List Head.Tag
+    , action : routeParams -> Server.Request.Parser (DataSource (Server.Response.Response action ErrorPage))
+    , head : StaticPayload data action routeParams -> List Head.Tag
     }
-    -> Builder routeParams data
-serverRender { data, head } =
+    -> Builder routeParams data action
+serverRender { data, action, head } =
     WithData
         { data =
             \routeParams ->
@@ -344,6 +354,23 @@ serverRender { data, head } =
                     "$$elm-pages$$headers"
                     (routeParams
                         |> data
+                        |> Server.Request.getDecoder
+                    )
+                    |> DataSource.andThen
+                        (\rendered ->
+                            case rendered of
+                                Ok okRendered ->
+                                    okRendered
+
+                                Err error ->
+                                    Server.Request.errorsToString error |> DataSource.fail
+                        )
+        , action =
+            \routeParams ->
+                DataSource.Http.get
+                    "$$elm-pages$$headers"
+                    (routeParams
+                        |> action
                         |> Server.Request.getDecoder
                     )
                     |> DataSource.andThen

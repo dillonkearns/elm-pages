@@ -142,6 +142,17 @@ type PageData
       .join("    | ")}
 
 
+type ActionData
+    = 
+    ${templates
+      .map(
+        (name) =>
+          `ActionData${pathNormalizedName(name)} Route.${moduleName(
+            name
+          )}.ActionData\n`
+      )
+      .join("    | ")}
+
 
 view :
     { path : Path
@@ -201,6 +212,7 @@ view page maybePageUrl globalData pageData =
                                       , routeParams = ${
                                         emptyRouteParams(name) ? "{}" : "s"
                                       }
+                                      , action = Nothing
                                       , path = page.path
                                       }
                                       |> View.map Msg${pathNormalizedName(name)}
@@ -215,6 +227,7 @@ view page maybePageUrl globalData pageData =
                       { data = data
                       , sharedData = globalData
                       , routeParams = ${emptyRouteParams(name) ? "{}" : "s"}
+                      , action = Nothing
                       , path = page.path
                       }
                       `
@@ -278,6 +291,7 @@ init currentGlobalModel userFlags sharedData pageData navigationKey maybePagePat
                         sharedModel
                         { data = thisPageData
                         , sharedData = sharedData
+                        , action = Nothing
                         , routeParams = ${
                           emptyRouteParams(name) ? "{}" : "routeParams"
                         }
@@ -414,6 +428,7 @@ update sharedData pageData navigationKey msg model =
                                 pageUrl
                                 { data = thisPageData
                                 , sharedData = sharedData
+                                , action = Nothing
                                 , routeParams = ${routeHelpers.referenceRouteParams(
                                   name,
                                   "routeParams"
@@ -476,7 +491,7 @@ templateSubscriptions route path model =
 
 main : ${
       phase === "browser"
-        ? "Pages.Internal.Platform.Program Model Msg PageData Shared.Data ErrorPage"
+        ? "Pages.Internal.Platform.Program Model Msg PageData ActionData Shared.Data ErrorPage"
         : "Pages.Internal.Platform.Cli.Program (Maybe Route)"
     }
 main =
@@ -515,6 +530,7 @@ config =
           phase === "browser" ? "Sub.none" : "gotBatchSub identity"
         }
         , data = dataForRoute
+        , action = action
         , sharedData = Shared.template.data
         , apiRoutes = ${
           phase === "browser"
@@ -533,6 +549,7 @@ config =
         , hotReloadData = hotReloadData identity
         , encodeResponse = encodeResponse
         , decodeResponse = decodeResponse
+        , encodeAction = encodeActionData
         , cmdToEffect = Effect.fromCmd
         , perform = Effect.perform
         , errorStatusCode = ErrorPage.statusCode
@@ -553,14 +570,14 @@ globalHeadTags =
         |> DataSource.map List.concat
 
 
-encodeResponse : ResponseSketch PageData Shared.Data -> Bytes.Encode.Encoder
+encodeResponse : ResponseSketch PageData ActionData Shared.Data -> Bytes.Encode.Encoder
 encodeResponse =
-    Pages.Internal.ResponseSketch.w3_encode_ResponseSketch w3_encode_PageData Shared.w3_encode_Data
+    Pages.Internal.ResponseSketch.w3_encode_ResponseSketch w3_encode_PageData w3_encode_ActionData Shared.w3_encode_Data
 
 
-decodeResponse : Bytes.Decode.Decoder (ResponseSketch PageData Shared.Data)
+decodeResponse : Bytes.Decode.Decoder (ResponseSketch PageData ActionData Shared.Data)
 decodeResponse =
-    Pages.Internal.ResponseSketch.w3_decode_ResponseSketch w3_decode_PageData Shared.w3_decode_Data
+    Pages.Internal.ResponseSketch.w3_decode_ResponseSketch w3_decode_PageData w3_decode_ActionData Shared.w3_decode_Data
 
 
 port hotReloadData : (Bytes -> msg) -> Sub msg
@@ -584,6 +601,18 @@ ${templates
   )
   .join("\n")}
 
+encodeActionData : ActionData -> Bytes.Encode.Encoder
+encodeActionData actionData =
+    case actionData of
+${templates
+  .map(
+    (name) => `        ActionData${pathNormalizedName(name)} thisActionData ->
+            Route.${name.join(".")}.w3_encode_ActionData thisActionData
+`
+  )
+  .join("\n")}
+
+
 port sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd msg
 
 
@@ -606,6 +635,9 @@ ${templates
 `
   )
   .join("\n")}
+
+
+
 
 dataForRoute : Maybe Route -> DataSource (Server.Response.Response PageData ErrorPage)
 dataForRoute route =
@@ -632,6 +664,34 @@ dataForRoute route =
               `
           )
           .join("\n        ")}
+
+action : Maybe Route -> DataSource (Server.Response.Response ActionData ErrorPage)
+action route =
+    case route of
+        Nothing ->
+            DataSource.succeed ( Server.Response.plainText "TODO" )
+
+        ${templates
+          .map(
+            (name) =>
+              `Just ${
+                emptyRouteParams(name)
+                  ? `Route.${routeHelpers.routeVariant(name)}`
+                  : `(Route.${routeHelpers.routeVariant(name)} routeParams)`
+              } ->\n            Route.${name.join(
+                "."
+              )}.route.action ${routeHelpers.referenceRouteParams(
+                name,
+                "routeParams"
+              )} 
+                 |> DataSource.map (Server.Response.map ActionData${routeHelpers.routeVariant(
+                   name
+                 )})
+              `
+          )
+          .join("\n        ")}
+
+
 
 handleRoute : Maybe Route -> DataSource (Maybe Pages.Internal.NotFoundReason.NotFoundReason)
 handleRoute maybeRoute =

@@ -76,7 +76,7 @@ type alias Program route =
 
 {-| -}
 cliApplication :
-    ProgramConfig userMsg userModel (Maybe route) pageData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel (Maybe route) pageData actionData sharedData effect mappedMsg errorPage
     -> Program (Maybe route)
 cliApplication config =
     let
@@ -84,7 +84,7 @@ cliApplication config =
         site =
             getSiteConfig config
 
-        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) pageData sharedData effect mappedMsg errorPage -> SiteConfig
+        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) pageData actionData sharedData effect mappedMsg errorPage -> SiteConfig
         getSiteConfig fullConfig =
             case fullConfig.site of
                 Just mySite ->
@@ -199,12 +199,12 @@ requestDecoder =
         |> Codec.decoder
 
 
-flatten : SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage -> List Effect -> Cmd Msg
+flatten : SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage -> List Effect -> Cmd Msg
 flatten site renderRequest config list =
     Cmd.batch (flattenHelp [] site renderRequest config list)
 
 
-flattenHelp : List (Cmd Msg) -> SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage -> List Effect -> List (Cmd Msg)
+flattenHelp : List (Cmd Msg) -> SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage -> List Effect -> List (Cmd Msg)
 flattenHelp soFar site renderRequest config list =
     case list of
         first :: rest ->
@@ -222,7 +222,7 @@ flattenHelp soFar site renderRequest config list =
 perform :
     SiteConfig
     -> RenderRequest route
-    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Effect
     -> Cmd Msg
 perform site renderRequest config effect =
@@ -361,7 +361,7 @@ flagsDecoder =
 init :
     SiteConfig
     -> RenderRequest route
-    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Decode.Value
     -> ( Model route, Effect )
 init site renderRequest config flags =
@@ -388,14 +388,40 @@ init site renderRequest config flags =
                 }
 
 
+isActionDecoder : Decode.Decoder Bool
+isActionDecoder =
+    Decode.field "method" Decode.string
+        |> Decode.map
+            (\method ->
+                case method |> String.toUpper of
+                    "GET" ->
+                        False
+
+                    "OPTIONS" ->
+                        False
+
+                    _ ->
+                        True
+            )
+
+
 initLegacy :
     SiteConfig
     -> RenderRequest route
     -> { staticHttpCache : RequestsAndPending, isDevServer : Bool }
-    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> ( Model route, Effect )
 initLegacy site renderRequest { staticHttpCache, isDevServer } config =
     let
+        isAction : Bool
+        isAction =
+            renderRequest
+                |> RenderRequest.maybeRequestPayload
+                |> Maybe.map (Decode.decodeValue isActionDecoder)
+                |> Maybe.withDefault (Ok False)
+                |> Result.withDefault False
+                |> Debug.log "@@@isAction"
+
         staticResponses : StaticResponses
         staticResponses =
             case renderRequest of
@@ -403,10 +429,16 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                     case singleRequest of
                         RenderRequest.Page serverRequestPayload ->
                             StaticResponses.renderSingleRoute
-                                (DataSource.map3 (\_ _ _ -> ())
-                                    (config.data serverRequestPayload.frontmatter)
-                                    config.sharedData
-                                    (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
+                                (if isAction then
+                                    config.action serverRequestPayload.frontmatter
+                                        |> DataSource.map (\_ -> ())
+                                    -- TODO do loader or action based on METHOD
+
+                                 else
+                                    DataSource.map3 (\_ _ _ -> ())
+                                        (config.data serverRequestPayload.frontmatter)
+                                        config.sharedData
+                                        (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
                                 )
                                 (if isDevServer then
                                     config.handleRoute serverRequestPayload.frontmatter
@@ -461,7 +493,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
 
 updateAndSendPortIfDone :
     SiteConfig
-    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Model route
     -> ( Model route, Effect )
 updateAndSendPortIfDone site config model =
@@ -474,7 +506,7 @@ updateAndSendPortIfDone site config model =
 {-| -}
 update :
     SiteConfig
-    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Msg
     -> Model route
     -> ( Model route, Effect )
@@ -520,7 +552,7 @@ update site config msg model =
 
 nextStepToEffect :
     SiteConfig
-    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Model route
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model route, Effect )
@@ -578,6 +610,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                 config.sharedData
                                 model.allRawResponses
                                 |> Result.mapError (StaticHttpRequest.toBuildError "")
+                                |> Debug.log "@@@sharedData"
 
                         apiResponse : Effect
                         apiResponse =
@@ -666,7 +699,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
 sendSinglePageProgress :
     SiteConfig
     -> RequestsAndPending
-    -> ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Model route
     -> { path : Path, frontmatter : route }
     -> Effect
@@ -674,6 +707,15 @@ sendSinglePageProgress site contentJson config model info =
     let
         ( page, route ) =
             ( info.path, info.frontmatter )
+
+        isAction : Bool
+        isAction =
+            model.maybeRequestJson
+                |> RenderRequest.maybeRequestPayload
+                |> Maybe.map (Decode.decodeValue isActionDecoder)
+                |> Maybe.withDefault (Ok False)
+                |> Result.withDefault False
+                |> Debug.log "@@@isAction sendSingle"
     in
     case model.maybeRequestJson of
         RenderRequest.SinglePage includeHtml _ _ ->
@@ -696,6 +738,7 @@ sendSinglePageProgress site contentJson config model info =
                     case includeHtml of
                         RenderRequest.OnlyJson ->
                             pageDataResult
+                                |> Debug.log "pageDataResult"
                                 |> Result.map
                                     (\okPageData ->
                                         case okPageData of
@@ -802,6 +845,7 @@ sendSinglePageProgress site contentJson config model info =
                                                     }
                                     )
 
+                --Debug.todo ""
                 currentUrl : Url
                 currentUrl =
                     { protocol = Url.Https
@@ -817,6 +861,14 @@ sendSinglePageProgress site contentJson config model info =
                     -- TODO OPTIMIZATION can these three be included in StaticResponses.Finish?
                     StaticHttpRequest.resolve
                         (config.data (urlToRoute config currentUrl))
+                        contentJson
+                        |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
+
+                actionDataResult : Result BuildError (PageServerResponse actionData errorPage)
+                actionDataResult =
+                    -- TODO OPTIMIZATION can these three be included in StaticResponses.Finish?
+                    StaticHttpRequest.resolve
+                        (config.action (urlToRoute config currentUrl))
                         contentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
@@ -848,19 +900,34 @@ sendSinglePageProgress site contentJson config model info =
                                                     -- TODO want to encode both shared and page data in dev server and HTML-embedded data
                                                     -- but not for writing out the content.dat files - would be good to optimize this redundant data out
                                                     --if model.isDevServer then
-                                                    if True then
-                                                        sharedDataResult
-                                                            |> Result.map (ResponseSketch.HotUpdate pageData)
-                                                            |> Result.withDefault (ResponseSketch.RenderPage pageData)
-                                                            |> config.encodeResponse
-                                                            |> Bytes.Encode.encode
+                                                    if isAction then
+                                                        case actionDataResult of
+                                                            Ok (PageServerResponse.RenderPage _ actionData) ->
+                                                                --actionData
+                                                                --    |> ResponseSketch.Action
+                                                                --    -- TODO remove hardcoded actionData
+                                                                --    |> config.encodeResponse
+                                                                --    |> Bytes.Encode.encode
+                                                                actionData
+                                                                    -- TODO remove hardcoded actionData
+                                                                    |> config.encodeAction
+                                                                    |> Bytes.Encode.encode
+
+                                                            _ ->
+                                                                Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
 
                                                     else
-                                                        pageData
-                                                            |> ResponseSketch.RenderPage
+                                                        sharedDataResult
+                                                            |> Result.map (\something -> ResponseSketch.HotUpdate pageData something Nothing)
+                                                            |> Result.withDefault (ResponseSketch.RenderPage pageData Nothing)
                                                             |> config.encodeResponse
                                                             |> Bytes.Encode.encode
 
+                                                --else
+                                                --    pageData
+                                                --        |> ResponseSketch.RenderPage
+                                                --        |> config.encodeResponse
+                                                --        |> Bytes.Encode.encode
                                                 PageServerResponse.ServerResponse serverResponse ->
                                                     -- TODO handle error?
                                                     PageServerResponse.toRedirect serverResponse
@@ -877,7 +944,13 @@ sendSinglePageProgress site contentJson config model info =
                                                 PageServerResponse.ErrorPage error record ->
                                                     -- TODO this case should never happen
                                                     sharedDataResult
-                                                        |> Result.map (ResponseSketch.HotUpdate (config.errorPageToData error))
+                                                        |> Result.map
+                                                            (\sharedData ->
+                                                                ResponseSketch.HotUpdate (config.errorPageToData error)
+                                                                    sharedData
+                                                                    -- TODO remove hardcoded action data
+                                                                    Nothing
+                                                            )
                                                         |> Result.map config.encodeResponse
                                                         |> Result.map Bytes.Encode.encode
                                                         |> Result.withDefault (Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0))
@@ -962,7 +1035,7 @@ sendSinglePageProgress site contentJson config model info =
 
 
 render404Page :
-    ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Maybe sharedData
     -> Model route
     -> Path
@@ -974,8 +1047,11 @@ render404Page config sharedData model path notFoundReason =
             let
                 byteEncodedPageData : Bytes
                 byteEncodedPageData =
-                    justSharedData
-                        |> ResponseSketch.HotUpdate (config.errorPageToData config.notFoundPage)
+                    ResponseSketch.HotUpdate
+                        (config.errorPageToData config.notFoundPage)
+                        justSharedData
+                        -- TODO remove shared action data
+                        Nothing
                         |> config.encodeResponse
                         |> Bytes.Encode.encode
 
@@ -1054,7 +1130,7 @@ render404Page config sharedData model path notFoundReason =
                 |> Effect.SendSinglePageNew byteEncodedPageData
 
 
-urlToRoute : ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage -> Url -> route
+urlToRoute : ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage -> Url -> route
 urlToRoute config url =
     if url.path |> String.startsWith "/____elm-pages-internal____" then
         config.notFoundRoute

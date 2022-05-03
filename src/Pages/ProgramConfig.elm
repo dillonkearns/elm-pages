@@ -20,11 +20,10 @@ import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import Path exposing (Path)
-import Task exposing (Task)
 import Url exposing (Url)
 
 
-type alias ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage =
+type alias ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage =
     { init :
         Pages.Flags.Flags
         -> sharedData
@@ -45,6 +44,7 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource sharedData
     , data : route -> DataSource (PageServerResponse pageData errorPage)
+    , action : route -> DataSource (PageServerResponse actionData errorPage)
     , view :
         { path : Path
         , route : route
@@ -83,8 +83,9 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
     , sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd Never
     , byteEncodePageData : pageData -> Bytes.Encode.Encoder
     , byteDecodePageData : route -> Bytes.Decode.Decoder pageData
-    , encodeResponse : ResponseSketch pageData sharedData -> Bytes.Encode.Encoder
-    , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData sharedData)
+    , encodeResponse : ResponseSketch pageData actionData sharedData -> Bytes.Encode.Encoder
+    , encodeAction : actionData -> Bytes.Encode.Encoder
+    , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData actionData sharedData)
     , globalHeadTags : Maybe (DataSource (List Head.Tag))
     , cmdToEffect : Cmd userMsg -> effect
     , perform :
