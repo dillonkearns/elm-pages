@@ -55,7 +55,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action = action
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -180,6 +180,19 @@ todoSelection =
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
+        [ Request.requestTime
+            |> Request.map
+                (\time ->
+                    Request.Fauna.dataSource (time |> Time.posixToMillis |> String.fromInt) todos
+                        |> DataSource.map Data
+                        |> DataSource.map Response.render
+                )
+        ]
+
+
+action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
+action _ =
+    Request.oneOf
         [ Form.submitHandlers (deleteItemForm "")
             (\model decoded ->
                 case decoded of
@@ -189,7 +202,7 @@ data routeParams =
                                 (\_ -> Route.redirectTo Route.Todos)
 
                     Err error ->
-                        { todos = [] }
+                        {}
                             |> Response.render
                             |> DataSource.succeed
             )
@@ -202,18 +215,10 @@ data routeParams =
                                 (\_ -> Route.redirectTo Route.Todos)
 
                     Err error ->
-                        { todos = []
-                        }
+                        {}
                             |> Response.render
                             |> DataSource.succeed
             )
-        , Request.requestTime
-            |> Request.map
-                (\time ->
-                    Request.Fauna.dataSource (time |> Time.posixToMillis |> String.fromInt) todos
-                        |> DataSource.map Data
-                        |> DataSource.map Response.render
-                )
         ]
 
 
