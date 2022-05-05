@@ -439,8 +439,6 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                                                             |> DataSource.map (\_ -> ())
 
                                                     PageServerResponse.RenderPage _ actionData ->
-                                                        -- TODO call `config.data` here to resolve data?
-                                                        --DataSource.succeed something
                                                         DataSource.map3 (\_ _ _ -> ())
                                                             (config.data serverRequestPayload.frontmatter)
                                                             config.sharedData
@@ -450,7 +448,6 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                                                         DataSource.succeed something
                                                             |> DataSource.map (\_ -> ())
                                             )
-                                    -- TODO do loader or action based on METHOD
 
                                  else
                                     DataSource.map3 (\_ _ _ -> ())
@@ -894,7 +891,29 @@ sendSinglePageProgress site contentJson config model info =
                 pageDataResult =
                     -- TODO OPTIMIZATION can these three be included in StaticResponses.Finish?
                     StaticHttpRequest.resolve
-                        (config.data (urlToRoute config currentUrl))
+                        (if isAction then
+                            config.action (urlToRoute config currentUrl)
+                                |> DataSource.andThen
+                                    (\something ->
+                                        case something of
+                                            PageServerResponse.ErrorPage a b ->
+                                                PageServerResponse.ErrorPage a b
+                                                    |> DataSource.succeed
+
+                                            PageServerResponse.RenderPage responseDetails actionData ->
+                                                -- TODO the headers/response codes are ignored from the action here
+                                                -- is that okay? Should you always do a redirect or another kind of
+                                                -- server response if you want to control the headers/response code for an action (like logout & redirect, for example)?
+                                                config.data (urlToRoute config currentUrl)
+
+                                            PageServerResponse.ServerResponse a ->
+                                                PageServerResponse.ServerResponse a
+                                                    |> DataSource.succeed
+                                    )
+
+                         else
+                            config.data (urlToRoute config currentUrl)
+                        )
                         contentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
