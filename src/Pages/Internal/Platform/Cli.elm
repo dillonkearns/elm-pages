@@ -1006,7 +1006,6 @@ sendSinglePageProgress site contentJson config model info =
                                                             (\sharedData ->
                                                                 ResponseSketch.HotUpdate (config.errorPageToData error)
                                                                     sharedData
-                                                                    -- TODO remove hardcoded action data
                                                                     Nothing
                                                             )
                                                         |> Result.map config.encodeResponse
