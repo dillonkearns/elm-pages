@@ -130,7 +130,7 @@ type alias Data =
 
 
 type alias ActionData =
-    {}
+    Maybe Form.Model
 
 
 type alias Todo =
@@ -202,7 +202,7 @@ action _ =
                                 (\_ -> Route.redirectTo Route.Todos)
 
                     Err error ->
-                        {}
+                        Nothing
                             |> Response.render
                             |> DataSource.succeed
             )
@@ -212,10 +212,14 @@ action _ =
                     Ok okItem ->
                         Request.Fauna.mutationDataSource "" (createTodo okItem.description)
                             |> DataSource.map
-                                (\_ -> Route.redirectTo Route.Todos)
+                                (\_ ->
+                                    --Route.redirectTo Route.Todos
+                                    Response.render Nothing
+                                )
 
                     Err error ->
-                        {}
+                        model
+                            |> Just
                             |> Response.render
                             |> DataSource.succeed
             )
@@ -272,6 +276,7 @@ view maybeUrl sharedModel model static =
                             ]
                     )
             )
+        , errorsView static.action
         , newItemForm model.submitting
             |> Form.toStatelessHtml
                 (Just FormSubmitted)
@@ -281,14 +286,32 @@ view maybeUrl sharedModel model static =
     }
 
 
+errorsView : Maybe ActionData -> Html msg
+errorsView actionData =
+    case actionData |> Maybe.andThen identity of
+        Just justData ->
+            justData
+                |> Form.getErrors
+                |> List.map (\( name, error ) -> Html.text (name ++ ": " ++ error))
+                |> Html.ul [ Attr.style "color" "red" ]
+
+        Nothing ->
+            Html.div [] []
+
+
 newItemForm : Bool -> Form Msg String TodoInput (Html Msg)
 newItemForm submitting =
     Form.succeed (\description () -> TodoInput description)
         |> Form.with
             (Form.text "description"
-                (\{ toInput } ->
-                    Html.input (Attr.autofocus True :: toInput) []
-                        |> Html.map (\_ -> NoOp)
+                (\info ->
+                    Html.div []
+                        [ Html.label info.toLabel
+                            [ Html.text "Description"
+                            ]
+                        , Html.input (Attr.autofocus True :: info.toInput) []
+                            |> Html.map (\_ -> NoOp)
+                        ]
                 )
                 |> Form.required "Required"
             )

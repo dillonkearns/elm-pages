@@ -17,7 +17,9 @@ module Form exposing
     , hasErrors, rawValues, runClientValidations, withClientValidation, withRecoverableClientValidation
     , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
     , fieldStatusToString
-    --, withFormGetMethod, withFormUrl
+    ,  getErrors
+       --, withFormGetMethod, withFormUrl
+
     )
 
 {-|
@@ -309,6 +311,17 @@ type alias Model =
     , isSubmitting : SubmitStatus
     , formErrors : Dict String (List String)
     }
+
+
+getErrors : Model -> List ( String, String )
+getErrors { fields } =
+    fields
+        |> Dict.toList
+        |> List.concatMap
+            (\( name, info ) ->
+                info.errors
+                    |> List.map (Tuple.pair name)
+            )
 
 
 {-| -}
