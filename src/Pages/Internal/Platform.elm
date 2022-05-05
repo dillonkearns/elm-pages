@@ -811,8 +811,12 @@ fetchRouteData transitionKey toMsg config url details =
                         Http.NetworkError_ ->
                             Err Http.NetworkError
 
-                        Http.BadStatus_ metadata _ ->
-                            Err (Http.BadStatus metadata.statusCode)
+                        Http.BadStatus_ metadata body ->
+                            body
+                                |> Bytes.Decode.decode config.decodeResponse
+                                |> Result.fromMaybe "Decoding error"
+                                |> Result.mapError Http.BadBody
+                                |> Result.map (\okResponse -> ( url, okResponse ))
 
                         Http.GoodStatus_ _ body ->
                             body
