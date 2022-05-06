@@ -477,29 +477,11 @@ update config appMsg model =
 
                         updatedPageData : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
                         updatedPageData =
-                            { userModel = userModel
+                            { userModel = previousPageData.userModel
                             , sharedData = newSharedData
                             , pageData = newPageData
                             , actionData = newActionData
                             }
-
-                        ( userModel, userCmd ) =
-                            -- TODO call update on new Model for ErrorPage
-                            config.update
-                                newSharedData
-                                newPageData
-                                model.key
-                                (config.onPageChange
-                                    { protocol = model.url.protocol
-                                    , host = model.url.host
-                                    , port_ = model.url.port_
-                                    , path = newUrl |> urlPathToPath
-                                    , query = newUrl.query
-                                    , fragment = newUrl.fragment
-                                    , metadata = config.urlToRoute newUrl
-                                    }
-                                )
-                                previousPageData.userModel
 
                         updatedModel : Model userModel pageData actionData sharedData
                         updatedModel =
@@ -514,8 +496,7 @@ update config appMsg model =
                                 | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                               }
                             , Batch
-                                [ UserCmd userCmd
-                                , ScrollToTop
+                                [ ScrollToTop
                                 , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
                                     BrowserPushUrl newUrl.path
 
@@ -530,8 +511,7 @@ update config appMsg model =
                                 | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                               }
                             , Batch
-                                [ UserCmd userCmd
-                                , ScrollToTop
+                                [ ScrollToTop
                                 , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
                                     BrowserPushUrl newUrl.path
 
