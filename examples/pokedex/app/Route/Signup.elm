@@ -100,11 +100,6 @@ type ActionData
         }
 
 
-actionData : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
-actionData routeParams =
-    Debug.todo ""
-
-
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.succeed (DataSource.succeed (Response.render Data))
