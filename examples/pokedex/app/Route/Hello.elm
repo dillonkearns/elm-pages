@@ -54,14 +54,14 @@ init :
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}
-    , Fetcher.Signup.submit
+    , Fetcher.Signup.something GotResponse
         { headers = []
-        , formFields =
+        , fields =
             [ ( "first", "Jane" )
             , ( "email", "jane@example.com" )
             ]
         }
-        |> Effect.map GotResponse
+        |> Effect.SubmitFetcher
     )
 
 

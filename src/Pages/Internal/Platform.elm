@@ -288,6 +288,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UrlChanged Url
     | UserMsg userMsg
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
+    | FetcherComplete (Result Http.Error userMsg)
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
@@ -426,6 +427,18 @@ update config appMsg model =
                 , NoEffect
                 )
                     |> startNewGetLoad url.path (UpdateCacheAndUrlNew False url Nothing)
+
+        FetcherComplete userMsgResult ->
+            case userMsgResult of
+                Ok userMsg ->
+                    ( model, NoEffect )
+                        |> performUserMsg userMsg config
+                        |> startNewGetLoad model.url.path (UpdateCacheAndUrlNew False model.url Nothing)
+
+                Err _ ->
+                    -- TODO how to handle error?
+                    ( model, NoEffect )
+                        |> startNewGetLoad model.url.path (UpdateCacheAndUrlNew False model.url Nothing)
 
         ProcessFetchResponse response toMsg ->
             case response of
@@ -667,6 +680,32 @@ perform config currentUrl maybeKey effect =
                                                     currentUrl
                                     in
                                     fetchRouteData -1 (prepare fetchInfo.toMsg) config urlToSubmitTo (Just (FormDecoder.encodeFormData fetchInfo.values))
+                            , runFetcher =
+                                \options ->
+                                    let
+                                        { contentType, body } =
+                                            FormDecoder.encodeFormData options.fields
+                                    in
+                                    -- TODO make sure that `actionData` isn't updated in Model for fetchers
+                                    Http.request
+                                        { expect =
+                                            Http.expectBytesResponse FetcherComplete
+                                                (\bytes ->
+                                                    case bytes of
+                                                        Http.GoodStatus_ metadata bytesBody ->
+                                                            options.decoder (Ok bytesBody)
+                                                                |> Ok
+
+                                                        _ ->
+                                                            Debug.todo ""
+                                                )
+                                        , tracker = Nothing
+                                        , body = Http.stringBody contentType body
+                                        , headers = options.headers |> List.map (\( name, value ) -> Http.header name value)
+                                        , url = options.url
+                                        , method = "POST"
+                                        , timeout = Nothing
+                                        }
                             , fromPageMsg = UserMsg
                             , key = key
                             }

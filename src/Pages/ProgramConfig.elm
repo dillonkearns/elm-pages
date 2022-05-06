@@ -106,6 +106,13 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
             }
             -> Cmd mappedMsg
         , fromPageMsg : userMsg -> mappedMsg
+        , runFetcher :
+            { decoder : Result Http.Error Bytes -> userMsg
+            , fields : List ( String, String )
+            , headers : List ( String, String )
+            , url : String
+            }
+            -> Cmd mappedMsg
         , key : Browser.Navigation.Key
         }
         -> effect

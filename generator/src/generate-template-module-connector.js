@@ -1271,10 +1271,12 @@ function fetcherModule(name) {
     })
     .join(", ");
 
-  return `module Fetcher.${moduleName} exposing (load, submit)
+  return `module Fetcher.${moduleName} exposing (load, submit, something)
 
 {-| -}
 
+import Bytes exposing (Bytes)
+import Bytes.Decode
 import Effect exposing (Effect)
 import FormDecoder
 import Http
@@ -1321,6 +1323,39 @@ submit options =
         , timeout = Nothing
         }
         |> Effect.fromCmd
+
+
+something :
+    (Result Http.Error Route.${moduleName}.ActionData -> msg)
+    ->
+        { fields : List ( String, String )
+        , headers : List ( String, String )
+        }
+    ->
+        { decoder : Result Http.Error Bytes -> msg
+        , fields : List ( String, String )
+        , headers : List ( String, String )
+        , url : String
+        }
+something toMsg options =
+    { decoder =
+        \\bytesResult ->
+            bytesResult
+                |> Result.andThen
+                    (\\okBytes ->
+                        okBytes
+                            |> Bytes.Decode.decode Route.${moduleName}.w3_decode_ActionData
+                            |> Result.fromMaybe (Http.BadBody "Couldn't decode bytes.")
+                    )
+                |> toMsg
+    , fields = options.fields
+    , headers = options.headers
+        , url = ${
+          fetcherPath === ""
+            ? '"/content.dat"'
+            : `[ ${fetcherPath}, [ "content.dat" ] ] |> List.concat |> String.join "/"`
+        }
+    }
 `;
 }
 

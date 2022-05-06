@@ -1,6 +1,8 @@
 module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 
 import Browser.Navigation
+import Bytes exposing (Bytes)
+import Bytes.Decode
 import Http
 import Json.Decode as Decode
 import Url exposing (Url)
@@ -21,6 +23,12 @@ type Effect msg
         , path : Maybe (List String)
         , method : Maybe String
         , toMsg : Result Http.Error Url -> msg
+        }
+    | SubmitFetcher
+        { decoder : Result Http.Error Bytes -> msg
+        , fields : List ( String, String )
+        , headers : List ( String, String )
+        , url : String
         }
 
 
@@ -75,6 +83,14 @@ map fn effect =
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
+        SubmitFetcher fetchInfo ->
+            SubmitFetcher
+                { decoder = fetchInfo.decoder >> fn
+                , fields = fetchInfo.fields
+                , headers = fetchInfo.headers
+                , url = fetchInfo.url
+                }
+
 
 perform :
     { fetchRouteData :
@@ -89,6 +105,13 @@ perform :
         , method : Maybe String
         , path : Maybe String
         , toMsg : Result Http.Error Url -> pageMsg
+        }
+        -> Cmd msg
+    , runFetcher :
+        { decoder : Result Http.Error Bytes -> pageMsg
+        , fields : List ( String, String )
+        , headers : List ( String, String )
+        , url : String
         }
         -> Cmd msg
     , fromPageMsg : pageMsg -> msg
@@ -129,3 +152,6 @@ perform ({ fromPageMsg, key } as helpers) effect =
                 , encType = Nothing -- TODO
                 , toMsg = record.toMsg
                 }
+
+        SubmitFetcher record ->
+            helpers.runFetcher record
