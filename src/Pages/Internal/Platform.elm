@@ -437,22 +437,8 @@ update config appMsg model =
                     update config (toMsg response) model
 
         UserMsg userMsg ->
-            case model.pageData of
-                Ok pageData ->
-                    let
-                        ( userModel, userCmd ) =
-                            config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
-
-                        updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
-                        updatedPageData =
-                            Ok { pageData | userModel = userModel }
-                    in
-                    ( { model | pageData = updatedPageData }
-                    , UserCmd userCmd
-                    )
-
-                Err _ ->
-                    ( model, NoEffect )
+            ( model, NoEffect )
+                |> performUserMsg userMsg config
 
         UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
             case
@@ -590,6 +576,30 @@ update config appMsg model =
                                 ( model, NoEffect )
                     )
                 |> Result.withDefault ( model, NoEffect )
+
+
+performUserMsg :
+    userMsg
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+performUserMsg userMsg config ( model, effect ) =
+    case model.pageData of
+        Ok pageData ->
+            let
+                ( userModel, userCmd ) =
+                    config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+
+                updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
+                updatedPageData =
+                    Ok { pageData | userModel = userModel }
+            in
+            ( { model | pageData = updatedPageData }
+            , Batch [ effect, UserCmd userCmd ]
+            )
+
+        Err _ ->
+            ( model, effect )
 
 
 perform : ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage -> Url -> Maybe Browser.Navigation.Key -> Effect userMsg pageData actionData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
