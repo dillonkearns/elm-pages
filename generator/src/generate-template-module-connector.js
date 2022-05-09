@@ -1349,7 +1349,7 @@ something toMsg options =
                     )
                 |> toMsg
     , fields = options.fields
-    , headers = options.headers
+    , headers = ("elm-pages-action-only", "true") :: options.headers
         , url = ${
           fetcherPath === ""
             ? '"/content.dat"'
