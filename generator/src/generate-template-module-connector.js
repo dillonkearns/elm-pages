@@ -1298,61 +1298,18 @@ function fetcherModule(name) {
     })
     .join(", ");
 
-  return `module Fetcher.${moduleName} exposing (load, submit, something)
+  return `module Fetcher.${moduleName} exposing (submit)
 
 {-| -}
 
 import Bytes exposing (Bytes)
 import Bytes.Decode
-import Effect exposing (Effect)
 import FormDecoder
 import Http
 import Route.${moduleName}
 
 
-{-| -}
-load : Effect (Result Http.Error Route.${moduleName}.Data)
-load =
-    Http.request
-        { expect = Http.expectBytes identity Route.${moduleName}.w3_decode_Data
-        , tracker = Nothing
-        , body = Http.emptyBody
-        , headers = []
-        , url = [ ${fetcherPath} ] |> List.concat |> String.join "/"
-        , method = "GET"
-        , timeout = Nothing
-        }
-        |> Effect.fromCmd
-
-
-{-| -}
 submit :
-    { headers : List ( String, String )
-    , formFields : List ( String, String )
-    }
-    -> Effect (Result Http.Error Route.${moduleName}.ActionData)
-submit options =
-    let
-        { contentType, body } =
-            FormDecoder.encodeFormData options.formFields
-    in
-    Http.request
-        { expect = Http.expectBytes identity Route.${moduleName}.w3_decode_ActionData
-        , tracker = Nothing
-        , body = Http.stringBody contentType body
-        , headers = options.headers |> List.map (\\( key, value ) -> Http.header key value)
-        , url = ${
-          fetcherPath === ""
-            ? '"/content.dat"'
-            : `[ ${fetcherPath}, [ "content.dat" ] ] |> List.concat |> String.join "/"`
-        }
-        , method = "POST"
-        , timeout = Nothing
-        }
-        |> Effect.fromCmd
-
-
-something :
     (Result Http.Error Route.${moduleName}.ActionData -> msg)
     ->
         { fields : List ( String, String )
@@ -1364,7 +1321,7 @@ something :
         , headers : List ( String, String )
         , url : Maybe String
         }
-something toMsg options =
+submit toMsg options =
     { decoder =
         \\bytesResult ->
             bytesResult
