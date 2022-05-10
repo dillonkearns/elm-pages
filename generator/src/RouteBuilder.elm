@@ -82,11 +82,13 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 
 -}
 
+import Bytes exposing (Bytes)
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
+import Http
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
@@ -131,6 +133,14 @@ type alias StaticPayload data action routeParams =
     , routeParams : routeParams
     , path : Path
     , action : Maybe action
+    , submit :
+        { fields : List ( String, String ), headers : List ( String, String ) }
+        ->
+            { decoder : Result Http.Error Bytes -> Result Http.Error action
+            , fields : List ( String, String )
+            , headers : List ( String, String )
+            , url : Maybe String
+            }
     }
 
 

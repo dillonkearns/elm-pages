@@ -110,7 +110,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
             { decoder : Result Http.Error Bytes -> userMsg
             , fields : List ( String, String )
             , headers : List ( String, String )
-            , url : String
+            , url : Maybe String
             }
             -> Cmd mappedMsg
         , key : Browser.Navigation.Key

@@ -702,7 +702,7 @@ perform config currentUrl maybeKey effect =
                                         , tracker = Nothing
                                         , body = Http.stringBody contentType body
                                         , headers = options.headers |> List.map (\( name, value ) -> Http.header name value)
-                                        , url = options.url
+                                        , url = options.url |> Maybe.withDefault (Path.join [ currentUrl.path, "content.dat" ] |> Path.toAbsolute)
                                         , method = "POST"
                                         , timeout = Nothing
                                         }

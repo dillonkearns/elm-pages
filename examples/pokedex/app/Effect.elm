@@ -28,7 +28,7 @@ type Effect msg
         { decoder : Result Http.Error Bytes -> msg
         , fields : List ( String, String )
         , headers : List ( String, String )
-        , url : String
+        , url : Maybe String
         }
 
 
@@ -111,7 +111,7 @@ perform :
         { decoder : Result Http.Error Bytes -> pageMsg
         , fields : List ( String, String )
         , headers : List ( String, String )
-        , url : String
+        , url : Maybe String
         }
         -> Cmd msg
     , fromPageMsg : pageMsg -> msg

@@ -223,6 +223,9 @@ view page maybePageUrl globalData pageData actionData =
                                       }
                                       , action = actionDataOrNothing
                                       , path = page.path
+                                      , submit = submitFetcher Route.${moduleName(
+                                        name
+                                      )}.w3_decode_ActionData
                                       }
                                       |> View.map Msg${pathNormalizedName(name)}
                                       |> Shared.template.view globalData page model.global MsgGlobal
@@ -238,6 +241,9 @@ view page maybePageUrl globalData pageData actionData =
                       , routeParams = ${emptyRouteParams(name) ? "{}" : "s"}
                       , action = Nothing
                       , path = page.path
+                      , submit = submitFetcher Route.${moduleName(
+                        name
+                      )}.w3_decode_ActionData
                       }
                       `
                   }
@@ -314,6 +320,9 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
                           emptyRouteParams(name) ? "{}" : "routeParams"
                         }
                         , path = justPath.path
+                        , submit = submitFetcher Route.${moduleName(
+                          name
+                        )}.w3_decode_ActionData
                         }
                         |> Tuple.mapBoth Model${pathNormalizedName(
                           name
@@ -452,6 +461,9 @@ update sharedData pageData navigationKey msg model =
                                   "routeParams"
                                 )}
                                 , path = justPage.path
+                                , submit = submitFetcher Route.${moduleName(
+                                  name
+                                )}.w3_decode_ActionData
                                 }
                                 msg_
                                 pageModel
@@ -477,6 +489,21 @@ update sharedData pageData navigationKey msg model =
 `
           )
           .join("\n        ")}
+
+submitFetcher byteDecoder options =
+    { decoder =
+        \\bytesResult ->
+            bytesResult
+                |> Result.andThen
+                    (\\okBytes ->
+                        okBytes
+                            |> Bytes.Decode.decode byteDecoder
+                            |> Result.fromMaybe (Http.BadBody "Couldn't decode bytes.")
+                    )
+    , fields = options.fields
+    , headers = ("elm-pages-action-only", "true") :: options.headers
+    , url = Nothing
+    }
 
 
 templateSubscriptions : Maybe Route -> Path -> Model -> Sub Msg
@@ -1335,7 +1362,7 @@ something :
         { decoder : Result Http.Error Bytes -> msg
         , fields : List ( String, String )
         , headers : List ( String, String )
-        , url : String
+        , url : Maybe String
         }
 something toMsg options =
     { decoder =
@@ -1352,8 +1379,8 @@ something toMsg options =
     , headers = ("elm-pages-action-only", "true") :: options.headers
         , url = ${
           fetcherPath === ""
-            ? '"/content.dat"'
-            : `[ ${fetcherPath}, [ "content.dat" ] ] |> List.concat |> String.join "/"`
+            ? 'Just "/content.dat"'
+            : `[ ${fetcherPath}, [ "content.dat" ] ] |> List.concat |> String.join "/" |> Just`
         }
     }
 `;

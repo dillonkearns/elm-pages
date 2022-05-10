@@ -5,9 +5,13 @@ import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
+import Html
+import Html.Attributes as Attr
+import Http
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
+import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
@@ -21,6 +25,7 @@ type alias Model =
 
 type Msg
     = NoOp
+    | GotResponse (Result Http.Error ActionData)
 
 
 type alias RouteParams =
@@ -51,14 +56,29 @@ action _ =
                 (field "email")
                 |> Request.map
                     (\( first, email ) ->
-                        Success
+                        validate
                             { email = email
                             , first = first
                             }
-                            |> Response.render
                             |> DataSource.succeed
                     )
         )
+
+
+validate : { first : String, email : String } -> Response ActionData ErrorPage
+validate { first, email } =
+    if first /= "" && email /= "" then
+        Route.redirectTo Route.Signup
+
+    else
+        ValidationErrors
+            { errors = [ "Cannot be blank" ]
+            , fields =
+                [ ( "first", first )
+                , ( "email", email )
+                ]
+            }
+            |> Response.render
 
 
 init :
@@ -67,7 +87,22 @@ init :
     -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( {}, Effect.none )
+    ( {}
+    , static.submit
+        { headers = []
+        , fields =
+            -- TODO when you run a Fetcher and get back a Redirect, how should that be handled? Maybe instead of `Result Http.Error ActionData`,
+            -- it should be `FetcherResponse ActionData`, with Redirect as one of the possibilities?
+            --[ ( "first", "Jane" )
+            --, ( "email", "jane@example.com" )
+            --]
+            [ ( "first", "" )
+            , ( "email", "" )
+            ]
+        }
+        |> Effect.SubmitFetcher
+        |> Effect.map GotResponse
+    )
 
 
 update :
@@ -80,6 +115,13 @@ update :
 update pageUrl sharedModel static msg model =
     case msg of
         NoOp ->
+            ( model, Effect.none )
+
+        GotResponse result ->
+            let
+                _ =
+                    Debug.log "GotResponse" result
+            in
             ( model, Effect.none )
 
 
@@ -119,4 +161,27 @@ view :
     -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel model static =
-    View.placeholder "Signup"
+    { title = "Signup"
+    , body =
+        [ Html.p []
+            [ case static.action of
+                Just (Success { email, first }) ->
+                    Html.text <| "Hello " ++ first ++ "!"
+
+                Just (ValidationErrors { errors }) ->
+                    errors
+                        |> List.map (\error -> Html.li [] [ Html.text error ])
+                        |> Html.ul []
+
+                _ ->
+                    Html.text ""
+            ]
+        , Html.form
+            [ Attr.method "POST"
+            ]
+            [ Html.label [] [ Html.text "First", Html.input [ Attr.name "first" ] [] ]
+            , Html.label [] [ Html.text "Email", Html.input [ Attr.name "email" ] [] ]
+            , Html.input [ Attr.type_ "submit", Attr.value "Signup" ] []
+            ]
+        ]
+    }
