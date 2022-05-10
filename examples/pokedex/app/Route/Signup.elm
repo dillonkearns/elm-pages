@@ -1,13 +1,15 @@
 module Route.Signup exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
+import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
-import Html
+import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
+import MySession
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -15,6 +17,7 @@ import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
+import Server.Session as Session exposing (Session)
 import Shared
 import View exposing (View)
 
@@ -49,36 +52,47 @@ route =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action _ =
-    Request.expectFormPost
-        (\{ field } ->
-            Request.map2 Tuple.pair
-                (field "first")
-                (field "email")
-                |> Request.map
-                    (\( first, email ) ->
-                        validate
-                            { email = email
-                            , first = first
-                            }
-                            |> DataSource.succeed
-                    )
+    MySession.withSession
+        (Request.expectFormPost
+            (\{ field } ->
+                Request.map2 Tuple.pair
+                    (field "first")
+                    (field "email")
+            )
+        )
+        (\( first, email ) maybeSession ->
+            let
+                session : Session
+                session =
+                    maybeSession |> Result.toMaybe |> Maybe.andThen identity |> Maybe.withDefault Session.empty
+            in
+            validate session
+                { email = email
+                , first = first
+                }
+                |> DataSource.succeed
         )
 
 
-validate : { first : String, email : String } -> Response ActionData ErrorPage
-validate { first, email } =
+validate : Session -> { first : String, email : String } -> ( Session, Response ActionData ErrorPage )
+validate session { first, email } =
     if first /= "" && email /= "" then
-        Route.redirectTo Route.Signup
+        ( session
+            |> Session.withFlash "message" ("Success! You're all signed up " ++ first)
+        , Route.redirectTo Route.Signup
+        )
 
     else
-        ValidationErrors
-            { errors = [ "Cannot be blank" ]
+        ( session
+        , ValidationErrors
+            { errors = [ "Cannot be blank?" ]
             , fields =
                 [ ( "first", first )
                 , ( "email", email )
                 ]
             }
             |> Response.render
+        )
 
 
 init :
@@ -131,7 +145,8 @@ subscriptions maybePageUrl routeParams path sharedModel model =
 
 
 type alias Data =
-    {}
+    { flashMessage : Maybe (Result String String)
+    }
 
 
 type ActionData
@@ -144,7 +159,24 @@ type ActionData
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.succeed (DataSource.succeed (Response.render Data))
+    MySession.withSession
+        (Request.succeed ())
+        (\() sessionResult ->
+            let
+                session : Session
+                session =
+                    sessionResult |> Result.toMaybe |> Maybe.andThen identity |> Maybe.withDefault Session.empty
+
+                flashMessage : Maybe String
+                flashMessage =
+                    session |> Session.get "message"
+            in
+            ( Session.empty
+            , Response.render
+                { flashMessage = flashMessage |> Maybe.map Ok }
+            )
+                |> DataSource.succeed
+        )
 
 
 head :
@@ -176,6 +208,7 @@ view maybeUrl sharedModel model static =
                 _ ->
                     Html.text ""
             ]
+        , flashView static.data.flashMessage
         , Html.form
             [ Attr.method "POST"
             ]
@@ -185,3 +218,21 @@ view maybeUrl sharedModel model static =
             ]
         ]
     }
+
+
+flashView : Maybe (Result String String) -> Html msg
+flashView message =
+    Html.p
+        [ Attr.style "background-color" "rgb(163 251 163)"
+        ]
+        [ Html.text <|
+            case message of
+                Nothing ->
+                    ""
+
+                Just (Ok okMessage) ->
+                    okMessage
+
+                Just (Err error) ->
+                    "Something went wrong: " ++ error
+        ]
