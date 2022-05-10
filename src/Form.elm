@@ -14,12 +14,11 @@ module Form exposing
     , withServerValidation
     , withMax, withMin
     , withStep
+    , getErrors
     , hasErrors, rawValues, runClientValidations, withClientValidation, withRecoverableClientValidation
     , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
     , fieldStatusToString
-    ,  getErrors
-       --, withFormGetMethod, withFormUrl
-
+    --, withFormGetMethod, withFormUrl
     )
 
 {-|
@@ -118,6 +117,8 @@ Steps
 
 
 ## Internals?
+
+@docs getErrors
 
 @docs hasErrors, rawValues, runClientValidations, withClientValidation, withRecoverableClientValidation
 
@@ -313,6 +314,7 @@ type alias Model =
     }
 
 
+{-| -}
 getErrors : Model -> List ( String, String )
 getErrors { fields } =
     fields

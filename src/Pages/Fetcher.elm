@@ -1,11 +1,8 @@
-module Pages.Fetcher exposing
-    ( Fetcher(..), FetcherInfo
-    , map, submit
-    )
+module Pages.Fetcher exposing (Fetcher(..), FetcherInfo, submit, map)
 
 {-|
 
-@docs Fetcher, FetcherInfo, submitFetcher
+@docs Fetcher, FetcherInfo, submit, map
 
 -}
 
@@ -50,6 +47,7 @@ submit byteDecoder options =
         }
 
 
+{-| -}
 map : (a -> b) -> Fetcher a -> Fetcher b
 map mapFn (Fetcher fetcher) =
     Fetcher
