@@ -24,6 +24,7 @@ import Http
 import Json.Decode as Decode
 import Json.Encode
 import Pages.ContentCache as ContentCache
+import Pages.Fetcher
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
@@ -681,7 +682,7 @@ perform config currentUrl maybeKey effect =
                                     in
                                     fetchRouteData -1 (prepare fetchInfo.toMsg) config urlToSubmitTo (Just (FormDecoder.encodeFormData fetchInfo.values))
                             , runFetcher =
-                                \options ->
+                                \(Pages.Fetcher.Fetcher options) ->
                                     let
                                         { contentType, body } =
                                             FormDecoder.encodeFormData options.fields

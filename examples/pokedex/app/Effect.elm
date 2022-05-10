@@ -5,6 +5,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import Http
 import Json.Decode as Decode
+import Pages.Fetcher
 import Url exposing (Url)
 
 
@@ -24,12 +25,7 @@ type Effect msg
         , method : Maybe String
         , toMsg : Result Http.Error Url -> msg
         }
-    | SubmitFetcher
-        { decoder : Result Http.Error Bytes -> msg
-        , fields : List ( String, String )
-        , headers : List ( String, String )
-        , url : Maybe String
-        }
+    | SubmitFetcher (Pages.Fetcher.Fetcher msg)
 
 
 type alias RequestInfo =
@@ -83,13 +79,10 @@ map fn effect =
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
-        SubmitFetcher fetchInfo ->
-            SubmitFetcher
-                { decoder = fetchInfo.decoder >> fn
-                , fields = fetchInfo.fields
-                , headers = fetchInfo.headers
-                , url = fetchInfo.url
-                }
+        SubmitFetcher fetcher ->
+            fetcher
+                |> Pages.Fetcher.map fn
+                |> SubmitFetcher
 
 
 perform :
@@ -108,11 +101,7 @@ perform :
         }
         -> Cmd msg
     , runFetcher :
-        { decoder : Result Http.Error Bytes -> pageMsg
-        , fields : List ( String, String )
-        , headers : List ( String, String )
-        , url : Maybe String
-        }
+        Pages.Fetcher.Fetcher pageMsg
         -> Cmd msg
     , fromPageMsg : pageMsg -> msg
     , key : Browser.Navigation.Key

@@ -59,6 +59,7 @@ import Http
 import Json.Decode
 import Json.Encode
 import Pages.Flags
+import Pages.Fetcher
 import ${
       phase === "browser"
         ? "Pages.Internal.Platform"
@@ -223,7 +224,7 @@ view page maybePageUrl globalData pageData actionData =
                                       }
                                       , action = actionDataOrNothing
                                       , path = page.path
-                                      , submit = submitFetcher Route.${moduleName(
+                                      , submit = Pages.Fetcher.submit Route.${moduleName(
                                         name
                                       )}.w3_decode_ActionData
                                       }
@@ -241,7 +242,7 @@ view page maybePageUrl globalData pageData actionData =
                       , routeParams = ${emptyRouteParams(name) ? "{}" : "s"}
                       , action = Nothing
                       , path = page.path
-                      , submit = submitFetcher Route.${moduleName(
+                      , submit = Pages.Fetcher.submit Route.${moduleName(
                         name
                       )}.w3_decode_ActionData
                       }
@@ -320,7 +321,7 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
                           emptyRouteParams(name) ? "{}" : "routeParams"
                         }
                         , path = justPath.path
-                        , submit = submitFetcher Route.${moduleName(
+                        , submit = Pages.Fetcher.submit Route.${moduleName(
                           name
                         )}.w3_decode_ActionData
                         }
@@ -461,7 +462,7 @@ update sharedData pageData navigationKey msg model =
                                   "routeParams"
                                 )}
                                 , path = justPage.path
-                                , submit = submitFetcher Route.${moduleName(
+                                , submit = Pages.Fetcher.submit Route.${moduleName(
                                   name
                                 )}.w3_decode_ActionData
                                 }
@@ -489,21 +490,6 @@ update sharedData pageData navigationKey msg model =
 `
           )
           .join("\n        ")}
-
-submitFetcher byteDecoder options =
-    { decoder =
-        \\bytesResult ->
-            bytesResult
-                |> Result.andThen
-                    (\\okBytes ->
-                        okBytes
-                            |> Bytes.Decode.decode byteDecoder
-                            |> Result.fromMaybe (Http.BadBody "Couldn't decode bytes.")
-                    )
-    , fields = options.fields
-    , headers = ("elm-pages-action-only", "true") :: options.headers
-    , url = Nothing
-    }
 
 
 templateSubscriptions : Maybe Route -> Path -> Model -> Sub Msg
@@ -1306,6 +1292,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import FormDecoder
 import Http
+import Pages.Fetcher
 import Route.${moduleName}
 
 
@@ -1315,12 +1302,7 @@ submit :
         { fields : List ( String, String )
         , headers : List ( String, String )
         }
-    ->
-        { decoder : Result Http.Error Bytes -> msg
-        , fields : List ( String, String )
-        , headers : List ( String, String )
-        , url : Maybe String
-        }
+    -> Pages.Fetcher.Fetcher msg
 submit toMsg options =
     { decoder =
         \\bytesResult ->
@@ -1340,6 +1322,7 @@ submit toMsg options =
             : `[ ${fetcherPath}, [ "content.dat" ] ] |> List.concat |> String.join "/" |> Just`
         }
     }
+    |> Pages.Fetcher.Fetcher
 `;
 }
 

@@ -12,6 +12,7 @@ import Http
 import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
+import Pages.Fetcher
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.ToJsPayload
@@ -106,13 +107,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
             }
             -> Cmd mappedMsg
         , fromPageMsg : userMsg -> mappedMsg
-        , runFetcher :
-            { decoder : Result Http.Error Bytes -> userMsg
-            , fields : List ( String, String )
-            , headers : List ( String, String )
-            , url : Maybe String
-            }
-            -> Cmd mappedMsg
+        , runFetcher : Pages.Fetcher.Fetcher userMsg -> Cmd mappedMsg
         , key : Browser.Navigation.Key
         }
         -> effect

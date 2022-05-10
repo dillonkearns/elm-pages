@@ -89,6 +89,7 @@ import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
 import Http
+import Pages.Fetcher
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
@@ -135,12 +136,7 @@ type alias StaticPayload data action routeParams =
     , action : Maybe action
     , submit :
         { fields : List ( String, String ), headers : List ( String, String ) }
-        ->
-            { decoder : Result Http.Error Bytes -> Result Http.Error action
-            , fields : List ( String, String )
-            , headers : List ( String, String )
-            , url : Maybe String
-            }
+        -> Pages.Fetcher.Fetcher (Result Http.Error action)
     }
 
 
