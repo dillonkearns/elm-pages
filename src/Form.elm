@@ -2154,26 +2154,23 @@ submitHandlers :
     -> (Model -> Result () decoded -> DataSource (Response data error))
     -> Parser (DataSource (Response data error))
 submitHandlers myForm toDataSource =
-    Request.oneOf
-        [ --apiHandler myForm
-          renderRequestParser myForm
-            |> Request.map
-                (\userOrErrors ->
-                    userOrErrors
-                        |> DataSource.andThen
-                            (\result ->
-                                case result of
-                                    Ok ( model, decoded ) ->
-                                        Ok decoded
-                                            |> toDataSource model
+    renderRequestParser myForm
+        |> Request.map
+            (\parsedResult ->
+                parsedResult
+                    |> DataSource.andThen
+                        (\result ->
+                            case result of
+                                Ok ( model, decoded ) ->
+                                    Ok decoded
+                                        |> toDataSource model
 
-                                    Err model ->
-                                        Err ()
-                                            |> toDataSource model
-                            )
-                 -- TODO allow customizing headers or status code, or not?
-                )
-        ]
+                                Err model ->
+                                    Err ()
+                                        |> toDataSource model
+                        )
+             -- TODO allow customizing headers or status code, or not?
+            )
 
 
 hasErrors_ : List ( String, RawFieldState error ) -> Bool
