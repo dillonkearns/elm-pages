@@ -630,7 +630,7 @@ toInputRecord maybeToMsg formInfo name maybeValue info field =
          , field.required |> Attr.required |> Just
          , Maybe.map
             (\toMsg ->
-                if field.type_ == "checkbox" then
+                if isOptional field then
                     Html.Events.onCheck
                         (\checkState ->
                             OnFieldInput
@@ -743,7 +743,7 @@ toRadioInputRecord maybeToMsg formInfo name itemValue info field =
 
 valueAttr : { a | type_ : String } -> Maybe String -> Maybe (Html.Attribute msg)
 valueAttr field stringValue =
-    if field.type_ == "checkbox" then
+    if isOptional field then
         if stringValue == Just "on" then
             Attr.attribute "checked" "true" |> Just
 
@@ -1556,6 +1556,11 @@ withFormUrl formUrl (Form fields decoder serverValidations modelToValue config) 
     Form fields decoder serverValidations modelToValue { config | url = Just formUrl }
 
 
+isOptional : { a | type_ : String } -> Bool
+isOptional field =
+    field.type_ == "checkbox" || field.type_ == "radio"
+
+
 {-| -}
 with : Field msg error value view constraints -> Form msg error (value -> form) view -> Form msg error form view
 with (Field field) (Form fields decoder serverValidations modelToValue config) =
@@ -1582,7 +1587,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue config) =
                 (field.name
                     |> nonEmptyString
                     |> Maybe.map
-                        ((if field.type_ == "checkbox" then
+                        ((if isOptional field then
                             .optional
 
                           else
@@ -1601,7 +1606,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue config) =
                     |> nonEmptyString
                     -- TODO is checkbox the only one that should use optional?
                     |> Maybe.map
-                        ((if field.type_ == "checkbox" then
+                        ((if isOptional field then
                             .optional
 
                           else
