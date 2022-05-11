@@ -20,11 +20,12 @@ routes :
     -> (Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
-    [ nonHybridRoute
-    , noArgs
-    , redirectRoute
-    , repoStars
-    , repoStars2
+    [ --nonHybridRoute
+      --, noArgs
+      redirectRoute
+
+    --, repoStars
+    --, repoStars2
     , logout
     , greet
     , fileLength
