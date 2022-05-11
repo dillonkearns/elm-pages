@@ -1,4 +1,4 @@
-module Route.Feed__ exposing (Data, Model, Msg, route)
+module Route.Feed__ exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.Http
@@ -35,11 +35,12 @@ type alias RouteParams =
     }
 
 
-route : StatefulRoute RouteParams Data Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip "No action."
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -52,7 +53,7 @@ route =
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}, Effect.none )
@@ -61,7 +62,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
@@ -83,6 +84,10 @@ pages =
 
 type alias Data =
     { stories : List Item, currentPage : Int }
+
+
+type alias ActionData =
+    {}
 
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
@@ -136,7 +141,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -168,7 +173,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel model static =
     { title = title static.routeParams
