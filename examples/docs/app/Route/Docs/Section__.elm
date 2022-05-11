@@ -1,4 +1,4 @@
-module Route.Docs.Section__ exposing (Data, Model, Msg, route)
+module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, route)
 
 import Css
 import Css.Global
@@ -41,7 +41,7 @@ type alias RouteParams =
     { section : Maybe String }
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { head = head
@@ -160,7 +160,7 @@ titleForSection section =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -190,10 +190,14 @@ type alias Data =
     }
 
 
+type alias ActionData =
+    {}
+
+
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = static.data.titles.title ++ " - elm-pages docs"

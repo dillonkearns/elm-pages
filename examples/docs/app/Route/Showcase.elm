@@ -1,4 +1,4 @@
-module Route.Showcase exposing (Data, Model, Msg, route)
+module Route.Showcase exposing (ActionData, Data, Model, Msg, route)
 
 import Css
 import DataSource
@@ -29,7 +29,7 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.single
         { head = head
@@ -47,10 +47,14 @@ type alias Data =
     List Showcase.Entry
 
 
+type alias ActionData =
+    {}
+
+
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data {}
+    -> StaticPayload Data ActionData {}
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "elm-pages blog"
@@ -84,7 +88,7 @@ view maybeUrl sharedModel static =
     }
 
 
-head : StaticPayload Data {} -> List Head.Tag
+head : StaticPayload Data ActionData {} -> List Head.Tag
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing

@@ -1,4 +1,4 @@
-module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
+module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
 import Article
 import Cloudinary
@@ -39,7 +39,7 @@ type alias RouteParams =
     { slug : String }
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { data = data
@@ -63,7 +63,7 @@ pages =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = static.data.metadata.title
@@ -179,7 +179,7 @@ authorView author static =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     let
@@ -231,6 +231,10 @@ type alias Data =
     { metadata : ArticleMetadata
     , body : List Markdown.Block.Block
     }
+
+
+type alias ActionData =
+    {}
 
 
 data : RouteParams -> DataSource Data
