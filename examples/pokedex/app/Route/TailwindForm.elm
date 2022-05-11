@@ -603,8 +603,12 @@ init _ _ static =
                             Err "Got errors"
 
                         else
-                            --Ok ("Successfully received user " ++ actionData.user.first ++ " " ++ actionData.user.last)
-                            Ok ""
+                            case actionData.user of
+                                Just user ->
+                                    Ok ("Successfully updated profile for user " ++ user.first ++ " " ++ user.last)
+
+                                Nothing ->
+                                    Err "Unexpected"
                     )
       }
     , Effect.none
