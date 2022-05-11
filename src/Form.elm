@@ -14,6 +14,7 @@ module Form exposing
     , withServerValidation
     , withMax, withMin
     , withStep
+    , getErrors
     , hasErrors, rawValues, runClientValidations, withClientValidation, withRecoverableClientValidation
     , FieldInfoSimple, FieldState, FinalFieldInfo, FormInfo, No, RawFieldState, TimeOfDay, Yes
     , fieldStatusToString
@@ -116,6 +117,8 @@ Steps
 
 
 ## Internals?
+
+@docs getErrors
 
 @docs hasErrors, rawValues, runClientValidations, withClientValidation, withRecoverableClientValidation
 
@@ -309,6 +312,18 @@ type alias Model =
     , isSubmitting : SubmitStatus
     , formErrors : Dict String (List String)
     }
+
+
+{-| -}
+getErrors : Model -> List ( String, String )
+getErrors { fields } =
+    fields
+        |> Dict.toList
+        |> List.concatMap
+            (\( name, info ) ->
+                info.errors
+                    |> List.map (Tuple.pair name)
+            )
 
 
 {-| -}
@@ -615,7 +630,7 @@ toInputRecord maybeToMsg formInfo name maybeValue info field =
          , field.required |> Attr.required |> Just
          , Maybe.map
             (\toMsg ->
-                if field.type_ == "checkbox" then
+                if isOptional field then
                     Html.Events.onCheck
                         (\checkState ->
                             OnFieldInput
@@ -728,7 +743,7 @@ toRadioInputRecord maybeToMsg formInfo name itemValue info field =
 
 valueAttr : { a | type_ : String } -> Maybe String -> Maybe (Html.Attribute msg)
 valueAttr field stringValue =
-    if field.type_ == "checkbox" then
+    if isOptional field then
         if stringValue == Just "on" then
             Attr.attribute "checked" "true" |> Just
 
@@ -1541,6 +1556,11 @@ withFormUrl formUrl (Form fields decoder serverValidations modelToValue config) 
     Form fields decoder serverValidations modelToValue { config | url = Just formUrl }
 
 
+isOptional : { a | type_ : String } -> Bool
+isOptional field =
+    field.type_ == "checkbox" || field.type_ == "radio"
+
+
 {-| -}
 with : Field msg error value view constraints -> Form msg error (value -> form) view -> Form msg error form view
 with (Field field) (Form fields decoder serverValidations modelToValue config) =
@@ -1567,7 +1587,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue config) =
                 (field.name
                     |> nonEmptyString
                     |> Maybe.map
-                        ((if field.type_ == "checkbox" then
+                        ((if isOptional field then
                             .optional
 
                           else
@@ -1586,7 +1606,7 @@ with (Field field) (Form fields decoder serverValidations modelToValue config) =
                     |> nonEmptyString
                     -- TODO is checkbox the only one that should use optional?
                     |> Maybe.map
-                        ((if field.type_ == "checkbox" then
+                        ((if isOptional field then
                             .optional
 
                           else
@@ -2060,7 +2080,7 @@ renderRequestParser ((Form _ decoder serverValidations modelToValue config) as f
                             Ok ( value, otherValidationErrors ) ->
                                 if
                                     otherValidationErrors
-                                        |> List.any
+                                        |> List.all
                                             (\( _, entryErrors ) ->
                                                 entryErrors |> List.isEmpty
                                             )
@@ -2139,26 +2159,23 @@ submitHandlers :
     -> (Model -> Result () decoded -> DataSource (Response data error))
     -> Parser (DataSource (Response data error))
 submitHandlers myForm toDataSource =
-    Request.oneOf
-        [ apiHandler myForm
-        , renderRequestParser myForm
-            |> Request.map
-                (\userOrErrors ->
-                    userOrErrors
-                        |> DataSource.andThen
-                            (\result ->
-                                case result of
-                                    Ok ( model, decoded ) ->
-                                        Ok decoded
-                                            |> toDataSource model
+    renderRequestParser myForm
+        |> Request.map
+            (\parsedResult ->
+                parsedResult
+                    |> DataSource.andThen
+                        (\result ->
+                            case result of
+                                Ok ( model, decoded ) ->
+                                    Ok decoded
+                                        |> toDataSource model
 
-                                    Err model ->
-                                        Err ()
-                                            |> toDataSource model
-                            )
-                 -- TODO allow customizing headers or status code, or not?
-                )
-        ]
+                                Err model ->
+                                    Err ()
+                                        |> toDataSource model
+                        )
+             -- TODO allow customizing headers or status code, or not?
+            )
 
 
 hasErrors_ : List ( String, RawFieldState error ) -> Bool
@@ -2178,6 +2195,10 @@ hasErrors model =
             entry.errors |> List.isEmpty |> not
         )
         model.fields
+        || (model.formErrors
+                |> Dict.toList
+                |> List.any (\( _, errors ) -> errors |> List.isEmpty |> not)
+           )
 
 
 {-| -}

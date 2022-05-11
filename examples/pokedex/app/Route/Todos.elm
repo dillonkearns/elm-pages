@@ -1,4 +1,4 @@
-module Route.Todos exposing (Data, Model, Msg, route)
+module Route.Todos exposing (ActionData, Data, Model, Msg, route)
 
 import Api.InputObject
 import Api.Mutation
@@ -50,11 +50,12 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = action
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -67,7 +68,7 @@ route =
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( { submitting = False
@@ -80,7 +81,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
@@ -126,6 +127,10 @@ subscriptions maybePageUrl routeParams path sharedModel model =
 type alias Data =
     { todos : List Todo
     }
+
+
+type alias ActionData =
+    Maybe Form.Model
 
 
 type alias Todo =
@@ -175,34 +180,7 @@ todoSelection =
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Form.submitHandlers (deleteItemForm "")
-            (\model decoded ->
-                case decoded of
-                    Ok id ->
-                        Request.Fauna.mutationDataSource "" (deleteTodo id)
-                            |> DataSource.map
-                                (\_ -> Route.redirectTo Route.Todos)
-
-                    Err error ->
-                        { todos = [] }
-                            |> Response.render
-                            |> DataSource.succeed
-            )
-        , Form.submitHandlers (newItemForm False)
-            (\model decoded ->
-                case decoded of
-                    Ok okItem ->
-                        Request.Fauna.mutationDataSource "" (createTodo okItem.description)
-                            |> DataSource.map
-                                (\_ -> Route.redirectTo Route.Todos)
-
-                    Err error ->
-                        { todos = []
-                        }
-                            |> Response.render
-                            |> DataSource.succeed
-            )
-        , Request.requestTime
+        [ Request.requestTime
             |> Request.map
                 (\time ->
                     Request.Fauna.dataSource (time |> Time.posixToMillis |> String.fromInt) todos
@@ -212,8 +190,44 @@ data routeParams =
         ]
 
 
+action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
+action _ =
+    Request.oneOf
+        [ Form.submitHandlers (deleteItemForm "")
+            (\model decoded ->
+                case decoded of
+                    Ok id ->
+                        Request.Fauna.mutationDataSource "" (deleteTodo id)
+                            |> DataSource.map
+                                (\_ -> Route.redirectTo Route.Todos)
+
+                    Err error ->
+                        Nothing
+                            |> Response.render
+                            |> DataSource.succeed
+            )
+        , Form.submitHandlers (newItemForm False)
+            (\model decoded ->
+                case decoded of
+                    Ok okItem ->
+                        Request.Fauna.mutationDataSource "" (createTodo okItem.description)
+                            |> DataSource.map
+                                (\_ ->
+                                    --Route.redirectTo Route.Todos
+                                    Response.render Nothing
+                                )
+
+                    Err error ->
+                        model
+                            |> Just
+                            |> Response.render
+                            |> DataSource.succeed
+            )
+        ]
+
+
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -236,7 +250,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel model static =
     { title = "Todos"
@@ -262,6 +276,7 @@ view maybeUrl sharedModel model static =
                             ]
                     )
             )
+        , errorsView static.action
         , newItemForm model.submitting
             |> Form.toStatelessHtml
                 (Just FormSubmitted)
@@ -271,14 +286,32 @@ view maybeUrl sharedModel model static =
     }
 
 
+errorsView : Maybe ActionData -> Html msg
+errorsView actionData =
+    case actionData |> Maybe.andThen identity of
+        Just justData ->
+            justData
+                |> Form.getErrors
+                |> List.map (\( name, error ) -> Html.text (name ++ ": " ++ error))
+                |> Html.ul [ Attr.style "color" "red" ]
+
+        Nothing ->
+            Html.div [] []
+
+
 newItemForm : Bool -> Form Msg String TodoInput (Html Msg)
 newItemForm submitting =
     Form.succeed (\description () -> TodoInput description)
         |> Form.with
             (Form.text "description"
-                (\{ toInput } ->
-                    Html.input (Attr.autofocus True :: toInput) []
-                        |> Html.map (\_ -> NoOp)
+                (\info ->
+                    Html.div []
+                        [ Html.label info.toLabel
+                            [ Html.text "Description"
+                            ]
+                        , Html.input (Attr.autofocus True :: info.toInput) []
+                            |> Html.map (\_ -> NoOp)
+                        ]
                 )
                 |> Form.required "Required"
             )

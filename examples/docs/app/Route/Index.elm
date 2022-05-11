@@ -1,4 +1,4 @@
-module Route.Index exposing (Data, Model, Msg, route)
+module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import Css
 import DataSource exposing (DataSource)
@@ -38,7 +38,11 @@ type alias Data =
     ()
 
 
-route : StatelessRoute RouteParams Data
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -48,7 +52,7 @@ route =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -70,7 +74,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "elm-pages - a statically typed site generator"

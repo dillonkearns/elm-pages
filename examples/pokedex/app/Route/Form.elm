@@ -1,4 +1,4 @@
-module Route.Form exposing (Data, Model, Msg, route)
+module Route.Form exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Date exposing (Date)
@@ -186,16 +186,43 @@ form user =
             )
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = action
         }
         |> RouteBuilder.buildNoState { view = view }
 
 
+action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
+action _ =
+    Form.submitHandlers
+        (form defaultUser)
+        (\model decoded ->
+            case decoded of
+                Ok okUser ->
+                    { user = Just okUser
+                    , errors = model
+                    }
+                        |> Server.Response.render
+                        |> DataSource.succeed
+
+                Err _ ->
+                    { user = Nothing
+                    , errors = model
+                    }
+                        |> Server.Response.render
+                        |> DataSource.succeed
+        )
+
+
 type alias Data =
+    {}
+
+
+type alias ActionData =
     { user : Maybe User
     , errors : Form.Model
     }
@@ -203,69 +230,36 @@ type alias Data =
 
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.oneOf
-        [ Form.submitHandlers
-            (form defaultUser)
-            (\model decoded ->
-                case decoded of
-                    Ok okUser ->
-                        { user = Just okUser
-                        , errors = model
-                        }
-                            |> Server.Response.render
-                            |> DataSource.succeed
-
-                    Err _ ->
-                        { user = Nothing
-                        , errors = model
-                        }
-                            |> Server.Response.render
-                            |> DataSource.succeed
-            )
-        , { user = Nothing
-          , errors = Form.init (form defaultUser)
-          }
-            |> Server.Response.render
-            |> DataSource.succeed
-            |> Request.succeed
-        ]
+    {}
+        |> Server.Response.render
+        |> DataSource.succeed
+        |> Request.succeed
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
-    Seo.summary
-        { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
-        , image =
-            { url = Pages.Url.external "TODO"
-            , alt = "elm-pages logo"
-            , dimensions = Nothing
-            , mimeType = Nothing
-            }
-        , description = "TODO"
-        , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
-        }
-        |> Seo.website
+    []
 
 
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     let
         user : User
         user =
-            static.data.user
+            static.action
+                |> Maybe.andThen .user
                 |> Maybe.withDefault defaultUser
     in
     { title = "Form Example"
     , body =
-        [ static.data.user
+        [ static.action
+            |> Maybe.andThen .user
             |> Maybe.map
                 (\user_ ->
                     Html.p
@@ -280,7 +274,7 @@ view maybeUrl sharedModel static =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
-            |> Form.toStatelessHtml Nothing Html.form static.data.errors
+            |> Form.toStatelessHtml Nothing Html.form (static.action |> Maybe.map .errors |> Maybe.withDefault (Form.init (form user)))
             |> Html.map (\_ -> ())
         ]
     }

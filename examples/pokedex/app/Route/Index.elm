@@ -1,4 +1,4 @@
-module Route.Index exposing (Data, Model, Msg, route)
+module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.Env as Env
@@ -28,7 +28,7 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -39,6 +39,10 @@ route =
 
 type alias Data =
     { pokemon : List String, envValue : Maybe String }
+
+
+type alias ActionData =
+    {}
 
 
 data : DataSource Data
@@ -54,7 +58,7 @@ data =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data RouteParams ActionData
     -> List Head.Tag
 head static =
     Seo.summary
@@ -76,7 +80,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data RouteParams ActionData
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "Pokedex"

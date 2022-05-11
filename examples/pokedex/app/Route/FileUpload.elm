@@ -1,4 +1,4 @@
-module Route.FileUpload exposing (Data, Model, Msg, route)
+module Route.FileUpload exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
@@ -27,17 +27,22 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip "No action."
         }
         |> RouteBuilder.buildNoState { view = view }
 
 
 type alias Data =
     Maybe Request.File
+
+
+type alias ActionData =
+    {}
 
 
 data : RouteParams -> Request.Parser (DataSource (Server.Response.Response Data ErrorPage))
@@ -57,7 +62,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -79,7 +84,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "File Upload"

@@ -27,7 +27,7 @@ data _ =
         |> DataSource.map Server.Response.render
 
 
-head : (routeParams -> String) -> StaticPayload Data routeParams -> List Head.Tag
+head : (routeParams -> String) -> StaticPayload Data {} routeParams -> List Head.Tag
 head toCssValue static =
     Seo.summary
         { canonicalUrlOverride = Nothing
@@ -53,7 +53,7 @@ view :
     (routeParams -> String)
     -> Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data routeParams
+    -> StaticPayload Data {} routeParams
     -> View msg
 view toCssVal maybeUrl sharedModel static =
     let

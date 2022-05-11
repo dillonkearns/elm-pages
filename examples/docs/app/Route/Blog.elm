@@ -1,4 +1,4 @@
-module Route.Blog exposing (Data, Model, Msg, route)
+module Route.Blog exposing (ActionData, Data, Model, Msg, route)
 
 import Article
 import DataSource
@@ -22,7 +22,7 @@ type alias Msg =
     ()
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -42,6 +42,10 @@ type alias Data =
     List ( Route, Article.ArticleMetadata )
 
 
+type alias ActionData =
+    {}
+
+
 type alias RouteParams =
     {}
 
@@ -53,7 +57,7 @@ type alias Model =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data {}
+    -> StaticPayload Data ActionData {}
     -> View msg
 view maybeUrl sharedModel staticPayload =
     { title = "elm-pages blog"
@@ -155,7 +159,7 @@ view maybeUrl sharedModel staticPayload =
     }
 
 
-head : StaticPayload Data {} -> List Head.Tag
+head : StaticPayload Data ActionData {} -> List Head.Tag
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing

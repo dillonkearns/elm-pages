@@ -1,4 +1,4 @@
-module Route.FormEvent exposing (Data, Model, Msg, route)
+module Route.FormEvent exposing (ActionData, Data, Model, Msg, route)
 
 import Browser.Navigation
 import DataSource exposing (DataSource)
@@ -29,7 +29,7 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.single
         { head = head
@@ -46,7 +46,7 @@ route =
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( { formAsString = Nothing }, Effect.none )
@@ -55,7 +55,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
@@ -81,13 +81,17 @@ type alias Data =
     {}
 
 
+type alias ActionData =
+    {}
+
+
 data : DataSource Data
 data =
     DataSource.succeed {}
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -110,7 +114,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel model static =
     { title = "Placeholder"

@@ -12,6 +12,7 @@ import Http
 import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
+import Pages.Fetcher
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.ToJsPayload
@@ -20,15 +21,15 @@ import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import Path exposing (Path)
-import Task exposing (Task)
 import Url exposing (Url)
 
 
-type alias ProgramConfig userMsg userModel route pageData sharedData effect mappedMsg errorPage =
+type alias ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage =
     { init :
         Pages.Flags.Flags
         -> sharedData
         -> pageData
+        -> Maybe actionData
         -> Maybe Browser.Navigation.Key
         ->
             Maybe
@@ -45,6 +46,7 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource sharedData
     , data : route -> DataSource (PageServerResponse pageData errorPage)
+    , action : route -> DataSource (PageServerResponse actionData errorPage)
     , view :
         { path : Path
         , route : route
@@ -52,6 +54,7 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
         -> Maybe PageUrl
         -> sharedData
         -> pageData
+        -> Maybe actionData
         ->
             { view : userModel -> { title : String, body : Html userMsg }
             , head : List Head.Tag
@@ -83,8 +86,9 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
     , sendPageData : Pages.Internal.Platform.ToJsPayload.NewThingForPort -> Cmd Never
     , byteEncodePageData : pageData -> Bytes.Encode.Encoder
     , byteDecodePageData : route -> Bytes.Decode.Decoder pageData
-    , encodeResponse : ResponseSketch pageData sharedData -> Bytes.Encode.Encoder
-    , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData sharedData)
+    , encodeResponse : ResponseSketch pageData actionData sharedData -> Bytes.Encode.Encoder
+    , encodeAction : actionData -> Bytes.Encode.Encoder
+    , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData actionData sharedData)
     , globalHeadTags : Maybe (DataSource (List Head.Tag))
     , cmdToEffect : Cmd userMsg -> effect
     , perform :
@@ -103,6 +107,7 @@ type alias ProgramConfig userMsg userModel route pageData sharedData effect mapp
             }
             -> Cmd mappedMsg
         , fromPageMsg : userMsg -> mappedMsg
+        , runFetcher : Pages.Fetcher.Fetcher userMsg -> Cmd mappedMsg
         , key : Browser.Navigation.Key
         }
         -> effect

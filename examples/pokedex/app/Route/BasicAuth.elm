@@ -1,4 +1,4 @@
-module Route.BasicAuth exposing (Data, Model, Msg, route)
+module Route.BasicAuth exposing (ActionData, Data, Model, Msg, route)
 
 import Base64
 import DataSource exposing (DataSource)
@@ -25,11 +25,12 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip "No action"
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -37,6 +38,10 @@ route =
 type alias Data =
     { greeting : String
     }
+
+
+type alias ActionData =
+    {}
 
 
 data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
@@ -53,7 +58,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     []
@@ -62,7 +67,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "Basic Auth Test"

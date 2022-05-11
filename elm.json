@@ -25,6 +25,7 @@
         "Pages.Manifest",
         "Pages.Manifest.Category",
         "Pages.Flags",
+        "Pages.Fetcher",
         "Form",
         "Form.Value"
     ],

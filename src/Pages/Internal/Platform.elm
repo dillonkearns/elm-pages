@@ -24,6 +24,7 @@ import Http
 import Json.Decode as Decode
 import Json.Encode
 import Pages.ContentCache as ContentCache
+import Pages.Fetcher
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
@@ -46,13 +47,13 @@ type Transition
 
 
 {-| -}
-type alias Program userModel userMsg pageData sharedData errorPage =
-    Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData sharedData errorPage)
+type alias Program userModel userMsg pageData actionData sharedData errorPage =
+    Platform.Program Flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
 
 
 mainView :
-    ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData errorPage) errorPage
-    -> Model userModel pageData sharedData
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Model userModel pageData actionData sharedData
     -> { title : String, body : Html userMsg }
 mainView config model =
     case model.notFound of
@@ -76,6 +77,7 @@ mainView config model =
                         Nothing
                         pageData.sharedData
                         pageData.pageData
+                        pageData.actionData
                         |> .view
                     )
                         pageData.userModel
@@ -100,9 +102,9 @@ urlsToPagePath urls =
 
 
 view :
-    ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData errorPage) errorPage
-    -> Model userModel pageData sharedData
-    -> Browser.Document (Msg userMsg pageData sharedData errorPage)
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Model userModel pageData actionData sharedData
+    -> Browser.Document (Msg userMsg pageData actionData sharedData errorPage)
 view config model =
     let
         { title, body } =
@@ -135,21 +137,21 @@ type alias Flags =
     Decode.Value
 
 
-type InitKind shared page errorPage
-    = OkPage shared page
+type InitKind shared page actionData errorPage
+    = OkPage shared page (Maybe actionData)
     | NotFound { reason : NotFoundReason, path : Path }
 
 
 {-| -}
 init :
-    ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Flags
     -> Url
     -> Maybe Browser.Navigation.Key
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 init config flags url key =
     let
-        pageDataResult : Result BuildError (InitKind sharedData pageData errorPage)
+        pageDataResult : Result BuildError (InitKind sharedData pageData actionData errorPage)
         pageDataResult =
             flags
                 |> Decode.decodeValue (Decode.field "pageDataBase64" Decode.string)
@@ -163,11 +165,11 @@ init config flags url key =
                                 config.decodeResponse
                                 justBytes
                         of
-                            Just (ResponseSketch.RenderPage _) ->
+                            Just (ResponseSketch.RenderPage _ _) ->
                                 Nothing
 
-                            Just (ResponseSketch.HotUpdate pageData shared) ->
-                                OkPage shared pageData
+                            Just (ResponseSketch.HotUpdate pageData shared actionData) ->
+                                OkPage shared pageData actionData
                                     |> Just
 
                             Just (ResponseSketch.NotFound notFound) ->
@@ -183,7 +185,7 @@ init config flags url key =
                     )
     in
     case pageDataResult of
-        Ok (OkPage sharedData pageData) ->
+        Ok (OkPage sharedData pageData actionData) ->
             let
                 urls : { currentUrl : Url, basePath : List String }
                 urls =
@@ -221,13 +223,13 @@ init config flags url key =
                                 , fragment = url.fragment
                                 }
                         }
-                        |> config.init userFlags sharedData pageData key
+                        |> config.init userFlags sharedData pageData actionData key
 
-                cmd : Effect userMsg pageData sharedData userEffect errorPage
+                cmd : Effect userMsg pageData actionData sharedData userEffect errorPage
                 cmd =
                     UserCmd userCmd
 
-                initialModel : Model userModel pageData sharedData
+                initialModel : Model userModel pageData actionData sharedData
                 initialModel =
                     { key = key
                     , url = url
@@ -236,6 +238,7 @@ init config flags url key =
                             { pageData = pageData
                             , sharedData = sharedData
                             , userModel = userModel
+                            , actionData = actionData
                             }
                     , ariaNavigationAnnouncement = ""
                     , userFlags = flags
@@ -281,18 +284,19 @@ init config flags url key =
 
 
 {-| -}
-type Msg userMsg pageData sharedData errorPage
+type Msg userMsg pageData actionData sharedData errorPage
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg userMsg
-    | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData sharedData ))
+    | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
+    | FetcherComplete (Result Http.Error userMsg)
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
-    | ProcessFetchResponse (Result Http.Error ( Url, ResponseSketch pageData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
+    | ProcessFetchResponse (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
 
 
 {-| -}
-type alias Model userModel pageData sharedData =
+type alias Model userModel pageData actionData sharedData =
     { key : Maybe Browser.Navigation.Key
     , url : Url
     , ariaNavigationAnnouncement : String
@@ -302,6 +306,7 @@ type alias Model userModel pageData sharedData =
             { userModel : userModel
             , pageData : pageData
             , sharedData : sharedData
+            , actionData : Maybe actionData
             }
     , notFound : Maybe { reason : NotFoundReason, path : Path }
     , userFlags : Decode.Value
@@ -310,23 +315,23 @@ type alias Model userModel pageData sharedData =
     }
 
 
-type Effect userMsg pageData sharedData userEffect errorPage
+type Effect userMsg pageData actionData sharedData userEffect errorPage
     = ScrollToTop
     | NoEffect
     | BrowserLoadUrl String
     | BrowserPushUrl String
-    | FetchPageData Int (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
-    | Batch (List (Effect userMsg pageData sharedData userEffect errorPage))
+    | FetchPageData Int (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
+    | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
     | UserCmd userEffect
     | CancelRequest Int
 
 
 {-| -}
 update :
-    ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage
-    -> Msg userMsg pageData sharedData errorPage
-    -> Model userModel pageData sharedData
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+    ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Msg userMsg pageData actionData sharedData errorPage
+    -> Model userModel pageData actionData sharedData
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 update config appMsg model =
     case appMsg of
         LinkClicked urlRequest ->
@@ -383,12 +388,13 @@ update config appMsg model =
                                     , basePath = config.basePath
                                     }
 
-                                updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData }
+                                updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData, actionData : Maybe actionData }
                                 updatedPageData =
                                     Ok
                                         { userModel = userModel
                                         , sharedData = pageData.sharedData
                                         , pageData = pageData.pageData
+                                        , actionData = pageData.actionData
                                         }
 
                                 ( userModel, _ ) =
@@ -423,6 +429,18 @@ update config appMsg model =
                 )
                     |> startNewGetLoad url.path (UpdateCacheAndUrlNew False url Nothing)
 
+        FetcherComplete userMsgResult ->
+            case userMsgResult of
+                Ok userMsg ->
+                    ( model, NoEffect )
+                        |> performUserMsg userMsg config
+                        |> startNewGetLoad model.url.path (UpdateCacheAndUrlNew False model.url Nothing)
+
+                Err _ ->
+                    -- TODO how to handle error?
+                    ( model, NoEffect )
+                        |> startNewGetLoad model.url.path (UpdateCacheAndUrlNew False model.url Nothing)
+
         ProcessFetchResponse response toMsg ->
             case response of
                 Ok ( _, ResponseSketch.Redirect redirectTo ) ->
@@ -433,22 +451,8 @@ update config appMsg model =
                     update config (toMsg response) model
 
         UserMsg userMsg ->
-            case model.pageData of
-                Ok pageData ->
-                    let
-                        ( userModel, userCmd ) =
-                            config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
-
-                        updatedPageData : Result error { userModel : userModel, pageData : pageData, sharedData : sharedData }
-                        updatedPageData =
-                            Ok { pageData | userModel = userModel }
-                    in
-                    ( { model | pageData = updatedPageData }
-                    , UserCmd userCmd
-                    )
-
-                Err _ ->
-                    ( model, NoEffect )
+            ( model, NoEffect )
+                |> performUserMsg userMsg config
 
         UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
             case
@@ -460,43 +464,26 @@ update config appMsg model =
             of
                 Ok ( ( newUrl, newData ), previousPageData ) ->
                     let
-                        ( newPageData, newSharedData ) =
+                        ( newPageData, newSharedData, newActionData ) =
                             case newData of
-                                ResponseSketch.RenderPage pageData ->
-                                    ( pageData, previousPageData.sharedData )
+                                ResponseSketch.RenderPage pageData actionData ->
+                                    ( pageData, previousPageData.sharedData, actionData )
 
-                                ResponseSketch.HotUpdate pageData sharedData ->
-                                    ( pageData, sharedData )
+                                ResponseSketch.HotUpdate pageData sharedData actionData ->
+                                    ( pageData, sharedData, actionData )
 
                                 _ ->
-                                    ( previousPageData.pageData, previousPageData.sharedData )
+                                    ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
 
-                        updatedPageData : { userModel : userModel, sharedData : sharedData, pageData : pageData }
+                        updatedPageData : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
                         updatedPageData =
-                            { userModel = userModel
+                            { userModel = previousPageData.userModel
                             , sharedData = newSharedData
                             , pageData = newPageData
+                            , actionData = newActionData
                             }
 
-                        ( userModel, userCmd ) =
-                            -- TODO call update on new Model for ErrorPage
-                            config.update
-                                newSharedData
-                                newPageData
-                                model.key
-                                (config.onPageChange
-                                    { protocol = model.url.protocol
-                                    , host = model.url.host
-                                    , port_ = model.url.port_
-                                    , path = newUrl |> urlPathToPath
-                                    , query = newUrl.query
-                                    , fragment = newUrl.fragment
-                                    , metadata = config.urlToRoute newUrl
-                                    }
-                                )
-                                previousPageData.userModel
-
-                        updatedModel : Model userModel pageData sharedData
+                        updatedModel : Model userModel pageData actionData sharedData
                         updatedModel =
                             { model
                                 | url = newUrl
@@ -509,8 +496,7 @@ update config appMsg model =
                                 | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                               }
                             , Batch
-                                [ UserCmd userCmd
-                                , ScrollToTop
+                                [ ScrollToTop
                                 , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
                                     BrowserPushUrl newUrl.path
 
@@ -525,8 +511,7 @@ update config appMsg model =
                                 | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                               }
                             , Batch
-                                [ UserCmd userCmd
-                                , ScrollToTop
+                                [ ScrollToTop
                                 , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
                                     BrowserPushUrl newUrl.path
 
@@ -563,33 +548,35 @@ update config appMsg model =
                 |> Result.map
                     (\pageData ->
                         let
-                            newThing : Maybe (ResponseSketch pageData sharedData)
+                            newThing : Maybe (ResponseSketch pageData actionData sharedData)
                             newThing =
                                 -- TODO if ErrorPage, call ErrorPage.init to get appropriate Model?
                                 pageDataBytes
                                     |> Bytes.Decode.decode config.decodeResponse
                         in
                         case newThing of
-                            Just (ResponseSketch.RenderPage newPageData) ->
+                            Just (ResponseSketch.RenderPage newPageData newActionData) ->
                                 ( { model
                                     | pageData =
                                         Ok
                                             { userModel = pageData.userModel
                                             , sharedData = pageData.sharedData
                                             , pageData = newPageData
+                                            , actionData = newActionData
                                             }
                                     , notFound = Nothing
                                   }
                                 , NoEffect
                                 )
 
-                            Just (ResponseSketch.HotUpdate newPageData newSharedData) ->
+                            Just (ResponseSketch.HotUpdate newPageData newSharedData newActionData) ->
                                 ( { model
                                     | pageData =
                                         Ok
                                             { userModel = pageData.userModel
                                             , sharedData = newSharedData
                                             , pageData = newPageData
+                                            , actionData = newActionData
                                             }
                                     , notFound = Nothing
                                   }
@@ -605,7 +592,31 @@ update config appMsg model =
                 |> Result.withDefault ( model, NoEffect )
 
 
-perform : ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage -> Url -> Maybe Browser.Navigation.Key -> Effect userMsg pageData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData sharedData errorPage)
+performUserMsg :
+    userMsg
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+performUserMsg userMsg config ( model, effect ) =
+    case model.pageData of
+        Ok pageData ->
+            let
+                ( userModel, userCmd ) =
+                    config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+
+                updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
+                updatedPageData =
+                    Ok { pageData | userModel = userModel }
+            in
+            ( { model | pageData = updatedPageData }
+            , Batch [ effect, UserCmd userCmd ]
+            )
+
+        Err _ ->
+            ( model, effect )
+
+
+perform : ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage -> Url -> Maybe Browser.Navigation.Key -> Effect userMsg pageData actionData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
 perform config currentUrl maybeKey effect =
     -- elm-review: known-unoptimized-recursion
     case effect of
@@ -640,8 +651,8 @@ perform config currentUrl maybeKey effect =
                     let
                         prepare :
                             (Result Http.Error Url -> userMsg)
-                            -> Result Http.Error ( Url, ResponseSketch pageData sharedData )
-                            -> Msg userMsg pageData sharedData errorPage
+                            -> Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )
+                            -> Msg userMsg pageData actionData sharedData errorPage
                         prepare toMsg info =
                             UpdateCacheAndUrlNew True currentUrl (info |> Result.map Tuple.first |> toMsg |> Just) info
                     in
@@ -670,6 +681,32 @@ perform config currentUrl maybeKey effect =
                                                     currentUrl
                                     in
                                     fetchRouteData -1 (prepare fetchInfo.toMsg) config urlToSubmitTo (Just (FormDecoder.encodeFormData fetchInfo.values))
+                            , runFetcher =
+                                \(Pages.Fetcher.Fetcher options) ->
+                                    let
+                                        { contentType, body } =
+                                            FormDecoder.encodeFormData options.fields
+                                    in
+                                    -- TODO make sure that `actionData` isn't updated in Model for fetchers
+                                    Http.request
+                                        { expect =
+                                            Http.expectBytesResponse FetcherComplete
+                                                (\bytes ->
+                                                    case bytes of
+                                                        Http.GoodStatus_ metadata bytesBody ->
+                                                            options.decoder (Ok bytesBody)
+                                                                |> Ok
+
+                                                        _ ->
+                                                            Debug.todo ""
+                                                )
+                                        , tracker = Nothing
+                                        , body = Http.stringBody contentType body
+                                        , headers = options.headers |> List.map (\( name, value ) -> Http.header name value)
+                                        , url = options.url |> Maybe.withDefault (Path.join [ currentUrl.path, "content.dat" ] |> Path.toAbsolute)
+                                        , method = "POST"
+                                        , timeout = Nothing
+                                        }
                             , fromPageMsg = UserMsg
                             , key = key
                             }
@@ -683,8 +720,8 @@ perform config currentUrl maybeKey effect =
 
 {-| -}
 application :
-    ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData errorPage) errorPage
-    -> Platform.Program Flags (Model userModel pageData sharedData) (Msg userMsg pageData sharedData errorPage)
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Platform.Program Flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
 application config =
     Browser.application
         { init =
@@ -728,10 +765,10 @@ type alias RequestInfo =
 
 
 withUserMsg :
-    ProgramConfig userMsg userModel route pageData sharedData userEffect (Msg userMsg pageData sharedData errorPage) errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> userMsg
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 withUserMsg config userMsg ( model, effect ) =
     case model.pageData of
         Ok pageData ->
@@ -739,7 +776,7 @@ withUserMsg config userMsg ( model, effect ) =
                 ( userModel, userCmd ) =
                     config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
-                updatedPageData : Result error { userModel : userModel, pageData : pageData, sharedData : sharedData }
+                updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
                 updatedPageData =
                     Ok { pageData | userModel = userModel }
             in
@@ -761,11 +798,11 @@ urlPathToPath urls =
 
 fetchRouteData :
     Int
-    -> (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
-    -> ProgramConfig userMsg userModel route pageData sharedData effect (Msg userMsg pageData sharedData errorPage) errorPage
+    -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Url
     -> Maybe { contentType : String, body : String }
-    -> Cmd (Msg userMsg pageData sharedData errorPage)
+    -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
 fetchRouteData transitionKey toMsg config url details =
     {-
        TODO:
@@ -804,8 +841,12 @@ fetchRouteData transitionKey toMsg config url details =
                         Http.NetworkError_ ->
                             Err Http.NetworkError
 
-                        Http.BadStatus_ metadata _ ->
-                            Err (Http.BadStatus metadata.statusCode)
+                        Http.BadStatus_ metadata body ->
+                            body
+                                |> Bytes.Decode.decode config.decodeResponse
+                                |> Result.fromMaybe "Decoding error"
+                                |> Result.mapError Http.BadBody
+                                |> Result.map (\okResponse -> ( url, okResponse ))
 
                         Http.GoodStatus_ _ body ->
                             body
@@ -844,16 +885,16 @@ chopEnd needle string =
 
 startNewGetLoad :
     String
-    -> (Result Http.Error ( Url, ResponseSketch pageData sharedData ) -> Msg userMsg pageData sharedData errorPage)
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
-    -> ( Model userModel pageData sharedData, Effect userMsg pageData sharedData userEffect errorPage )
+    -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 startNewGetLoad pathToGet toMsg ( model, effect ) =
     let
         currentUrl : Url
         currentUrl =
             model.url
 
-        cancelIfStale : Effect userMsg pageData sharedData userEffect errorPage
+        cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
             case model.transition of
                 Just (Loading transitionKey path) ->

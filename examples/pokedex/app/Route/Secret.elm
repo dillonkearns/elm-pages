@@ -1,4 +1,4 @@
-module Route.Secret exposing (Data, Model, Msg, route)
+module Route.Secret exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.File
@@ -29,11 +29,12 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip "No action"
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -41,6 +42,10 @@ route =
 type Data
     = LoggedIn LoggedInInfo
     | NotLoggedIn
+
+
+type alias ActionData =
+    {}
 
 
 type alias LoggedInInfo =
@@ -76,7 +81,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -98,7 +103,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     case static.data of

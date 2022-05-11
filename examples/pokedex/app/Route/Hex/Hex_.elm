@@ -1,4 +1,4 @@
-module Route.Hex.Hex_ exposing (Data, Model, Msg, route)
+module Route.Hex.Hex_ exposing (ActionData, Data, Model, Msg, route)
 
 import ColorHelpers
 import DataSource exposing (DataSource)
@@ -21,7 +21,11 @@ type alias Data =
     ColorHelpers.Data
 
 
-route : StatelessRoute RouteParams Data
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRenderWithFallback
         { head = ColorHelpers.head toCssVal
