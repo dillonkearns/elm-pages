@@ -97,7 +97,7 @@ all =
                             |> Form.withClientValidation (\_ -> Err "This error always occurs")
                         )
                     |> Form.init
-                    |> Form.hasErrors2
+                    |> Form.hasErrors
                     |> Expect.true "expected errors"
         , test "dependent validations" <|
             \() ->
@@ -296,7 +296,7 @@ all =
         ]
 
 
-expectDecodeNoErrors2 : List ( String, String ) -> decoded -> Form.Form String decoded view -> Expect.Expectation
+expectDecodeNoErrors2 : List ( String, String ) -> decoded -> Form.Form () String decoded view -> Expect.Expectation
 expectDecodeNoErrors2 updates expected form =
     let
         formModel =
@@ -315,10 +315,10 @@ expectDecodeNoErrors decoded actual =
         |> Expect.equal (Ok ( decoded, [] ))
 
 
-updateField : Form.Form String value view -> ( String, String ) -> Form.Model -> Form.Model
+updateField : Form.Form () String value view -> ( String, String ) -> Form.Model -> Form.Model
 updateField form ( name, value ) model =
     model
-        |> Form.update (\_ -> ()) (\_ -> ()) form (Form.OnFieldInput { name = name, value = value })
+        |> Form.update (\_ -> ()) () (\_ -> ()) form (Form.OnFieldInput { name = name, value = value })
         |> Tuple.first
 
 
@@ -336,7 +336,7 @@ expectErrors expected form =
         |> Expect.equalDicts (Dict.fromList expected)
 
 
-updateAllFields : List String -> Form.Form String value view -> Form.Model -> Form.Model
+updateAllFields : List String -> Form.Form () String value view -> Form.Model -> Form.Model
 updateAllFields fields form model =
     fields
         |> List.foldl
@@ -347,7 +347,7 @@ updateAllFields fields form model =
             model
 
 
-updateFieldsWithValues : List ( String, String ) -> Form.Form String value view -> Form.Model -> Form.Model
+updateFieldsWithValues : List ( String, String ) -> Form.Form () String value view -> Form.Model -> Form.Model
 updateFieldsWithValues fields form model =
     fields
         |> List.foldl
@@ -358,7 +358,7 @@ updateFieldsWithValues fields form model =
             model
 
 
-expectErrorsAfterUpdates : List ( String, List String ) -> Form.Form String value view -> Expect.Expectation
+expectErrorsAfterUpdates : List ( String, List String ) -> Form.Form () String value view -> Expect.Expectation
 expectErrorsAfterUpdates expected form =
     let
         fieldsToUpdate : List String
@@ -383,7 +383,7 @@ expectErrorsAfterUpdates expected form =
         ()
 
 
-performUpdatesThenExpectErrors : List ( String, String ) -> List ( String, List String ) -> Form.Form String value view -> Expect.Expectation
+performUpdatesThenExpectErrors : List ( String, String ) -> List ( String, List String ) -> Form.Form () String value view -> Expect.Expectation
 performUpdatesThenExpectErrors updatesToPerform expected form =
     let
         model : Form.Model
