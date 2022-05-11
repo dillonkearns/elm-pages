@@ -444,83 +444,6 @@ startLowLevel apiRoutes staticHttpCache pages =
                 Nothing ->
                     Debug.todo "Error - no pages"
 
-        config : ProgramConfig Msg () Route () () Effect mappedMsg ()
-        config =
-            { toJsPort = toJsPort
-            , fromJsPort = fromJsPort
-            , init = \_ _ _ _ _ -> ( (), Effect.NoEffect )
-            , getStaticRoutes =
-                --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
-                --    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
-                pages
-                    |> List.map Tuple.first
-                    |> List.map (String.join "/")
-                    |> List.map Route
-                    |> DataSource.succeed
-            , handleRoute = \_ -> DataSource.succeed Nothing
-            , urlToRoute = .path >> Route
-            , update = \_ _ _ _ _ -> ( (), Effect.NoEffect )
-            , basePath = []
-            , data =
-                \(Route pageRoute) ->
-                    let
-                        thing : Maybe (DataSource a)
-                        thing =
-                            pages
-                                |> Dict.fromList
-                                |> Dict.get
-                                    (pageRoute
-                                        |> String.split "/"
-                                        |> List.filter (\pathPart -> pathPart /= "")
-                                    )
-                    in
-                    case thing of
-                        Just request ->
-                            request |> DataSource.map (\_ -> Response.render ())
-
-                        Nothing ->
-                            Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
-            , site = Just site
-            , view =
-                \page _ ->
-                    let
-                        thing : Maybe (DataSource a)
-                        thing =
-                            pages
-                                |> Dict.fromList
-                                |> Dict.get
-                                    (page.path |> Path.toSegments)
-                    in
-                    case thing of
-                        Just _ ->
-                            \_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
-
-                        Nothing ->
-                            Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
-            , subscriptions = \_ _ _ -> Sub.none
-            , routeToPath = \(Route route) -> route |> String.split "/"
-            , sharedData = DataSource.succeed ()
-            , onPageChange = \_ -> Continue
-            , apiRoutes = \_ -> apiRoutes
-            , pathPatterns = []
-            , byteDecodePageData = \_ -> Bytes.Decode.fail
-            , sendPageData = \_ -> Cmd.none
-            , encodeResponse = \_ -> Bytes.Encode.signedInt8 0
-            , hotReloadData = Sub.none
-            , decodeResponse = Bytes.Decode.fail
-            , byteEncodePageData = \_ -> Bytes.Encode.signedInt8 0
-            , fetchPageData = \_ _ -> Task.fail Http.NetworkError
-            , gotBatchSub = Sub.none
-            , globalHeadTags = Nothing
-            , perform = \_ _ -> Cmd.none
-            , cmdToEffect = \_ -> Effect.NoEffect
-            , errorStatusCode = \_ -> 404
-            , notFoundPage = ()
-            , notFoundRoute = Route "not-found"
-            , internalError = \_ -> ()
-            , errorPageToData = \_ -> ()
-            }
-
         encodedFlags : Encode.Value
         encodedFlags =
             --{"secrets":
@@ -568,8 +491,8 @@ startLowLevel apiRoutes staticHttpCache pages =
                     )
                     (Encode.object [])
                 )
-                config
-        , update = update site config
+                (config apiRoutes pages)
+        , update = update site (config apiRoutes pages)
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
@@ -588,6 +511,85 @@ startSimple route dataSources =
     startWithRoutes route [ route ] [] [ ( route, dataSources ) ]
 
 
+config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, DataSource a ) -> ProgramConfig Msg () Route () () () Effect mappedMsg ()
+config apiRoutes pages =
+    { toJsPort = toJsPort
+    , fromJsPort = fromJsPort
+    , init = \_ _ _ _ _ _ -> ( (), Effect.NoEffect )
+    , getStaticRoutes =
+        --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
+        --    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
+        pages
+            |> List.map Tuple.first
+            |> List.map (String.join "/")
+            |> List.map Route
+            |> DataSource.succeed
+    , handleRoute = \_ -> DataSource.succeed Nothing
+    , urlToRoute = .path >> Route
+    , update = \_ _ _ _ _ -> ( (), Effect.NoEffect )
+    , basePath = []
+    , data =
+        \(Route pageRoute) ->
+            let
+                thing : Maybe (DataSource a)
+                thing =
+                    pages
+                        |> Dict.fromList
+                        |> Dict.get
+                            (pageRoute
+                                |> String.split "/"
+                                |> List.filter (\pathPart -> pathPart /= "")
+                            )
+            in
+            case thing of
+                Just request ->
+                    request |> DataSource.map (\_ -> Response.render ())
+
+                Nothing ->
+                    Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
+    , site = Just site
+    , view =
+        \page _ _ ->
+            let
+                thing : Maybe (DataSource a)
+                thing =
+                    pages
+                        |> Dict.fromList
+                        |> Dict.get
+                            (page.path |> Path.toSegments)
+            in
+            case thing of
+                Just _ ->
+                    \_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
+
+                Nothing ->
+                    Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
+    , subscriptions = \_ _ _ -> Sub.none
+    , routeToPath = \(Route route) -> route |> String.split "/"
+    , sharedData = DataSource.succeed ()
+    , onPageChange = \_ -> Continue
+    , apiRoutes = \_ -> apiRoutes
+    , pathPatterns = []
+    , byteDecodePageData = \_ -> Bytes.Decode.fail
+    , sendPageData = \_ -> Cmd.none
+    , encodeResponse = \_ -> Bytes.Encode.signedInt8 0
+    , hotReloadData = Sub.none
+    , decodeResponse = Bytes.Decode.fail
+    , byteEncodePageData = \_ -> Bytes.Encode.signedInt8 0
+    , gotBatchSub = Sub.none
+    , globalHeadTags = Nothing
+    , perform = \_ _ -> Cmd.none
+    , cmdToEffect = \_ -> Effect.NoEffect
+    , errorStatusCode = \_ -> 404
+    , notFoundPage = ()
+    , notFoundRoute = Route "not-found"
+    , internalError = \_ -> ()
+    , errorPageToData = \_ -> ()
+    , action = \_ -> DataSource.fail "No action."
+    , encodeAction = \_ -> Bytes.Encode.signedInt8 0
+    }
+
+
 startWithRoutes :
     List String
     -> List (List String)
@@ -596,93 +598,6 @@ startWithRoutes :
     -> ProgramTest (Model Route) Msg Effect
 startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
     let
-        config : ProgramConfig Msg () Route () () Effect mappedMsg ()
-        config =
-            { toJsPort = toJsPort
-            , fromJsPort = fromJsPort
-            , init = \_ _ _ _ _ -> ( (), Effect.NoEffect )
-            , getStaticRoutes =
-                staticRoutes
-                    |> List.map (String.join "/")
-                    |> List.map Route
-                    |> DataSource.succeed
-            , handleRoute =
-                \(Route route) ->
-                    staticRoutes
-                        |> List.map (String.join "/")
-                        |> List.member route
-                        |> (\found ->
-                                if found then
-                                    Nothing
-
-                                else
-                                    Just Pages.Internal.NotFoundReason.NoMatchingRoute
-                           )
-                        |> DataSource.succeed
-            , urlToRoute = .path >> Route
-            , update = \_ _ _ _ _ -> ( (), Effect.NoEffect )
-            , basePath = []
-            , data =
-                \(Route pageRoute) ->
-                    let
-                        thing : Maybe (DataSource a)
-                        thing =
-                            pages
-                                |> Dict.fromList
-                                |> Dict.get
-                                    (pageRoute
-                                        |> String.split "/"
-                                        |> List.filter (\pathPart -> pathPart /= "")
-                                    )
-                    in
-                    case thing of
-                        Just request ->
-                            request
-                                |> DataSource.map (\_ -> Response.render ())
-
-                        Nothing ->
-                            DataSource.fail <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
-            , site = Just site
-            , view =
-                \page _ ->
-                    let
-                        thing : Maybe (DataSource a)
-                        thing =
-                            pages
-                                |> Dict.fromList
-                                |> Dict.get
-                                    (page.path |> Path.toSegments)
-                    in
-                    case thing of
-                        Just _ ->
-                            \_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
-
-                        Nothing ->
-                            Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
-            , subscriptions = \_ _ _ -> Sub.none
-            , routeToPath = \(Route route) -> route |> String.split "/"
-            , sharedData = DataSource.succeed ()
-            , onPageChange = \_ -> Continue
-            , apiRoutes = \_ -> []
-            , pathPatterns = []
-            , byteDecodePageData = \_ -> Bytes.Decode.fail
-            , sendPageData = \_ -> Cmd.none
-            , encodeResponse = \_ -> Bytes.Encode.signedInt8 0
-            , hotReloadData = Sub.none
-            , decodeResponse = Bytes.Decode.fail
-            , byteEncodePageData = \_ -> Bytes.Encode.signedInt8 0
-            , fetchPageData = \_ _ -> Task.fail Http.NetworkError
-            , gotBatchSub = Sub.none
-            , globalHeadTags = Nothing
-            , perform = \_ _ -> Cmd.none
-            , cmdToEffect = \_ -> Effect.NoEffect
-            , errorStatusCode = \_ -> 404
-            , notFoundPage = ()
-            , notFoundRoute = Route "not-found"
-            , internalError = \_ -> ()
-            , errorPageToData = \_ -> ()
-            }
-
         encodedFlags : Encode.Value
         encodedFlags =
             --{"secrets":
@@ -730,8 +645,8 @@ startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
                     )
                     (Encode.object [])
                 )
-                config
-        , update = update site config
+                (config [] pages)
+        , update = update site (config [] pages)
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
