@@ -2080,7 +2080,7 @@ renderRequestParser ((Form _ decoder serverValidations modelToValue config) as f
                             Ok ( value, otherValidationErrors ) ->
                                 if
                                     otherValidationErrors
-                                        |> List.any
+                                        |> List.all
                                             (\( _, entryErrors ) ->
                                                 entryErrors |> List.isEmpty
                                             )
@@ -2195,6 +2195,10 @@ hasErrors model =
             entry.errors |> List.isEmpty |> not
         )
         model.fields
+        || (model.formErrors
+                |> Dict.toList
+                |> List.any (\( _, errors ) -> errors |> List.isEmpty |> not)
+           )
 
 
 {-| -}
