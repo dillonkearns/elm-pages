@@ -77,28 +77,6 @@ all =
                                     _ ->
                                         Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
                             )
-            , test "data sources are not resolved 404 pages with matching route but not pre-rendered" <|
-                \() ->
-                    startWithRoutes [ "post-2" ]
-                        [ [ "post-1" ]
-                        ]
-                        []
-                        [ ( [ "post-2" ]
-                          , DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder
-                          )
-                        ]
-                        |> ProgramTest.expectOutgoingPortValues
-                            "toJsPort"
-                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
-                            (\actualPorts ->
-                                case actualPorts of
-                                    [ ToJsPayload.PageProgress portData ] ->
-                                        portData.is404
-                                            |> Expect.true "Expected 404 not found page"
-
-                                    _ ->
-                                        Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
-                            )
             ]
         , test "the stripped JSON from the same request with different decoders is merged so the decoders succeed" <|
             \() ->
