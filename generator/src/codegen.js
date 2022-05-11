@@ -52,7 +52,11 @@ async function generate(basePath) {
     fs.promises.writeFile("./.elm-pages/Route.elm", browserCode.routesModule),
     writeFetcherModules("./.elm-pages", browserCode.fetcherModules),
     writeFetcherModules(
-      "./elm-stuff/elm-pages/.elm-pages/",
+      "./elm-stuff/elm-pages/client/.elm-pages",
+      browserCode.fetcherModules
+    ),
+    writeFetcherModules(
+      "./elm-stuff/elm-pages/.elm-pages",
       browserCode.fetcherModules
     ),
     // write modified elm.json to elm-stuff/elm-pages/
