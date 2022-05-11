@@ -11,9 +11,15 @@ type Effect msg
     | Cmd (Cmd msg)
     | Batch (List (Effect msg))
     | GetStargazers (Result Http.Error Int -> msg)
-    | FetchPageData
+    | FetchRouteData
         { body : Maybe { contentType : String, body : String }
         , path : Maybe String
+        , toMsg : Result Http.Error Url -> msg
+        }
+    | Submit
+        { values : List ( String, String )
+        , path : Maybe (List String)
+        , method : Maybe String
         , toMsg : Result Http.Error Url -> msg
         }
 
@@ -54,10 +60,18 @@ map fn effect =
         GetStargazers toMsg ->
             GetStargazers (toMsg >> fn)
 
-        FetchPageData fetchInfo ->
-            FetchPageData
+        FetchRouteData fetchInfo ->
+            FetchRouteData
                 { body = fetchInfo.body
                 , path = fetchInfo.path
+                , toMsg = fetchInfo.toMsg >> fn
+                }
+
+        Submit fetchInfo ->
+            Submit
+                { values = fetchInfo.values
+                , path = fetchInfo.path
+                , method = fetchInfo.method
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
@@ -69,14 +83,20 @@ perform :
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
-
-    --, fromSharedMsg : Shared.Msg -> msg
+    , submit :
+        { values : List ( String, String )
+        , encType : Maybe String
+        , method : Maybe String
+        , path : Maybe String
+        , toMsg : Result Http.Error Url -> pageMsg
+        }
+        -> Cmd msg
     , fromPageMsg : pageMsg -> msg
     , key : Browser.Navigation.Key
     }
     -> Effect pageMsg
     -> Cmd msg
-perform ({ fetchRouteData, fromPageMsg } as info) effect =
+perform ({ fromPageMsg, key } as helpers) effect =
     case effect of
         None ->
             Cmd.none
@@ -85,17 +105,27 @@ perform ({ fetchRouteData, fromPageMsg } as info) effect =
             Cmd.map fromPageMsg cmd
 
         Batch list ->
-            Cmd.batch (List.map (perform info) list)
+            Cmd.batch (List.map (perform helpers) list)
 
         GetStargazers toMsg ->
             Http.get
-                { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                { url =
+                    "https://api.github.com/repos/dillonkearns/elm-pages"
                 , expect = Http.expectJson (toMsg >> fromPageMsg) (Decode.field "stargazers_count" Decode.int)
                 }
 
-        FetchPageData fetchInfo ->
-            fetchRouteData
+        FetchRouteData fetchInfo ->
+            helpers.fetchRouteData
                 { body = fetchInfo.body
                 , path = fetchInfo.path
                 , toMsg = fetchInfo.toMsg
+                }
+
+        Submit record ->
+            helpers.submit
+                { values = record.values
+                , path = Nothing --fetchInfo.path
+                , method = record.method
+                , encType = Nothing -- TODO
+                , toMsg = record.toMsg
                 }
