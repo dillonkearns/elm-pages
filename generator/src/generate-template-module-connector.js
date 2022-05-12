@@ -562,6 +562,7 @@ config =
         }
         , data = dataForRoute
         , action = action
+        , onActionData = onActionData
         , sharedData = Shared.template.data
         , apiRoutes = ${
           phase === "browser"
@@ -589,6 +590,26 @@ config =
         , errorPageToData = DataErrorPage____
         , notFoundRoute = Nothing
         }
+
+onActionData actionData =
+    let
+        _ = Debug.log "onActionData" actionData
+    in
+    case actionData of
+${templates
+  .map(
+    (name) => `        ActionData${pathNormalizedName(name)} thisActionData ->
+            Route.${name.join(
+              "."
+            )}.route.onAction |> Maybe.map (\\onAction -> onAction thisActionData) |> Maybe.map Msg${pathNormalizedName(
+      name
+    )}
+
+`
+  )
+  .join("\n")}
+
+
 
 globalHeadTags : DataSource (List Head.Tag)
 globalHeadTags =

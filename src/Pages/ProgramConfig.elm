@@ -47,6 +47,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , sharedData : DataSource sharedData
     , data : route -> DataSource (PageServerResponse pageData errorPage)
     , action : route -> DataSource (PageServerResponse actionData errorPage)
+    , onActionData : actionData -> Maybe userMsg
     , view :
         { path : Path
         , route : route

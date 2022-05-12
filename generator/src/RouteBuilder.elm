@@ -1,6 +1,7 @@
 module RouteBuilder exposing
     ( StatelessRoute, buildNoState
     , StaticPayload
+    , withOnAction
     , buildWithLocalState, buildWithSharedState
     , preRender, single
     , preRenderWithFallback, serverRender
@@ -37,6 +38,8 @@ We have the following data during pre-render:
   - `routeParams` - this is the record that includes any Dynamic Route Segments for the given page (or an empty record if there are none)
 
 @docs StaticPayload
+
+@docs withOnAction
 
 
 ## Stateful Route Modules
@@ -119,6 +122,7 @@ type alias StatefulRoute routeParams data action model msg =
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> model -> Shared.Model -> Sub msg
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
     , kind : String
+    , onAction : Maybe (action -> msg)
     }
 
 
@@ -182,7 +186,16 @@ buildNoState { view } builderState =
             , subscriptions = \_ _ _ _ _ -> Sub.none
             , handleRoute = record.handleRoute
             , kind = record.kind
+            , onAction = Nothing
             }
+
+
+{-| -}
+withOnAction : (action -> msg) -> StatefulRoute routeParams data action model msg -> StatefulRoute routeParams data action model msg
+withOnAction toMsg config =
+    { config
+        | onAction = Just toMsg
+    }
 
 
 {-| -}
@@ -227,6 +240,7 @@ buildWithLocalState config builderState =
                     config.subscriptions maybePageUrl routeParams path sharedModel model
             , handleRoute = record.handleRoute
             , kind = record.kind
+            , onAction = Nothing
             }
 
 
@@ -265,6 +279,7 @@ buildWithSharedState config builderState =
                     config.subscriptions maybePageUrl routeParams path sharedModel model
             , handleRoute = record.handleRoute
             , kind = record.kind
+            , onAction = Nothing
             }
 
 

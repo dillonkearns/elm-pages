@@ -38,6 +38,7 @@ type alias Model =
 type Msg
     = FormMsg Form.Msg
     | MovedToTop
+    | OnAction ActionData
 
 
 type alias RouteParams =
@@ -558,6 +559,7 @@ route =
             , init = init
             , subscriptions = \_ _ _ _ _ -> Sub.none
             }
+        |> RouteBuilder.withOnAction OnAction
 
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
@@ -583,6 +585,9 @@ update _ _ static msg model =
         MovedToTop ->
             ( model, Effect.none )
 
+        OnAction actionData ->
+            loadActionData (Just actionData)
+
 
 withFlash : Result String String -> ( Model, effect ) -> ( Model, effect )
 withFlash flashMessage ( model, cmd ) =
@@ -594,9 +599,13 @@ init _ _ static =
         _ =
             Debug.log "@@@static.action" static.action
     in
-    ( { form = static.action |> Maybe.map .initialForm |> Maybe.withDefault (Form.init (form defaultUser))
+    loadActionData static.action
+
+
+loadActionData maybeActionData =
+    ( { form = maybeActionData |> Maybe.map .initialForm |> Maybe.withDefault (Form.init (form defaultUser))
       , flashMessage =
-            static.action
+            maybeActionData
                 |> Maybe.map
                     (\actionData ->
                         if Form.hasErrors actionData.initialForm then

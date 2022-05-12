@@ -367,12 +367,14 @@ update config appMsg model =
                     )
 
         UrlChanged url ->
-            let
-                navigatingToSamePage : Bool
-                navigatingToSamePage =
-                    url.path == model.url.path
-            in
-            if navigatingToSamePage then
+            -- TODO is this logic always what we want? This prevents `init` from being called when an action is submitted
+            -- but maybe it's best to avoid calling `pushUrl` in the first place in these cases?
+            if url == model.url then
+                ( model
+                , NoEffect
+                )
+
+            else if url.path == model.url.path then
                 -- this saves a few CPU cycles, but also
                 -- makes sure we don't send an UpdateCacheAndUrl
                 -- which scrolls to the top after page changes.
@@ -489,8 +491,12 @@ update config appMsg model =
                                 | url = newUrl
                                 , pageData = Ok updatedPageData
                             }
+
+                        onActionMsg : Maybe userMsg
+                        onActionMsg =
+                            newActionData |> Maybe.andThen config.onActionData
                     in
-                    case maybeUserMsg of
+                    (case maybeUserMsg of
                         Just userMsg ->
                             ( { updatedModel
                                 | ariaNavigationAnnouncement = mainView config updatedModel |> .title
@@ -519,6 +525,14 @@ update config appMsg model =
                                     NoEffect
                                 ]
                             )
+                    )
+                        |> (case onActionMsg of
+                                Just actionMsg ->
+                                    withUserMsg config actionMsg
+
+                                Nothing ->
+                                    identity
+                           )
 
                 Err _ ->
                     {-
