@@ -29,6 +29,7 @@ import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (Stat
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.ResponseSketch as ResponseSketch
 import Pages.Internal.StaticHttpBody as StaticHttpBody
+import Pages.Msg
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request
@@ -838,7 +839,7 @@ sendSinglePageProgress site contentJson config model info =
                                                             )
                                                             |> Tuple.first
 
-                                                    viewValue : { title : String, body : Html userMsg }
+                                                    viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
                                                     viewValue =
                                                         (config.view currentPage Nothing sharedData pageData Nothing |> .view) pageModel
                                                 in
@@ -881,7 +882,7 @@ sendSinglePageProgress site contentJson config model info =
                                                     pageData =
                                                         config.errorPageToData error
 
-                                                    viewValue : { title : String, body : Html userMsg }
+                                                    viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
                                                     viewValue =
                                                         (config.view currentPage Nothing sharedData pageData Nothing |> .view) pageModel
                                                 in
@@ -1151,7 +1152,7 @@ render404Page config sharedData model path notFoundReason =
                 pathAndRoute =
                     { path = path, route = config.notFoundRoute }
 
-                viewValue : { title : String, body : Html userMsg }
+                viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
                 viewValue =
                     (config.view pathAndRoute
                         Nothing

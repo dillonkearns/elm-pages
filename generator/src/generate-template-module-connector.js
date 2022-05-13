@@ -51,6 +51,7 @@ import Lamdera.Wire3
 import Pages.Internal.String
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
+import Pages.Msg
 import Server.Response
 import ApiRoute
 import Browser.Navigation
@@ -73,6 +74,7 @@ import Pages.Internal.NotFoundReason
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Pages.Internal.RoutePattern
+import Pages.ProgramConfig
 import Url
 import DataSource exposing (DataSource)
 import QueryParams
@@ -164,7 +166,7 @@ view :
     -> PageData
     -> Maybe ActionData
     ->
-        { view : Model -> { title : String, body : Html Msg }
+        { view : Model -> { title : String, body : Html (Pages.Msg.Msg Msg) }
         , head : List Head.Tag
         }
 view page maybePageUrl globalData pageData actionData =
@@ -183,8 +185,8 @@ view page maybePageUrl globalData pageData actionData =
                                 --, routeParams = {}
                                 --, path = page.path
                                 --}
-                                |> View.map MsgErrorPage____
-                                |> Shared.template.view globalData page model.global MsgGlobal
+                                |> View.map (MsgErrorPage____ >> Pages.Msg.UserMsg)
+                                |> Shared.template.view globalData page model.global (MsgGlobal >> Pages.Msg.UserMsg)
 
                         _ ->
                             { title = "Model mismatch", body = Html.text <| "Model mismatch" }
@@ -228,8 +230,10 @@ view page maybePageUrl globalData pageData actionData =
                                         name
                                       )}.w3_decode_ActionData
                                       }
-                                      |> View.map Msg${pathNormalizedName(name)}
-                                      |> Shared.template.view globalData page model.global MsgGlobal
+                                      |> View.map (Pages.Msg.map Msg${pathNormalizedName(
+                                        name
+                                      )})
+                                      |> Shared.template.view globalData page model.global (MsgGlobal >> Pages.Msg.UserMsg)
 
                               _ ->
                                   { title = "Model mismatch", body = Html.text <| "Model mismatch" }
@@ -532,6 +536,7 @@ main =
         : "Pages.Internal.Platform.Cli.cliApplication"
     } config
 
+config : Pages.ProgramConfig.ProgramConfig Msg Model (Maybe Route) PageData ActionData Shared.Data (Effect Msg) mappedMsg ErrorPage
 config =
         { init = init Nothing
         , urlToRoute = Route.urlToRoute

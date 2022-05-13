@@ -18,6 +18,7 @@ import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import Path exposing (Path)
@@ -57,7 +58,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> pageData
         -> Maybe actionData
         ->
-            { view : userModel -> { title : String, body : Html userMsg }
+            { view : userModel -> { title : String, body : Html (Pages.Msg.Msg userMsg) }
             , head : List Head.Tag
             }
     , handleRoute : route -> DataSource (Maybe NotFoundReason)

@@ -8,6 +8,7 @@ import Head
 import Head.Seo as Seo
 import Html
 import Http
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -132,7 +133,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
     { title = "Hello!"
     , body = [ Html.text "Hello" ]

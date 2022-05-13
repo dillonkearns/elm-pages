@@ -95,6 +95,7 @@ import Http
 import Pages.Fetcher
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Server.Request
@@ -113,7 +114,7 @@ type alias StatefulRoute routeParams data action model msg =
         -> Shared.Model
         -> model
         -> StaticPayload data action routeParams
-        -> View msg
+        -> View (Pages.Msg.Msg msg)
     , head :
         StaticPayload data action routeParams
         -> List Head.Tag
@@ -169,7 +170,7 @@ buildNoState :
         Maybe PageUrl
         -> Shared.Model
         -> StaticPayload data action routeParams
-        -> View ()
+        -> View (Pages.Msg.Msg ())
     }
     -> Builder routeParams data action
     -> StatefulRoute routeParams data action {} ()
@@ -205,7 +206,7 @@ buildWithLocalState :
         -> Shared.Model
         -> model
         -> StaticPayload data action routeParams
-        -> View msg
+        -> View (Pages.Msg.Msg msg)
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
     , update : PageUrl -> Shared.Model -> StaticPayload data action routeParams -> msg -> model -> ( model, Effect msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
@@ -251,7 +252,7 @@ buildWithSharedState :
         -> Shared.Model
         -> model
         -> StaticPayload data action routeParams
-        -> View msg
+        -> View (Pages.Msg.Msg msg)
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
     , update : PageUrl -> Shared.Model -> StaticPayload data action routeParams -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg

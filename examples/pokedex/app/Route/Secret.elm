@@ -7,6 +7,7 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
@@ -104,7 +105,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     case static.data of
         LoggedIn loggedInInfo ->

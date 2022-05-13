@@ -9,6 +9,7 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
@@ -247,7 +248,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     let
         user : User
@@ -275,6 +276,6 @@ view maybeUrl sharedModel static =
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
             |> Form.toStatelessHtml Nothing Html.form (static.action |> Maybe.map .errors |> Maybe.withDefault (Form.init (form user)))
-            |> Html.map (\_ -> ())
+            |> Html.map (\_ -> Pages.Msg.UserMsg ())
         ]
     }

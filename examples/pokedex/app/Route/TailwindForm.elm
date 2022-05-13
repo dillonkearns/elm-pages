@@ -15,6 +15,7 @@ import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Http
 import Icon
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -215,7 +216,7 @@ validateCapitalized string =
         Err "Needs to be capitalized"
 
 
-form : User -> Form Msg String User (Html Msg)
+form : User -> Form msg String User (Html msg)
 form user =
     Form.succeed User
         |> Form.with
@@ -575,7 +576,8 @@ action routeParams =
         )
 
 
-update _ _ static msg model =
+update : a -> b -> c -> Msg -> Model -> ( Model, Effect Msg )
+update _ _ _ msg model =
     case msg of
         FormMsg formMsg ->
             model.form
@@ -717,7 +719,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
     let
         user : User
@@ -752,7 +754,7 @@ view maybeUrl sharedModel model static =
                     ]
                 ]
                 [ form user
-                    |> Form.toStatefulHtml FormMsg
+                    |> Form.toStatefulHtml (FormMsg >> Pages.Msg.UserMsg)
                         (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
                         model.form
                 ]

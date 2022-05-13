@@ -8,6 +8,7 @@ import Head.Seo as Seo
 import Html exposing (..)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
@@ -81,7 +82,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data RouteParams ActionData
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { title = "Pokedex"
     , body =

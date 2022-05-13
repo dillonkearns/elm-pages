@@ -18,6 +18,7 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -251,7 +252,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
     { title = "Todos"
     , body =
@@ -270,7 +271,7 @@ view maybeUrl sharedModel model static =
                             [ Html.text item.description
                             , deleteItemForm item.id
                                 |> Form.toStatelessHtml
-                                    (Just (DeleteFormSubmitted item.id))
+                                    (Just (DeleteFormSubmitted item.id >> Pages.Msg.UserMsg))
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
                             ]
@@ -279,7 +280,7 @@ view maybeUrl sharedModel model static =
         , errorsView static.action
         , newItemForm model.submitting
             |> Form.toStatelessHtml
-                (Just FormSubmitted)
+                (Just (FormSubmitted >> Pages.Msg.UserMsg))
                 Html.form
                 (Form.init (newItemForm model.submitting))
         ]
@@ -299,7 +300,7 @@ errorsView actionData =
             Html.div [] []
 
 
-newItemForm : Bool -> Form Msg String TodoInput (Html Msg)
+newItemForm : Bool -> Form (Pages.Msg.Msg Msg) String TodoInput (Html (Pages.Msg.Msg Msg))
 newItemForm submitting =
     Form.succeed (\description () -> TodoInput description)
         |> Form.with
@@ -310,7 +311,6 @@ newItemForm submitting =
                             [ Html.text "Description"
                             ]
                         , Html.input (Attr.autofocus True :: info.toInput) []
-                            |> Html.map (\_ -> NoOp)
                         ]
                 )
                 |> Form.required "Required"
@@ -327,12 +327,11 @@ newItemForm submitting =
                                 "Submit"
                             )
                         ]
-                        |> Html.map (\_ -> NoOp)
                 )
             )
 
 
-deleteItemForm : String -> Form Msg String String (Html Msg)
+deleteItemForm : String -> Form (Pages.Msg.Msg Msg) String String (Html (Pages.Msg.Msg Msg))
 deleteItemForm id =
     Form.succeed
         (\id_ _ -> id_)
@@ -341,7 +340,6 @@ deleteItemForm id =
                 id
                 (\attrs ->
                     Html.input attrs []
-                        |> Html.map (\_ -> NoOp)
                 )
                 |> Form.withInitialValue (Form.Value.string id)
             )
@@ -350,6 +348,5 @@ deleteItemForm id =
                 (\{ attrs } ->
                     Html.button attrs
                         [ Html.text "X" ]
-                        |> Html.map (\_ -> NoOp)
                 )
             )

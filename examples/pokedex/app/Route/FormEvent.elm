@@ -8,6 +8,7 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -115,7 +116,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
     { title = "Placeholder"
     , body =
@@ -134,7 +135,7 @@ view maybeUrl sharedModel model static =
     }
 
 
-exampleForm : Html Msg
+exampleForm : Html (Pages.Msg.Msg Msg)
 exampleForm =
     Html.form
         [ FormDecoder.formDataOnSubmit
@@ -168,4 +169,4 @@ exampleForm =
             ]
             [ Html.text "Submit" ]
         ]
-        |> Html.map OnSubmit
+        |> Html.map (OnSubmit >> Pages.Msg.UserMsg)

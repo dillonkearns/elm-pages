@@ -4,6 +4,7 @@ import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
 import Html
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
@@ -70,7 +71,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { title = "Placeholder"
     , body =

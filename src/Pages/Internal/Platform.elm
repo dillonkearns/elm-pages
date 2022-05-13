@@ -29,6 +29,7 @@ import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
+import Pages.Msg
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Path exposing (Path)
@@ -54,7 +55,7 @@ type alias Program userModel userMsg pageData actionData sharedData errorPage =
 mainView :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Model userModel pageData actionData sharedData
-    -> { title : String, body : Html userMsg }
+    -> { title : String, body : Html (Pages.Msg.Msg userMsg) }
 mainView config model =
     case model.notFound of
         Just info ->
@@ -287,7 +288,7 @@ init config flags url key =
 type Msg userMsg pageData actionData sharedData errorPage
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
-    | UserMsg userMsg
+    | UserMsg (Pages.Msg.Msg userMsg)
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
     | FetcherComplete (Result Http.Error userMsg)
     | PageScrollComplete
@@ -452,9 +453,15 @@ update config appMsg model =
                 _ ->
                     update config (toMsg response) model
 
-        UserMsg userMsg ->
-            ( model, NoEffect )
-                |> performUserMsg userMsg config
+        UserMsg userMsg_ ->
+            case userMsg_ of
+                Pages.Msg.UserMsg userMsg ->
+                    ( model, NoEffect )
+                        |> performUserMsg userMsg config
+
+                Pages.Msg.Submit _ ->
+                    -- TODO perform submit Effect
+                    Debug.todo "Not implemented"
 
         UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
             case
@@ -721,7 +728,7 @@ perform config currentUrl maybeKey effect =
                                         , method = "POST"
                                         , timeout = Nothing
                                         }
-                            , fromPageMsg = UserMsg
+                            , fromPageMsg = Pages.Msg.UserMsg >> UserMsg
                             , key = key
                             }
 
@@ -759,7 +766,7 @@ application config =
                             [ config.subscriptions (model.url |> config.urlToRoute)
                                 (urls.currentUrl |> config.urlToRoute |> config.routeToPath |> Path.join)
                                 pageData.userModel
-                                |> Sub.map UserMsg
+                                |> Sub.map (Pages.Msg.UserMsg >> UserMsg)
                             , config.hotReloadData
                                 |> Sub.map HotReloadCompleteNew
                             ]
