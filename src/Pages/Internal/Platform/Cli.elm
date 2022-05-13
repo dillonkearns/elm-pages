@@ -841,10 +841,10 @@ sendSinglePageProgress site contentJson config model info =
 
                                                     viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
                                                     viewValue =
-                                                        (config.view currentPage Nothing sharedData pageData Nothing |> .view) pageModel
+                                                        (config.view currentPage Nothing sharedData pageData maybeActionData |> .view) pageModel
                                                 in
                                                 PageServerResponse.RenderPage responseInfo
-                                                    { head = config.view currentPage Nothing sharedData pageData Nothing |> .head
+                                                    { head = config.view currentPage Nothing sharedData pageData maybeActionData |> .head
                                                     , view = viewValue.body |> HtmlPrinter.htmlToString
                                                     , title = viewValue.title
                                                     }
