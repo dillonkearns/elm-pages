@@ -322,6 +322,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | BrowserLoadUrl String
     | BrowserPushUrl String
     | FetchPageData Int (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
+    | Submit (List ( String, String ))
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
     | UserCmd userEffect
     | CancelRequest Int
@@ -459,9 +460,9 @@ update config appMsg model =
                     ( model, NoEffect )
                         |> performUserMsg userMsg config
 
-                Pages.Msg.Submit _ ->
+                Pages.Msg.Submit fields ->
                     -- TODO perform submit Effect
-                    Debug.todo "Not implemented"
+                    ( model, Submit fields )
 
         UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
             case
@@ -665,6 +666,15 @@ perform config currentUrl maybeKey effect =
 
         FetchPageData transitionKey maybeRequestInfo url toMsg ->
             fetchRouteData transitionKey toMsg config url maybeRequestInfo
+
+        Submit fields ->
+            let
+                urlToSubmitTo : Url
+                urlToSubmitTo =
+                    -- TODO add optional path parameter to Submit variant to allow submitting to other routes
+                    currentUrl
+            in
+            fetchRouteData -1 (UpdateCacheAndUrlNew False currentUrl Nothing) config urlToSubmitTo (Just (FormDecoder.encodeFormData fields))
 
         UserCmd cmd ->
             case maybeKey of

@@ -75,7 +75,7 @@ errorsView errors =
             Html.div [] []
 
 
-form : User -> Form Msg String User (Html Msg)
+form : User -> Form (Pages.Msg.Msg Msg) String User (Html (Pages.Msg.Msg Msg))
 form user =
     Form.succeed User
         |> Form.with
@@ -275,7 +275,6 @@ view maybeUrl sharedModel static =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form user
-            |> Form.toStatelessHtml Nothing Html.form (static.action |> Maybe.map .errors |> Maybe.withDefault (Form.init (form user)))
-            |> Html.map (\_ -> Pages.Msg.UserMsg ())
+            |> Form.toStatelessHtml Html.form (static.action |> Maybe.map .errors |> Maybe.withDefault (Form.init (form user)))
         ]
     }

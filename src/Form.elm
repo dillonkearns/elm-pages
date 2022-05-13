@@ -141,6 +141,7 @@ import Http
 import Json.Encode as Encode
 import List.Extra
 import List.NonEmpty
+import Pages.Msg
 import Path
 import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
@@ -1888,30 +1889,19 @@ performing a client-side submit onSubmit (usually with Effect.Perform).
 
 -}
 toStatelessHtml :
-    Maybe (List ( String, String ) -> msg)
-    -> (List (Html.Attribute msg) -> List view -> view)
+    (List (Html.Attribute (Pages.Msg.Msg msg)) -> List view -> view)
     -> Model
-    -> Form msg String value view
+    -> Form (Pages.Msg.Msg msg) String value view
     -> view
-toStatelessHtml maybeOnSubmit toForm serverValidationErrors (Form fields _ _ _ config) =
+toStatelessHtml toForm serverValidationErrors (Form fields _ _ _ config) =
     toForm
         -- TODO get method from config
-        ([ [ config.method
-                |> Maybe.withDefault "POST"
-                |> Attr.method
-           ]
-         , [ Attr.novalidate True |> Just
-           , case maybeOnSubmit of
-                Just onSubmit ->
-                    FormDecoder.formDataOnSubmit |> Attr.map onSubmit |> Just
-
-                Nothing ->
-                    Nothing
-           ]
-            |> List.filterMap identity
-         ]
-            |> List.concat
-        )
+        [ config.method
+            |> Maybe.withDefault "POST"
+            |> Attr.method
+        , Attr.novalidate True
+        , Pages.Msg.onSubmit
+        ]
         (renderedFields Nothing serverValidationErrors fields)
 
 
