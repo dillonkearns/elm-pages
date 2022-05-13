@@ -51,9 +51,9 @@ function fileContentWithParams(
   serverRender,
   withFallback
 ) {
-  return `module Route.${pageModuleName} exposing (Model, Msg, Data, route)
+  return `module Route.${pageModuleName} exposing (ActionData, Model, Msg, Data, route)
 
-${serverRender ? `import Server.Request as Request\n` : ""}
+${serverRender ? `import Pages.Msg\nimport Server.Request as Request\n` : ""}
 ${withState ? "\nimport Effect exposing (Effect)" : ""}
 import DataSource exposing (DataSource)
 ${serverRender ? `import ErrorPage exposing (ErrorPage)` : ""}
@@ -89,8 +89,8 @@ type alias RouteParams =
 
 route : ${
     withState
-      ? "StatefulRoute RouteParams Data Model Msg"
-      : "StatelessRoute RouteParams Data"
+      ? "StatefulRoute RouteParams Data ActionData Model Msg"
+      : "StatelessRoute RouteParams Data ActionData"
   }
 route =
     ${
@@ -98,6 +98,7 @@ route =
         ? `RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = action
         }`
         : withFallback
         ? `RouteBuilder.preRenderWithFallback { head = head
@@ -132,7 +133,7 @@ ${
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}, Effect.none )
@@ -141,7 +142,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> Msg
     -> Model
     -> ${
@@ -180,6 +181,10 @@ type alias Data =
     {}
 
 
+type alias ActionData =
+    {}
+
+
 ${
   serverRender
     ? `data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
@@ -205,8 +210,16 @@ data =`
         : `DataSource.succeed Data`
     }
 
+${
+  serverRender
+    ? `action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action routeParams =
+    Request.skip "No action."
+`
+    : ""
+}
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -232,18 +245,17 @@ ${
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View ${serverRender ? "(Pages.Msg.Msg Msg)" : "Msg"}
 view maybeUrl sharedModel model static =
 `
     : `view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View ${serverRender ? "(Pages.Msg.Msg Msg)" : "Msg"}
 view maybeUrl sharedModel static =`
-}
-    View.placeholder "${pageModuleName}"
+}    View.placeholder "${pageModuleName}"
 `;
 }
 
