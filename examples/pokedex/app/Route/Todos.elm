@@ -18,6 +18,8 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Http
+import Pages.Fetcher exposing (Fetcher)
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -94,29 +96,27 @@ update pageUrl sharedModel static msg model =
         NoOp ->
             ( model, Effect.none )
 
-        FormSubmitted submitEvent ->
+        FormSubmitted fields ->
             ( { model | submitting = True }
-            , Effect.Submit
-                { values = submitEvent
-                , path = Nothing
-                , method = Just "POST"
-                , toMsg = \_ -> SubmitComplete
-                }
+            , Effect.SubmitFetcher
+                (static.submit
+                    { fields = fields, headers = [] }
+                )
+                |> Effect.map (\_ -> SubmitComplete)
             )
 
         SubmitComplete ->
             ( { model | submitting = False }, Effect.none )
 
-        DeleteFormSubmitted id submitEvent ->
+        DeleteFormSubmitted id fields ->
             ( { model
                 | deleting = model.deleting |> Set.insert id
               }
-            , Effect.Submit
-                { values = submitEvent
-                , path = Nothing
-                , method = Just "POST"
-                , toMsg = \_ -> SubmitComplete
-                }
+            , Effect.SubmitFetcher
+                (static.submit
+                    { fields = fields, headers = [] }
+                )
+                |> Effect.map (\_ -> SubmitComplete)
             )
 
 
