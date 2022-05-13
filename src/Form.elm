@@ -1889,18 +1889,24 @@ performing a client-side submit onSubmit (usually with Effect.Perform).
 
 -}
 toStatelessHtml :
-    (List (Html.Attribute (Pages.Msg.Msg msg)) -> List view -> view)
+    Maybe (List ( String, String ) -> msg)
+    -> (List (Html.Attribute (Pages.Msg.Msg msg)) -> List view -> view)
     -> Model
     -> Form (Pages.Msg.Msg msg) String value view
     -> view
-toStatelessHtml toForm serverValidationErrors (Form fields _ _ _ config) =
+toStatelessHtml customOnSubmit toForm serverValidationErrors (Form fields _ _ _ config) =
     toForm
         -- TODO get method from config
         [ config.method
             |> Maybe.withDefault "POST"
             |> Attr.method
         , Attr.novalidate True
-        , Pages.Msg.onSubmit
+        , customOnSubmit
+            |> Maybe.map
+                (\onSubmit ->
+                    FormDecoder.formDataOnSubmit |> Attr.map (onSubmit >> Pages.Msg.UserMsg)
+                )
+            |> Maybe.withDefault Pages.Msg.onSubmit
         ]
         (renderedFields Nothing serverValidationErrors fields)
 

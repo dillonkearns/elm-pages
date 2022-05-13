@@ -271,6 +271,7 @@ view maybeUrl sharedModel model static =
                             [ Html.text item.description
                             , deleteItemForm item.id
                                 |> Form.toStatelessHtml
+                                    (Just (DeleteFormSubmitted item.id))
                                     Html.form
                                     (Form.init (deleteItemForm item.id))
                             ]
@@ -279,6 +280,7 @@ view maybeUrl sharedModel model static =
         , errorsView static.action
         , newItemForm model.submitting
             |> Form.toStatelessHtml
+                (Just FormSubmitted)
                 Html.form
                 (Form.init (newItemForm model.submitting))
         ]
