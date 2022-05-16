@@ -329,6 +329,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | NoEffect
     | BrowserLoadUrl String
     | BrowserPushUrl String
+    | BrowserReplaceUrl String
     | FetchPageData Int (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     | Submit (List ( String, String ))
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
@@ -430,82 +431,85 @@ update config appMsg model =
             of
                 Ok ( ( newUrl, newData ), previousPageData ) ->
                     let
-                        ( newPageData, newSharedData, newActionData ) =
-                            case newData of
-                                ResponseSketch.RenderPage pageData actionData ->
-                                    ( pageData, previousPageData.sharedData, actionData )
-
-                                ResponseSketch.HotUpdate pageData sharedData actionData ->
-                                    ( pageData, sharedData, actionData )
-
-                                _ ->
-                                    ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
-
-                        updatedPageData : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
-                        updatedPageData =
-                            { userModel = userModel
-                            , sharedData = newSharedData
-                            , pageData = newPageData
-                            , actionData = newActionData
-                            }
-
-                        ( userModel, _ ) =
-                            -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
-                            -- instead of calling update, call pushUrl (I think?)
-                            -- TODO include user Cmd
-                            config.update
-                                newSharedData
-                                newPageData
-                                model.key
-                                (config.onPageChange
-                                    { protocol = model.url.protocol
-                                    , host = model.url.host
-                                    , port_ = model.url.port_
-                                    , path = urlPathToPath urlWithoutRedirectResolution
-                                    , query = urlWithoutRedirectResolution.query
-                                    , fragment = urlWithoutRedirectResolution.fragment
-                                    , metadata = config.urlToRoute urlWithoutRedirectResolution
-                                    }
-                                )
-                                previousPageData.userModel
-
-                        updatedModel : Model userModel pageData actionData sharedData
-                        updatedModel =
-                            { model
-                                | url = newUrl
-                                , pageData = Ok updatedPageData
-                            }
-
-                        onActionMsg : Maybe userMsg
-                        onActionMsg =
-                            newActionData |> Maybe.andThen config.onActionData
+                        redirectPending : Bool
+                        redirectPending =
+                            newUrl /= urlWithoutRedirectResolution
                     in
-                    -- TODO handle redirect logic (don't call `onPageChange` until all redirects have been followed
-                    --, if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
-                    --    BrowserPushUrl newUrl.path
-                    --
-                    --  else
-                    --    NoEffect
-                    ( { updatedModel
-                        | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                        , currentPath = newUrl.path
-                      }
-                    , ScrollToTop
-                    )
-                        |> (case maybeUserMsg of
-                                Just userMsg ->
-                                    withUserMsg config userMsg
+                    if redirectPending then
+                        ( model, BrowserReplaceUrl newUrl.path )
 
-                                Nothing ->
-                                    identity
-                           )
-                        |> (case onActionMsg of
-                                Just actionMsg ->
-                                    withUserMsg config actionMsg
+                    else
+                        let
+                            ( newPageData, newSharedData, newActionData ) =
+                                case newData of
+                                    ResponseSketch.RenderPage pageData actionData ->
+                                        ( pageData, previousPageData.sharedData, actionData )
 
-                                Nothing ->
-                                    identity
-                           )
+                                    ResponseSketch.HotUpdate pageData sharedData actionData ->
+                                        ( pageData, sharedData, actionData )
+
+                                    _ ->
+                                        ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
+
+                            updatedPageData : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
+                            updatedPageData =
+                                { userModel = userModel
+                                , sharedData = newSharedData
+                                , pageData = newPageData
+                                , actionData = newActionData
+                                }
+
+                            ( userModel, _ ) =
+                                -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
+                                -- instead of calling update, call pushUrl (I think?)
+                                -- TODO include user Cmd
+                                config.update
+                                    newSharedData
+                                    newPageData
+                                    model.key
+                                    (config.onPageChange
+                                        { protocol = model.url.protocol
+                                        , host = model.url.host
+                                        , port_ = model.url.port_
+                                        , path = urlPathToPath urlWithoutRedirectResolution
+                                        , query = urlWithoutRedirectResolution.query
+                                        , fragment = urlWithoutRedirectResolution.fragment
+                                        , metadata = config.urlToRoute urlWithoutRedirectResolution
+                                        }
+                                    )
+                                    previousPageData.userModel
+
+                            updatedModel : Model userModel pageData actionData sharedData
+                            updatedModel =
+                                { model
+                                    | url = newUrl
+                                    , pageData = Ok updatedPageData
+                                }
+
+                            onActionMsg : Maybe userMsg
+                            onActionMsg =
+                                newActionData |> Maybe.andThen config.onActionData
+                        in
+                        ( { updatedModel
+                            | ariaNavigationAnnouncement = mainView config updatedModel |> .title
+                            , currentPath = newUrl.path
+                          }
+                        , ScrollToTop
+                        )
+                            |> (case maybeUserMsg of
+                                    Just userMsg ->
+                                        withUserMsg config userMsg
+
+                                    Nothing ->
+                                        identity
+                               )
+                            |> (case onActionMsg of
+                                    Just actionMsg ->
+                                        withUserMsg config actionMsg
+
+                                    Nothing ->
+                                        identity
+                               )
 
                 Err _ ->
                     {-
@@ -626,6 +630,14 @@ perform config currentUrl maybeKey effect =
                 |> Maybe.map
                     (\key ->
                         Browser.Navigation.pushUrl key url
+                    )
+                |> Maybe.withDefault Cmd.none
+
+        BrowserReplaceUrl url ->
+            maybeKey
+                |> Maybe.map
+                    (\key ->
+                        Browser.Navigation.replaceUrl key url
                     )
                 |> Maybe.withDefault Cmd.none
 
