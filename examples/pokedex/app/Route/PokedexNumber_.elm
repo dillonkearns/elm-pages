@@ -49,7 +49,8 @@ data { pokedexNumber } =
     let
         asNumber : Int
         asNumber =
-            String.toInt pokedexNumber |> Maybe.withDefault -1
+            String.toInt pokedexNumber
+                |> Maybe.withDefault -1
     in
     if asNumber < 1 then
         Response.errorPage (ErrorPage.InvalidPokedexNumber pokedexNumber)
