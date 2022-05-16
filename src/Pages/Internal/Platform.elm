@@ -70,10 +70,14 @@ mainView config model =
                             { currentUrl = model.url
                             , basePath = config.basePath
                             }
+
+                        currentUrl : Url
+                        currentUrl =
+                            model.url
                     in
                     (config.view
                         { path = ContentCache.pathForUrl urls |> Path.join
-                        , route = config.urlToRoute model.url
+                        , route = config.urlToRoute { currentUrl | path = model.currentPath }
                         }
                         Nothing
                         pageData.sharedData
@@ -234,6 +238,7 @@ init config flags url key =
                 initialModel =
                     { key = key
                     , url = url
+                    , currentPath = url.path
                     , pageData =
                         Ok
                             { pageData = pageData
@@ -257,6 +262,7 @@ init config flags url key =
         Ok (NotFound info) ->
             ( { key = key
               , url = url
+              , currentPath = url.path
               , pageData = Err "Not found"
               , ariaNavigationAnnouncement = "Error" -- TODO use error page title for announcement?
               , userFlags = flags
@@ -270,6 +276,7 @@ init config flags url key =
         Err error ->
             ( { key = key
               , url = url
+              , currentPath = url.path
               , pageData =
                     error
                         |> BuildError.errorToString
@@ -300,6 +307,7 @@ type Msg userMsg pageData actionData sharedData errorPage
 type alias Model userModel pageData actionData sharedData =
     { key : Maybe Browser.Navigation.Key
     , url : Url
+    , currentPath : String
     , ariaNavigationAnnouncement : String
     , pageData :
         Result
@@ -360,7 +368,9 @@ update config appMsg model =
                                     |> Just
                             , nextTransitionKey = model.nextTransitionKey + 1
                           }
-                        , FetchPageData model.nextTransitionKey Nothing url (UpdateCacheAndUrlNew True url Nothing)
+                        , Batch
+                            [ BrowserPushUrl url.path
+                            ]
                         )
 
                 Browser.External href ->
@@ -369,69 +379,15 @@ update config appMsg model =
                     )
 
         UrlChanged url ->
-            -- TODO is this logic always what we want? This prevents `init` from being called when an action is submitted
-            -- but maybe it's best to avoid calling `pushUrl` in the first place in these cases?
-            if url == model.url then
-                ( model
-                , NoEffect
-                )
-
-            else if url.path == model.url.path then
-                -- this saves a few CPU cycles, but also
-                -- makes sure we don't send an UpdateCacheAndUrl
-                -- which scrolls to the top after page changes.
-                -- This is important because we may have just scrolled
-                -- to a specific page location for an anchor link.
-                model.pageData
-                    |> Result.map
-                        (\pageData ->
-                            let
-                                urls : { currentUrl : Url, basePath : List String }
-                                urls =
-                                    { currentUrl = url
-                                    , basePath = config.basePath
-                                    }
-
-                                updatedPageData : Result String { userModel : userModel, sharedData : sharedData, pageData : pageData, actionData : Maybe actionData }
-                                updatedPageData =
-                                    Ok
-                                        { userModel = userModel
-                                        , sharedData = pageData.sharedData
-                                        , pageData = pageData.pageData
-                                        , actionData = pageData.actionData
-                                        }
-
-                                ( userModel, _ ) =
-                                    config.update
-                                        pageData.sharedData
-                                        pageData.pageData
-                                        model.key
-                                        (config.onPageChange
-                                            { protocol = model.url.protocol
-                                            , host = model.url.host
-                                            , port_ = model.url.port_
-                                            , path = urlPathToPath urls.currentUrl
-                                            , query = url.query
-                                            , fragment = url.fragment
-                                            , metadata = config.urlToRoute url
-                                            }
-                                        )
-                                        pageData.userModel
-                            in
-                            ( { model
-                                | url = url
-                                , pageData = updatedPageData
-                              }
-                            , NoEffect
-                            )
-                        )
-                    |> Result.withDefault ( model, NoEffect )
-
-            else
-                ( model
-                , NoEffect
-                )
-                    |> startNewGetLoad url.path (UpdateCacheAndUrlNew False url Nothing)
+            ( { model
+                -- update the URL in case query params or fragment changed
+                | url = url
+              }
+            , NoEffect
+            )
+                -- TODO is it reasonable to always re-fetch route data if you re-navigate to the current route? Might be a good
+                -- parallel to the browser behavior
+                |> startNewGetLoad url.path (UpdateCacheAndUrlNew False url Nothing)
 
         FetcherComplete userMsgResult ->
             case userMsgResult of
@@ -487,11 +443,31 @@ update config appMsg model =
 
                         updatedPageData : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
                         updatedPageData =
-                            { userModel = previousPageData.userModel
+                            { userModel = userModel
                             , sharedData = newSharedData
                             , pageData = newPageData
                             , actionData = newActionData
                             }
+
+                        ( userModel, _ ) =
+                            -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
+                            -- instead of calling update, call pushUrl (I think?)
+                            -- TODO include user Cmd
+                            config.update
+                                newSharedData
+                                newPageData
+                                model.key
+                                (config.onPageChange
+                                    { protocol = model.url.protocol
+                                    , host = model.url.host
+                                    , port_ = model.url.port_
+                                    , path = urlPathToPath urlWithoutRedirectResolution
+                                    , query = urlWithoutRedirectResolution.query
+                                    , fragment = urlWithoutRedirectResolution.fragment
+                                    , metadata = config.urlToRoute urlWithoutRedirectResolution
+                                    }
+                                )
+                                previousPageData.userModel
 
                         updatedModel : Model userModel pageData actionData sharedData
                         updatedModel =
@@ -504,36 +480,25 @@ update config appMsg model =
                         onActionMsg =
                             newActionData |> Maybe.andThen config.onActionData
                     in
-                    (case maybeUserMsg of
-                        Just userMsg ->
-                            ( { updatedModel
-                                | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                              }
-                            , Batch
-                                [ ScrollToTop
-                                , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
-                                    BrowserPushUrl newUrl.path
-
-                                  else
-                                    NoEffect
-                                ]
-                            )
-                                |> withUserMsg config userMsg
-
-                        Nothing ->
-                            ( { updatedModel
-                                | ariaNavigationAnnouncement = mainView config updatedModel |> .title
-                              }
-                            , Batch
-                                [ ScrollToTop
-                                , if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
-                                    BrowserPushUrl newUrl.path
-
-                                  else
-                                    NoEffect
-                                ]
-                            )
+                    -- TODO handle redirect logic (don't call `onPageChange` until all redirects have been followed
+                    --, if fromLinkClick || urlWithoutRedirectResolution.path /= newUrl.path then
+                    --    BrowserPushUrl newUrl.path
+                    --
+                    --  else
+                    --    NoEffect
+                    ( { updatedModel
+                        | ariaNavigationAnnouncement = mainView config updatedModel |> .title
+                        , currentPath = newUrl.path
+                      }
+                    , ScrollToTop
                     )
+                        |> (case maybeUserMsg of
+                                Just userMsg ->
+                                    withUserMsg config userMsg
+
+                                Nothing ->
+                                    identity
+                           )
                         |> (case onActionMsg of
                                 Just actionMsg ->
                                     withUserMsg config actionMsg
@@ -685,7 +650,7 @@ perform config currentUrl maybeKey effect =
                             -> Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )
                             -> Msg userMsg pageData actionData sharedData errorPage
                         prepare toMsg info =
-                            UpdateCacheAndUrlNew True currentUrl (info |> Result.map Tuple.first |> toMsg |> Just) info
+                            UpdateCacheAndUrlNew False currentUrl (info |> Result.map Tuple.first |> toMsg |> Just) info
                     in
                     cmd
                         |> config.perform
