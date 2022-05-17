@@ -12,6 +12,7 @@ import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form exposing (Form)
 import Form.Value
+import FormDecoder exposing (FormData)
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.SelectionSet as SelectionSet
 import Head
@@ -44,8 +45,8 @@ type alias Model =
 type Msg
     = FormMsg Form.Msg
     | NoOp
-    | FormSubmitted (List ( String, String ))
-    | DeleteFormSubmitted String (List ( String, String ))
+    | FormSubmitted FormData
+    | DeleteFormSubmitted String FormData
     | SubmitComplete
 
 
@@ -96,7 +97,7 @@ update pageUrl sharedModel static msg model =
         NoOp ->
             ( model, Effect.none )
 
-        FormSubmitted fields ->
+        FormSubmitted { fields } ->
             ( { model | submitting = True }
             , Effect.SubmitFetcher
                 (static.submit
@@ -108,7 +109,7 @@ update pageUrl sharedModel static msg model =
         SubmitComplete ->
             ( { model | submitting = False }, Effect.none )
 
-        DeleteFormSubmitted id fields ->
+        DeleteFormSubmitted id { fields } ->
             ( { model
                 | deleting = model.deleting |> Set.insert id
               }

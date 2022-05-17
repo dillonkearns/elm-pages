@@ -296,7 +296,7 @@ type Msg
     = OnFieldInput { name : String, value : String }
     | OnFieldFocus { name : String }
     | OnBlur { name : String }
-    | SubmitForm (List ( String, String ))
+    | SubmitForm FormDecoder.FormData
     | GotFormResponse (Result Http.Error Url)
 
 
@@ -412,7 +412,7 @@ isAtLeast atLeastStatus currentStatus =
 
 {-| -}
 update :
-    ({ values : List ( String, String ), path : Maybe (List String), method : Maybe String, toMsg : Result Http.Error Url -> msg } -> effect)
+    ({ values : FormDecoder.FormData, path : Maybe (List String), method : Maybe String, toMsg : Result Http.Error Url -> msg } -> effect)
     -> effect
     -> (Msg -> msg)
     -> Form msg String value view
@@ -516,7 +516,7 @@ update submitEffect noEffect toMsg ((Form _ _ _ modelToValue config) as form) ms
             else
                 ( { model | isSubmitting = Submitting }
                 , submitEffect
-                    { values = values
+                    { values = values -- TODO should this use FormDecoder.FormData directly to get the method and action url?
 
                     -- TODO what to do if it's an external URL?
                     , path = config.url |> Maybe.map Path.fromString |> Maybe.map Path.toSegments
@@ -1889,7 +1889,7 @@ performing a client-side submit onSubmit (usually with Effect.Perform).
 
 -}
 toStatelessHtml :
-    Maybe (List ( String, String ) -> msg)
+    Maybe (FormDecoder.FormData -> msg)
     -> (List (Html.Attribute (Pages.Msg.Msg msg)) -> List view -> view)
     -> Model
     -> Form (Pages.Msg.Msg msg) String value view

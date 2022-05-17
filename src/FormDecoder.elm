@@ -1,4 +1,4 @@
-module FormDecoder exposing (encodeFormData, formDataOnSubmit)
+module FormDecoder exposing (FormData, Method(..), encodeFormData, formDataOnSubmit)
 
 import Html
 import Html.Events
@@ -7,25 +7,60 @@ import Json.Encode
 import Url
 
 
-formDataOnSubmit : Html.Attribute (List ( String, String ))
+type alias FormData =
+    { fields : List ( String, String )
+    , method : Method
+    , action : String
+    }
+
+
+type Method
+    = Get
+    | Post
+
+
+formDataOnSubmit : Html.Attribute FormData
 formDataOnSubmit =
     Html.Events.preventDefaultOn "submit"
-        (Decode.value
-            |> Decode.andThen
-                (\decodeValue ->
-                    case Decode.decodeValue tuplesDecoder (decoder decodeValue) of
-                        Ok decoded ->
-                            Decode.succeed decoded
+        (Decode.map3 FormData
+            (Decode.value
+                |> Decode.andThen
+                    (\decodeValue ->
+                        case Decode.decodeValue tuplesDecoder (decoder decodeValue) of
+                            Ok decoded ->
+                                Decode.succeed decoded
 
-                        Err error ->
-                            Decode.succeed
-                                [ ( "error"
-                                  , Decode.errorToString error
-                                  )
-                                ]
-                )
+                            Err error ->
+                                Decode.succeed
+                                    [ ( "error"
+                                      , Decode.errorToString error
+                                      )
+                                    ]
+                    )
+            )
+            (Decode.at [ "submitter", "form", "method" ] methodDecoder)
+            (Decode.at [ "submitter", "form", "action" ] Decode.string)
             |> Decode.map alwaysPreventDefault
         )
+
+
+methodDecoder : Decode.Decoder Method
+methodDecoder =
+    Decode.string
+        |> Decode.map
+            (\methodString ->
+                case methodString |> String.toUpper of
+                    "GET" ->
+                        Get
+
+                    "POST" ->
+                        Post
+
+                    _ ->
+                        -- TODO what about "dialog" method? Is it okay for that to be interpreted as GET,
+                        -- or should there be a variant for that?
+                        Get
+            )
 
 
 decoder : Decode.Value -> Decode.Value
@@ -47,11 +82,13 @@ tuplesDecoder =
         )
 
 
-encodeFormData : List ( String, String ) -> { contentType : String, body : String }
-encodeFormData formFields_ =
+encodeFormData : FormData -> { contentType : String, body : String }
+encodeFormData data =
+    -- TODO include method
+    -- TODO use empty body and query params for fields for GET
     { contentType = "application/x-www-form-urlencoded"
     , body =
-        formFields_
+        data.fields
             |> List.map
                 (\( name, value ) ->
                     Url.percentEncode name ++ "=" ++ Url.percentEncode value

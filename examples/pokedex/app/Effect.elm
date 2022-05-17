@@ -3,6 +3,7 @@ module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 import Browser.Navigation
 import Bytes exposing (Bytes)
 import Bytes.Decode
+import FormDecoder
 import Http
 import Json.Decode as Decode
 import Pages.Fetcher
@@ -20,7 +21,7 @@ type Effect msg
         , toMsg : Result Http.Error Url -> msg
         }
     | Submit
-        { values : List ( String, String )
+        { values : FormDecoder.FormData
         , path : Maybe (List String)
         , method : Maybe String
         , toMsg : Result Http.Error Url -> msg
@@ -93,7 +94,7 @@ perform :
         }
         -> Cmd msg
     , submit :
-        { values : List ( String, String )
+        { values : FormDecoder.FormData
         , encType : Maybe String
         , method : Maybe String
         , path : Maybe String

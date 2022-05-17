@@ -19,7 +19,7 @@ import Html.Attributes
 {-| -}
 type Msg userMsg
     = UserMsg userMsg
-    | Submit (List ( String, String ))
+    | Submit FormDecoder.FormData
 
 
 {-| -}

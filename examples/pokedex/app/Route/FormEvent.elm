@@ -3,7 +3,7 @@ module Route.FormEvent exposing (ActionData, Data, Model, Msg, route)
 import Browser.Navigation
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
-import FormDecoder
+import FormDecoder exposing (FormData)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -23,7 +23,7 @@ type alias Model =
 
 
 type Msg
-    = OnSubmit (List ( String, String ))
+    = OnSubmit FormData
 
 
 type alias RouteParams =
@@ -66,9 +66,9 @@ update pageUrl sharedModel static msg model =
             ( { model | formAsString = Just (toString formAsString) }, Effect.none )
 
 
-toString : List ( String, String ) -> String
+toString : FormData -> String
 toString formAsString =
-    formAsString
+    formAsString.fields
         |> List.map (\( key, value ) -> key ++ "=" ++ value)
         |> String.join "\n"
 

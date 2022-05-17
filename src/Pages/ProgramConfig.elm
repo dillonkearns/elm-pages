@@ -6,6 +6,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
 import DataSource exposing (DataSource)
+import FormDecoder
 import Head
 import Html exposing (Html)
 import Http
@@ -101,7 +102,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
             }
             -> Cmd mappedMsg
         , submit :
-            { values : List ( String, String )
+            { values : FormDecoder.FormData
             , encType : Maybe String
             , method : Maybe String
             , path : Maybe String

@@ -103,20 +103,21 @@ init :
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}
-    , static.submit
-        { headers = []
-        , fields =
-            -- TODO when you run a Fetcher and get back a Redirect, how should that be handled? Maybe instead of `Result Http.Error ActionData`,
-            -- it should be `FetcherResponse ActionData`, with Redirect as one of the possibilities?
-            --[ ( "first", "Jane" )
-            --, ( "email", "jane@example.com" )
-            --]
-            [ ( "first", "" )
-            , ( "email", "" )
-            ]
-        }
-        |> Effect.SubmitFetcher
-        |> Effect.map GotResponse
+    , --static.submit
+      --   { headers = []
+      --   , fields =
+      --       -- TODO when you run a Fetcher and get back a Redirect, how should that be handled? Maybe instead of `Result Http.Error ActionData`,
+      --       -- it should be `FetcherResponse ActionData`, with Redirect as one of the possibilities?
+      --       --[ ( "first", "Jane" )
+      --       --, ( "email", "jane@example.com" )
+      --       --]
+      --       [ ( "first", "" )
+      --       , ( "email", "" )
+      --       ]
+      --   }
+      --   |> Effect.SubmitFetcher
+      --   |> Effect.map GotResponse
+      Effect.none
     )
 
 

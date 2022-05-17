@@ -331,7 +331,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | BrowserPushUrl String
     | BrowserReplaceUrl String
     | FetchPageData Int (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
-    | Submit (List ( String, String ))
+    | Submit FormDecoder.FormData
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
     | UserCmd userEffect
     | CancelRequest Int
@@ -684,7 +684,15 @@ perform config currentUrl maybeKey effect =
                                 \(Pages.Fetcher.Fetcher options) ->
                                     let
                                         { contentType, body } =
-                                            FormDecoder.encodeFormData options.fields
+                                            FormDecoder.encodeFormData
+                                                { fields = options.fields
+
+                                                -- TODO remove hardcoding
+                                                , action = ""
+
+                                                -- TODO remove hardcoding
+                                                , method = FormDecoder.Post
+                                                }
                                     in
                                     -- TODO make sure that `actionData` isn't updated in Model for fetchers
                                     Http.request
