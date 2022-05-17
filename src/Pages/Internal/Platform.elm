@@ -361,17 +361,8 @@ update config appMsg model =
                         )
 
                     else
-                        ( { model
-                            | transition =
-                                url.path
-                                    |> Path.fromString
-                                    |> Loading model.nextTransitionKey
-                                    |> Just
-                            , nextTransitionKey = model.nextTransitionKey + 1
-                          }
-                        , Batch
-                            [ BrowserPushUrl url.path
-                            ]
+                        ( model
+                        , BrowserPushUrl url.path
                         )
 
                 Browser.External href ->
