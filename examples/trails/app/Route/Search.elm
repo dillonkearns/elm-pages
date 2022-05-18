@@ -1,8 +1,15 @@
 module Route.Search exposing (ActionData, Data, Model, Msg, route)
 
+import Api.InputObject
+import Api.Object
+import Api.Object.Trails
+import Api.Query
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Graphql.Operation exposing (RootQuery)
+import Graphql.OptionalArgument exposing (OptionalArgument(..))
+import Graphql.SelectionSet exposing (SelectionSet)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -11,6 +18,7 @@ import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
+import Request.Hasura
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
@@ -95,15 +103,18 @@ data routeParams =
                 field "q"
                     |> Request.map
                         (\query ->
-                            DataSource.succeed
-                                (Response.render
-                                    { results =
-                                        Just
-                                            { query = query
-                                            , results = [ "Hello" ]
+                            Request.Hasura.dataSource ""
+                                (search query)
+                                |> DataSource.map
+                                    (\results ->
+                                        Response.render
+                                            { results =
+                                                Just
+                                                    { query = query
+                                                    , results = results
+                                                    }
                                             }
-                                    }
-                                )
+                                    )
                         )
             )
         , Request.succeed (DataSource.succeed (Response.render { results = Nothing }))
@@ -121,7 +132,7 @@ head :
 head static =
     Seo.summary
         { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
+        , siteName = "Trail Blazer"
         , image =
             { url = Pages.Url.external "TODO"
             , alt = "elm-pages logo"
@@ -130,7 +141,16 @@ head static =
             }
         , description = "TODO"
         , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
+        , title =
+            case static.data.results of
+                Nothing ->
+                    "Find your next trail"
+
+                Just { results, query } ->
+                    query
+                        ++ " at TrailBlazer ("
+                        ++ String.fromInt (List.length results)
+                        ++ " results)"
         }
         |> Seo.website
 
@@ -163,4 +183,36 @@ resultsView : SearchResults -> Html msg
 resultsView results =
     Html.div []
         [ Html.h2 [] [ Html.text <| "Results matching " ++ results.query ]
+        , results.results
+            |> List.map
+                (\result ->
+                    Html.li []
+                        [ Html.text result
+                        ]
+                )
+            |> Html.ul []
         ]
+
+
+search : String -> SelectionSet (List String) RootQuery
+search query =
+    Api.Query.trails
+        (\optionals ->
+            { optionals
+                | where_ =
+                    Present
+                        (Api.InputObject.buildTrails_bool_exp
+                            (\whereOptionals ->
+                                { whereOptionals
+                                    | name =
+                                        Api.InputObject.buildString_comparison_exp
+                                            (\stringOptionals ->
+                                                { stringOptionals | ilike_ = Present <| "%" ++ query ++ "%" }
+                                            )
+                                            |> Present
+                                }
+                            )
+                        )
+            }
+        )
+        Api.Object.Trails.name

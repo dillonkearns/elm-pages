@@ -14,6 +14,7 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
+    , expectForm
     )
 
 {-|
@@ -963,6 +964,68 @@ expectFormPost toForm =
                                     |> jsonFromResult
                                     |> Internal.Request.Parser
                             )
+            )
+
+
+{-| -}
+expectForm :
+    ({ field : String -> Parser String
+     , optionalField : String -> Parser (Maybe String)
+     }
+     -> Parser decodedForm
+    )
+    -> Parser decodedForm
+expectForm toForm =
+    map2 Tuple.pair
+        queryParams
+        method
+        |> andThen
+            (\( queryParams_, validMethod ) ->
+                if validMethod == Get then
+                    queryParams_
+                        |> Dict.map
+                            (\k v ->
+                                v
+                                    |> List.NonEmpty.fromList
+                                    |> Maybe.withDefault ( "", [] )
+                            )
+                        |> succeed
+                        |> andThen
+                            (\parsedForm ->
+                                let
+                                    thing : Json.Encode.Value
+                                    thing =
+                                        parsedForm
+                                            |> Dict.toList
+                                            |> List.map
+                                                (Tuple.mapSecond
+                                                    (\( first, _ ) ->
+                                                        Json.Encode.string first
+                                                    )
+                                                )
+                                            |> Json.Encode.object
+
+                                    innerDecoder : Json.Decode.Decoder ( Result ValidationError decodedForm, List ValidationError )
+                                    innerDecoder =
+                                        toForm { field = formField_, optionalField = optionalFormField_ }
+                                            |> (\(Internal.Request.Parser decoder) -> decoder)
+                                in
+                                Json.Decode.decodeValue innerDecoder thing
+                                    |> Result.mapError Json.Decode.errorToString
+                                    |> jsonFromResult
+                                    |> Internal.Request.Parser
+                            )
+
+                else
+                    Json.Decode.succeed
+                        ( Err
+                            (ValidationError <|
+                                "TODO validation error for not matching GET form submission"
+                             --"expectFormPost did not match - expected method GET, but the method was " ++ methodToString validMethod
+                            )
+                        , []
+                        )
+                        |> Internal.Request.Parser
             )
 
 
