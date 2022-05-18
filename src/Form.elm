@@ -412,7 +412,7 @@ isAtLeast atLeastStatus currentStatus =
 
 {-| -}
 update :
-    ({ values : FormDecoder.FormData, path : Maybe (List String), method : Maybe String, toMsg : Result Http.Error Url -> msg } -> effect)
+    ({ values : FormDecoder.FormData, toMsg : Result Http.Error Url -> msg } -> effect)
     -> effect
     -> (Msg -> msg)
     -> Form msg String value view
@@ -516,11 +516,7 @@ update submitEffect noEffect toMsg ((Form _ _ _ modelToValue config) as form) ms
             else
                 ( { model | isSubmitting = Submitting }
                 , submitEffect
-                    { values = values -- TODO should this use FormDecoder.FormData directly to get the method and action url?
-
-                    -- TODO what to do if it's an external URL?
-                    , path = config.url |> Maybe.map Path.fromString |> Maybe.map Path.toSegments
-                    , method = config.method
+                    { values = values
                     , toMsg = GotFormResponse >> toMsg
                     }
                 )
