@@ -96,16 +96,12 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , cmdToEffect : Cmd userMsg -> effect
     , perform :
         { fetchRouteData :
-            { body : Maybe { contentType : String, body : String }
-            , path : Maybe String
+            { data : Maybe FormDecoder.FormData
             , toMsg : Result Http.Error Url -> userMsg
             }
             -> Cmd mappedMsg
         , submit :
             { values : FormDecoder.FormData
-            , encType : Maybe String
-            , method : Maybe String
-            , path : Maybe String
             , toMsg : Result Http.Error Url -> userMsg
             }
             -> Cmd mappedMsg

@@ -330,7 +330,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | BrowserLoadUrl String
     | BrowserPushUrl String
     | BrowserReplaceUrl String
-    | FetchPageData Int (Maybe RequestInfo) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
+    | FetchPageData Int (Maybe FormDecoder.FormData) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     | Submit FormDecoder.FormData
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
     | UserCmd userEffect
@@ -642,7 +642,7 @@ perform config currentUrl maybeKey effect =
                     -- TODO add optional path parameter to Submit variant to allow submitting to other routes
                     currentUrl
             in
-            fetchRouteData -1 (UpdateCacheAndUrlNew False currentUrl Nothing) config urlToSubmitTo (Just (FormDecoder.encodeFormData fields))
+            fetchRouteData -1 (UpdateCacheAndUrlNew False currentUrl Nothing) config urlToSubmitTo (Just fields)
 
         UserCmd cmd ->
             case maybeKey of
@@ -659,31 +659,20 @@ perform config currentUrl maybeKey effect =
                         |> config.perform
                             { fetchRouteData =
                                 \fetchInfo ->
-                                    case fetchInfo.path of
-                                        Just path ->
-                                            fetchRouteData -1 (prepare fetchInfo.toMsg) config { currentUrl | path = path } fetchInfo.body
+                                    fetchRouteData -1
+                                        (prepare fetchInfo.toMsg)
+                                        config
+                                        (urlFromAction currentUrl fetchInfo.data)
+                                        fetchInfo.data
 
-                                        Nothing ->
-                                            fetchRouteData -1 (prepare fetchInfo.toMsg) config currentUrl fetchInfo.body
-
-                            -- TODO map the Msg with the wrapper type (like in the PR branch)
+                            ---- TODO map the Msg with the wrapper type (like in the PR branch)
                             , submit =
                                 \fetchInfo ->
-                                    let
-                                        urlToSubmitTo : Url
-                                        urlToSubmitTo =
-                                            case fetchInfo.path of
-                                                Just path ->
-                                                    { currentUrl | path = path }
-
-                                                Nothing ->
-                                                    currentUrl
-                                    in
-                                    fetchRouteData -1 (prepare fetchInfo.toMsg) config urlToSubmitTo (Just (FormDecoder.encodeFormData fetchInfo.values))
+                                    fetchRouteData -1 (prepare fetchInfo.toMsg) config (fetchInfo.values.action |> Url.fromString |> Maybe.withDefault currentUrl) (Just fetchInfo.values)
                             , runFetcher =
                                 \(Pages.Fetcher.Fetcher options) ->
                                     let
-                                        { contentType, body } =
+                                        encodedBody =
                                             FormDecoder.encodeFormData
                                                 { fields = options.fields
 
@@ -708,7 +697,7 @@ perform config currentUrl maybeKey effect =
                                                             Debug.todo ""
                                                 )
                                         , tracker = Nothing
-                                        , body = Http.stringBody contentType body
+                                        , body = Http.stringBody "application/x-www-form-urlencoded" encodedBody
                                         , headers = options.headers |> List.map (\( name, value ) -> Http.header name value)
                                         , url = options.url |> Maybe.withDefault (Path.join [ currentUrl.path, "content.dat" ] |> Path.toAbsolute)
                                         , method = "POST"
@@ -723,6 +712,11 @@ perform config currentUrl maybeKey effect =
 
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
+
+
+urlFromAction : Url -> Maybe FormDecoder.FormData -> Url
+urlFromAction currentUrl fetchInfo =
+    fetchInfo |> Maybe.map .action |> Maybe.andThen Url.fromString |> Maybe.withDefault currentUrl
 
 
 {-| -}
@@ -808,7 +802,7 @@ fetchRouteData :
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Url
-    -> Maybe { contentType : String, body : String }
+    -> Maybe FormDecoder.FormData
     -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
 fetchRouteData transitionKey toMsg config url details =
     {-
@@ -823,18 +817,48 @@ fetchRouteData transitionKey toMsg config url details =
        - [ ] Increment cancel key counter in Model on new transitions
 
     -}
+    let
+        formMethod : FormDecoder.Method
+        formMethod =
+            details
+                |> Maybe.map .method
+                |> Maybe.withDefault FormDecoder.Get
+
+        urlEncodedFields : Maybe String
+        urlEncodedFields =
+            details
+                |> Maybe.map FormDecoder.encodeFormData
+    in
     Http.request
-        { method = details |> Maybe.map (\_ -> "POST") |> Maybe.withDefault "GET"
+        { method = details |> Maybe.map (.method >> FormDecoder.methodToString) |> Maybe.withDefault "GET"
         , headers = []
         , url =
-            url.path
+            (url.path
                 |> chopForwardSlashes
                 |> String.split "/"
                 |> List.filter ((/=) "")
                 |> (\l -> l ++ [ "content.dat" ])
                 |> String.join "/"
-                |> String.append "/"
-        , body = details |> Maybe.map (\justDetails -> Http.stringBody justDetails.contentType justDetails.body) |> Maybe.withDefault Http.emptyBody
+            )
+                ++ (case formMethod of
+                        FormDecoder.Post ->
+                            "/"
+
+                        FormDecoder.Get ->
+                            details
+                                |> Maybe.map FormDecoder.encodeFormData
+                                |> Maybe.map (\encoded -> "?" ++ encoded)
+                                |> Maybe.withDefault ""
+                   )
+        , body =
+            case formMethod of
+                FormDecoder.Post ->
+                    urlEncodedFields
+                        |> Maybe.map (\encoded -> Http.stringBody "application/x-www-form-urlencoded" encoded)
+                        |> Maybe.withDefault Http.emptyBody
+
+                _ ->
+                    Http.emptyBody
         , expect =
             Http.expectBytesResponse (\response -> ProcessFetchResponse response toMsg)
                 (\response ->

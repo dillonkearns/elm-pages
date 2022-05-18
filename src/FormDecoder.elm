@@ -1,4 +1,4 @@
-module FormDecoder exposing (FormData, Method(..), encodeFormData, formDataOnSubmit)
+module FormDecoder exposing (FormData, Method(..), encodeFormData, formDataOnSubmit, methodToString)
 
 import Html
 import Html.Events
@@ -82,16 +82,23 @@ tuplesDecoder =
         )
 
 
-encodeFormData : FormData -> { contentType : String, body : String }
+methodToString : Method -> String
+methodToString method =
+    case method of
+        Get ->
+            "GET"
+
+        Post ->
+            "POST"
+
+
+encodeFormData :
+    FormData
+    -> String
 encodeFormData data =
-    -- TODO include method
-    -- TODO use empty body and query params for fields for GET
-    { contentType = "application/x-www-form-urlencoded"
-    , body =
-        data.fields
-            |> List.map
-                (\( name, value ) ->
-                    Url.percentEncode name ++ "=" ++ Url.percentEncode value
-                )
-            |> String.join "&"
-    }
+    data.fields
+        |> List.map
+            (\( name, value ) ->
+                Url.percentEncode name ++ "=" ++ Url.percentEncode value
+            )
+        |> String.join "&"
