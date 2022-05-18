@@ -642,7 +642,18 @@ perform config currentUrl maybeKey effect =
                     -- TODO add optional path parameter to Submit variant to allow submitting to other routes
                     currentUrl
             in
-            fetchRouteData -1 (UpdateCacheAndUrlNew False currentUrl Nothing) config urlToSubmitTo (Just fields)
+            Cmd.batch
+                [ case fields.method of
+                    FormDecoder.Get ->
+                        maybeKey
+                            |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
+                            |> Maybe.withDefault Cmd.none
+
+                    FormDecoder.Post ->
+                        -- TODO should there be a pushUrl at the beginning of a POST form submission or not?
+                        Cmd.none
+                , fetchRouteData -1 (UpdateCacheAndUrlNew False currentUrl Nothing) config urlToSubmitTo (Just fields)
+                ]
 
         UserCmd cmd ->
             case maybeKey of
@@ -712,6 +723,17 @@ perform config currentUrl maybeKey effect =
 
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
+
+
+appendFormQueryParams : FormDecoder.FormData -> String
+appendFormQueryParams fields =
+    (fields.action
+        |> Url.fromString
+        |> Maybe.map .path
+        |> Maybe.withDefault "/"
+    )
+        ++ "?"
+        ++ FormDecoder.encodeFormData fields
 
 
 urlFromAction : Url -> Maybe FormDecoder.FormData -> Url
