@@ -9,7 +9,7 @@ import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Graphql.Operation exposing (RootQuery)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
-import Graphql.SelectionSet exposing (SelectionSet)
+import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -82,7 +82,13 @@ subscriptions maybePageUrl routeParams path sharedModel model =
 
 type alias SearchResults =
     { query : String
-    , results : List String
+    , results : List SearchResult
+    }
+
+
+type alias SearchResult =
+    { name : String
+    , coverImage : String
     }
 
 
@@ -165,7 +171,9 @@ view maybeUrl sharedModel model static =
     { title = "Search"
     , body =
         [ Html.h2 [] [ Html.text "Search" ]
-        , Html.form []
+        , Html.form
+            [ Pages.Msg.onSubmit
+            ]
             [ Html.label []
                 [ Html.text "Query "
                 , Html.input [ Attr.name "q" ] []
@@ -187,14 +195,20 @@ resultsView results =
             |> List.map
                 (\result ->
                     Html.li []
-                        [ Html.text result
+                        [ Html.img
+                            [ Attr.src result.coverImage
+                            , Attr.style "width" "200px"
+                            , Attr.style "border-radius" "10px"
+                            ]
+                            []
+                        , Html.text result.name
                         ]
                 )
             |> Html.ul []
         ]
 
 
-search : String -> SelectionSet (List String) RootQuery
+search : String -> SelectionSet (List SearchResult) RootQuery
 search query =
     Api.Query.trails
         (\optionals ->
@@ -215,4 +229,7 @@ search query =
                         )
             }
         )
-        Api.Object.Trails.name
+        (SelectionSet.map2 SearchResult
+            Api.Object.Trails.name
+            Api.Object.Trails.coverImage
+        )
