@@ -643,15 +643,9 @@ perform config currentUrl maybeKey effect =
                     currentUrl
             in
             Cmd.batch
-                [ case fields.method of
-                    FormDecoder.Get ->
-                        maybeKey
-                            |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
-                            |> Maybe.withDefault Cmd.none
-
-                    FormDecoder.Post ->
-                        -- TODO should there be a pushUrl at the beginning of a POST form submission or not?
-                        Cmd.none
+                [ maybeKey
+                    |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
+                    |> Maybe.withDefault Cmd.none
                 , fetchRouteData -1 (UpdateCacheAndUrlNew False currentUrl Nothing) config urlToSubmitTo (Just fields)
                 ]
 
@@ -732,8 +726,13 @@ appendFormQueryParams fields =
         |> Maybe.map .path
         |> Maybe.withDefault "/"
     )
-        ++ "?"
-        ++ FormDecoder.encodeFormData fields
+        ++ (case fields.method of
+                FormDecoder.Get ->
+                    "?" ++ FormDecoder.encodeFormData fields
+
+                FormDecoder.Post ->
+                    ""
+           )
 
 
 urlFromAction : Url -> Maybe FormDecoder.FormData -> Url
