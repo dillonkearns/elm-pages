@@ -17,6 +17,7 @@ import Browser.Navigation
 import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Decode
+import Dict exposing (Dict)
 import FormDecoder
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -251,6 +252,7 @@ init config flags url key =
                     , notFound = Nothing
                     , transition = Nothing
                     , nextTransitionKey = 0
+                    , inFlightFetchers = Dict.empty
                     }
             in
             ( { initialModel
@@ -269,6 +271,7 @@ init config flags url key =
               , notFound = Just info
               , transition = Nothing
               , nextTransitionKey = 0
+              , inFlightFetchers = Dict.empty
               }
             , NoEffect
             )
@@ -286,6 +289,7 @@ init config flags url key =
               , notFound = Nothing
               , transition = Nothing
               , nextTransitionKey = 0
+              , inFlightFetchers = Dict.empty
               }
             , NoEffect
             )
@@ -297,7 +301,8 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UrlChanged Url
     | UserMsg (Pages.Msg.Msg userMsg)
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
-    | FetcherComplete (Result Http.Error userMsg)
+    | FetcherComplete Int (Result Http.Error userMsg)
+    | FetcherStarted FormDecoder.FormData
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
@@ -321,6 +326,7 @@ type alias Model userModel pageData actionData sharedData =
     , userFlags : Decode.Value
     , transition : Maybe Transition
     , nextTransitionKey : Int
+    , inFlightFetchers : Dict Int FormDecoder.FormData
     }
 
 
@@ -381,10 +387,10 @@ update config appMsg model =
                 -- parallel to the browser behavior
                 |> startNewGetLoad url.path (UpdateCacheAndUrlNew False url Nothing)
 
-        FetcherComplete userMsgResult ->
+        FetcherComplete fetcherId userMsgResult ->
             case userMsgResult of
                 Ok userMsg ->
-                    ( model, NoEffect )
+                    ( { model | inFlightFetchers = model.inFlightFetchers |> Dict.remove fetcherId }, NoEffect )
                         |> performUserMsg userMsg config
                         |> startNewGetLoad model.url.path (UpdateCacheAndUrlNew False model.url Nothing)
 
@@ -573,6 +579,17 @@ update config appMsg model =
                     )
                 |> Result.withDefault ( model, NoEffect )
 
+        FetcherStarted fetcherData ->
+            -- TODO
+            ( { model
+                | nextTransitionKey = model.nextTransitionKey + 1
+                , inFlightFetchers =
+                    model.inFlightFetchers
+                        |> Dict.insert model.nextTransitionKey fetcherData
+              }
+            , NoEffect
+            )
+
 
 performUserMsg :
     userMsg
@@ -598,8 +615,8 @@ performUserMsg userMsg config ( model, effect ) =
             ( model, effect )
 
 
-perform : ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage -> Url -> Maybe Browser.Navigation.Key -> Effect userMsg pageData actionData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
-perform config currentUrl maybeKey effect =
+perform : ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage -> Model userModel pageData actionData sharedData -> Effect userMsg pageData actionData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
+perform config model effect =
     -- elm-review: known-unoptimized-recursion
     case effect of
         NoEffect ->
@@ -607,7 +624,7 @@ perform config currentUrl maybeKey effect =
 
         Batch effects ->
             effects
-                |> List.map (perform config currentUrl maybeKey)
+                |> List.map (perform config model)
                 |> Cmd.batch
 
         ScrollToTop ->
@@ -617,7 +634,7 @@ perform config currentUrl maybeKey effect =
             Browser.Navigation.load url
 
         BrowserPushUrl url ->
-            maybeKey
+            model.key
                 |> Maybe.map
                     (\key ->
                         Browser.Navigation.pushUrl key url
@@ -625,7 +642,7 @@ perform config currentUrl maybeKey effect =
                 |> Maybe.withDefault Cmd.none
 
         BrowserReplaceUrl url ->
-            maybeKey
+            model.key
                 |> Maybe.map
                     (\key ->
                         Browser.Navigation.replaceUrl key url
@@ -640,17 +657,17 @@ perform config currentUrl maybeKey effect =
                 urlToSubmitTo : Url
                 urlToSubmitTo =
                     -- TODO add optional path parameter to Submit variant to allow submitting to other routes
-                    currentUrl
+                    model.url
             in
             Cmd.batch
-                [ maybeKey
+                [ model.key
                     |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
                     |> Maybe.withDefault Cmd.none
-                , fetchRouteData -1 (UpdateCacheAndUrlNew False currentUrl Nothing) config urlToSubmitTo (Just fields)
+                , fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
                 ]
 
         UserCmd cmd ->
-            case maybeKey of
+            case model.key of
                 Just key ->
                     let
                         prepare :
@@ -658,7 +675,7 @@ perform config currentUrl maybeKey effect =
                             -> Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )
                             -> Msg userMsg pageData actionData sharedData errorPage
                         prepare toMsg info =
-                            UpdateCacheAndUrlNew False currentUrl (info |> Result.map Tuple.first |> toMsg |> Just) info
+                            UpdateCacheAndUrlNew False model.url (info |> Result.map Tuple.first |> toMsg |> Just) info
                     in
                     cmd
                         |> config.perform
@@ -667,16 +684,17 @@ perform config currentUrl maybeKey effect =
                                     fetchRouteData -1
                                         (prepare fetchInfo.toMsg)
                                         config
-                                        (urlFromAction currentUrl fetchInfo.data)
+                                        (urlFromAction model.url fetchInfo.data)
                                         fetchInfo.data
 
                             ---- TODO map the Msg with the wrapper type (like in the PR branch)
                             , submit =
                                 \fetchInfo ->
-                                    fetchRouteData -1 (prepare fetchInfo.toMsg) config (fetchInfo.values.action |> Url.fromString |> Maybe.withDefault currentUrl) (Just fetchInfo.values)
+                                    fetchRouteData -1 (prepare fetchInfo.toMsg) config (fetchInfo.values.action |> Url.fromString |> Maybe.withDefault model.url) (Just fetchInfo.values)
                             , runFetcher =
                                 \(Pages.Fetcher.Fetcher options) ->
                                     let
+                                        encodedBody : String
                                         encodedBody =
                                             FormDecoder.encodeFormData
                                                 { fields = options.fields
@@ -687,27 +705,39 @@ perform config currentUrl maybeKey effect =
                                                 -- TODO remove hardcoding
                                                 , method = FormDecoder.Post
                                                 }
+
+                                        formData =
+                                            { -- TODO remove hardcoding
+                                              method = FormDecoder.Get
+
+                                            -- TODO pass FormData directly
+                                            , action = options.url |> Maybe.withDefault model.url.path
+                                            , fields = options.fields
+                                            }
                                     in
                                     -- TODO make sure that `actionData` isn't updated in Model for fetchers
-                                    Http.request
-                                        { expect =
-                                            Http.expectBytesResponse FetcherComplete
-                                                (\bytes ->
-                                                    case bytes of
-                                                        Http.GoodStatus_ metadata bytesBody ->
-                                                            options.decoder (Ok bytesBody)
-                                                                |> Ok
+                                    Cmd.batch
+                                        [ Task.succeed (FetcherStarted formData) |> Task.perform identity
+                                        , Http.request
+                                            { expect =
+                                                Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
+                                                    (\bytes ->
+                                                        case bytes of
+                                                            Http.GoodStatus_ metadata bytesBody ->
+                                                                options.decoder (Ok bytesBody)
+                                                                    |> Ok
 
-                                                        _ ->
-                                                            Debug.todo ""
-                                                )
-                                        , tracker = Nothing
-                                        , body = Http.stringBody "application/x-www-form-urlencoded" encodedBody
-                                        , headers = options.headers |> List.map (\( name, value ) -> Http.header name value)
-                                        , url = options.url |> Maybe.withDefault (Path.join [ currentUrl.path, "content.dat" ] |> Path.toAbsolute)
-                                        , method = "POST"
-                                        , timeout = Nothing
-                                        }
+                                                            _ ->
+                                                                Debug.todo ""
+                                                    )
+                                            , tracker = Nothing
+                                            , body = Http.stringBody "application/x-www-form-urlencoded" encodedBody
+                                            , headers = options.headers |> List.map (\( name, value ) -> Http.header name value)
+                                            , url = options.url |> Maybe.withDefault (Path.join [ model.url.path, "content.dat" ] |> Path.toAbsolute)
+                                            , method = "POST"
+                                            , timeout = Nothing
+                                            }
+                                        ]
                             , fromPageMsg = Pages.Msg.UserMsg >> UserMsg
                             , key = key
                             }
@@ -748,12 +778,17 @@ application config =
     Browser.application
         { init =
             \flags url key ->
-                init config flags url (Just key)
-                    |> Tuple.mapSecond (perform config url (Just key))
+                let
+                    ( model, effect ) =
+                        init config flags url (Just key)
+                in
+                ( model
+                , effect |> perform config model
+                )
         , view = view config
         , update =
             \msg model ->
-                update config msg model |> Tuple.mapSecond (perform config model.url model.key)
+                update config msg model |> Tuple.mapSecond (perform config model)
         , subscriptions =
             \model ->
                 case model.pageData of
