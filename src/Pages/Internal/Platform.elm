@@ -895,7 +895,8 @@ fetchRouteData transitionKey toMsg config url details =
         { method = details |> Maybe.map (.method >> FormDecoder.methodToString) |> Maybe.withDefault "GET"
         , headers = []
         , url =
-            (url.path
+            "/"
+                ++ (url.path
                 |> chopForwardSlashes
                 |> String.split "/"
                 |> List.filter ((/=) "")
