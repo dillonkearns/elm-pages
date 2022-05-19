@@ -415,7 +415,6 @@ update config appMsg model =
                         |> performUserMsg userMsg config
 
                 Pages.Msg.Submit fields ->
-                    -- TODO perform submit Effect
                     ( model, Submit fields )
 
         UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
