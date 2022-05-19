@@ -897,12 +897,12 @@ fetchRouteData transitionKey toMsg config url details =
         , url =
             "/"
                 ++ (url.path
-                |> chopForwardSlashes
-                |> String.split "/"
-                |> List.filter ((/=) "")
-                |> (\l -> l ++ [ "content.dat" ])
-                |> String.join "/"
-            )
+                        |> chopForwardSlashes
+                        |> String.split "/"
+                        |> List.filter ((/=) "")
+                        |> (\l -> l ++ [ "content.dat" ])
+                        |> String.join "/"
+                   )
                 ++ (case formMethod of
                         FormDecoder.Post ->
                             "/"
