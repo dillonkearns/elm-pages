@@ -382,25 +382,25 @@ update config appMsg model =
             )
                 -- TODO is it reasonable to always re-fetch route data if you re-navigate to the current route? Might be a good
                 -- parallel to the browser behavior
-                |> startNewGetLoad url.path (UpdateCacheAndUrlNew False url Nothing)
+                |> startNewGetLoad url (UpdateCacheAndUrlNew False url Nothing)
 
         FetcherComplete fetcherId userMsgResult ->
             case userMsgResult of
                 Ok userMsg ->
                     ( { model | inFlightFetchers = model.inFlightFetchers |> Dict.remove fetcherId }, NoEffect )
                         |> performUserMsg userMsg config
-                        |> startNewGetLoad model.url.path (UpdateCacheAndUrlNew False model.url Nothing)
+                        |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
 
                 Err _ ->
                     -- TODO how to handle error?
                     ( model, NoEffect )
-                        |> startNewGetLoad model.url.path (UpdateCacheAndUrlNew False model.url Nothing)
+                        |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
 
         ProcessFetchResponse response toMsg ->
             case response of
                 Ok ( _, ResponseSketch.Redirect redirectTo ) ->
                     ( model, NoEffect )
-                        |> startNewGetLoad redirectTo toMsg
+                        |> startNewGetLoad (currentUrlWithPath redirectTo model) toMsg
 
                 _ ->
                     update config (toMsg response) model
@@ -890,6 +890,9 @@ fetchRouteData transitionKey toMsg config url details =
         urlEncodedFields =
             details
                 |> Maybe.map FormDecoder.encodeFormData
+
+        _ =
+            Debug.log "???" url.query
     in
     Http.request
         { method = details |> Maybe.map (.method >> FormDecoder.methodToString) |> Maybe.withDefault "GET"
@@ -910,6 +913,17 @@ fetchRouteData transitionKey toMsg config url details =
                         FormDecoder.Get ->
                             details
                                 |> Maybe.map FormDecoder.encodeFormData
+                                |> Maybe.map (\encoded -> "?" ++ encoded)
+                                |> Maybe.withDefault ""
+                   )
+                ++ (case formMethod of
+                        -- TODO extract this to something unit testable
+                        -- TODO make states mutually exclusive for submissions and direct URL requests (shouldn't be possible to append two query param strings)
+                        FormDecoder.Post ->
+                            ""
+
+                        FormDecoder.Get ->
+                            url.query
                                 |> Maybe.map (\encoded -> "?" ++ encoded)
                                 |> Maybe.withDefault ""
                    )
@@ -978,16 +992,12 @@ chopEnd needle string =
 
 
 startNewGetLoad :
-    String
+    Url
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-startNewGetLoad pathToGet toMsg ( model, effect ) =
+startNewGetLoad urlToGet toMsg ( model, effect ) =
     let
-        currentUrl : Url
-        currentUrl =
-            model.url
-
         cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
             case model.transition of
@@ -1002,7 +1012,7 @@ startNewGetLoad pathToGet toMsg ( model, effect ) =
         , transition =
             ( model.nextTransitionKey
             , Pages.Transition.Loading
-                (pathToGet |> Path.fromString)
+                (urlToGet.path |> Path.fromString)
                 Pages.Transition.Load
             )
                 |> Just
@@ -1011,9 +1021,14 @@ startNewGetLoad pathToGet toMsg ( model, effect ) =
         [ FetchPageData
             model.nextTransitionKey
             Nothing
-            { currentUrl | path = pathToGet }
+            urlToGet
             toMsg
         , cancelIfStale
         , effect
         ]
     )
+
+
+currentUrlWithPath : String -> Model userModel pageData actionData sharedData -> Url
+currentUrlWithPath path { url } =
+    { url | path = path }
