@@ -97,6 +97,7 @@ import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
+import Pages.Transition
 import Path exposing (Path)
 import Server.Request
 import Server.Response
@@ -142,6 +143,7 @@ type alias StaticPayload data action routeParams =
     , submit :
         { fields : List ( String, String ), headers : List ( String, String ) }
         -> Pages.Fetcher.Fetcher (Result Http.Error action)
+    , transition : Maybe Pages.Transition.Transition
     }
 
 

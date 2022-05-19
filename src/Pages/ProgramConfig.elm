@@ -22,6 +22,7 @@ import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
+import Pages.Transition
 import Path exposing (Path)
 import Url exposing (Url)
 
@@ -44,16 +45,18 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
                 , pageUrl : Maybe PageUrl
                 }
         -> ( userModel, effect )
-    , update : sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
+    , update : Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource sharedData
     , data : route -> DataSource (PageServerResponse pageData errorPage)
     , action : route -> DataSource (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
-        { path : Path
-        , route : route
-        }
+        Maybe Pages.Transition.Transition
+        ->
+            { path : Path
+            , route : route
+            }
         -> Maybe PageUrl
         -> sharedData
         -> pageData

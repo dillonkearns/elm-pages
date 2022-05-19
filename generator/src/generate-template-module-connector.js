@@ -71,6 +71,7 @@ import Site
 import Head
 import Html exposing (Html)
 import Pages.Internal.NotFoundReason
+import Pages.Transition
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Pages.Internal.RoutePattern
@@ -158,7 +159,8 @@ type ActionData
 
 
 view :
-    { path : Path
+    Maybe Pages.Transition.Transition
+    -> { path : Path
     , route : Maybe Route
     }
     -> Maybe PageUrl
@@ -169,7 +171,7 @@ view :
         { view : Model -> { title : String, body : Html (Pages.Msg.Msg Msg) }
         , head : List Head.Tag
         }
-view page maybePageUrl globalData pageData actionData =
+view transition page maybePageUrl globalData pageData actionData =
     case ( page.route, pageData ) of
         ( _, DataErrorPage____ data ) ->
             { view =
@@ -229,6 +231,7 @@ view page maybePageUrl globalData pageData actionData =
                                       , submit = Pages.Fetcher.submit Route.${moduleName(
                                         name
                                       )}.w3_decode_ActionData
+                                      , transition = transition
                                       }
                                       |> View.map (Pages.Msg.map Msg${pathNormalizedName(
                                         name
@@ -249,6 +252,7 @@ view page maybePageUrl globalData pageData actionData =
                       , submit = Pages.Fetcher.submit Route.${moduleName(
                         name
                       )}.w3_decode_ActionData
+                      , transition = Nothing -- TODO is this safe?
                       }
                       `
                   }
@@ -328,6 +332,7 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
                         , submit = Pages.Fetcher.submit Route.${moduleName(
                           name
                         )}.w3_decode_ActionData
+                        , transition = Nothing -- TODO is this safe, will this always be Nothing?
                         }
                         |> Tuple.mapBoth Model${pathNormalizedName(
                           name
@@ -358,8 +363,8 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
 
 
 
-update : Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
-update sharedData pageData navigationKey msg model =
+update : Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
+update transition sharedData pageData navigationKey msg model =
     case msg of
         MsgErrorPage____ msg_ ->
             let
@@ -469,6 +474,7 @@ update sharedData pageData navigationKey msg model =
                                 , submit = Pages.Fetcher.submit Route.${moduleName(
                                   name
                                 )}.w3_decode_ActionData
+                                , transition = transition
                                 }
                                 msg_
                                 pageModel

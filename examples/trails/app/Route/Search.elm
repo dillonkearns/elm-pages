@@ -178,7 +178,18 @@ view maybeUrl sharedModel model static =
                 [ Html.text "Query "
                 , Html.input [ Attr.name "q" ] []
                 ]
-            , Html.input [ Attr.type_ "submit", Attr.value "Search" ] []
+            , case static.transition of
+                Just _ ->
+                    Html.button
+                        [ Attr.disabled True
+                        ]
+                        [ Html.text "Searching..."
+                        ]
+
+                Nothing ->
+                    Html.button []
+                        [ Html.text "Search"
+                        ]
             ]
         , static.data.results
             |> Maybe.map resultsView

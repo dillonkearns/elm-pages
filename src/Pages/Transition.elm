@@ -1,12 +1,22 @@
-module Pages.Transition exposing (..)
+module Pages.Transition exposing (Transition(..), LoadingState(..))
+
+{-|
+
+@docs Transition, LoadingState
+
+-}
+
+import FormDecoder
+import Path exposing (Path)
 
 
+{-| -}
 type Transition
-    = Idle
-    | Submitting
-    | Loading
+    = Submitting FormDecoder.FormData
+    | Loading Path LoadingState
 
 
+{-| -}
 type LoadingState
     = Redirecting
     | Load

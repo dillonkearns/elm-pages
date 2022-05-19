@@ -33,19 +33,16 @@ import Pages.Internal.String as String
 import Pages.Msg
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
+import Pages.Transition
 import Path exposing (Path)
 import QueryParams
 import Task
 import Url exposing (Url)
 
 
-type Payload
-    = Payload
-
-
 type Transition
     = Loading Int Path
-    | Submitting Path Payload
+    | Submitting FormDecoder.FormData
 
 
 {-| -}
@@ -76,7 +73,7 @@ mainView config model =
                         currentUrl =
                             model.url
                     in
-                    (config.view
+                    (config.view (model.transition |> Maybe.map Tuple.second)
                         { path = ContentCache.pathForUrl urls |> Path.join
                         , route = config.urlToRoute { currentUrl | path = model.currentPath }
                         }
@@ -324,7 +321,7 @@ type alias Model userModel pageData actionData sharedData =
             }
     , notFound : Maybe { reason : NotFoundReason, path : Path }
     , userFlags : Decode.Value
-    , transition : Maybe Transition
+    , transition : Maybe ( Int, Pages.Transition.Transition )
     , nextTransitionKey : Int
     , inFlightFetchers : Dict Int FormDecoder.FormData
     }
@@ -415,7 +412,16 @@ update config appMsg model =
                         |> performUserMsg userMsg config
 
                 Pages.Msg.Submit fields ->
-                    ( model, Submit fields )
+                    ( { model
+                        | transition =
+                            Just
+                                ( -- TODO remove hardcoded number
+                                  -1
+                                , Pages.Transition.Submitting fields
+                                )
+                      }
+                    , Submit fields
+                    )
 
         UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
             case
@@ -459,7 +465,7 @@ update config appMsg model =
                                 -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
                                 -- instead of calling update, call pushUrl (I think?)
                                 -- TODO include user Cmd
-                                config.update
+                                config.update (model.transition |> Maybe.map Tuple.second)
                                     newSharedData
                                     newPageData
                                     model.key
@@ -480,6 +486,7 @@ update config appMsg model =
                                 { model
                                     | url = newUrl
                                     , pageData = Ok updatedPageData
+                                    , transition = Nothing
                                 }
 
                             onActionMsg : Maybe userMsg
@@ -600,7 +607,7 @@ performUserMsg userMsg config ( model, effect ) =
         Ok pageData ->
             let
                 ( userModel, userCmd ) =
-                    config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+                    config.update (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
                 updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
                 updatedPageData =
@@ -830,7 +837,7 @@ withUserMsg config userMsg ( model, effect ) =
         Ok pageData ->
             let
                 ( userModel, userCmd ) =
-                    config.update pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+                    config.update (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
                 updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
                 updatedPageData =
@@ -983,7 +990,7 @@ startNewGetLoad pathToGet toMsg ( model, effect ) =
         cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
             case model.transition of
-                Just (Loading transitionKey path) ->
+                Just ( transitionKey, Pages.Transition.Loading path loadingKind ) ->
                     CancelRequest transitionKey
 
                 _ ->
@@ -992,9 +999,11 @@ startNewGetLoad pathToGet toMsg ( model, effect ) =
     ( { model
         | nextTransitionKey = model.nextTransitionKey + 1
         , transition =
-            pathToGet
-                |> Path.fromString
-                |> Loading model.nextTransitionKey
+            ( model.nextTransitionKey
+            , Pages.Transition.Loading
+                (pathToGet |> Path.fromString)
+                Pages.Transition.Load
+            )
                 |> Just
       }
     , Batch
