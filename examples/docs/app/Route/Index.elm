@@ -4,9 +4,10 @@ import Css
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
-import Html.Styled exposing (..)
+import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Link
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -75,11 +76,11 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { title = "elm-pages - a statically typed site generator"
     , body =
-        [ landingView
+        [ landingView |> Html.map Pages.Msg.UserMsg
         ]
     }
 

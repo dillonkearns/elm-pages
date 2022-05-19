@@ -3,6 +3,7 @@ module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 import Browser.Navigation
 import Bytes exposing (Bytes)
 import Bytes.Decode
+import FormDecoder
 import Http
 import Json.Decode as Decode
 import Pages.Fetcher
@@ -15,14 +16,11 @@ type Effect msg
     | Batch (List (Effect msg))
     | GetStargazers (Result Http.Error Int -> msg)
     | FetchRouteData
-        { body : Maybe { contentType : String, body : String }
-        , path : Maybe String
+        { data : Maybe FormDecoder.FormData
         , toMsg : Result Http.Error Url -> msg
         }
     | Submit
-        { values : List ( String, String )
-        , path : Maybe (List String)
-        , method : Maybe String
+        { values : FormDecoder.FormData
         , toMsg : Result Http.Error Url -> msg
         }
     | SubmitFetcher (Pages.Fetcher.Fetcher msg)
@@ -66,16 +64,13 @@ map fn effect =
 
         FetchRouteData fetchInfo ->
             FetchRouteData
-                { body = fetchInfo.body
-                , path = fetchInfo.path
+                { data = fetchInfo.data
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
         Submit fetchInfo ->
             Submit
                 { values = fetchInfo.values
-                , path = fetchInfo.path
-                , method = fetchInfo.method
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
@@ -87,16 +82,12 @@ map fn effect =
 
 perform :
     { fetchRouteData :
-        { body : Maybe { contentType : String, body : String }
-        , path : Maybe String
+        { data : Maybe FormDecoder.FormData
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
     , submit :
-        { values : List ( String, String )
-        , encType : Maybe String
-        , method : Maybe String
-        , path : Maybe String
+        { values : FormDecoder.FormData
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
@@ -128,19 +119,10 @@ perform ({ fromPageMsg, key } as helpers) effect =
 
         FetchRouteData fetchInfo ->
             helpers.fetchRouteData
-                { body = fetchInfo.body
-                , path = fetchInfo.path
-                , toMsg = fetchInfo.toMsg
-                }
+                fetchInfo
 
         Submit record ->
-            helpers.submit
-                { values = record.values
-                , path = Nothing --fetchInfo.path
-                , method = record.method
-                , encType = Nothing -- TODO
-                , toMsg = record.toMsg
-                }
+            helpers.submit record
 
         SubmitFetcher record ->
             helpers.runFetcher record

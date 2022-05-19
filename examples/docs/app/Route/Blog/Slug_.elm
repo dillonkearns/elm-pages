@@ -14,6 +14,7 @@ import Json.Decode.Extra
 import Markdown.Block
 import Markdown.Renderer
 import MarkdownCodec
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -64,7 +65,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { title = static.data.metadata.title
     , body =
