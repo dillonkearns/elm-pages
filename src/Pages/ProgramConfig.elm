@@ -45,14 +45,15 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
                 , pageUrl : Maybe PageUrl
                 }
         -> ( userModel, effect )
-    , update : Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
+    , update : List Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource sharedData
     , data : route -> DataSource (PageServerResponse pageData errorPage)
     , action : route -> DataSource (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
-        Maybe Pages.Transition.Transition
+        List Pages.Transition.FetcherState
+        -> Maybe Pages.Transition.Transition
         ->
             { path : Path
             , route : route

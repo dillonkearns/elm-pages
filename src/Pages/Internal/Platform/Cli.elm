@@ -841,10 +841,10 @@ sendSinglePageProgress site contentJson config model info =
 
                                                     viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
                                                     viewValue =
-                                                        (config.view Nothing currentPage Nothing sharedData pageData maybeActionData |> .view) pageModel
+                                                        (config.view [] Nothing currentPage Nothing sharedData pageData maybeActionData |> .view) pageModel
                                                 in
                                                 PageServerResponse.RenderPage responseInfo
-                                                    { head = config.view Nothing currentPage Nothing sharedData pageData maybeActionData |> .head
+                                                    { head = config.view [] Nothing currentPage Nothing sharedData pageData maybeActionData |> .head
                                                     , view = viewValue.body |> HtmlPrinter.htmlToString
                                                     , title = viewValue.title
                                                     }
@@ -884,13 +884,13 @@ sendSinglePageProgress site contentJson config model info =
 
                                                     viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
                                                     viewValue =
-                                                        (config.view Nothing currentPage Nothing sharedData pageData Nothing |> .view) pageModel
+                                                        (config.view [] Nothing currentPage Nothing sharedData pageData Nothing |> .view) pageModel
                                                 in
                                                 PageServerResponse.RenderPage
                                                     { statusCode = config.errorStatusCode error
                                                     , headers = record.headers
                                                     }
-                                                    { head = config.view Nothing currentPage Nothing sharedData pageData Nothing |> .head
+                                                    { head = config.view [] Nothing currentPage Nothing sharedData pageData Nothing |> .head
                                                     , view = viewValue.body |> HtmlPrinter.htmlToString
                                                     , title = viewValue.title
                                                     }
@@ -1154,7 +1154,8 @@ render404Page config sharedData model path notFoundReason =
 
                 viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
                 viewValue =
-                    (config.view Nothing
+                    (config.view []
+                        Nothing
                         pathAndRoute
                         Nothing
                         justSharedData
@@ -1168,7 +1169,7 @@ render404Page config sharedData model path notFoundReason =
             , contentJson = Dict.empty
             , html = viewValue.body |> HtmlPrinter.htmlToString
             , errors = []
-            , head = config.view Nothing pathAndRoute Nothing justSharedData pageData Nothing |> .head
+            , head = config.view [] Nothing pathAndRoute Nothing justSharedData pageData Nothing |> .head
             , title = viewValue.title
             , staticHttpCache = Dict.empty
             , is404 = True

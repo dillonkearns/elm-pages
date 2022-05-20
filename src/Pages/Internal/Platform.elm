@@ -73,7 +73,8 @@ mainView config model =
                         currentUrl =
                             model.url
                     in
-                    (config.view (model.transition |> Maybe.map Tuple.second)
+                    (config.view (model.inFlightFetchers |> Dict.values)
+                        (model.transition |> Maybe.map Tuple.second)
                         { path = ContentCache.pathForUrl urls |> Path.join
                         , route = config.urlToRoute { currentUrl | path = model.currentPath }
                         }
@@ -323,7 +324,7 @@ type alias Model userModel pageData actionData sharedData =
     , userFlags : Decode.Value
     , transition : Maybe ( Int, Pages.Transition.Transition )
     , nextTransitionKey : Int
-    , inFlightFetchers : Dict Int FormDecoder.FormData
+    , inFlightFetchers : Dict Int Pages.Transition.FetcherState
     }
 
 
@@ -387,7 +388,18 @@ update config appMsg model =
         FetcherComplete fetcherId userMsgResult ->
             case userMsgResult of
                 Ok userMsg ->
-                    ( { model | inFlightFetchers = model.inFlightFetchers |> Dict.remove fetcherId }, NoEffect )
+                    ( { model
+                        | inFlightFetchers =
+                            model.inFlightFetchers
+                                |> Dict.update fetcherId
+                                    (Maybe.map
+                                        (\fetcherState ->
+                                            { fetcherState | status = Pages.Transition.FetcherReloading }
+                                        )
+                                    )
+                      }
+                    , NoEffect
+                    )
                         |> performUserMsg userMsg config
                         |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
 
@@ -424,6 +436,7 @@ update config appMsg model =
                     )
 
         UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
+            -- TODO remove all fetchers that are in the state `FetcherReloading` here -- I think that's the right logic?
             case
                 Result.map2 Tuple.pair
                     (updateResult
@@ -465,7 +478,8 @@ update config appMsg model =
                                 -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
                                 -- instead of calling update, call pushUrl (I think?)
                                 -- TODO include user Cmd
-                                config.update (model.transition |> Maybe.map Tuple.second)
+                                config.update (model.inFlightFetchers |> Dict.values)
+                                    (model.transition |> Maybe.map Tuple.second)
                                     newSharedData
                                     newPageData
                                     model.key
@@ -488,6 +502,7 @@ update config appMsg model =
                                     , pageData = Ok updatedPageData
                                     , transition = Nothing
                                 }
+                                    |> clearLoadingFetchers
 
                             onActionMsg : Maybe userMsg
                             onActionMsg =
@@ -591,7 +606,8 @@ update config appMsg model =
                 | nextTransitionKey = model.nextTransitionKey + 1
                 , inFlightFetchers =
                     model.inFlightFetchers
-                        |> Dict.insert model.nextTransitionKey fetcherData
+                        |> Dict.insert model.nextTransitionKey
+                            { payload = fetcherData, status = Pages.Transition.FetcherSubmitting }
               }
             , NoEffect
             )
@@ -607,7 +623,7 @@ performUserMsg userMsg config ( model, effect ) =
         Ok pageData ->
             let
                 ( userModel, userCmd ) =
-                    config.update (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+                    config.update (model.inFlightFetchers |> Dict.values) (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
                 updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
                 updatedPageData =
@@ -837,7 +853,7 @@ withUserMsg config userMsg ( model, effect ) =
         Ok pageData ->
             let
                 ( userModel, userCmd ) =
-                    config.update (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+                    config.update (model.inFlightFetchers |> Dict.values) (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
                 updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
                 updatedPageData =
@@ -1027,6 +1043,15 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
         , effect
         ]
     )
+
+
+clearLoadingFetchers : Model userModel pageData actionData sharedData -> Model userModel pageData actionData sharedData
+clearLoadingFetchers model =
+    { model
+        | inFlightFetchers =
+            model.inFlightFetchers
+                |> Dict.filter (\_ fetcherState -> fetcherState.status /= Pages.Transition.FetcherReloading)
+    }
 
 
 currentUrlWithPath : String -> Model userModel pageData actionData sharedData -> Url

@@ -159,7 +159,8 @@ type ActionData
 
 
 view :
-    Maybe Pages.Transition.Transition
+    List Pages.Transition.FetcherState
+    -> Maybe Pages.Transition.Transition
     -> { path : Path
     , route : Maybe Route
     }
@@ -171,7 +172,7 @@ view :
         { view : Model -> { title : String, body : Html (Pages.Msg.Msg Msg) }
         , head : List Head.Tag
         }
-view transition page maybePageUrl globalData pageData actionData =
+view fetchers transition page maybePageUrl globalData pageData actionData =
     case ( page.route, pageData ) of
         ( _, DataErrorPage____ data ) ->
             { view =
@@ -232,6 +233,7 @@ view transition page maybePageUrl globalData pageData actionData =
                                         name
                                       )}.w3_decode_ActionData
                                       , transition = transition
+                                      , fetchers = fetchers
                                       }
                                       |> View.map (Pages.Msg.map Msg${pathNormalizedName(
                                         name
@@ -253,6 +255,7 @@ view transition page maybePageUrl globalData pageData actionData =
                         name
                       )}.w3_decode_ActionData
                       , transition = Nothing -- TODO is this safe?
+                      , fetchers = [] -- TODO is this safe?
                       }
                       `
                   }
@@ -333,6 +336,7 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
                           name
                         )}.w3_decode_ActionData
                         , transition = Nothing -- TODO is this safe, will this always be Nothing?
+                        , fetchers = []
                         }
                         |> Tuple.mapBoth Model${pathNormalizedName(
                           name
@@ -363,8 +367,8 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
 
 
 
-update : Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
-update transition sharedData pageData navigationKey msg model =
+update : List Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
+update fetchers transition sharedData pageData navigationKey msg model =
     case msg of
         MsgErrorPage____ msg_ ->
             let
@@ -475,6 +479,7 @@ update transition sharedData pageData navigationKey msg model =
                                   name
                                 )}.w3_decode_ActionData
                                 , transition = transition
+                                , fetchers = fetchers
                                 }
                                 msg_
                                 pageModel

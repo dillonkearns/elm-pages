@@ -1,8 +1,17 @@
-module Pages.Transition exposing (Transition(..), LoadingState(..))
+module Pages.Transition exposing
+    ( Transition(..), LoadingState(..)
+    , FetcherState
+    , FetcherSubmitStatus(..)
+    )
 
 {-|
 
 @docs Transition, LoadingState
+
+
+## Fetchers
+
+@docs FetcherState, FetcherSubmitStatus
 
 -}
 
@@ -21,3 +30,16 @@ type LoadingState
     = Redirecting
     | Load
     | ActionRedirect
+
+
+{-| -}
+type alias FetcherState =
+    { status : FetcherSubmitStatus
+    , payload : FormDecoder.FormData
+    }
+
+
+{-| -}
+type FetcherSubmitStatus
+    = FetcherSubmitting
+    | FetcherReloading
