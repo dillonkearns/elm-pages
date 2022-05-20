@@ -19,8 +19,7 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Http
-import Pages.Fetcher exposing (Fetcher)
+import List.Extra
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -37,9 +36,7 @@ import View exposing (View)
 
 
 type alias Model =
-    { submitting : Bool
-    , deleting : Set String
-    }
+    {}
 
 
 type Msg
@@ -47,7 +44,6 @@ type Msg
     | NoOp
     | FormSubmitted FormData
     | DeleteFormSubmitted String FormData
-    | SubmitComplete
 
 
 type alias RouteParams =
@@ -75,11 +71,7 @@ init :
     -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( { submitting = False
-      , deleting = Set.empty
-      }
-    , Effect.none
-    )
+    ( {}, Effect.none )
 
 
 update :
@@ -95,29 +87,25 @@ update pageUrl sharedModel static msg model =
             ( model, Effect.none )
 
         NoOp ->
+            -- TODO would be nice to have a `Maybe msg` for `SubmitFetcher` to avoid the NoOp Msg
             ( model, Effect.none )
 
         FormSubmitted { fields } ->
-            ( { model | submitting = True }
+            ( model
             , Effect.SubmitFetcher
                 (static.submit
                     { fields = fields, headers = [] }
                 )
-                |> Effect.map (\_ -> SubmitComplete)
+                |> Effect.map (\_ -> NoOp)
             )
 
-        SubmitComplete ->
-            ( { model | submitting = False }, Effect.none )
-
         DeleteFormSubmitted id { fields } ->
-            ( { model
-                | deleting = model.deleting |> Set.insert id
-              }
+            ( model
             , Effect.SubmitFetcher
                 (static.submit
                     { fields = fields, headers = [] }
                 )
-                |> Effect.map (\_ -> SubmitComplete)
+                |> Effect.map (\_ -> NoOp)
             )
 
 
@@ -255,14 +243,56 @@ view :
     -> StaticPayload Data ActionData RouteParams
     -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
+    let
+        deleting : Set String
+        deleting =
+            static.fetchers
+                |> List.filterMap
+                    (\fetcher ->
+                        case fetcher.payload.fields of
+                            [ ( "id", deletingItemId ) ] ->
+                                Just deletingItemId
+
+                            _ ->
+                                Nothing
+                    )
+                |> Set.fromList
+
+        submittingItem : Maybe String
+        submittingItem =
+            static.fetchers
+                |> List.Extra.findMap
+                    (\fetcher ->
+                        case fetcher.payload.fields of
+                            [ ( "description", newItemDescription ) ] ->
+                                Just newItemDescription
+
+                            _ ->
+                                Nothing
+                    )
+
+        submitting : Bool
+        submitting =
+            case submittingItem of
+                Just _ ->
+                    True
+
+                Nothing ->
+                    False
+    in
     { title = "Todos"
     , body =
-        [ Html.ul []
-            (static.data.todos
+        [ Html.pre []
+            [ static.fetchers
+                |> Debug.toString
+                |> Html.text
+            ]
+        , Html.ul []
+            ((static.data.todos
                 |> List.map
                     (\item ->
                         Html.li
-                            (if model.deleting |> Set.member item.id then
+                            (if deleting |> Set.member item.id then
                                 [ Attr.style "opacity" "0.5"
                                 ]
 
@@ -277,13 +307,26 @@ view maybeUrl sharedModel model static =
                                     (Form.init (deleteItemForm item.id))
                             ]
                     )
+             )
+                ++ (case submittingItem of
+                        Nothing ->
+                            []
+
+                        Just pendingNewItem ->
+                            [ Html.li
+                                [ Attr.style "opacity" "0.5"
+                                ]
+                                [ Html.text pendingNewItem
+                                ]
+                            ]
+                   )
             )
         , errorsView static.action
-        , newItemForm model.submitting
+        , newItemForm submitting
             |> Form.toStatelessHtml
                 (Just FormSubmitted)
                 Html.form
-                (Form.init (newItemForm model.submitting))
+                (Form.init (newItemForm submitting))
         ]
     }
 
