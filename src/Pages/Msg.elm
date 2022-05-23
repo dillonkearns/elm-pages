@@ -1,13 +1,13 @@
 module Pages.Msg exposing
     ( Msg(..)
-    , map, onSubmit
+    , map, onSubmit, fetcherOnSubmit
     )
 
 {-|
 
 @docs Msg
 
-@docs map, onSubmit
+@docs map, onSubmit, fetcherOnSubmit
 
 -}
 
@@ -20,6 +20,7 @@ import Html.Attributes
 type Msg userMsg
     = UserMsg userMsg
     | Submit FormDecoder.FormData
+    | SubmitFetcher FormDecoder.FormData
 
 
 {-| -}
@@ -27,6 +28,13 @@ onSubmit : Attribute (Msg userMsg)
 onSubmit =
     FormDecoder.formDataOnSubmit
         |> Html.Attributes.map Submit
+
+
+{-| -}
+fetcherOnSubmit : Attribute (Msg userMsg)
+fetcherOnSubmit =
+    FormDecoder.formDataOnSubmit
+        |> Html.Attributes.map SubmitFetcher
 
 
 {-| -}
@@ -38,3 +46,6 @@ map mapFn msg =
 
         Submit info ->
             Submit info
+
+        SubmitFetcher info ->
+            SubmitFetcher info

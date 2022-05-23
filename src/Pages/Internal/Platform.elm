@@ -299,7 +299,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UrlChanged Url
     | UserMsg (Pages.Msg.Msg userMsg)
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
-    | FetcherComplete Int (Result Http.Error userMsg)
+    | FetcherComplete Int (Result Http.Error (Maybe userMsg))
     | FetcherStarted FormDecoder.FormData
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
@@ -336,6 +336,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | BrowserReplaceUrl String
     | FetchPageData Int (Maybe FormDecoder.FormData) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     | Submit FormDecoder.FormData
+    | SubmitFetcher FormDecoder.FormData
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
     | UserCmd userEffect
     | CancelRequest Int
@@ -400,7 +401,13 @@ update config appMsg model =
                       }
                     , NoEffect
                     )
-                        |> performUserMsg userMsg config
+                        |> (case userMsg of
+                                Just justUserMsg ->
+                                    performUserMsg justUserMsg config
+
+                                Nothing ->
+                                    identity
+                           )
                         |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
 
                 Err _ ->
@@ -433,6 +440,11 @@ update config appMsg model =
                                 )
                       }
                     , Submit fields
+                    )
+
+                Pages.Msg.SubmitFetcher fields ->
+                    ( model
+                    , SubmitFetcher fields
                     )
 
         UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
@@ -688,6 +700,9 @@ perform config model effect =
                 , fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
                 ]
 
+        SubmitFetcher formData ->
+            startFetcher2 formData model
+
         UserCmd cmd ->
             case model.key of
                 Just key ->
@@ -715,51 +730,7 @@ perform config model effect =
                                     fetchRouteData -1 (prepare fetchInfo.toMsg) config (fetchInfo.values.action |> Url.fromString |> Maybe.withDefault model.url) (Just fetchInfo.values)
                             , runFetcher =
                                 \(Pages.Fetcher.Fetcher options) ->
-                                    let
-                                        encodedBody : String
-                                        encodedBody =
-                                            FormDecoder.encodeFormData
-                                                { fields = options.fields
-
-                                                -- TODO remove hardcoding
-                                                , action = ""
-
-                                                -- TODO remove hardcoding
-                                                , method = FormDecoder.Post
-                                                }
-
-                                        formData =
-                                            { -- TODO remove hardcoding
-                                              method = FormDecoder.Get
-
-                                            -- TODO pass FormData directly
-                                            , action = options.url |> Maybe.withDefault model.url.path
-                                            , fields = options.fields
-                                            }
-                                    in
-                                    -- TODO make sure that `actionData` isn't updated in Model for fetchers
-                                    Cmd.batch
-                                        [ Task.succeed (FetcherStarted formData) |> Task.perform identity
-                                        , Http.request
-                                            { expect =
-                                                Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
-                                                    (\bytes ->
-                                                        case bytes of
-                                                            Http.GoodStatus_ metadata bytesBody ->
-                                                                options.decoder (Ok bytesBody)
-                                                                    |> Ok
-
-                                                            _ ->
-                                                                Debug.todo ""
-                                                    )
-                                            , tracker = Nothing
-                                            , body = Http.stringBody "application/x-www-form-urlencoded" encodedBody
-                                            , headers = options.headers |> List.map (\( name, value ) -> Http.header name value)
-                                            , url = options.url |> Maybe.withDefault (Path.join [ model.url.path, "content.dat" ] |> Path.toAbsolute)
-                                            , method = "POST"
-                                            , timeout = Nothing
-                                            }
-                                        ]
+                                    startFetcher options model
                             , fromPageMsg = Pages.Msg.UserMsg >> UserMsg
                             , key = key
                             }
@@ -769,6 +740,94 @@ perform config model effect =
 
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
+
+
+startFetcher : { fields : List ( String, String ), url : Maybe String, decoder : Result error Bytes -> value, headers : List ( String, String ) } -> Model userModel pageData actionData sharedData -> Cmd (Msg value pageData actionData sharedData errorPage)
+startFetcher options model =
+    let
+        encodedBody : String
+        encodedBody =
+            FormDecoder.encodeFormData
+                { fields = options.fields
+
+                -- TODO remove hardcoding
+                , action = ""
+
+                -- TODO remove hardcoding
+                , method = FormDecoder.Post
+                }
+
+        formData =
+            { -- TODO remove hardcoding
+              method = FormDecoder.Get
+
+            -- TODO pass FormData directly
+            , action = options.url |> Maybe.withDefault model.url.path
+            , fields = options.fields
+            }
+    in
+    -- TODO make sure that `actionData` isn't updated in Model for fetchers
+    Cmd.batch
+        [ Task.succeed (FetcherStarted formData) |> Task.perform identity
+        , Http.request
+            { expect =
+                Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
+                    (\bytes ->
+                        case bytes of
+                            Http.GoodStatus_ metadata bytesBody ->
+                                options.decoder (Ok bytesBody)
+                                    |> Just
+                                    |> Ok
+
+                            _ ->
+                                Debug.todo ""
+                    )
+            , tracker = Nothing
+            , body = Http.stringBody "application/x-www-form-urlencoded" encodedBody
+            , headers = options.headers |> List.map (\( name, value ) -> Http.header name value)
+            , url = options.url |> Maybe.withDefault (Path.join [ model.url.path, "content.dat" ] |> Path.toAbsolute)
+            , method = "POST"
+            , timeout = Nothing
+            }
+        ]
+
+
+startFetcher2 : FormDecoder.FormData -> Model userModel pageData actionData sharedData -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
+startFetcher2 formData model =
+    let
+        encodedBody : String
+        encodedBody =
+            FormDecoder.encodeFormData formData
+    in
+    -- TODO make sure that `actionData` isn't updated in Model for fetchers
+    Cmd.batch
+        [ Task.succeed (FetcherStarted formData) |> Task.perform identity
+        , Http.request
+            { expect =
+                Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
+                    (\bytes ->
+                        case bytes of
+                            Http.GoodStatus_ metadata bytesBody ->
+                                -- TODO maybe have an optional way to pass the bytes through?
+                                Ok Nothing
+
+                            _ ->
+                                -- TODO where should errors go in application state? Should there be an onError where you can receive application-managed error events that are owned by
+                                -- the Platform Model/Msg's?
+                                Debug.todo ""
+                    )
+            , tracker = Nothing
+
+            -- TODO use formData.method to do either query params or POST body
+            , body = Http.stringBody "application/x-www-form-urlencoded" encodedBody
+            , headers = []
+
+            -- TODO use formData.method to do either query params or POST body
+            , url = formData.action |> Url.fromString |> Maybe.map (\{ path } -> Path.join [ path, "content.dat" ] |> Path.toAbsolute) |> Maybe.withDefault "/"
+            , method = formData.method |> FormDecoder.methodToString
+            , timeout = Nothing
+            }
+        ]
 
 
 appendFormQueryParams : FormDecoder.FormData -> String
