@@ -965,9 +965,6 @@ fetchRouteData transitionKey toMsg config url details =
         urlEncodedFields =
             details
                 |> Maybe.map FormDecoder.encodeFormData
-
-        _ =
-            Debug.log "???" url.query
     in
     Http.request
         { method = details |> Maybe.map (.method >> FormDecoder.methodToString) |> Maybe.withDefault "GET"
