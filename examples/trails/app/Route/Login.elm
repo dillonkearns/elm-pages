@@ -37,7 +37,20 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action =
+            \_ ->
+                MySession.withSession
+                    (Request.expectFormPost (\{ field } -> field "name"))
+                    (\name session ->
+                        ( session
+                            |> Result.withDefault Nothing
+                            |> Maybe.withDefault Session.empty
+                            |> Session.insert "userId" name
+                            |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
+                        , Route.redirectTo Route.Todos
+                        )
+                            |> DataSource.succeed
+                    )
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -50,40 +63,26 @@ type alias Request =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.oneOf
-        [ MySession.withSession
-            (Request.expectFormPost (\{ field } -> field "name"))
-            (\name session ->
-                ( session
-                    |> Result.withDefault Nothing
-                    |> Maybe.withDefault Session.empty
-                    |> Session.insert "name" name
-                    |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                , Route.redirectTo Route.Index
-                )
-                    |> DataSource.succeed
-            )
-        , MySession.withSession
-            (Request.succeed ())
-            (\() session ->
-                case session of
-                    Ok (Just okSession) ->
-                        ( okSession
-                        , okSession
-                            |> Session.get "name"
-                            |> Data
-                            |> Server.Response.render
-                        )
-                            |> DataSource.succeed
+    MySession.withSession
+        (Request.succeed ())
+        (\() session ->
+            case session of
+                Ok (Just okSession) ->
+                    ( okSession
+                    , okSession
+                        |> Session.get "name"
+                        |> Data
+                        |> Server.Response.render
+                    )
+                        |> DataSource.succeed
 
-                    _ ->
-                        ( Session.empty
-                        , { username = Nothing }
-                            |> Server.Response.render
-                        )
-                            |> DataSource.succeed
-            )
-        ]
+                _ ->
+                    ( Session.empty
+                    , { username = Nothing }
+                        |> Server.Response.render
+                    )
+                        |> DataSource.succeed
+        )
 
 
 head :
