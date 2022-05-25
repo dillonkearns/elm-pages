@@ -90,7 +90,7 @@ subscriptions maybePageUrl routeParams path sharedModel model =
 
 type alias Data =
     { smoothies : List Smoothie
-    , cart : Maybe (Dict String Int)
+    , cart : Maybe (Dict String CartEntry)
     }
 
 
@@ -187,7 +187,11 @@ addItemToCart quantity userId itemId =
         SelectionSet.empty
 
 
-cartSelection : SelectionSet (Maybe (Dict String Int)) RootQuery
+type alias CartEntry =
+    { quantity : Int, pricePerItem : Int }
+
+
+cartSelection : SelectionSet (Maybe (Dict String CartEntry)) RootQuery
 cartSelection =
     Api.Query.users_by_pk { id = Uuid "2500fcdc-737b-4126-96c2-b3aae64cb5c4" }
         (Api.Object.Users.orders
@@ -213,7 +217,10 @@ cartSelection =
             (Api.Object.Order.order_items identity
                 (SelectionSet.map2 Tuple.pair
                     (Api.Object.Order_item.product_id |> SelectionSet.map uuidToString)
-                    Api.Object.Order_item.quantity
+                    (SelectionSet.map2 CartEntry
+                        Api.Object.Order_item.quantity
+                        (Api.Object.Order_item.product Api.Object.Products.price)
+                    )
                 )
             )
         )
@@ -249,7 +256,20 @@ view :
 view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
     , body =
-        [ cartView (app.data.cart |> Maybe.withDefault Dict.empty |> Dict.foldl (\_ quantity soFar -> soFar + quantity) 0)
+        let
+            totals =
+                app.data.cart
+                    |> Maybe.withDefault Dict.empty
+                    |> Dict.foldl
+                        (\_ { quantity, pricePerItem } soFar ->
+                            { soFar
+                                | totalItems = soFar.totalItems + quantity
+                                , totalPrice = soFar.totalPrice + (quantity * pricePerItem)
+                            }
+                        )
+                        { totalItems = 0, totalPrice = 0 }
+        in
+        [ cartView totals
         , app.data.smoothies
             |> List.map
                 (productView app.data.cart)
@@ -258,11 +278,11 @@ view maybeUrl sharedModel model app =
     }
 
 
-cartView : Int -> Html msg
-cartView itemsInCart =
+cartView : { totalItems : Int, totalPrice : Int } -> Html msg
+cartView totals =
     Html.button [ Attr.class "checkout" ]
         [ Html.span [ Attr.class "icon" ] [ Icon.cart ]
-        , Html.text <| " Checkout (" ++ String.fromInt itemsInCart ++ ")"
+        , Html.text <| " Checkout (" ++ String.fromInt totals.totalItems ++ ") $" ++ String.fromInt totals.totalPrice
         ]
 
 
@@ -271,7 +291,7 @@ uuidToString (Uuid id) =
     id
 
 
-productView : Maybe (Dict String Int) -> Smoothie -> Html (Pages.Msg.Msg msg)
+productView : Maybe (Dict String CartEntry) -> Smoothie -> Html (Pages.Msg.Msg msg)
 productView cart item =
     let
         quantityInCart : Int
@@ -279,12 +299,14 @@ productView cart item =
             cart
                 |> Maybe.withDefault Dict.empty
                 |> Dict.get (uuidToString item.id)
+                |> Maybe.map .quantity
                 |> Maybe.withDefault 0
     in
     Html.li [ Attr.class "item" ]
         [ Html.div []
             [ Html.h3 [] [ Html.text item.name ]
             , Html.p [] [ Html.text item.description ]
+            , Html.p [] [ "$" ++ String.fromInt item.price |> Html.text ]
             ]
         , Html.form
             [ Attr.method "POST"
