@@ -161,6 +161,11 @@ smoothiesSelection =
         )
 
 
+type Action
+    = SignOut
+    | UpdateQuantity Uuid Int
+
+
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     Request.requestTime
@@ -168,19 +173,27 @@ action routeParams =
             (\requestTime ->
                 Request.expectFormPost
                     (\{ field } ->
-                        Request.map2
-                            (\value itemId ->
-                                { requestTime = requestTime
-                                , quantity = value |> String.toInt |> Maybe.withDefault 1
-                                , itemId = itemId
-                                }
-                            )
-                            (field "add")
-                            (field "itemId")
+                        Request.oneOf
+                            [ Request.map2
+                                (\value itemId ->
+                                    ( requestTime
+                                    , UpdateQuantity (Uuid itemId) (value |> String.toInt |> Maybe.withDefault 1)
+                                    )
+                                )
+                                (field "add")
+                                (field "itemId")
+                            , Request.map
+                                (\_ ->
+                                    ( requestTime
+                                    , SignOut
+                                    )
+                                )
+                                (field "signout")
+                            ]
                     )
             )
         |> MySession.expectSessionOrRedirect
-            (\{ requestTime, quantity, itemId } session ->
+            (\( requestTime, action_ ) session ->
                 let
                     userId : String
                     userId =
@@ -188,12 +201,17 @@ action routeParams =
                             |> Session.get "userId"
                             |> Maybe.withDefault ""
                 in
-                addItemToCart quantity
-                    (Uuid userId)
-                    (Uuid itemId)
-                    |> Request.Hasura.mutationDataSource (requestTime |> Time.posixToMillis |> String.fromInt)
-                    |> DataSource.map
-                        (\_ -> ( session, Response.render {} ))
+                case action_ of
+                    SignOut ->
+                        DataSource.succeed ( Session.empty, Response.temporaryRedirect "login" )
+
+                    UpdateQuantity itemId quantity ->
+                        addItemToCart quantity
+                            (Uuid userId)
+                            itemId
+                            |> Request.Hasura.mutationDataSource (requestTime |> Time.posixToMillis |> String.fromInt)
+                            |> DataSource.map
+                                (\_ -> ( session, Response.render {} ))
             )
 
 
