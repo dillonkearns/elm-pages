@@ -2,13 +2,11 @@ module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import Api.InputObject
 import Api.Mutation
-import Api.Object.Order
-import Api.Object.Order_item
 import Api.Object.Products
-import Api.Object.Users
 import Api.Query
 import Api.Scalar exposing (Uuid(..))
 import Data.Cart as Cart exposing (Cart)
+import Data.User as User exposing (User)
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
@@ -17,14 +15,12 @@ import Graphql.Operation exposing (RootQuery)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import Head
-import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Icon
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
 import Path exposing (Path)
 import Request.Hasura
 import Route
@@ -59,10 +55,6 @@ type alias Data =
 
 type alias ActionData =
     {}
-
-
-type alias User =
-    { name : String }
 
 
 route : StatefulRoute RouteParams Data ActionData Model Msg
@@ -128,18 +120,11 @@ data routeParams =
                             (SelectionSet.map3 Data
                                 smoothiesSelection
                                 (Cart.selection userId)
-                                (userSelection userId)
+                                (User.userSelection userId)
                             )
                             |> DataSource.map Response.render
                             |> DataSource.map (Tuple.pair session)
             )
-
-
-userSelection : String -> SelectionSet User RootQuery
-userSelection userId =
-    Api.Query.users_by_pk { id = Uuid userId }
-        (SelectionSet.map User Api.Object.Users.name)
-        |> SelectionSet.nonNullOrFail
 
 
 type alias Smoothie =
