@@ -1,4 +1,4 @@
-module Data.User exposing (User, userSelection)
+module Data.User exposing (User, selection)
 
 import Api.InputObject
 import Api.Mutation
@@ -42,8 +42,8 @@ type alias User =
     { name : String }
 
 
-userSelection : String -> SelectionSet User RootQuery
-userSelection userId =
+selection : String -> SelectionSet User RootQuery
+selection userId =
     Api.Query.users_by_pk { id = Uuid userId }
         (SelectionSet.map User Api.Object.Users.name)
         |> SelectionSet.nonNullOrFail

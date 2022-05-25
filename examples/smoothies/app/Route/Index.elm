@@ -2,10 +2,9 @@ module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import Api.InputObject
 import Api.Mutation
-import Api.Object.Products
-import Api.Query
 import Api.Scalar exposing (Uuid(..))
 import Data.Cart as Cart exposing (Cart)
+import Data.Smoothies as Smoothies exposing (Smoothie)
 import Data.User as User exposing (User)
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
@@ -118,34 +117,13 @@ data routeParams =
                     Just userId ->
                         Request.Hasura.dataSource (requestTime |> Time.posixToMillis |> String.fromInt)
                             (SelectionSet.map3 Data
-                                smoothiesSelection
+                                Smoothies.selection
                                 (Cart.selection userId)
-                                (User.userSelection userId)
+                                (User.selection userId)
                             )
                             |> DataSource.map Response.render
                             |> DataSource.map (Tuple.pair session)
             )
-
-
-type alias Smoothie =
-    { name : String
-    , id : Uuid
-    , description : String
-    , price : Int
-    , unsplashImage : String
-    }
-
-
-smoothiesSelection : SelectionSet (List Smoothie) RootQuery
-smoothiesSelection =
-    Api.Query.products identity
-        (SelectionSet.map5 Smoothie
-            Api.Object.Products.name
-            Api.Object.Products.id
-            Api.Object.Products.description
-            Api.Object.Products.price
-            Api.Object.Products.unsplash_image_id
-        )
 
 
 type Action
