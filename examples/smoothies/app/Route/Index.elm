@@ -356,7 +356,11 @@ view maybeUrl sharedModel model app =
         in
         [ Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
-            , Html.form [ Attr.method "POST" ] [ Html.button [ Attr.name "signout" ] [ Html.text "Sign out" ] ]
+            , Html.form
+                [ Attr.method "POST"
+                , Pages.Msg.onSubmit
+                ]
+                [ Html.button [ Attr.name "signout" ] [ Html.text "Sign out" ] ]
             ]
         , cartView totals
         , app.data.smoothies
