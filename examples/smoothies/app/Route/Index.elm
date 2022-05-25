@@ -21,14 +21,17 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Icon
 import MimeType exposing (MimeText(..))
+import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
 import Request.Hasura
+import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
+import Server.Session as Session
 import Shared
 import Time
 import View exposing (View)
@@ -91,6 +94,7 @@ subscriptions maybePageUrl routeParams path sharedModel model =
 type alias Data =
     { smoothies : List Smoothie
     , cart : Maybe (Dict String CartEntry)
+    , user : User
     }
 
 
@@ -98,18 +102,43 @@ type alias ActionData =
     {}
 
 
+type alias User =
+    { name : String }
+
+
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.requestTime
-        |> Request.map
-            (\requestTime ->
-                Request.Hasura.dataSource (requestTime |> Time.posixToMillis |> String.fromInt)
-                    (SelectionSet.map2 Data
-                        smoothiesSelection
-                        cartSelection
-                    )
-                    |> DataSource.map Response.render
+        |> MySession.expectSessionOrRedirect
+            (\requestTime session ->
+                let
+                    maybeUserId : Maybe String
+                    maybeUserId =
+                        session
+                            |> Session.get "userId"
+                in
+                case maybeUserId of
+                    Nothing ->
+                        ( session, Route.redirectTo Route.Login )
+                            |> DataSource.succeed
+
+                    Just userId ->
+                        Request.Hasura.dataSource (requestTime |> Time.posixToMillis |> String.fromInt)
+                            (SelectionSet.map3 Data
+                                smoothiesSelection
+                                (cartSelection userId)
+                                (userSelection userId)
+                            )
+                            |> DataSource.map Response.render
+                            |> DataSource.map (Tuple.pair session)
             )
+
+
+userSelection : String -> SelectionSet User RootQuery
+userSelection userId =
+    Api.Query.users_by_pk { id = Uuid userId }
+        (SelectionSet.map User Api.Object.Users.name)
+        |> SelectionSet.nonNullOrFail
 
 
 type alias Smoothie =
@@ -141,16 +170,30 @@ action routeParams =
                     (\{ field } ->
                         Request.map2
                             (\value itemId ->
-                                addItemToCart (value |> String.toInt |> Maybe.withDefault 1)
-                                    (Uuid "2500fcdc-737b-4126-96c2-b3aae64cb5c4")
-                                    (Uuid itemId)
-                                    |> Request.Hasura.mutationDataSource (requestTime |> Time.posixToMillis |> String.fromInt)
-                                    |> DataSource.map
-                                        (\_ -> Response.render {})
+                                { requestTime = requestTime
+                                , quantity = value |> String.toInt |> Maybe.withDefault 1
+                                , itemId = itemId
+                                }
                             )
                             (field "add")
                             (field "itemId")
                     )
+            )
+        |> MySession.expectSessionOrRedirect
+            (\{ requestTime, quantity, itemId } session ->
+                let
+                    userId : String
+                    userId =
+                        session
+                            |> Session.get "userId"
+                            |> Maybe.withDefault ""
+                in
+                addItemToCart quantity
+                    (Uuid userId)
+                    (Uuid itemId)
+                    |> Request.Hasura.mutationDataSource (requestTime |> Time.posixToMillis |> String.fromInt)
+                    |> DataSource.map
+                        (\_ -> ( session, Response.render {} ))
             )
 
 
@@ -191,9 +234,9 @@ type alias CartEntry =
     { quantity : Int, pricePerItem : Int }
 
 
-cartSelection : SelectionSet (Maybe (Dict String CartEntry)) RootQuery
-cartSelection =
-    Api.Query.users_by_pk { id = Uuid "2500fcdc-737b-4126-96c2-b3aae64cb5c4" }
+cartSelection : String -> SelectionSet (Maybe (Dict String CartEntry)) RootQuery
+cartSelection userId =
+    Api.Query.users_by_pk { id = Uuid userId }
         (Api.Object.Users.orders
             (\optionals ->
                 { optionals
@@ -293,7 +336,11 @@ view maybeUrl sharedModel model app =
                             }
                         )
         in
-        [ cartView totals
+        [ Html.p []
+            [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
+            , Html.form [ Attr.method "POST" ] [ Html.button [ Attr.name "signout" ] [ Html.text "Sign out" ] ]
+            ]
+        , cartView totals
         , app.data.smoothies
             |> List.map
                 (productView cartWithPending)

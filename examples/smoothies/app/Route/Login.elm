@@ -40,7 +40,7 @@ route =
         , action =
             \_ ->
                 MySession.withSession
-                    (Request.expectFormPost (\{ field } -> field "name"))
+                    (Request.expectFormPost (\{ field } -> field "userId"))
                     (\name session ->
                         ( session
                             |> Result.withDefault Nothing
@@ -70,7 +70,7 @@ data routeParams =
                 Ok (Just okSession) ->
                     ( okSession
                     , okSession
-                        |> Session.get "name"
+                        |> Session.get "userId"
                         |> Data
                         |> Server.Response.render
                     )
@@ -136,7 +136,7 @@ view maybeUrl sharedModel static =
             [ Attr.method "post"
             , Attr.action "/login"
             ]
-            [ Html.label [] [ Html.input [ Attr.name "name", Attr.type_ "text" ] [] ]
+            [ Html.label [] [ Html.input [ Attr.name "userId", Attr.type_ "text" ] [] ]
             , Html.button
                 [ Attr.type_ "submit"
                 ]

@@ -10,7 +10,15 @@ nav {
 	border:rgba(47, 47, 47, 0.304) solid 1px;
 	border-radius: 5px;
 	padding: 5px;
+}
 
+button {
+	display: flex;
+	align-items: center;
+	border:rgba(47, 47, 47, 0.304) solid 1px;
+	border-radius: 5px;
+	padding: 5px;
+	cursor: pointer;
 }
 
 kbd {
