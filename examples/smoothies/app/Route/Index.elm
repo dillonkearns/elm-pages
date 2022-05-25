@@ -1,12 +1,20 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
+import Api.InputObject
+import Api.Mutation
+import Api.Object.Order
+import Api.Object.Order_item
 import Api.Object.Products
+import Api.Object.Users
 import Api.Query
-import Api.Scalar exposing (Uuid)
+import Api.Scalar exposing (Uuid(..))
 import DataSource exposing (DataSource)
+import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Graphql.SelectionSet as SelectionSet
+import Graphql.Operation exposing (RootQuery)
+import Graphql.OptionalArgument exposing (OptionalArgument(..))
+import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -81,7 +89,9 @@ subscriptions maybePageUrl routeParams path sharedModel model =
 
 
 type alias Data =
-    { smoothies : List Smoothie }
+    { smoothies : List Smoothie
+    , cart : Maybe (Dict String Int)
+    }
 
 
 type alias ActionData =
@@ -94,8 +104,11 @@ data routeParams =
         |> Request.map
             (\requestTime ->
                 Request.Hasura.dataSource (requestTime |> Time.posixToMillis |> String.fromInt)
-                    smoothiesSelection
-                    |> DataSource.map (\products -> Response.render (Data products))
+                    (SelectionSet.map2 Data
+                        smoothiesSelection
+                        cartSelection
+                    )
+                    |> DataSource.map Response.render
             )
 
 
@@ -121,7 +134,90 @@ smoothiesSelection =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.skip "No action."
+    Request.requestTime
+        |> Request.andThen
+            (\requestTime ->
+                Request.expectFormPost
+                    (\{ field } ->
+                        Request.map2
+                            (\value itemId ->
+                                addItemToCart (value |> String.toInt |> Maybe.withDefault 1)
+                                    (Uuid "2500fcdc-737b-4126-96c2-b3aae64cb5c4")
+                                    (Uuid itemId)
+                                    |> Request.Hasura.mutationDataSource (requestTime |> Time.posixToMillis |> String.fromInt)
+                                    |> DataSource.map
+                                        (\_ -> Response.render {})
+                            )
+                            (field "add")
+                            (field "itemId")
+                    )
+            )
+
+
+addItemToCart : Int -> Uuid -> Uuid -> SelectionSet (Maybe ()) Graphql.Operation.RootMutation
+addItemToCart quantity userId itemId =
+    Api.Mutation.insert_order_one identity
+        { object =
+            Api.InputObject.buildOrder_insert_input
+                (\opt ->
+                    { opt
+                        | user_id = Present userId
+                        , total = Present 0
+                        , order_items =
+                            Api.InputObject.buildOrder_item_arr_rel_insert_input
+                                { data =
+                                    [ Api.InputObject.buildOrder_item_insert_input
+                                        (\itemOpts ->
+                                            { itemOpts
+                                                | product_id = Present itemId
+                                                , quantity = Present quantity
+                                            }
+                                        )
+
+                                    --Order_item_insert_input
+                                    ]
+                                }
+                                identity
+                                |> Present
+
+                        --Order_item_arr_rel_insert_input
+                    }
+                )
+        }
+        SelectionSet.empty
+
+
+cartSelection : SelectionSet (Maybe (Dict String Int)) RootQuery
+cartSelection =
+    Api.Query.users_by_pk { id = Uuid "2500fcdc-737b-4126-96c2-b3aae64cb5c4" }
+        (Api.Object.Users.orders
+            (\optionals ->
+                { optionals
+                    | where_ =
+                        Api.InputObject.buildOrder_bool_exp
+                            (\orderOptionals ->
+                                { orderOptionals
+                                    | ordered =
+                                        Api.InputObject.buildBoolean_comparison_exp
+                                            (\compareOptionals ->
+                                                { compareOptionals
+                                                    | eq_ = Present False
+                                                }
+                                            )
+                                            |> Present
+                                }
+                            )
+                            |> Present
+                }
+            )
+            (Api.Object.Order.order_items identity
+                (SelectionSet.map2 Tuple.pair
+                    (Api.Object.Order_item.product_id |> SelectionSet.map uuidToString)
+                    Api.Object.Order_item.quantity
+                )
+            )
+        )
+        |> SelectionSet.map (Maybe.map (List.concat >> Dict.fromList))
 
 
 head :
@@ -153,28 +249,69 @@ view :
 view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
     , body =
-        [ cartView
+        [ cartView (app.data.cart |> Maybe.withDefault Dict.empty |> Dict.foldl (\_ quantity soFar -> soFar + quantity) 0)
         , app.data.smoothies
-            |> List.map productView
+            |> List.map
+                (productView app.data.cart)
             |> Html.ul []
         ]
     }
 
 
-cartView : Html msg
-cartView =
+cartView : Int -> Html msg
+cartView itemsInCart =
     Html.button [ Attr.class "checkout" ]
         [ Html.span [ Attr.class "icon" ] [ Icon.cart ]
-        , Html.text " Checkout"
+        , Html.text <| " Checkout (" ++ String.fromInt itemsInCart ++ ")"
         ]
 
 
-productView : Smoothie -> Html.Html msg
-productView item =
+uuidToString : Uuid -> String
+uuidToString (Uuid id) =
+    id
+
+
+productView : Maybe (Dict String Int) -> Smoothie -> Html (Pages.Msg.Msg msg)
+productView cart item =
+    let
+        quantityInCart : Int
+        quantityInCart =
+            cart
+                |> Maybe.withDefault Dict.empty
+                |> Dict.get (uuidToString item.id)
+                |> Maybe.withDefault 0
+    in
     Html.li [ Attr.class "item" ]
         [ Html.div []
             [ Html.h3 [] [ Html.text item.name ]
             , Html.p [] [ Html.text item.description ]
+            ]
+        , Html.form
+            [ Attr.method "POST"
+            , Attr.style "padding" "20px"
+            , Pages.Msg.fetcherOnSubmit
+            ]
+            [ Html.input
+                [ Attr.type_ "hidden"
+                , Attr.name "itemId"
+                , item.id |> uuidToString |> Attr.value
+                ]
+                []
+            , Html.button
+                [ Attr.type_ "submit"
+                , Attr.name "add"
+                , Attr.value
+                    (quantityInCart - 1 |> String.fromInt)
+                ]
+                [ Html.text "-" ]
+            , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
+            , Html.button
+                [ Attr.type_ "submit"
+                , Attr.name "add"
+                , Attr.value
+                    (quantityInCart + 1 |> String.fromInt)
+                ]
+                [ Html.text "+" ]
             ]
         , Html.div []
             [ Html.img
