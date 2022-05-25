@@ -8,7 +8,6 @@ import Api.Object.Products
 import Api.Object.Users
 import Api.Query
 import Api.Scalar exposing (Uuid(..))
-import Data.Cart exposing (Cart)
 import Dict exposing (Dict)
 import Graphql.Operation exposing (RootQuery)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
