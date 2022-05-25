@@ -8,6 +8,7 @@ import Api.Object.Products
 import Api.Object.Users
 import Api.Query
 import Api.Scalar exposing (Uuid(..))
+import Data.Cart as Cart exposing (Cart)
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
@@ -51,7 +52,7 @@ type alias RouteParams =
 
 type alias Data =
     { smoothies : List Smoothie
-    , cart : Maybe (Dict String CartEntry)
+    , cart : Maybe Cart
     , user : User
     }
 
@@ -126,7 +127,7 @@ data routeParams =
                         Request.Hasura.dataSource (requestTime |> Time.posixToMillis |> String.fromInt)
                             (SelectionSet.map3 Data
                                 smoothiesSelection
-                                (cartSelection userId)
+                                (Cart.selection userId)
                                 (userSelection userId)
                             )
                             |> DataSource.map Response.render
@@ -150,6 +151,7 @@ type alias Smoothie =
     }
 
 
+smoothiesSelection : SelectionSet (List Smoothie) RootQuery
 smoothiesSelection =
     Api.Query.products identity
         (SelectionSet.map5 Smoothie
@@ -248,46 +250,6 @@ addItemToCart quantity userId itemId =
         SelectionSet.empty
 
 
-type alias CartEntry =
-    { quantity : Int, pricePerItem : Int }
-
-
-cartSelection : String -> SelectionSet (Maybe (Dict String CartEntry)) RootQuery
-cartSelection userId =
-    Api.Query.users_by_pk { id = Uuid userId }
-        (Api.Object.Users.orders
-            (\optionals ->
-                { optionals
-                    | where_ =
-                        Api.InputObject.buildOrder_bool_exp
-                            (\orderOptionals ->
-                                { orderOptionals
-                                    | ordered =
-                                        Api.InputObject.buildBoolean_comparison_exp
-                                            (\compareOptionals ->
-                                                { compareOptionals
-                                                    | eq_ = Present False
-                                                }
-                                            )
-                                            |> Present
-                                }
-                            )
-                            |> Present
-                }
-            )
-            (Api.Object.Order.order_items identity
-                (SelectionSet.map2 Tuple.pair
-                    (Api.Object.Order_item.product_id |> SelectionSet.map uuidToString)
-                    (SelectionSet.map2 CartEntry
-                        Api.Object.Order_item.quantity
-                        (Api.Object.Order_item.product Api.Object.Products.price)
-                    )
-                )
-            )
-        )
-        |> SelectionSet.map (Maybe.map (List.concat >> Dict.fromList))
-
-
 head :
     StaticPayload Data ActionData RouteParams
     -> List Head.Tag
@@ -318,6 +280,7 @@ view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
     , body =
         let
+            totals : { totalItems : Int, totalPrice : Int }
             totals =
                 cartWithPending
                     |> Dict.foldl
@@ -329,6 +292,7 @@ view maybeUrl sharedModel model app =
                         )
                         { totalItems = 0, totalPrice = 0 }
 
+            pendingItems : Dict String Int
             pendingItems =
                 app.fetchers
                     |> List.filterMap
@@ -341,9 +305,8 @@ view maybeUrl sharedModel model app =
                                     Nothing
                         )
                     |> Dict.fromList
-                    |> Debug.log "pending"
 
-            cartWithPending : Dict String CartEntry
+            cartWithPending : Dict String Cart.CartEntry
             cartWithPending =
                 app.data.cart
                     |> Maybe.withDefault Dict.empty
@@ -384,7 +347,7 @@ uuidToString (Uuid id) =
     id
 
 
-productView : Dict String CartEntry -> Smoothie -> Html (Pages.Msg.Msg msg)
+productView : Dict String Cart.CartEntry -> Smoothie -> Html (Pages.Msg.Msg msg)
 productView cart item =
     let
         quantityInCart : Int
