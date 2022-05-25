@@ -2,30 +2,23 @@ module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
 import Data.Cart as Cart exposing (Cart)
-import Data.Smoothies as Smoothies exposing (Smoothie)
-import Data.User as User exposing (User)
+import Data.Smoothies exposing (Smoothie)
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Icon
-import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
-import Request.Hasura
-import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Seo.Common
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
-import Server.Session as Session
 import Shared
-import Time
 import View exposing (View)
 
 
@@ -42,10 +35,7 @@ type alias RouteParams =
 
 
 type alias Data =
-    { smoothies : List Smoothie
-    , cart : Maybe Cart
-    , user : User
-    }
+    {}
 
 
 type alias ActionData =
@@ -103,84 +93,16 @@ head static =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.requestTime
-        |> MySession.expectSessionOrRedirect
-            (\requestTime session ->
-                let
-                    maybeUserId : Maybe String
-                    maybeUserId =
-                        session
-                            |> Session.get "userId"
-                in
-                case maybeUserId of
-                    Nothing ->
-                        ( session, Route.redirectTo Route.Login )
-                            |> DataSource.succeed
-
-                    Just userId ->
-                        Request.Hasura.dataSource (requestTime |> Time.posixToMillis |> String.fromInt)
-                            (SelectionSet.map3 Data
-                                Smoothies.selection
-                                (Cart.selection userId)
-                                (User.selection userId)
-                            )
-                            |> DataSource.map Response.render
-                            |> DataSource.map (Tuple.pair session)
-            )
-
-
-type Action
-    = SignOut
-    | UpdateQuantity Uuid Int
+    Response.render {}
+        |> DataSource.succeed
+        |> Request.succeed
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.requestTime
-        |> Request.andThen
-            (\requestTime ->
-                Request.expectFormPost
-                    (\{ field } ->
-                        Request.oneOf
-                            [ Request.map2
-                                (\value itemId ->
-                                    ( requestTime
-                                    , UpdateQuantity (Uuid itemId) (value |> String.toInt |> Maybe.withDefault 1)
-                                    )
-                                )
-                                (field "add")
-                                (field "itemId")
-                            , Request.map
-                                (\_ ->
-                                    ( requestTime
-                                    , SignOut
-                                    )
-                                )
-                                (field "signout")
-                            ]
-                    )
-            )
-        |> MySession.expectSessionOrRedirect
-            (\( requestTime, action_ ) session ->
-                let
-                    userId : String
-                    userId =
-                        session
-                            |> Session.get "userId"
-                            |> Maybe.withDefault ""
-                in
-                case action_ of
-                    SignOut ->
-                        DataSource.succeed ( Session.empty, Route.redirectTo Route.Login )
-
-                    UpdateQuantity itemId quantity ->
-                        Cart.addItemToCart quantity
-                            (Uuid userId)
-                            itemId
-                            |> Request.Hasura.mutationDataSource (requestTime |> Time.posixToMillis |> String.fromInt)
-                            |> DataSource.map
-                                (\_ -> ( session, Response.render {} ))
-            )
+    Response.render {}
+        |> DataSource.succeed
+        |> Request.succeed
 
 
 view :
@@ -195,7 +117,7 @@ view maybeUrl sharedModel model app =
         let
             totals : { totalItems : Int, totalPrice : Int }
             totals =
-                cartWithPending
+                todoCart
                     |> Dict.foldl
                         (\_ { quantity, pricePerItem } soFar ->
                             { soFar
@@ -204,47 +126,48 @@ view maybeUrl sharedModel model app =
                             }
                         )
                         { totalItems = 0, totalPrice = 0 }
-
-            pendingItems : Dict String Int
-            pendingItems =
-                app.fetchers
-                    |> List.filterMap
-                        (\pending ->
-                            case pending.payload.fields of
-                                [ ( "itemId", itemId ), ( "add", addAmount ) ] ->
-                                    Just ( itemId, addAmount |> String.toInt |> Maybe.withDefault 0 )
-
-                                _ ->
-                                    Nothing
-                        )
-                    |> Dict.fromList
-
-            cartWithPending : Dict String Cart.CartEntry
-            cartWithPending =
-                app.data.cart
-                    |> Maybe.withDefault Dict.empty
-                    |> Dict.map
-                        (\itemId entry ->
-                            { entry
-                                | quantity = Dict.get itemId pendingItems |> Maybe.withDefault entry.quantity
-                            }
-                        )
         in
         [ Html.p []
-            [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
-            , Html.form
-                [ Attr.method "POST"
-                , Pages.Msg.onSubmit
-                ]
-                [ Html.button [ Attr.name "signout" ] [ Html.text "Sign out" ] ]
+            [ Html.text <| "Welcome " ++ todoUserName ++ "!"
+            , Html.div
+                []
+                [ Html.button [] [ Html.text "Sign out TODO" ] ]
             ]
         , cartView totals
-        , app.data.smoothies
+        , todoSmoothies
             |> List.map
-                (productView cartWithPending)
+                (productView todoCart)
             |> Html.ul []
         ]
     }
+
+
+todoCart : Cart
+todoCart =
+    Dict.fromList
+        [ ( "1", { quantity = 2, pricePerItem = 123 } )
+        ]
+
+
+todoSmoothies : List Smoothie
+todoSmoothies =
+    [ { name = "TODO name 1"
+      , id = Uuid "1"
+      , description = "TODO description 1"
+      , price = 123
+      , unsplashImage = "https://images.unsplash.com/photo-1622428051717-dcd8412959de"
+      }
+    , { name = "TODO name 1"
+      , id = Uuid "2"
+      , description = "TODO description 2"
+      , price = 456
+      , unsplashImage = "https://images.unsplash.com/photo-1622428051717-dcd8412959de"
+      }
+    ]
+
+
+todoUserName =
+    "TODO USER NAME"
 
 
 cartView : { totalItems : Int, totalPrice : Int } -> Html msg
@@ -276,31 +199,11 @@ productView cart item =
             , Html.p [] [ Html.text item.description ]
             , Html.p [] [ "$" ++ String.fromInt item.price |> Html.text ]
             ]
-        , Html.form
-            [ Attr.method "POST"
-            , Pages.Msg.fetcherOnSubmit
-            ]
-            [ Html.input
-                [ Attr.type_ "hidden"
-                , Attr.name "itemId"
-                , item.id |> uuidToString |> Attr.value
-                ]
-                []
-            , Html.button
-                [ Attr.type_ "submit"
-                , Attr.name "add"
-                , Attr.value
-                    (quantityInCart - 1 |> String.fromInt)
-                ]
-                [ Html.text "-" ]
+        , Html.div
+            []
+            [ Html.button [] [ Html.text "-" ]
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
-            , Html.button
-                [ Attr.type_ "submit"
-                , Attr.name "add"
-                , Attr.value
-                    (quantityInCart + 1 |> String.fromInt)
-                ]
-                [ Html.text "+" ]
+            , Html.button [] [ Html.text "+" ]
             ]
         , Html.div []
             [ Html.img

@@ -7,10 +7,11 @@ import Graphql.Document
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Encode as Encode
+import Time
 
 
-dataSource : String -> SelectionSet value RootQuery -> DataSource value
-dataSource timeStamp selectionSet =
+dataSource : Time.Posix -> SelectionSet value RootQuery -> DataSource value
+dataSource requestTime selectionSet =
     DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> DataSource.andThen
             (\hasuraSecret ->
@@ -21,7 +22,7 @@ dataSource timeStamp selectionSet =
                             -- it would be helpful to have a way to mark a DataSource as uncached. Maybe only allow
                             -- from server-rendered pages?
                             ++ "?time="
-                            ++ timeStamp
+                            ++ (requestTime |> Time.posixToMillis |> String.fromInt)
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
                     , body =
@@ -42,13 +43,13 @@ dataSource timeStamp selectionSet =
             )
 
 
-mutationDataSource : String -> SelectionSet value RootMutation -> DataSource value
-mutationDataSource timeStamp selectionSet =
+mutationDataSource : Time.Posix -> SelectionSet value RootMutation -> DataSource value
+mutationDataSource requestTime selectionSet =
     DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> DataSource.andThen
             (\hasuraSecret ->
                 DataSource.Http.request
-                    { url = hasuraUrl ++ "?time=" ++ timeStamp
+                    { url = hasuraUrl ++ "?time=" ++ (requestTime |> Time.posixToMillis |> String.fromInt)
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
                     , body =
