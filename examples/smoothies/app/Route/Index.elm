@@ -258,8 +258,7 @@ view maybeUrl sharedModel model app =
     , body =
         let
             totals =
-                app.data.cart
-                    |> Maybe.withDefault Dict.empty
+                cartWithPending
                     |> Dict.foldl
                         (\_ { quantity, pricePerItem } soFar ->
                             { soFar
@@ -268,11 +267,36 @@ view maybeUrl sharedModel model app =
                             }
                         )
                         { totalItems = 0, totalPrice = 0 }
+
+            pendingItems =
+                app.fetchers
+                    |> List.filterMap
+                        (\pending ->
+                            case pending.payload.fields of
+                                [ ( "itemId", itemId ), ( "add", addAmount ) ] ->
+                                    Just ( itemId, addAmount |> String.toInt |> Maybe.withDefault 0 )
+
+                                _ ->
+                                    Nothing
+                        )
+                    |> Dict.fromList
+                    |> Debug.log "pending"
+
+            cartWithPending : Dict String CartEntry
+            cartWithPending =
+                app.data.cart
+                    |> Maybe.withDefault Dict.empty
+                    |> Dict.map
+                        (\itemId entry ->
+                            { entry
+                                | quantity = Dict.get itemId pendingItems |> Maybe.withDefault entry.quantity
+                            }
+                        )
         in
         [ cartView totals
         , app.data.smoothies
             |> List.map
-                (productView app.data.cart)
+                (productView cartWithPending)
             |> Html.ul []
         ]
     }
@@ -291,13 +315,12 @@ uuidToString (Uuid id) =
     id
 
 
-productView : Maybe (Dict String CartEntry) -> Smoothie -> Html (Pages.Msg.Msg msg)
+productView : Dict String CartEntry -> Smoothie -> Html (Pages.Msg.Msg msg)
 productView cart item =
     let
         quantityInCart : Int
         quantityInCart =
             cart
-                |> Maybe.withDefault Dict.empty
                 |> Dict.get (uuidToString item.id)
                 |> Maybe.map .quantity
                 |> Maybe.withDefault 0
