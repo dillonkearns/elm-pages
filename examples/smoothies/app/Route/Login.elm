@@ -32,6 +32,13 @@ type alias RouteParams =
     {}
 
 
+userIdMap =
+    Dict.fromList
+        [ ( "dillon", "2500fcdc-737b-4126-96c2-b3aae64cb5c4" )
+        , ( "jane", "a4808f52-d3b0-47b2-a03f-3a56f334865a" )
+        ]
+
+
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
@@ -41,15 +48,31 @@ route =
             \_ ->
                 MySession.withSession
                     (Request.expectFormPost (\{ field } -> field "userId"))
-                    (\name session ->
-                        ( session
-                            |> Result.withDefault Nothing
-                            |> Maybe.withDefault Session.empty
-                            |> Session.insert "userId" name
-                            |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                        , Route.redirectTo Route.Index
-                        )
-                            |> DataSource.succeed
+                    (\username session ->
+                        let
+                            maybeUserId : Maybe String
+                            maybeUserId =
+                                userIdMap |> Dict.get username
+                        in
+                        case maybeUserId of
+                            Just userId ->
+                                ( session
+                                    |> Result.withDefault Nothing
+                                    |> Maybe.withDefault Session.empty
+                                    |> Session.insert "userId" userId
+                                    |> Session.withFlash "message" ("Welcome " ++ username ++ "!")
+                                , Route.redirectTo Route.Index
+                                )
+                                    |> DataSource.succeed
+
+                            Nothing ->
+                                ( session
+                                    |> Result.withDefault Nothing
+                                    |> Maybe.withDefault Session.empty
+                                    |> Session.withFlash "message" ("Couldn't find username " ++ username)
+                                , Route.redirectTo Route.Login
+                                )
+                                    |> DataSource.succeed
                     )
         }
         |> RouteBuilder.buildNoState { view = view }
@@ -126,7 +149,7 @@ view maybeUrl sharedModel static =
             [ Html.text
                 (case static.data.username of
                     Just username ->
-                        "Hello " ++ username ++ "!"
+                        "Hello! You are already logged in."
 
                     Nothing ->
                         "You aren't logged in yet."
