@@ -49,6 +49,21 @@ type alias RouteParams =
     {}
 
 
+type alias Data =
+    { smoothies : List Smoothie
+    , cart : Maybe (Dict String CartEntry)
+    , user : User
+    }
+
+
+type alias ActionData =
+    {}
+
+
+type alias User =
+    { name : String }
+
+
 route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
@@ -89,21 +104,6 @@ update pageUrl sharedModel static msg model =
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
 subscriptions maybePageUrl routeParams path sharedModel model =
     Sub.none
-
-
-type alias Data =
-    { smoothies : List Smoothie
-    , cart : Maybe (Dict String CartEntry)
-    , user : User
-    }
-
-
-type alias ActionData =
-    {}
-
-
-type alias User =
-    { name : String }
 
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
