@@ -4,6 +4,14 @@ nav {
 	font-size: 26px;
 
 }
+.checkout {
+	display: flex;
+	align-items: center;
+	border:rgba(47, 47, 47, 0.304) solid 1px;
+	border-radius: 5px;
+	padding: 5px;
+
+}
 
 kbd {
 	background-color: #eee;

@@ -9,9 +9,10 @@ import ErrorPage exposing (ErrorPage)
 import Graphql.SelectionSet as SelectionSet
 import Head
 import Head.Seo as Seo
-import Html
+import Html exposing (Html)
 import Html.Attributes as Attr
 import Icon
+import MimeType exposing (MimeText(..))
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -152,11 +153,20 @@ view :
 view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
     , body =
-        [ app.data.smoothies
+        [ cartView
+        , app.data.smoothies
             |> List.map productView
             |> Html.ul []
         ]
     }
+
+
+cartView : Html msg
+cartView =
+    Html.button [ Attr.class "checkout" ]
+        [ Html.span [ Attr.class "icon" ] [ Icon.cart ]
+        , Html.text " Checkout"
+        ]
 
 
 productView : Smoothie -> Html.Html msg
