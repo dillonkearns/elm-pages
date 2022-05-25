@@ -1,7 +1,5 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
-import Api.InputObject
-import Api.Mutation
 import Api.Scalar exposing (Uuid(..))
 import Data.Cart as Cart exposing (Cart)
 import Data.Smoothies as Smoothies exposing (Smoothie)
@@ -10,8 +8,6 @@ import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Graphql.Operation exposing (RootQuery)
-import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
 import Head
 import Html exposing (Html)
@@ -171,42 +167,13 @@ action routeParams =
                         DataSource.succeed ( Session.empty, Response.temporaryRedirect "login" )
 
                     UpdateQuantity itemId quantity ->
-                        addItemToCart quantity
+                        Cart.addItemToCart quantity
                             (Uuid userId)
                             itemId
                             |> Request.Hasura.mutationDataSource (requestTime |> Time.posixToMillis |> String.fromInt)
                             |> DataSource.map
                                 (\_ -> ( session, Response.render {} ))
             )
-
-
-addItemToCart : Int -> Uuid -> Uuid -> SelectionSet (Maybe ()) Graphql.Operation.RootMutation
-addItemToCart quantity userId itemId =
-    Api.Mutation.insert_order_one identity
-        { object =
-            Api.InputObject.buildOrder_insert_input
-                (\opt ->
-                    { opt
-                        | user_id = Present userId
-                        , total = Present 0
-                        , order_items =
-                            Api.InputObject.buildOrder_item_arr_rel_insert_input
-                                { data =
-                                    [ Api.InputObject.buildOrder_item_insert_input
-                                        (\itemOpts ->
-                                            { itemOpts
-                                                | product_id = Present itemId
-                                                , quantity = Present quantity
-                                            }
-                                        )
-                                    ]
-                                }
-                                identity
-                                |> Present
-                    }
-                )
-        }
-        SelectionSet.empty
 
 
 head :

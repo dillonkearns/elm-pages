@@ -1,12 +1,14 @@
-module Data.Cart exposing (Cart, CartEntry, selection)
+module Data.Cart exposing (Cart, CartEntry, addItemToCart, selection)
 
 import Api.InputObject
+import Api.Mutation
 import Api.Object.Order
 import Api.Object.Order_item
 import Api.Object.Products
 import Api.Object.Users
 import Api.Query
 import Api.Scalar exposing (Uuid(..))
+import Data.Cart exposing (Cart)
 import Dict exposing (Dict)
 import Graphql.Operation exposing (RootQuery)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
@@ -57,6 +59,35 @@ selection userId =
             )
         )
         |> SelectionSet.map (Maybe.map (List.concat >> Dict.fromList))
+
+
+addItemToCart : Int -> Uuid -> Uuid -> SelectionSet (Maybe ()) Graphql.Operation.RootMutation
+addItemToCart quantity userId itemId =
+    Api.Mutation.insert_order_one identity
+        { object =
+            Api.InputObject.buildOrder_insert_input
+                (\opt ->
+                    { opt
+                        | user_id = Present userId
+                        , total = Present 0
+                        , order_items =
+                            Api.InputObject.buildOrder_item_arr_rel_insert_input
+                                { data =
+                                    [ Api.InputObject.buildOrder_item_insert_input
+                                        (\itemOpts ->
+                                            { itemOpts
+                                                | product_id = Present itemId
+                                                , quantity = Present quantity
+                                            }
+                                        )
+                                    ]
+                                }
+                                identity
+                                |> Present
+                    }
+                )
+        }
+        SelectionSet.empty
 
 
 uuidToString : Uuid -> String
