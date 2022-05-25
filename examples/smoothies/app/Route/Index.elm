@@ -278,7 +278,6 @@ productView cart item =
             ]
         , Html.form
             [ Attr.method "POST"
-            , Attr.style "padding" "20px"
             , Pages.Msg.fetcherOnSubmit
             ]
             [ Html.input
@@ -305,12 +304,7 @@ productView cart item =
             ]
         , Html.div []
             [ Html.img
-                [ Attr.src
-                    (item.unsplashImage
-                        ++ "?ixlib=rb-1.2.1&raw_url=true&q=80&fm=jpg&crop=entropy&cs=tinysrgb&auto=format&fit=crop&w=600&h=903"
-                    )
-                , Attr.width 150
-                ]
+                [ Attr.src (item.unsplashImage ++ "?ixlib=rb-1.2.1&raw_url=true&q=80&fm=jpg&crop=entropy&cs=tinysrgb&auto=format&fit=crop&w=600&h=903") ]
                 []
             ]
         ]

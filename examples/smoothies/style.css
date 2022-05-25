@@ -42,6 +42,14 @@ kbd {
     justify-content: space-between;
 }
 
+.item form {
+	padding: 20px;
+}
+
+.item img {
+	width: 150px;
+}
+
 .icon svg {
     width: 20px !important;
 }
