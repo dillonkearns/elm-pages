@@ -68,6 +68,27 @@ expectSessionOrRedirect toRequest handler =
         )
 
 
+expectSessionDataOrRedirect :
+    (Session.Session -> Maybe parsedSession)
+    -> (parsedSession -> request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    -> Parser request
+    -> Parser (DataSource (Response data errorPage))
+expectSessionDataOrRedirect parseSessionData handler toRequest =
+    toRequest
+        |> expectSessionOrRedirect
+            (\parsedRequest session ->
+                case parseSessionData session of
+                    Just parsedSession ->
+                        handler parsedSession parsedRequest session
+
+                    Nothing ->
+                        DataSource.succeed
+                            ( session
+                            , Route.redirectTo Route.Login
+                            )
+            )
+
+
 schema =
     { name = ( "name", Codec.string )
     , message = ( "message", Codec.string )
