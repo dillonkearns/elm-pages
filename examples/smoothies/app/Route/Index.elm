@@ -94,6 +94,13 @@ subscriptions maybePageUrl routeParams path sharedModel model =
     Sub.none
 
 
+head :
+    StaticPayload Data ActionData RouteParams
+    -> List Head.Tag
+head static =
+    Seo.Common.tags
+
+
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.requestTime
@@ -174,13 +181,6 @@ action routeParams =
                             |> DataSource.map
                                 (\_ -> ( session, Response.render {} ))
             )
-
-
-head :
-    StaticPayload Data ActionData RouteParams
-    -> List Head.Tag
-head static =
-    Seo.Common.tags
 
 
 view :
