@@ -171,7 +171,7 @@ action routeParams =
                 in
                 case action_ of
                     SignOut ->
-                        DataSource.succeed ( Session.empty, Response.temporaryRedirect "login" )
+                        DataSource.succeed ( Session.empty, Route.redirectTo Route.Login )
 
                     UpdateQuantity itemId quantity ->
                         Cart.addItemToCart quantity
