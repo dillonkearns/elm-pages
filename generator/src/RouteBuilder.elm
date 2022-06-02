@@ -93,6 +93,7 @@ import ErrorPage exposing (ErrorPage)
 import Head
 import Http
 import Pages.Fetcher
+import Pages.Form
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.Msg
@@ -145,6 +146,7 @@ type alias StaticPayload data action routeParams =
         -> Pages.Fetcher.Fetcher (Result Http.Error action)
     , transition : Maybe Pages.Transition.Transition
     , fetchers : List Pages.Transition.FetcherState
+    , pageFormState : Pages.Form.PageFormState
     }
 
 

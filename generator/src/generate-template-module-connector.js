@@ -44,10 +44,12 @@ import Api
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
+import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import HtmlPrinter
 import Lamdera.Wire3
+import Pages.Form
 import Pages.Internal.String
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
@@ -159,7 +161,8 @@ type ActionData
 
 
 view :
-    List Pages.Transition.FetcherState
+    Pages.Form.PageFormState
+    -> List Pages.Transition.FetcherState
     -> Maybe Pages.Transition.Transition
     -> { path : Path
     , route : Maybe Route
@@ -172,7 +175,7 @@ view :
         { view : Model -> { title : String, body : Html (Pages.Msg.Msg Msg) }
         , head : List Head.Tag
         }
-view fetchers transition page maybePageUrl globalData pageData actionData =
+view pageFormState fetchers transition page maybePageUrl globalData pageData actionData =
     case ( page.route, pageData ) of
         ( _, DataErrorPage____ data ) ->
             { view =
@@ -234,6 +237,7 @@ view fetchers transition page maybePageUrl globalData pageData actionData =
                                       )}.w3_decode_ActionData
                                       , transition = transition
                                       , fetchers = fetchers
+                                      , pageFormState = pageFormState
                                       }
                                       |> View.map (Pages.Msg.map Msg${pathNormalizedName(
                                         name
@@ -256,6 +260,7 @@ view fetchers transition page maybePageUrl globalData pageData actionData =
                       )}.w3_decode_ActionData
                       , transition = Nothing -- TODO is this safe?
                       , fetchers = [] -- TODO is this safe?
+                      , pageFormState = Dict.empty -- TODO is this safe?
                       }
                       `
                   }
@@ -337,6 +342,7 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
                         )}.w3_decode_ActionData
                         , transition = Nothing -- TODO is this safe, will this always be Nothing?
                         , fetchers = []
+                        , pageFormState = Dict.empty
                         }
                         |> Tuple.mapBoth Model${pathNormalizedName(
                           name
@@ -367,8 +373,8 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
 
 
 
-update : List Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
-update fetchers transition sharedData pageData navigationKey msg model =
+update : Pages.Form.PageFormState  -> List Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
+update pageFormState fetchers transition sharedData pageData navigationKey msg model =
     case msg of
         MsgErrorPage____ msg_ ->
             let
@@ -480,6 +486,7 @@ update fetchers transition sharedData pageData navigationKey msg model =
                                 )}.w3_decode_ActionData
                                 , transition = transition
                                 , fetchers = fetchers
+                                , pageFormState = pageFormState
                                 }
                                 msg_
                                 pageModel

@@ -15,6 +15,7 @@ import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Fetcher
 import Pages.Flags
+import Pages.Form
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
@@ -45,14 +46,15 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
                 , pageUrl : Maybe PageUrl
                 }
         -> ( userModel, effect )
-    , update : List Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
+    , update : Pages.Form.PageFormState -> List Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource sharedData
     , data : route -> DataSource (PageServerResponse pageData errorPage)
     , action : route -> DataSource (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
-        List Pages.Transition.FetcherState
+        Pages.Form.PageFormState
+        -> List Pages.Transition.FetcherState
         -> Maybe Pages.Transition.Transition
         ->
             { path : Path
