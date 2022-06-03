@@ -15,6 +15,8 @@ import Html.Attributes as Attr
 import Html.Events
 import Icon
 import MySession
+import Pages.Form
+import Pages.FormParser as FormParser
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -123,29 +125,31 @@ type Action
     | SetQuantity Uuid Int
 
 
+actionFormDecoder : FormParser.Parser String Action
+actionFormDecoder =
+    FormParser.required "kind" "Kind is required"
+        |> FormParser.andThen
+            (\kind ->
+                if kind == "signout" then
+                    FormParser.succeed Signout
+
+                else if kind == "add" then
+                    FormParser.map2 SetQuantity
+                        (FormParser.required "itemId" "First is required" |> FormParser.map Uuid)
+                        -- TODO what's the best way to combine together int and required? Should it be `requiredInt`, or `Form.required |> Form.int`?
+                        (FormParser.int "setQuantity" "Expected setQuantity to be an integer")
+
+                else
+                    FormParser.fail "Error"
+            )
+
+
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    let
-        formParser : Request.Parser Action
-        formParser =
-            Request.expectFormPost
-                (\{ field } ->
-                    Request.oneOf
-                        [ field "signout" |> Request.map (\_ -> Signout)
-                        , Request.map2
-                            (\itemId quantityToSet ->
-                                SetQuantity (Uuid itemId)
-                                    (quantityToSet |> String.toInt |> Maybe.withDefault 1)
-                            )
-                            (field "itemId")
-                            (field "setQuantity")
-                        ]
-                )
-    in
     Request.map2 Tuple.pair
-        formParser
+        (Request.formParser actionFormDecoder)
         Request.requestTime
-        |> MySession.expectSessionDataOrRedirect (Session.get "userId")
+        |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId ( parsedAction, requestTime ) session ->
                 case parsedAction of
                     Signout ->
@@ -153,7 +157,7 @@ action routeParams =
                             |> DataSource.map (Tuple.pair Session.empty)
 
                     SetQuantity itemId quantity ->
-                        (Cart.addItemToCart quantity (Uuid userId) itemId
+                        (Cart.addItemToCart quantity userId itemId
                             |> Request.Hasura.mutationDataSource requestTime
                             |> DataSource.map
                                 (\_ -> Response.render {})
@@ -177,9 +181,9 @@ view maybeUrl sharedModel model app =
                 app.fetchers
                     |> List.filterMap
                         (\pending ->
-                            case pending.payload.fields of
-                                [ ( "itemId", itemId ), ( "setQuantity", addAmount ) ] ->
-                                    Just ( itemId, addAmount |> String.toInt |> Maybe.withDefault 0 )
+                            case FormParser.runOnList pending.payload.fields actionFormDecoder of
+                                ( Just (SetQuantity itemId addAmount), _ ) ->
+                                    Just ( uuidToString itemId, addAmount )
 
                                 _ ->
                                     Nothing
@@ -220,7 +224,7 @@ view maybeUrl sharedModel model app =
                 [ Attr.method "POST"
                 , Pages.Msg.onSubmit
                 ]
-                [ Html.button [ Attr.name "signout", Attr.value "" ] [ Html.text "Sign out" ] ]
+                [ Html.button [ Attr.name "kind", Attr.value "signout" ] [ Html.text "Sign out" ] ]
             ]
         , cartView totals
         , app.data.smoothies
@@ -246,7 +250,7 @@ uuidToString (Uuid id) =
     id
 
 
-productView : Dict String Cart.CartEntry -> Smoothie -> Html (Pages.Msg.Msg msg)
+productView : Dict String Cart.CartEntry -> Smoothie -> Html (Pages.Msg.Msg Msg)
 productView cart item =
     let
         quantityInCart : Int
@@ -267,6 +271,12 @@ productView cart item =
             , Pages.Msg.fetcherOnSubmit
             ]
             [ Html.input
+                [ Attr.type_ "hidden"
+                , Attr.name "kind"
+                , Attr.value "add"
+                ]
+                []
+            , Html.input
                 [ Attr.type_ "hidden"
                 , Attr.name "itemId"
                 , Attr.value (uuidToString item.id)
