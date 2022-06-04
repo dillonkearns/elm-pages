@@ -303,6 +303,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | UserMsg (Pages.Msg.Msg userMsg)
+    | SetField { formId : String, name : String, value : String }
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
     | FetcherComplete Int (Result Http.Error (Maybe userMsg))
     | FetcherStarted FormDecoder.FormData
@@ -380,6 +381,11 @@ update config appMsg model =
                     ( model
                     , BrowserLoadUrl href
                     )
+
+        SetField info ->
+            ( { model | pageFormState = Pages.Form.setField info model.pageFormState }
+            , NoEffect
+            )
 
         UrlChanged url ->
             ( { model
@@ -746,6 +752,7 @@ perform config model effect =
                                     startFetcher options model
                             , fromPageMsg = Pages.Msg.UserMsg >> UserMsg
                             , key = key
+                            , setField = \info -> Task.succeed (SetField info) |> Task.perform identity
                             }
 
                 Nothing ->

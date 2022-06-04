@@ -114,6 +114,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         , fromPageMsg : userMsg -> mappedMsg
         , runFetcher : Pages.Fetcher.Fetcher userMsg -> Cmd mappedMsg
         , key : Browser.Navigation.Key
+        , setField : { formId : String, name : String, value : String } -> Cmd mappedMsg
         }
         -> effect
         -> Cmd mappedMsg

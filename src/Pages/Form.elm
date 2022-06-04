@@ -89,6 +89,33 @@ update eventObject pageFormState =
             pageFormState
 
 
+setField : { formId : String, name : String, value : String } -> PageFormState -> PageFormState
+setField info pageFormState =
+    pageFormState
+        |> Dict.update info.formId
+            (\previousValue_ ->
+                let
+                    previousValue : FormState
+                    previousValue =
+                        previousValue_
+                            |> Maybe.withDefault Dict.empty
+                in
+                previousValue
+                    |> Dict.update info.name
+                        (\previousFieldValue_ ->
+                            let
+                                previousFieldValue : FieldState
+                                previousFieldValue =
+                                    previousFieldValue_
+                                        |> Maybe.withDefault { value = "", status = NotVisited }
+                            in
+                            { previousFieldValue | value = info.value }
+                                |> Just
+                        )
+                    |> Just
+            )
+
+
 updateForm : FieldEvent -> FormState -> FormState
 updateForm fieldEvent formState =
     formState
