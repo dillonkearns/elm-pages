@@ -24,6 +24,220 @@ optional name =
         |> Parser
 
 
+init =
+    Debug.todo ""
+
+
+string : error -> FieldThing error String
+string error =
+    --Debug.todo ""
+    FieldThing (\formState -> ( Just "TODO real value", [] ))
+
+
+andThenNew : a -> CombinedParser String a
+andThenNew fn =
+    CombinedParser []
+        (\formState ->
+            ( Just fn, Dict.empty )
+        )
+
+
+
+--CombinedParser
+--    []
+--    (\formState ->
+--        --let
+--        --    something =
+--        --        fn
+--        --in
+--        -- TODO use fn
+--        ( Nothing, Dict.empty )
+--    )
+
+
+field :
+    String
+    -> FieldThing error parsed
+    -> CombinedParser error (ParsedField error parsed -> a)
+    -> CombinedParser error a
+field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
+    --let
+    --    --myFn :
+    --    --    ( Maybe ((ParsedField error parsed -> a) -> b)
+    --    --    , Dict String (List error)
+    --    --    )
+    --    --    -> ( Maybe b, Dict String (List error) )
+    --    --myFn ( fieldThings, errorsSoFar ) =
+    --    --    --Debug.todo ""
+    --    --    ( Nothing, errorsSoFar )
+    --    fieldParser : Form.FormState -> ( Maybe parsed, List error )
+    --    fieldParser formState =
+    --        Debug.todo ""
+    --in
+    CombinedParser
+        (( name, FieldDefinition )
+            :: definitions
+        )
+        (\formState ->
+            let
+                --something : ( Maybe parsed, List error )
+                ( maybeParsed, errors ) =
+                    fieldParser formState
+
+                parsedField : ParsedField error parsed
+                parsedField =
+                    { name = name
+                    , value = maybeParsed
+                    , errors = errors
+                    }
+
+                myFn :
+                    ( Maybe (ParsedField error parsed -> a)
+                    , Dict String (List error)
+                    )
+                    -> ( Maybe a, Dict String (List error) )
+                myFn ( fieldThings, errorsSoFar ) =
+                    ( --Nothing
+                      --Maybe.map2 (|>) fieldThings (Just parsedField)
+                      case fieldThings of
+                        Just fieldPipelineFn ->
+                            fieldPipelineFn parsedField
+                                |> Just
+
+                        Nothing ->
+                            Nothing
+                    , errorsSoFar
+                        |> addErrors name errors
+                    )
+            in
+            formState
+                |> parseFn
+                |> myFn
+        )
+
+
+
+--field :
+--    String
+--    -> FieldThing error parsed
+--    -> CombinedParser error ((ParsedField error parsed -> a) -> b)
+--    -> CombinedParser error b
+--field name fieldThing (CombinedParser definitions parseFn) =
+--    --Debug.todo ""
+--    let
+--        myFn :
+--            ( Maybe ((ParsedField error parsed -> a) -> b)
+--            , Dict String (List error)
+--            )
+--            -> ( Maybe b, Dict String (List error) )
+--        myFn ( fieldThings, errorsSoFar ) =
+--            --Debug.todo ""
+--            ( Nothing, errorsSoFar )
+--    in
+--    CombinedParser definitions
+--        (\formState ->
+--            formState
+--                |> parseFn
+--                |> myFn
+--        )
+--(List ( String, FieldDefinition )) (Form.FormState -> ( Maybe parsed, Dict String (List error) ))
+
+
+type ParsingResult a
+    = ParsingResult
+
+
+type CompleteParser error parsed
+    = CompleteParser
+
+
+runNew : Form.FormState -> CombinedParser error parsed -> ( Maybe parsed, Dict String (List error) )
+runNew formState (CombinedParser fieldDefinitions parser) =
+    --Debug.todo ""
+    parser formState
+
+
+type CombinedParser error parsed
+    = CombinedParser (List ( String, FieldDefinition )) (Form.FormState -> ( Maybe parsed, Dict String (List error) ))
+
+
+
+--String
+--  -> (a -> v)
+--  -> Codec a
+--  -> CustomCodec ((a -> Value) -> b) v
+--  -> CustomCodec b v
+
+
+type FieldThing error parsed
+    = FieldThing (Form.FormState -> ( Maybe parsed, List error ))
+
+
+type FieldDefinition
+    = FieldDefinition
+
+
+type FullFieldThing error parsed
+    = FullFieldThing { name : String } (Form.FormState -> parsed)
+
+
+
+---> a1
+---> a2
+--field :
+--    String
+--    -> FieldThing error parsed
+--    -> CombinedParser error ((FullFieldThing error parsed -> a) -> b)
+--    -> CombinedParser error b
+--field name fieldThing (CombinedParser definitions parseFn) =
+--    --Debug.todo ""
+--    let
+--        myFn :
+--            ( Maybe ((FullFieldThing error parsed -> a) -> b)
+--            , Dict String (List error)
+--            )
+--            -> ( Maybe b, Dict String (List error) )
+--        myFn ( fieldThings, errorsSoFar ) =
+--            --Debug.todo ""
+--            ( Nothing, errorsSoFar )
+--    in
+--    CombinedParser definitions
+--        (\formState ->
+--            formState
+--                |> parseFn
+--                |> myFn
+--        )
+
+
+type alias ParsedField error parsed =
+    { name : String
+    , value : Maybe parsed
+    , errors : List error
+    }
+
+
+value : FullFieldThing error parsed -> parsed
+value =
+    Debug.todo ""
+
+
+
+--ok : parsed -> FullFieldThing error parsed
+--ok okValue =
+--    --Debug.todo ""
+--    FullFieldThing { name = "TODO" } (\_ -> okValue)
+
+
+ok =
+    ()
+
+
+withError : error -> ParsedField error parsed -> ()
+withError _ _ =
+    --Debug.todo ""
+    ()
+
+
 required : String -> error -> Parser error String
 required name error =
     (\errors form ->
@@ -125,8 +339,8 @@ validate name mapFn (Parser parser) =
 
 
 succeed : value -> Parser error value
-succeed value =
-    Parser (\errors form -> ( Just value, Dict.empty ))
+succeed value_ =
+    Parser (\errors form -> ( Just value_, Dict.empty ))
 
 
 fail : error -> Parser error value
@@ -176,7 +390,7 @@ runOnList : List ( String, String ) -> Parser error decoded -> ( Maybe decoded, 
 runOnList rawFormData (Parser parser) =
     (rawFormData
         |> List.map
-            (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+            (Tuple.mapSecond (\value_ -> { value = value_, status = Form.NotVisited }))
         |> Dict.fromList
     )
         |> parser Dict.empty
@@ -188,4 +402,13 @@ addError name error allErrors =
         |> Dict.update name
             (\errors ->
                 Just (error :: (errors |> Maybe.withDefault []))
+            )
+
+
+addErrors : String -> List error -> Dict String (List error) -> Dict String (List error)
+addErrors name newErrors allErrors =
+    allErrors
+        |> Dict.update name
+            (\errors ->
+                Just (newErrors ++ (errors |> Maybe.withDefault []))
             )

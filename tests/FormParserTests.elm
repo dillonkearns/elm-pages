@@ -3,7 +3,7 @@ module FormParserTests exposing (all)
 import Dict exposing (Dict)
 import Expect
 import Pages.Form
-import Pages.FormParser as FormParser
+import Pages.FormParser as FormParser exposing (field)
 import Test exposing (Test, describe, test)
 
 
@@ -26,88 +26,53 @@ type Action
 all : Test
 all =
     describe "Form Parser"
-        [ test "error for missing required fields" <|
+        [ test "new design idea with errors" <|
             \() ->
-                FormParser.run
-                    (Dict.fromList
-                        [ ( "first"
-                          , { value = ""
-                            , status = Pages.Form.NotVisited
-                            }
-                          )
-                        , ( "last"
-                          , { value = ""
-                            , status = Pages.Form.NotVisited
-                            }
-                          )
+                FormParser.runNew
+                    (fields
+                        [ ( "password", "mypassword" )
+                        , ( "password-confirmation", "my-password" )
                         ]
                     )
-                    formDecoder
+                    (FormParser.andThenNew
+                        (\password passwordConfirmation ->
+                            if password.value == passwordConfirmation.value then
+                                passwordConfirmation |> FormParser.withError "Must match password"
+
+                            else
+                                FormParser.ok
+                        )
+                        |> FormParser.field "password" (FormParser.string "Password is required")
+                        |> FormParser.field "password-confirmation" (FormParser.string "Password confirmation is required")
+                    )
                     |> Expect.equal
-                        ( Just ( "", "" )
+                        ( Nothing
                         , Dict.fromList
-                            [ ( "first", [ "First is required" ] )
-                            , ( "last", [ "Last is required" ] )
+                            [ ( "password-confirmation", [ "Must match password" ] )
                             ]
                         )
-        , test "parse into custom type" <|
+        , test "new design idea no errors" <|
             \() ->
-                FormParser.run
-                    (Dict.fromList
-                        [ ( "kind"
-                          , { value = "signout"
-                            , status = Pages.Form.NotVisited
-                            }
-                          )
-                        ]
-                    )
-                    (FormParser.required "kind" "Kind is required"
-                        |> FormParser.andThen
-                            (\kind ->
-                                if kind == "signout" then
-                                    FormParser.succeed Signout
-
-                                else if kind == "add" then
-                                    FormParser.map2 SetQuantity
-                                        (FormParser.required "itemId" "First is required" |> FormParser.map Uuid)
-                                        (FormParser.int "setQuantity" "Expected setQuantity to be an integer")
-
-                                else
-                                    FormParser.fail "Error"
-                            )
-                    )
-                    |> Expect.equal
-                        ( Just Signout
-                        , Dict.empty
-                        )
-        , test "parse into custom type with int" <|
-            \() ->
-                FormParser.run
+                FormParser.runNew
                     (fields
-                        [ ( "kind", "add" )
-                        , ( "itemId", "123" )
-                        , ( "setQuantity", "1" )
+                        [ ( "password", "mypassword" )
+                        , ( "password-confirmation", "my-password" )
                         ]
                     )
-                    (FormParser.required "kind" "Kind is required"
-                        |> FormParser.andThen
-                            (\kind ->
-                                if kind == "signout" then
-                                    FormParser.succeed Signout
+                    (FormParser.andThenNew
+                        (\password passwordConfirmation ->
+                            if password.value == passwordConfirmation.value then
+                                passwordConfirmation |> FormParser.withError "Must match password"
 
-                                else if kind == "add" then
-                                    FormParser.map2 SetQuantity
-                                        (FormParser.required "itemId" "First is required" |> FormParser.map Uuid)
-                                        -- TODO what's the best way to combine together int and required? Should it be `requiredInt`, or `Form.required |> Form.int`?
-                                        (FormParser.int "setQuantity" "Expected setQuantity to be an integer")
-
-                                else
-                                    FormParser.fail "Error"
-                            )
+                            else
+                                FormParser.ok
+                        )
+                        |> FormParser.field "password" (FormParser.string "Password is required")
+                        |> FormParser.field "password-confirmation" (FormParser.string "Password confirmation is required")
                     )
                     |> Expect.equal
-                        ( Just (SetQuantity (Uuid "123") 1)
-                        , Dict.empty
+                        ( Just ()
+                        , Dict.fromList []
                         )
         ]
 
