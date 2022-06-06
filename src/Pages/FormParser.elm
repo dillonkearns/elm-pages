@@ -61,19 +61,6 @@ field :
     -> CombinedParser error (ParsedField error parsed -> a)
     -> CombinedParser error a
 field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
-    --let
-    --    --myFn :
-    --    --    ( Maybe ((ParsedField error parsed -> a) -> b)
-    --    --    , Dict String (List error)
-    --    --    )
-    --    --    -> ( Maybe b, Dict String (List error) )
-    --    --myFn ( fieldThings, errorsSoFar ) =
-    --    --    --Debug.todo ""
-    --    --    ( Nothing, errorsSoFar )
-    --    fieldParser : Form.FormState -> ( Maybe parsed, List error )
-    --    fieldParser formState =
-    --        Debug.todo ""
-    --in
     CombinedParser
         (( name, FieldDefinition )
             :: definitions
@@ -84,12 +71,16 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
                 ( maybeParsed, errors ) =
                     fieldParser formState
 
-                parsedField : ParsedField error parsed
+                parsedField : Maybe (ParsedField error parsed)
                 parsedField =
-                    { name = name
-                    , value = maybeParsed
-                    , errors = errors
-                    }
+                    maybeParsed
+                        |> Maybe.map
+                            (\parsed ->
+                                { name = name
+                                , value = parsed
+                                , errors = errors
+                                }
+                            )
 
                 myFn :
                     ( Maybe (ParsedField error parsed -> a)
@@ -97,12 +88,10 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
                     )
                     -> ( Maybe a, Dict String (List error) )
                 myFn ( fieldThings, errorsSoFar ) =
-                    ( --Nothing
-                      --Maybe.map2 (|>) fieldThings (Just parsedField)
-                      case fieldThings of
+                    ( case fieldThings of
                         Just fieldPipelineFn ->
-                            fieldPipelineFn parsedField
-                                |> Just
+                            parsedField
+                                |> Maybe.map fieldPipelineFn
 
                         Nothing ->
                             Nothing
@@ -211,7 +200,7 @@ type FullFieldThing error parsed
 
 type alias ParsedField error parsed =
     { name : String
-    , value : Maybe parsed
+    , value : parsed
     , errors : List error
     }
 
