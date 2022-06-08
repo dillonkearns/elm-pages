@@ -70,11 +70,13 @@ requiredString error =
         )
 
 
-andThenNew : a -> CombinedParser String a
-andThenNew fn =
+andThenNew : combined -> viewFn -> CombinedParser String combined viewFn
+andThenNew fn viewFn =
     CombinedParser []
         (\formState ->
-            ( Just fn, Dict.empty )
+            { result = ( Just fn, Dict.empty )
+            , view = viewFn
+            }
         )
 
 
@@ -94,8 +96,8 @@ andThenNew fn =
 field :
     String
     -> FieldThing error parsed
-    -> CombinedParser error (ParsedField error parsed -> a)
-    -> CombinedParser error a
+    -> CombinedParser error (ParsedField error parsed -> combined) (RawField -> combinedView)
+    -> CombinedParser error combined combinedView
 field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
     CombinedParser
         (( name, FieldDefinition )
@@ -118,22 +120,47 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
                                 }
                             )
 
-                myFn :
-                    ( Maybe (ParsedField error parsed -> a)
-                    , Dict String (List error)
-                    )
-                    -> ( Maybe a, Dict String (List error) )
-                myFn ( fieldThings, errorsSoFar ) =
-                    ( case fieldThings of
-                        Just fieldPipelineFn ->
-                            parsedField
-                                |> Maybe.map fieldPipelineFn
+                rawField : RawField
+                rawField =
+                    { name = name
+                    , value = formState |> Dict.get name |> Maybe.map .value
+                    }
 
-                        Nothing ->
-                            Nothing
-                    , errorsSoFar
-                        |> addErrors name errors
-                    )
+                --{ result :
+                --    ( Maybe parsed
+                --    , Dict String (List error)
+                --    )
+                --, view : view
+                --}
+                myFn :
+                    { result :
+                        ( Maybe (ParsedField error parsed -> combined)
+                        , Dict String (List error)
+                        )
+                    , view : RawField -> combinedView
+                    }
+                    ->
+                        { result : ( Maybe combined, Dict String (List error) )
+                        , view : combinedView
+                        }
+                myFn soFar =
+                    let
+                        ( fieldThings, errorsSoFar ) =
+                            soFar.result
+                    in
+                    { result =
+                        ( case fieldThings of
+                            Just fieldPipelineFn ->
+                                parsedField
+                                    |> Maybe.map fieldPipelineFn
+
+                            Nothing ->
+                                Nothing
+                        , errorsSoFar
+                            |> addErrors name errors
+                        )
+                    , view = soFar.view rawField
+                    }
             in
             formState
                 |> parseFn
@@ -188,14 +215,30 @@ input attrs fieldThing =
         []
 
 
-runNew : Form.FormState -> CombinedParser error parsed -> ( Maybe parsed, Dict String (List error) )
+runNew :
+    Form.FormState
+    -> CombinedParser error parsed view
+    ->
+        { result : ( Maybe parsed, Dict String (List error) )
+        , view : view
+        }
 runNew formState (CombinedParser fieldDefinitions parser) =
     --Debug.todo ""
     parser formState
 
 
-type CombinedParser error parsed
-    = CombinedParser (List ( String, FieldDefinition )) (Form.FormState -> ( Maybe parsed, Dict String (List error) ))
+type CombinedParser error parsed view
+    = CombinedParser
+        (List ( String, FieldDefinition ))
+        (Form.FormState
+         ->
+            { result :
+                ( Maybe parsed
+                , Dict String (List error)
+                )
+            , view : view
+            }
+        )
 
 
 
@@ -250,6 +293,12 @@ type alias ParsedField error parsed =
     { name : String
     , value : parsed
     , errors : List error
+    }
+
+
+type alias RawField =
+    { name : String
+    , value : Maybe String
     }
 
 

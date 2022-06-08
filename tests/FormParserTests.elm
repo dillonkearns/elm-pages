@@ -51,34 +51,34 @@ all =
           --                    [ ( "password-confirmation", [ "Must match password" ] )
           --                    ]
           --                )
-          test "non-dependent field error" <|
-            \() ->
-                FormParser.runNew
-                    (fields
-                        [ ( "password", "mypassword" )
-                        , ( "password-confirmation", "" )
-                        ]
-                    )
-                    (FormParser.andThenNew
-                        (\password passwordConfirmation ->
-                            if password.value == passwordConfirmation.value then
-                                --passwordConfirmation |> FormParser.withError "Must match password"
-                                Debug.todo ""
-
-                            else
-                                FormParser.ok { password = password }
-                        )
-                        |> FormParser.field "password" (FormParser.requiredString "Password is required")
-                        |> FormParser.field "password-confirmation" (FormParser.requiredString "Password confirmation is required")
-                    )
-                    |> Expect.equal
-                        ( Nothing
-                        , Dict.fromList
-                            [ ( "password", [] )
-                            , ( "password-confirmation", [ "Password confirmation is required" ] )
-                            ]
-                        )
-        , test "new design idea 3" <|
+          --test "non-dependent field error" <|
+          --  \() ->
+          --      FormParser.runNew
+          --          (fields
+          --              [ ( "password", "mypassword" )
+          --              , ( "password-confirmation", "" )
+          --              ]
+          --          )
+          --          (FormParser.andThenNew
+          --              (\password passwordConfirmation ->
+          --                  if password.value == passwordConfirmation.value then
+          --                      --passwordConfirmation |> FormParser.withError "Must match password"
+          --                      Debug.todo ""
+          --
+          --                  else
+          --                      FormParser.ok { password = password }
+          --              )
+          --              |> FormParser.field "password" (FormParser.requiredString "Password is required")
+          --              |> FormParser.field "password-confirmation" (FormParser.requiredString "Password confirmation is required")
+          --          )
+          --          |> Expect.equal
+          --              ( Nothing
+          --              , Dict.fromList
+          --                  [ ( "password", [] )
+          --                  , ( "password-confirmation", [ "Password confirmation is required" ] )
+          --                  ]
+          --              ),
+          test "new design idea 3" <|
             \() ->
                 FormParser.runNew
                     (fields
@@ -88,27 +88,41 @@ all =
                     )
                     (FormParser.andThenNew
                         (\password passwordConfirmation ->
-                            --{
-                            --dependentErrors =
                             if password.value /= passwordConfirmation.value then
                                 Debug.todo ""
                                 --passwordConfirmation |> FormParser.withError "Must match password"
 
                             else
-                                { password = password.value }
-                         --FormParser.ok
-                         --, view =
-                         --    Html.form []
-                         --        [ password |> FormParser.input []
-                         --        , passwordConfirmation |> FormParser.input []
-                         --        ]
+                                FormParser.ok { password = password.value }
+                        )
+                        (\password passwordConfirmation ->
+                            Div
+                         --Html.form []
+                         --    [ password |> FormParser.input []
+                         --    , passwordConfirmation |> FormParser.input []
+                         --    ]
                          --}
                         )
                         |> FormParser.field "password" (FormParser.string "Password is required")
                         |> FormParser.field "password-confirmation" (FormParser.string "Password confirmation is required")
                     )
-                    |> expectNoErrors { password = "mypassword" }
+                    |> Expect.equal
+                        { result =
+                            ( Just { password = "mypassword" }
+                            , Dict.fromList
+                                [ ( "password", [] )
+                                , ( "password-confirmation", [] )
+                                ]
+                            )
+                        , view = Div
+                        }
+
+        --|> expectNoErrors { password = "mypassword" }
         ]
+
+
+type MyView
+    = Div
 
 
 expectNoErrors : parsed -> ( Maybe parsed, Dict String (List error) ) -> Expect.Expectation
