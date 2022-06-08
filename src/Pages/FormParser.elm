@@ -1,6 +1,8 @@
 module Pages.FormParser exposing (..)
 
 import Dict exposing (Dict)
+import Html
+import Html.Attributes as Attr
 import Pages.Form as Form
 
 
@@ -30,8 +32,42 @@ init =
 
 string : error -> FieldThing error String
 string error =
-    --Debug.todo ""
-    FieldThing (\formState -> ( Just "TODO real value", [] ))
+    FieldThing
+        (\fieldName formState ->
+            let
+                rawValue : Maybe String
+                rawValue =
+                    formState
+                        |> Dict.get fieldName
+                        |> Maybe.map .value
+            in
+            ( rawValue
+            , []
+            )
+        )
+
+
+requiredString : error -> FieldThing error String
+requiredString error =
+    FieldThing
+        (\fieldName formState ->
+            let
+                rawValue : Maybe String
+                rawValue =
+                    formState
+                        |> Dict.get fieldName
+                        |> Maybe.map .value
+            in
+            if rawValue == Just "" || rawValue == Nothing then
+                ( Nothing
+                , [ error ]
+                )
+
+            else
+                ( rawValue
+                , []
+                )
+        )
 
 
 andThenNew : a -> CombinedParser String a
@@ -69,7 +105,7 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
             let
                 --something : ( Maybe parsed, List error )
                 ( maybeParsed, errors ) =
-                    fieldParser formState
+                    fieldParser name formState
 
                 parsedField : Maybe (ParsedField error parsed)
                 parsedField =
@@ -140,6 +176,18 @@ type CompleteParser error parsed
     = CompleteParser
 
 
+input attrs fieldThing =
+    Html.input
+        (attrs
+            ++ [ Attr.value "TODO"
+
+               -- TODO provide a way to get rawValue
+               --fieldThing.rawValue
+               ]
+        )
+        []
+
+
 runNew : Form.FormState -> CombinedParser error parsed -> ( Maybe parsed, Dict String (List error) )
 runNew formState (CombinedParser fieldDefinitions parser) =
     --Debug.todo ""
@@ -159,7 +207,7 @@ type CombinedParser error parsed
 
 
 type FieldThing error parsed
-    = FieldThing (Form.FormState -> ( Maybe parsed, List error ))
+    = FieldThing (String -> Form.FormState -> ( Maybe parsed, List error ))
 
 
 type FieldDefinition
@@ -217,8 +265,8 @@ value =
 --    FullFieldThing { name = "TODO" } (\_ -> okValue)
 
 
-ok =
-    ()
+ok result =
+    result
 
 
 withError : error -> ParsedField error parsed -> ()
