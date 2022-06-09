@@ -130,7 +130,10 @@ type alias Action =
     }
 
 
-newDecoder : FormParser.CombinedParser String { username : String, name : String } (Html (Pages.Msg.Msg msg))
+
+--newDecoder : FormParser.CombinedParser String { username : String, name : String } (Html (Pages.Msg.Msg msg))
+
+
 newDecoder =
     FormParser.andThenNew
         (\username name ->
@@ -139,16 +142,29 @@ newDecoder =
                 , name = name.value
                 }
         )
-        (\username name ->
+        (\fieldErrors username name ->
             Html.form
-                (Pages.Form.listeners "test" ++ [ Attr.method "POST", Pages.Msg.onSubmit ])
-                [ Html.label []
-                    [ Html.text <| "Username (" ++ Debug.toString username.status ++ ")"
-                    , username |> FormParser.input []
+                (Pages.Form.listeners "test"
+                    ++ [ Attr.method "POST"
+                       , Pages.Msg.onSubmit
+                       , Attr.style "display" "flex"
+                       , Attr.style "flex-direction" "column"
+                       , Attr.style "gap" "20px"
+                       ]
+                )
+                [ Html.div
+                    []
+                    [ Html.label
+                        []
+                        [ Html.text <| "Username (" ++ Debug.toString username.status ++ ") "
+                        , username |> FormParser.input []
+                        ]
                     ]
-                , Html.label []
-                    [ Html.text <| "Name (" ++ Debug.toString name.status ++ ")"
-                    , name |> FormParser.input []
+                , Html.div []
+                    [ Html.label []
+                        [ Html.text <| "Name (" ++ Debug.toString name.status ++ ") "
+                        , name |> FormParser.input []
+                        ]
                     ]
                 ]
         )

@@ -95,7 +95,7 @@ all =
                             else
                                 FormParser.ok { password = password.value }
                         )
-                        (\password passwordConfirmation ->
+                        (\fieldErrors password passwordConfirmation ->
                             Div
                          --Html.form []
                          --    [ password |> FormParser.input []

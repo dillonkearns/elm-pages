@@ -70,7 +70,7 @@ requiredString error =
         )
 
 
-andThenNew : combined -> viewFn -> CombinedParser String combined viewFn
+andThenNew : combined -> (FieldErrors String -> viewFn) -> CombinedParser String combined (FieldErrors String -> viewFn)
 andThenNew fn viewFn =
     CombinedParser []
         (\formState ->
@@ -80,24 +80,11 @@ andThenNew fn viewFn =
         )
 
 
-
---CombinedParser
---    []
---    (\formState ->
---        --let
---        --    something =
---        --        fn
---        --in
---        -- TODO use fn
---        ( Nothing, Dict.empty )
---    )
-
-
 field :
     String
     -> FieldThing error parsed
-    -> CombinedParser error (ParsedField error parsed -> combined) (RawField -> combinedView)
-    -> CombinedParser error combined combinedView
+    -> CombinedParser error (ParsedField error parsed -> combined) (FieldErrors error -> (RawField -> combinedView))
+    -> CombinedParser error combined (FieldErrors error -> combinedView)
 field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
     CombinedParser
         (( name, FieldDefinition )
@@ -146,11 +133,11 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
                         ( Maybe (ParsedField error parsed -> combined)
                         , Dict String (List error)
                         )
-                    , view : RawField -> combinedView
+                    , view : FieldErrors error -> RawField -> combinedView
                     }
                     ->
                         { result : ( Maybe combined, Dict String (List error) )
-                        , view : combinedView
+                        , view : FieldErrors error -> combinedView
                         }
                 myFn soFar =
                     let
@@ -168,7 +155,7 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
                         , errorsSoFar
                             |> addErrors name errors
                         )
-                    , view = soFar.view rawField
+                    , view = \fieldErrors -> soFar.view fieldErrors rawField
                     }
             in
             formState
@@ -223,16 +210,29 @@ input attrs rawField =
         []
 
 
+type alias FieldErrors error =
+    Dict String (List error)
+
+
 runNew :
     Form.FormState
-    -> CombinedParser error parsed view
+    -> CombinedParser error parsed (FieldErrors error -> view)
     ->
-        { result : ( Maybe parsed, Dict String (List error) )
+        { result : ( Maybe parsed, FieldErrors error )
         , view : view
         }
 runNew formState (CombinedParser fieldDefinitions parser) =
-    --Debug.todo ""
-    parser formState
+    let
+        parsed :
+            { result : ( Maybe parsed, FieldErrors error )
+            , view : FieldErrors error -> view
+            }
+        parsed =
+            parser formState
+    in
+    { result = parsed.result
+    , view = parsed.view (parsed.result |> Tuple.second)
+    }
 
 
 type CombinedParser error parsed view
