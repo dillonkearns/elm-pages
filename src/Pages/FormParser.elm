@@ -122,9 +122,18 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
 
                 rawField : RawField
                 rawField =
-                    { name = name
-                    , value = formState |> Dict.get name |> Maybe.map .value
-                    }
+                    case formState |> Dict.get name of
+                        Just info ->
+                            { name = name
+                            , value = Just info.value
+                            , status = info.status
+                            }
+
+                        Nothing ->
+                            { name = name
+                            , value = Nothing
+                            , status = Form.NotVisited
+                            }
 
                 --{ result :
                 --    ( Maybe parsed
@@ -203,13 +212,12 @@ type CompleteParser error parsed
     = CompleteParser
 
 
-input attrs fieldThing =
+input attrs rawField =
     Html.input
         (attrs
-            ++ [ Attr.value "TODO"
-
-               -- TODO provide a way to get rawValue
-               --fieldThing.rawValue
+            -- TODO need to handle other input types like checkbox
+            ++ [ Attr.value (rawField.value |> Maybe.withDefault "") -- TODO is this an okay default?
+               , Attr.name rawField.name
                ]
         )
         []
@@ -299,6 +307,7 @@ type alias ParsedField error parsed =
 type alias RawField =
     { name : String
     , value : Maybe String
+    , status : Form.FieldStatus
     }
 
 
