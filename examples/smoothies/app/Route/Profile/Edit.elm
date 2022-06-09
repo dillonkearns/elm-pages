@@ -130,6 +130,32 @@ type alias Action =
     }
 
 
+newDecoder : FormParser.CombinedParser String { username : String, name : String } (Html (Pages.Msg.Msg msg))
+newDecoder =
+    FormParser.andThenNew
+        (\username name ->
+            FormParser.ok
+                { username = username.value
+                , name = name.value
+                }
+        )
+        (\username name ->
+            Html.form
+                (Pages.Form.listeners "test" ++ [ Attr.method "POST", Pages.Msg.onSubmit ])
+                [ Html.label []
+                    [ Html.text <| "Username (" ++ Debug.toString username.status ++ ")"
+                    , username |> FormParser.input []
+                    ]
+                , Html.label []
+                    [ Html.text <| "Name (" ++ Debug.toString name.status ++ ")"
+                    , name |> FormParser.input []
+                    ]
+                ]
+        )
+        |> FormParser.field "username" (FormParser.requiredString "Username is required")
+        |> FormParser.field "name" (FormParser.requiredString "Name is required")
+
+
 actionFormDecoder : FormParser.Parser String Action
 actionFormDecoder =
     FormParser.succeed Action
@@ -212,7 +238,9 @@ view maybeUrl sharedModel model app =
                 ]
                 [ Html.button [ Attr.name "kind", Attr.value "signout" ] [ Html.text "Sign out" ] ]
             ]
-        , Html.Lazy.lazy3 nameFormView app.data.user app.pageFormState app.transition
+
+        --, Html.Lazy.lazy3 nameFormView app.data.user app.pageFormState app.transition
+        , Html.Lazy.lazy newFormView app.pageFormState
         , Html.pre []
             [ app.action
                 |> Debug.toString
@@ -220,6 +248,17 @@ view maybeUrl sharedModel model app =
             ]
         ]
     }
+
+
+newFormView pageFormState =
+    let
+        formState =
+            pageFormState
+                |> Dict.get "test"
+                |> Maybe.withDefault Dict.empty
+    in
+    FormParser.runNew formState newDecoder
+        |> .view
 
 
 nameFormView : User -> Pages.Form.PageFormState -> Maybe Pages.Transition.Transition -> Html (Pages.Msg.Msg userMsg)
