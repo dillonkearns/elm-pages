@@ -143,6 +143,23 @@ newDecoder =
                 }
         )
         (\fieldErrors username name ->
+            let
+                errors field =
+                    fieldErrors
+                        |> Dict.get field.name
+                        |> Maybe.withDefault []
+
+                errorsView field =
+                    (if field.status == Pages.Form.Blurred then
+                        field
+                            |> errors
+                            |> List.map (\error -> Html.li [] [ Html.text error ])
+
+                     else
+                        []
+                    )
+                        |> Html.ul [ Attr.style "color" "red" ]
+            in
             Html.form
                 (Pages.Form.listeners "test"
                     ++ [ Attr.method "POST"
@@ -154,17 +171,12 @@ newDecoder =
                 )
                 [ Html.div
                     []
-                    [ Html.label
-                        []
-                        [ Html.text <| "Username (" ++ Debug.toString username.status ++ ") "
-                        , username |> FormParser.input []
-                        ]
+                    [ Html.label [] [ Html.text "Username ", username |> FormParser.input [] ]
+                    , errorsView username
                     ]
                 , Html.div []
-                    [ Html.label []
-                        [ Html.text <| "Name (" ++ Debug.toString name.status ++ ") "
-                        , name |> FormParser.input []
-                        ]
+                    [ Html.label [] [ Html.text "Name", name |> FormParser.input [] ]
+                    , errorsView name
                     ]
                 ]
         )
