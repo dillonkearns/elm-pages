@@ -129,13 +129,13 @@ updateForm fieldEvent formState =
                 in
                 (case fieldEvent.event of
                     InputEvent newValue ->
-                        { previousValue | value = newValue |> Debug.log fieldEvent.name }
+                        { previousValue | value = newValue }
 
                     FocusEvent ->
-                        previousValue
+                        { previousValue | status = previousValue.status |> increaseStatusTo Focused }
 
                     BlurEvent ->
-                        previousValue
+                        { previousValue | status = previousValue.status |> increaseStatusTo Blurred }
                 )
                     |> Just
             )
@@ -160,3 +160,28 @@ type FieldStatus
     | Focused
     | Changed
     | Blurred
+
+
+increaseStatusTo : FieldStatus -> FieldStatus -> FieldStatus
+increaseStatusTo increaseTo currentStatus =
+    if statusRank increaseTo > statusRank currentStatus then
+        increaseTo
+
+    else
+        currentStatus
+
+
+statusRank : FieldStatus -> Int
+statusRank status =
+    case status of
+        NotVisited ->
+            0
+
+        Focused ->
+            1
+
+        Changed ->
+            2
+
+        Blurred ->
+            3
