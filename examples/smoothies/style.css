@@ -15,10 +15,9 @@ nav {
 button {
 	display: flex;
 	align-items: center;
-	border:rgba(47, 47, 47, 0.304) solid 1px;
-	border-radius: 5px;
+	/* border:rgba(80, 80, 80, 0.704) solid 1px; */
+	/* border-radius: 5px; */
 	padding: 5px;
-	cursor: pointer;
 }
 
 kbd {
@@ -202,16 +201,6 @@ body {
 	padding: 0;
 }
 
-button {
-	vertical-align: baseline;
-	font-family: inherit;
-	font-weight: inherit;
-	color: inherit;
-	-webkit-appearance: none;
-	appearance: none;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-}
 
 body {
 	font: 14px 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -245,13 +234,13 @@ body {
 	            0 25px 50px 0 rgba(0, 0, 0, 0.1);
 }
 
-.todoapp input::-webkit-input-placeholder {
+/* .todoapp input::-webkit-input-placeholder {
 	font-style: italic;
 	font-weight: 300;
 	color: #e6e6e6;
-}
+} */
 
-.todoapp input::-moz-placeholder {
+/* .todoapp input::-moz-placeholder {
 	font-style: italic;
 	font-weight: 300;
 	color: #e6e6e6;
@@ -261,7 +250,7 @@ body {
 	font-style: italic;
 	font-weight: 300;
 	color: #e6e6e6;
-}
+} */
 
 .todoapp h1 {
 	position: absolute;
