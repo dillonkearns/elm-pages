@@ -10,13 +10,11 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Html.Lazy
 import MySession
 import Pages.Form
 import Pages.FormParser as FormParser
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Transition
 import Pages.Url
 import Path exposing (Path)
 import Request.Hasura
@@ -125,8 +123,6 @@ data routeParams =
 type alias Action =
     { username : String
     , name : String
-
-    --, last : String
     }
 
 
@@ -192,13 +188,6 @@ newDecoder =
         |> FormParser.field "name" (FormParser.requiredString "Name is required")
 
 
-actionFormDecoder : FormParser.Parser String Action
-actionFormDecoder =
-    FormParser.succeed Action
-        |> andMap (FormParser.required "username" "Username is required" |> FormParser.validate "username" validateUsername)
-        |> andMap (FormParser.required "name" "Name is required")
-
-
 validateUsername : String -> Result String String
 validateUsername rawUsername =
     if rawUsername |> String.contains "@" then
@@ -206,11 +195,6 @@ validateUsername rawUsername =
 
     else
         Ok rawUsername
-
-
-andMap : FormParser.Parser error a -> FormParser.Parser error (a -> b) -> FormParser.Parser error b
-andMap =
-    FormParser.map2 (|>)
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
@@ -231,6 +215,7 @@ action routeParams =
                             |> DataSource.map (Tuple.pair session)
 
                     Err errors ->
+                        -- TODO need to render errors here?
                         DataSource.succeed
                             (Response.render parsedAction)
                             |> DataSource.map (Tuple.pair session)
@@ -274,84 +259,6 @@ view maybeUrl sharedModel model app =
                 ]
                 [ Html.button [ Attr.name "kind", Attr.value "signout" ] [ Html.text "Sign out" ] ]
             ]
-
-        --, Html.Lazy.lazy3 nameFormView app.data.user app.pageFormState app.transition
-        --, Html.Lazy.lazy newFormView app
         , FormParser.render app newDecoder
-        , Html.pre []
-            [ app.action
-                |> Debug.toString
-                |> Html.text
-            ]
         ]
     }
-
-
-nameFormView : User -> Pages.Form.PageFormState -> Maybe Pages.Transition.Transition -> Html (Pages.Msg.Msg userMsg)
-nameFormView user pageFormState maybeTransition =
-    let
-        errors : Dict String (List String)
-        errors =
-            FormParser.run
-                (pageFormState |> Dict.get "test" |> Maybe.withDefault Dict.empty)
-                actionFormDecoder
-                |> Tuple.second
-    in
-    Html.form
-        (Pages.Form.listeners "test"
-            ++ [ Attr.method "POST"
-               , Pages.Msg.onSubmit
-               ]
-        )
-        [ Html.fieldset
-            [ Attr.disabled (maybeTransition /= Nothing)
-            ]
-            [ Html.label []
-                [ Html.text "Username: "
-                , Html.input
-                    [ Attr.name "username"
-                    , Attr.value
-                        (pageFormState
-                            |> Dict.get "test"
-                            |> Maybe.andThen (Dict.get "username")
-                            |> Maybe.map .value
-                            |> Maybe.withDefault ""
-                        )
-                    ]
-                    []
-                , Html.text (Debug.toString (errors |> Dict.get "username" |> Maybe.withDefault []))
-                ]
-            , Html.label []
-                [ Html.text "Name: "
-                , Html.input
-                    [ Attr.name "name"
-                    , Attr.value
-                        (pageFormState
-                            |> Dict.get "test"
-                            |> Maybe.andThen (Dict.get "name")
-                            |> Maybe.map .value
-                            |> Maybe.withDefault ""
-                        )
-                    ]
-                    []
-                , Html.text (Debug.toString (errors |> Dict.get "name" |> Maybe.withDefault []))
-                ]
-
-            --, Html.label []
-            --    [ Html.text "Last: "
-            --    , Html.input [ Attr.name "last" ] []
-            --    , Html.text (Debug.toString (errors |> Dict.get "last" |> Maybe.withDefault []))
-            --    ]
-            , Html.button
-                [ Attr.disabled (errors |> Dict.isEmpty |> not)
-                ]
-                [ Html.text <|
-                    case maybeTransition of
-                        Just _ ->
-                            "Updating..."
-
-                        Nothing ->
-                            "Update"
-                ]
-            ]
-        ]
