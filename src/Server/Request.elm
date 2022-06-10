@@ -14,7 +14,7 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
-    , expectForm, formData, formParser, formParserResult
+    , expectForm, formData, formParser, formParserResult, formParserResultNew
     )
 
 {-|
@@ -948,6 +948,48 @@ formParserResult formParser_ =
                                 |> Dict.fromList
                             )
                             formParser_
+                in
+                case ( maybeDecoded, errors |> Dict.toList |> List.NonEmpty.fromList ) of
+                    ( Just decoded, Nothing ) ->
+                        succeed (Ok decoded)
+
+                    ( _, maybeErrors ) ->
+                        Err
+                            { fields = rawFormData
+                            , errors =
+                                maybeErrors
+                                    |> Maybe.map List.NonEmpty.toList
+                                    |> Maybe.withDefault []
+                                    |> Dict.fromList
+                            }
+                            |> succeed
+            )
+
+
+{-| -}
+formParserResultNew :
+    Pages.FormParser.CombinedParser error combined (Pages.FormParser.Context error -> viewFn)
+    -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
+formParserResultNew formParser_ =
+    formData
+        |> andThen
+            (\rawFormData ->
+                let
+                    ( maybeDecoded, errors ) =
+                        Pages.FormParser.runNew
+                            (rawFormData
+                                |> List.map
+                                    (Tuple.mapSecond
+                                        (\value ->
+                                            { value = value
+                                            , status = Pages.Form.NotVisited
+                                            }
+                                        )
+                                    )
+                                |> Dict.fromList
+                            )
+                            formParser_
+                            |> .result
                 in
                 case ( maybeDecoded, errors |> Dict.toList |> List.NonEmpty.fromList ) of
                     ( Just decoded, Nothing ) ->

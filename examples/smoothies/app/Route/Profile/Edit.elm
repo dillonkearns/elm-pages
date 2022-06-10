@@ -142,10 +142,10 @@ newDecoder =
                 , name = name.value
                 }
         )
-        (\fieldErrors username name ->
+        (\info username name ->
             let
                 errors field =
-                    fieldErrors
+                    info.errors
                         |> Dict.get field.name
                         |> Maybe.withDefault []
 
@@ -175,8 +175,16 @@ newDecoder =
                     , errorsView username
                     ]
                 , Html.div []
-                    [ Html.label [] [ Html.text "Name", name |> FormParser.input [] ]
+                    [ Html.label [] [ Html.text "Name ", name |> FormParser.input [] ]
                     , errorsView name
+                    ]
+                , Html.button []
+                    [ Html.text <|
+                        if info.isTransitioning then
+                            "Updating..."
+
+                        else
+                            "Update"
                     ]
                 ]
         )
@@ -208,7 +216,7 @@ andMap =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
-        (Request.formParserResult actionFormDecoder)
+        (Request.formParserResultNew newDecoder)
         Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId ( parsedAction, requestTime ) session ->
@@ -268,7 +276,8 @@ view maybeUrl sharedModel model app =
             ]
 
         --, Html.Lazy.lazy3 nameFormView app.data.user app.pageFormState app.transition
-        , Html.Lazy.lazy newFormView app.pageFormState
+        --, Html.Lazy.lazy newFormView app
+        , FormParser.render app newDecoder
         , Html.pre []
             [ app.action
                 |> Debug.toString
@@ -276,17 +285,6 @@ view maybeUrl sharedModel model app =
             ]
         ]
     }
-
-
-newFormView pageFormState =
-    let
-        formState =
-            pageFormState
-                |> Dict.get "test"
-                |> Maybe.withDefault Dict.empty
-    in
-    FormParser.runNew formState newDecoder
-        |> .view
 
 
 nameFormView : User -> Pages.Form.PageFormState -> Maybe Pages.Transition.Transition -> Html (Pages.Msg.Msg userMsg)

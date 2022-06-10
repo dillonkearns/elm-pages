@@ -4,6 +4,7 @@ import Dict exposing (Dict)
 import Html
 import Html.Attributes as Attr
 import Pages.Form as Form
+import Pages.Transition
 
 
 type
@@ -70,7 +71,13 @@ requiredString error =
         )
 
 
-andThenNew : combined -> (FieldErrors String -> viewFn) -> CombinedParser String combined (FieldErrors String -> viewFn)
+type alias Context error =
+    { errors : FieldErrors error
+    , isTransitioning : Bool
+    }
+
+
+andThenNew : combined -> (Context String -> viewFn) -> CombinedParser String combined (Context String -> viewFn)
 andThenNew fn viewFn =
     CombinedParser []
         (\formState ->
@@ -83,8 +90,8 @@ andThenNew fn viewFn =
 field :
     String
     -> FieldThing error parsed
-    -> CombinedParser error (ParsedField error parsed -> combined) (FieldErrors error -> (RawField -> combinedView))
-    -> CombinedParser error combined (FieldErrors error -> combinedView)
+    -> CombinedParser error (ParsedField error parsed -> combined) (Context error -> (RawField -> combinedView))
+    -> CombinedParser error combined (Context error -> combinedView)
 field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
     CombinedParser
         (( name, FieldDefinition )
@@ -133,11 +140,11 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
                         ( Maybe (ParsedField error parsed -> combined)
                         , Dict String (List error)
                         )
-                    , view : FieldErrors error -> RawField -> combinedView
+                    , view : Context error -> RawField -> combinedView
                     }
                     ->
                         { result : ( Maybe combined, Dict String (List error) )
-                        , view : FieldErrors error -> combinedView
+                        , view : Context error -> combinedView
                         }
                 myFn soFar =
                     let
@@ -214,25 +221,91 @@ type alias FieldErrors error =
     Dict String (List error)
 
 
+type alias AppContext app =
+    { app
+        | --, sharedData : Shared.Data
+          --, routeParams : routeParams
+          --, path : Path
+          --, action : Maybe action
+          --, submit :
+          --    { fields : List ( String, String ), headers : List ( String, String ) }
+          --    -> Pages.Fetcher.Fetcher (Result Http.Error action)
+          transition : Maybe Pages.Transition.Transition
+        , fetchers : List Pages.Transition.FetcherState
+        , pageFormState : Form.PageFormState
+    }
+
+
 runNew :
     Form.FormState
-    -> CombinedParser error parsed (FieldErrors error -> view)
+    -> CombinedParser error parsed (Context error -> view)
     ->
         { result : ( Maybe parsed, FieldErrors error )
         , view : view
         }
 runNew formState (CombinedParser fieldDefinitions parser) =
+    -- TODO Get transition context from `app` so you can check if the current form is being submitted
+    -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
-        parsed :
-            { result : ( Maybe parsed, FieldErrors error )
-            , view : FieldErrors error -> view
-            }
+        --parsed :
+        --    { result : ( Maybe parsed, FieldErrors error )
+        --    , view : FieldErrors error -> view
+        --    }
         parsed =
             parser formState
+
+        context =
+            { errors =
+                parsed.result |> Tuple.second
+            , isTransitioning = False
+            }
     in
     { result = parsed.result
-    , view = parsed.view (parsed.result |> Tuple.second)
+    , view = parsed.view context
     }
+
+
+render :
+    AppContext app
+    -> CombinedParser error parsed (Context error -> view)
+    -> view
+render formState (CombinedParser fieldDefinitions parser) =
+    -- TODO Get transition context from `app` so you can check if the current form is being submitted
+    -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
+    let
+        formId : String
+        formId =
+            -- TODO remove hardcoding
+            "test"
+
+        parsed :
+            { result : ( Maybe parsed, FieldErrors error )
+            , view : Context error -> view
+            }
+        parsed =
+            parser
+                (formState.pageFormState
+                    |> Dict.get formId
+                    |> Maybe.withDefault Dict.empty
+                )
+
+        context =
+            { errors =
+                parsed.result |> Tuple.second
+            , isTransitioning =
+                case formState.transition of
+                    Just transition ->
+                        -- TODO need to track the form's ID and check that to see if it's *this*
+                        -- form that is submitting
+                        --transition.todo == formId
+                        True
+
+                    --True
+                    Nothing ->
+                        False
+            }
+    in
+    parsed.view context
 
 
 type CombinedParser error parsed view
