@@ -3,6 +3,7 @@ module Pages.FormParser exposing (..)
 import Dict exposing (Dict)
 import Html
 import Html.Attributes as Attr
+import Pages.Field as Field exposing (Field(..))
 import Pages.Form as Form
 import Pages.Transition
 
@@ -31,46 +32,6 @@ init =
     Debug.todo ""
 
 
-string : error -> FieldThing error String
-string error =
-    FieldThing
-        (\fieldName formState ->
-            let
-                rawValue : Maybe String
-                rawValue =
-                    formState
-                        |> Dict.get fieldName
-                        |> Maybe.map .value
-            in
-            ( rawValue
-            , []
-            )
-        )
-
-
-requiredString : error -> FieldThing error String
-requiredString error =
-    FieldThing
-        (\fieldName formState ->
-            let
-                rawValue : Maybe String
-                rawValue =
-                    formState
-                        |> Dict.get fieldName
-                        |> Maybe.map .value
-            in
-            if rawValue == Just "" || rawValue == Nothing then
-                ( Nothing
-                , [ error ]
-                )
-
-            else
-                ( rawValue
-                , []
-                )
-        )
-
-
 type alias Context error =
     { errors : FieldErrors error
     , isTransitioning : Bool
@@ -89,10 +50,10 @@ andThenNew fn viewFn =
 
 field :
     String
-    -> FieldThing error parsed
+    -> Field error parsed constraints
     -> CombinedParser error (ParsedField error parsed -> combined) (Context error -> (RawField -> combinedView))
     -> CombinedParser error combined (Context error -> combinedView)
-field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
+field name (Field fieldParser) (CombinedParser definitions parseFn) =
     CombinedParser
         (( name, FieldDefinition )
             :: definitions
@@ -101,7 +62,7 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
             let
                 --something : ( Maybe parsed, List error )
                 ( maybeParsed, errors ) =
-                    fieldParser name formState
+                    fieldParser.decode (Dict.get name formState |> Maybe.map .value)
 
                 parsedField : Maybe (ParsedField error parsed)
                 parsedField =
@@ -169,33 +130,6 @@ field name (FieldThing fieldParser) (CombinedParser definitions parseFn) =
                 |> parseFn
                 |> myFn
         )
-
-
-
---field :
---    String
---    -> FieldThing error parsed
---    -> CombinedParser error ((ParsedField error parsed -> a) -> b)
---    -> CombinedParser error b
---field name fieldThing (CombinedParser definitions parseFn) =
---    --Debug.todo ""
---    let
---        myFn :
---            ( Maybe ((ParsedField error parsed -> a) -> b)
---            , Dict String (List error)
---            )
---            -> ( Maybe b, Dict String (List error) )
---        myFn ( fieldThings, errorsSoFar ) =
---            --Debug.todo ""
---            ( Nothing, errorsSoFar )
---    in
---    CombinedParser definitions
---        (\formState ->
---            formState
---                |> parseFn
---                |> myFn
---        )
---(List ( String, FieldDefinition )) (Form.FormState -> ( Maybe parsed, Dict String (List error) ))
 
 
 type ParsingResult a
@@ -322,52 +256,8 @@ type CombinedParser error parsed view
         )
 
 
-
---String
---  -> (a -> v)
---  -> Codec a
---  -> CustomCodec ((a -> Value) -> b) v
---  -> CustomCodec b v
-
-
-type FieldThing error parsed
-    = FieldThing (String -> Form.FormState -> ( Maybe parsed, List error ))
-
-
 type FieldDefinition
     = FieldDefinition
-
-
-type FullFieldThing error parsed
-    = FullFieldThing { name : String } (Form.FormState -> parsed)
-
-
-
----> a1
----> a2
---field :
---    String
---    -> FieldThing error parsed
---    -> CombinedParser error ((FullFieldThing error parsed -> a) -> b)
---    -> CombinedParser error b
---field name fieldThing (CombinedParser definitions parseFn) =
---    --Debug.todo ""
---    let
---        myFn :
---            ( Maybe ((FullFieldThing error parsed -> a) -> b)
---            , Dict String (List error)
---            )
---            -> ( Maybe b, Dict String (List error) )
---        myFn ( fieldThings, errorsSoFar ) =
---            --Debug.todo ""
---            ( Nothing, errorsSoFar )
---    in
---    CombinedParser definitions
---        (\formState ->
---            formState
---                |> parseFn
---                |> myFn
---        )
 
 
 type alias ParsedField error parsed =
@@ -382,18 +272,6 @@ type alias RawField =
     , value : Maybe String
     , status : Form.FieldStatus
     }
-
-
-value : FullFieldThing error parsed -> parsed
-value =
-    Debug.todo ""
-
-
-
---ok : parsed -> FullFieldThing error parsed
---ok okValue =
---    --Debug.todo ""
---    FullFieldThing { name = "TODO" } (\_ -> okValue)
 
 
 ok result =

@@ -2,6 +2,7 @@ module FormParserTests exposing (all)
 
 import Dict exposing (Dict)
 import Expect
+import Pages.Field as Field
 import Pages.Form
 import Pages.FormParser as FormParser exposing (field)
 import Test exposing (Test, describe, test)
@@ -103,8 +104,8 @@ all =
                          --    ]
                          --}
                         )
-                        |> FormParser.field "password" (FormParser.string "Password is required")
-                        |> FormParser.field "password-confirmation" (FormParser.string "Password confirmation is required")
+                        |> FormParser.field "password" (Field.text |> Field.required "Password is required")
+                        |> FormParser.field "password-confirmation" (Field.text |> Field.required "Password confirmation is required")
                     )
                     |> Expect.equal
                         { result =

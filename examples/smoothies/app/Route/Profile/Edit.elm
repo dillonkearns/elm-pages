@@ -11,6 +11,7 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
+import Pages.Field as Field
 import Pages.Form
 import Pages.FormParser as FormParser
 import Pages.Msg
@@ -184,8 +185,8 @@ newDecoder =
                     ]
                 ]
         )
-        |> FormParser.field "username" (FormParser.requiredString "Username is required")
-        |> FormParser.field "name" (FormParser.requiredString "Name is required")
+        |> FormParser.field "username" (Field.text |> Field.required "Username is required")
+        |> FormParser.field "name" (Field.text |> Field.required "Name is required")
 
 
 validateUsername : String -> Result String String
