@@ -85,3 +85,29 @@ text =
                 )
         , properties = []
         }
+
+
+{-| -}
+withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error parsed constraints -> Field error mapped { constraints | wasMapped : Yes }
+withClientValidation mapFn (Field field) =
+    Field
+        { type_ = field.type_
+        , required = field.required
+        , serverValidation = field.serverValidation
+        , decode =
+            \value ->
+                value
+                    |> field.decode
+                    |> --Result.andThen
+                       (\( maybeValue, errors ) ->
+                            case maybeValue of
+                                Nothing ->
+                                    ( Nothing, errors )
+
+                                Just okValue ->
+                                    okValue
+                                        |> mapFn
+                                        |> Tuple.mapSecond ((++) errors)
+                       )
+        , properties = field.properties
+        }

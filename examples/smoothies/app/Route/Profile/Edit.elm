@@ -127,10 +127,11 @@ type alias Action =
     }
 
 
-
---newDecoder : FormParser.CombinedParser String { username : String, name : String } (Html (Pages.Msg.Msg msg))
-
-
+newDecoder :
+    FormParser.CombinedParser
+        String
+        { username : String, name : String }
+        (FormParser.Context String -> ( List (Html.Attribute msg), List (Html msg) ))
 newDecoder =
     FormParser.andThenNew
         (\username name ->
@@ -157,25 +158,20 @@ newDecoder =
                     )
                         |> Html.ul [ Attr.style "color" "red" ]
             in
-            Html.form
-                (Pages.Form.listeners "test"
-                    ++ [ Attr.method "POST"
-                       , Pages.Msg.onSubmit
-                       , Attr.style "display" "flex"
-                       , Attr.style "flex-direction" "column"
-                       , Attr.style "gap" "20px"
-                       ]
-                )
-                [ Html.div
+            ( [ Attr.style "display" "flex"
+              , Attr.style "flex-direction" "column"
+              , Attr.style "gap" "20px"
+              ]
+            , [ Html.div
                     []
                     [ Html.label [] [ Html.text "Username ", username |> FormParser.input [] ]
                     , errorsView username
                     ]
-                , Html.div []
+              , Html.div []
                     [ Html.label [] [ Html.text "Name ", name |> FormParser.input [] ]
                     , errorsView name
                     ]
-                , Html.button []
+              , Html.button []
                     [ Html.text <|
                         if info.isTransitioning then
                             "Updating..."
@@ -183,19 +179,27 @@ newDecoder =
                         else
                             "Update"
                     ]
-                ]
+              ]
+            )
         )
-        |> FormParser.field "username" (Field.text |> Field.required "Username is required")
-        |> FormParser.field "name" (Field.text |> Field.required "Name is required")
+        |> FormParser.field "username"
+            (Field.text
+                |> Field.required "Username is required"
+                |> Field.withClientValidation validateUsername
+            )
+        |> FormParser.field "name"
+            (Field.text
+                |> Field.required "Name is required"
+            )
 
 
-validateUsername : String -> Result String String
+validateUsername : String -> ( Maybe String, List String )
 validateUsername rawUsername =
     if rawUsername |> String.contains "@" then
-        Err "Username cannot include @"
+        ( Just rawUsername, [ "Cannot contain @" ] )
 
     else
-        Ok rawUsername
+        ( Just rawUsername, [] )
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
@@ -260,6 +264,6 @@ view maybeUrl sharedModel model app =
                 ]
                 [ Html.button [ Attr.name "kind", Attr.value "signout" ] [ Html.text "Sign out" ] ]
             ]
-        , FormParser.render app newDecoder
+        , FormParser.renderHtml app newDecoder
         ]
     }

@@ -1,10 +1,12 @@
 module Pages.FormParser exposing (..)
 
 import Dict exposing (Dict)
-import Html
+import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Lazy
 import Pages.Field as Field exposing (Field(..))
 import Pages.Form as Form
+import Pages.Msg
 import Pages.Transition
 
 
@@ -197,6 +199,79 @@ runNew formState (CombinedParser fieldDefinitions parser) =
     { result = parsed.result
     , view = parsed.view context
     }
+
+
+renderHtml :
+    AppContext app
+    ->
+        CombinedParser
+            error
+            parsed
+            (Context error
+             -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
+            )
+    -> Html (Pages.Msg.Msg msg)
+renderHtml formState_ combinedParser =
+    Html.Lazy.lazy2 renderHelper formState_ combinedParser
+
+
+renderHelper :
+    AppContext app
+    ->
+        CombinedParser
+            error
+            parsed
+            (Context error
+             -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
+            )
+    -> Html (Pages.Msg.Msg msg)
+renderHelper formState (CombinedParser fieldDefinitions parser) =
+    -- TODO Get transition context from `app` so you can check if the current form is being submitted
+    -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
+    let
+        formId : String
+        formId =
+            -- TODO remove hardcoding
+            "test"
+
+        parsed :
+            { result : ( Maybe parsed, Dict String (List error) )
+            , view : Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
+            }
+        parsed =
+            parser
+                (formState.pageFormState
+                    |> Dict.get formId
+                    |> Maybe.withDefault Dict.empty
+                )
+
+        context =
+            { errors =
+                parsed.result |> Tuple.second
+            , isTransitioning =
+                case formState.transition of
+                    Just transition ->
+                        -- TODO need to track the form's ID and check that to see if it's *this*
+                        -- form that is submitting
+                        --transition.todo == formId
+                        True
+
+                    Nothing ->
+                        False
+            }
+
+        ( formAttributes, children ) =
+            parsed.view context
+    in
+    Html.form
+        (Form.listeners formId
+            ++ [ -- TODO remove hardcoded method - make it part of the config for the form? Should the default be POST?
+                 Attr.method "POST"
+               , Pages.Msg.onSubmit
+               ]
+            ++ formAttributes
+        )
+        children
 
 
 render :
