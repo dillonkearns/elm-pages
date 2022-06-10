@@ -991,7 +991,7 @@ formParserResultNew formParser_ =
                             formParser_
                             |> .result
                 in
-                case ( maybeDecoded, errors |> Dict.toList |> List.NonEmpty.fromList ) of
+                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( key, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
                     ( Just decoded, Nothing ) ->
                         succeed (Ok decoded)
 
