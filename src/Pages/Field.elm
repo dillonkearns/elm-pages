@@ -88,6 +88,66 @@ text =
 
 
 {-| -}
+checkbox :
+    Field
+        error
+        Bool
+        { required : ()
+        }
+checkbox =
+    Field
+        { type_ = "checkbox"
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , decode =
+            \rawString ->
+                ( (rawString == Just "on")
+                    |> Just
+                , []
+                )
+        , properties = []
+        }
+
+
+{-| -}
+int :
+    { invalid : String -> error }
+    ->
+        Field
+            error
+            (Maybe Int)
+            { min : Int
+            , max : Int
+            , required : ()
+            , wasMapped : No
+            , initial : Int
+            }
+int toError =
+    Field
+        { type_ = "number"
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , decode =
+            \rawString ->
+                case rawString of
+                    Nothing ->
+                        ( Nothing, [] )
+
+                    Just "" ->
+                        ( Nothing, [] )
+
+                    Just string ->
+                        case string |> String.toInt of
+                            Just parsedInt ->
+                                ( Just (Just parsedInt), [] )
+
+                            Nothing ->
+                                ( Nothing, [ toError.invalid string ] )
+        , properties = []
+        }
+
+
+{-| -}
 withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error parsed constraints -> Field error mapped { constraints | wasMapped : Yes }
 withClientValidation mapFn (Field field) =
     Field
