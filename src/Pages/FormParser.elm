@@ -40,7 +40,7 @@ type alias Context error =
     }
 
 
-andThenNew : combined -> (Context String -> viewFn) -> CombinedParser String combined (Context String -> viewFn)
+andThenNew : combined -> (Context String -> viewFn) -> CombinedParser String combined data (Context String -> viewFn)
 andThenNew fn viewFn =
     CombinedParser []
         (\formState ->
@@ -48,14 +48,15 @@ andThenNew fn viewFn =
             , view = viewFn
             }
         )
+        (\_ -> [])
 
 
 field :
     String
-    -> Field error parsed constraints
-    -> CombinedParser error (ParsedField error parsed -> combined) (Context error -> (RawField -> combinedView))
-    -> CombinedParser error combined (Context error -> combinedView)
-field name (Field fieldParser) (CombinedParser definitions parseFn) =
+    -> Field error parsed data constraints
+    -> CombinedParser error (ParsedField error parsed -> combined) data (Context error -> (RawField -> combinedView))
+    -> CombinedParser error combined data (Context error -> combinedView)
+field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValues) =
     CombinedParser
         (( name, FieldDefinition )
             :: definitions
@@ -132,6 +133,15 @@ field name (Field fieldParser) (CombinedParser definitions parseFn) =
                 |> parseFn
                 |> myFn
         )
+        (\data ->
+            case fieldParser.initialValue of
+                Just toInitialValue ->
+                    ( name, toInitialValue data )
+                        :: toInitialValues data
+
+                Nothing ->
+                    toInitialValues data
+        )
 
 
 type ParsingResult a
@@ -157,7 +167,7 @@ type alias FieldErrors error =
     Dict String (List error)
 
 
-type alias AppContext app =
+type alias AppContext app data =
     { app
         | --, sharedData : Shared.Data
           --, routeParams : routeParams
@@ -169,17 +179,18 @@ type alias AppContext app =
           transition : Maybe Pages.Transition.Transition
         , fetchers : List Pages.Transition.FetcherState
         , pageFormState : Form.PageFormState
+        , data : data
     }
 
 
 runNew :
     Form.FormState
-    -> CombinedParser error parsed (Context error -> view)
+    -> CombinedParser error parsed data (Context error -> view)
     ->
         { result : ( Maybe parsed, FieldErrors error )
         , view : view
         }
-runNew formState (CombinedParser fieldDefinitions parser) =
+runNew formState (CombinedParser fieldDefinitions parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -202,11 +213,12 @@ runNew formState (CombinedParser fieldDefinitions parser) =
 
 
 renderHtml :
-    AppContext app
+    AppContext app data
     ->
         CombinedParser
             error
             parsed
+            data
             (Context error
              -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
             )
@@ -216,16 +228,17 @@ renderHtml formState_ combinedParser =
 
 
 renderHelper :
-    AppContext app
+    AppContext app data
     ->
         CombinedParser
             error
             parsed
+            data
             (Context error
              -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
             )
     -> Html (Pages.Msg.Msg msg)
-renderHelper formState (CombinedParser fieldDefinitions parser) =
+renderHelper formState (CombinedParser fieldDefinitions parser toInitialValues) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -234,16 +247,29 @@ renderHelper formState (CombinedParser fieldDefinitions parser) =
             -- TODO remove hardcoding
             "test"
 
+        initialValues : Dict String Form.FieldState
+        initialValues =
+            toInitialValues formState.data
+                |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                |> Dict.fromList
+
+        part2 : Dict String Form.FieldState
+        part2 =
+            formState.pageFormState
+                |> Dict.get formId
+                |> Maybe.withDefault Dict.empty
+
+        fullFormState : Dict String Form.FieldState
+        fullFormState =
+            initialValues
+                |> Dict.union part2
+
         parsed :
             { result : ( Maybe parsed, Dict String (List error) )
             , view : Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
             }
         parsed =
-            parser
-                (formState.pageFormState
-                    |> Dict.get formId
-                    |> Maybe.withDefault Dict.empty
-                )
+            parser fullFormState
 
         context =
             { errors =
@@ -275,10 +301,10 @@ renderHelper formState (CombinedParser fieldDefinitions parser) =
 
 
 render :
-    AppContext app
-    -> CombinedParser error parsed (Context error -> view)
+    AppContext app data
+    -> CombinedParser error parsed data (Context error -> view)
     -> view
-render formState (CombinedParser fieldDefinitions parser) =
+render formState (CombinedParser fieldDefinitions parser toInitialValues) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -317,7 +343,15 @@ render formState (CombinedParser fieldDefinitions parser) =
     parsed.view context
 
 
-type CombinedParser error parsed view
+type alias HtmlForm error parsed data msg =
+    CombinedParser
+        error
+        parsed
+        data
+        (Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
+
+
+type CombinedParser error parsed data view
     = CombinedParser
         (List ( String, FieldDefinition ))
         (Form.FormState
@@ -329,6 +363,7 @@ type CombinedParser error parsed view
             , view : view
             }
         )
+        (data -> List ( String, String ))
 
 
 type FieldDefinition

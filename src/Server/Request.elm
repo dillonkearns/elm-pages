@@ -968,7 +968,7 @@ formParserResult formParser_ =
 
 {-| -}
 formParserResultNew :
-    Pages.FormParser.CombinedParser error combined (Pages.FormParser.Context error -> viewFn)
+    Pages.FormParser.CombinedParser error combined data (Pages.FormParser.Context error -> viewFn)
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
 formParserResultNew formParser_ =
     formData

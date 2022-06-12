@@ -25,7 +25,8 @@ type Event
 
 
 type alias FieldEvent =
-    { formId : String
+    { value : String
+    , formId : String
     , name : String
     , event : Event
     }
@@ -33,7 +34,8 @@ type alias FieldEvent =
 
 fieldEventDecoder : Decoder FieldEvent
 fieldEventDecoder =
-    Decode.map3 FieldEvent
+    Decode.map4 FieldEvent
+        (Decode.at [ "target", "value" ] Decode.string)
         (Decode.at [ "currentTarget", "id" ] Decode.string)
         (Decode.at [ "target", "name" ] Decode.string)
         fieldDecoder
@@ -125,7 +127,7 @@ updateForm fieldEvent formState =
                     previousValue : FieldState
                     previousValue =
                         previousValue_
-                            |> Maybe.withDefault { value = "", status = NotVisited }
+                            |> Maybe.withDefault { value = fieldEvent.value, status = NotVisited }
                 in
                 (case fieldEvent.event of
                     InputEvent newValue ->

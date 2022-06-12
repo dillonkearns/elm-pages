@@ -1,20 +1,19 @@
 module Pages.Field exposing (..)
 
 import DataSource exposing (DataSource)
+import Form.Value
 import Json.Encode as Encode
 
 
-type Field error parsed constraints
-    = Field (FieldInfo error parsed)
+type Field error parsed data constraints
+    = Field (FieldInfo error parsed data)
 
 
-type alias FieldInfo error parsed =
-    { --, initialValue : Maybe String
-      type_ : String
+type alias FieldInfo error parsed data =
+    { initialValue : Maybe (data -> String)
+    , type_ : String
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List error)
-
-    --, decode : String -> Form.FormState -> ( Maybe parsed, List error )
     , decode : Maybe String -> ( Maybe parsed, List error )
     , properties : List ( String, Encode.Value )
     }
@@ -37,14 +36,16 @@ required :
         Field
             error
             (Maybe parsed)
+            data
             { constraints
                 | required : ()
                 , wasMapped : No
             }
-    -> Field error parsed { constraints | wasMapped : No }
+    -> Field error parsed data { constraints | wasMapped : No }
 required missingError (Field field) =
     Field
-        { type_ = field.type_
+        { initialValue = field.initialValue
+        , type_ = field.type_
         , required = True
         , serverValidation = field.serverValidation
         , decode =
@@ -64,6 +65,7 @@ text :
     Field
         error
         (Maybe String)
+        data
         { required : ()
         , plainText : ()
         , wasMapped : No
@@ -71,7 +73,8 @@ text :
         }
 text =
     Field
-        { type_ = "text"
+        { initialValue = Nothing
+        , type_ = "text"
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
@@ -92,11 +95,13 @@ checkbox :
     Field
         error
         Bool
+        data
         { required : ()
         }
 checkbox =
     Field
-        { type_ = "checkbox"
+        { initialValue = Nothing
+        , type_ = "checkbox"
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
@@ -116,6 +121,7 @@ int :
         Field
             error
             (Maybe Int)
+            data
             { min : Int
             , max : Int
             , required : ()
@@ -124,7 +130,8 @@ int :
             }
 int toError =
     Field
-        { type_ = "number"
+        { initialValue = Nothing
+        , type_ = "number"
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
@@ -148,10 +155,11 @@ int toError =
 
 
 {-| -}
-withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error parsed constraints -> Field error mapped { constraints | wasMapped : Yes }
+withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error parsed data constraints -> Field error mapped data { constraints | wasMapped : Yes }
 withClientValidation mapFn (Field field) =
     Field
-        { type_ = field.type_
+        { initialValue = field.initialValue
+        , type_ = field.type_
         , required = field.required
         , serverValidation = field.serverValidation
         , decode =
@@ -170,4 +178,14 @@ withClientValidation mapFn (Field field) =
                                         |> Tuple.mapSecond ((++) errors)
                        )
         , properties = field.properties
+        }
+
+
+{-| -}
+withInitialValue : (data -> Form.Value.Value valueType) -> Field error value data { constraints | initial : valueType } -> Field error value data constraints
+withInitialValue toInitialValue (Field field) =
+    Field
+        { field
+            | initialValue =
+                Just (toInitialValue >> Form.Value.toString)
         }

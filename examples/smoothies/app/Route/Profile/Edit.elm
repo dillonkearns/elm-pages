@@ -6,6 +6,7 @@ import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Value
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -62,18 +63,7 @@ init :
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}
-    , Effect.batch
-        [ Effect.SetField
-            { formId = "test"
-            , name = "username"
-            , value = static.data.user.username
-            }
-        , Effect.SetField
-            { formId = "test"
-            , name = "name"
-            , value = static.data.user.name
-            }
-        ]
+    , Effect.none
     )
 
 
@@ -127,12 +117,8 @@ type alias Action =
     }
 
 
-newDecoder :
-    FormParser.CombinedParser
-        String
-        { username : String, name : String }
-        (FormParser.Context String -> ( List (Html.Attribute msg), List (Html msg) ))
-newDecoder =
+formParser : FormParser.HtmlForm String { username : String, name : String } Data msg
+formParser =
     FormParser.andThenNew
         (\username name ->
             FormParser.ok
@@ -186,10 +172,12 @@ newDecoder =
             (Field.text
                 |> Field.required "Username is required"
                 |> Field.withClientValidation validateUsername
+                |> Field.withInitialValue (\{ user } -> Form.Value.string user.username)
             )
         |> FormParser.field "name"
             (Field.text
                 |> Field.required "Name is required"
+                |> Field.withInitialValue (\{ user } -> Form.Value.string user.name)
             )
 
 
@@ -205,7 +193,7 @@ validateUsername rawUsername =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
-        (Request.formParserResultNew newDecoder)
+        (Request.formParserResultNew formParser)
         Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId ( parsedAction, requestTime ) session ->
@@ -264,6 +252,6 @@ view maybeUrl sharedModel model app =
                 ]
                 [ Html.button [ Attr.name "kind", Attr.value "signout" ] [ Html.text "Sign out" ] ]
             ]
-        , FormParser.renderHtml app newDecoder
+        , FormParser.renderHtml app formParser
         ]
     }
