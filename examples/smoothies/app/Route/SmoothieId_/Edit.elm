@@ -128,7 +128,27 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.skip "No action."
+    Request.map2 Tuple.pair
+        (Request.formParserResultNew form)
+        Request.requestTime
+        |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
+            (\userId ( parsed, requestTime ) session ->
+                case parsed of
+                    Ok okParsed ->
+                        Smoothies.update (Uuid routeParams.smoothieId) okParsed
+                            |> Request.Hasura.mutationDataSource requestTime
+                            |> DataSource.map
+                                (\_ ->
+                                    ( session
+                                    , Route.redirectTo Route.Index
+                                    )
+                                )
+
+                    Err errors ->
+                        DataSource.succeed
+                            -- TODO need to render errors here
+                            ( session, Response.render {} )
+            )
 
 
 head : StaticPayload Data ActionData RouteParams -> List Head.Tag

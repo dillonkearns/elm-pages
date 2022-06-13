@@ -1,4 +1,4 @@
-module Data.Smoothies exposing (Smoothie, create, find, selection)
+module Data.Smoothies exposing (Smoothie, create, find, selection, update)
 
 import Api.InputObject
 import Api.Mutation
@@ -58,6 +58,35 @@ create item =
                         , unsplash_image_id = Present item.imageUrl
                     }
                 )
+        }
+        SelectionSet.empty
+        |> SelectionSet.nonNullOrFail
+
+
+update :
+    Uuid
+    -> { name : String, description : String, price : Int, imageUrl : String }
+    -> SelectionSet () RootMutation
+update id item =
+    Api.Mutation.update_products_by_pk
+        (\_ ->
+            { inc_ = Absent
+            , set_ =
+                Api.InputObject.buildProducts_set_input
+                    (\opts ->
+                        { opts
+                            | name = Present item.name
+                            , description = Present item.description
+                            , price = Present item.price
+                            , unsplash_image_id = Present item.imageUrl
+                        }
+                    )
+                    |> Present
+            }
+        )
+        { pk_columns =
+            Api.InputObject.buildProducts_pk_columns_input
+                { id = id }
         }
         SelectionSet.empty
         |> SelectionSet.nonNullOrFail
