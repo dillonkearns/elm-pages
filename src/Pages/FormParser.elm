@@ -152,6 +152,7 @@ type CompleteParser error parsed
     = CompleteParser
 
 
+input : List (Html.Attribute msg) -> RawField -> Html msg
 input attrs rawField =
     Html.input
         (attrs
