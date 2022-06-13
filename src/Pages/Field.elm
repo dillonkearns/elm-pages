@@ -50,12 +50,21 @@ required missingError (Field field) =
         , serverValidation = field.serverValidation
         , decode =
             \rawValue ->
-                case field.decode rawValue of
-                    ( Just decoded, errors ) ->
-                        ( decoded, errors )
+                let
+                    ( parsed, allErrors ) =
+                        field.decode rawValue
 
-                    ( Nothing, errors ) ->
-                        ( Nothing, missingError :: errors )
+                    isEmpty : Bool
+                    isEmpty =
+                        rawValue == Just "" || rawValue == Nothing
+                in
+                ( parsed |> Maybe.andThen identity
+                , if isEmpty then
+                    missingError :: allErrors
+
+                  else
+                    allErrors
+                )
         , properties = field.properties
         }
 
