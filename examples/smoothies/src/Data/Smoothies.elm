@@ -1,7 +1,8 @@
-module Data.Smoothies exposing (Smoothie, create, selection)
+module Data.Smoothies exposing (Smoothie, create, find, selection)
 
 import Api.InputObject
 import Api.Mutation
+import Api.Object
 import Api.Object.Products
 import Api.Query
 import Api.Scalar exposing (Uuid(..))
@@ -21,14 +22,25 @@ type alias Smoothie =
 
 selection : SelectionSet (List Smoothie) RootQuery
 selection =
-    Api.Query.products identity
-        (SelectionSet.map5 Smoothie
-            Api.Object.Products.name
-            Api.Object.Products.id
-            Api.Object.Products.description
-            Api.Object.Products.price
-            Api.Object.Products.unsplash_image_id
-        )
+    Api.Query.products identity singleSelection
+
+
+singleSelection : SelectionSet Smoothie Api.Object.Products
+singleSelection =
+    SelectionSet.map5 Smoothie
+        Api.Object.Products.name
+        Api.Object.Products.id
+        Api.Object.Products.description
+        Api.Object.Products.price
+        Api.Object.Products.unsplash_image_id
+
+
+find : Uuid -> SelectionSet (Maybe Smoothie) RootQuery
+find id =
+    Api.Query.products_by_pk
+        { id = id
+        }
+        singleSelection
 
 
 create :

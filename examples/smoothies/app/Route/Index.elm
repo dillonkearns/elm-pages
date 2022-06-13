@@ -263,6 +263,7 @@ productView cart item =
     Html.li [ Attr.class "item" ]
         [ Html.div []
             [ Html.h3 [] [ Html.text item.name ]
+            , Route.SmoothieId___Edit { smoothieId = uuidToString item.id } |> Route.link [] [ Html.text "Edit" ]
             , Html.p [] [ Html.text item.description ]
             , Html.p [] [ "$" ++ String.fromInt item.price |> Html.text ]
             ]
