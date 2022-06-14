@@ -980,20 +980,8 @@ formParserResultNew formParser_ =
             (\rawFormData ->
                 let
                     ( maybeDecoded, errors ) =
-                        Pages.FormParser.runNew
-                            { fields =
-                                rawFormData
-                                    |> List.map
-                                        (Tuple.mapSecond
-                                            (\value ->
-                                                { value = value
-                                                , status = Pages.Form.NotVisited
-                                                }
-                                            )
-                                        )
-                                    |> Dict.fromList
-                            , submitAttempted = False
-                            }
+                        Pages.FormParser.runServerSide
+                            rawFormData
                             formParser_
                             |> .result
                 in

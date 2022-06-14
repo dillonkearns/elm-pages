@@ -48,7 +48,7 @@ type alias Context error =
 andThenNew : combined -> (Context String -> viewFn) -> CombinedParser String combined data (Context String -> viewFn)
 andThenNew fn viewFn =
     CombinedParser []
-        (\formState ->
+        (\maybeData formState ->
             { result = ( Just fn, Dict.empty )
             , view = viewFn
             }
@@ -66,11 +66,10 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
         (( name, FieldDefinition )
             :: definitions
         )
-        (\formState ->
+        (\maybeData formState ->
             let
-                --something : ( Maybe parsed, List error )
                 ( maybeParsed, errors ) =
-                    fieldParser.decode (Dict.get name formState.fields |> Maybe.map .value)
+                    fieldParser.decode rawField.value
 
                 parsedField : Maybe (ParsedField error parsed)
                 parsedField =
@@ -94,16 +93,10 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
 
                         Nothing ->
                             { name = name
-                            , value = Nothing
+                            , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
                             , status = Form.NotVisited
                             }
 
-                --{ result :
-                --    ( Maybe parsed
-                --    , Dict String (List error)
-                --    )
-                --, view : view
-                --}
                 myFn :
                     { result :
                         ( Maybe (ParsedField error parsed -> combined)
@@ -135,7 +128,7 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
                     }
             in
             formState
-                |> parseFn
+                |> parseFn maybeData
                 |> myFn
         )
         (\data ->
@@ -190,28 +183,71 @@ type alias AppContext app data =
 
 
 runNew :
-    Form.FormState
+    AppContext app data
     -> CombinedParser error parsed data (Context error -> view)
     ->
         { result : ( Maybe parsed, FieldErrors error )
         , view : view
         }
-runNew formState (CombinedParser fieldDefinitions parser _) =
+runNew app (CombinedParser fieldDefinitions parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
-        --parsed :
-        --    { result : ( Maybe parsed, FieldErrors error )
-        --    , view : FieldErrors error -> view
-        --    }
+        parsed : { result : ( Maybe parsed, FieldErrors error ), view : Context error -> view }
         parsed =
-            parser formState
+            parser (Just app.data) thisFormState
+
+        thisFormState : Form.FormState
+        thisFormState =
+            app.pageFormState
+                |> Dict.get "test"
+                |> Maybe.withDefault init
 
         context =
             { errors =
                 parsed.result |> Tuple.second
             , isTransitioning = False
-            , submitAttempted = formState.submitAttempted
+            , submitAttempted = thisFormState.submitAttempted
+            }
+    in
+    { result = parsed.result
+    , view = parsed.view context
+    }
+
+
+runServerSide :
+    List ( String, String )
+    -> CombinedParser error parsed data (Context error -> view)
+    ->
+        { result : ( Maybe parsed, FieldErrors error )
+        , view : view
+        }
+runServerSide rawFormData (CombinedParser fieldDefinitions parser _) =
+    let
+        parsed : { result : ( Maybe parsed, FieldErrors error ), view : Context error -> view }
+        parsed =
+            parser Nothing thisFormState
+
+        thisFormState : Form.FormState
+        thisFormState =
+            { init
+                | fields =
+                    rawFormData
+                        |> List.map
+                            (Tuple.mapSecond
+                                (\value ->
+                                    { value = value
+                                    , status = Form.NotVisited
+                                    }
+                                )
+                            )
+                        |> Dict.fromList
+            }
+
+        context =
+            { errors = parsed.result |> Tuple.second
+            , isTransitioning = False
+            , submitAttempted = False
             }
     in
     { result = parsed.result
@@ -277,7 +313,7 @@ renderHelper formState (CombinedParser fieldDefinitions parser toInitialValues) 
             , view : Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
             }
         parsed =
-            parser thisFormState
+            parser (Just formState.data) thisFormState
 
         thisFormState : Form.FormState
         thisFormState =
@@ -318,7 +354,7 @@ renderHelper formState (CombinedParser fieldDefinitions parser toInitialValues) 
                                         |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
                                         |> Dict.fromList
                             }
-                                |> parser
+                                |> parser (Just formState.data)
                                 |> .result
                                 |> toResult
                         of
@@ -372,7 +408,7 @@ render formState (CombinedParser fieldDefinitions parser toInitialValues) =
             , view : Context error -> view
             }
         parsed =
-            parser thisFormState
+            parser (Just formState.data) thisFormState
 
         thisFormState : Form.FormState
         thisFormState =
@@ -411,7 +447,8 @@ type alias HtmlForm error parsed data msg =
 type CombinedParser error parsed data view
     = CombinedParser
         (List ( String, FieldDefinition ))
-        (Form.FormState
+        (Maybe data
+         -> Form.FormState
          ->
             { result :
                 ( Maybe parsed

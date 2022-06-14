@@ -209,8 +209,7 @@ view maybeUrl sharedModel model app =
         pendingCreation : Result (FormParser.FieldErrors String) NewItem
         pendingCreation =
             form
-                |> FormParser.runNew
-                    (app.pageFormState |> Dict.get "test" |> Maybe.withDefault Pages.Form.init)
+                |> FormParser.runNew app
                 |> .result
                 |> parseIgnoreErrors
     in
