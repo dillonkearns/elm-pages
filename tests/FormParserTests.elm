@@ -81,7 +81,7 @@ all =
           --              ),
           test "new design idea 3" <|
             \() ->
-                FormParser.runNew
+                FormParser.runServerSide
                     (fields
                         [ ( "password", "mypassword" )
                         , ( "password-confirmation", "mypassword" )
@@ -148,8 +148,6 @@ field name value =
     )
 
 
-fields : List ( String, String ) -> Dict String Pages.Form.FieldState
+fields : List ( String, String ) -> List ( String, String )
 fields list =
     list
-        |> List.map (\( name, value ) -> field name value)
-        |> Dict.fromList
