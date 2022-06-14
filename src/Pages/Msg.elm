@@ -1,6 +1,7 @@
 module Pages.Msg exposing
     ( Msg(..)
     , map, onSubmit, fetcherOnSubmit
+    , submitIfValid
     )
 
 {-|
@@ -21,6 +22,7 @@ import Json.Decode
 type Msg userMsg
     = UserMsg userMsg
     | Submit FormDecoder.FormData
+    | SubmitIfValid FormDecoder.FormData Bool
     | SubmitFetcher FormDecoder.FormData
     | FormFieldEvent Json.Decode.Value
 
@@ -30,6 +32,13 @@ onSubmit : Attribute (Msg userMsg)
 onSubmit =
     FormDecoder.formDataOnSubmit
         |> Html.Attributes.map Submit
+
+
+{-| -}
+submitIfValid : (List ( String, String ) -> Bool) -> Attribute (Msg userMsg)
+submitIfValid isValid =
+    FormDecoder.formDataOnSubmit
+        |> Html.Attributes.map (\formData -> SubmitIfValid formData (isValid formData.fields))
 
 
 {-| -}
@@ -48,6 +57,9 @@ map mapFn msg =
 
         Submit info ->
             Submit info
+
+        SubmitIfValid info isValid ->
+            SubmitIfValid info isValid
 
         SubmitFetcher info ->
             SubmitFetcher info

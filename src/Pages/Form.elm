@@ -80,7 +80,7 @@ update eventObject pageFormState =
                             previousValue : FormState
                             previousValue =
                                 previousValue_
-                                    |> Maybe.withDefault Dict.empty
+                                    |> Maybe.withDefault init
                         in
                         previousValue
                             |> updateForm fieldEvent
@@ -100,47 +100,74 @@ setField info pageFormState =
                     previousValue : FormState
                     previousValue =
                         previousValue_
-                            |> Maybe.withDefault Dict.empty
+                            |> Maybe.withDefault init
                 in
-                previousValue
-                    |> Dict.update info.name
-                        (\previousFieldValue_ ->
-                            let
-                                previousFieldValue : FieldState
-                                previousFieldValue =
-                                    previousFieldValue_
-                                        |> Maybe.withDefault { value = "", status = NotVisited }
-                            in
-                            { previousFieldValue | value = info.value }
-                                |> Just
-                        )
+                { previousValue
+                    | fields =
+                        previousValue.fields
+                            |> Dict.update info.name
+                                (\previousFieldValue_ ->
+                                    let
+                                        previousFieldValue : FieldState
+                                        previousFieldValue =
+                                            previousFieldValue_
+                                                |> Maybe.withDefault { value = "", status = NotVisited }
+                                    in
+                                    { previousFieldValue | value = info.value }
+                                        |> Just
+                                )
+                }
                     |> Just
             )
 
 
 updateForm : FieldEvent -> FormState -> FormState
 updateForm fieldEvent formState =
-    formState
-        |> Dict.update fieldEvent.name
-            (\previousValue_ ->
-                let
-                    previousValue : FieldState
-                    previousValue =
-                        previousValue_
-                            |> Maybe.withDefault { value = fieldEvent.value, status = NotVisited }
-                in
-                (case fieldEvent.event of
-                    InputEvent newValue ->
-                        { previousValue | value = newValue }
+    { formState
+        | fields =
+            formState.fields
+                |> Dict.update fieldEvent.name
+                    (\previousValue_ ->
+                        let
+                            previousValue : FieldState
+                            previousValue =
+                                previousValue_
+                                    |> Maybe.withDefault { value = fieldEvent.value, status = NotVisited }
+                        in
+                        (case fieldEvent.event of
+                            InputEvent newValue ->
+                                { previousValue | value = newValue }
 
-                    FocusEvent ->
-                        { previousValue | status = previousValue.status |> increaseStatusTo Focused }
+                            FocusEvent ->
+                                { previousValue | status = previousValue.status |> increaseStatusTo Focused }
 
-                    BlurEvent ->
-                        { previousValue | status = previousValue.status |> increaseStatusTo Blurred }
-                )
-                    |> Just
+                            BlurEvent ->
+                                { previousValue | status = previousValue.status |> increaseStatusTo Blurred }
+                        )
+                            |> Just
+                    )
+    }
+
+
+setSubmitAttempted : String -> PageFormState -> PageFormState
+setSubmitAttempted fieldId pageFormState =
+    pageFormState
+        |> Dict.update fieldId
+            (\maybeForm ->
+                case maybeForm of
+                    Just formState ->
+                        Just { formState | submitAttempted = True }
+
+                    Nothing ->
+                        Just { init | submitAttempted = True }
             )
+
+
+init : FormState
+init =
+    { fields = Dict.empty
+    , submitAttempted = False
+    }
 
 
 type alias PageFormState =
@@ -148,7 +175,9 @@ type alias PageFormState =
 
 
 type alias FormState =
-    Dict String FieldState
+    { fields : Dict String FieldState
+    , submitAttempted : Bool
+    }
 
 
 type alias FieldState =

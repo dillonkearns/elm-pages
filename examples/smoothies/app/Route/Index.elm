@@ -181,12 +181,13 @@ view maybeUrl sharedModel model app =
                 app.fetchers
                     |> List.filterMap
                         (\pending ->
-                            case FormParser.runOnList pending.payload.fields actionFormDecoder of
-                                ( Just (SetQuantity itemId addAmount), _ ) ->
-                                    Just ( uuidToString itemId, addAmount )
-
-                                _ ->
-                                    Nothing
+                            -- TODO use the latest FormParser API for this example
+                            --case FormParser.runOnList pending.payload.fields actionFormDecoder of
+                            --    ( Just (SetQuantity itemId addAmount), _ ) ->
+                            --        Just ( uuidToString itemId, addAmount )
+                            --
+                            --    _ ->
+                            Nothing
                         )
                     |> Dict.fromList
 

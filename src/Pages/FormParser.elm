@@ -1,6 +1,7 @@
 module Pages.FormParser exposing (..)
 
 import Dict exposing (Dict)
+import Dict.Extra
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
@@ -25,18 +26,22 @@ type Parser error decoded
 optional : String -> Parser error (Maybe String)
 optional name =
     (\errors form ->
-        ( Just (form |> Dict.get name |> Maybe.map .value), errors )
+        ( Just (form.fields |> Dict.get name |> Maybe.map .value), errors )
     )
         |> Parser
 
 
+init : Form.FormState
 init =
-    Debug.todo ""
+    { fields = Dict.empty
+    , submitAttempted = False
+    }
 
 
 type alias Context error =
     { errors : FieldErrors error
     , isTransitioning : Bool
+    , submitAttempted : Bool
     }
 
 
@@ -65,7 +70,7 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
             let
                 --something : ( Maybe parsed, List error )
                 ( maybeParsed, errors ) =
-                    fieldParser.decode (Dict.get name formState |> Maybe.map .value)
+                    fieldParser.decode (Dict.get name formState.fields |> Maybe.map .value)
 
                 parsedField : Maybe (ParsedField error parsed)
                 parsedField =
@@ -80,7 +85,7 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
 
                 rawField : RawField
                 rawField =
-                    case formState |> Dict.get name of
+                    case formState.fields |> Dict.get name of
                         Just info ->
                             { name = name
                             , value = Just info.value
@@ -206,6 +211,7 @@ runNew formState (CombinedParser fieldDefinitions parser _) =
             { errors =
                 parsed.result |> Tuple.second
             , isTransitioning = False
+            , submitAttempted = formState.submitAttempted
             }
     in
     { result = parsed.result
@@ -258,7 +264,8 @@ renderHelper formState (CombinedParser fieldDefinitions parser toInitialValues) 
         part2 =
             formState.pageFormState
                 |> Dict.get formId
-                |> Maybe.withDefault Dict.empty
+                |> Maybe.withDefault init
+                |> .fields
 
         fullFormState : Dict String Form.FieldState
         fullFormState =
@@ -270,7 +277,14 @@ renderHelper formState (CombinedParser fieldDefinitions parser toInitialValues) 
             , view : Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
             }
         parsed =
-            parser fullFormState
+            parser thisFormState
+
+        thisFormState : Form.FormState
+        thisFormState =
+            formState.pageFormState
+                |> Dict.get formId
+                |> Maybe.withDefault Form.init
+                |> (\state -> { state | fields = fullFormState })
 
         context =
             { errors =
@@ -285,6 +299,7 @@ renderHelper formState (CombinedParser fieldDefinitions parser toInitialValues) 
 
                     Nothing ->
                         False
+            , submitAttempted = thisFormState.submitAttempted
             }
 
         ( formAttributes, children ) =
@@ -294,11 +309,49 @@ renderHelper formState (CombinedParser fieldDefinitions parser toInitialValues) 
         (Form.listeners formId
             ++ [ -- TODO remove hardcoded method - make it part of the config for the form? Should the default be POST?
                  Attr.method "POST"
-               , Pages.Msg.onSubmit
+               , Pages.Msg.submitIfValid
+                    (\fields ->
+                        case
+                            { init
+                                | fields =
+                                    fields
+                                        |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                                        |> Dict.fromList
+                            }
+                                |> parser
+                                |> .result
+                                |> toResult
+                        of
+                            Ok _ ->
+                                True
+
+                            Err _ ->
+                                False
+                    )
                ]
             ++ formAttributes
         )
         children
+
+
+toResult : ( Maybe parsed, FieldErrors error ) -> Result (FieldErrors error) parsed
+toResult ( maybeParsed, fieldErrors ) =
+    let
+        isEmptyDict : Bool
+        isEmptyDict =
+            if Dict.isEmpty fieldErrors then
+                True
+
+            else
+                fieldErrors
+                    |> Dict.Extra.any (\_ errors -> List.isEmpty errors)
+    in
+    case ( maybeParsed, isEmptyDict ) of
+        ( Just parsed, True ) ->
+            Ok parsed
+
+        _ ->
+            Err fieldErrors
 
 
 render :
@@ -319,11 +372,13 @@ render formState (CombinedParser fieldDefinitions parser toInitialValues) =
             , view : Context error -> view
             }
         parsed =
-            parser
-                (formState.pageFormState
-                    |> Dict.get formId
-                    |> Maybe.withDefault Dict.empty
-                )
+            parser thisFormState
+
+        thisFormState : Form.FormState
+        thisFormState =
+            formState.pageFormState
+                |> Dict.get formId
+                |> Maybe.withDefault Form.init
 
         context =
             { errors =
@@ -339,6 +394,7 @@ render formState (CombinedParser fieldDefinitions parser toInitialValues) =
                     --True
                     Nothing ->
                         False
+            , submitAttempted = thisFormState.submitAttempted
             }
     in
     parsed.view context
@@ -398,7 +454,7 @@ withError _ _ =
 required : String -> error -> Parser error String
 required name error =
     (\errors form ->
-        case form |> Dict.get name |> Maybe.map .value of
+        case form.fields |> Dict.get name |> Maybe.map .value of
             Just "" ->
                 ( Just "", errors |> addError name error )
 
@@ -414,7 +470,7 @@ required name error =
 int : String -> error -> Parser error Int
 int name error =
     (\errors form ->
-        case form |> Dict.get name |> Maybe.map .value of
+        case form.fields |> Dict.get name |> Maybe.map .value of
             Just "" ->
                 ( Nothing, errors |> addError name error )
 
@@ -543,14 +599,15 @@ run formState (Parser parser) =
     parser Dict.empty formState
 
 
-runOnList : List ( String, String ) -> Parser error decoded -> ( Maybe decoded, Dict String (List error) )
-runOnList rawFormData (Parser parser) =
-    (rawFormData
-        |> List.map
-            (Tuple.mapSecond (\value_ -> { value = value_, status = Form.NotVisited }))
-        |> Dict.fromList
-    )
-        |> parser Dict.empty
+
+--runOnList : List ( String, String ) -> Parser error decoded -> ( Maybe decoded, Dict String (List error) )
+--runOnList rawFormData (Parser parser) =
+--    (rawFormData
+--        |> List.map
+--            (Tuple.mapSecond (\value_ -> { value = value_, status = Form.NotVisited }))
+--        |> Dict.fromList
+--    )
+--        |> parser Dict.empty
 
 
 addError : String -> error -> Dict String (List error) -> Dict String (List error)

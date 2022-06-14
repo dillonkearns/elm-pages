@@ -911,11 +911,13 @@ formParser formParser_ =
                     --something : ( Maybe decoded, Dict String (List String) )
                     ( maybeDecoded, errors ) =
                         Pages.FormParser.run
-                            (rawFormData
-                                |> List.map
-                                    (Tuple.mapSecond (\value -> { value = value, status = Pages.Form.NotVisited }))
-                                |> Dict.fromList
-                            )
+                            { fields =
+                                rawFormData
+                                    |> List.map
+                                        (Tuple.mapSecond (\value -> { value = value, status = Pages.Form.NotVisited }))
+                                    |> Dict.fromList
+                            , submitAttempted = False
+                            }
                             formParser_
                 in
                 case ( maybeDecoded, errors |> Dict.toList |> List.NonEmpty.fromList ) of
@@ -942,11 +944,13 @@ formParserResult formParser_ =
                     --something : ( Maybe decoded, Dict String (List String) )
                     ( maybeDecoded, errors ) =
                         Pages.FormParser.run
-                            (rawFormData
-                                |> List.map
-                                    (Tuple.mapSecond (\value -> { value = value, status = Pages.Form.NotVisited }))
-                                |> Dict.fromList
-                            )
+                            { fields =
+                                rawFormData
+                                    |> List.map
+                                        (Tuple.mapSecond (\value -> { value = value, status = Pages.Form.NotVisited }))
+                                    |> Dict.fromList
+                            , submitAttempted = False
+                            }
                             formParser_
                 in
                 case ( maybeDecoded, errors |> Dict.toList |> List.NonEmpty.fromList ) of
@@ -977,17 +981,19 @@ formParserResultNew formParser_ =
                 let
                     ( maybeDecoded, errors ) =
                         Pages.FormParser.runNew
-                            (rawFormData
-                                |> List.map
-                                    (Tuple.mapSecond
-                                        (\value ->
-                                            { value = value
-                                            , status = Pages.Form.NotVisited
-                                            }
+                            { fields =
+                                rawFormData
+                                    |> List.map
+                                        (Tuple.mapSecond
+                                            (\value ->
+                                                { value = value
+                                                , status = Pages.Form.NotVisited
+                                                }
+                                            )
                                         )
-                                    )
-                                |> Dict.fromList
-                            )
+                                    |> Dict.fromList
+                            , submitAttempted = False
+                            }
                             formParser_
                             |> .result
                 in

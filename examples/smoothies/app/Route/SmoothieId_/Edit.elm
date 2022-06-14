@@ -167,15 +167,15 @@ form =
                 , imageUrl = imageUrl.value
                 }
         )
-        (\info name description price imageUrl ->
+        (\formState name description price imageUrl ->
             let
                 errors field =
-                    info.errors
+                    formState.errors
                         |> Dict.get field.name
                         |> Maybe.withDefault []
 
                 errorsView field =
-                    (if field.status == Pages.Form.Blurred || True then
+                    (if formState.submitAttempted then
                         field
                             |> errors
                             |> List.map (\error -> Html.li [] [ Html.text error ])
@@ -202,7 +202,15 @@ form =
               , fieldView "Description" description
               , fieldView "Price" price
               , fieldView "Image" imageUrl
-              , Html.button [] [ Html.text "Update" ]
+              , Html.button []
+                    [ Html.text
+                        (if formState.isTransitioning then
+                            "Updating..."
+
+                         else
+                            "Update"
+                        )
+                    ]
               ]
             )
         )
@@ -250,7 +258,7 @@ view maybeUrl sharedModel model app =
         pendingCreation =
             form
                 |> FormParser.runNew
-                    (app.pageFormState |> Dict.get "test" |> Maybe.withDefault Dict.empty)
+                    (app.pageFormState |> Dict.get "test" |> Maybe.withDefault Pages.Form.init)
                 |> .result
                 |> parseIgnoreErrors
     in

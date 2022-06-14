@@ -147,7 +147,7 @@ form =
                         |> Maybe.withDefault []
 
                 errorsView field =
-                    (if field.status == Pages.Form.Blurred || True then
+                    (if field.status == Pages.Form.Blurred then
                         field
                             |> errors
                             |> List.map (\error -> Html.li [] [ Html.text error ])
@@ -179,7 +179,21 @@ form =
             )
         )
         |> FormParser.field "name" (Field.text |> Field.required "Required")
-        |> FormParser.field "description" (Field.text |> Field.required "Required")
+        |> FormParser.field "description"
+            (Field.text
+                |> Field.required "Required"
+                |> Field.withClientValidation
+                    (\description ->
+                        ( Just description
+                        , if (description |> String.length) < 5 then
+                            [ "Description must be at last 5 characters"
+                            ]
+
+                          else
+                            []
+                        )
+                    )
+            )
         |> FormParser.field "price" (Field.int { invalid = \_ -> "Invalid int" } |> Field.required "Required")
         |> FormParser.field "imageUrl" (Field.text |> Field.required "Required")
 
@@ -196,7 +210,7 @@ view maybeUrl sharedModel model app =
         pendingCreation =
             form
                 |> FormParser.runNew
-                    (app.pageFormState |> Dict.get "test" |> Maybe.withDefault Dict.empty)
+                    (app.pageFormState |> Dict.get "test" |> Maybe.withDefault Pages.Form.init)
                 |> .result
                 |> parseIgnoreErrors
     in

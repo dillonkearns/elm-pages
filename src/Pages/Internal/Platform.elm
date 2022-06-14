@@ -454,6 +454,30 @@ update config appMsg model =
                     , Submit fields
                     )
 
+                Pages.Msg.SubmitIfValid fields isValid ->
+                    if isValid then
+                        ( { model
+                            | transition =
+                                Just
+                                    ( -- TODO remove hardcoded number
+                                      -1
+                                    , Pages.Transition.Submitting fields
+                                    )
+                          }
+                        , Submit fields
+                        )
+
+                    else
+                        ( { model
+                            | pageFormState =
+                                model.pageFormState
+                                    |> Pages.Form.setSubmitAttempted
+                                        -- TODO remove hardcoded fieldId
+                                        "test"
+                          }
+                        , NoEffect
+                        )
+
                 Pages.Msg.SubmitFetcher fields ->
                     ( model
                     , SubmitFetcher fields
