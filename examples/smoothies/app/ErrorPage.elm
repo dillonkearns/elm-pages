@@ -4,6 +4,7 @@ import Effect exposing (Effect)
 import Head
 import Html exposing (Html)
 import Html.Events exposing (onClick)
+import Route
 import View exposing (View)
 
 
@@ -56,7 +57,10 @@ view error model =
         _ ->
             { body =
                 [ Html.div []
-                    [ Html.p [] [ Html.text "Looks like you've wandered off the trail. Try finding a new path." ]
+                    [ Html.p []
+                        [ Html.text "Let's find you a nice refreshing smoothie. Check out "
+                        , Route.Index |> Route.link [] [ Html.text "our menu" ]
+                        ]
                     , Html.div [] []
                     ]
                 ]
