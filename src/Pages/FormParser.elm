@@ -142,6 +142,94 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
         )
 
 
+hiddenField :
+    String
+    -> Field error parsed data constraints
+    -> CombinedParser error (ParsedField error parsed -> combined) data (Context error -> combinedView)
+    -> CombinedParser error combined data (Context error -> combinedView)
+hiddenField name (Field fieldParser) (CombinedParser definitions parseFn toInitialValues) =
+    CombinedParser
+        (( name, FieldDefinition )
+            :: definitions
+        )
+        (\maybeData formState ->
+            let
+                ( maybeParsed, errors ) =
+                    fieldParser.decode rawField.value
+
+                parsedField : Maybe (ParsedField error parsed)
+                parsedField =
+                    maybeParsed
+                        |> Maybe.map
+                            (\parsed ->
+                                { name = name
+                                , value = parsed
+                                , errors = errors
+                                }
+                            )
+
+                rawField : RawField
+                rawField =
+                    case formState.fields |> Dict.get name of
+                        Just info ->
+                            { name = name
+                            , value = Just info.value
+                            , status = info.status
+                            }
+
+                        Nothing ->
+                            { name = name
+                            , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
+                            , status = Form.NotVisited
+                            }
+
+                myFn :
+                    { result :
+                        ( Maybe (ParsedField error parsed -> combined)
+                        , Dict String (List error)
+                        )
+                    , view : Context error -> combinedView
+                    }
+                    ->
+                        { result : ( Maybe combined, Dict String (List error) )
+                        , view : Context error -> combinedView
+                        }
+                myFn soFar =
+                    let
+                        ( fieldThings, errorsSoFar ) =
+                            soFar.result
+                    in
+                    { result =
+                        ( case fieldThings of
+                            Just fieldPipelineFn ->
+                                parsedField
+                                    |> Maybe.map fieldPipelineFn
+
+                            Nothing ->
+                                Nothing
+                        , errorsSoFar
+                            |> addErrors name errors
+                        )
+
+                    -- TODO pass in `rawField` or similar to the hiddenFields (need the raw data to render it)
+                    , view = \fieldErrors -> soFar.view fieldErrors
+                    }
+            in
+            formState
+                |> parseFn maybeData
+                |> myFn
+        )
+        (\data ->
+            case fieldParser.initialValue of
+                Just toInitialValue ->
+                    ( name, toInitialValue data )
+                        :: toInitialValues data
+
+                Nothing ->
+                    toInitialValues data
+        )
+
+
 type ParsingResult a
     = ParsingResult
 
@@ -218,10 +306,7 @@ runNew app (CombinedParser fieldDefinitions parser _) =
 runServerSide :
     List ( String, String )
     -> CombinedParser error parsed data (Context error -> view)
-    ->
-        { result : ( Maybe parsed, FieldErrors error )
-        , view : view
-        }
+    -> ( Maybe parsed, FieldErrors error )
 runServerSide rawFormData (CombinedParser fieldDefinitions parser _) =
     let
         parsed : { result : ( Maybe parsed, FieldErrors error ), view : Context error -> view }
@@ -250,9 +335,36 @@ runServerSide rawFormData (CombinedParser fieldDefinitions parser _) =
             , submitAttempted = False
             }
     in
-    { result = parsed.result
-    , view = parsed.view context
-    }
+    parsed.result
+
+
+runOneOfServerSide :
+    List ( String, String )
+    -> List (CombinedParser error parsed data (Context error -> view))
+    -> ( Maybe parsed, FieldErrors error )
+runOneOfServerSide rawFormData parsers =
+    case parsers of
+        firstParser :: remainingParsers ->
+            let
+                thing =
+                    runServerSide rawFormData firstParser
+                        |> Tuple.mapSecond
+                            (\errors ->
+                                errors
+                                    |> Dict.toList
+                                    |> List.filter (Tuple.second >> List.isEmpty >> not)
+                            )
+            in
+            case thing of
+                ( Just parsed, [] ) ->
+                    ( Just parsed, Dict.empty )
+
+                _ ->
+                    runOneOfServerSide rawFormData remainingParsers
+
+        [] ->
+            -- TODO need to pass errors
+            ( Nothing, Dict.empty )
 
 
 renderHtml :
@@ -446,6 +558,8 @@ type alias HtmlForm error parsed data msg =
 
 type CombinedParser error parsed data view
     = CombinedParser
+        -- TODO track hidden fields here - for renderHtml and renderStyled, automatically render them
+        -- TODO for renderCustom, pass them as an argument that the user must render
         (List ( String, FieldDefinition ))
         (Maybe data
          -> Form.FormState

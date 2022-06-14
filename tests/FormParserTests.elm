@@ -108,17 +108,57 @@ all =
                         |> FormParser.field "password-confirmation" (Field.text |> Field.required "Password confirmation is required")
                     )
                     |> Expect.equal
-                        { result =
-                            ( Just { password = "mypassword" }
-                            , Dict.fromList
-                                [ ( "password", [] )
-                                , ( "password-confirmation", [] )
-                                ]
+                        ( Just { password = "mypassword" }
+                        , Dict.fromList
+                            [ ( "password", [] )
+                            , ( "password-confirmation", [] )
+                            ]
+                        )
+        , describe "oneOf" <|
+            let
+                oneOfParsers =
+                    [ FormParser.andThenNew
+                        (\_ -> FormParser.ok Signout)
+                        (\fieldErrors -> Div)
+                        |> FormParser.hiddenField "kind" (Field.exactValue "signout" "Expected signout")
+                    , FormParser.andThenNew
+                        (\_ uuid quantity ->
+                            SetQuantity (Uuid uuid.value) quantity.value
+                                |> FormParser.ok
+                        )
+                        (\fieldErrors quantity -> Div)
+                        |> FormParser.hiddenField "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
+                        |> FormParser.hiddenField "uuid" (Field.text |> Field.required "Required")
+                        |> FormParser.field "quantity" (Field.int { invalid = \_ -> "Expected int" } |> Field.required "Required")
+                    ]
+            in
+            [ test "first branch" <|
+                \() ->
+                    FormParser.runOneOfServerSide
+                        (fields
+                            [ ( "kind", "signout" )
+                            ]
+                        )
+                        oneOfParsers
+                        |> Expect.equal
+                            ( Just Signout
+                            , Dict.empty
                             )
-                        , view = Div
-                        }
-
-        --|> expectNoErrors { password = "mypassword" }
+            , test "second branch" <|
+                \() ->
+                    FormParser.runOneOfServerSide
+                        (fields
+                            [ ( "kind", "setQuantity" )
+                            , ( "uuid", "123" )
+                            , ( "quantity", "1" )
+                            ]
+                        )
+                        oneOfParsers
+                        |> Expect.equal
+                            ( Just (SetQuantity (Uuid "123") 1)
+                            , Dict.empty
+                            )
+            ]
         ]
 
 

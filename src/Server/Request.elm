@@ -983,7 +983,6 @@ formParserResultNew formParser_ =
                         Pages.FormParser.runServerSide
                             rawFormData
                             formParser_
-                            |> .result
                 in
                 case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( key, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
                     ( Just decoded, Nothing ) ->

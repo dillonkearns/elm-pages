@@ -100,6 +100,37 @@ text =
 
 
 {-| -}
+exactValue :
+    String
+    -> error
+    ->
+        Field
+            error
+            String
+            data
+            { required : ()
+            , plainText : ()
+            , wasMapped : No
+            , initial : String
+            }
+exactValue initialValue error =
+    Field
+        { initialValue = Just (\_ -> initialValue)
+        , type_ = "text"
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , decode =
+            \rawValue ->
+                if rawValue == Just initialValue then
+                    ( rawValue, [] )
+
+                else
+                    ( rawValue, [ error ] )
+        , properties = []
+        }
+
+
+{-| -}
 checkbox :
     Field
         error
