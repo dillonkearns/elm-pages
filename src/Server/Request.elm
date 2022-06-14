@@ -972,17 +972,17 @@ formParserResult formParser_ =
 
 {-| -}
 formParserResultNew :
-    Pages.FormParser.CombinedParser error combined data (Pages.FormParser.Context error -> viewFn)
+    List (Pages.FormParser.CombinedParser error combined data (Pages.FormParser.Context error -> viewFn))
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
-formParserResultNew formParser_ =
+formParserResultNew formParsers =
     formData
         |> andThen
             (\rawFormData ->
                 let
                     ( maybeDecoded, errors ) =
-                        Pages.FormParser.runServerSide
+                        Pages.FormParser.runOneOfServerSide
                             rawFormData
-                            formParser_
+                            formParsers
                 in
                 case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( key, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
                     ( Just decoded, Nothing ) ->

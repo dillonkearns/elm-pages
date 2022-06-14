@@ -8,14 +8,14 @@ import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Value
 import Graphql.SelectionSet as SelectionSet
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Html.Events
 import Icon
 import MySession
-import Pages.Form
+import Pages.Field as Field
 import Pages.FormParser as FormParser
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -108,14 +108,12 @@ data routeParams =
     Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "userId")
             (\userId requestTime session ->
-                (SelectionSet.map3 Data
+                SelectionSet.map3 Data
                     Smoothie.selection
                     (User.selection userId)
                     (Cart.selection userId)
                     |> Request.Hasura.dataSource requestTime
-                    |> DataSource.map
-                        Response.render
-                )
+                    |> DataSource.map Response.render
                     |> DataSource.map (Tuple.pair session)
             )
 
@@ -125,44 +123,75 @@ type Action
     | SetQuantity Uuid Int
 
 
-actionFormDecoder : FormParser.Parser String Action
-actionFormDecoder =
-    FormParser.required "kind" "Kind is required"
-        |> FormParser.andThen
-            (\kind ->
-                if kind == "signout" then
-                    FormParser.succeed Signout
-
-                else if kind == "add" then
-                    FormParser.map2 SetQuantity
-                        (FormParser.required "itemId" "First is required" |> FormParser.map Uuid)
-                        -- TODO what's the best way to combine together int and required? Should it be `requiredInt`, or `Form.required |> Form.int`?
-                        (FormParser.int "setQuantity" "Expected setQuantity to be an integer")
-
-                else
-                    FormParser.fail "Error"
+signoutForm : FormParser.HtmlForm String Action input Msg
+signoutForm =
+    FormParser.andThenNew
+        (FormParser.ok Signout)
+        (\formState ->
+            ( []
+            , [ Html.button [] [ Html.text "Sign out" ]
+              ]
             )
+        )
+        |> FormParser.hiddenKind ( "kind", "signout" ) "Expected signout"
+
+
+setQuantityForm : FormParser.HtmlForm String Action ( Int, Smoothie ) Msg
+setQuantityForm =
+    FormParser.andThenNew
+        (\uuid quantity ->
+            SetQuantity (Uuid uuid.value) quantity.value
+                |> FormParser.ok
+        )
+        (\formState ->
+            ( []
+            , [ Html.button [] [ Html.text "+" ]
+              ]
+            )
+        )
+        |> FormParser.hiddenKind ( "kind", "setQuantity" ) "Expected setQuantity"
+        |> FormParser.hiddenField "itemId"
+            (Field.text
+                |> Field.required "Required"
+                |> Field.withInitialValue (\( _, item ) -> Form.Value.string (uuidToString item.id))
+            )
+        |> FormParser.hiddenField "quantity"
+            (Field.int { invalid = \_ -> "Expected int" }
+                |> Field.required "Required"
+                |> Field.withInitialValue (\( quantity, _ ) -> Form.Value.int quantity)
+            )
+
+
+oneOfParsers : List (FormParser.HtmlForm String Action ( Int, Smoothie ) Msg)
+oneOfParsers =
+    [ signoutForm, setQuantityForm ]
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
-        (Request.formParser actionFormDecoder)
+        (Request.formParserResultNew oneOfParsers)
         Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId ( parsedAction, requestTime ) session ->
                 case parsedAction of
-                    Signout ->
+                    Ok Signout ->
                         DataSource.succeed (Route.redirectTo Route.Login)
                             |> DataSource.map (Tuple.pair Session.empty)
 
-                    SetQuantity itemId quantity ->
+                    Ok (SetQuantity itemId quantity) ->
                         (Cart.addItemToCart quantity userId itemId
                             |> Request.Hasura.mutationDataSource requestTime
                             |> DataSource.map
                                 (\_ -> Response.render {})
                         )
                             |> DataSource.map (Tuple.pair session)
+
+                    Err error ->
+                        DataSource.succeed
+                            ( session
+                            , Response.errorPage (ErrorPage.internalError "Unexpected form data format.")
+                            )
             )
 
 
@@ -181,13 +210,12 @@ view maybeUrl sharedModel model app =
                 app.fetchers
                     |> List.filterMap
                         (\pending ->
-                            -- TODO use the latest FormParser API for this example
-                            --case FormParser.runOnList pending.payload.fields actionFormDecoder of
-                            --    ( Just (SetQuantity itemId addAmount), _ ) ->
-                            --        Just ( uuidToString itemId, addAmount )
-                            --
-                            --    _ ->
-                            Nothing
+                            case FormParser.runOneOfServerSide pending.payload.fields oneOfParsers of
+                                ( Just (SetQuantity itemId addAmount), _ ) ->
+                                    Just ( uuidToString itemId, addAmount )
+
+                                _ ->
+                                    Nothing
                         )
                     |> Dict.fromList
 
@@ -221,16 +249,12 @@ view maybeUrl sharedModel model app =
             ]
         , Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
-            , Html.form
-                [ Attr.method "POST"
-                , Pages.Msg.onSubmit
-                ]
-                [ Html.button [ Attr.name "kind", Attr.value "signout" ] [ Html.text "Sign out" ] ]
+            , FormParser.renderHtml app () signoutForm
             ]
         , cartView totals
         , app.data.smoothies
             |> List.map
-                (productView
+                (productView app
                     cartWithPending
                 )
             |> Html.ul []
@@ -251,8 +275,8 @@ uuidToString (Uuid id) =
     id
 
 
-productView : Dict String Cart.CartEntry -> Smoothie -> Html (Pages.Msg.Msg Msg)
-productView cart item =
+productView : StaticPayload Data ActionData RouteParams -> Dict String Cart.CartEntry -> Smoothie -> Html (Pages.Msg.Msg Msg)
+productView app cart item =
     let
         quantityInCart : Int
         quantityInCart =
@@ -268,29 +292,11 @@ productView cart item =
             , Html.p [] [ Html.text item.description ]
             , Html.p [] [ "$" ++ String.fromInt item.price |> Html.text ]
             ]
-        , Html.form
-            [ Attr.method "POST"
-            , Pages.Msg.fetcherOnSubmit
-            ]
-            [ Html.input
-                [ Attr.type_ "hidden"
-                , Attr.name "kind"
-                , Attr.value "add"
-                ]
-                []
-            , Html.input
-                [ Attr.type_ "hidden"
-                , Attr.name "itemId"
-                , Attr.value (uuidToString item.id)
-                ]
-                []
-            , Html.button [] [ Html.text "-" ]
+        , Html.div
+            []
+            [ FormParser.renderHtml app ( quantityInCart - 1, item ) setQuantityForm
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
-            , Html.button
-                [ Attr.name "setQuantity"
-                , Attr.value (quantityInCart + 1 |> String.fromInt)
-                ]
-                [ Html.text "+" ]
+            , FormParser.renderHtml app ( quantityInCart + 1, item ) setQuantityForm
             ]
         , Html.div []
             [ Html.img

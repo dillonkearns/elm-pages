@@ -129,7 +129,7 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
-        (Request.formParserResultNew form)
+        (Request.formParserResultNew [ form ])
         Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId ( parsed, requestTime ) session ->
@@ -257,14 +257,14 @@ view maybeUrl sharedModel model app =
         pendingCreation : Result (FormParser.FieldErrors String) NewItem
         pendingCreation =
             form
-                |> FormParser.runNew app
+                |> FormParser.runNew app app.data
                 |> .result
                 |> parseIgnoreErrors
     in
     { title = "Update Item"
     , body =
         [ Html.h2 [] [ Html.text "Update item" ]
-        , FormParser.renderHtml app form
+        , FormParser.renderHtml app app.data form
         , pendingCreation
             |> Result.toMaybe
             |> Maybe.map pendingView

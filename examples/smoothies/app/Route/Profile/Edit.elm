@@ -193,7 +193,7 @@ validateUsername rawUsername =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
-        (Request.formParserResultNew formParser)
+        (Request.formParserResultNew [ formParser ])
         Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId ( parsedAction, requestTime ) session ->
@@ -245,13 +245,7 @@ view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
     , body =
         [ Html.p []
-            [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
-            , Html.form
-                [ Attr.method "POST"
-                , Pages.Msg.onSubmit
-                ]
-                [ Html.button [ Attr.name "kind", Attr.value "signout" ] [ Html.text "Sign out" ] ]
-            ]
-        , FormParser.renderHtml app formParser
+            [ Html.text <| "Welcome " ++ app.data.user.name ++ "!" ]
+        , FormParser.renderHtml app app.data formParser
         ]
     }
