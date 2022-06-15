@@ -4,22 +4,17 @@ import Api.Scalar exposing (Uuid(..))
 import Data.Smoothies as Smoothies exposing (Smoothie)
 import DataSource exposing (DataSource)
 import Dict
-import Dict.Extra
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form.Value
-import Graphql.SelectionSet as SelectionSet
 import Head
-import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
 import Pages.Field as Field
-import Pages.Form
 import Pages.FormParser as FormParser
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
 import Path exposing (Path)
 import Request.Hasura
 import Route
@@ -129,12 +124,12 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
-        (Request.formParserResultNew [ form ])
+        (Request.formParserResultNew [ form, deleteForm ])
         Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId ( parsed, requestTime ) session ->
                 case parsed of
-                    Ok okParsed ->
+                    Ok (Edit okParsed) ->
                         Smoothies.update (Uuid routeParams.smoothieId) okParsed
                             |> Request.Hasura.mutationDataSource requestTime
                             |> DataSource.map
@@ -144,7 +139,21 @@ action routeParams =
                                     )
                                 )
 
+                    Ok Delete ->
+                        Smoothies.delete (Uuid routeParams.smoothieId)
+                            |> Request.Hasura.mutationDataSource requestTime
+                            |> DataSource.map
+                                (\_ ->
+                                    ( session
+                                    , Route.redirectTo Route.Index
+                                    )
+                                )
+
                     Err errors ->
+                        let
+                            _ =
+                                Debug.log "@@@ERRORS" errors
+                        in
                         DataSource.succeed
                             -- TODO need to render errors here
                             ( session, Response.render {} )
@@ -156,16 +165,38 @@ head static =
     []
 
 
-form : FormParser.HtmlForm String { name : String, description : String, price : Int, imageUrl : String } Data Msg
+type Action
+    = Delete
+    | Edit { name : String, description : String, price : Int, imageUrl : String }
+
+
+deleteForm : FormParser.HtmlForm String Action data Msg
+deleteForm =
+    FormParser.andThenNew
+        (FormParser.ok Delete)
+        (\formState ->
+            ( []
+            , [ Html.button
+                    [ Attr.style "color" "red"
+                    ]
+                    [ Html.text "Delete" ]
+              ]
+            )
+        )
+        |> FormParser.hiddenKind ( "kind", "delete" ) "Required"
+
+
+form : FormParser.HtmlForm String Action Data Msg
 form =
     FormParser.andThenNew
         (\name description price imageUrl ->
-            FormParser.ok
-                { name = name.value
-                , description = description.value
-                , price = price.value
-                , imageUrl = imageUrl.value
-                }
+            { name = name.value
+            , description = description.value
+            , price = price.value
+            , imageUrl = imageUrl.value
+            }
+                |> Edit
+                |> FormParser.ok
         )
         (\formState name description price imageUrl ->
             let
@@ -234,6 +265,7 @@ form =
                 |> Field.required "Required"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.unsplashImage)
             )
+        |> FormParser.hiddenKind ( "kind", "edit" ) "Required"
 
 
 parseIgnoreErrors : ( Maybe parsed, FormParser.FieldErrors error ) -> Result (FormParser.FieldErrors error) parsed
@@ -254,21 +286,31 @@ view :
     -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model app =
     let
-        pendingCreation : Result (FormParser.FieldErrors String) NewItem
+        pendingCreation : Maybe NewItem
         pendingCreation =
             form
                 |> FormParser.runNew app app.data
                 |> .result
                 |> parseIgnoreErrors
+                |> Result.toMaybe
+                |> Maybe.andThen
+                    (\actionItem ->
+                        case actionItem of
+                            Edit newItem ->
+                                Just newItem
+
+                            _ ->
+                                Nothing
+                    )
     in
     { title = "Update Item"
     , body =
         [ Html.h2 [] [ Html.text "Update item" ]
         , FormParser.renderHtml app app.data form
         , pendingCreation
-            |> Result.toMaybe
             |> Maybe.map pendingView
             |> Maybe.withDefault (Html.div [] [])
+        , FormParser.renderHtml app app.data deleteForm
         ]
     }
 

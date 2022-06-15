@@ -1,4 +1,4 @@
-module Data.Smoothies exposing (Smoothie, create, find, selection, update)
+module Data.Smoothies exposing (Smoothie, create, delete, find, selection, update)
 
 import Api.InputObject
 import Api.Mutation
@@ -88,5 +88,15 @@ update id item =
             Api.InputObject.buildProducts_pk_columns_input
                 { id = id }
         }
+        SelectionSet.empty
+        |> SelectionSet.nonNullOrFail
+
+
+delete :
+    Uuid
+    -> SelectionSet () RootMutation
+delete id =
+    Api.Mutation.delete_products_by_pk
+        { id = id }
         SelectionSet.empty
         |> SelectionSet.nonNullOrFail
