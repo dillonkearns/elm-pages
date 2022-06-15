@@ -158,8 +158,56 @@ all =
                             ( Just (SetQuantity (Uuid "123") 1)
                             , Dict.empty
                             )
+
+            --, test "no match" <|
+            --    \() ->
+            --        FormParser.runOneOfServerSide
+            --            (fields [])
+            --            oneOfParsers
+            --            |> Expect.equal
+            --                ( Nothing
+            --                , Dict.fromList []
+            --                )
+            , describe "select" <|
+                let
+                    selectParser =
+                        [ FormParser.andThenNew
+                            (\media ->
+                                media.value
+                                    |> FormParser.ok
+                            )
+                            (\fieldErrors media -> Div)
+                            |> FormParser.field "media"
+                                (Field.select
+                                    [ ( "book", Book )
+                                    , ( "article", Article )
+                                    , ( "video", Video )
+                                    ]
+                                    (\_ -> "Invalid")
+                                )
+                        ]
+                in
+                [ test "example" <|
+                    \() ->
+                        FormParser.runOneOfServerSide
+                            (fields
+                                [ ( "media", "book" )
+                                ]
+                            )
+                            selectParser
+                            |> Expect.equal
+                                ( Just (Just Book)
+                                , Dict.empty
+                                )
+                ]
             ]
         ]
+
+
+type Media
+    = Book
+    | Article
+    | Video
 
 
 type MyView

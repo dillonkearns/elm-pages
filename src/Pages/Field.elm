@@ -1,15 +1,13 @@
-module Pages.Field exposing
-    ( FieldInfo, checkbox, exactValue, int, required, text, withClientValidation, withInitialValue
-    , Field(..), No(..), Yes(..)
-    )
+module Pages.Field exposing (Field(..), FieldInfo, No(..), Yes(..), checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select)
 
 {-|
 
-@docs Field, FieldInfo, No, Yes, checkbox, exactValue, int, required, text, withClientValidation, withInitialValue
+@docs Field, FieldInfo, No, Yes, checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select
 
 -}
 
 import DataSource exposing (DataSource)
+import Dict exposing (Dict)
 import Form.Value
 import Json.Encode as Encode
 
@@ -106,6 +104,73 @@ text =
                     Just rawValue
                 , []
                 )
+        , properties = []
+        }
+
+
+{-| -}
+select :
+    List ( String, option )
+    -> (String -> error)
+    ->
+        Field
+            error
+            (Maybe option)
+            data
+            { required : ()
+            , plainText : ()
+            , wasMapped : No
+            , initial : String
+            }
+select optionsMapping invalidError =
+    let
+        dict : Dict String option
+        dict =
+            Dict.fromList optionsMapping
+
+        toString a =
+            case optionsMapping |> List.filter (\( str, b ) -> b == a) |> List.head of
+                Just ( str, b ) ->
+                    str
+
+                Nothing ->
+                    "Missing enum"
+
+        fromString : String -> Maybe option
+        fromString string =
+            Dict.get string dict
+    in
+    Field
+        { initialValue = Nothing
+        , type_ = "select"
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , decode =
+            \rawValue ->
+                case rawValue of
+                    Nothing ->
+                        ( Nothing, [] )
+
+                    Just "" ->
+                        ( Nothing, [] )
+
+                    Just justValue ->
+                        let
+                            parsed : Maybe option
+                            parsed =
+                                fromString justValue
+                        in
+                        case parsed of
+                            Just okParsed ->
+                                ( Just (Just okParsed)
+                                , []
+                                )
+
+                            Nothing ->
+                                ( Just Nothing
+                                , [ invalidError justValue
+                                  ]
+                                )
         , properties = []
         }
 

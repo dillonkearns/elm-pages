@@ -189,7 +189,7 @@ deleteForm =
 form : FormParser.HtmlForm String Action Data Msg
 form =
     FormParser.andThenNew
-        (\name description price imageUrl ->
+        (\name description price imageUrl media ->
             { name = name.value
             , description = description.value
             , price = price.value
@@ -198,7 +198,7 @@ form =
                 |> Edit
                 |> FormParser.ok
         )
-        (\formState name description price imageUrl ->
+        (\formState name description price imageUrl media ->
             let
                 errors field =
                     formState.errors
@@ -206,7 +206,7 @@ form =
                         |> Maybe.withDefault []
 
                 errorsView field =
-                    (if formState.submitAttempted then
+                    (if formState.submitAttempted || True then
                         field
                             |> errors
                             |> List.map (\error -> Html.li [] [ Html.text error ])
@@ -233,6 +233,7 @@ form =
               , fieldView "Description" description
               , fieldView "Price" price
               , fieldView "Image" imageUrl
+              , fieldView "Media" media
               , Html.button []
                     [ Html.text
                         (if formState.isTransitioning then
@@ -265,7 +266,21 @@ form =
                 |> Field.required "Required"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.unsplashImage)
             )
+        |> FormParser.field "media"
+            (Field.select
+                [ ( "book", Book )
+                , ( "article", Article )
+                , ( "video", Video )
+                ]
+                (\option -> "Invalid option " ++ option)
+            )
         |> FormParser.hiddenKind ( "kind", "edit" ) "Required"
+
+
+type Media
+    = Book
+    | Article
+    | Video
 
 
 parseIgnoreErrors : ( Maybe parsed, FormParser.FieldErrors error ) -> Result (FormParser.FieldErrors error) parsed
