@@ -10,11 +10,12 @@ import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Form.Value
 import Json.Encode as Encode
+import Pages.FieldRenderer exposing (Input(..), Select(..))
 
 
 {-| -}
-type Field error parsed data constraints
-    = Field (FieldInfo error parsed data)
+type Field error parsed data kind constraints
+    = Field (FieldInfo error parsed data) kind
 
 
 {-| -}
@@ -46,12 +47,13 @@ required :
             error
             (Maybe parsed)
             data
+            kind
             { constraints
                 | required : ()
                 , wasMapped : No
             }
-    -> Field error parsed data { constraints | wasMapped : No }
-required missingError (Field field) =
+    -> Field error parsed data kind { constraints | wasMapped : No }
+required missingError (Field field kind) =
     Field
         { initialValue = field.initialValue
         , type_ = field.type_
@@ -76,6 +78,7 @@ required missingError (Field field) =
                 )
         , properties = field.properties
         }
+        kind
 
 
 {-| -}
@@ -84,6 +87,7 @@ text :
         error
         (Maybe String)
         data
+        Input
         { required : ()
         , plainText : ()
         , wasMapped : No
@@ -106,6 +110,7 @@ text =
                 )
         , properties = []
         }
+        Input
 
 
 {-| -}
@@ -117,6 +122,7 @@ select :
             error
             (Maybe option)
             data
+            (Select option)
             { required : ()
             , plainText : ()
             , wasMapped : No
@@ -173,6 +179,7 @@ select optionsMapping invalidError =
                                 )
         , properties = []
         }
+        (Select fromString (optionsMapping |> List.map Tuple.first))
 
 
 {-| -}
@@ -184,6 +191,7 @@ exactValue :
             error
             String
             data
+            Input
             { required : ()
             , plainText : ()
             , wasMapped : No
@@ -204,6 +212,7 @@ exactValue initialValue error =
                     ( rawValue, [ error ] )
         , properties = []
         }
+        Input
 
 
 {-| -}
@@ -212,6 +221,7 @@ checkbox :
         error
         Bool
         data
+        Input
         { required : ()
         }
 checkbox =
@@ -228,6 +238,7 @@ checkbox =
                 )
         , properties = []
         }
+        Input
 
 
 {-| -}
@@ -238,6 +249,7 @@ int :
             error
             (Maybe Int)
             data
+            Input
             { min : Int
             , max : Int
             , required : ()
@@ -268,11 +280,12 @@ int toError =
                                 ( Nothing, [ toError.invalid string ] )
         , properties = []
         }
+        Input
 
 
 {-| -}
-withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error parsed data constraints -> Field error mapped data { constraints | wasMapped : Yes }
-withClientValidation mapFn (Field field) =
+withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error parsed data kind constraints -> Field error mapped data kind { constraints | wasMapped : Yes }
+withClientValidation mapFn (Field field kind) =
     Field
         { initialValue = field.initialValue
         , type_ = field.type_
@@ -282,8 +295,7 @@ withClientValidation mapFn (Field field) =
             \value ->
                 value
                     |> field.decode
-                    |> --Result.andThen
-                       (\( maybeValue, errors ) ->
+                    |> (\( maybeValue, errors ) ->
                             case maybeValue of
                                 Nothing ->
                                     ( Nothing, errors )
@@ -295,13 +307,15 @@ withClientValidation mapFn (Field field) =
                        )
         , properties = field.properties
         }
+        kind
 
 
 {-| -}
-withInitialValue : (data -> Form.Value.Value valueType) -> Field error value data { constraints | initial : valueType } -> Field error value data constraints
-withInitialValue toInitialValue (Field field) =
+withInitialValue : (data -> Form.Value.Value valueType) -> Field error value data kind { constraints | initial : valueType } -> Field error value data kind constraints
+withInitialValue toInitialValue (Field field kind) =
     Field
         { field
             | initialValue =
                 Just (toInitialValue >> Form.Value.toString)
         }
+        kind

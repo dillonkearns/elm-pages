@@ -12,6 +12,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
 import Pages.Field as Field exposing (Field(..))
+import Pages.FieldRenderer
 import Pages.Form as Form
 import Pages.Msg
 import Pages.Transition
@@ -71,10 +72,10 @@ andThenNew fn viewFn =
 {-| -}
 field :
     String
-    -> Field error parsed data constraints
-    -> CombinedParser error (ParsedField error parsed -> combined) data (Context error -> (RawField -> combinedView))
+    -> Field error parsed data kind constraints
+    -> CombinedParser error (ParsedField error parsed -> combined) data (Context error -> (RawField kind -> combinedView))
     -> CombinedParser error combined data (Context error -> combinedView)
-field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValues) =
+field name (Field fieldParser kind) (CombinedParser definitions parseFn toInitialValues) =
     CombinedParser
         (( name, RegularField )
             :: definitions
@@ -95,19 +96,21 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
                                 }
                             )
 
-                rawField : RawField
+                rawField : RawField kind
                 rawField =
                     case formState.fields |> Dict.get name of
                         Just info ->
                             { name = name
                             , value = Just info.value
                             , status = info.status
+                            , kind = kind
                             }
 
                         Nothing ->
                             { name = name
                             , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
                             , status = Form.NotVisited
+                            , kind = kind
                             }
 
                 myFn :
@@ -115,7 +118,7 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
                         ( Maybe (ParsedField error parsed -> combined)
                         , Dict String (List error)
                         )
-                    , view : Context error -> RawField -> combinedView
+                    , view : Context error -> RawField kind -> combinedView
                     }
                     ->
                         { result : ( Maybe combined, Dict String (List error) )
@@ -158,10 +161,10 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
 {-| -}
 hiddenField :
     String
-    -> Field error parsed data constraints
+    -> Field error parsed data kind constraints
     -> CombinedParser error (ParsedField error parsed -> combined) data (Context error -> combinedView)
     -> CombinedParser error combined data (Context error -> combinedView)
-hiddenField name (Field fieldParser) (CombinedParser definitions parseFn toInitialValues) =
+hiddenField name (Field fieldParser kind) (CombinedParser definitions parseFn toInitialValues) =
     CombinedParser
         (( name, HiddenField )
             :: definitions
@@ -182,19 +185,21 @@ hiddenField name (Field fieldParser) (CombinedParser definitions parseFn toIniti
                                 }
                             )
 
-                rawField : RawField
+                rawField : RawField ()
                 rawField =
                     case formState.fields |> Dict.get name of
                         Just info ->
                             { name = name
                             , value = Just info.value
                             , status = info.status
+                            , kind = ()
                             }
 
                         Nothing ->
                             { name = name
                             , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
                             , status = Form.NotVisited
+                            , kind = ()
                             }
 
                 myFn :
@@ -252,7 +257,7 @@ hiddenKind :
     -> CombinedParser error combined data (Context error -> combinedView)
 hiddenKind ( name, value ) error_ (CombinedParser definitions parseFn toInitialValues) =
     let
-        (Field fieldParser) =
+        (Field fieldParser kind) =
             Field.exactValue value error_
     in
     CombinedParser
@@ -264,19 +269,21 @@ hiddenKind ( name, value ) error_ (CombinedParser definitions parseFn toInitialV
                 ( maybeParsed, errors ) =
                     fieldParser.decode rawField.value
 
-                rawField : RawField
+                rawField : RawField ()
                 rawField =
                     case formState.fields |> Dict.get name of
                         Just info ->
                             { name = name
                             , value = Just info.value
                             , status = info.status
+                            , kind = ()
                             }
 
                         Nothing ->
                             { name = name
                             , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
                             , status = Form.NotVisited
+                            , kind = ()
                             }
 
                 myFn :
@@ -342,7 +349,7 @@ type TextType
 
 
 {-| -}
-input : List (Html.Attribute msg) -> RawField -> Html msg
+input : List (Html.Attribute msg) -> RawField Pages.FieldRenderer.Input -> Html msg
 input attrs rawField =
     Html.input
         (attrs
@@ -784,10 +791,11 @@ type alias ParsedField error parsed =
 
 
 {-| -}
-type alias RawField =
+type alias RawField kind =
     { name : String
     , value : Maybe String
     , status : Form.FieldStatus
+    , kind : kind
     }
 
 

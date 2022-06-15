@@ -12,6 +12,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
 import Pages.Field as Field
+import Pages.FieldRenderer
 import Pages.FormParser as FormParser
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -233,7 +234,19 @@ form =
               , fieldView "Description" description
               , fieldView "Price" price
               , fieldView "Image" imageUrl
-              , fieldView "Media" media
+              , Pages.FieldRenderer.select []
+                    (\enum ->
+                        case enum of
+                            Article ->
+                                ( [], [ Html.text "📄 Article" ] )
+
+                            Book ->
+                                ( [], [ Html.text "📕 Book" ] )
+
+                            Video ->
+                                ( [], [ Html.text "📺 Video" ] )
+                    )
+                    media
               , Html.button []
                     [ Html.text
                         (if formState.isTransitioning then
@@ -268,8 +281,8 @@ form =
             )
         |> FormParser.field "media"
             (Field.select
-                [ ( "book", Book )
-                , ( "article", Article )
+                [ ( "article", Article )
+                , ( "book", Book )
                 , ( "video", Video )
                 ]
                 (\option -> "Invalid option " ++ option)
@@ -278,8 +291,8 @@ form =
 
 
 type Media
-    = Book
-    | Article
+    = Article
+    | Book
     | Video
 
 
