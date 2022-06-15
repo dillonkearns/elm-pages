@@ -1,4 +1,10 @@
-module Pages.FormParser exposing (..)
+module Pages.FormParser exposing (CombinedParser(..), CompleteParser(..), Context, FieldDefinition(..), FieldErrors, HtmlForm, InputType(..), ParseResult(..), ParsedField, Parser(..), ParsingResult(..), RawField, TextType(..), addError, addErrors, andThen, andThenNew, fail, field, hiddenField, hiddenKind, init, input, int, map, map2, ok, optional, render, renderHelper, renderHtml, required, run, runNew, runOneOfServerSide, runServerSide, succeed, toResult, validate, withError)
+
+{-|
+
+@docs CombinedParser, CompleteParser, Context, FieldDefinition, FieldErrors, HtmlForm, InputType, ParseResult, ParsedField, Parser, ParsingResult, RawField, TextType, addError, addErrors, andThen, andThenNew, fail, field, hiddenField, hiddenKind, init, input, int, map, map2, ok, optional, render, renderHelper, renderHtml, required, run, runNew, runOneOfServerSide, runServerSide, succeed, toResult, validate, withError
+
+-}
 
 import Dict exposing (Dict)
 import Dict.Extra
@@ -11,6 +17,7 @@ import Pages.Msg
 import Pages.Transition
 
 
+{-| -}
 type
     ParseResult error decoded
     -- TODO parse into both errors AND a decoded value
@@ -19,10 +26,12 @@ type
     | DecodeFailure (Dict String (List error))
 
 
+{-| -}
 type Parser error decoded
     = Parser (Dict String (List error) -> Form.FormState -> ( Maybe decoded, Dict String (List error) ))
 
 
+{-| -}
 optional : String -> Parser error (Maybe String)
 optional name =
     (\errors form ->
@@ -31,6 +40,7 @@ optional name =
         |> Parser
 
 
+{-| -}
 init : Form.FormState
 init =
     { fields = Dict.empty
@@ -38,6 +48,7 @@ init =
     }
 
 
+{-| -}
 type alias Context error =
     { errors : FieldErrors error
     , isTransitioning : Bool
@@ -45,6 +56,7 @@ type alias Context error =
     }
 
 
+{-| -}
 andThenNew : combined -> (Context String -> viewFn) -> CombinedParser String combined data (Context String -> viewFn)
 andThenNew fn viewFn =
     CombinedParser []
@@ -56,6 +68,7 @@ andThenNew fn viewFn =
         (\_ -> [])
 
 
+{-| -}
 field :
     String
     -> Field error parsed data constraints
@@ -142,6 +155,7 @@ field name (Field fieldParser) (CombinedParser definitions parseFn toInitialValu
         )
 
 
+{-| -}
 hiddenField :
     String
     -> Field error parsed data constraints
@@ -230,6 +244,7 @@ hiddenField name (Field fieldParser) (CombinedParser definitions parseFn toIniti
         )
 
 
+{-| -}
 hiddenKind :
     ( String, String )
     -> error
@@ -302,14 +317,31 @@ hiddenKind ( name, value ) error_ (CombinedParser definitions parseFn toInitialV
         )
 
 
+{-| -}
 type ParsingResult a
     = ParsingResult
 
 
+{-| -}
 type CompleteParser error parsed
     = CompleteParser
 
 
+{-| -}
+type InputType
+    = Text TextType
+    | TextArea
+    | Radio
+    | Checkbox
+    | Select (List ( String, String ))
+
+
+{-| -}
+type TextType
+    = Phone
+
+
+{-| -}
 input : List (Html.Attribute msg) -> RawField -> Html msg
 input attrs rawField =
     Html.input
@@ -322,10 +354,12 @@ input attrs rawField =
         []
 
 
+{-| -}
 type alias FieldErrors error =
     Dict String (List error)
 
 
+{-| -}
 type alias AppContext app =
     { app
         | --, sharedData : Shared.Data
@@ -341,6 +375,7 @@ type alias AppContext app =
     }
 
 
+{-| -}
 runNew :
     AppContext app
     -> data
@@ -375,6 +410,7 @@ runNew app data (CombinedParser fieldDefinitions parser _) =
     }
 
 
+{-| -}
 runServerSide :
     List ( String, String )
     -> CombinedParser error parsed data (Context error -> view)
@@ -410,6 +446,7 @@ runServerSide rawFormData (CombinedParser fieldDefinitions parser _) =
     parsed.result
 
 
+{-| -}
 runOneOfServerSide :
     List ( String, String )
     -> List (CombinedParser error parsed data (Context error -> view))
@@ -439,6 +476,41 @@ runOneOfServerSide rawFormData parsers =
             ( Nothing, Dict.empty )
 
 
+
+--Debug.todo ""
+--let
+--    parsed : { result : ( Maybe parsed, FieldErrors error ), view : Context error -> view }
+--    parsed =
+--        parser Nothing thisFormState
+--
+--    thisFormState : Form.FormState
+--    thisFormState =
+--        { init
+--            | fields =
+--                rawFormData
+--                    |> List.map
+--                        (Tuple.mapSecond
+--                            (\value ->
+--                                { value = value
+--                                , status = Form.NotVisited
+--                                }
+--                            )
+--                        )
+--                    |> Dict.fromList
+--        }
+--
+--    context =
+--        { errors = parsed.result |> Tuple.second
+--        , isTransitioning = False
+--        , submitAttempted = False
+--        }
+--in
+--{ result = parsed.result
+--, view = parsed.view context
+--}
+
+
+{-| -}
 renderHtml :
     AppContext app
     -> data
@@ -455,6 +527,23 @@ renderHtml app data combinedParser =
     Html.Lazy.lazy3 renderHelper app data combinedParser
 
 
+
+--renderStyledHtml :
+--    AppContext app data
+--    ->
+--        CombinedParser
+--            error
+--            parsed
+--            data
+--            (Context error
+--             -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
+--            )
+--    -> Html (Pages.Msg.Msg msg)
+--renderStyledHtml formState_ combinedParser =
+--    Html.Lazy.lazy2 renderHelper formState_ combinedParser
+
+
+{-| -}
 renderHelper :
     AppContext app
     -> data
@@ -583,6 +672,7 @@ renderHelper formState data (CombinedParser fieldDefinitions parser toInitialVal
         (hiddenInputs ++ children)
 
 
+{-| -}
 toResult : ( Maybe parsed, FieldErrors error ) -> Result (FieldErrors error) parsed
 toResult ( maybeParsed, fieldErrors ) =
     let
@@ -603,6 +693,7 @@ toResult ( maybeParsed, fieldErrors ) =
             Err fieldErrors
 
 
+{-| -}
 render :
     AppContext app
     -> data
@@ -650,6 +741,7 @@ render formState data (CombinedParser fieldDefinitions parser toInitialValues) =
     parsed.view context
 
 
+{-| -}
 type alias HtmlForm error parsed data msg =
     CombinedParser
         error
@@ -658,6 +750,7 @@ type alias HtmlForm error parsed data msg =
         (Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
 
 
+{-| -}
 type CombinedParser error parsed data view
     = CombinedParser
         -- TODO track hidden fields here - for renderHtml and renderStyled, automatically render them
@@ -676,11 +769,13 @@ type CombinedParser error parsed data view
         (data -> List ( String, String ))
 
 
+{-| -}
 type FieldDefinition
     = RegularField
     | HiddenField
 
 
+{-| -}
 type alias ParsedField error parsed =
     { name : String
     , value : parsed
@@ -688,6 +783,7 @@ type alias ParsedField error parsed =
     }
 
 
+{-| -}
 type alias RawField =
     { name : String
     , value : Maybe String
@@ -695,16 +791,20 @@ type alias RawField =
     }
 
 
+{-| -}
+ok : a -> a
 ok result =
     result
 
 
+{-| -}
 withError : error -> ParsedField error parsed -> ()
 withError _ _ =
     --Debug.todo ""
     ()
 
 
+{-| -}
 required : String -> error -> Parser error String
 required name error =
     (\errors form ->
@@ -721,6 +821,7 @@ required name error =
         |> Parser
 
 
+{-| -}
 int : String -> error -> Parser error Int
 int name error =
     (\errors form ->
@@ -742,6 +843,7 @@ int name error =
         |> Parser
 
 
+{-| -}
 map2 : (value1 -> value2 -> combined) -> Parser error value1 -> Parser error value2 -> Parser error combined
 map2 combineFn (Parser parser1) (Parser parser2) =
     (\errors form ->
@@ -765,6 +867,7 @@ map2 combineFn (Parser parser1) (Parser parser2) =
         |> Parser
 
 
+{-| -}
 map : (original -> mapped) -> Parser error original -> Parser error mapped
 map mapFn (Parser parser) =
     (\errors form ->
@@ -779,6 +882,7 @@ map mapFn (Parser parser) =
         |> Parser
 
 
+{-| -}
 validate : String -> (original -> Result error mapped) -> Parser error original -> Parser error mapped
 validate name mapFn (Parser parser) =
     (\errors form ->
@@ -805,16 +909,19 @@ validate name mapFn (Parser parser) =
         |> Parser
 
 
+{-| -}
 succeed : value -> Parser error value
 succeed value_ =
     Parser (\errors form -> ( Just value_, Dict.empty ))
 
 
+{-| -}
 fail : error -> Parser error value
 fail error =
     Parser (\errors form -> ( Nothing, Dict.fromList [ ( "global", [ error ] ) ] ))
 
 
+{-| -}
 andThen : (value1 -> Parser error value2) -> Parser error value1 -> Parser error value2
 andThen andThenFn (Parser parser1) =
     (\errors form ->
@@ -848,6 +955,7 @@ andThen andThenFn (Parser parser1) =
         |> Parser
 
 
+{-| -}
 run : Form.FormState -> Parser error decoded -> ( Maybe decoded, Dict String (List error) )
 run formState (Parser parser) =
     parser Dict.empty formState
@@ -864,6 +972,7 @@ run formState (Parser parser) =
 --        |> parser Dict.empty
 
 
+{-| -}
 addError : String -> error -> Dict String (List error) -> Dict String (List error)
 addError name error allErrors =
     allErrors
@@ -873,6 +982,7 @@ addError name error allErrors =
             )
 
 
+{-| -}
 addErrors : String -> List error -> Dict String (List error) -> Dict String (List error)
 addErrors name newErrors allErrors =
     allErrors

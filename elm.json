@@ -28,6 +28,8 @@
         "Pages.Flags",
         "Pages.Fetcher",
         "Form",
+        "Pages.Field",
+        "Pages.FormParser",
         "Form.Value"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",

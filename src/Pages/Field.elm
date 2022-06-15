@@ -1,14 +1,25 @@
-module Pages.Field exposing (..)
+module Pages.Field exposing
+    ( FieldInfo, checkbox, exactValue, int, required, text, withClientValidation, withInitialValue
+    , Field(..), No(..), Yes(..)
+    )
+
+{-|
+
+@docs Field, FieldInfo, No, Yes, checkbox, exactValue, int, required, text, withClientValidation, withInitialValue
+
+-}
 
 import DataSource exposing (DataSource)
 import Form.Value
 import Json.Encode as Encode
 
 
+{-| -}
 type Field error parsed data constraints
     = Field (FieldInfo error parsed data)
 
 
+{-| -}
 type alias FieldInfo error parsed data =
     { initialValue : Maybe (data -> String)
     , type_ : String

@@ -1,14 +1,13 @@
 module Pages.Msg exposing
     ( Msg(..)
-    , map, onSubmit, fetcherOnSubmit
-    , submitIfValid
+    , map, onSubmit, fetcherOnSubmit, submitIfValid
     )
 
 {-|
 
 @docs Msg
 
-@docs map, onSubmit, fetcherOnSubmit
+@docs map, onSubmit, fetcherOnSubmit, submitIfValid
 
 -}
 

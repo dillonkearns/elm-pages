@@ -1,6 +1,9 @@
 module Server.Request exposing
     ( Parser
     , succeed, fromResult, skip
+    , formParserResultNew, formParserResult
+    , formData
+    , expectForm, formParser
     , method, rawBody, allCookies, rawHeaders, queryParams
     , requestTime, optionalHeader, expectContentType, expectJsonBody
     , acceptMethod, acceptContentTypes
@@ -14,7 +17,6 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
-    , expectForm, formData, formParser, formParserResult, formParserResultNew
     )
 
 {-|
@@ -22,6 +24,18 @@ module Server.Request exposing
 @docs Parser
 
 @docs succeed, fromResult, skip
+
+
+## Forms
+
+@docs formParserResultNew, formParserResult
+
+@docs formData
+
+
+### Deprecated?
+
+@docs expectForm, formParser
 
 
 ## Direct Values
