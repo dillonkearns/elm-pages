@@ -48,8 +48,29 @@ fieldDecoder =
             (\type_ ->
                 case type_ of
                     "input" ->
-                        Decode.map InputEvent
-                            (Decode.at [ "target", "value" ] Decode.string)
+                        Decode.at [ "target", "type" ] Decode.string
+                            |> Decode.andThen
+                                (\targetType ->
+                                    case targetType of
+                                        "checkbox" ->
+                                            Decode.map2
+                                                (\valueWhenChecked isChecked ->
+                                                    (if isChecked then
+                                                        valueWhenChecked
+
+                                                     else
+                                                        ""
+                                                    )
+                                                        |> InputEvent
+                                                )
+                                                (Decode.at [ "target", "value" ] Decode.string)
+                                                (Decode.at [ "target", "checked" ] Decode.bool)
+
+                                        _ ->
+                                            Decode.map
+                                                InputEvent
+                                                (Decode.at [ "target", "value" ] Decode.string)
+                                )
 
                     "focusin" ->
                         FocusEvent

@@ -10,7 +10,7 @@ import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Form.Value
 import Json.Encode as Encode
-import Pages.FieldRenderer exposing (Input(..), Select(..))
+import Pages.FieldRenderer as FieldRenderer exposing (Input(..), Select(..))
 
 
 {-| -}
@@ -110,7 +110,7 @@ text =
                 )
         , properties = []
         }
-        Input
+        (FieldRenderer.Input FieldRenderer.Text)
 
 
 {-| -}
@@ -212,7 +212,7 @@ exactValue initialValue error =
                     ( rawValue, [ error ] )
         , properties = []
         }
-        Input
+        (FieldRenderer.Input FieldRenderer.Text)
 
 
 {-| -}
@@ -238,7 +238,7 @@ checkbox =
                 )
         , properties = []
         }
-        Input
+        (FieldRenderer.Input FieldRenderer.Checkbox)
 
 
 {-| -}
@@ -280,7 +280,7 @@ int toError =
                                 ( Nothing, [ toError.invalid string ] )
         , properties = []
         }
-        Input
+        (FieldRenderer.Input FieldRenderer.Text)
 
 
 {-| -}

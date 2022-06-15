@@ -6,8 +6,13 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 
 
+type InputType
+    = Text
+    | Checkbox
+
+
 type Input
-    = Input
+    = Input InputType
 
 
 type Select a
@@ -25,14 +30,27 @@ input :
         }
     -> Html msg
 input attrs rawField =
-    Html.input
-        (attrs
-            -- TODO need to handle other input types like checkbox
-            ++ [ Attr.value (rawField.value |> Maybe.withDefault "") -- TODO is this an okay default?
-               , Attr.name rawField.name
-               ]
-        )
-        []
+    case rawField.kind of
+        Input inputType ->
+            case inputType of
+                Text ->
+                    Html.input
+                        (attrs
+                            ++ [ Attr.value (rawField.value |> Maybe.withDefault "") -- TODO is this an okay default?
+                               , Attr.name rawField.name
+                               ]
+                        )
+                        []
+
+                Checkbox ->
+                    Html.input
+                        (attrs
+                            ++ [ Attr.checked ((rawField.value |> Maybe.withDefault "") == "on")
+                               , Attr.name rawField.name
+                               , Attr.type_ "checkbox"
+                               ]
+                        )
+                        []
 
 
 {-| -}

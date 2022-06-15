@@ -190,7 +190,7 @@ deleteForm =
 form : FormParser.HtmlForm String Action Data Msg
 form =
     FormParser.andThenNew
-        (\name description price imageUrl media ->
+        (\name description price imageUrl media myCheckbox ->
             { name = name.value
             , description = description.value
             , price = price.value
@@ -199,7 +199,7 @@ form =
                 |> Edit
                 |> FormParser.ok
         )
-        (\formState name description price imageUrl media ->
+        (\formState name description price imageUrl media myCheckbox ->
             let
                 errors field =
                     formState.errors
@@ -221,7 +221,7 @@ form =
                     Html.div []
                         [ Html.label []
                             [ Html.text (label ++ " ")
-                            , field |> FormParser.input []
+                            , field |> Pages.FieldRenderer.input []
                             ]
                         , errorsView field
                         ]
@@ -234,6 +234,7 @@ form =
               , fieldView "Description" description
               , fieldView "Price" price
               , fieldView "Image" imageUrl
+              , fieldView "Checkbox" myCheckbox
               , Pages.FieldRenderer.select []
                     (\enum ->
                         case enum of
@@ -287,6 +288,7 @@ form =
                 ]
                 (\option -> "Invalid option " ++ option)
             )
+        |> FormParser.field "my-checkbox" Field.checkbox
         |> FormParser.hiddenKind ( "kind", "edit" ) "Required"
 
 
