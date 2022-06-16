@@ -155,10 +155,10 @@ select optionsMapping invalidError =
             \rawValue ->
                 case rawValue of
                     Nothing ->
-                        ( Nothing, [] )
+                        ( Just Nothing, [] )
 
                     Just "" ->
-                        ( Nothing, [] )
+                        ( Just Nothing, [] )
 
                     Just justValue ->
                         let
