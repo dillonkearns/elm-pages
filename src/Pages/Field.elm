@@ -24,7 +24,6 @@ type Field error parsed data kind constraints
 {-| -}
 type alias FieldInfo error parsed data =
     { initialValue : Maybe (data -> String)
-    , type_ : String
     , required : Bool
     , serverValidation : Maybe String -> DataSource (List error)
     , decode : Maybe String -> ( Maybe parsed, List error )
@@ -59,7 +58,6 @@ required :
 required missingError (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , type_ = field.type_
         , required = True
         , serverValidation = field.serverValidation
         , decode =
@@ -99,7 +97,6 @@ text :
 text =
     Field
         { initialValue = Nothing
-        , type_ = "text"
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
@@ -151,7 +148,6 @@ select optionsMapping invalidError =
     in
     Field
         { initialValue = Nothing
-        , type_ = "select"
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
@@ -203,7 +199,6 @@ exactValue :
 exactValue initialValue error =
     Field
         { initialValue = Just (\_ -> initialValue)
-        , type_ = "text"
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
@@ -230,7 +225,6 @@ checkbox :
 checkbox =
     Field
         { initialValue = Nothing
-        , type_ = "checkbox"
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
@@ -262,7 +256,6 @@ int :
 int toError =
     Field
         { initialValue = Nothing
-        , type_ = "number"
         , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
@@ -291,7 +284,6 @@ withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error p
 withClientValidation mapFn (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , type_ = field.type_
         , required = field.required
         , serverValidation = field.serverValidation
         , decode =
