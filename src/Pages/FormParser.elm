@@ -653,6 +653,7 @@ renderHelper formState data (CombinedParser fieldDefinitions parser toInitialVal
         (Form.listeners formId
             ++ [ -- TODO remove hardcoded method - make it part of the config for the form? Should the default be POST?
                  Attr.method "POST"
+               , Attr.novalidate True
                , -- TODO need to make an option to choose `Pages.Msg.fetcherOnSubmit`
                  -- TODO `Pages.Msg.fetcherOnSubmit` needs to accept an `isValid` param, too
                  Pages.Msg.submitIfValid
