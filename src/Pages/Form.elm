@@ -35,10 +35,33 @@ type alias FieldEvent =
 fieldEventDecoder : Decoder FieldEvent
 fieldEventDecoder =
     Decode.map4 FieldEvent
-        (Decode.at [ "target", "value" ] Decode.string)
+        inputValueDecoder
         (Decode.at [ "currentTarget", "id" ] Decode.string)
         (Decode.at [ "target", "name" ] Decode.string)
         fieldDecoder
+
+
+inputValueDecoder : Decoder String
+inputValueDecoder =
+    Decode.at [ "target", "type" ] Decode.string
+        |> Decode.andThen
+            (\targetType ->
+                case targetType of
+                    "checkbox" ->
+                        Decode.map2
+                            (\valueWhenChecked isChecked ->
+                                if isChecked then
+                                    valueWhenChecked
+
+                                else
+                                    ""
+                            )
+                            (Decode.at [ "target", "value" ] Decode.string)
+                            (Decode.at [ "target", "checked" ] Decode.bool)
+
+                    _ ->
+                        Decode.at [ "target", "value" ] Decode.string
+            )
 
 
 fieldDecoder : Decoder Event
@@ -48,29 +71,7 @@ fieldDecoder =
             (\type_ ->
                 case type_ of
                     "input" ->
-                        Decode.at [ "target", "type" ] Decode.string
-                            |> Decode.andThen
-                                (\targetType ->
-                                    case targetType of
-                                        "checkbox" ->
-                                            Decode.map2
-                                                (\valueWhenChecked isChecked ->
-                                                    (if isChecked then
-                                                        valueWhenChecked
-
-                                                     else
-                                                        ""
-                                                    )
-                                                        |> InputEvent
-                                                )
-                                                (Decode.at [ "target", "value" ] Decode.string)
-                                                (Decode.at [ "target", "checked" ] Decode.bool)
-
-                                        _ ->
-                                            Decode.map
-                                                InputEvent
-                                                (Decode.at [ "target", "value" ] Decode.string)
-                                )
+                        inputValueDecoder |> Decode.map InputEvent
 
                     "focusin" ->
                         FocusEvent
