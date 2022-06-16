@@ -273,6 +273,7 @@ form =
         |> FormParser.field "price"
             (Field.int { invalid = \_ -> "Invalid int" }
                 |> Field.required "Required"
+                |> Field.withMin (Form.Value.int 0)
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.int smoothie.price)
             )
         |> FormParser.field "imageUrl"

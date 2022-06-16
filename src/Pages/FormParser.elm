@@ -11,6 +11,7 @@ import Dict.Extra
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
+import Json.Encode as Encode
 import Pages.Field as Field exposing (Field(..))
 import Pages.FieldRenderer
 import Pages.Form as Form
@@ -103,14 +104,14 @@ field name (Field fieldParser kind) (CombinedParser definitions parseFn toInitia
                             { name = name
                             , value = Just info.value
                             , status = info.status
-                            , kind = kind
+                            , kind = ( kind, fieldParser.properties )
                             }
 
                         Nothing ->
                             { name = name
                             , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
                             , status = Form.NotVisited
-                            , kind = kind
+                            , kind = ( kind, fieldParser.properties )
                             }
 
                 myFn :
@@ -192,14 +193,14 @@ hiddenField name (Field fieldParser kind) (CombinedParser definitions parseFn to
                             { name = name
                             , value = Just info.value
                             , status = info.status
-                            , kind = ()
+                            , kind = ( (), [] )
                             }
 
                         Nothing ->
                             { name = name
                             , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
                             , status = Form.NotVisited
-                            , kind = ()
+                            , kind = ( (), [] )
                             }
 
                 myFn :
@@ -276,14 +277,14 @@ hiddenKind ( name, value ) error_ (CombinedParser definitions parseFn toInitialV
                             { name = name
                             , value = Just info.value
                             , status = info.status
-                            , kind = ()
+                            , kind = ( (), [] )
                             }
 
                         Nothing ->
                             { name = name
                             , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
                             , status = Form.NotVisited
-                            , kind = ()
+                            , kind = ( (), [] )
                             }
 
                 myFn :
@@ -795,7 +796,7 @@ type alias RawField kind =
     { name : String
     , value : Maybe String
     , status : Form.FieldStatus
-    , kind : kind
+    , kind : ( kind, List ( String, Encode.Value ) )
     }
 
 

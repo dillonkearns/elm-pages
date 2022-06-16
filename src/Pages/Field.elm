@@ -1,4 +1,7 @@
-module Pages.Field exposing (Field(..), FieldInfo, No(..), Yes(..), checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select)
+module Pages.Field exposing
+    ( Field(..), FieldInfo, No(..), Yes(..), checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select
+    , withMax, withMin, withStep
+    )
 
 {-|
 
@@ -280,7 +283,7 @@ int toError =
                                 ( Nothing, [ toError.invalid string ] )
         , properties = []
         }
-        (FieldRenderer.Input FieldRenderer.Text)
+        (FieldRenderer.Input FieldRenderer.Number)
 
 
 {-| -}
@@ -318,4 +321,33 @@ withInitialValue toInitialValue (Field field kind) =
             | initialValue =
                 Just (toInitialValue >> Form.Value.toString)
         }
+        kind
+
+
+
+-- Input Properties
+
+
+{-| -}
+withMin : Form.Value.Value valueType -> Field msg error value view { constraints | min : valueType } -> Field msg error value view constraints
+withMin min field =
+    withStringProperty ( "min", Form.Value.toString min ) field
+
+
+{-| -}
+withMax : Form.Value.Value valueType -> Field msg error value view { constraints | max : valueType } -> Field msg error value view constraints
+withMax max field =
+    withStringProperty ( "max", Form.Value.toString max ) field
+
+
+{-| -}
+withStep : Form.Value.Value valueType -> Field msg error value view { constraints | step : valueType } -> Field msg error value view constraints
+withStep max field =
+    withStringProperty ( "step", Form.Value.toString max ) field
+
+
+withStringProperty : ( String, String ) -> Field error parsed data kind constraints1 -> Field error parsed data kind constraints2
+withStringProperty ( key, value ) (Field field kind) =
+    Field
+        { field | properties = ( key, Encode.string value ) :: field.properties }
         kind
