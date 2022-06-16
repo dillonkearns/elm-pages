@@ -134,14 +134,6 @@ select optionsMapping invalidError =
         dict =
             Dict.fromList optionsMapping
 
-        toString a =
-            case optionsMapping |> List.filter (\( str, b ) -> b == a) |> List.head of
-                Just ( str, b ) ->
-                    str
-
-                Nothing ->
-                    "Missing enum"
-
         fromString : String -> Maybe option
         fromString string =
             Dict.get string dict
