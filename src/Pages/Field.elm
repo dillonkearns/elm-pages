@@ -135,9 +135,7 @@ select :
             data
             (Select option)
             { required : ()
-            , plainText : ()
             , wasMapped : No
-            , initial : String
             }
 select optionsMapping invalidError =
     let
