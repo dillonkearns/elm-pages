@@ -1,6 +1,5 @@
 module Route.Profile exposing (ActionData, Data, Model, Msg, route)
 
-import Api.Scalar exposing (Uuid(..))
 import Data.User as User exposing (User)
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
@@ -12,7 +11,6 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
 import Pages.Form
-import Pages.FormParser as FormParser
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition
@@ -120,50 +118,9 @@ type alias Action =
     }
 
 
-actionFormDecoder : FormParser.Parser String Action
-actionFormDecoder =
-    FormParser.succeed Action
-        |> andMap (FormParser.required "username" "First is required" |> FormParser.validate "username" validateUsername)
-        |> andMap (FormParser.required "name" "First is required")
-
-
-validateUsername : String -> Result String String
-validateUsername rawUsername =
-    if rawUsername |> String.contains "@" then
-        Err "Username cannot include @"
-
-    else
-        Ok rawUsername
-
-
-andMap : FormParser.Parser error a -> FormParser.Parser error (a -> b) -> FormParser.Parser error b
-andMap =
-    FormParser.map2 (|>)
-
-
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.map2 Tuple.pair
-        (Request.formParserResult actionFormDecoder)
-        Request.requestTime
-        |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
-            (\userId ( parsedAction, requestTime ) session ->
-                case parsedAction |> Debug.log "parsedAction" of
-                    Ok { name } ->
-                        User.updateUser { userId = userId, name = name |> Debug.log "Updating name mutation" }
-                            |> Request.Hasura.mutationDataSource requestTime
-                            |> DataSource.map
-                                (\_ ->
-                                    --Response.render parsedAction
-                                    Route.redirectTo Route.Profile
-                                )
-                            |> DataSource.map (Tuple.pair session)
-
-                    Err errors ->
-                        DataSource.succeed
-                            (Response.render parsedAction)
-                            |> DataSource.map (Tuple.pair session)
-            )
+    Request.skip "No action."
 
 
 head :

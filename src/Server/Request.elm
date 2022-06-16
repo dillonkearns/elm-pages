@@ -1,9 +1,9 @@
 module Server.Request exposing
     ( Parser
     , succeed, fromResult, skip
-    , formParserResultNew, formParserResult
+    , formParserResultNew
     , formData
-    , expectForm, formParser
+    , expectForm
     , method, rawBody, allCookies, rawHeaders, queryParams
     , requestTime, optionalHeader, expectContentType, expectJsonBody
     , acceptMethod, acceptContentTypes
@@ -28,14 +28,14 @@ module Server.Request exposing
 
 ## Forms
 
-@docs formParserResultNew, formParserResult
+@docs formParserResultNew
 
 @docs formData
 
 
 ### Deprecated?
 
-@docs expectForm, formParser
+@docs expectForm
 
 
 ## Direct Values
@@ -102,7 +102,6 @@ import Internal.Request
 import Json.Decode
 import Json.Encode
 import List.NonEmpty
-import Pages.Form
 import Pages.FormParser
 import QueryParams
 import Time
@@ -913,75 +912,6 @@ fileField_ name =
                         ( Err (ValidationError ("Missing form field " ++ name)), [] )
             )
         |> Internal.Request.Parser
-
-
-{-| -}
-formParser : Pages.FormParser.Parser String decoded -> Parser decoded
-formParser formParser_ =
-    formData
-        |> andThen
-            (\rawFormData ->
-                let
-                    --something : ( Maybe decoded, Dict String (List String) )
-                    ( maybeDecoded, errors ) =
-                        Pages.FormParser.run
-                            { fields =
-                                rawFormData
-                                    |> List.map
-                                        (Tuple.mapSecond (\value -> { value = value, status = Pages.Form.NotVisited }))
-                                    |> Dict.fromList
-                            , submitAttempted = False
-                            }
-                            formParser_
-                in
-                case ( maybeDecoded, errors |> Dict.toList |> List.NonEmpty.fromList ) of
-                    ( Just decoded, Nothing ) ->
-                        succeed decoded
-
-                    ( _, maybeErrors ) ->
-                        maybeErrors
-                            |> Maybe.map List.NonEmpty.toList
-                            |> Maybe.withDefault []
-                            -- TODO print out nicely formatted message
-                            |> Debug.toString
-                            |> skip
-            )
-
-
-{-| -}
-formParserResult : Pages.FormParser.Parser error decoded -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } decoded)
-formParserResult formParser_ =
-    formData
-        |> andThen
-            (\rawFormData ->
-                let
-                    --something : ( Maybe decoded, Dict String (List String) )
-                    ( maybeDecoded, errors ) =
-                        Pages.FormParser.run
-                            { fields =
-                                rawFormData
-                                    |> List.map
-                                        (Tuple.mapSecond (\value -> { value = value, status = Pages.Form.NotVisited }))
-                                    |> Dict.fromList
-                            , submitAttempted = False
-                            }
-                            formParser_
-                in
-                case ( maybeDecoded, errors |> Dict.toList |> List.NonEmpty.fromList ) of
-                    ( Just decoded, Nothing ) ->
-                        succeed (Ok decoded)
-
-                    ( _, maybeErrors ) ->
-                        Err
-                            { fields = rawFormData
-                            , errors =
-                                maybeErrors
-                                    |> Maybe.map List.NonEmpty.toList
-                                    |> Maybe.withDefault []
-                                    |> Dict.fromList
-                            }
-                            |> succeed
-            )
 
 
 {-| -}
