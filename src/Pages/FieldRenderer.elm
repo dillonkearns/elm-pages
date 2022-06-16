@@ -65,8 +65,8 @@ type Input
     = Input InputType
 
 
-type Select a
-    = Select (String -> Maybe a) (List String)
+type Options a
+    = Options (String -> Maybe a) (List String)
 
 
 {-| -}
@@ -114,12 +114,12 @@ select :
         { input
             | value : Maybe String
             , name : String
-            , kind : ( Select parsed, List ( String, Encode.Value ) )
+            , kind : ( Options parsed, List ( String, Encode.Value ) )
         }
     -> Html msg
 select selectAttrs enumToOption rawField =
     let
-        (Select parseValue possibleValues) =
+        (Options parseValue possibleValues) =
             rawField.kind |> Tuple.first
     in
     Html.select
@@ -164,12 +164,12 @@ radio :
         { input
             | value : Maybe String
             , name : String
-            , kind : ( Select parsed, List ( String, Encode.Value ) )
+            , kind : ( Options parsed, List ( String, Encode.Value ) )
         }
     -> Html msg
 radio selectAttrs enumToOption rawField =
     let
-        (Select parseValue possibleValues) =
+        (Options parseValue possibleValues) =
             rawField.kind |> Tuple.first
     in
     Html.fieldset

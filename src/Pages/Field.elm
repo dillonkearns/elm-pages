@@ -24,7 +24,7 @@ import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Form.Value
 import Json.Encode as Encode
-import Pages.FieldRenderer as FieldRenderer exposing (Input(..), Select(..))
+import Pages.FieldRenderer as FieldRenderer exposing (Input(..), Options(..))
 
 
 {-| -}
@@ -133,7 +133,7 @@ select :
             error
             (Maybe option)
             data
-            (Select option)
+            (Options option)
             { required : ()
             , wasMapped : No
             }
@@ -179,7 +179,7 @@ select optionsMapping invalidError =
                                 )
         , properties = []
         }
-        (Select fromString (optionsMapping |> List.map Tuple.first))
+        (Options fromString (optionsMapping |> List.map Tuple.first))
 
 
 {-| -}
