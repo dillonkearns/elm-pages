@@ -1,11 +1,22 @@
 module Pages.Field exposing
-    ( Field(..), FieldInfo, No(..), Yes(..), checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select
+    ( Field(..), FieldInfo, No(..), Yes(..), checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select, range
+    , email, password, search, telephone, url
     , withMax, withMin, withStep
     )
 
 {-|
 
-@docs Field, FieldInfo, No, Yes, checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select
+@docs Field, FieldInfo, No, Yes, checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select, range
+
+
+## Text Field Display Options
+
+@docs email, password, search, telephone, url
+
+
+## Numeric Field Options
+
+@docs withMax, withMin, withStep
 
 -}
 
@@ -269,6 +280,109 @@ int toError =
         , properties = []
         }
         (FieldRenderer.Input FieldRenderer.Number)
+
+
+{-| -}
+telephone :
+    Field error parsed data Input { constraints | plainText : () }
+    -> Field error parsed data Input constraints
+telephone (Field field kind) =
+    Field field
+        (FieldRenderer.Input FieldRenderer.Tel)
+
+
+{-| -}
+search :
+    Field error parsed data Input { constraints | plainText : () }
+    -> Field error parsed data Input constraints
+search (Field field kind) =
+    Field field
+        (FieldRenderer.Input FieldRenderer.Search)
+
+
+{-| -}
+password :
+    Field error parsed data Input { constraints | plainText : () }
+    -> Field error parsed data Input constraints
+password (Field field kind) =
+    Field field
+        (FieldRenderer.Input FieldRenderer.Password)
+
+
+{-| -}
+email :
+    Field error parsed data Input { constraints | plainText : () }
+    -> Field error parsed data Input constraints
+email (Field field kind) =
+    Field field
+        (FieldRenderer.Input FieldRenderer.Email)
+
+
+{-| -}
+url :
+    Field error parsed data Input { constraints | plainText : () }
+    -> Field error parsed data Input constraints
+url (Field field kind) =
+    Field field
+        (FieldRenderer.Input FieldRenderer.Url)
+
+
+{-| -}
+range :
+    { missing : error
+    , invalid : String -> error
+    }
+    ->
+        { initial : data -> Int
+        , min : Int
+        , max : Int
+        }
+    -> Field error Int data Input {}
+range toError options =
+    Field
+        { initialValue = Just (options.initial >> String.fromInt)
+        , required = True
+        , serverValidation = \_ -> DataSource.succeed []
+        , decode =
+            \rawString ->
+                case
+                    rawString
+                        |> validateRequiredField toError
+                        |> Result.andThen
+                            (\string ->
+                                string
+                                    |> String.toInt
+                                    |> Result.fromMaybe (toError.invalid string)
+                            )
+                        |> Result.andThen
+                            (\decodedInt ->
+                                if decodedInt > options.max || decodedInt < options.min then
+                                    Err (toError.invalid (decodedInt |> String.fromInt))
+
+                                else
+                                    Ok decodedInt
+                            )
+                of
+                    Ok parsed ->
+                        ( Just parsed, [] )
+
+                    Err error ->
+                        ( Nothing, [ error ] )
+        , properties =
+            []
+        }
+        (FieldRenderer.Input FieldRenderer.Range)
+        |> withStringProperty ( "min", String.fromInt options.min )
+        |> withStringProperty ( "max", String.fromInt options.max )
+
+
+validateRequiredField : { toError | missing : error } -> Maybe String -> Result error String
+validateRequiredField toError maybeRaw =
+    if (maybeRaw |> Maybe.withDefault "") == "" then
+        Err toError.missing
+
+    else
+        Ok (maybeRaw |> Maybe.withDefault "")
 
 
 {-| -}

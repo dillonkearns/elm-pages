@@ -10,6 +10,7 @@ import Json.Encode as Encode
 type InputType
     = Text
     | Number
+      -- TODO should range have arguments for initial, min, and max?
     | Range
     | Radio
       -- TODO should submit be a special type, or an Input type?
