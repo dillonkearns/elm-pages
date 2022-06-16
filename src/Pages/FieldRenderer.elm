@@ -124,8 +124,7 @@ select selectAttrs enumToOption rawField =
     in
     Html.select
         (selectAttrs
-            -- TODO need to handle other input types like checkbox
-            ++ [ Attr.value (rawField.value |> Maybe.withDefault "") -- TODO is this an okay default?
+            ++ [ Attr.value (rawField.value |> Maybe.withDefault "")
                , Attr.name rawField.name
                ]
         )
@@ -146,6 +145,67 @@ select selectAttrs enumToOption rawField =
                             in
                             Html.option (Attr.value possibleValue :: optionAttrs) children
                                 |> Just
+
+                        Nothing ->
+                            Nothing
+                )
+        )
+
+
+{-| -}
+radio :
+    List (Html.Attribute msg)
+    ->
+        (parsed
+         -> (List (Html.Attribute msg) -> Html msg)
+         -> Html msg
+        )
+    ->
+        { input
+            | value : Maybe String
+            , name : String
+            , kind : ( Select parsed, List ( String, Encode.Value ) )
+        }
+    -> Html msg
+radio selectAttrs enumToOption rawField =
+    let
+        (Select parseValue possibleValues) =
+            rawField.kind |> Tuple.first
+    in
+    Html.fieldset
+        (selectAttrs
+            ++ [ Attr.value (rawField.value |> Maybe.withDefault "")
+               , Attr.name rawField.name
+               ]
+        )
+        (possibleValues
+            |> List.filterMap
+                (\possibleValue ->
+                    let
+                        parsed : Maybe parsed
+                        parsed =
+                            possibleValue
+                                |> parseValue
+                    in
+                    case parsed of
+                        Just justParsed ->
+                            let
+                                renderedElement : Html msg
+                                renderedElement =
+                                    enumToOption justParsed
+                                        (\userHtmlAttrs ->
+                                            Html.input
+                                                ([ Attr.type_ "radio"
+                                                 , Attr.value possibleValue
+                                                 , Attr.name rawField.name
+                                                 , Attr.checked (rawField.value == Just possibleValue)
+                                                 ]
+                                                    ++ userHtmlAttrs
+                                                )
+                                                []
+                                        )
+                            in
+                            Just renderedElement
 
                         Nothing ->
                             Nothing
