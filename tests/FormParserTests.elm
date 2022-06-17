@@ -8,13 +8,6 @@ import Pages.FormParser as FormParser exposing (field)
 import Test exposing (Test, describe, test)
 
 
-formDecoder : FormParser.Parser String ( String, String )
-formDecoder =
-    FormParser.map2 Tuple.pair
-        (FormParser.required "first" "First is required")
-        (FormParser.required "last" "Last is required")
-
-
 type Uuid
     = Uuid String
 
