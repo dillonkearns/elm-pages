@@ -1,14 +1,13 @@
 module Pages.FormParser exposing
-    ( FieldErrors, HtmlForm
+    ( Form(..), FieldErrors, HtmlForm, StyledHtmlForm
     , init
     , addErrors, toResult
     , field, hiddenField, hiddenKind
     , ParsedField, ok
-    , Context
-    , renderHtml
+    , Context, ViewField
+    , renderHtml, renderStyledHtml
     , runNew, runOneOfServerSide, runServerSide
     , FieldDefinition(..)
-    , Form(..), ViewField
     )
 
 {-|
@@ -16,7 +15,7 @@ module Pages.FormParser exposing
 
 ## Building a Form Parser
 
-@docs CombinedParser, FieldErrors, HtmlForm
+@docs Form, FieldErrors, HtmlForm, StyledHtmlForm
 
 @docs init
 
@@ -35,12 +34,12 @@ module Pages.FormParser exposing
 
 ## View Functions
 
-@docs Context, RawField
+@docs Context, ViewField
 
 
 ## Rendering Forms
 
-@docs renderHtml
+@docs renderHtml, renderStyledHtml
 
 
 ## Running Parsers
@@ -62,6 +61,9 @@ import Dict.Extra
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
+import Html.Styled
+import Html.Styled.Attributes as StyledAttr
+import Html.Styled.Lazy
 import Json.Encode as Encode
 import Pages.Field as Field exposing (Field(..))
 import Pages.Form as Form
@@ -80,8 +82,8 @@ import Pages.Transition
 
 
 {-| -}
-init : Form.FormState
-init =
+initFormState : Form.FormState
+initFormState =
     { fields = Dict.empty
     , submitAttempted = False
     }
@@ -438,7 +440,7 @@ runNew app data (Form fieldDefinitions parser _) =
         thisFormState =
             app.pageFormState
                 |> Dict.get "test"
-                |> Maybe.withDefault init
+                |> Maybe.withDefault initFormState
 
         context =
             { errors =
@@ -498,7 +500,7 @@ runServerSide rawFormData (Form fieldDefinitions parser _) =
 
         thisFormState : Form.FormState
         thisFormState =
-            { init
+            { initFormState
                 | fields =
                     rawFormData
                         |> List.map
@@ -570,23 +572,23 @@ renderHtml app data combinedParser =
     Html.Lazy.lazy3 renderHelper app data combinedParser
 
 
-
---renderStyledHtml :
---    AppContext app data
---    ->
---        CombinedParser
---            error
---            parsed
---            data
---            (Context error
---             -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
---            )
---    -> Html (Pages.Msg.Msg msg)
---renderStyledHtml formState_ combinedParser =
---    Html.Lazy.lazy2 renderHelper formState_ combinedParser
-
-
 {-| -}
+renderStyledHtml :
+    AppContext app
+    -> data
+    ->
+        Form
+            error
+            ( Maybe parsed, FieldErrors error )
+            data
+            (Context error
+             -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) )
+            )
+    -> Html.Styled.Html (Pages.Msg.Msg msg)
+renderStyledHtml app data combinedParser =
+    Html.Styled.Lazy.lazy3 renderStyledHelper app data combinedParser
+
+
 renderHelper :
     AppContext app
     -> data
@@ -611,7 +613,7 @@ renderHelper formState data (Form fieldDefinitions parser toInitialValues) =
         part2 =
             formState.pageFormState
                 |> Dict.get formId
-                |> Maybe.withDefault init
+                |> Maybe.withDefault initFormState
                 |> .fields
 
         fullFormState : Dict String Form.FieldState
@@ -692,7 +694,7 @@ renderHelper formState data (Form fieldDefinitions parser toInitialValues) =
                  Pages.Msg.submitIfValid
                     (\fields ->
                         case
-                            { init
+                            { initFormState
                                 | fields =
                                     fields
                                         |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
@@ -709,6 +711,137 @@ renderHelper formState data (Form fieldDefinitions parser toInitialValues) =
                             Err _ ->
                                 False
                     )
+               ]
+            ++ formAttributes
+        )
+        (hiddenInputs ++ children)
+
+
+renderStyledHelper :
+    AppContext app
+    -> data
+    -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) ))
+    -> Html.Styled.Html (Pages.Msg.Msg msg)
+renderStyledHelper formState data (Form fieldDefinitions parser toInitialValues) =
+    -- TODO Get transition context from `app` so you can check if the current form is being submitted
+    -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
+    let
+        formId : String
+        formId =
+            -- TODO remove hardcoding
+            "test"
+
+        initialValues : Dict String Form.FieldState
+        initialValues =
+            toInitialValues data
+                |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                |> Dict.fromList
+
+        part2 : Dict String Form.FieldState
+        part2 =
+            formState.pageFormState
+                |> Dict.get formId
+                |> Maybe.withDefault initFormState
+                |> .fields
+
+        fullFormState : Dict String Form.FieldState
+        fullFormState =
+            initialValues
+                |> Dict.union part2
+
+        parsed :
+            { result : ( Maybe ( Maybe parsed, FieldErrors error ), Dict String (List error) )
+            , view : Context error -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) )
+            }
+        parsed =
+            parser (Just data) thisFormState
+
+        merged : ( Maybe parsed, Dict String (List error) )
+        merged =
+            mergeResults parsed
+
+        thisFormState : Form.FormState
+        thisFormState =
+            formState.pageFormState
+                |> Dict.get formId
+                |> Maybe.withDefault Form.init
+                |> (\state -> { state | fields = fullFormState })
+
+        context : { errors : Dict String (List error), isTransitioning : Bool, submitAttempted : Bool }
+        context =
+            { errors =
+                merged |> Tuple.second
+            , isTransitioning =
+                case formState.transition of
+                    Just transition ->
+                        -- TODO need to track the form's ID and check that to see if it's *this*
+                        -- form that is submitting
+                        --transition.todo == formId
+                        True
+
+                    Nothing ->
+                        False
+            , submitAttempted = thisFormState.submitAttempted
+            }
+
+        ( formAttributes, children ) =
+            parsed.view context
+
+        hiddenInputs : List (Html.Styled.Html (Pages.Msg.Msg msg))
+        hiddenInputs =
+            fieldDefinitions
+                |> List.filterMap
+                    (\( name, fieldDefinition ) ->
+                        case fieldDefinition of
+                            HiddenField ->
+                                Just
+                                    (Html.Styled.input
+                                        ([ Attr.name name
+                                         , Attr.type_ "hidden"
+                                         , Attr.value
+                                            (initialValues
+                                                |> Dict.get name
+                                                |> Maybe.map .value
+                                                |> Maybe.withDefault ""
+                                            )
+                                         ]
+                                            |> List.map StyledAttr.fromUnstyled
+                                        )
+                                        []
+                                    )
+
+                            RegularField ->
+                                Nothing
+                    )
+    in
+    Html.Styled.form
+        ((Form.listeners formId |> List.map StyledAttr.fromUnstyled)
+            ++ [ -- TODO remove hardcoded method - make it part of the config for the form? Should the default be POST?
+                 StyledAttr.method "POST"
+               , StyledAttr.novalidate True
+               , -- TODO need to make an option to choose `Pages.Msg.fetcherOnSubmit`
+                 -- TODO `Pages.Msg.fetcherOnSubmit` needs to accept an `isValid` param, too
+                 StyledAttr.fromUnstyled <|
+                    Pages.Msg.submitIfValid
+                        (\fields ->
+                            case
+                                { initFormState
+                                    | fields =
+                                        fields
+                                            |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                                            |> Dict.fromList
+                                }
+                                    |> parser (Just data)
+                                    -- TODO use mergedResults here
+                                    |> .result
+                                    |> toResult
+                            of
+                                Ok _ ->
+                                    True
+
+                                Err _ ->
+                                    False
+                        )
                ]
             ++ formAttributes
         )
@@ -743,6 +876,15 @@ type alias HtmlForm error parsed data msg =
         ( Maybe parsed, FieldErrors error )
         data
         (Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
+
+
+{-| -}
+type alias StyledHtmlForm error parsed data msg =
+    Form
+        error
+        ( Maybe parsed, FieldErrors error )
+        data
+        (Context error -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) ))
 
 
 {-| -}
