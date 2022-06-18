@@ -154,7 +154,7 @@ all =
             , describe "dependent validations" <|
                 let
                     --checkinFormParser : FormParser.HtmlForm String ( Date, Date ) data msg
-                    checkinFormParser : FormParser.CombinedParser String ( Maybe ( Date, Date ), Dict String (List String) ) data (FormParser.Context String -> MyView)
+                    checkinFormParser : FormParser.Form String ( Maybe ( Date, Date ), Dict String (List String) ) data (FormParser.Context String -> MyView)
                     checkinFormParser =
                         FormParser.andThenNew
                             (\checkin checkout ->

@@ -1,13 +1,14 @@
 module Pages.FormParser exposing
-    ( CombinedParser(..), FieldErrors, HtmlForm
+    ( FieldErrors, HtmlForm
     , andThenNew
     , addErrors, toResult
     , field, hiddenField, hiddenKind
     , ParsedField, ok
-    , Context, RawField
+    , Context
     , renderHtml
     , runNew, runOneOfServerSide, runServerSide
     , FieldDefinition(..)
+    , Form(..), ViewField
     )
 
 {-|
@@ -101,9 +102,9 @@ type alias Context error =
 
 
 {-| -}
-andThenNew : combined -> (Context String -> viewFn) -> CombinedParser String combined data (Context String -> viewFn)
+andThenNew : combined -> (Context String -> viewFn) -> Form String combined data (Context String -> viewFn)
 andThenNew fn viewFn =
-    CombinedParser []
+    Form []
         (\maybeData formState ->
             { result = ( Just fn, Dict.empty )
             , view = viewFn
@@ -116,10 +117,10 @@ andThenNew fn viewFn =
 field :
     String
     -> Field error parsed data kind constraints
-    -> CombinedParser error (ParsedField error parsed -> combined) data (Context error -> (RawField kind -> combinedView))
-    -> CombinedParser error combined data (Context error -> combinedView)
-field name (Field fieldParser kind) (CombinedParser definitions parseFn toInitialValues) =
-    CombinedParser
+    -> Form error (ParsedField error parsed -> combined) data (Context error -> (ViewField kind -> combinedView))
+    -> Form error combined data (Context error -> combinedView)
+field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
+    Form
         (( name, RegularField )
             :: definitions
         )
@@ -139,7 +140,7 @@ field name (Field fieldParser kind) (CombinedParser definitions parseFn toInitia
                                 }
                             )
 
-                rawField : RawField kind
+                rawField : ViewField kind
                 rawField =
                     case formState.fields |> Dict.get name of
                         Just info ->
@@ -161,7 +162,7 @@ field name (Field fieldParser kind) (CombinedParser definitions parseFn toInitia
                         ( Maybe (ParsedField error parsed -> combined)
                         , Dict String (List error)
                         )
-                    , view : Context error -> RawField kind -> combinedView
+                    , view : Context error -> ViewField kind -> combinedView
                     }
                     ->
                         { result : ( Maybe combined, Dict String (List error) )
@@ -205,10 +206,10 @@ field name (Field fieldParser kind) (CombinedParser definitions parseFn toInitia
 hiddenField :
     String
     -> Field error parsed data kind constraints
-    -> CombinedParser error (ParsedField error parsed -> combined) data (Context error -> combinedView)
-    -> CombinedParser error combined data (Context error -> combinedView)
-hiddenField name (Field fieldParser kind) (CombinedParser definitions parseFn toInitialValues) =
-    CombinedParser
+    -> Form error (ParsedField error parsed -> combined) data (Context error -> combinedView)
+    -> Form error combined data (Context error -> combinedView)
+hiddenField name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
+    Form
         (( name, HiddenField )
             :: definitions
         )
@@ -228,7 +229,7 @@ hiddenField name (Field fieldParser kind) (CombinedParser definitions parseFn to
                                 }
                             )
 
-                rawField : RawField ()
+                rawField : ViewField ()
                 rawField =
                     case formState.fields |> Dict.get name of
                         Just info ->
@@ -296,14 +297,14 @@ hiddenField name (Field fieldParser kind) (CombinedParser definitions parseFn to
 hiddenKind :
     ( String, String )
     -> error
-    -> CombinedParser error combined data (Context error -> combinedView)
-    -> CombinedParser error combined data (Context error -> combinedView)
-hiddenKind ( name, value ) error_ (CombinedParser definitions parseFn toInitialValues) =
+    -> Form error combined data (Context error -> combinedView)
+    -> Form error combined data (Context error -> combinedView)
+hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
     let
         (Field fieldParser kind) =
             Field.exactValue value error_
     in
-    CombinedParser
+    Form
         (( name, HiddenField )
             :: definitions
         )
@@ -312,7 +313,7 @@ hiddenKind ( name, value ) error_ (CombinedParser definitions parseFn toInitialV
                 ( maybeParsed, errors ) =
                     fieldParser.decode rawField.value
 
-                rawField : RawField ()
+                rawField : ViewField ()
                 rawField =
                     case formState.fields |> Dict.get name of
                         Just info ->
@@ -416,12 +417,12 @@ runNew :
     AppContext app
     -> data
     ---> CombinedParser error parsed data (Context error -> view)
-    -> CombinedParser error ( Maybe parsed, FieldErrors error ) data (Context error -> view)
+    -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> view)
     ->
         { result : ( Maybe parsed, FieldErrors error )
         , view : view
         }
-runNew app data (CombinedParser fieldDefinitions parser _) =
+runNew app data (Form fieldDefinitions parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -465,9 +466,9 @@ runServerSide :
     List
         ( String, String )
     ---> CombinedParser error parsed data (Context error -> view)
-    -> CombinedParser error ( Maybe parsed, FieldErrors error ) data (Context error -> view)
+    -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> view)
     -> ( Maybe parsed, FieldErrors error )
-runServerSide rawFormData (CombinedParser fieldDefinitions parser _) =
+runServerSide rawFormData (Form fieldDefinitions parser _) =
     let
         parsed : { result : ( Maybe ( Maybe parsed, FieldErrors error ), Dict String (List error) ), view : Context error -> view }
         parsed =
@@ -524,7 +525,7 @@ runServerSide rawFormData (CombinedParser fieldDefinitions parser _) =
 runOneOfServerSide :
     List ( String, String )
     ---> List (CombinedParser error parsed data (Context error -> view))
-    -> List (CombinedParser error ( Maybe parsed, FieldErrors error ) data (Context error -> view))
+    -> List (Form error ( Maybe parsed, FieldErrors error ) data (Context error -> view))
     -> ( Maybe parsed, FieldErrors error )
 runOneOfServerSide rawFormData parsers =
     case parsers of
@@ -557,7 +558,7 @@ renderHtml :
     AppContext app
     -> data
     ->
-        CombinedParser
+        Form
             error
             ( Maybe parsed, FieldErrors error )
             data
@@ -589,9 +590,9 @@ renderHtml app data combinedParser =
 renderHelper :
     AppContext app
     -> data
-    -> CombinedParser error ( Maybe parsed, FieldErrors error ) data (Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
+    -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
     -> Html (Pages.Msg.Msg msg)
-renderHelper formState data (CombinedParser fieldDefinitions parser toInitialValues) =
+renderHelper formState data (Form fieldDefinitions parser toInitialValues) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -737,7 +738,7 @@ toResult ( maybeParsed, fieldErrors ) =
 
 {-| -}
 type alias HtmlForm error parsed data msg =
-    CombinedParser
+    Form
         error
         ( Maybe parsed, FieldErrors error )
         data
@@ -745,8 +746,8 @@ type alias HtmlForm error parsed data msg =
 
 
 {-| -}
-type CombinedParser error parsed data view
-    = CombinedParser
+type Form error parsed data view
+    = Form
         -- TODO track hidden fields here - for renderHtml and renderStyled, automatically render them
         -- TODO for renderCustom, pass them as an argument that the user must render
         (List ( String, FieldDefinition ))
@@ -778,7 +779,7 @@ type alias ParsedField error parsed =
 
 
 {-| -}
-type alias RawField kind =
+type alias ViewField kind =
     { name : String
     , value : Maybe String
     , status : Form.FieldStatus
