@@ -391,6 +391,9 @@ type alias AppContext app =
     }
 
 
+mergeResults :
+    { a | result : ( Maybe ( Maybe parsed, Dict comparable (List error) ), Dict comparable (List error) ) }
+    -> ( Maybe parsed, Dict comparable (List error) )
 mergeResults parsed =
     case parsed.result of
         ( Just ( parsedThing, combineErrors ), individualFieldErrors ) ->
@@ -450,9 +453,7 @@ insertIfNonempty key values dict =
 
 {-| -}
 runServerSide :
-    List
-        ( String, String )
-    ---> CombinedParser error parsed data (Context error -> view)
+    List ( String, String )
     -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> view)
     -> ( Maybe parsed, FieldErrors error )
 runServerSide rawFormData (Form fieldDefinitions parser _) =
@@ -460,28 +461,6 @@ runServerSide rawFormData (Form fieldDefinitions parser _) =
         parsed : { result : ( Maybe ( Maybe parsed, FieldErrors error ), Dict String (List error) ), view : Context error -> view }
         parsed =
             parser Nothing thisFormState
-
-        something =
-            case parsed.result of
-                ( Just ( parsedThing, combineErrors ), individualFieldErrors ) ->
-                    ( parsedThing
-                    , Dict.merge
-                        (\key entries soFar ->
-                            soFar |> insertIfNonempty key entries
-                        )
-                        (\key entries1 entries2 soFar ->
-                            soFar |> insertIfNonempty key (entries1 ++ entries2)
-                        )
-                        (\key entries soFar ->
-                            soFar |> insertIfNonempty key entries
-                        )
-                        combineErrors
-                        individualFieldErrors
-                        Dict.empty
-                    )
-
-                ( Nothing, individualFieldErrors ) ->
-                    ( Nothing, individualFieldErrors )
 
         thisFormState : Form.FormState
         thisFormState =
@@ -498,20 +477,13 @@ runServerSide rawFormData (Form fieldDefinitions parser _) =
                             )
                         |> Dict.fromList
             }
-
-        context =
-            { errors = parsed.result |> Tuple.second
-            , isTransitioning = False
-            , submitAttempted = False
-            }
     in
-    something
+    parsed |> mergeResults
 
 
 {-| -}
 runOneOfServerSide :
     List ( String, String )
-    ---> List (CombinedParser error parsed data (Context error -> view))
     -> List (Form error ( Maybe parsed, FieldErrors error ) data (Context error -> view))
     -> ( Maybe parsed, FieldErrors error )
 runOneOfServerSide rawFormData parsers =
