@@ -14,7 +14,7 @@ import Html.Attributes as Attr
 import MySession
 import Pages.Field as Field
 import Pages.FieldRenderer as FieldRenderer
-import Pages.FormParser as FormParser
+import Pages.Form as Form
 import Pages.FormState
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -118,11 +118,11 @@ type alias Action =
     }
 
 
-formParser : FormParser.HtmlForm String { username : String, name : String } Data msg
+formParser : Form.HtmlForm String { username : String, name : String } Data msg
 formParser =
-    FormParser.init
+    Form.init
         (\username name ->
-            FormParser.ok
+            Form.ok
                 { username = username.value
                 , name = name.value
                 }
@@ -169,13 +169,13 @@ formParser =
               ]
             )
         )
-        |> FormParser.field "username"
+        |> Form.field "username"
             (Field.text
                 |> Field.required "Username is required"
                 |> Field.withClientValidation validateUsername
                 |> Field.withInitialValue (\{ user } -> Form.Value.string user.username)
             )
-        |> FormParser.field "name"
+        |> Form.field "name"
             (Field.text
                 |> Field.required "Name is required"
                 |> Field.withInitialValue (\{ user } -> Form.Value.string user.name)
@@ -247,6 +247,6 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!" ]
-        , FormParser.renderHtml app app.data formParser
+        , Form.renderHtml app app.data formParser
         ]
     }

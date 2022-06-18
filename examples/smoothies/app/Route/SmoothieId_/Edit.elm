@@ -14,7 +14,7 @@ import Html.Attributes as Attr
 import MySession
 import Pages.Field as Field
 import Pages.FieldRenderer
-import Pages.FormParser as FormParser
+import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -172,10 +172,10 @@ type Action
     | Edit { name : String, description : String, price : Int, imageUrl : String }
 
 
-deleteForm : FormParser.HtmlForm String Action data Msg
+deleteForm : Form.HtmlForm String Action data Msg
 deleteForm =
-    FormParser.init
-        (FormParser.ok Delete)
+    Form.init
+        (Form.ok Delete)
         (\formState ->
             ( []
             , [ Html.button
@@ -185,12 +185,12 @@ deleteForm =
               ]
             )
         )
-        |> FormParser.hiddenKind ( "kind", "delete" ) "Required"
+        |> Form.hiddenKind ( "kind", "delete" ) "Required"
 
 
-form : FormParser.HtmlForm String Action Data Msg
+form : Form.HtmlForm String Action Data Msg
 form =
-    FormParser.init
+    Form.init
         (\name description price imageUrl media myCheckbox checkin checkout ->
             if Date.toRataDie checkin.value >= Date.toRataDie checkout.value then
                 ( Nothing
@@ -206,7 +206,7 @@ form =
                 , imageUrl = imageUrl.value
                 }
                     |> Edit
-                    |> FormParser.ok
+                    |> Form.ok
         )
         (\formState name description price imageUrl media myCheckbox checkin checkout ->
             let
@@ -276,28 +276,28 @@ form =
               ]
             )
         )
-        |> FormParser.field "name"
+        |> Form.field "name"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.name)
             )
-        |> FormParser.field "description"
+        |> Form.field "description"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.description)
             )
-        |> FormParser.field "price"
+        |> Form.field "price"
             (Field.int { invalid = \_ -> "Invalid int" }
                 |> Field.required "Required"
                 |> Field.withMin (Form.Value.int 0)
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.int smoothie.price)
             )
-        |> FormParser.field "imageUrl"
+        |> Form.field "imageUrl"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.unsplashImage)
             )
-        |> FormParser.field "media"
+        |> Form.field "media"
             (Field.select
                 [ ( "article", Article )
                 , ( "book", Book )
@@ -305,10 +305,10 @@ form =
                 ]
                 (\option -> "Invalid option " ++ option)
             )
-        |> FormParser.field "my-checkbox" Field.checkbox
-        |> FormParser.field "checkin" (Field.date { invalid = \_ -> "" } |> Field.required "Required")
-        |> FormParser.field "checkout" (Field.date { invalid = \_ -> "" } |> Field.required "Required")
-        |> FormParser.hiddenKind ( "kind", "edit" ) "Required"
+        |> Form.field "my-checkbox" Field.checkbox
+        |> Form.field "checkin" (Field.date { invalid = \_ -> "" } |> Field.required "Required")
+        |> Form.field "checkout" (Field.date { invalid = \_ -> "" } |> Field.required "Required")
+        |> Form.hiddenKind ( "kind", "edit" ) "Required"
 
 
 type Media
@@ -317,7 +317,7 @@ type Media
     | Video
 
 
-parseIgnoreErrors : ( Maybe parsed, FormParser.FieldErrors error ) -> Result (FormParser.FieldErrors error) parsed
+parseIgnoreErrors : ( Maybe parsed, Form.FieldErrors error ) -> Result (Form.FieldErrors error) parsed
 parseIgnoreErrors ( maybeParsed, fieldErrors ) =
     case maybeParsed of
         Just parsed ->
@@ -338,7 +338,7 @@ view maybeUrl sharedModel model app =
         pendingCreation : Maybe NewItem
         pendingCreation =
             form
-                |> FormParser.parse app app.data
+                |> Form.parse app app.data
                 |> parseIgnoreErrors
                 |> Result.toMaybe
                 |> Maybe.andThen
@@ -354,11 +354,11 @@ view maybeUrl sharedModel model app =
     { title = "Update Item"
     , body =
         [ Html.h2 [] [ Html.text "Update item" ]
-        , FormParser.renderHtml app app.data form
+        , Form.renderHtml app app.data form
         , pendingCreation
             |> Maybe.map pendingView
             |> Maybe.withDefault (Html.div [] [])
-        , FormParser.renderHtml app app.data deleteForm
+        , Form.renderHtml app app.data deleteForm
         ]
     }
 

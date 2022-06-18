@@ -16,7 +16,7 @@ import Html.Attributes as Attr
 import Icon
 import MySession
 import Pages.Field as Field
-import Pages.FormParser as FormParser
+import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -123,25 +123,25 @@ type Action
     | SetQuantity Uuid Int
 
 
-signoutForm : FormParser.HtmlForm String Action input Msg
+signoutForm : Form.HtmlForm String Action input Msg
 signoutForm =
-    FormParser.init
-        (FormParser.ok Signout)
+    Form.init
+        (Form.ok Signout)
         (\formState ->
             ( []
             , [ Html.button [] [ Html.text "Sign out" ]
               ]
             )
         )
-        |> FormParser.hiddenKind ( "kind", "signout" ) "Expected signout"
+        |> Form.hiddenKind ( "kind", "signout" ) "Expected signout"
 
 
-setQuantityForm : FormParser.HtmlForm String Action ( Int, Smoothie ) Msg
+setQuantityForm : Form.HtmlForm String Action ( Int, Smoothie ) Msg
 setQuantityForm =
-    FormParser.init
+    Form.init
         (\uuid quantity ->
             SetQuantity (Uuid uuid.value) quantity.value
-                |> FormParser.ok
+                |> Form.ok
         )
         (\formState ->
             ( []
@@ -149,20 +149,20 @@ setQuantityForm =
               ]
             )
         )
-        |> FormParser.hiddenKind ( "kind", "setQuantity" ) "Expected setQuantity"
-        |> FormParser.hiddenField "itemId"
+        |> Form.hiddenKind ( "kind", "setQuantity" ) "Expected setQuantity"
+        |> Form.hiddenField "itemId"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (\( _, item ) -> Form.Value.string (uuidToString item.id))
             )
-        |> FormParser.hiddenField "quantity"
+        |> Form.hiddenField "quantity"
             (Field.int { invalid = \_ -> "Expected int" }
                 |> Field.required "Required"
                 |> Field.withInitialValue (\( quantity, _ ) -> Form.Value.int quantity)
             )
 
 
-oneOfParsers : List (FormParser.HtmlForm String Action ( Int, Smoothie ) Msg)
+oneOfParsers : List (Form.HtmlForm String Action ( Int, Smoothie ) Msg)
 oneOfParsers =
     [ signoutForm, setQuantityForm ]
 
@@ -210,7 +210,7 @@ view maybeUrl sharedModel model app =
                 app.fetchers
                     |> List.filterMap
                         (\pending ->
-                            case FormParser.runOneOfServerSide pending.payload.fields oneOfParsers of
+                            case Form.runOneOfServerSide pending.payload.fields oneOfParsers of
                                 ( Just (SetQuantity itemId addAmount), _ ) ->
                                     Just ( uuidToString itemId, addAmount )
 
@@ -249,7 +249,7 @@ view maybeUrl sharedModel model app =
             ]
         , Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
-            , FormParser.renderHtml app () signoutForm
+            , Form.renderHtml app () signoutForm
             ]
         , cartView totals
         , app.data.smoothies
@@ -294,9 +294,9 @@ productView app cart item =
             ]
         , Html.div
             []
-            [ FormParser.renderHtml app ( quantityInCart - 1, item ) setQuantityForm
+            [ Form.renderHtml app ( quantityInCart - 1, item ) setQuantityForm
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
-            , FormParser.renderHtml app ( quantityInCart + 1, item ) setQuantityForm
+            , Form.renderHtml app ( quantityInCart + 1, item ) setQuantityForm
             ]
         , Html.div []
             [ Html.img

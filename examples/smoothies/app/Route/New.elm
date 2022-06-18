@@ -14,7 +14,7 @@ import Html.Attributes as Attr
 import MySession
 import Pages.Field as Field
 import Pages.FieldRenderer as FieldRenderer
-import Pages.FormParser as FormParser
+import Pages.Form as Form
 import Pages.FormState
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -129,11 +129,11 @@ head static =
     []
 
 
-form : FormParser.HtmlForm String { name : String, description : String, price : Int, imageUrl : String } Data Msg
+form : Form.HtmlForm String { name : String, description : String, price : Int, imageUrl : String } Data Msg
 form =
-    FormParser.init
+    Form.init
         (\name description price imageUrl ->
-            FormParser.ok
+            Form.ok
                 { name = name.value
                 , description = description.value
                 , price = price.value
@@ -179,8 +179,8 @@ form =
               ]
             )
         )
-        |> FormParser.field "name" (Field.text |> Field.required "Required")
-        |> FormParser.field "description"
+        |> Form.field "name" (Field.text |> Field.required "Required")
+        |> Form.field "description"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withClientValidation
@@ -195,8 +195,8 @@ form =
                         )
                     )
             )
-        |> FormParser.field "price" (Field.int { invalid = \_ -> "Invalid int" } |> Field.required "Required")
-        |> FormParser.field "imageUrl" (Field.text |> Field.required "Required")
+        |> Form.field "price" (Field.int { invalid = \_ -> "Invalid int" } |> Field.required "Required")
+        |> Form.field "imageUrl" (Field.text |> Field.required "Required")
 
 
 view :
@@ -207,16 +207,16 @@ view :
     -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model app =
     let
-        pendingCreation : Result (FormParser.FieldErrors String) NewItem
+        pendingCreation : Result (Form.FieldErrors String) NewItem
         pendingCreation =
             form
-                |> FormParser.parse app app.data
+                |> Form.parse app app.data
                 |> parseIgnoreErrors
     in
     { title = "New Item"
     , body =
         [ Html.h2 [] [ Html.text "New item" ]
-        , FormParser.renderHtml app app.data form
+        , Form.renderHtml app app.data form
         , pendingCreation
             |> Debug.log "pendingCreation"
             |> Result.toMaybe
@@ -230,7 +230,7 @@ type alias NewItem =
     { name : String, description : String, price : Int, imageUrl : String }
 
 
-toResult : ( Maybe parsed, FormParser.FieldErrors error ) -> Result (FormParser.FieldErrors error) parsed
+toResult : ( Maybe parsed, Form.FieldErrors error ) -> Result (Form.FieldErrors error) parsed
 toResult ( maybeParsed, fieldErrors ) =
     let
         isEmptyDict : Bool
@@ -250,7 +250,7 @@ toResult ( maybeParsed, fieldErrors ) =
             Err fieldErrors
 
 
-parseIgnoreErrors : ( Maybe parsed, FormParser.FieldErrors error ) -> Result (FormParser.FieldErrors error) parsed
+parseIgnoreErrors : ( Maybe parsed, Form.FieldErrors error ) -> Result (Form.FieldErrors error) parsed
 parseIgnoreErrors ( maybeParsed, fieldErrors ) =
     case maybeParsed of
         Just parsed ->

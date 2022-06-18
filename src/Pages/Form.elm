@@ -1,4 +1,4 @@
-module Pages.FormParser exposing
+module Pages.Form exposing
     ( Form(..), FieldErrors, HtmlForm, StyledHtmlForm
     , init
     , addErrors, toResult

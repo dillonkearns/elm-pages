@@ -102,7 +102,7 @@ import Internal.Request
 import Json.Decode
 import Json.Encode
 import List.NonEmpty
-import Pages.FormParser
+import Pages.Form
 import QueryParams
 import Time
 import Url
@@ -916,7 +916,7 @@ fileField_ name =
 
 {-| -}
 formParserResultNew :
-    List (Pages.FormParser.Form error ( Maybe combined, Pages.FormParser.FieldErrors error ) data (Pages.FormParser.Context error -> viewFn))
+    List (Pages.Form.Form error ( Maybe combined, Pages.Form.FieldErrors error ) data (Pages.Form.Context error -> viewFn))
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
 formParserResultNew formParsers =
     formData
@@ -924,7 +924,7 @@ formParserResultNew formParsers =
             (\rawFormData ->
                 let
                     ( maybeDecoded, errors ) =
-                        Pages.FormParser.runOneOfServerSide
+                        Pages.Form.runOneOfServerSide
                             rawFormData
                             formParsers
                 in
