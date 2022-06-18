@@ -339,7 +339,6 @@ view maybeUrl sharedModel model app =
         pendingCreation =
             form
                 |> FormParser.parse app app.data
-                |> .result
                 |> parseIgnoreErrors
                 |> Result.toMaybe
                 |> Maybe.andThen

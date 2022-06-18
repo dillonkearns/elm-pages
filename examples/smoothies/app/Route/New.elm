@@ -211,7 +211,6 @@ view maybeUrl sharedModel model app =
         pendingCreation =
             form
                 |> FormParser.parse app app.data
-                |> .result
                 |> parseIgnoreErrors
     in
     { title = "New Item"

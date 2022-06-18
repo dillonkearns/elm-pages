@@ -419,10 +419,7 @@ parse :
     AppContext app
     -> data
     -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> view)
-    ->
-        { result : ( Maybe parsed, FieldErrors error )
-        , view : view
-        }
+    -> ( Maybe parsed, FieldErrors error )
 parse app data (Form fieldDefinitions parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
@@ -432,27 +429,16 @@ parse app data (Form fieldDefinitions parser _) =
         parsed =
             parser (Just data) thisFormState
 
-        something =
-            parsed |> mergeResults
-
         thisFormState : Form.FormState
         thisFormState =
             app.pageFormState
                 |> Dict.get "test"
                 |> Maybe.withDefault initFormState
-
-        context =
-            { errors =
-                something |> Tuple.second
-            , isTransitioning = False
-            , submitAttempted = thisFormState.submitAttempted
-            }
     in
-    { result = something
-    , view = parsed.view context
-    }
+    parsed |> mergeResults
 
 
+insertIfNonempty : comparable -> List value -> Dict comparable (List value) -> Dict comparable (List value)
 insertIfNonempty key values dict =
     if values |> List.isEmpty then
         dict
