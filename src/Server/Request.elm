@@ -916,7 +916,7 @@ fileField_ name =
 
 {-| -}
 formParserResultNew :
-    List (Pages.FormParser.CombinedParser error combined data (Pages.FormParser.Context error -> viewFn))
+    List (Pages.FormParser.CombinedParser error ( Maybe combined, Pages.FormParser.FieldErrors error ) data (Pages.FormParser.Context error -> viewFn))
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
 formParserResultNew formParsers =
     formData

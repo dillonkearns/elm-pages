@@ -1,11 +1,58 @@
 module Pages.FormParser exposing
-    ( Context, FieldErrors, HtmlForm, ParsedField, RawField, addError, addErrors, andThenNew, field, hiddenField, hiddenKind, init, input, ok, render, renderHelper, renderHtml, runNew, runOneOfServerSide, runServerSide, toResult, withError
-    , CombinedParser(..), CompleteParser(..), FieldDefinition(..), InputType(..), ParseResult(..), ParsingResult(..), TextType(..)
+    ( CombinedParser(..), FieldErrors, HtmlForm
+    , andThenNew
+    , addErrors, toResult
+    , field, hiddenField, hiddenKind
+    , ParsedField, ok
+    , Context, RawField
+    , renderHtml
+    , runNew, runOneOfServerSide, runServerSide
+    , FieldDefinition(..)
     )
 
 {-|
 
-@docs CombinedParser, CompleteParser, Context, FieldDefinition, FieldErrors, HtmlForm, InputType, ParseResult, ParsedField, ParsingResult, RawField, TextType, addError, addErrors, andThenNew, field, hiddenField, hiddenKind, init, input, ok, render, renderHelper, renderHtml, runNew, runOneOfServerSide, runServerSide, toResult, withError
+
+## Building a Form Parser
+
+@docs CombinedParser, FieldErrors, HtmlForm
+
+@docs andThenNew
+
+@docs addErrors, toResult
+
+
+## Adding Fields
+
+@docs field, hiddenField, hiddenKind
+
+
+## Combining Fields
+
+@docs ParsedField, ok
+
+
+## View Functions
+
+@docs Context, RawField
+
+
+## Rendering Forms
+
+@docs renderHtml
+
+
+## Running Parsers
+
+@docs runNew, runOneOfServerSide, runServerSide
+
+
+## Internal-Only?
+
+@docs FieldDefinition
+
+
+## Unused?
 
 -}
 
@@ -16,19 +63,19 @@ import Html.Attributes as Attr
 import Html.Lazy
 import Json.Encode as Encode
 import Pages.Field as Field exposing (Field(..))
-import Pages.FieldRenderer
 import Pages.Form as Form
 import Pages.Msg
 import Pages.Transition
 
 
-{-| -}
-type
-    ParseResult error decoded
-    -- TODO parse into both errors AND a decoded value
-    = Success decoded
-    | DecodedWithErrors (Dict String (List error)) decoded
-    | DecodeFailure (Dict String (List error))
+
+--{-| -}
+--type
+--    ParseResult error decoded
+--    -- TODO parse into both errors AND a decoded value
+--    = Success decoded
+--    | DecodedWithErrors (Dict String (List error)) decoded
+--    | DecodeFailure (Dict String (List error))
 
 
 {-| -}
@@ -45,6 +92,12 @@ type alias Context error =
     , isTransitioning : Bool
     , submitAttempted : Bool
     }
+
+
+
+--mapResult : (parsed -> mapped) -> ( Maybe parsed, FieldErrors error ) -> ( Maybe mapped, FieldErrors error )
+--mapResult function ( maybe, fieldErrors ) =
+--    ( maybe |> Maybe.map function, fieldErrors )
 
 
 {-| -}
@@ -315,43 +368,6 @@ hiddenKind ( name, value ) error_ (CombinedParser definitions parseFn toInitialV
 
 
 {-| -}
-type ParsingResult a
-    = ParsingResult
-
-
-{-| -}
-type CompleteParser error parsed
-    = CompleteParser
-
-
-{-| -}
-type InputType
-    = Text TextType
-    | TextArea
-    | Radio
-    | Checkbox
-    | Select (List ( String, String ))
-
-
-{-| -}
-type TextType
-    = Phone
-
-
-{-| -}
-input : List (Html.Attribute msg) -> RawField Pages.FieldRenderer.Input -> Html msg
-input attrs rawField =
-    Html.input
-        (attrs
-            -- TODO need to handle other input types like checkbox
-            ++ [ Attr.value (rawField.value |> Maybe.withDefault "") -- TODO is this an okay default?
-               , Attr.name rawField.name
-               ]
-        )
-        []
-
-
-{-| -}
 type alias FieldErrors error =
     Dict String (List error)
 
@@ -372,11 +388,35 @@ type alias AppContext app =
     }
 
 
+mergeResults parsed =
+    case parsed.result of
+        ( Just ( parsedThing, combineErrors ), individualFieldErrors ) ->
+            ( parsedThing
+            , Dict.merge
+                (\key entries soFar ->
+                    soFar |> insertIfNonempty key entries
+                )
+                (\key entries1 entries2 soFar ->
+                    soFar |> insertIfNonempty key (entries1 ++ entries2)
+                )
+                (\key entries soFar ->
+                    soFar |> insertIfNonempty key entries
+                )
+                combineErrors
+                individualFieldErrors
+                Dict.empty
+            )
+
+        ( Nothing, individualFieldErrors ) ->
+            ( Nothing, individualFieldErrors )
+
+
 {-| -}
 runNew :
     AppContext app
     -> data
-    -> CombinedParser error parsed data (Context error -> view)
+    ---> CombinedParser error parsed data (Context error -> view)
+    -> CombinedParser error ( Maybe parsed, FieldErrors error ) data (Context error -> view)
     ->
         { result : ( Maybe parsed, FieldErrors error )
         , view : view
@@ -385,9 +425,13 @@ runNew app data (CombinedParser fieldDefinitions parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
-        parsed : { result : ( Maybe parsed, FieldErrors error ), view : Context error -> view }
+        --parsed : { result : ( Maybe parsed, FieldErrors error ), view : Context error -> view }
+        parsed : { result : ( Maybe ( Maybe parsed, FieldErrors error ), Dict String (List error) ), view : Context error -> view }
         parsed =
             parser (Just data) thisFormState
+
+        something =
+            parsed |> mergeResults
 
         thisFormState : Form.FormState
         thisFormState =
@@ -397,26 +441,59 @@ runNew app data (CombinedParser fieldDefinitions parser _) =
 
         context =
             { errors =
-                parsed.result |> Tuple.second
+                something |> Tuple.second
             , isTransitioning = False
             , submitAttempted = thisFormState.submitAttempted
             }
     in
-    { result = parsed.result
+    { result = something
     , view = parsed.view context
     }
 
 
+insertIfNonempty key values dict =
+    if values |> List.isEmpty then
+        dict
+
+    else
+        dict
+            |> Dict.insert key values
+
+
 {-| -}
 runServerSide :
-    List ( String, String )
-    -> CombinedParser error parsed data (Context error -> view)
+    List
+        ( String, String )
+    ---> CombinedParser error parsed data (Context error -> view)
+    -> CombinedParser error ( Maybe parsed, FieldErrors error ) data (Context error -> view)
     -> ( Maybe parsed, FieldErrors error )
 runServerSide rawFormData (CombinedParser fieldDefinitions parser _) =
     let
-        parsed : { result : ( Maybe parsed, FieldErrors error ), view : Context error -> view }
+        parsed : { result : ( Maybe ( Maybe parsed, FieldErrors error ), Dict String (List error) ), view : Context error -> view }
         parsed =
             parser Nothing thisFormState
+
+        something =
+            case parsed.result of
+                ( Just ( parsedThing, combineErrors ), individualFieldErrors ) ->
+                    ( parsedThing
+                    , Dict.merge
+                        (\key entries soFar ->
+                            soFar |> insertIfNonempty key entries
+                        )
+                        (\key entries1 entries2 soFar ->
+                            soFar |> insertIfNonempty key (entries1 ++ entries2)
+                        )
+                        (\key entries soFar ->
+                            soFar |> insertIfNonempty key entries
+                        )
+                        combineErrors
+                        individualFieldErrors
+                        Dict.empty
+                    )
+
+                ( Nothing, individualFieldErrors ) ->
+                    ( Nothing, individualFieldErrors )
 
         thisFormState : Form.FormState
         thisFormState =
@@ -440,18 +517,20 @@ runServerSide rawFormData (CombinedParser fieldDefinitions parser _) =
             , submitAttempted = False
             }
     in
-    parsed.result
+    something
 
 
 {-| -}
 runOneOfServerSide :
     List ( String, String )
-    -> List (CombinedParser error parsed data (Context error -> view))
+    ---> List (CombinedParser error parsed data (Context error -> view))
+    -> List (CombinedParser error ( Maybe parsed, FieldErrors error ) data (Context error -> view))
     -> ( Maybe parsed, FieldErrors error )
 runOneOfServerSide rawFormData parsers =
     case parsers of
         firstParser :: remainingParsers ->
             let
+                thing : ( Maybe parsed, List ( String, List error ) )
                 thing =
                     runServerSide rawFormData firstParser
                         |> Tuple.mapSecond
@@ -473,40 +552,6 @@ runOneOfServerSide rawFormData parsers =
             ( Nothing, Dict.empty )
 
 
-
---Debug.todo ""
---let
---    parsed : { result : ( Maybe parsed, FieldErrors error ), view : Context error -> view }
---    parsed =
---        parser Nothing thisFormState
---
---    thisFormState : Form.FormState
---    thisFormState =
---        { init
---            | fields =
---                rawFormData
---                    |> List.map
---                        (Tuple.mapSecond
---                            (\value ->
---                                { value = value
---                                , status = Form.NotVisited
---                                }
---                            )
---                        )
---                    |> Dict.fromList
---        }
---
---    context =
---        { errors = parsed.result |> Tuple.second
---        , isTransitioning = False
---        , submitAttempted = False
---        }
---in
---{ result = parsed.result
---, view = parsed.view context
---}
-
-
 {-| -}
 renderHtml :
     AppContext app
@@ -514,7 +559,7 @@ renderHtml :
     ->
         CombinedParser
             error
-            parsed
+            ( Maybe parsed, FieldErrors error )
             data
             (Context error
              -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
@@ -544,14 +589,7 @@ renderHtml app data combinedParser =
 renderHelper :
     AppContext app
     -> data
-    ->
-        CombinedParser
-            error
-            parsed
-            data
-            (Context error
-             -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
-            )
+    -> CombinedParser error ( Maybe parsed, FieldErrors error ) data (Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
     -> Html (Pages.Msg.Msg msg)
 renderHelper formState data (CombinedParser fieldDefinitions parser toInitialValues) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -581,11 +619,15 @@ renderHelper formState data (CombinedParser fieldDefinitions parser toInitialVal
                 |> Dict.union part2
 
         parsed :
-            { result : ( Maybe parsed, Dict String (List error) )
+            { result : ( Maybe ( Maybe parsed, FieldErrors error ), Dict String (List error) )
             , view : Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
             }
         parsed =
             parser (Just data) thisFormState
+
+        merged : ( Maybe parsed, Dict String (List error) )
+        merged =
+            mergeResults parsed
 
         thisFormState : Form.FormState
         thisFormState =
@@ -594,9 +636,10 @@ renderHelper formState data (CombinedParser fieldDefinitions parser toInitialVal
                 |> Maybe.withDefault Form.init
                 |> (\state -> { state | fields = fullFormState })
 
+        context : { errors : Dict String (List error), isTransitioning : Bool, submitAttempted : Bool }
         context =
             { errors =
-                parsed.result |> Tuple.second
+                merged |> Tuple.second
             , isTransitioning =
                 case formState.transition of
                     Just transition ->
@@ -655,6 +698,7 @@ renderHelper formState data (CombinedParser fieldDefinitions parser toInitialVal
                                         |> Dict.fromList
                             }
                                 |> parser (Just data)
+                                -- TODO use mergedResults here
                                 |> .result
                                 |> toResult
                         of
@@ -692,58 +736,10 @@ toResult ( maybeParsed, fieldErrors ) =
 
 
 {-| -}
-render :
-    AppContext app
-    -> data
-    -> CombinedParser error parsed data (Context error -> view)
-    -> view
-render formState data (CombinedParser fieldDefinitions parser toInitialValues) =
-    -- TODO Get transition context from `app` so you can check if the current form is being submitted
-    -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
-    let
-        formId : String
-        formId =
-            -- TODO remove hardcoding
-            "test"
-
-        parsed :
-            { result : ( Maybe parsed, FieldErrors error )
-            , view : Context error -> view
-            }
-        parsed =
-            parser (Just data) thisFormState
-
-        thisFormState : Form.FormState
-        thisFormState =
-            formState.pageFormState
-                |> Dict.get formId
-                |> Maybe.withDefault Form.init
-
-        context =
-            { errors =
-                parsed.result |> Tuple.second
-            , isTransitioning =
-                case formState.transition of
-                    Just transition ->
-                        -- TODO need to track the form's ID and check that to see if it's *this*
-                        -- form that is submitting
-                        --transition.todo == formId
-                        True
-
-                    --True
-                    Nothing ->
-                        False
-            , submitAttempted = thisFormState.submitAttempted
-            }
-    in
-    parsed.view context
-
-
-{-| -}
 type alias HtmlForm error parsed data msg =
     CombinedParser
         error
-        parsed
+        ( Maybe parsed, FieldErrors error )
         data
         (Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
 
@@ -791,26 +787,9 @@ type alias RawField kind =
 
 
 {-| -}
-ok : a -> a
+ok : a -> ( Maybe a, FieldErrors error )
 ok result =
-    result
-
-
-{-| -}
-withError : error -> ParsedField error parsed -> ()
-withError _ _ =
-    --Debug.todo ""
-    ()
-
-
-{-| -}
-addError : String -> error -> Dict String (List error) -> Dict String (List error)
-addError name error allErrors =
-    allErrors
-        |> Dict.update name
-            (\errors ->
-                Just (error :: (errors |> Maybe.withDefault []))
-            )
+    ( Just result, Dict.empty )
 
 
 {-| -}

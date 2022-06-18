@@ -1,5 +1,6 @@
 module FormParserTests exposing (all)
 
+import Date exposing (Date)
 import Dict exposing (Dict)
 import Expect
 import Pages.Field as Field
@@ -83,29 +84,22 @@ all =
                     (FormParser.andThenNew
                         (\password passwordConfirmation ->
                             if password.value /= passwordConfirmation.value then
-                                Debug.todo ""
-                                --passwordConfirmation |> FormParser.withError "Must match password"
+                                ( Nothing
+                                , Dict.fromList
+                                    [ ( passwordConfirmation.name, [ "Must match password" ] )
+                                    ]
+                                )
 
                             else
                                 FormParser.ok { password = password.value }
                         )
-                        (\fieldErrors password passwordConfirmation ->
-                            Div
-                         --Html.form []
-                         --    [ password |> FormParser.input []
-                         --    , passwordConfirmation |> FormParser.input []
-                         --    ]
-                         --}
-                        )
+                        (\fieldErrors password passwordConfirmation -> Div)
                         |> FormParser.field "password" (Field.text |> Field.required "Password is required")
                         |> FormParser.field "password-confirmation" (Field.text |> Field.required "Password confirmation is required")
                     )
                     |> Expect.equal
                         ( Just { password = "mypassword" }
-                        , Dict.fromList
-                            [ ( "password", [] )
-                            , ( "password-confirmation", [] )
-                            ]
+                        , Dict.empty
                         )
         , describe "oneOf" <|
             let
@@ -191,6 +185,59 @@ all =
                             |> Expect.equal
                                 ( Just (Just Book)
                                 , Dict.empty
+                                )
+                ]
+            , describe "dependent validations" <|
+                let
+                    --checkinFormParser : FormParser.HtmlForm String ( Date, Date ) data msg
+                    checkinFormParser : FormParser.CombinedParser String ( Maybe ( Date, Date ), Dict String (List String) ) data (FormParser.Context String -> MyView)
+                    checkinFormParser =
+                        FormParser.andThenNew
+                            (\checkin checkout ->
+                                if Date.toRataDie checkin.value >= Date.toRataDie checkout.value then
+                                    ( Just ( checkin.value, checkout.value )
+                                    , Dict.fromList
+                                        [ ( "checkin", [ "Must be before checkout" ] )
+                                        ]
+                                    )
+
+                                else
+                                    FormParser.ok ( checkin.value, checkout.value )
+                            )
+                            (\fieldErrors checkin checkout -> Div)
+                            |> FormParser.field "checkin"
+                                (Field.date { invalid = \_ -> "Invalid" } |> Field.required "Required")
+                            |> FormParser.field "checkout"
+                                (Field.date { invalid = \_ -> "Invalid" } |> Field.required "Required")
+                in
+                [ test "checkin must be before checkout" <|
+                    \() ->
+                        FormParser.runOneOfServerSide
+                            (fields
+                                [ ( "checkin", "2022-01-01" )
+                                , ( "checkout", "2022-01-03" )
+                                ]
+                            )
+                            [ checkinFormParser ]
+                            |> Expect.equal
+                                ( Just ( Date.fromRataDie 738156, Date.fromRataDie 738158 )
+                                , Dict.empty
+                                )
+                , test "checkout is invalid because before checkin" <|
+                    \() ->
+                        FormParser.runServerSide
+                            (fields
+                                [ ( "checkin", "2022-01-03" )
+                                , ( "checkout", "2022-01-01" )
+                                ]
+                            )
+                            checkinFormParser
+                            |> Expect.equal
+                                ( Just ( Date.fromRataDie 738158, Date.fromRataDie 738156 )
+                                  --( Just (Date.fromRataDie 738158)
+                                , Dict.fromList
+                                    [ ( "checkin", [ "Must be before checkout" ] )
+                                    ]
                                 )
                 ]
             ]

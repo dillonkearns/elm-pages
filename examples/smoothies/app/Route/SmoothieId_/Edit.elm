@@ -3,6 +3,7 @@ module Route.SmoothieId_.Edit exposing (ActionData, Data, Model, Msg, route)
 import Api.Scalar exposing (Uuid(..))
 import Data.Smoothies as Smoothies exposing (Smoothie)
 import DataSource exposing (DataSource)
+import Date
 import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -190,16 +191,24 @@ deleteForm =
 form : FormParser.HtmlForm String Action Data Msg
 form =
     FormParser.andThenNew
-        (\name description price imageUrl media myCheckbox ->
-            { name = name.value
-            , description = description.value
-            , price = price.value
-            , imageUrl = imageUrl.value
-            }
-                |> Edit
-                |> FormParser.ok
+        (\name description price imageUrl media myCheckbox checkin checkout ->
+            if Date.toRataDie checkin.value >= Date.toRataDie checkout.value then
+                ( Nothing
+                , Dict.fromList
+                    [ ( checkin.name, [ "Must be before checkout" ] )
+                    ]
+                )
+
+            else
+                { name = name.value
+                , description = description.value
+                , price = price.value
+                , imageUrl = imageUrl.value
+                }
+                    |> Edit
+                    |> FormParser.ok
         )
-        (\formState name description price imageUrl media myCheckbox ->
+        (\formState name description price imageUrl media myCheckbox checkin checkout ->
             let
                 errors field =
                     formState.errors
@@ -235,19 +244,26 @@ form =
               , fieldView "Price" price
               , fieldView "Image" imageUrl
               , fieldView "Checkbox" myCheckbox
-              , Pages.FieldRenderer.select []
-                    (\enum ->
-                        case enum of
-                            Article ->
-                                ( [], [ Html.text "📄 Article" ] )
+              , Pages.FieldRenderer.radio []
+                    (\enum toRadio ->
+                        Html.label []
+                            [ toRadio []
+                            , Html.text
+                                (case enum of
+                                    Article ->
+                                        "📄 Article"
 
-                            Book ->
-                                ( [], [ Html.text "📕 Book" ] )
+                                    Book ->
+                                        "📕 Book"
 
-                            Video ->
-                                ( [], [ Html.text "📺 Video" ] )
+                                    Video ->
+                                        "📺 Video"
+                                )
+                            ]
                     )
                     media
+              , fieldView "Checkin" checkin
+              , fieldView "Checkout" checkout
               , Html.button []
                     [ Html.text
                         (if formState.isTransitioning then
@@ -290,6 +306,8 @@ form =
                 (\option -> "Invalid option " ++ option)
             )
         |> FormParser.field "my-checkbox" Field.checkbox
+        |> FormParser.field "checkin" (Field.date { invalid = \_ -> "" } |> Field.required "Required")
+        |> FormParser.field "checkout" (Field.date { invalid = \_ -> "" } |> Field.required "Required")
         |> FormParser.hiddenKind ( "kind", "edit" ) "Required"
 
 

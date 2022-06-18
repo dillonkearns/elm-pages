@@ -1,6 +1,7 @@
 module Pages.Field exposing
     ( Field(..), FieldInfo, No(..), Yes(..), checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select, range
     , email, password, search, telephone, url
+    , date
     , withMax, withMin, withStep
     )
 
@@ -14,6 +15,11 @@ module Pages.Field exposing
 @docs email, password, search, telephone, url
 
 
+## Date/Time Fields
+
+@docs date
+
+
 ## Numeric Field Options
 
 @docs withMax, withMin, withStep
@@ -21,6 +27,7 @@ module Pages.Field exposing
 -}
 
 import DataSource exposing (DataSource)
+import Date exposing (Date)
 import Dict exposing (Dict)
 import Form.Value
 import Json.Encode as Encode
@@ -122,6 +129,48 @@ text =
         , properties = []
         }
         (FieldRenderer.Input FieldRenderer.Text)
+
+
+{-| -}
+date :
+    { invalid : String -> error }
+    ->
+        Field
+            error
+            (Maybe Date)
+            data
+            Input
+            { min : Date
+            , max : Date
+            , required : ()
+            , wasMapped : No
+            , initial : Date
+            }
+date toError =
+    Field
+        { initialValue = Nothing
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , decode =
+            \rawString ->
+                if (rawString |> Maybe.withDefault "") == "" then
+                    ( Just Nothing, [] )
+
+                else
+                    case
+                        rawString
+                            |> Maybe.withDefault ""
+                            |> Date.fromIsoString
+                            |> Result.mapError (\_ -> toError.invalid (rawString |> Maybe.withDefault ""))
+                    of
+                        Ok parsedDate ->
+                            ( Just (Just parsedDate), [] )
+
+                        Err error ->
+                            ( Nothing, [ error ] )
+        , properties = []
+        }
+        (FieldRenderer.Input FieldRenderer.Date)
 
 
 {-| -}

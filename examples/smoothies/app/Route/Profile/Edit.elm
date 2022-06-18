@@ -13,6 +13,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
 import Pages.Field as Field
+import Pages.FieldRenderer as FieldRenderer
 import Pages.Form
 import Pages.FormParser as FormParser
 import Pages.Msg
@@ -150,11 +151,11 @@ formParser =
               ]
             , [ Html.div
                     []
-                    [ Html.label [] [ Html.text "Username ", username |> FormParser.input [] ]
+                    [ Html.label [] [ Html.text "Username ", username |> FieldRenderer.input [] ]
                     , errorsView username
                     ]
               , Html.div []
-                    [ Html.label [] [ Html.text "Name ", name |> FormParser.input [] ]
+                    [ Html.label [] [ Html.text "Name ", name |> FieldRenderer.input [] ]
                     , errorsView name
                     ]
               , Html.button []
