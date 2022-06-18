@@ -210,7 +210,7 @@ view maybeUrl sharedModel model app =
         pendingCreation : Result (FormParser.FieldErrors String) NewItem
         pendingCreation =
             form
-                |> FormParser.runNew app app.data
+                |> FormParser.parse app app.data
                 |> .result
                 |> parseIgnoreErrors
     in

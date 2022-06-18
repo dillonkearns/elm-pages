@@ -6,7 +6,7 @@ module Pages.FormParser exposing
     , ParsedField, ok
     , Context, ViewField
     , renderHtml, renderStyledHtml
-    , runNew, runOneOfServerSide, runServerSide
+    , parse, runOneOfServerSide, runServerSide
     , FieldDefinition(..)
     )
 
@@ -44,7 +44,7 @@ module Pages.FormParser exposing
 
 ## Running Parsers
 
-@docs runNew, runOneOfServerSide, runServerSide
+@docs parse, runOneOfServerSide, runServerSide
 
 
 ## Internal-Only?
@@ -415,16 +415,15 @@ mergeResults parsed =
 
 
 {-| -}
-runNew :
+parse :
     AppContext app
     -> data
-    ---> CombinedParser error parsed data (Context error -> view)
     -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> view)
     ->
         { result : ( Maybe parsed, FieldErrors error )
         , view : view
         }
-runNew app data (Form fieldDefinitions parser _) =
+parse app data (Form fieldDefinitions parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
