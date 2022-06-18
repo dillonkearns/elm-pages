@@ -174,7 +174,7 @@ type Action
 
 deleteForm : FormParser.HtmlForm String Action data Msg
 deleteForm =
-    FormParser.andThenNew
+    FormParser.init
         (FormParser.ok Delete)
         (\formState ->
             ( []
@@ -190,7 +190,7 @@ deleteForm =
 
 form : FormParser.HtmlForm String Action Data Msg
 form =
-    FormParser.andThenNew
+    FormParser.init
         (\name description price imageUrl media myCheckbox checkin checkout ->
             if Date.toRataDie checkin.value >= Date.toRataDie checkout.value then
                 ( Nothing

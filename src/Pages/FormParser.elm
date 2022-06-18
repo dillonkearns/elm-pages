@@ -1,6 +1,6 @@
 module Pages.FormParser exposing
     ( FieldErrors, HtmlForm
-    , andThenNew
+    , init
     , addErrors, toResult
     , field, hiddenField, hiddenKind
     , ParsedField, ok
@@ -18,7 +18,7 @@ module Pages.FormParser exposing
 
 @docs CombinedParser, FieldErrors, HtmlForm
 
-@docs andThenNew
+@docs init
 
 @docs addErrors, toResult
 
@@ -102,8 +102,8 @@ type alias Context error =
 
 
 {-| -}
-andThenNew : combined -> (Context String -> viewFn) -> Form String combined data (Context String -> viewFn)
-andThenNew fn viewFn =
+init : combined -> (Context String -> viewFn) -> Form String combined data (Context String -> viewFn)
+init fn viewFn =
     Form []
         (\maybeData formState ->
             { result = ( Just fn, Dict.empty )

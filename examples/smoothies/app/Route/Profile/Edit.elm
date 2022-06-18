@@ -120,7 +120,7 @@ type alias Action =
 
 formParser : FormParser.HtmlForm String { username : String, name : String } Data msg
 formParser =
-    FormParser.andThenNew
+    FormParser.init
         (\username name ->
             FormParser.ok
                 { username = username.value

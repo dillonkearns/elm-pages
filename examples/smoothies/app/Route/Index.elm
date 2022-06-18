@@ -125,7 +125,7 @@ type Action
 
 signoutForm : FormParser.HtmlForm String Action input Msg
 signoutForm =
-    FormParser.andThenNew
+    FormParser.init
         (FormParser.ok Signout)
         (\formState ->
             ( []
@@ -138,7 +138,7 @@ signoutForm =
 
 setQuantityForm : FormParser.HtmlForm String Action ( Int, Smoothie ) Msg
 setQuantityForm =
-    FormParser.andThenNew
+    FormParser.init
         (\uuid quantity ->
             SetQuantity (Uuid uuid.value) quantity.value
                 |> FormParser.ok

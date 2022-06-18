@@ -23,7 +23,7 @@ all =
     describe "Form Parser" <|
         let
             passwordConfirmationParser =
-                FormParser.andThenNew
+                FormParser.init
                     (\password passwordConfirmation ->
                         if password.value /= passwordConfirmation.value then
                             ( Nothing
@@ -68,11 +68,11 @@ all =
         , describe "oneOf" <|
             let
                 oneOfParsers =
-                    [ FormParser.andThenNew
+                    [ FormParser.init
                         (\_ -> FormParser.ok Signout)
                         (\fieldErrors -> Div)
                         |> FormParser.hiddenField "kind" (Field.exactValue "signout" "Expected signout")
-                    , FormParser.andThenNew
+                    , FormParser.init
                         (\_ uuid quantity ->
                             SetQuantity (Uuid uuid.value) quantity.value
                                 |> FormParser.ok
@@ -122,7 +122,7 @@ all =
             , describe "select" <|
                 let
                     selectParser =
-                        [ FormParser.andThenNew
+                        [ FormParser.init
                             (\media ->
                                 media.value
                                     |> FormParser.ok
@@ -156,7 +156,7 @@ all =
                     --checkinFormParser : FormParser.HtmlForm String ( Date, Date ) data msg
                     checkinFormParser : FormParser.Form String ( Maybe ( Date, Date ), Dict String (List String) ) data (FormParser.Context String -> MyView)
                     checkinFormParser =
-                        FormParser.andThenNew
+                        FormParser.init
                             (\checkin checkout ->
                                 if Date.toRataDie checkin.value >= Date.toRataDie checkout.value then
                                     ( Just ( checkin.value, checkout.value )

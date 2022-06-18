@@ -131,7 +131,7 @@ head static =
 
 form : FormParser.HtmlForm String { name : String, description : String, price : Int, imageUrl : String } Data Msg
 form =
-    FormParser.andThenNew
+    FormParser.init
         (\name description price imageUrl ->
             FormParser.ok
                 { name = name.value
