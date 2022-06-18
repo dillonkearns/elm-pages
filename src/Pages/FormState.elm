@@ -1,4 +1,4 @@
-module Pages.Form exposing (..)
+module Pages.FormState exposing (..)
 
 import Dict exposing (Dict)
 import Html exposing (Attribute)

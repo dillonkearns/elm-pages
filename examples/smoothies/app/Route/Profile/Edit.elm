@@ -14,8 +14,8 @@ import Html.Attributes as Attr
 import MySession
 import Pages.Field as Field
 import Pages.FieldRenderer as FieldRenderer
-import Pages.Form
 import Pages.FormParser as FormParser
+import Pages.FormState
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -135,7 +135,7 @@ formParser =
                         |> Maybe.withDefault []
 
                 errorsView field =
-                    (if field.status == Pages.Form.Blurred then
+                    (if field.status == Pages.FormState.Blurred then
                         field
                             |> errors
                             |> List.map (\error -> Html.li [] [ Html.text error ])

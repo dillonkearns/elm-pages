@@ -27,7 +27,7 @@ import Json.Encode
 import Pages.ContentCache as ContentCache
 import Pages.Fetcher
 import Pages.Flags
-import Pages.Form
+import Pages.FormState
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
@@ -331,7 +331,7 @@ type alias Model userModel pageData actionData sharedData =
     , transition : Maybe ( Int, Pages.Transition.Transition )
     , nextTransitionKey : Int
     , inFlightFetchers : Dict Int Pages.Transition.FetcherState
-    , pageFormState : Pages.Form.PageFormState
+    , pageFormState : Pages.FormState.PageFormState
     }
 
 
@@ -383,7 +383,7 @@ update config appMsg model =
                     )
 
         SetField info ->
-            ( { model | pageFormState = Pages.Form.setField info model.pageFormState }
+            ( { model | pageFormState = Pages.FormState.setField info model.pageFormState }
             , NoEffect
             )
 
@@ -471,7 +471,7 @@ update config appMsg model =
                         ( { model
                             | pageFormState =
                                 model.pageFormState
-                                    |> Pages.Form.setSubmitAttempted
+                                    |> Pages.FormState.setSubmitAttempted
                                         -- TODO remove hardcoded fieldId
                                         "test"
                           }
@@ -485,7 +485,7 @@ update config appMsg model =
 
                 Pages.Msg.FormFieldEvent value ->
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`
-                    ( { model | pageFormState = Pages.Form.update value model.pageFormState }
+                    ( { model | pageFormState = Pages.FormState.update value model.pageFormState }
                     , NoEffect
                     )
 

@@ -4,8 +4,8 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Expect
 import Pages.Field as Field
-import Pages.Form
 import Pages.FormParser as FormParser exposing (field)
+import Pages.FormState
 import Test exposing (Test, describe, test)
 
 
@@ -231,11 +231,11 @@ expectNoErrors parsed =
         ]
 
 
-field : String -> String -> ( String, Pages.Form.FieldState )
+field : String -> String -> ( String, Pages.FormState.FieldState )
 field name value =
     ( name
     , { value = value
-      , status = Pages.Form.NotVisited
+      , status = Pages.FormState.NotVisited
       }
     )
 

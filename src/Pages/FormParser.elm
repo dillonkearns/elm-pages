@@ -66,7 +66,7 @@ import Html.Styled.Attributes as StyledAttr
 import Html.Styled.Lazy
 import Json.Encode as Encode
 import Pages.Field as Field exposing (Field(..))
-import Pages.Form as Form
+import Pages.FormState as Form
 import Pages.Msg
 import Pages.Transition
 

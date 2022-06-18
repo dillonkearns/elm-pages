@@ -10,7 +10,7 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
-import Pages.Form
+import Pages.FormState
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition
@@ -178,7 +178,7 @@ view maybeUrl sharedModel model app =
 nameFormView : User -> Maybe Pages.Transition.Transition -> Html (Pages.Msg.Msg userMsg)
 nameFormView user maybeTransition =
     Html.form
-        (Pages.Form.listeners "test"
+        (Pages.FormState.listeners "test"
             ++ [ Attr.method "POST"
                , Pages.Msg.onSubmit
                ]

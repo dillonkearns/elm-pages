@@ -49,7 +49,7 @@ import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import HtmlPrinter
 import Lamdera.Wire3
-import Pages.Form
+import Pages.FormState
 import Pages.Internal.String
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
@@ -161,7 +161,7 @@ type ActionData
 
 
 view :
-    Pages.Form.PageFormState
+    Pages.FormState.PageFormState
     -> List Pages.Transition.FetcherState
     -> Maybe Pages.Transition.Transition
     -> { path : Path
@@ -373,7 +373,7 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
 
 
 
-update : Pages.Form.PageFormState  -> List Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
+update : Pages.FormState.PageFormState  -> List Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
 update pageFormState fetchers transition sharedData pageData navigationKey msg model =
     case msg of
         MsgErrorPage____ msg_ ->
