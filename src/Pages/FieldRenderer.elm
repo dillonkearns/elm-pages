@@ -1,12 +1,17 @@
-module Pages.FieldRenderer exposing (..)
+module Pages.FieldRenderer exposing (Input(..), InputType(..), Options(..), input, inputTypeToString, radio, select, toHtmlProperties)
 
-{-| -}
+{-|
+
+@docs Input, InputType, Options, input, inputTypeToString, radio, select, toHtmlProperties
+
+-}
 
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Json.Encode as Encode
 
 
+{-| -}
 type InputType
     = Text
     | Number
@@ -24,6 +29,7 @@ type InputType
     | Url
 
 
+{-| -}
 inputTypeToString : InputType -> String
 inputTypeToString inputType =
     case inputType of
@@ -61,10 +67,12 @@ inputTypeToString inputType =
             "url"
 
 
+{-| -}
 type Input
     = Input InputType
 
 
+{-| -}
 type Options a
     = Options (String -> Maybe a) (List String)
 
@@ -213,6 +221,7 @@ radio selectAttrs enumToOption rawField =
         )
 
 
+{-| -}
 toHtmlProperties : List ( String, Encode.Value ) -> List (Html.Attribute msg)
 toHtmlProperties properties =
     properties
