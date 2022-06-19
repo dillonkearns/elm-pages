@@ -136,7 +136,7 @@ signoutForm =
         |> Form.hiddenKind ( "kind", "signout" ) "Expected signout"
 
 
-setQuantityForm : Form.HtmlForm String Action ( Int, Smoothie ) Msg
+setQuantityForm : Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) Msg
 setQuantityForm =
     Form.init
         (\uuid quantity ->
@@ -145,7 +145,11 @@ setQuantityForm =
         )
         (\formState ->
             ( []
-            , [ Html.button [] [ Html.text "+" ]
+            , [ Html.button []
+                    [ Html.text <|
+                        -- TODO wire through quantityChange argument here so I can use it to render view
+                        "+"
+                    ]
               ]
             )
         )
@@ -153,16 +157,30 @@ setQuantityForm =
         |> Form.hiddenField "itemId"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (\( _, item ) -> Form.Value.string (uuidToString item.id))
+                |> Field.withInitialValue (\( _, _, item ) -> Form.Value.string (uuidToString item.id))
             )
         |> Form.hiddenField "quantity"
             (Field.int { invalid = \_ -> "Expected int" }
                 |> Field.required "Required"
-                |> Field.withInitialValue (\( quantity, _ ) -> Form.Value.int quantity)
+                |> Field.withInitialValue
+                    (\( quantityInCart, quantityChange, _ ) ->
+                        (quantityInCart + toQuantity quantityChange)
+                            |> Form.Value.int
+                    )
             )
 
 
-oneOfParsers : List (Form.HtmlForm String Action ( Int, Smoothie ) Msg)
+toQuantity : QuantityChange -> Int
+toQuantity quantityChange =
+    case quantityChange of
+        Increment ->
+            1
+
+        Decrement ->
+            -1
+
+
+oneOfParsers : List (Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) Msg)
 oneOfParsers =
     [ signoutForm, setQuantityForm ]
 
@@ -275,6 +293,11 @@ uuidToString (Uuid id) =
     id
 
 
+type QuantityChange
+    = Increment
+    | Decrement
+
+
 productView : StaticPayload Data ActionData RouteParams -> Dict String Cart.CartEntry -> Smoothie -> Html (Pages.Msg.Msg Msg)
 productView app cart item =
     let
@@ -294,9 +317,9 @@ productView app cart item =
             ]
         , Html.div
             []
-            [ Form.renderHtml app ( quantityInCart - 1, item ) setQuantityForm
+            [ Form.renderHtml app ( quantityInCart, Decrement, item ) setQuantityForm
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
-            , Form.renderHtml app ( quantityInCart + 1, item ) setQuantityForm
+            , Form.renderHtml app ( quantityInCart, Increment, item ) setQuantityForm
             ]
         , Html.div []
             [ Html.img
