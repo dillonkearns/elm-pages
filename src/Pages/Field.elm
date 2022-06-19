@@ -1,18 +1,25 @@
 module Pages.Field exposing
-    ( Field(..), FieldInfo, No(..), Yes(..), checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select, range
-    , email, password, search, telephone, url
+    ( text, checkbox, int
+    , select, range
     , date
+    , Field(..), FieldInfo, exactValue
+    , required, withClientValidation, withInitialValue
+    , email, password, search, telephone, url
     , withMax, withMin, withStep
+    , No(..), Yes(..)
     )
 
 {-|
 
-@docs Field, FieldInfo, No, Yes, checkbox, exactValue, int, required, text, withClientValidation, withInitialValue, select, range
+
+## Base Fields
+
+@docs text, checkbox, int
 
 
-## Text Field Display Options
+## Multiple Choice Fields
 
-@docs email, password, search, telephone, url
+@docs select, range
 
 
 ## Date/Time Fields
@@ -20,9 +27,29 @@ module Pages.Field exposing
 @docs date
 
 
+## Other
+
+@docs Field, FieldInfo, exactValue
+
+
+## Field Configuration
+
+@docs required, withClientValidation, withInitialValue
+
+
+## Text Field Display Options
+
+@docs email, password, search, telephone, url
+
+
 ## Numeric Field Options
 
 @docs withMax, withMin, withStep
+
+
+## Phantom Options
+
+@docs No, Yes
 
 -}
 
