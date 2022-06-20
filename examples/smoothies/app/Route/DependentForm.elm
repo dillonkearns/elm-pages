@@ -119,13 +119,17 @@ type PostAction
     | ParsedPost { title : String, body : Maybe String }
 
 
-linkForm : Form.HtmlForm String PostAction data Msg
+linkForm : Form.HtmlSubForm String PostAction data Msg
 linkForm =
     Form.init
         (\url ->
             Form.ok (ParsedLink url.value)
         )
-        (\fieldErrors url -> ( [], [] ))
+        (\fieldErrors url ->
+            [ Html.text "Create a link"
+            , url |> Pages.FieldRenderer.input []
+            ]
+        )
         |> Form.field "url"
             (Field.text
                 |> Field.required "Required"
@@ -133,7 +137,7 @@ linkForm =
             )
 
 
-postForm : Form.HtmlForm String PostAction data Msg
+postForm : Form.HtmlSubForm String PostAction data Msg
 postForm =
     Form.init
         (\title body ->
@@ -144,7 +148,12 @@ postForm =
                     }
                 )
         )
-        (\fieldErrors title body -> ( [], [] ))
+        (\fieldErrors title body ->
+            [ Html.text "Create a link"
+            , title |> Pages.FieldRenderer.input []
+            , body |> Pages.FieldRenderer.input []
+            ]
+        )
         |> Form.field "title" (Field.text |> Field.required "Required")
         |> Form.field "body" Field.text
 
@@ -154,12 +163,33 @@ dependentParser =
     Form.init
         (\kind postForm_ ->
             postForm_ kind.value
+                |> Form.andThen identity
         )
         (\formState kind postForm_ ->
             let
+                parsedKind : Maybe PostKind
+                parsedKind =
+                    -- TODO don't manually parse, this should be provided as a record field (`parsed : Maybe parsed`)
+                    case kind.value |> Debug.log "@@@kind.value" of
+                        Just "link" ->
+                            Just Link
+
+                        Just "post" ->
+                            Just Post
+
+                        _ ->
+                            Nothing
+
+                something : List (Html (Pages.Msg.Msg Msg))
                 something =
                     -- TODO do I need to have `Maybe parsed` available in view fields?
-                    postForm_ Nothing
+                    -- TODO show "please choose an option" if `Maybe parsed` is `Nothing`
+                    case parsedKind of
+                        Just justKind ->
+                            postForm_ justKind
+
+                        Nothing ->
+                            [ Html.text "Please select a post kind" ]
 
                 errors field =
                     formState.errors
@@ -187,7 +217,22 @@ dependentParser =
                         ]
             in
             ( []
-            , [--postForm_ Nothing
+            , [ Pages.FieldRenderer.radio []
+                    (\enum toRadio ->
+                        Html.label []
+                            [ toRadio []
+                            , Html.text
+                                (case enum of
+                                    Link ->
+                                        "Link"
+
+                                    Post ->
+                                        "Post"
+                                )
+                            ]
+                    )
+                    kind
+              , Html.div [] something
               ]
             )
         )

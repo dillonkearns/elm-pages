@@ -8,7 +8,7 @@ module Pages.Form exposing
     , renderHtml, renderStyledHtml
     , parse, runOneOfServerSide, runServerSide
     , FieldDefinition(..)
-    , andThen, dynamic
+    , HtmlSubForm, andThen, dynamic
     )
 
 {-|
@@ -137,7 +137,7 @@ init fn viewFn =
 
 
 dynamic :
-    (decider -> Form error parsed data (Context String -> viewFn))
+    (decider -> Form error parsed data (Context error -> subView))
     ->
         Form
             error
@@ -146,15 +146,15 @@ dynamic :
             -- -> combined
             --)
             --dontKnowYet
-            ((decider -> parsed) -> combined)
+            ((decider -> ( Maybe parsed, FieldErrors error )) -> combined)
             data
-            (Context error -> ((Maybe decider -> ViewField ()) -> combinedView))
+            (Context error -> ((decider -> subView) -> combinedView))
     -> Form error combined data (Context error -> combinedView)
 dynamic forms formBuilder =
     Form []
         (\maybeData formState ->
             let
-                toParser : decider -> { result : ( Maybe parsed, FieldErrors error ), view : Context String -> viewFn }
+                toParser : decider -> { result : ( Maybe parsed, FieldErrors error ), view : Context error -> subView }
                 toParser decider =
                     case forms decider of
                         Form definitions parseFn toInitialValues ->
@@ -212,42 +212,42 @@ dynamic forms formBuilder =
                     }
                 myFn =
                     let
-                        --decider =
-                        --    Debug.todo ""
-                        --( fieldThings, errorsSoFar ) =
-                        --    toParser decider |> .result
-                        --combineFn : parsed -> Maybe combined
-                        --combineFn =
-                        --    Debug.todo ""
                         --deciderToParsed : ( Maybe parsed, FieldErrors error )
+                        deciderToParsed : decider -> ( Maybe parsed, FieldErrors error )
                         deciderToParsed decider =
-                            case
-                                decider
-                                    |> toParser
-                                    |> .result
-                            of
-                                ( Just okParsed, _ ) ->
-                                    okParsed
+                            --case
+                            decider
+                                |> toParser
+                                |> .result
 
-                                ( Nothing, _ ) ->
-                                    Debug.todo "TODO - don't call parser at all in this case"
-
+                        --of
+                        --    ( Just okParsed, _ ) ->
+                        --        okParsed
+                        --
+                        --    ( Nothing, _ ) ->
+                        --        Debug.todo "TODO - don't call parser at all in this case"
                         newThing :
                             { result :
                                 ( Maybe
-                                    ((decider -> parsed) -> combined)
+                                    ((decider -> ( Maybe parsed, FieldErrors error )) -> combined)
                                 , Dict String (List error)
                                 )
-                            , view : Context error -> (Maybe decider -> ViewField ()) -> combinedView
+                            , view : Context error -> (decider -> subView) -> combinedView
                             }
                         newThing =
                             case formBuilder of
                                 Form definitions parseFn toInitialValues ->
                                     parseFn maybeData formState
 
+                        --whatsThis : Maybe ((decider -> parsed) -> combined)
+                        --whatsThis =
+                        --    newThing.result |> Tuple.first
                         anotherThing : Maybe combined
                         anotherThing =
-                            Maybe.map2 (|>) (Just deciderToParsed) (newThing.result |> Tuple.first)
+                            Maybe.map2
+                                (\thing1 thing2 -> thing1 |> thing2)
+                                (Just deciderToParsed)
+                                (newThing.result |> Tuple.first)
                     in
                     { result =
                         ( --case fieldThings of
@@ -266,13 +266,19 @@ dynamic forms formBuilder =
                     , view =
                         \fieldErrors ->
                             let
-                                something2 : Maybe decider -> ViewField ()
-                                something2 maybeDecider =
-                                    { name = ""
-                                    , value = Nothing
-                                    , status = Form.NotVisited
-                                    , kind = ( (), [] )
-                                    }
+                                something2 : decider -> subView
+                                something2 decider =
+                                    fieldErrors
+                                        |> (decider
+                                                |> toParser
+                                                |> .view
+                                           )
+
+                                --{ name = ""
+                                --, value = Nothing
+                                --, status = Form.NotVisited
+                                --, kind = ( (), [] )
+                                --}
                             in
                             newThing.view fieldErrors something2
 
@@ -304,10 +310,18 @@ dynamic forms formBuilder =
 
 andThen : (parsed -> ( Maybe combined, FieldErrors error )) -> ( Maybe parsed, FieldErrors error ) -> ( Maybe combined, FieldErrors error )
 andThen andThenFn ( maybe, fieldErrors ) =
-    Debug.todo ""
+    case maybe of
+        Just justValue ->
+            andThenFn justValue
+                |> Tuple.mapSecond (mergeErrors fieldErrors)
+
+        Nothing ->
+            ( Nothing, fieldErrors )
 
 
 
+--( maybe andThenFn, fieldErrors )
+--Debug.todo ""
 {-
    Form
        error
@@ -602,23 +616,28 @@ mergeResults parsed =
     case parsed.result of
         ( Just ( parsedThing, combineErrors ), individualFieldErrors ) ->
             ( parsedThing
-            , Dict.merge
-                (\key entries soFar ->
-                    soFar |> insertIfNonempty key entries
-                )
-                (\key entries1 entries2 soFar ->
-                    soFar |> insertIfNonempty key (entries1 ++ entries2)
-                )
-                (\key entries soFar ->
-                    soFar |> insertIfNonempty key entries
-                )
-                combineErrors
-                individualFieldErrors
-                Dict.empty
+            , mergeErrors combineErrors individualFieldErrors
             )
 
         ( Nothing, individualFieldErrors ) ->
             ( Nothing, individualFieldErrors )
+
+
+mergeErrors : Dict comparable (List value) -> Dict comparable (List value) -> Dict comparable (List value)
+mergeErrors errors1 errors2 =
+    Dict.merge
+        (\key entries soFar ->
+            soFar |> insertIfNonempty key entries
+        )
+        (\key entries1 entries2 soFar ->
+            soFar |> insertIfNonempty key (entries1 ++ entries2)
+        )
+        (\key entries soFar ->
+            soFar |> insertIfNonempty key entries
+        )
+        errors1
+        errors2
+        Dict.empty
 
 
 {-| -}
@@ -1040,6 +1059,15 @@ type alias HtmlForm error parsed data msg =
         ( Maybe parsed, FieldErrors error )
         data
         (Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
+
+
+{-| -}
+type alias HtmlSubForm error parsed data msg =
+    Form
+        error
+        ( Maybe parsed, FieldErrors error )
+        data
+        (Context error -> List (Html (Pages.Msg.Msg msg)))
 
 
 {-| -}
