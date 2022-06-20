@@ -4,7 +4,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Expect
 import Pages.Field as Field
-import Pages.Form as Form
+import Pages.Form as Form exposing (Form)
 import Pages.FormState
 import Test exposing (Test, describe, test)
 
@@ -205,7 +205,90 @@ all =
                                 )
                 ]
             ]
+        , describe "dependent parsing" <|
+            let
+                --checkinFormParser : Form.HtmlForm String ( Date, Date ) data msg
+                --dependentParser : Form.Form String ( Maybe ( Date, Date ), Dict String (List String) ) data (Form.Context String -> MyView)
+                linkForm : Form.Form String ( Maybe PostAction, Form.FieldErrors error ) data (Form.Context String -> MyView)
+                linkForm =
+                    Form.init
+                        (\url ->
+                            Form.ok (ParsedLink url.value)
+                        )
+                        (\fieldErrors url -> Div)
+                        |> Form.field "url"
+                            (Field.text
+                                |> Field.required "Required"
+                                |> Field.url
+                            )
+
+                postForm : Form.Form String ( Maybe PostAction, Form.FieldErrors error ) data (Form.Context String -> MyView)
+                postForm =
+                    Form.init
+                        (\title body ->
+                            Form.ok
+                                (ParsedPost
+                                    { title = title.value
+                                    , body = body.value
+                                    }
+                                )
+                        )
+                        (\fieldErrors title body -> Div)
+                        |> Form.field "title" (Field.text |> Field.required "Required")
+                        |> Form.field "body" Field.text
+
+                dependentParser : Form.Form String ( Maybe PostAction, Form.FieldErrors String ) data (Form.Context String -> MyView)
+                dependentParser =
+                    Form.init
+                        (\kind postForm_ ->
+                            postForm_ kind.value
+                        )
+                        (\fieldErrors kind postForm_ ->
+                            Div
+                        )
+                        |> Form.field "kind"
+                            (Field.select
+                                [ ( "link", Link )
+                                , ( "post", Post )
+                                ]
+                                (\_ -> "Invalid")
+                                |> Field.required "Required"
+                            )
+                        |> Form.dynamic
+                            (\parsedKind ->
+                                case parsedKind of
+                                    Link ->
+                                        linkForm
+
+                                    Post ->
+                                        postForm
+                            )
+            in
+            [ test "parses link" <|
+                \() ->
+                    Form.runOneOfServerSide
+                        (fields
+                            [ ( "kind", "link" )
+                            , ( "url", "https://elm-radio.com/episode/wrap-early-unwrap-late" )
+                            ]
+                        )
+                        [ dependentParser ]
+                        |> Expect.equal
+                            ( Just (ParsedLink "https://elm-radio.com/episode/wrap-early-unwrap-late")
+                            , Dict.empty
+                            )
+            ]
         ]
+
+
+type PostAction
+    = ParsedLink String
+    | ParsedPost { title : String, body : Maybe String }
+
+
+type PostKind
+    = Link
+    | Post
 
 
 type Media

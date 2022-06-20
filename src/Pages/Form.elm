@@ -8,6 +8,7 @@ module Pages.Form exposing
     , renderHtml, renderStyledHtml
     , parse, runOneOfServerSide, runServerSide
     , FieldDefinition(..)
+    , andThen, dynamic
     )
 
 {-|
@@ -113,6 +114,209 @@ init fn viewFn =
             }
         )
         (\_ -> [])
+
+
+{-| -}
+
+
+
+--dynamic : combined -> (Context String -> viewFn) -> Form String combined data (Context String -> viewFn)
+--dynamic :
+--    (decider -> Form error parsed data (Context String -> viewFn))
+--    ->
+--        Form
+--            error
+--            --(Maybe decider
+--            -- -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> viewFn)
+--            -- -> combined
+--            --)
+--            dontKnowYet
+--            data
+--            (Context error -> (ViewField kind -> combinedView))
+--    -> Form error combined data (Context error -> combinedView)
+
+
+dynamic :
+    (decider -> Form error parsed data (Context String -> viewFn))
+    ->
+        Form
+            error
+            --(Maybe decider
+            -- -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> viewFn)
+            -- -> combined
+            --)
+            --dontKnowYet
+            ((decider -> parsed) -> combined)
+            data
+            (Context error -> ((Maybe decider -> ViewField ()) -> combinedView))
+    -> Form error combined data (Context error -> combinedView)
+dynamic forms formBuilder =
+    Form []
+        (\maybeData formState ->
+            let
+                toParser : decider -> { result : ( Maybe parsed, FieldErrors error ), view : Context String -> viewFn }
+                toParser decider =
+                    case forms decider of
+                        Form definitions parseFn toInitialValues ->
+                            parseFn maybeData formState
+
+                rawField : ViewField ()
+                rawField =
+                    --case formState.fields |> Dict.get name of
+                    --    Just info ->
+                    --        { name = name
+                    --        , value = Just info.value
+                    --        , status = info.status
+                    --        , kind = ( kind, fieldParser.properties )
+                    --        }
+                    --
+                    --    Nothing ->
+                    --        { name = name
+                    --        , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
+                    --        , status = Form.NotVisited
+                    --        , kind = ( kind, fieldParser.properties )
+                    --        }
+                    { name = "TODO"
+                    , value = Nothing
+                    , status = Form.NotVisited
+                    , kind = ( (), [] )
+                    }
+
+                --( maybeParsed, errors ) =
+                --    --fieldParser.decode rawField.value
+                --    toParser.result
+                --parsedField : Maybe (ParsedField error parsed)
+                --parsedField =
+                --    Debug.todo ""
+                --parsedField : Maybe (ParsedField error parsed)
+                --parsedField =
+                --    maybeParsed
+                --        |> Maybe.map
+                --            (\parsed ->
+                --                { name = name
+                --                , value = parsed
+                --                , errors = errors
+                --                }
+                --            )
+                myFn :
+                    --{ result :
+                    --    ( --Maybe (ParsedField error parsed -> combined)
+                    --      (decider -> parsed) -> combined
+                    --    , Dict String (List error)
+                    --    )
+                    --, view : Context error -> ViewField kind -> combinedView
+                    --}
+                    --->
+                    { result : ( Maybe combined, Dict String (List error) )
+                    , view : Context error -> combinedView
+                    }
+                myFn =
+                    let
+                        --decider =
+                        --    Debug.todo ""
+                        --( fieldThings, errorsSoFar ) =
+                        --    toParser decider |> .result
+                        --combineFn : parsed -> Maybe combined
+                        --combineFn =
+                        --    Debug.todo ""
+                        --deciderToParsed : ( Maybe parsed, FieldErrors error )
+                        deciderToParsed decider =
+                            case
+                                decider
+                                    |> toParser
+                                    |> .result
+                            of
+                                ( Just okParsed, _ ) ->
+                                    okParsed
+
+                                ( Nothing, _ ) ->
+                                    Debug.todo "TODO - don't call parser at all in this case"
+
+                        newThing :
+                            { result :
+                                ( Maybe
+                                    ((decider -> parsed) -> combined)
+                                , Dict String (List error)
+                                )
+                            , view : Context error -> (Maybe decider -> ViewField ()) -> combinedView
+                            }
+                        newThing =
+                            case formBuilder of
+                                Form definitions parseFn toInitialValues ->
+                                    parseFn maybeData formState
+
+                        anotherThing : Maybe combined
+                        anotherThing =
+                            Maybe.map2 (|>) (Just deciderToParsed) (newThing.result |> Tuple.first)
+                    in
+                    { result =
+                        ( --case fieldThings of
+                          --    Just fieldPipelineFn ->
+                          --        fieldPipelineFn |> combineFn
+                          --Just fieldPipelineFn
+                          --|> Maybe.map fieldPipelineFn
+                          --Nothing ->
+                          --    Nothing
+                          --Nothing
+                          anotherThing
+                        , newThing.result |> Tuple.second
+                          --errorsSoFar
+                          --|> addErrors name errors
+                        )
+                    , view =
+                        \fieldErrors ->
+                            let
+                                something2 : Maybe decider -> ViewField ()
+                                something2 maybeDecider =
+                                    { name = ""
+                                    , value = Nothing
+                                    , status = Form.NotVisited
+                                    , kind = ( (), [] )
+                                    }
+                            in
+                            newThing.view fieldErrors something2
+
+                    --toParser
+                    --toParser.view fieldErrors (Debug.todo "")
+                    --rawField
+                    }
+
+                --decider =
+                --    Debug.todo ""
+            in
+            --{ result = ( Just fn, Dict.empty )
+            --, view = viewFn
+            --}
+            --Debug.todo ""
+            --{ result = ( Nothing, Dict.empty )
+            --, view =
+            --    \fieldErrors ->
+            --        soFar.view fieldErrors rawField
+            --
+            ----viewFn
+            --}
+            --toParser
+            --    |>
+            myFn
+        )
+        (\_ -> [])
+
+
+andThen : (parsed -> ( Maybe combined, FieldErrors error )) -> ( Maybe parsed, FieldErrors error ) -> ( Maybe combined, FieldErrors error )
+andThen andThenFn ( maybe, fieldErrors ) =
+    Debug.todo ""
+
+
+
+{-
+   Form
+       error
+       ( Maybe parsed, FieldErrors error )
+       data
+       (Context error
+        -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
+       )
+-}
 
 
 {-| -}
@@ -646,28 +850,31 @@ renderHelper formState data (Form fieldDefinitions parser toInitialValues) =
             ++ [ -- TODO remove hardcoded method - make it part of the config for the form? Should the default be POST?
                  Attr.method "POST"
                , Attr.novalidate True
-               , -- TODO need to make an option to choose `Pages.Msg.fetcherOnSubmit`
-                 -- TODO `Pages.Msg.fetcherOnSubmit` needs to accept an `isValid` param, too
-                 Pages.Msg.submitIfValid
-                    (\fields ->
-                        case
-                            { initFormState
-                                | fields =
-                                    fields
-                                        |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
-                                        |> Dict.fromList
-                            }
-                                |> parser (Just data)
-                                -- TODO use mergedResults here
-                                |> .result
-                                |> toResult
-                        of
-                            Ok _ ->
-                                True
 
-                            Err _ ->
-                                False
-                    )
+               -- TODO need to make an option to choose `Pages.Msg.fetcherOnSubmit`
+               -- TODO `Pages.Msg.fetcherOnSubmit` needs to accept an `isValid` param, too
+               , Pages.Msg.fetcherOnSubmit
+
+               --Pages.Msg.submitIfValid
+               --   (\fields ->
+               --       case
+               --           { initFormState
+               --               | fields =
+               --                   fields
+               --                       |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+               --                       |> Dict.fromList
+               --           }
+               --               |> parser (Just data)
+               --               -- TODO use mergedResults here
+               --               |> .result
+               --               |> toResult
+               --       of
+               --           Ok _ ->
+               --               True
+               --
+               --           Err _ ->
+               --               False
+               --   )
                ]
             ++ formAttributes
         )
