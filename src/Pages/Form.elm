@@ -754,28 +754,27 @@ renderHelper formState data (Form fieldDefinitions parser toInitialValues) =
 
                -- TODO need to make an option to choose `Pages.Msg.fetcherOnSubmit`
                -- TODO `Pages.Msg.fetcherOnSubmit` needs to accept an `isValid` param, too
-               , Pages.Msg.fetcherOnSubmit
+               , --Pages.Msg.fetcherOnSubmit
+                 Pages.Msg.submitIfValid
+                    (\fields ->
+                        case
+                            { initFormState
+                                | fields =
+                                    fields
+                                        |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                                        |> Dict.fromList
+                            }
+                                |> parser (Just data)
+                                -- TODO use mergedResults here
+                                |> .result
+                                |> toResult
+                        of
+                            Ok _ ->
+                                True
 
-               --Pages.Msg.submitIfValid
-               --   (\fields ->
-               --       case
-               --           { initFormState
-               --               | fields =
-               --                   fields
-               --                       |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
-               --                       |> Dict.fromList
-               --           }
-               --               |> parser (Just data)
-               --               -- TODO use mergedResults here
-               --               |> .result
-               --               |> toResult
-               --       of
-               --           Ok _ ->
-               --               True
-               --
-               --           Err _ ->
-               --               False
-               --   )
+                            Err _ ->
+                                False
+                    )
                ]
             ++ formAttributes
         )
