@@ -130,11 +130,6 @@ dynamic :
     ->
         Form
             error
-            --(Maybe decider
-            -- -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> viewFn)
-            -- -> combined
-            --)
-            --dontKnowYet
             ((decider -> ( Maybe parsed, FieldErrors error )) -> combined)
             data
             (Context error -> ((decider -> subView) -> combinedView))
@@ -147,74 +142,21 @@ dynamic forms formBuilder =
                 toParser decider =
                     case forms decider of
                         Form definitions parseFn toInitialValues ->
+                            -- TODO need to include hidden form fields from `definitions` (should they be automatically rendered? Does that mean the view type needs to be hardcoded?)
                             parseFn maybeData formState
 
-                rawField : ViewField ()
-                rawField =
-                    --case formState.fields |> Dict.get name of
-                    --    Just info ->
-                    --        { name = name
-                    --        , value = Just info.value
-                    --        , status = info.status
-                    --        , kind = ( kind, fieldParser.properties )
-                    --        }
-                    --
-                    --    Nothing ->
-                    --        { name = name
-                    --        , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
-                    --        , status = Form.NotVisited
-                    --        , kind = ( kind, fieldParser.properties )
-                    --        }
-                    { name = "TODO"
-                    , value = Nothing
-                    , status = Form.NotVisited
-                    , kind = ( (), [] )
-                    }
-
-                --( maybeParsed, errors ) =
-                --    --fieldParser.decode rawField.value
-                --    toParser.result
-                --parsedField : Maybe (ParsedField error parsed)
-                --parsedField =
-                --    Debug.todo ""
-                --parsedField : Maybe (ParsedField error parsed)
-                --parsedField =
-                --    maybeParsed
-                --        |> Maybe.map
-                --            (\parsed ->
-                --                { name = name
-                --                , value = parsed
-                --                , errors = errors
-                --                }
-                --            )
                 myFn :
-                    --{ result :
-                    --    ( --Maybe (ParsedField error parsed -> combined)
-                    --      (decider -> parsed) -> combined
-                    --    , Dict String (List error)
-                    --    )
-                    --, view : Context error -> ViewField kind -> combinedView
-                    --}
-                    --->
                     { result : ( Maybe combined, Dict String (List error) )
                     , view : Context error -> combinedView
                     }
                 myFn =
                     let
-                        --deciderToParsed : ( Maybe parsed, FieldErrors error )
                         deciderToParsed : decider -> ( Maybe parsed, FieldErrors error )
                         deciderToParsed decider =
-                            --case
                             decider
                                 |> toParser
                                 |> .result
 
-                        --of
-                        --    ( Just okParsed, _ ) ->
-                        --        okParsed
-                        --
-                        --    ( Nothing, _ ) ->
-                        --        Debug.todo "TODO - don't call parser at all in this case"
                         newThing :
                             { result :
                                 ( Maybe
@@ -228,29 +170,19 @@ dynamic forms formBuilder =
                                 Form definitions parseFn toInitialValues ->
                                     parseFn maybeData formState
 
-                        --whatsThis : Maybe ((decider -> parsed) -> combined)
-                        --whatsThis =
-                        --    newThing.result |> Tuple.first
                         anotherThing : Maybe combined
                         anotherThing =
                             Maybe.map2
                                 (\thing1 thing2 -> thing1 |> thing2)
                                 (Just deciderToParsed)
-                                (newThing.result |> Tuple.first)
+                                (newThing.result
+                                    -- TODO are these errors getting dropped? Write a test case to check
+                                    |> Tuple.first
+                                )
                     in
                     { result =
-                        ( --case fieldThings of
-                          --    Just fieldPipelineFn ->
-                          --        fieldPipelineFn |> combineFn
-                          --Just fieldPipelineFn
-                          --|> Maybe.map fieldPipelineFn
-                          --Nothing ->
-                          --    Nothing
-                          --Nothing
-                          anotherThing
+                        ( anotherThing
                         , newThing.result |> Tuple.second
-                          --errorsSoFar
-                          --|> addErrors name errors
                         )
                     , view =
                         \fieldErrors ->
@@ -262,36 +194,10 @@ dynamic forms formBuilder =
                                                 |> toParser
                                                 |> .view
                                            )
-
-                                --{ name = ""
-                                --, value = Nothing
-                                --, status = Form.NotVisited
-                                --, kind = ( (), [] )
-                                --}
                             in
                             newThing.view fieldErrors something2
-
-                    --toParser
-                    --toParser.view fieldErrors (Debug.todo "")
-                    --rawField
                     }
-
-                --decider =
-                --    Debug.todo ""
             in
-            --{ result = ( Just fn, Dict.empty )
-            --, view = viewFn
-            --}
-            --Debug.todo ""
-            --{ result = ( Nothing, Dict.empty )
-            --, view =
-            --    \fieldErrors ->
-            --        soFar.view fieldErrors rawField
-            --
-            ----viewFn
-            --}
-            --toParser
-            --    |>
             myFn
         )
         (\_ -> [])
@@ -307,20 +213,6 @@ andThen andThenFn ( maybe, fieldErrors ) =
 
         Nothing ->
             ( Nothing, fieldErrors )
-
-
-
---( maybe andThenFn, fieldErrors )
---Debug.todo ""
-{-
-   Form
-       error
-       ( Maybe parsed, FieldErrors error )
-       data
-       (Context error
-        -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
-       )
--}
 
 
 {-| -}
