@@ -89,7 +89,26 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.skip "No action."
+    Request.formParserResultNew [ dependentParser ]
+        |> Request.map
+            (\parsedForm ->
+                let
+                    _ =
+                        Debug.log "parsedForm"
+                            (case parsedForm of
+                                Ok (ParsedLink url) ->
+                                    "Received a link: " ++ url
+
+                                Ok (ParsedPost post) ->
+                                    "Received a post: " ++ post.title ++ " , " ++ (post.body |> Maybe.withDefault "No body")
+
+                                Err formErrors ->
+                                    "formErrors"
+                            )
+                in
+                DataSource.succeed
+                    (Response.render ActionData)
+            )
 
 
 head :
@@ -207,6 +226,7 @@ dependentParser =
                     )
                     kind
               , Html.div [] something
+              , Html.button [] [ Html.text "Submit" ]
               ]
             )
         )
@@ -236,6 +256,7 @@ fieldView formState label field =
                 |> Dict.get field.name
                 |> Maybe.withDefault []
 
+        errorsView : Html msg
         errorsView =
             (if formState.submitAttempted || True then
                 errors
