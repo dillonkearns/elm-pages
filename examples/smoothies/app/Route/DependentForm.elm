@@ -125,9 +125,9 @@ linkForm =
         (\url ->
             Form.ok (ParsedLink url.value)
         )
-        (\fieldErrors url ->
-            [ Html.text "Create a link"
-            , url |> Pages.FieldRenderer.input []
+        (\formState url ->
+            [ Html.h2 [] [ Html.text "Create a link" ]
+            , fieldView formState "URL" url
             ]
         )
         |> Form.field "url"
@@ -148,10 +148,10 @@ postForm =
                     }
                 )
         )
-        (\fieldErrors title body ->
-            [ Html.text "Create a link"
-            , title |> Pages.FieldRenderer.input []
-            , body |> Pages.FieldRenderer.input []
+        (\formState title body ->
+            [ Html.h2 [] [ Html.text "Create a post" ]
+            , fieldView formState "Title" title
+            , fieldView formState "Body" body
             ]
         )
         |> Form.field "title" (Field.text |> Field.required "Required")
@@ -170,7 +170,7 @@ dependentParser =
                 parsedKind : Maybe PostKind
                 parsedKind =
                     -- TODO don't manually parse, this should be provided as a record field (`parsed : Maybe parsed`)
-                    case kind.value |> Debug.log "@@@kind.value" of
+                    case kind.value of
                         Just "link" ->
                             Just Link
 
@@ -195,26 +195,6 @@ dependentParser =
                     formState.errors
                         |> Dict.get field.name
                         |> Maybe.withDefault []
-
-                errorsView field =
-                    (if formState.submitAttempted || True then
-                        field
-                            |> errors
-                            |> List.map (\error -> Html.li [] [ Html.text error ])
-
-                     else
-                        []
-                    )
-                        |> Html.ul [ Attr.style "color" "red" ]
-
-                fieldView label field =
-                    Html.div []
-                        [ Html.label []
-                            [ Html.text (label ++ " ")
-                            , field |> Pages.FieldRenderer.input []
-                            ]
-                        , errorsView field
-                        ]
             in
             ( []
             , [ Pages.FieldRenderer.radio []
@@ -253,6 +233,32 @@ dependentParser =
                     Post ->
                         postForm
             )
+
+
+fieldView formState label field =
+    let
+        errors =
+            formState.errors
+                |> Dict.get field.name
+                |> Maybe.withDefault []
+
+        errorsView =
+            (if formState.submitAttempted || True then
+                errors
+                    |> List.map (\error -> Html.li [] [ Html.text error ])
+
+             else
+                []
+            )
+                |> Html.ul [ Attr.style "color" "red" ]
+    in
+    Html.div []
+        [ Html.label []
+            [ Html.text (label ++ " ")
+            , field |> Pages.FieldRenderer.input []
+            ]
+        , errorsView
+        ]
 
 
 type PostKind
