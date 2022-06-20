@@ -189,11 +189,6 @@ dependentParser =
 
                         Nothing ->
                             [ Html.text "Please select a post kind" ]
-
-                errors field =
-                    formState.errors
-                        |> Dict.get field.name
-                        |> Maybe.withDefault []
             in
             ( []
             , [ Pages.FieldRenderer.radio []
