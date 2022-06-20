@@ -7,6 +7,7 @@ import ErrorPage exposing (ErrorPage)
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Json.Encode as Encode
 import Pages.Field as Field
 import Pages.FieldRenderer
 import Pages.Form as Form
@@ -249,6 +250,11 @@ dependentParser =
             )
 
 
+fieldView :
+    Form.Context String
+    -> String
+    -> Form.ViewField Pages.FieldRenderer.Input
+    -> Html msg
 fieldView formState label field =
     let
         errors =
