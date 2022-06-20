@@ -4,11 +4,12 @@ module Pages.Form exposing
     , addErrors, toResult
     , field, hiddenField, hiddenKind
     , ParsedField, ok
+    , andThen
     , Context, ViewField
     , renderHtml, renderStyledHtml
     , parse, runOneOfServerSide, runServerSide
+    , dynamic, HtmlSubForm
     , FieldDefinition(..)
-    , HtmlSubForm, andThen, dynamic
     )
 
 {-|
@@ -33,6 +34,11 @@ module Pages.Form exposing
 @docs ParsedField, ok
 
 
+### Managing Errors
+
+@docs andThen
+
+
 ## View Functions
 
 @docs Context, ViewField
@@ -48,12 +54,14 @@ module Pages.Form exposing
 @docs parse, runOneOfServerSide, runServerSide
 
 
+## Dynamic Fields
+
+@docs dynamic, HtmlSubForm
+
+
 ## Internal-Only?
 
 @docs FieldDefinition
-
-
-## Unused?
 
 -}
 
@@ -117,25 +125,6 @@ init fn viewFn =
 
 
 {-| -}
-
-
-
---dynamic : combined -> (Context String -> viewFn) -> Form String combined data (Context String -> viewFn)
---dynamic :
---    (decider -> Form error parsed data (Context String -> viewFn))
---    ->
---        Form
---            error
---            --(Maybe decider
---            -- -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> viewFn)
---            -- -> combined
---            --)
---            dontKnowYet
---            data
---            (Context error -> (ViewField kind -> combinedView))
---    -> Form error combined data (Context error -> combinedView)
-
-
 dynamic :
     (decider -> Form error parsed data (Context error -> subView))
     ->
@@ -308,6 +297,7 @@ dynamic forms formBuilder =
         (\_ -> [])
 
 
+{-| -}
 andThen : (parsed -> ( Maybe combined, FieldErrors error )) -> ( Maybe parsed, FieldErrors error ) -> ( Maybe combined, FieldErrors error )
 andThen andThenFn ( maybe, fieldErrors ) =
     case maybe of
