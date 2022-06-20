@@ -7,7 +7,6 @@ import ErrorPage exposing (ErrorPage)
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Json.Encode as Encode
 import Pages.Field as Field
 import Pages.FieldRenderer
 import Pages.Form as Form
@@ -199,16 +198,6 @@ dependentParser =
 
                         _ ->
                             Nothing
-
-                something : List (Html (Pages.Msg.Msg Msg))
-                something =
-                    -- TODO do I need to have `Maybe parsed` available in view fields?
-                    case parsedKind of
-                        Just justKind ->
-                            postForm_ justKind
-
-                        Nothing ->
-                            [ Html.text "Please select a post kind" ]
             in
             ( []
             , [ Pages.FieldRenderer.radio []
@@ -226,7 +215,14 @@ dependentParser =
                             ]
                     )
                     kind
-              , Html.div [] something
+              , Html.div []
+                    (case parsedKind of
+                        Just justKind ->
+                            postForm_ justKind
+
+                        Nothing ->
+                            [ Html.text "Please select a post kind" ]
+                    )
               , Html.button [] [ Html.text "Submit" ]
               ]
             )
