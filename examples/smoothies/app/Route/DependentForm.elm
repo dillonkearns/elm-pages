@@ -183,7 +183,6 @@ dependentParser =
                 something : List (Html (Pages.Msg.Msg Msg))
                 something =
                     -- TODO do I need to have `Maybe parsed` available in view fields?
-                    -- TODO show "please choose an option" if `Maybe parsed` is `Nothing`
                     case parsedKind of
                         Just justKind ->
                             postForm_ justKind
