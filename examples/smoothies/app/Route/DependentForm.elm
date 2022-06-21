@@ -235,19 +235,14 @@ dependentParser =
 fieldView :
     Form.Context String
     -> String
-    -> Form.ViewField parsed Pages.FieldRenderer.Input
+    -> Form.ViewField String parsed Pages.FieldRenderer.Input
     -> Html msg
 fieldView formState label field =
     let
-        errors =
-            formState.errors
-                |> Dict.get field.name
-                |> Maybe.withDefault []
-
         errorsView : Html msg
         errorsView =
             (if formState.submitAttempted || True then
-                errors
+                field.errors
                     |> List.map (\error -> Html.li [] [ Html.text error ])
 
              else

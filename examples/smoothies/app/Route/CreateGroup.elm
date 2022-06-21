@@ -1,7 +1,6 @@
 module Route.CreateGroup exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
-import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import GroupName exposing (GroupName)
@@ -227,7 +226,7 @@ postForm =
 fieldView :
     Form.Context String
     -> String
-    -> Form.ViewField parsed Pages.FieldRenderer.Input
+    -> Form.ViewField String parsed Pages.FieldRenderer.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
@@ -239,16 +238,10 @@ fieldView formState label field =
         ]
 
 
-errorsForField : Form.Context String -> Form.ViewField parsed kind -> Html msg
+errorsForField : Form.Context String -> Form.ViewField String parsed kind -> Html msg
 errorsForField formState field =
-    let
-        errors =
-            formState.errors
-                |> Dict.get field.name
-                |> Maybe.withDefault []
-    in
     (if formState.submitAttempted then
-        errors
+        field.errors
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else

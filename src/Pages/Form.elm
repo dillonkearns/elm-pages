@@ -219,7 +219,7 @@ andThen andThenFn ( maybe, fieldErrors ) =
 field :
     String
     -> Field error parsed data kind constraints
-    -> Form error (ParsedField error parsed -> combined) data (Context error -> (ViewField parsed kind -> combinedView))
+    -> Form error (ParsedField error parsed -> combined) data (Context error -> (ViewField error parsed kind -> combinedView))
     -> Form error combined data (Context error -> combinedView)
 field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
     Form
@@ -250,13 +250,14 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                                 }
                             )
 
-                rawField : ViewField parsed kind
+                rawField : ViewField error parsed kind
                 rawField =
                     { name = name
                     , value = rawFieldValue
                     , status = fieldStatus
                     , kind = ( kind, fieldParser.properties )
                     , parsed = maybeParsed
+                    , errors = errors
                     }
 
                 myFn :
@@ -264,7 +265,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                         ( Maybe (ParsedField error parsed -> combined)
                         , Dict String (List error)
                         )
-                    , view : Context error -> ViewField parsed kind -> combinedView
+                    , view : Context error -> ViewField error parsed kind -> combinedView
                     }
                     ->
                         { result : ( Maybe combined, Dict String (List error) )
@@ -978,12 +979,13 @@ type alias ParsedField error parsed =
 
 
 {-| -}
-type alias ViewField parsed kind =
+type alias ViewField error parsed kind =
     { name : String
     , value : Maybe String
     , status : Form.FieldStatus
     , kind : ( kind, List ( String, Encode.Value ) )
     , parsed : Maybe parsed
+    , errors : List error
     }
 
 
