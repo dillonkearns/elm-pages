@@ -176,7 +176,17 @@ postForm =
                         visibility
                     , errorsForField formState visibility
                     ]
-              , Html.button [] [ Html.text "Submit" ]
+              , Html.button
+                    [ Attr.disabled formState.isTransitioning
+                    ]
+                    [ Html.text
+                        (if formState.isTransitioning then
+                            "Submitting..."
+
+                         else
+                            "Submit"
+                        )
+                    ]
               ]
             )
         )
