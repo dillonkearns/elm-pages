@@ -185,20 +185,6 @@ dependentParser =
                 |> Form.andThen identity
         )
         (\formState kind postForm_ ->
-            let
-                parsedKind : Maybe PostKind
-                parsedKind =
-                    -- TODO don't manually parse, this should be provided as a record field (`parsed : Maybe parsed`)
-                    case kind.value of
-                        Just "link" ->
-                            Just Link
-
-                        Just "post" ->
-                            Just Post
-
-                        _ ->
-                            Nothing
-            in
             ( []
             , [ Pages.FieldRenderer.radio []
                     (\enum toRadio ->
@@ -216,7 +202,7 @@ dependentParser =
                     )
                     kind
               , Html.div []
-                    (case parsedKind of
+                    (case kind.parsed of
                         Just justKind ->
                             postForm_ justKind
 
@@ -249,7 +235,7 @@ dependentParser =
 fieldView :
     Form.Context String
     -> String
-    -> Form.ViewField Pages.FieldRenderer.Input
+    -> Form.ViewField parsed Pages.FieldRenderer.Input
     -> Html msg
 fieldView formState label field =
     let

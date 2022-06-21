@@ -227,7 +227,7 @@ postForm =
 fieldView :
     Form.Context String
     -> String
-    -> Form.ViewField Pages.FieldRenderer.Input
+    -> Form.ViewField parsed Pages.FieldRenderer.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
@@ -239,7 +239,7 @@ fieldView formState label field =
         ]
 
 
-errorsForField : Form.Context String -> Form.ViewField kind -> Html msg
+errorsForField : Form.Context String -> Form.ViewField parsed kind -> Html msg
 errorsForField formState field =
     let
         errors =

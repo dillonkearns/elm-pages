@@ -219,7 +219,7 @@ andThen andThenFn ( maybe, fieldErrors ) =
 field :
     String
     -> Field error parsed data kind constraints
-    -> Form error (ParsedField error parsed -> combined) data (Context error -> (ViewField kind -> combinedView))
+    -> Form error (ParsedField error parsed -> combined) data (Context error -> (ViewField parsed kind -> combinedView))
     -> Form error combined data (Context error -> combinedView)
 field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
     Form
@@ -229,7 +229,15 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
         (\maybeData formState ->
             let
                 ( maybeParsed, errors ) =
-                    fieldParser.decode rawField.value
+                    fieldParser.decode rawFieldValue
+
+                ( rawFieldValue, fieldStatus ) =
+                    case formState.fields |> Dict.get name of
+                        Just info ->
+                            ( Just info.value, info.status )
+
+                        Nothing ->
+                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, Form.NotVisited )
 
                 parsedField : Maybe (ParsedField error parsed)
                 parsedField =
@@ -242,29 +250,21 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                                 }
                             )
 
-                rawField : ViewField kind
+                rawField : ViewField parsed kind
                 rawField =
-                    case formState.fields |> Dict.get name of
-                        Just info ->
-                            { name = name
-                            , value = Just info.value
-                            , status = info.status
-                            , kind = ( kind, fieldParser.properties )
-                            }
-
-                        Nothing ->
-                            { name = name
-                            , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
-                            , status = Form.NotVisited
-                            , kind = ( kind, fieldParser.properties )
-                            }
+                    { name = name
+                    , value = rawFieldValue
+                    , status = fieldStatus
+                    , kind = ( kind, fieldParser.properties )
+                    , parsed = maybeParsed
+                    }
 
                 myFn :
                     { result :
                         ( Maybe (ParsedField error parsed -> combined)
                         , Dict String (List error)
                         )
-                    , view : Context error -> ViewField kind -> combinedView
+                    , view : Context error -> ViewField parsed kind -> combinedView
                     }
                     ->
                         { result : ( Maybe combined, Dict String (List error) )
@@ -318,7 +318,16 @@ hiddenField name (Field fieldParser kind) (Form definitions parseFn toInitialVal
         (\maybeData formState ->
             let
                 ( maybeParsed, errors ) =
-                    fieldParser.decode rawField.value
+                    fieldParser.decode rawFieldValue
+
+                rawFieldValue : Maybe String
+                rawFieldValue =
+                    case formState.fields |> Dict.get name of
+                        Just info ->
+                            Just info.value
+
+                        Nothing ->
+                            Maybe.map2 (|>) maybeData fieldParser.initialValue
 
                 parsedField : Maybe (ParsedField error parsed)
                 parsedField =
@@ -330,23 +339,6 @@ hiddenField name (Field fieldParser kind) (Form definitions parseFn toInitialVal
                                 , errors = errors
                                 }
                             )
-
-                rawField : ViewField ()
-                rawField =
-                    case formState.fields |> Dict.get name of
-                        Just info ->
-                            { name = name
-                            , value = Just info.value
-                            , status = info.status
-                            , kind = ( (), [] )
-                            }
-
-                        Nothing ->
-                            { name = name
-                            , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
-                            , status = Form.NotVisited
-                            , kind = ( (), [] )
-                            }
 
                 myFn :
                     { result :
@@ -413,24 +405,16 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
         (\maybeData formState ->
             let
                 ( maybeParsed, errors ) =
-                    fieldParser.decode rawField.value
+                    fieldParser.decode rawFieldValue
 
-                rawField : ViewField ()
-                rawField =
+                rawFieldValue : Maybe String
+                rawFieldValue =
                     case formState.fields |> Dict.get name of
                         Just info ->
-                            { name = name
-                            , value = Just info.value
-                            , status = info.status
-                            , kind = ( (), [] )
-                            }
+                            Just info.value
 
                         Nothing ->
-                            { name = name
-                            , value = Maybe.map2 (|>) maybeData fieldParser.initialValue
-                            , status = Form.NotVisited
-                            , kind = ( (), [] )
-                            }
+                            Maybe.map2 (|>) maybeData fieldParser.initialValue
 
                 myFn :
                     { result :
@@ -994,11 +978,12 @@ type alias ParsedField error parsed =
 
 
 {-| -}
-type alias ViewField kind =
+type alias ViewField parsed kind =
     { name : String
     , value : Maybe String
     , status : Form.FieldStatus
     , kind : ( kind, List ( String, Encode.Value ) )
+    , parsed : Maybe parsed
     }
 
 
