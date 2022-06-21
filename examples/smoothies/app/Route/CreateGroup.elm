@@ -1,6 +1,7 @@
 module Route.CreateGroup exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
+import Description exposing (Description)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import GroupName exposing (GroupName)
@@ -130,7 +131,7 @@ view maybeUrl sharedModel model app =
 
 type alias GroupFormValidated =
     { name : GroupName
-    , description : Maybe String
+    , description : Description
     , visibility : GroupVisibility
     }
 
@@ -212,7 +213,18 @@ postForm =
                             |> fromResult
                     )
             )
-        |> Form.field "description" (Field.text |> Field.textarea)
+        |> Form.field "description"
+            (Field.text
+                |> Field.textarea
+                |> Field.withClientValidation
+                    (\value ->
+                        value
+                            |> Maybe.withDefault ""
+                            |> Description.fromString
+                            |> Result.mapError Description.errorToString
+                            |> fromResult
+                    )
+            )
         |> Form.field "visibility"
             (Field.select
                 [ ( "unlisted", UnlistedGroup )
