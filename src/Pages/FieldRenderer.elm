@@ -27,6 +27,7 @@ type InputType
     | Password
     | Email
     | Url
+    | Textarea
 
 
 {-| -}
@@ -34,6 +35,9 @@ inputTypeToString : InputType -> String
 inputTypeToString inputType =
     case inputType of
         Text ->
+            "text"
+
+        Textarea ->
             "text"
 
         Number ->
@@ -89,6 +93,16 @@ input :
     -> Html msg
 input attrs rawField =
     case rawField.kind of
+        ( Input Textarea, properties ) ->
+            Html.textarea
+                (attrs
+                    ++ toHtmlProperties properties
+                    ++ [ Attr.value (rawField.value |> Maybe.withDefault "")
+                       , Attr.name rawField.name
+                       ]
+                )
+                []
+
         ( Input inputType, properties ) ->
             Html.input
                 (attrs

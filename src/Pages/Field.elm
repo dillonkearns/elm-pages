@@ -4,7 +4,7 @@ module Pages.Field exposing
     , date
     , Field(..), FieldInfo, exactValue
     , required, withClientValidation, withInitialValue
-    , email, password, search, telephone, url
+    , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep
     , No(..), Yes(..)
     )
@@ -39,7 +39,7 @@ module Pages.Field exposing
 
 ## Text Field Display Options
 
-@docs email, password, search, telephone, url
+@docs email, password, search, telephone, url, textarea
 
 
 ## Numeric Field Options
@@ -399,6 +399,14 @@ url :
 url (Field field kind) =
     Field field
         (FieldRenderer.Input FieldRenderer.Url)
+
+
+{-| -}
+textarea :
+    Field error parsed data Input { constraints | plainText : () }
+    -> Field error parsed data Input constraints
+textarea (Field field kind) =
+    Field field (FieldRenderer.Input FieldRenderer.Textarea)
 
 
 {-| -}
