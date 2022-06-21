@@ -153,7 +153,7 @@ postForm =
         )
         (\formState name description visibility ->
             ( []
-            , [ Html.h2 [] [ Html.text "Create a post" ]
+            , [ Html.h2 [] [ Html.text "Create a group" ]
               , fieldView formState "What's the name of your group?" name
               , fieldView formState "Describe what your group is about (you can fill out this later)" description
               , Html.div []
