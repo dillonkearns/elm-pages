@@ -340,10 +340,10 @@ int toError =
             \rawString ->
                 case rawString of
                     Nothing ->
-                        ( Nothing, [] )
+                        ( Just Nothing, [] )
 
                     Just "" ->
-                        ( Nothing, [] )
+                        ( Just Nothing, [] )
 
                     Just string ->
                         case string |> String.toInt of

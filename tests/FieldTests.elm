@@ -17,16 +17,25 @@ all =
                     (\_ -> "Invalid")
                     |> Field.required "Required"
                 )
-                    |> expectSomething
+                    |> expect
                         [ ( Just "link", Ok Link )
                         , ( Just "post", Ok Post )
                         , ( Just "unexpected", Err [ "Invalid" ] )
                         ]
+        , test "validates optional ints" <|
+            \() ->
+                Field.int { invalid = \_ -> "Invalid" }
+                    |> expect
+                        [ ( Just "", Ok Nothing )
+                        , ( Nothing, Ok Nothing )
+                        , ( Just "1", Ok (Just 1) )
+                        , ( Just "1.23", Err [ "Invalid" ] )
+                        ]
         ]
 
 
-expectSomething : List ( Maybe String, Result (List error) parsed ) -> Field error parsed data kind constraints -> Expect.Expectation
-expectSomething expectations (Field info kind) =
+expect : List ( Maybe String, Result (List error) parsed ) -> Field error parsed data kind constraints -> Expect.Expectation
+expect expectations (Field info kind) =
     Expect.all
         (expectations
             |> List.map
