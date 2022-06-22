@@ -127,7 +127,7 @@ view maybeUrl sharedModel model app =
     { title = "Dependent Form Example"
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
-        , Form.renderHtml { submitStrategy = Form.TransitionStrategy } app () dependentParser
+        , Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } app () dependentParser
         ]
     }
 

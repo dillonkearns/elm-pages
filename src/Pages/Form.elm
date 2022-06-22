@@ -10,7 +10,7 @@ module Pages.Form exposing
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , FieldDefinition(..)
-    , SubmitStrategy(..)
+    , Method(..), SubmitStrategy(..), methodToString
     )
 
 {-|
@@ -738,11 +738,9 @@ renderHelper options formState data (Form fieldDefinitions parser toInitialValue
     in
     Html.form
         (Form.listeners formId
-            ++ [ -- TODO remove hardcoded method - make it part of the config for the form? Should the default be POST?
-                 Attr.method "POST"
+            ++ [ Attr.method (methodToString options.method)
                , Attr.novalidate True
 
-               -- TODO need to make an option to choose `Pages.Msg.fetcherOnSubmit`
                -- TODO `Pages.Msg.fetcherOnSubmit` needs to accept an `isValid` param, too
                , case options.submitStrategy of
                     FetcherStrategy ->
@@ -978,7 +976,23 @@ type Form error parsed data view
 
 type alias RenderOptions =
     { submitStrategy : SubmitStrategy
+    , method : Method
     }
+
+
+type Method
+    = Post
+    | Get
+
+
+methodToString : Method -> String
+methodToString method =
+    case method of
+        Post ->
+            "POST"
+
+        Get ->
+            "GET"
 
 
 type SubmitStrategy

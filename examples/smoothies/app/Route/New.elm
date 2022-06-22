@@ -214,7 +214,7 @@ view maybeUrl sharedModel model app =
     { title = "New Item"
     , body =
         [ Html.h2 [] [ Html.text "New item" ]
-        , Form.renderHtml { submitStrategy = Form.TransitionStrategy } app app.data form
+        , Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } app app.data form
         , pendingCreation
             |> Debug.log "pendingCreation"
             |> Result.toMaybe

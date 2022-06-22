@@ -124,7 +124,7 @@ view :
 view maybeUrl sharedModel model app =
     { title = "Create Group"
     , body =
-        [ Form.renderHtml { submitStrategy = Form.TransitionStrategy } app () postForm
+        [ Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } app () postForm
         ]
     }
 
