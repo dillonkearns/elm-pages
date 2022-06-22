@@ -1,7 +1,6 @@
 module Route.DependentForm exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
-import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
@@ -128,7 +127,7 @@ view maybeUrl sharedModel model app =
     { title = "Dependent Form Example"
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
-        , Form.renderHtml app () dependentParser
+        , Form.renderHtml { submitStrategy = Form.TransitionStrategy } app () dependentParser
         ]
     }
 

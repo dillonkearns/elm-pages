@@ -10,6 +10,7 @@ module Pages.Form exposing
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , FieldDefinition(..)
+    , SubmitStrategy(..)
     )
 
 {-|
@@ -604,7 +605,8 @@ runOneOfServerSide rawFormData parsers =
 
 {-| -}
 renderHtml :
-    AppContext app
+    RenderOptions
+    -> AppContext app
     -> data
     ->
         Form
@@ -615,8 +617,8 @@ renderHtml :
              -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
             )
     -> Html (Pages.Msg.Msg msg)
-renderHtml app data combinedParser =
-    Html.Lazy.lazy3 renderHelper app data combinedParser
+renderHtml options app data combinedParser =
+    Html.Lazy.lazy4 renderHelper options app data combinedParser
 
 
 {-| -}
@@ -637,11 +639,12 @@ renderStyledHtml app data combinedParser =
 
 
 renderHelper :
-    AppContext app
+    RenderOptions
+    -> AppContext app
     -> data
     -> Form error ( Maybe parsed, FieldErrors error ) data (Context error -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
     -> Html (Pages.Msg.Msg msg)
-renderHelper formState data (Form fieldDefinitions parser toInitialValues) =
+renderHelper options formState data (Form fieldDefinitions parser toInitialValues) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -739,31 +742,37 @@ renderHelper formState data (Form fieldDefinitions parser toInitialValues) =
 
                -- TODO need to make an option to choose `Pages.Msg.fetcherOnSubmit`
                -- TODO `Pages.Msg.fetcherOnSubmit` needs to accept an `isValid` param, too
-               , --Pages.Msg.fetcherOnSubmit
-                 Pages.Msg.submitIfValid
-                    (\fields ->
-                        case
-                            { initFormState
-                                | fields =
-                                    fields
-                                        |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
-                                        |> Dict.fromList
-                            }
-                                |> parser (Just data)
-                                -- TODO use mergedResults here
-                                |> .result
-                                |> toResult
-                        of
-                            Ok _ ->
-                                True
+               , case options.submitStrategy of
+                    FetcherStrategy ->
+                        Pages.Msg.fetcherOnSubmit
 
-                            Err _ ->
-                                False
-                    )
+                    TransitionStrategy ->
+                        Pages.Msg.submitIfValid (isValid parser data)
                ]
             ++ formAttributes
         )
         (hiddenInputs ++ children)
+
+
+isValid : (Maybe data -> Form.FormState -> { a | result : ( Maybe parsed, FieldErrors error ) }) -> data -> List ( String, String ) -> Bool
+isValid parser data fields =
+    case
+        { initFormState
+            | fields =
+                fields
+                    |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                    |> Dict.fromList
+        }
+            |> parser (Just data)
+            -- TODO use mergedResults here
+            |> .result
+            |> toResult
+    of
+        Ok _ ->
+            True
+
+        Err _ ->
+            False
 
 
 renderStyledHelper :
@@ -962,6 +971,16 @@ type Form error parsed data view
             }
         )
         (data -> List ( String, String ))
+
+
+type alias RenderOptions =
+    { submitStrategy : SubmitStrategy
+    }
+
+
+type SubmitStrategy
+    = FetcherStrategy
+    | TransitionStrategy
 
 
 {-| -}

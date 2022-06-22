@@ -267,7 +267,7 @@ view maybeUrl sharedModel model app =
             ]
         , Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
-            , Form.renderHtml app () signoutForm
+            , Form.renderHtml { submitStrategy = Form.FetcherStrategy } app () signoutForm
             ]
         , cartView totals
         , app.data.smoothies
@@ -317,9 +317,9 @@ productView app cart item =
             ]
         , Html.div
             []
-            [ Form.renderHtml app ( quantityInCart, Decrement, item ) setQuantityForm
+            [ Form.renderHtml { submitStrategy = Form.FetcherStrategy } app ( quantityInCart, Decrement, item ) setQuantityForm
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
-            , Form.renderHtml app ( quantityInCart, Increment, item ) setQuantityForm
+            , Form.renderHtml { submitStrategy = Form.FetcherStrategy } app ( quantityInCart, Increment, item ) setQuantityForm
             ]
         , Html.div []
             [ Html.img

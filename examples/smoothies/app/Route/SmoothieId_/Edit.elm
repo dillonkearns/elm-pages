@@ -354,11 +354,11 @@ view maybeUrl sharedModel model app =
     { title = "Update Item"
     , body =
         [ Html.h2 [] [ Html.text "Update item" ]
-        , Form.renderHtml app app.data form
+        , Form.renderHtml { submitStrategy = Form.TransitionStrategy } app app.data form
         , pendingCreation
             |> Maybe.map pendingView
             |> Maybe.withDefault (Html.div [] [])
-        , Form.renderHtml app app.data deleteForm
+        , Form.renderHtml { submitStrategy = Form.TransitionStrategy } app app.data deleteForm
         ]
     }
 

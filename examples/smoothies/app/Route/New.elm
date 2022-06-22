@@ -8,7 +8,6 @@ import Dict.Extra
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
-import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
@@ -18,7 +17,6 @@ import Pages.Form as Form
 import Pages.FormState
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
 import Path exposing (Path)
 import Request.Hasura
 import Route
@@ -216,7 +214,7 @@ view maybeUrl sharedModel model app =
     { title = "New Item"
     , body =
         [ Html.h2 [] [ Html.text "New item" ]
-        , Form.renderHtml app app.data form
+        , Form.renderHtml { submitStrategy = Form.TransitionStrategy } app app.data form
         , pendingCreation
             |> Debug.log "pendingCreation"
             |> Result.toMaybe

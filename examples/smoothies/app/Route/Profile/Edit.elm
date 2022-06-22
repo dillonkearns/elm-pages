@@ -247,6 +247,6 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!" ]
-        , Form.renderHtml app app.data formParser
+        , Form.renderHtml { submitStrategy = Form.TransitionStrategy } app app.data formParser
         ]
     }
