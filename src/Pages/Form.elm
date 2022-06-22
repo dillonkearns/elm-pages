@@ -7,10 +7,10 @@ module Pages.Form exposing
     , andThen
     , Context, ViewField
     , renderHtml, renderStyledHtml
+    , Method(..), SubmitStrategy(..)
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , FieldDefinition(..)
-    , Method(..), SubmitStrategy(..), methodToString
     )
 
 {-|
@@ -48,6 +48,11 @@ module Pages.Form exposing
 ## Rendering Forms
 
 @docs renderHtml, renderStyledHtml
+
+
+### Rendering Options
+
+@docs Method, SubmitStrategy
 
 
 ## Running Parsers
@@ -977,6 +982,7 @@ type alias RenderOptions =
     }
 
 
+{-| -}
 type Method
     = Post
     | Get
@@ -992,6 +998,7 @@ methodToString method =
             "GET"
 
 
+{-| -}
 type SubmitStrategy
     = FetcherStrategy
     | TransitionStrategy
