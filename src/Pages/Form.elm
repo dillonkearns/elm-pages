@@ -956,8 +956,7 @@ type alias StyledHtmlForm error parsed data msg =
 {-| -}
 type Form error parsed data view
     = Form
-        -- TODO track hidden fields here - for renderHtml and renderStyled, automatically render them
-        -- TODO for renderCustom, pass them as an argument that the user must render
+        -- TODO for renderCustom, pass them as an argument with all hidden fields that the user must render
         (List ( String, FieldDefinition ))
         (Maybe data
          -> Form.FormState
