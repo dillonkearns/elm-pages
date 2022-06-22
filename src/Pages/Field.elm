@@ -328,6 +328,7 @@ int :
             , max : Int
             , required : ()
             , wasMapped : No
+            , step : Int
             , initial : Int
             }
 int toError =
