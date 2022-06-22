@@ -478,10 +478,22 @@ update config appMsg model =
                         , NoEffect
                         )
 
-                Pages.Msg.SubmitFetcher fields ->
-                    ( model
-                    , SubmitFetcher fields
-                    )
+                Pages.Msg.SubmitFetcher fields isValid ->
+                    if isValid then
+                        ( model
+                        , SubmitFetcher fields
+                        )
+
+                    else
+                        ( { model
+                            | pageFormState =
+                                model.pageFormState
+                                    |> Pages.FormState.setSubmitAttempted
+                                        -- TODO remove hardcoded fieldId
+                                        "test"
+                          }
+                        , NoEffect
+                        )
 
                 Pages.Msg.FormFieldEvent value ->
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`

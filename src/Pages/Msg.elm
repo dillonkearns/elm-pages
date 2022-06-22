@@ -22,7 +22,7 @@ type Msg userMsg
     = UserMsg userMsg
     | Submit FormDecoder.FormData
     | SubmitIfValid FormDecoder.FormData Bool
-    | SubmitFetcher FormDecoder.FormData
+    | SubmitFetcher FormDecoder.FormData Bool
     | FormFieldEvent Json.Decode.Value
 
 
@@ -41,10 +41,10 @@ submitIfValid isValid =
 
 
 {-| -}
-fetcherOnSubmit : Attribute (Msg userMsg)
-fetcherOnSubmit =
+fetcherOnSubmit : (List ( String, String ) -> Bool) -> Attribute (Msg userMsg)
+fetcherOnSubmit isValid =
     FormDecoder.formDataOnSubmit
-        |> Html.Attributes.map SubmitFetcher
+        |> Html.Attributes.map (\formData -> SubmitFetcher formData (isValid formData.fields))
 
 
 {-| -}
@@ -60,8 +60,8 @@ map mapFn msg =
         SubmitIfValid info isValid ->
             SubmitIfValid info isValid
 
-        SubmitFetcher info ->
-            SubmitFetcher info
+        SubmitFetcher info isValid ->
+            SubmitFetcher info isValid
 
         FormFieldEvent value ->
             FormFieldEvent value

@@ -740,11 +740,9 @@ renderHelper options formState data (Form fieldDefinitions parser toInitialValue
         (Form.listeners formId
             ++ [ Attr.method (methodToString options.method)
                , Attr.novalidate True
-
-               -- TODO `Pages.Msg.fetcherOnSubmit` needs to accept an `isValid` param, too
                , case options.submitStrategy of
                     FetcherStrategy ->
-                        Pages.Msg.fetcherOnSubmit
+                        Pages.Msg.fetcherOnSubmit (isValid parser data)
 
                     TransitionStrategy ->
                         Pages.Msg.submitIfValid (isValid parser data)
