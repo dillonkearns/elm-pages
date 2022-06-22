@@ -154,7 +154,7 @@ all =
             , describe "dependent validations" <|
                 let
                     --checkinFormParser : Form.HtmlForm String ( Date, Date ) data msg
-                    checkinFormParser : Form.Form String ( Maybe ( Date, Date ), Dict String (List String) ) data (Form.Context String -> MyView)
+                    checkinFormParser : Form.Form String ( Maybe ( Date, Date ), Dict String (List String) ) data (Form.Context String data -> MyView)
                     checkinFormParser =
                         Form.init
                             (\checkin checkout ->
@@ -209,7 +209,7 @@ all =
             let
                 --checkinFormParser : Form.HtmlForm String ( Date, Date ) data msg
                 --dependentParser : Form.Form String ( Maybe ( Date, Date ), Dict String (List String) ) data (Form.Context String -> MyView)
-                linkForm : Form.Form String ( Maybe PostAction, Form.FieldErrors error ) data (Form.Context String -> MyView)
+                linkForm : Form.Form String ( Maybe PostAction, Form.FieldErrors error ) data (Form.Context String data -> MyView)
                 linkForm =
                     Form.init
                         (\url ->
@@ -222,7 +222,7 @@ all =
                                 |> Field.url
                             )
 
-                postForm : Form.Form String ( Maybe PostAction, Form.FieldErrors error ) data (Form.Context String -> MyView)
+                postForm : Form.Form String ( Maybe PostAction, Form.FieldErrors error ) data (Form.Context String data -> MyView)
                 postForm =
                     Form.init
                         (\title body ->
@@ -237,11 +237,12 @@ all =
                         |> Form.field "title" (Field.text |> Field.required "Required")
                         |> Form.field "body" Field.text
 
-                dependentParser : Form.Form String ( Maybe PostAction, Form.FieldErrors String ) data (Form.Context String -> MyView)
+                dependentParser : Form.Form String ( Maybe PostAction, Form.FieldErrors String ) data (Form.Context String data -> MyView)
                 dependentParser =
                     Form.init
                         (\kind postForm_ ->
                             postForm_ kind.value
+                                |> Form.andThen identity
                         )
                         (\fieldErrors kind postForm_ ->
                             Div
