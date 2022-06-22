@@ -236,7 +236,7 @@ postForm =
 
 
 fieldView :
-    Form.Context String
+    Form.Context String data
     -> String
     -> Form.ViewField String parsed Pages.FieldRenderer.Input
     -> Html msg
@@ -250,7 +250,7 @@ fieldView formState label field =
         ]
 
 
-errorsForField : Form.Context String -> Form.ViewField String parsed kind -> Html msg
+errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
 errorsForField formState field =
     (if formState.submitAttempted then
         field.errors

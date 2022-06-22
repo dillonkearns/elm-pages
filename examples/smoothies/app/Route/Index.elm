@@ -148,7 +148,12 @@ setQuantityForm =
             , [ Html.button []
                     [ Html.text <|
                         -- TODO wire through quantityChange argument here so I can use it to render view
-                        "+"
+                        case formState.data of
+                            ( _, Decrement, _ ) ->
+                                "-"
+
+                            ( _, Increment, _ ) ->
+                                "+"
                     ]
               ]
             )
