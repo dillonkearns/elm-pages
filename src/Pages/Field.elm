@@ -8,6 +8,7 @@ module Pages.Field exposing
     , withMax, withMin, withStep
     , withMinChecked, withMaxChecked
     , No(..), Yes(..)
+    , withMaxLength, withMinLength
     )
 
 {-|
@@ -144,6 +145,8 @@ text :
         , plainText : ()
         , wasMapped : No
         , initial : String
+        , minlength : ()
+        , maxlength : ()
         }
 text =
     Field
@@ -153,7 +156,7 @@ text =
         , decode =
             \rawValue ->
                 ( if rawValue == Just "" then
-                    Nothing
+                    Just Nothing
 
                   else
                     Just rawValue
@@ -585,6 +588,62 @@ withMinChecked min error (Field field kind) =
                                                 ( Just okValue, errors )
                        )
         , properties = ( "min", Encode.string (Form.Value.toString min) ) :: field.properties
+        }
+        kind
+
+
+{-| -}
+withMinLength : Int -> error -> Field error parsed data kind { constraints | minlength : () } -> Field error parsed data kind constraints
+withMinLength minLength error (Field field kind) =
+    Field
+        { initialValue = field.initialValue
+        , required = field.required
+        , serverValidation = field.serverValidation
+        , decode =
+            \value ->
+                value
+                    |> field.decode
+                    |> (\( maybeValue, errors ) ->
+                            case maybeValue of
+                                Nothing ->
+                                    ( Nothing, errors )
+
+                                Just okValue ->
+                                    if (value |> Maybe.withDefault "" |> String.length) >= minLength then
+                                        ( Just okValue, errors )
+
+                                    else
+                                        ( Just okValue, error :: errors )
+                       )
+        , properties = ( "minlength", Encode.string (String.fromInt minLength) ) :: field.properties
+        }
+        kind
+
+
+{-| -}
+withMaxLength : Int -> error -> Field error parsed data kind { constraints | maxlength : () } -> Field error parsed data kind constraints
+withMaxLength maxLength error (Field field kind) =
+    Field
+        { initialValue = field.initialValue
+        , required = field.required
+        , serverValidation = field.serverValidation
+        , decode =
+            \value ->
+                value
+                    |> field.decode
+                    |> (\( maybeValue, errors ) ->
+                            case maybeValue of
+                                Nothing ->
+                                    ( Nothing, errors )
+
+                                Just okValue ->
+                                    if (value |> Maybe.withDefault "" |> String.length) <= maxLength then
+                                        ( Just okValue, errors )
+
+                                    else
+                                        ( Just okValue, error :: errors )
+                       )
+        , properties = ( "maxlength", Encode.string (String.fromInt maxLength) ) :: field.properties
         }
         kind
 

@@ -72,6 +72,28 @@ all =
                         , ( Just "201", Err [ "Too large" ] )
                         , ( Just "99.9", Err [ "Must be at least 100" ] )
                         ]
+        , test "optional text" <|
+            \() ->
+                Field.text
+                    |> expect
+                        [ ( Just "", Ok Nothing )
+                        , ( Nothing, Ok Nothing )
+                        , ( Just "Hello", Ok (Just "Hello") )
+                        ]
+        , test "text with minlength and maxlength" <|
+            \() ->
+                Field.text
+                    |> Field.withMinLength 4 "Must be at least 4 characters"
+                    |> Field.withMaxLength 10 "Must be at most 10 characters"
+                    |> expect
+                        [ ( Just "", Err [ "Must be at least 4 characters" ] )
+                        , ( Nothing, Err [ "Must be at least 4 characters" ] )
+                        , ( Just "abc", Err [ "Must be at least 4 characters" ] )
+                        , ( Just "abcd", Ok (Just "abcd") )
+                        , ( Just "abcde", Ok (Just "abcde") )
+                        , ( Just "1234567890", Ok (Just "1234567890") )
+                        , ( Just "1234567890a", Err [ "Must be at most 10 characters" ] )
+                        ]
         , test "required date with range" <|
             \() ->
                 Field.date { invalid = \_ -> "Invalid" }
