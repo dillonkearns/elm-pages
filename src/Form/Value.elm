@@ -7,6 +7,11 @@ module Form.Value exposing
 
 @docs Value, date, float, int, string, toString
 
+
+## Comparison
+
+@docs compare
+
 -}
 
 import Date exposing (Date)
@@ -61,6 +66,8 @@ string string_ =
         |> Value StringValue
 
 
+{-| You probably don't need this helper as it's mostly useful for internal implementation.
+-}
 compare : String -> Value value -> Order
 compare a (Value kind rawValue) =
     case kind of
@@ -83,5 +90,9 @@ compare a (Value kind rawValue) =
                 |> Result.withDefault LT
 
         FloatValue ->
-            -- TODO
-            LT
+            case ( String.toFloat a, String.toFloat rawValue ) of
+                ( Just parsedA, Just parsedB ) ->
+                    Basics.compare parsedA parsedB
+
+                _ ->
+                    LT

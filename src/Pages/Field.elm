@@ -1,13 +1,13 @@
 module Pages.Field exposing
-    ( text, checkbox, int
+    ( text, checkbox, int, float
     , select, range
     , date
     , Field(..), FieldInfo, exactValue
     , required, withClientValidation, withInitialValue
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep
+    , withMinChecked, withMaxChecked
     , No(..), Yes(..)
-    , withMaxChecked, withMinChecked
     )
 
 {-|
@@ -15,7 +15,7 @@ module Pages.Field exposing
 
 ## Base Fields
 
-@docs text, checkbox, int
+@docs text, checkbox, int, float
 
 
 ## Multiple Choice Fields
@@ -46,6 +46,11 @@ module Pages.Field exposing
 ## Numeric Field Options
 
 @docs withMax, withMin, withStep
+
+
+## Temporary Names
+
+@docs withMinChecked, withMaxChecked
 
 
 ## Phantom Options
@@ -350,6 +355,47 @@ int toError =
                         case string |> String.toInt of
                             Just parsedInt ->
                                 ( Just (Just parsedInt), [] )
+
+                            Nothing ->
+                                ( Nothing, [ toError.invalid string ] )
+        , properties = []
+        }
+        (FieldRenderer.Input FieldRenderer.Number)
+
+
+{-| -}
+float :
+    { invalid : String -> error }
+    ->
+        Field
+            error
+            (Maybe Float)
+            data
+            Input
+            { min : Float
+            , max : Float
+            , required : ()
+            , wasMapped : No
+            , initial : Float
+            }
+float toError =
+    Field
+        { initialValue = Nothing
+        , required = False
+        , serverValidation = \_ -> DataSource.succeed []
+        , decode =
+            \rawString ->
+                case rawString of
+                    Nothing ->
+                        ( Just Nothing, [] )
+
+                    Just "" ->
+                        ( Just Nothing, [] )
+
+                    Just string ->
+                        case string |> String.toFloat of
+                            Just parsedFloat ->
+                                ( Just (Just parsedFloat), [] )
 
                             Nothing ->
                                 ( Nothing, [ toError.invalid string ] )

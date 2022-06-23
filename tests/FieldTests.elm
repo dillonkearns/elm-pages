@@ -56,6 +56,22 @@ all =
                         , ( Just "100", Ok 100 )
                         , ( Just "1.23", Err [ "Invalid" ] )
                         ]
+        , test "required float with range" <|
+            \() ->
+                Field.float { invalid = \_ -> "Invalid" }
+                    |> Field.required "Required"
+                    |> Field.withMinChecked (Value.float 100) "Must be at least 100"
+                    |> Field.withMaxChecked (Value.float 200) "Too large"
+                    |> expect
+                        [ ( Just "", Err [ "Required" ] )
+                        , ( Nothing, Err [ "Required" ] )
+                        , ( Just "1", Err [ "Must be at least 100" ] )
+                        , ( Just "100.1", Ok 100.1 )
+                        , ( Just "200", Ok 200 )
+                        , ( Just "200.1", Err [ "Too large" ] )
+                        , ( Just "201", Err [ "Too large" ] )
+                        , ( Just "99.9", Err [ "Must be at least 100" ] )
+                        ]
         , test "required date with range" <|
             \() ->
                 Field.date { invalid = \_ -> "Invalid" }
