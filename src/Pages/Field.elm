@@ -5,10 +5,9 @@ module Pages.Field exposing
     , Field(..), FieldInfo, exactValue
     , required, withClientValidation, withInitialValue
     , email, password, search, telephone, url, textarea
-    , withMax, withMin, withStep
+    , withMax, withMin, withStep, withMinLength, withMaxLength
     , withMinChecked, withMaxChecked
     , No(..), Yes(..)
-    , withMaxLength, withMinLength
     )
 
 {-|
@@ -46,7 +45,7 @@ module Pages.Field exposing
 
 ## Numeric Field Options
 
-@docs withMax, withMin, withStep
+@docs withMax, withMin, withStep, withMinLength, withMaxLength
 
 
 ## Temporary Names
