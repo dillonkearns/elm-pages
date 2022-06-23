@@ -289,7 +289,7 @@ form =
         |> Form.field "price"
             (Field.int { invalid = \_ -> "Invalid int" }
                 |> Field.required "Required"
-                |> Field.withMin (Form.Value.int 0)
+                |> Field.withMin (Form.Value.int 1) "Price must be at least $1"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.int smoothie.price)
             )
         |> Form.field "imageUrl"

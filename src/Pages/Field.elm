@@ -6,7 +6,6 @@ module Pages.Field exposing
     , required, withClientValidation, withInitialValue
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep, withMinLength, withMaxLength
-    , withMinChecked, withMaxChecked
     , No(..), Yes(..)
     )
 
@@ -46,11 +45,6 @@ module Pages.Field exposing
 ## Numeric Field Options
 
 @docs withMax, withMin, withStep, withMinLength, withMaxLength
-
-
-## Temporary Names
-
-@docs withMinChecked, withMaxChecked
 
 
 ## Phantom Options
@@ -548,8 +542,8 @@ withInitialValue toInitialValue (Field field kind) =
 
 
 {-| -}
-withMinChecked : Form.Value.Value valueType -> error -> Field error parsed data kind { constraints | min : valueType } -> Field error parsed data kind constraints
-withMinChecked min error (Field field kind) =
+withMin : Form.Value.Value valueType -> error -> Field error parsed data kind { constraints | min : valueType } -> Field error parsed data kind constraints
+withMin min error (Field field kind) =
     Field
         { initialValue = field.initialValue
         , serverValidation = field.serverValidation
@@ -639,8 +633,8 @@ isEmptyValue value =
 
 
 {-| -}
-withMaxChecked : Form.Value.Value valueType -> error -> Field error parsed data kind { constraints | max : valueType } -> Field error parsed data kind constraints
-withMaxChecked max error (Field field kind) =
+withMax : Form.Value.Value valueType -> error -> Field error parsed data kind { constraints | max : valueType } -> Field error parsed data kind constraints
+withMax max error (Field field kind) =
     Field
         { initialValue = field.initialValue
         , serverValidation = field.serverValidation
@@ -668,18 +662,6 @@ withMaxChecked max error (Field field kind) =
         , properties = ( "max", Encode.string (Form.Value.toString max) ) :: field.properties
         }
         kind
-
-
-{-| -}
-withMin : Form.Value.Value valueType -> Field msg error value view { constraints | min : valueType } -> Field msg error value view constraints
-withMin min field =
-    withStringProperty ( "min", Form.Value.toString min ) field
-
-
-{-| -}
-withMax : Form.Value.Value valueType -> Field msg error value view { constraints | max : valueType } -> Field msg error value view constraints
-withMax max field =
-    withStringProperty ( "max", Form.Value.toString max ) field
 
 
 {-| -}

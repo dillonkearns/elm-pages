@@ -47,7 +47,7 @@ all =
             \() ->
                 Field.int { invalid = \_ -> "Invalid" }
                     |> Field.required "Required"
-                    |> Field.withMinChecked (Value.int 100) "Must be at least 100"
+                    |> Field.withMin (Value.int 100) "Must be at least 100"
                     --|> Field.withMax (Value.int 200)
                     |> expect
                         [ ( Just "", Err [ "Required" ] )
@@ -60,8 +60,8 @@ all =
             \() ->
                 Field.float { invalid = \_ -> "Invalid" }
                     |> Field.required "Required"
-                    |> Field.withMinChecked (Value.float 100) "Must be at least 100"
-                    |> Field.withMaxChecked (Value.float 200) "Too large"
+                    |> Field.withMin (Value.float 100) "Must be at least 100"
+                    |> Field.withMax (Value.float 200) "Too large"
                     |> expect
                         [ ( Just "", Err [ "Required" ] )
                         , ( Nothing, Err [ "Required" ] )
@@ -98,8 +98,8 @@ all =
             \() ->
                 Field.date { invalid = \_ -> "Invalid" }
                     |> Field.required "Required"
-                    |> Field.withMinChecked (Value.date (Date.fromRataDie 738156)) "Must be 2022 or later"
-                    |> Field.withMaxChecked (Value.date (Date.fromRataDie 738158)) "Choose an earlier date"
+                    |> Field.withMin (Value.date (Date.fromRataDie 738156)) "Must be 2022 or later"
+                    |> Field.withMax (Value.date (Date.fromRataDie 738158)) "Choose an earlier date"
                     |> expect
                         [ ( Just "", Err [ "Required" ] )
                         , ( Nothing, Err [ "Required" ] )
@@ -112,8 +112,8 @@ all =
         , test "optional date with range" <|
             \() ->
                 Field.date { invalid = \_ -> "Invalid" }
-                    |> Field.withMinChecked (Value.date (Date.fromRataDie 738156)) "Must be 2022 or later"
-                    |> Field.withMaxChecked (Value.date (Date.fromRataDie 738158)) "Choose an earlier date"
+                    |> Field.withMin (Value.date (Date.fromRataDie 738156)) "Must be 2022 or later"
+                    |> Field.withMax (Value.date (Date.fromRataDie 738158)) "Choose an earlier date"
                     |> expect
                         [ ( Just "", Ok Nothing )
                         , ( Nothing, Ok Nothing )
