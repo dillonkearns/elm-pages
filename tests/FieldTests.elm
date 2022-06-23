@@ -43,6 +43,48 @@ all =
                         , ( Just "1", Ok 1 )
                         , ( Just "1.23", Err [ "Invalid" ] )
                         ]
+        , test "required int with range" <|
+            \() ->
+                Field.int { invalid = \_ -> "Invalid" }
+                    |> Field.required "Required"
+                    |> Field.withMinChecked (Value.int 100) "Must be at least 100"
+                    --|> Field.withMax (Value.int 200)
+                    |> expect
+                        [ ( Just "", Err [ "Required" ] )
+                        , ( Nothing, Err [ "Required" ] )
+                        , ( Just "1", Err [ "Must be at least 100" ] )
+                        , ( Just "100", Ok 100 )
+                        , ( Just "1.23", Err [ "Invalid" ] )
+                        ]
+        , test "required date with range" <|
+            \() ->
+                Field.date { invalid = \_ -> "Invalid" }
+                    |> Field.required "Required"
+                    |> Field.withMinChecked (Value.date (Date.fromRataDie 738156)) "Must be 2022 or later"
+                    |> Field.withMaxChecked (Value.date (Date.fromRataDie 738158)) "Choose an earlier date"
+                    |> expect
+                        [ ( Just "", Err [ "Required" ] )
+                        , ( Nothing, Err [ "Required" ] )
+                        , ( Just "2021-12-31", Err [ "Must be 2022 or later" ] )
+                        , ( Just "2022-01-01", Ok (Date.fromRataDie 738156) )
+                        , ( Just "2022-01-02", Ok (Date.fromRataDie 738157) )
+                        , ( Just "2022-01-04", Err [ "Choose an earlier date" ] )
+                        , ( Just "1.23", Err [ "Invalid" ] )
+                        ]
+        , test "optional date with range" <|
+            \() ->
+                Field.date { invalid = \_ -> "Invalid" }
+                    |> Field.withMinChecked (Value.date (Date.fromRataDie 738156)) "Must be 2022 or later"
+                    |> Field.withMaxChecked (Value.date (Date.fromRataDie 738158)) "Choose an earlier date"
+                    |> expect
+                        [ ( Just "", Ok Nothing )
+                        , ( Nothing, Ok Nothing )
+                        , ( Just "2021-12-31", Err [ "Must be 2022 or later" ] )
+                        , ( Just "2022-01-01", Ok (Just (Date.fromRataDie 738156)) )
+                        , ( Just "2022-01-02", Ok (Just (Date.fromRataDie 738157)) )
+                        , ( Just "2022-01-04", Err [ "Choose an earlier date" ] )
+                        , ( Just "1.23", Err [ "Invalid" ] )
+                        ]
         , test "optional date" <|
             \() ->
                 Field.date { invalid = \_ -> "Invalid" }

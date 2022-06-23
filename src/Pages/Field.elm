@@ -7,6 +7,7 @@ module Pages.Field exposing
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep
     , No(..), Yes(..)
+    , withMaxChecked, withMinChecked
     )
 
 {-|
@@ -507,6 +508,77 @@ withInitialValue toInitialValue (Field field kind) =
 
 
 -- Input Properties
+
+
+{-| -}
+withMinChecked : Form.Value.Value valueType -> error -> Field error parsed data kind { constraints | min : valueType } -> Field error parsed data kind constraints
+withMinChecked min error (Field field kind) =
+    Field
+        { initialValue = field.initialValue
+        , required = field.required
+        , serverValidation = field.serverValidation
+        , decode =
+            \value ->
+                value
+                    |> field.decode
+                    |> (\( maybeValue, errors ) ->
+                            case maybeValue of
+                                Nothing ->
+                                    ( Nothing, errors )
+
+                                Just okValue ->
+                                    if isEmptyValue value then
+                                        ( Just okValue, errors )
+
+                                    else
+                                        case Form.Value.compare (value |> Maybe.withDefault "") min of
+                                            LT ->
+                                                ( Just okValue, error :: errors )
+
+                                            _ ->
+                                                ( Just okValue, errors )
+                       )
+        , properties = ( "min", Encode.string (Form.Value.toString min) ) :: field.properties
+        }
+        kind
+
+
+isEmptyValue : Maybe String -> Bool
+isEmptyValue value =
+    (value |> Maybe.withDefault "") == ""
+
+
+{-| -}
+withMaxChecked : Form.Value.Value valueType -> error -> Field error parsed data kind { constraints | max : valueType } -> Field error parsed data kind constraints
+withMaxChecked max error (Field field kind) =
+    Field
+        { initialValue = field.initialValue
+        , required = field.required
+        , serverValidation = field.serverValidation
+        , decode =
+            \value ->
+                value
+                    |> field.decode
+                    |> (\( maybeValue, errors ) ->
+                            case maybeValue of
+                                Nothing ->
+                                    ( Nothing, errors )
+
+                                Just okValue ->
+                                    if isEmptyValue value then
+                                        ( Just okValue, errors )
+
+                                    else
+                                        case Form.Value.compare (value |> Maybe.withDefault "") max of
+                                            GT ->
+                                                ( Just okValue, error :: errors )
+
+                                            _ ->
+                                                ( Just okValue, errors )
+                       )
+        , properties = ( "max", Encode.string (Form.Value.toString max) ) :: field.properties
+        }
+        kind
 
 
 {-| -}
