@@ -80,8 +80,9 @@ compare a (Value kind rawValue) =
                     LT
 
         StringValue ->
-            -- TODO
-            LT
+            -- the phantom types in the Field API don't ever run this, so it won't be called there
+            -- Just in case anyone calls it, it delegates to Basics.compare
+            Basics.compare a rawValue
 
         DateValue ->
             Result.map2 Date.compare
