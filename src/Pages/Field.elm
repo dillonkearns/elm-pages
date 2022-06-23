@@ -76,7 +76,6 @@ type Field error parsed data kind constraints
 {-| -}
 type alias FieldInfo error parsed data =
     { initialValue : Maybe (data -> String)
-    , required : Bool
     , serverValidation : Maybe String -> DataSource (List error)
     , decode : Maybe String -> ( Maybe parsed, List error )
     , properties : List ( String, Encode.Value )
@@ -110,7 +109,6 @@ required :
 required missingError (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , required = True
         , serverValidation = field.serverValidation
         , decode =
             \rawValue ->
@@ -151,7 +149,6 @@ text :
 text =
     Field
         { initialValue = Nothing
-        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawValue ->
@@ -185,7 +182,6 @@ date :
 date toError =
     Field
         { initialValue = Nothing
-        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
@@ -234,7 +230,6 @@ select optionsMapping invalidError =
     in
     Field
         { initialValue = Nothing
-        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawValue ->
@@ -285,7 +280,6 @@ exactValue :
 exactValue initialValue error =
     Field
         { initialValue = Just (\_ -> initialValue)
-        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawValue ->
@@ -311,7 +305,6 @@ checkbox :
 checkbox =
     Field
         { initialValue = Nothing
-        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
@@ -343,7 +336,6 @@ int :
 int toError =
     Field
         { initialValue = Nothing
-        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
@@ -384,7 +376,6 @@ float :
 float toError =
     Field
         { initialValue = Nothing
-        , required = False
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
@@ -474,7 +465,6 @@ range :
 range toError options =
     Field
         { initialValue = Just (options.initial >> String.fromInt)
-        , required = True
         , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
@@ -523,7 +513,6 @@ withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error p
 withClientValidation mapFn (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , required = field.required
         , serverValidation = field.serverValidation
         , decode =
             \value ->
@@ -564,7 +553,6 @@ withMinChecked : Form.Value.Value valueType -> error -> Field error parsed data 
 withMinChecked min error (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , required = field.required
         , serverValidation = field.serverValidation
         , decode =
             \value ->
@@ -597,7 +585,6 @@ withMinLength : Int -> error -> Field error parsed data kind { constraints | min
 withMinLength minLength error (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , required = field.required
         , serverValidation = field.serverValidation
         , decode =
             \value ->
@@ -625,7 +612,6 @@ withMaxLength : Int -> error -> Field error parsed data kind { constraints | max
 withMaxLength maxLength error (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , required = field.required
         , serverValidation = field.serverValidation
         , decode =
             \value ->
@@ -658,7 +644,6 @@ withMaxChecked : Form.Value.Value valueType -> error -> Field error parsed data 
 withMaxChecked max error (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , required = field.required
         , serverValidation = field.serverValidation
         , decode =
             \value ->
