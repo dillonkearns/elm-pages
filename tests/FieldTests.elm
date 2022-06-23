@@ -1,5 +1,6 @@
 module FieldTests exposing (all)
 
+import Date
 import Expect
 import Pages.Field as Field exposing (Field(..))
 import Test exposing (Test, describe, test)
@@ -30,6 +31,23 @@ all =
                         , ( Nothing, Ok Nothing )
                         , ( Just "1", Ok (Just 1) )
                         , ( Just "1.23", Err [ "Invalid" ] )
+                        ]
+        , test "optional date" <|
+            \() ->
+                Field.date { invalid = \_ -> "Invalid" }
+                    |> expect
+                        [ ( Just "", Ok Nothing )
+                        , ( Nothing, Ok Nothing )
+                        , ( Just "2022-01-01", Ok (Just (Date.fromRataDie 738156)) )
+                        ]
+        , test "required date" <|
+            \() ->
+                Field.date { invalid = \_ -> "Invalid" }
+                    |> Field.required "Required"
+                    |> expect
+                        [ ( Just "", Err [ "Required" ] )
+                        , ( Nothing, Err [ "Required" ] )
+                        , ( Just "2022-01-01", Ok (Date.fromRataDie 738156) )
                         ]
         ]
 
