@@ -26,11 +26,7 @@ all =
                 Form.init
                     (\password passwordConfirmation ->
                         if password.value /= passwordConfirmation.value then
-                            ( Nothing
-                            , Dict.fromList
-                                [ ( passwordConfirmation.name, [ "Must match password" ] )
-                                ]
-                            )
+                            Form.fail passwordConfirmation "Must match password"
 
                         else
                             Form.ok { password = password.value }

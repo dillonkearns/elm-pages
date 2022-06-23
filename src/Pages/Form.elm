@@ -11,6 +11,7 @@ module Pages.Form exposing
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , FieldDefinition(..)
+    , fail
     )
 
 {-|
@@ -292,7 +293,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                             Nothing ->
                                 Nothing
                         , errorsSoFar
-                            |> addErrors name errors
+                            |> addErrorsInternal name errors
                         )
                     , view = \fieldErrors -> soFar.view fieldErrors rawField
                     }
@@ -373,7 +374,7 @@ hiddenField name (Field fieldParser kind) (Form definitions parseFn toInitialVal
                             Nothing ->
                                 Nothing
                         , errorsSoFar
-                            |> addErrors name errors
+                            |> addErrorsInternal name errors
                         )
 
                     -- TODO pass in `rawField` or similar to the hiddenFields (need the raw data to render it)
@@ -442,7 +443,7 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
                     in
                     { result =
                         ( fieldThings
-                        , errorsSoFar |> addErrors name errors
+                        , errorsSoFar |> addErrorsInternal name errors
                         )
                     , view = \fieldErrors -> soFar.view fieldErrors
                     }
@@ -1036,8 +1037,26 @@ ok result =
 
 
 {-| -}
-addErrors : String -> List error -> Dict String (List error) -> Dict String (List error)
-addErrors name newErrors allErrors =
+addErrorsInternal : String -> List error -> Dict String (List error) -> Dict String (List error)
+addErrorsInternal name newErrors allErrors =
+    allErrors
+        |> Dict.update name
+            (\errors ->
+                Just (newErrors ++ (errors |> Maybe.withDefault []))
+            )
+
+
+{-| -}
+fail : ParsedField error parsed -> error -> ( Maybe combined, FieldErrors error )
+fail { name } error =
+    ( Nothing
+    , Dict.fromList [ ( name, [ error ] ) ]
+    )
+
+
+{-| -}
+addErrors : ParsedField error parsed -> List error -> Dict String (List error) -> Dict String (List error)
+addErrors { name } newErrors allErrors =
     allErrors
         |> Dict.update name
             (\errors ->
