@@ -11,7 +11,7 @@ module Pages.Form exposing
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , FieldDefinition(..)
-    , fail
+    , fail, subGroup
     )
 
 {-|
@@ -200,6 +200,83 @@ dynamic forms formBuilder =
                                     fieldErrors
                                         |> (decider
                                                 |> toParser
+                                                |> .view
+                                           )
+                            in
+                            newThing.view fieldErrors something2
+                    }
+            in
+            myFn
+        )
+        (\_ -> [])
+
+
+{-| -}
+subGroup :
+    Form error parsed data (Context error data -> subView)
+    ->
+        Form
+            error
+            (( Maybe parsed, FieldErrors error ) -> combined)
+            data
+            (Context error data -> (subView -> combinedView))
+    -> Form error combined data (Context error data -> combinedView)
+subGroup forms formBuilder =
+    Form []
+        (\maybeData formState ->
+            let
+                toParser : { result : ( Maybe parsed, FieldErrors error ), view : Context error data -> subView }
+                toParser =
+                    case forms of
+                        Form definitions parseFn toInitialValues ->
+                            -- TODO need to include hidden form fields from `definitions` (should they be automatically rendered? Does that mean the view type needs to be hardcoded?)
+                            parseFn maybeData formState
+
+                myFn :
+                    { result : ( Maybe combined, Dict String (List error) )
+                    , view : Context error data -> combinedView
+                    }
+                myFn =
+                    let
+                        deciderToParsed : ( Maybe parsed, FieldErrors error )
+                        deciderToParsed =
+                            toParser
+                                |> .result
+
+                        newThing :
+                            { result :
+                                ( Maybe
+                                    (( Maybe parsed, FieldErrors error ) -> combined)
+                                , Dict String (List error)
+                                )
+                            , view : Context error data -> subView -> combinedView
+                            }
+                        newThing =
+                            case formBuilder of
+                                Form definitions parseFn toInitialValues ->
+                                    parseFn maybeData formState
+
+                        anotherThing : Maybe combined
+                        anotherThing =
+                            Maybe.map2
+                                (\thing1 thing2 -> thing1 |> thing2)
+                                (Just deciderToParsed)
+                                (newThing.result
+                                    -- TODO are these errors getting dropped? Write a test case to check
+                                    |> Tuple.first
+                                )
+                    in
+                    { result =
+                        ( anotherThing
+                        , newThing.result |> Tuple.second
+                        )
+                    , view =
+                        \fieldErrors ->
+                            let
+                                something2 : subView
+                                something2 =
+                                    fieldErrors
+                                        |> (toParser
                                                 |> .view
                                            )
                             in
