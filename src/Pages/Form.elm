@@ -213,11 +213,11 @@ dynamic forms formBuilder =
 
 {-| -}
 subGroup :
-    Form error parsed data (Context error data -> subView)
+    Form error ( Maybe parsed, FieldErrors error ) data (Context error data -> subView)
     ->
         Form
             error
-            (( Maybe parsed, FieldErrors error ) -> combined)
+            ({ value : parsed } -> combined)
             data
             (Context error data -> (subView -> combinedView))
     -> Form error combined data (Context error data -> combinedView)
@@ -225,7 +225,7 @@ subGroup forms formBuilder =
     Form []
         (\maybeData formState ->
             let
-                toParser : { result : ( Maybe parsed, FieldErrors error ), view : Context error data -> subView }
+                toParser : { result : ( Maybe ( Maybe parsed, FieldErrors error ), Dict String (List error) ), view : Context error data -> subView }
                 toParser =
                     case forms of
                         Form definitions parseFn toInitialValues ->
@@ -240,17 +240,9 @@ subGroup forms formBuilder =
                     let
                         deciderToParsed : ( Maybe parsed, FieldErrors error )
                         deciderToParsed =
-                            toParser
-                                |> .result
+                            toParser |> mergeResults
 
-                        newThing :
-                            { result :
-                                ( Maybe
-                                    (( Maybe parsed, FieldErrors error ) -> combined)
-                                , Dict String (List error)
-                                )
-                            , view : Context error data -> subView -> combinedView
-                            }
+                        newThing : { result : ( Maybe ({ value : parsed } -> combined), Dict String (List error) ), view : Context error data -> subView -> combinedView }
                         newThing =
                             case formBuilder of
                                 Form definitions parseFn toInitialValues ->
@@ -259,16 +251,16 @@ subGroup forms formBuilder =
                         anotherThing : Maybe combined
                         anotherThing =
                             Maybe.map2
-                                (\thing1 thing2 -> thing1 |> thing2)
-                                (Just deciderToParsed)
-                                (newThing.result
-                                    -- TODO are these errors getting dropped? Write a test case to check
-                                    |> Tuple.first
+                                (\runFn parsed ->
+                                    runFn { value = parsed }
                                 )
+                                (Tuple.first newThing.result)
+                                (deciderToParsed |> Tuple.first)
                     in
                     { result =
                         ( anotherThing
-                        , newThing.result |> Tuple.second
+                        , mergeErrors (newThing.result |> Tuple.second)
+                            (deciderToParsed |> Tuple.second)
                         )
                     , view =
                         \fieldErrors ->

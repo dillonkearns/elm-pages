@@ -148,12 +148,14 @@ confirmedPasswordForm =
         |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
 
 
-dependentParser : Form.HtmlForm String String data Msg
+dependentParser : Form.HtmlForm String { username : String, password : String } data Msg
 dependentParser =
     Form.init
         (\username confirmedPassword ->
-            confirmedPassword
-                |> Form.andThen identity
+            Form.ok
+                { username = username.value
+                , password = confirmedPassword.value
+                }
         )
         (\formState username confirmedPassword ->
             ( []
