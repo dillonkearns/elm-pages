@@ -3,6 +3,7 @@ module Site exposing (config)
 import Cloudinary
 import DataSource exposing (DataSource)
 import Head
+import Head.ResourceHints as ResourceHints
 import MimeType
 import Pages.Manifest as Manifest
 import Pages.Url
@@ -36,6 +37,7 @@ head static =
     , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
     , Head.rssLink "/blog/feed.xml"
     , Head.sitemapLink "/sitemap.xml"
+    , ResourceHints.preloadLink "https://fonts.gstatic.com/s/ibmplexmono/v6/-F63fjptAgt5VM-kVkqdyU8n1i8q131nj-o.woff2" (Just ResourceHints.Font) (Just ResourceHints.Anonymous)
     ]
 
 
