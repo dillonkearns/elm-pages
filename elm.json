@@ -6,6 +6,7 @@
     "version": "9.0.0",
     "exposed-modules": [
         "Head",
+        "Head.ResourceHints",
         "Head.Seo",
         "ApiRoute",
         "Path",

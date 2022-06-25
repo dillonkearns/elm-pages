@@ -6,6 +6,7 @@ module Head exposing
     , currentPageFullUrl, urlAttribute, raw
     , appleTouchIcon, icon
     , toJson, canonicalLink
+    , ResourceHint(..), resourceHintLink
     )
 
 {-| This module contains low-level functions for building up
@@ -351,6 +352,55 @@ sitemapLink url =
         , ( "type", raw "application/xml" )
         , ( "href", raw url )
         ]
+
+
+{-| Resource hint types that can be passed to Head.resourceHintLink
+-}
+type ResourceHint
+    = DnsPrefetch
+    | Preconnect
+    | Preload
+    | Prefetch
+
+
+{-| Add a resource hint link
+
+Example:
+
+    resourceHintLink Preload "//background.png" (Just (raw "image")) Nothing
+
+```html
+<link rel="preload" href="//background.png" as="image">
+```
+
+You probably want to use Head.ResourceHints rather that this directly.
+
+-}
+resourceHintLink : ResourceHint -> String -> Maybe AttributeValue -> Maybe AttributeValue -> Tag
+resourceHintLink hint href maybeType maybeCrossOrigin =
+    node "link"
+        ([ Just
+            ( "rel"
+            , raw <|
+                case hint of
+                    DnsPrefetch ->
+                        "dns-prefetch"
+
+                    Preconnect ->
+                        "preconnect"
+
+                    Preload ->
+                        "preload"
+
+                    Prefetch ->
+                        "prefetch"
+            )
+         , Just ( "href", raw href )
+         , Maybe.map (Tuple.pair "as") maybeType
+         , Maybe.map (Tuple.pair "crossorigin") maybeCrossOrigin
+         ]
+            |> List.filterMap identity
+        )
 
 
 {-| Example:
