@@ -7,6 +7,7 @@ import Pages.Field as Field
 import Pages.Form as Form exposing (Form)
 import Pages.FormState
 import Test exposing (Test, describe, test)
+import Validation exposing (Validation)
 
 
 type Uuid
@@ -25,11 +26,17 @@ all =
             passwordConfirmationParser =
                 Form.init
                     (\password passwordConfirmation ->
-                        if password.value /= passwordConfirmation.value then
-                            Form.fail passwordConfirmation "Must match password"
+                        Validation.succeed
+                            (\passwordValue passwordConfirmationValue ->
+                                if passwordValue == passwordConfirmationValue then
+                                    Validation.succeed { password = passwordValue }
 
-                        else
-                            Form.ok { password = password.value }
+                                else
+                                    Validation.fail passwordConfirmation.name "Must match password"
+                            )
+                            |> Validation.withField password
+                            |> Validation.withField passwordConfirmation
+                            |> Validation.andThen identity
                     )
                     (\fieldErrors password passwordConfirmation -> Div)
                     |> Form.field "password" (Field.text |> Field.required "Password is required")
@@ -65,13 +72,14 @@ all =
             let
                 oneOfParsers =
                     [ Form.init
-                        (\_ -> Form.ok Signout)
+                        (\_ -> Validation.succeed Signout)
                         (\fieldErrors -> Div)
                         |> Form.hiddenField "kind" (Field.exactValue "signout" "Expected signout")
                     , Form.init
                         (\_ uuid quantity ->
-                            SetQuantity (Uuid uuid.value) quantity.value
-                                |> Form.ok
+                            Validation.succeed SetQuantity
+                                |> Validation.andMap (uuid.value |> Validation.map Uuid)
+                                |> Validation.withField quantity
                         )
                         (\fieldErrors quantity -> Div)
                         |> Form.hiddenField "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
@@ -121,7 +129,6 @@ all =
                         [ Form.init
                             (\media ->
                                 media.value
-                                    |> Form.ok
                             )
                             (\fieldErrors media -> Div)
                             |> Form.field "media"
@@ -154,15 +161,17 @@ all =
                     checkinFormParser =
                         Form.init
                             (\checkin checkout ->
-                                if Date.toRataDie checkin.value >= Date.toRataDie checkout.value then
-                                    ( Just ( checkin.value, checkout.value )
-                                    , Dict.fromList
-                                        [ ( "checkin", [ "Must be before checkout" ] )
-                                        ]
-                                    )
+                                Validation.succeed
+                                    (\checkinValue checkoutValue ->
+                                        if Date.toRataDie checkinValue >= Date.toRataDie checkoutValue then
+                                            Validation.fail checkin.name "Must be before checkout"
 
-                                else
-                                    Form.ok ( checkin.value, checkout.value )
+                                        else
+                                            Validation.succeed ( checkinValue, checkoutValue )
+                                    )
+                                    |> Validation.withField checkin
+                                    |> Validation.withField checkout
+                                    |> Validation.andThen identity
                             )
                             (\fieldErrors checkin checkout -> Div)
                             |> Form.field "checkin"
@@ -199,17 +208,53 @@ all =
                                     [ ( "checkin", [ "Must be before checkout" ] )
                                     ]
                                 )
+                , test "sub-form" <|
+                    \() ->
+                        Form.runServerSide
+                            (fields
+                                [ ( "password", "mypassword" )
+                                , ( "password-confirmation", "doesnt-match" )
+                                ]
+                            )
+                            (Form.init
+                                (\postForm_ ->
+                                    postForm_ ()
+                                        -- TODO @@@@ remove Tuple.first
+                                        |> Tuple.first
+                                )
+                                (\formState postForm_ -> ( [], [ Div ] ))
+                                |> Form.dynamic
+                                    (\() ->
+                                        Form.init
+                                            (\password passwordConfirmation ->
+                                                if password.value == passwordConfirmation.value then
+                                                    Form.ok password.value
+
+                                                else
+                                                    --Form.ok password.value|>
+                                                    Form.fail passwordConfirmation "Must match password"
+                                            )
+                                            (\formState password passwordConfirmation -> [ Div ])
+                                            |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
+                                            |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
+                                    )
+                            )
+                            |> Expect.equal
+                                ( Nothing
+                                , Dict.fromList
+                                    [ ( "password-confirmation", [ "Must match password" ] )
+                                    ]
+                                )
                 ]
             ]
         , describe "dependent parsing" <|
             let
-                --checkinFormParser : Form.HtmlForm String ( Date, Date ) data msg
-                --dependentParser : Form.Form String ( Maybe ( Date, Date ), Dict String (List String) ) data (Form.Context String -> MyView)
-                linkForm : Form.Form String ( Maybe PostAction, Form.FieldErrors error ) data (Form.Context String data -> MyView)
+                linkForm : Form String (Validation String PostAction) data (Form.Context String data -> MyView)
                 linkForm =
                     Form.init
                         (\url ->
-                            Form.ok (ParsedLink url.value)
+                            Validation.succeed ParsedLink
+                                |> Validation.withField url
                         )
                         (\fieldErrors url -> Div)
                         |> Form.field "url"
@@ -218,27 +263,35 @@ all =
                                 |> Field.url
                             )
 
-                postForm : Form.Form String ( Maybe PostAction, Form.FieldErrors error ) data (Form.Context String data -> MyView)
+                postForm : Form String (Validation String PostAction) data (Form.Context String data -> MyView)
                 postForm =
                     Form.init
                         (\title body ->
-                            Form.ok
-                                (ParsedPost
-                                    { title = title.value
-                                    , body = body.value
+                            Validation.succeed
+                                (\titleValue bodyValue ->
+                                    { title = titleValue
+                                    , body = bodyValue
                                     }
                                 )
+                                |> Validation.withField title
+                                |> Validation.withField body
+                                |> Validation.map ParsedPost
                         )
                         (\fieldErrors title body -> Div)
                         |> Form.field "title" (Field.text |> Field.required "Required")
                         |> Form.field "body" Field.text
 
-                dependentParser : Form.Form String ( Maybe PostAction, Form.FieldErrors String ) data (Form.Context String data -> MyView)
+                dependentParser : Form String (Validation String PostAction) data (Form.Context String data -> MyView)
                 dependentParser =
                     Form.init
                         (\kind postForm_ ->
-                            postForm_ kind.value
-                                |> Form.andThen identity
+                            kind.value
+                                |> Validation.andThen
+                                    (\kindValue ->
+                                        postForm_ kindValue
+                                            -- TODO @@@@@ remove Tuple.first
+                                            |> Tuple.first
+                                    )
                         )
                         (\fieldErrors kind postForm_ ->
                             Div

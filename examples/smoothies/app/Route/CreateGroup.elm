@@ -18,6 +18,7 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -145,11 +146,10 @@ postForm : Form.HtmlForm String GroupFormValidated data Msg
 postForm =
     Form.init
         (\name description visibility ->
-            Form.ok
-                { name = name.value
-                , description = description.value
-                , visibility = visibility.value
-                }
+            Validation.succeed GroupFormValidated
+                |> Validation.withField name
+                |> Validation.withField description
+                |> Validation.withField visibility
         )
         (\formState name description visibility ->
             ( []

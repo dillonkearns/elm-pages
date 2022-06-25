@@ -16,6 +16,7 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -137,11 +138,16 @@ type PostAction
     | ParsedPost { title : String, body : Maybe String }
 
 
+type alias PostInfo =
+    { title : String, body : Maybe String }
+
+
 linkForm : Form.HtmlSubForm String PostAction data Msg
 linkForm =
     Form.init
         (\url ->
-            Form.ok (ParsedLink url.value)
+            Validation.succeed ParsedLink
+                |> Validation.withField url
         )
         (\formState url ->
             [ Html.h2 [] [ Html.text "Create a link" ]
@@ -159,12 +165,10 @@ postForm : Form.HtmlSubForm String PostAction data Msg
 postForm =
     Form.init
         (\title body ->
-            Form.ok
-                (ParsedPost
-                    { title = title.value
-                    , body = body.value
-                    }
-                )
+            Validation.succeed PostInfo
+                |> Validation.withField title
+                |> Validation.withField body
+                |> Validation.map ParsedPost
         )
         (\formState title body ->
             [ Html.h2 [] [ Html.text "Create a post" ]
@@ -180,8 +184,13 @@ dependentParser : Form.HtmlForm String PostAction data Msg
 dependentParser =
     Form.init
         (\kind postForm_ ->
-            postForm_ kind.value
-                |> Form.andThen identity
+            kind.value
+                |> Validation.andThen
+                    (\okKind ->
+                        postForm_ okKind
+                            |> Tuple.mapFirst Just
+                            |> Validation.andThen identity
+                    )
         )
         (\formState kind postForm_ ->
             ( []

@@ -17,6 +17,7 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
+import Validation exposing (Validation)
 import View exposing (View)
 
 
@@ -128,45 +129,41 @@ type PostAction
     | ParsedPost { title : String, body : Maybe String }
 
 
-confirmedPasswordForm : Form.HtmlSubForm String String data Msg
-confirmedPasswordForm =
-    Form.init
-        (\password passwordConfirmation ->
-            if password.value == passwordConfirmation.value then
-                Form.ok password.value
-
-            else
-                Form.fail passwordConfirmation "Must match password"
-        )
-        (\formState password passwordConfirmation ->
-            [ Html.h2 [] [ Html.text "Create a post" ]
-            , fieldView formState "Password" password
-            , fieldView formState "Password Confirmation" passwordConfirmation
-            ]
-        )
-        |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
-        |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
+type alias Validated =
+    { username : String, password : String }
 
 
 dependentParser : Form.HtmlForm String { username : String, password : String } data Msg
 dependentParser =
     Form.init
-        (\username confirmedPassword ->
-            Form.ok
-                { username = username.value
-                , password = confirmedPassword.value
-                }
+        (\username password passwordConfirmation ->
+            username.value
+                |> Validation.map Validated
+                |> Validation.andMap
+                    (Validation.map2
+                        (\passwordValue passwordConfirmationValue ->
+                            if passwordValue == passwordConfirmationValue then
+                                Validation.succeed passwordValue
+
+                            else
+                                Validation.fail passwordConfirmation.name "Must match password"
+                        )
+                        password.value
+                        passwordConfirmation.value
+                        |> Validation.andThen identity
+                    )
         )
-        (\formState username confirmedPassword ->
+        (\formState username password passwordConfirmation ->
             ( []
-            , [ Html.div [] confirmedPassword
-              , fieldView formState "Username" username
-              , Html.button [] [ Html.text "Submit" ]
+            , [ fieldView formState "Username" username
+              , fieldView formState "Password" password
+              , fieldView formState "Password Confirmation" passwordConfirmation
               ]
             )
         )
         |> Form.field "username" (Field.text |> Field.required "Required")
-        |> Form.subGroup confirmedPasswordForm
+        |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
+        |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
 
 
 fieldView :

@@ -3,7 +3,6 @@ module Route.SmoothieId_.Edit exposing (ActionData, Data, Model, Msg, route)
 import Api.Scalar exposing (Uuid(..))
 import Data.Smoothies as Smoothies exposing (Smoothie)
 import DataSource exposing (DataSource)
-import Date
 import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -25,6 +24,7 @@ import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -169,7 +169,11 @@ head static =
 
 type Action
     = Delete
-    | Edit { name : String, description : String, price : Int, imageUrl : String }
+    | Edit EditInfo
+
+
+type alias EditInfo =
+    { name : String, description : String, price : Int, imageUrl : String }
 
 
 deleteForm : Form.HtmlForm String Action data Msg
@@ -191,24 +195,15 @@ deleteForm =
 form : Form.HtmlForm String Action Data Msg
 form =
     Form.init
-        (\name description price imageUrl media myCheckbox checkin checkout ->
-            if Date.toRataDie checkin.value >= Date.toRataDie checkout.value then
-                ( Nothing
-                , Dict.fromList
-                    [ ( checkin.name, [ "Must be before checkout" ] )
-                    ]
-                )
-
-            else
-                { name = name.value
-                , description = description.value
-                , price = price.value
-                , imageUrl = imageUrl.value
-                }
-                    |> Edit
-                    |> Form.ok
+        (\name description price imageUrl media ->
+            Validation.succeed EditInfo
+                |> Validation.withField name
+                |> Validation.withField description
+                |> Validation.withField price
+                |> Validation.withField imageUrl
+                |> Validation.map Edit
         )
-        (\formState name description price imageUrl media myCheckbox checkin checkout ->
+        (\formState name description price imageUrl media ->
             let
                 errors field =
                     formState.errors
@@ -243,7 +238,6 @@ form =
               , fieldView "Description" description
               , fieldView "Price" price
               , fieldView "Image" imageUrl
-              , fieldView "Checkbox" myCheckbox
               , Pages.FieldRenderer.radio []
                     (\enum toRadio ->
                         Html.label []
@@ -262,8 +256,6 @@ form =
                             ]
                     )
                     media
-              , fieldView "Checkin" checkin
-              , fieldView "Checkout" checkout
               , Html.button []
                     [ Html.text
                         (if formState.isTransitioning then
@@ -305,9 +297,6 @@ form =
                 ]
                 (\option -> "Invalid option " ++ option)
             )
-        |> Form.field "my-checkbox" Field.checkbox
-        |> Form.field "checkin" (Field.date { invalid = \_ -> "" } |> Field.required "Required")
-        |> Form.field "checkout" (Field.date { invalid = \_ -> "" } |> Field.required "Required")
         |> Form.hiddenKind ( "kind", "edit" ) "Required"
 
 

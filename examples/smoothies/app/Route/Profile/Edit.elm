@@ -27,6 +27,7 @@ import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -118,14 +119,13 @@ type alias Action =
     }
 
 
-formParser : Form.HtmlForm String { username : String, name : String } Data msg
+formParser : Form.HtmlForm String Action Data msg
 formParser =
     Form.init
         (\username name ->
-            Form.ok
-                { username = username.value
-                , name = name.value
-                }
+            Validation.succeed Action
+                |> Validation.withField username
+                |> Validation.withField name
         )
         (\info username name ->
             let

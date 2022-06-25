@@ -25,6 +25,7 @@ import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -127,16 +128,15 @@ head static =
     []
 
 
-form : Form.HtmlForm String { name : String, description : String, price : Int, imageUrl : String } Data Msg
+form : Form.HtmlForm String NewItem Data Msg
 form =
     Form.init
         (\name description price imageUrl ->
-            Form.ok
-                { name = name.value
-                , description = description.value
-                , price = price.value
-                , imageUrl = imageUrl.value
-                }
+            Validation.succeed NewItem
+                |> Validation.withField name
+                |> Validation.withField description
+                |> Validation.withField price
+                |> Validation.withField imageUrl
         )
         (\info name description price imageUrl ->
             let

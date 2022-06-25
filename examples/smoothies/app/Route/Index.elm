@@ -28,6 +28,7 @@ import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -140,14 +141,14 @@ setQuantityForm : Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) 
 setQuantityForm =
     Form.init
         (\uuid quantity ->
-            SetQuantity (Uuid uuid.value) quantity.value
-                |> Form.ok
+            Validation.succeed SetQuantity
+                |> Validation.andMap (uuid.value |> Validation.map Uuid)
+                |> Validation.andMap quantity.value
         )
         (\formState ->
             ( []
             , [ Html.button []
                     [ Html.text <|
-                        -- TODO wire through quantityChange argument here so I can use it to render view
                         case formState.data of
                             ( _, Decrement, _ ) ->
                                 "-"
