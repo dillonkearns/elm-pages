@@ -156,18 +156,19 @@ all =
                 ]
             , describe "dependent validations" <|
                 let
-                    --checkinFormParser : Form.HtmlForm String ( Date, Date ) data msg
-                    checkinFormParser : Form.Form String ( Maybe ( Date, Date ), Dict String (List String) ) data (Form.Context String data -> MyView)
+                    checkinFormParser : Form String (Validation String ( Date, Date )) data (Form.Context String data -> MyView)
                     checkinFormParser =
                         Form.init
                             (\checkin checkout ->
                                 Validation.succeed
                                     (\checkinValue checkoutValue ->
-                                        if Date.toRataDie checkinValue >= Date.toRataDie checkoutValue then
-                                            Validation.fail checkin.name "Must be before checkout"
+                                        Validation.succeed ( checkinValue, checkoutValue )
+                                            |> (if Date.toRataDie checkinValue >= Date.toRataDie checkoutValue then
+                                                    Validation.withError checkin.name "Must be before checkout"
 
-                                        else
-                                            Validation.succeed ( checkinValue, checkoutValue )
+                                                else
+                                                    identity
+                                               )
                                     )
                                     |> Validation.withField checkin
                                     |> Validation.withField checkout
@@ -203,7 +204,6 @@ all =
                             checkinFormParser
                             |> Expect.equal
                                 ( Just ( Date.fromRataDie 738158, Date.fromRataDie 738156 )
-                                  --( Just (Date.fromRataDie 738158)
                                 , Dict.fromList
                                     [ ( "checkin", [ "Must be before checkout" ] )
                                     ]
@@ -219,20 +219,26 @@ all =
                             (Form.init
                                 (\postForm_ ->
                                     postForm_ ()
-                                        -- TODO @@@@ remove Tuple.first
-                                        |> Tuple.first
+                                        -- TODO simplify
+                                        |> Tuple.mapFirst Just
+                                        |> Validation.andThen identity
                                 )
                                 (\formState postForm_ -> ( [], [ Div ] ))
                                 |> Form.dynamic
                                     (\() ->
                                         Form.init
                                             (\password passwordConfirmation ->
-                                                if password.value == passwordConfirmation.value then
-                                                    Form.ok password.value
+                                                Validation.succeed
+                                                    (\passwordValue passwordConfirmationValue ->
+                                                        if passwordValue == passwordConfirmationValue then
+                                                            Validation.succeed { password = passwordValue }
 
-                                                else
-                                                    --Form.ok password.value|>
-                                                    Form.fail passwordConfirmation "Must match password"
+                                                        else
+                                                            Validation.fail passwordConfirmation.name "Must match password"
+                                                    )
+                                                    |> Validation.withField password
+                                                    |> Validation.withField passwordConfirmation
+                                                    |> Validation.andThen identity
                                             )
                                             (\formState password passwordConfirmation -> [ Div ])
                                             |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
@@ -289,8 +295,9 @@ all =
                                 |> Validation.andThen
                                     (\kindValue ->
                                         postForm_ kindValue
-                                            -- TODO @@@@@ remove Tuple.first
-                                            |> Tuple.first
+                                            ---- TODO simplify
+                                            |> Tuple.mapFirst Just
+                                            |> Validation.andThen identity
                                     )
                         )
                         (\fieldErrors kind postForm_ ->
