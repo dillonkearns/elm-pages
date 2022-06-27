@@ -1,4 +1,4 @@
-module Validation exposing (Validation(..), andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withField)
+module Validation exposing (Validation(..), andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback, withField)
 
 import Dict exposing (Dict)
 
@@ -10,6 +10,16 @@ type Validation error parsed
 succeed : parsed -> Validation error parsed
 succeed parsed =
     Validation ( Just parsed, Dict.empty )
+
+
+withFallback : parsed -> Validation error parsed -> Validation error parsed
+withFallback parsed (Validation ( maybeParsed, errors )) =
+    Validation
+        ( maybeParsed
+            |> Maybe.withDefault parsed
+            |> Just
+        , errors
+        )
 
 
 parseWithError : parsed -> ( String, error ) -> Validation error parsed
