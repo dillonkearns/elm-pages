@@ -1,9 +1,7 @@
 module Pages.Form exposing
     ( Form(..), FieldErrors, HtmlForm, StyledHtmlForm
     , init
-    , addErrors, toResult
-    , field, hiddenField, hiddenKind
-    , ParsedField, ok
+    , ParsedField, field, hiddenField, hiddenKind
     , andThen
     , Context, ViewField
     , renderHtml, renderStyledHtml
@@ -11,9 +9,7 @@ module Pages.Form exposing
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , FieldDefinition(..)
-    ,  fail
-       -- subGroup
-
+    -- subGroup
     )
 
 {-|
@@ -25,17 +21,10 @@ module Pages.Form exposing
 
 @docs init
 
-@docs addErrors, toResult
-
 
 ## Adding Fields
 
-@docs field, hiddenField, hiddenKind
-
-
-## Combining Fields
-
-@docs ParsedField, ok
+@docs ParsedField, field, hiddenField, hiddenKind
 
 
 ### Managing Errors
@@ -1106,32 +1095,8 @@ type alias ViewField error parsed kind =
 
 
 {-| -}
-ok : a -> ( Maybe a, FieldErrors error )
-ok result =
-    ( Just result, Dict.empty )
-
-
-{-| -}
 addErrorsInternal : String -> List error -> Dict String (List error) -> Dict String (List error)
 addErrorsInternal name newErrors allErrors =
-    allErrors
-        |> Dict.update name
-            (\errors ->
-                Just (newErrors ++ (errors |> Maybe.withDefault []))
-            )
-
-
-{-| -}
-fail : ParsedField error parsed -> error -> ( Maybe combined, FieldErrors error )
-fail { name } error =
-    ( Nothing
-    , Dict.fromList [ ( name, [ error ] ) ]
-    )
-
-
-{-| -}
-addErrors : ParsedField error parsed -> List error -> Dict String (List error) -> Dict String (List error)
-addErrors { name } newErrors allErrors =
     allErrors
         |> Dict.update name
             (\errors ->
