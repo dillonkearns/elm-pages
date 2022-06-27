@@ -28,11 +28,10 @@ all =
                     (\password passwordConfirmation ->
                         Validation.succeed
                             (\passwordValue passwordConfirmationValue ->
-                                if passwordValue == passwordConfirmationValue then
-                                    Validation.succeed { password = passwordValue }
-
-                                else
-                                    Validation.fail passwordConfirmation.name "Must match password"
+                                Validation.succeed { password = passwordValue }
+                                    |> Validation.withErrorIf (passwordValue /= passwordConfirmationValue)
+                                        passwordConfirmation.name
+                                        "Must match password"
                             )
                             |> Validation.withField password
                             |> Validation.withField passwordConfirmation
@@ -65,7 +64,7 @@ all =
                     )
                     passwordConfirmationParser
                     |> Expect.equal
-                        ( Nothing
+                        ( Just { password = "mypassword" }
                         , Dict.fromList [ ( "password-confirmation", [ "Must match password" ] ) ]
                         )
         , describe "oneOf" <|

@@ -1,4 +1,4 @@
-module Validation exposing (Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withField)
+module Validation exposing (Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withField)
 
 import Dict exposing (Dict)
 
@@ -25,6 +25,17 @@ fail key parsed =
 withError : String -> error -> Validation error parsed -> Validation error parsed
 withError key error ( maybeParsedA, errorsA ) =
     ( maybeParsedA, errorsA |> insertIfNonempty key [ error ] )
+
+
+withErrorIf : Bool -> String -> error -> Validation error parsed -> Validation error parsed
+withErrorIf includeError key error ( maybeParsedA, errorsA ) =
+    ( maybeParsedA
+    , if includeError then
+        errorsA |> insertIfNonempty key [ error ]
+
+      else
+        errorsA
+    )
 
 
 map : (parsed -> mapped) -> Validation error parsed -> Validation error mapped
