@@ -7,6 +7,7 @@ module Pages.Field exposing
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep, withMinLength, withMaxLength
     , No(..), Yes(..)
+    , OutsideRange(..)
     )
 
 {-|
@@ -444,52 +445,45 @@ textarea (Field field kind) =
     Field field (FieldRenderer.Input FieldRenderer.Textarea)
 
 
+type OutsideRange
+    = AboveRange
+    | BelowRange
+
+
 {-| -}
 range :
-    { missing : error
-    , invalid : String -> error
+    { min : Form.Value.Value valueType
+    , max : Form.Value.Value valueType
+    , initial : data -> Form.Value.Value valueType
+    , missing : error
+    , invalid : OutsideRange -> error
     }
     ->
-        { initial : data -> Int
-        , min : Int
-        , max : Int
-        }
-    -> Field error Int data Input {}
-range toError options =
-    Field
-        { initialValue = Just (options.initial >> String.fromInt)
-        , serverValidation = \_ -> DataSource.succeed []
-        , decode =
-            \rawString ->
-                case
-                    rawString
-                        |> validateRequiredField toError
-                        |> Result.andThen
-                            (\string ->
-                                string
-                                    |> String.toInt
-                                    |> Result.fromMaybe (toError.invalid string)
-                            )
-                        |> Result.andThen
-                            (\decodedInt ->
-                                if decodedInt > options.max || decodedInt < options.min then
-                                    Err (toError.invalid (decodedInt |> String.fromInt))
-
-                                else
-                                    Ok decodedInt
-                            )
-                of
-                    Ok parsed ->
-                        ( Just parsed, [] )
-
-                    Err error ->
-                        ( Nothing, [ error ] )
-        , properties =
-            []
-        }
-        (FieldRenderer.Input FieldRenderer.Range)
-        |> withStringProperty ( "min", String.fromInt options.min )
-        |> withStringProperty ( "max", String.fromInt options.max )
+        Field
+            error
+            (Maybe valueType)
+            data
+            kind
+            { constraints
+                | required : ()
+                , initial : valueType
+                , min : valueType
+                , max : valueType
+                , wasMapped : No
+            }
+    ->
+        Field
+            error
+            valueType
+            data
+            Input
+            { constraints | wasMapped : No }
+range info field =
+    field
+        |> required info.missing
+        |> withMin info.min (info.invalid BelowRange)
+        |> withMax info.max (info.invalid AboveRange)
+        |> (\(Field innerField _) -> Field { innerField | initialValue = Just (info.initial >> Form.Value.toString) } (FieldRenderer.Input FieldRenderer.Range))
 
 
 validateRequiredField : { toError | missing : error } -> Maybe String -> Result error String
