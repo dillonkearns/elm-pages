@@ -129,7 +129,7 @@ select :
         (parsed
          ->
             ( List (Html.Attribute msg)
-            , List (Html.Html msg)
+            , String
             )
         )
     ->
@@ -162,10 +162,10 @@ select selectAttrs enumToOption rawField =
                     case parsed of
                         Just justParsed ->
                             let
-                                ( optionAttrs, children ) =
+                                ( optionAttrs, content ) =
                                     enumToOption justParsed
                             in
-                            Html.option (Attr.value possibleValue :: optionAttrs) children
+                            Html.option (Attr.value possibleValue :: optionAttrs) [ Html.text content ]
                                 |> Just
 
                         Nothing ->
