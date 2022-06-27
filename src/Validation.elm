@@ -1,56 +1,57 @@
-module Validation exposing (Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withField)
+module Validation exposing (Validation(..), andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withField)
 
 import Dict exposing (Dict)
 
 
-type alias Validation error parsed =
-    ( Maybe parsed, Dict String (List error) )
+type Validation error parsed
+    = Validation ( Maybe parsed, Dict String (List error) )
 
 
 succeed : parsed -> Validation error parsed
 succeed parsed =
-    ( Just parsed, Dict.empty )
+    Validation ( Just parsed, Dict.empty )
 
 
 parseWithError : parsed -> ( String, error ) -> Validation error parsed
 parseWithError parsed ( key, error ) =
-    ( Just parsed, Dict.singleton key [ error ] )
+    Validation ( Just parsed, Dict.singleton key [ error ] )
 
 
 fail : String -> error -> Validation error parsed
 fail key parsed =
-    ( Nothing, Dict.singleton key [ parsed ] )
+    Validation ( Nothing, Dict.singleton key [ parsed ] )
 
 
 withError : String -> error -> Validation error parsed -> Validation error parsed
-withError key error ( maybeParsedA, errorsA ) =
-    ( maybeParsedA, errorsA |> insertIfNonempty key [ error ] )
+withError key error (Validation ( maybeParsedA, errorsA )) =
+    Validation ( maybeParsedA, errorsA |> insertIfNonempty key [ error ] )
 
 
 withErrorIf : Bool -> String -> error -> Validation error parsed -> Validation error parsed
-withErrorIf includeError key error ( maybeParsedA, errorsA ) =
-    ( maybeParsedA
-    , if includeError then
-        errorsA |> insertIfNonempty key [ error ]
+withErrorIf includeError key error (Validation ( maybeParsedA, errorsA )) =
+    Validation
+        ( maybeParsedA
+        , if includeError then
+            errorsA |> insertIfNonempty key [ error ]
 
-      else
-        errorsA
-    )
+          else
+            errorsA
+        )
 
 
 map : (parsed -> mapped) -> Validation error parsed -> Validation error mapped
-map mapFn ( maybeParsedA, errorsA ) =
-    ( Maybe.map mapFn maybeParsedA, errorsA )
+map mapFn (Validation ( maybeParsedA, errorsA )) =
+    Validation ( Maybe.map mapFn maybeParsedA, errorsA )
 
 
 fromResult : Result ( String, error ) parsed -> Validation error parsed
 fromResult result =
     case result of
         Ok parsed ->
-            ( Just parsed, Dict.empty )
+            Validation ( Just parsed, Dict.empty )
 
         Err ( key, error ) ->
-            ( Nothing, Dict.singleton key [ error ] )
+            Validation ( Nothing, Dict.singleton key [ error ] )
 
 
 andMap : Validation error a -> Validation error (a -> b) -> Validation error b
@@ -64,26 +65,29 @@ withField field =
 
 
 andThen : (parsed -> Validation error mapped) -> Validation error parsed -> Validation error mapped
-andThen andThenFn ( maybeParsed, errors ) =
+andThen andThenFn (Validation ( maybeParsed, errors )) =
     case maybeParsed of
         Just parsed ->
             andThenFn parsed
-                |> Tuple.mapSecond (mergeErrors errors)
+                |> (\(Validation ( andThenParsed, andThenErrors )) ->
+                        Validation ( andThenParsed, mergeErrors errors andThenErrors )
+                   )
 
         Nothing ->
-            ( Nothing, errors )
+            Validation ( Nothing, errors )
 
 
 map2 : (a -> b -> c) -> Validation error a -> Validation error b -> Validation error c
-map2 f ( maybeParsedA, errorsA ) ( maybeParsedB, errorsB ) =
-    ( Maybe.map2 f maybeParsedA maybeParsedB
-    , mergeErrors errorsA errorsB
-    )
+map2 f (Validation ( maybeParsedA, errorsA )) (Validation ( maybeParsedB, errorsB )) =
+    Validation
+        ( Maybe.map2 f maybeParsedA maybeParsedB
+        , mergeErrors errorsA errorsB
+        )
 
 
 fromMaybe : Maybe parsed -> Validation error parsed
 fromMaybe maybe =
-    ( maybe, Dict.empty )
+    Validation ( maybe, Dict.empty )
 
 
 mergeErrors : Dict comparable (List value) -> Dict comparable (List value) -> Dict comparable (List value)

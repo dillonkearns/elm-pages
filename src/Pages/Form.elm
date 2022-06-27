@@ -11,8 +11,9 @@ module Pages.Form exposing
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , FieldDefinition(..)
-    , fail
-    -- subGroup
+    ,  fail
+       -- subGroup
+
     )
 
 {-|
@@ -86,7 +87,7 @@ import Pages.Field as Field exposing (Field(..))
 import Pages.FormState as Form
 import Pages.Msg
 import Pages.Transition
-import Validation exposing (Validation)
+import Validation exposing (Validation(..))
 
 
 
@@ -136,11 +137,11 @@ init fn viewFn =
 
 {-| -}
 dynamic :
-    (decider -> Form error parsed data (Context error data -> subView))
+    (decider -> Form error (Validation error parsed) data (Context error data -> subView))
     ->
         Form
             error
-            ((decider -> ( parsed, FieldErrors error )) -> combined)
+            ((decider -> Validation error parsed) -> combined)
             data
             (Context error data -> ((decider -> subView) -> combinedView))
     -> Form error combined data (Context error data -> combinedView)
@@ -148,7 +149,7 @@ dynamic forms formBuilder =
     Form []
         (\maybeData formState ->
             let
-                toParser : decider -> { result : ( parsed, FieldErrors error ), view : Context error data -> subView }
+                toParser : decider -> { result : ( Validation error parsed, FieldErrors error ), view : Context error data -> subView }
                 toParser decider =
                     case forms decider of
                         Form definitions parseFn toInitialValues ->
@@ -161,15 +162,15 @@ dynamic forms formBuilder =
                     }
                 myFn =
                     let
-                        deciderToParsed : decider -> ( parsed, FieldErrors error )
+                        deciderToParsed : decider -> Validation error parsed
                         deciderToParsed decider =
                             decider
                                 |> toParser
-                                |> .result
+                                |> mergeResults
 
                         newThing :
                             { result :
-                                ( (decider -> ( parsed, FieldErrors error )) -> combined
+                                ( (decider -> Validation error parsed) -> combined
                                 , Dict String (List error)
                                 )
                             , view : Context error data -> (decider -> subView) -> combinedView
@@ -555,19 +556,15 @@ type alias AppContext app =
 
 
 mergeResults :
-    { a | result : ( ( Maybe parsed, Dict comparable (List error) ), Dict comparable (List error) ) }
-    -> ( Maybe parsed, Dict comparable (List error) )
+    { a | result : ( Validation error parsed, Dict String (List error) ) }
+    -> Validation error parsed
 mergeResults parsed =
     case parsed.result of
-        ( ( parsedThing, combineErrors ), individualFieldErrors ) ->
-            ( parsedThing
-            , mergeErrors combineErrors individualFieldErrors
-            )
-
-
-
---( Nothing, individualFieldErrors ) ->
---    ( Nothing, individualFieldErrors )
+        ( Validation ( parsedThing, combineErrors ), individualFieldErrors ) ->
+            Validation
+                ( parsedThing
+                , mergeErrors combineErrors individualFieldErrors
+                )
 
 
 mergeErrors : Dict comparable (List value) -> Dict comparable (List value) -> Dict comparable (List value)
@@ -591,14 +588,13 @@ mergeErrors errors1 errors2 =
 parse :
     AppContext app
     -> data
-    -> Form error ( Maybe parsed, FieldErrors error ) data (Context error data -> view)
+    -> Form error (Validation error parsed) data (Context error data -> view)
     -> ( Maybe parsed, FieldErrors error )
 parse app data (Form fieldDefinitions parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
-        --parsed : { result : ( Maybe parsed, FieldErrors error ), view : Context error -> view }
-        parsed : { result : ( ( Maybe parsed, FieldErrors error ), Dict String (List error) ), view : Context error data -> view }
+        parsed : { result : ( Validation error parsed, Dict String (List error) ), view : Context error data -> view }
         parsed =
             parser (Just data) thisFormState
 
@@ -608,7 +604,7 @@ parse app data (Form fieldDefinitions parser _) =
                 |> Dict.get "test"
                 |> Maybe.withDefault initFormState
     in
-    parsed |> mergeResults
+    parsed |> mergeResults |> unwrapValidation
 
 
 insertIfNonempty : comparable -> List value -> Dict comparable (List value) -> Dict comparable (List value)
@@ -624,11 +620,11 @@ insertIfNonempty key values dict =
 {-| -}
 runServerSide :
     List ( String, String )
-    -> Form error ( Maybe parsed, FieldErrors error ) data (Context error data -> view)
+    -> Form error (Validation error parsed) data (Context error data -> view)
     -> ( Maybe parsed, FieldErrors error )
 runServerSide rawFormData (Form fieldDefinitions parser _) =
     let
-        parsed : { result : ( ( Maybe parsed, FieldErrors error ), Dict String (List error) ), view : Context error data -> view }
+        parsed : { result : ( Validation error parsed, Dict String (List error) ), view : Context error data -> view }
         parsed =
             parser Nothing thisFormState
 
@@ -648,13 +644,20 @@ runServerSide rawFormData (Form fieldDefinitions parser _) =
                         |> Dict.fromList
             }
     in
-    parsed |> mergeResults
+    parsed
+        |> mergeResults
+        |> unwrapValidation
+
+
+unwrapValidation : Validation error parsed -> ( Maybe parsed, FieldErrors error )
+unwrapValidation (Validation ( maybeParsed, errors )) =
+    ( maybeParsed, errors )
 
 
 {-| -}
 runOneOfServerSide :
     List ( String, String )
-    -> List (Form error ( Maybe parsed, FieldErrors error ) data (Context error data -> view))
+    -> List (Form error (Validation error parsed) data (Context error data -> view))
     -> ( Maybe parsed, FieldErrors error )
 runOneOfServerSide rawFormData parsers =
     case parsers of
@@ -690,7 +693,7 @@ renderHtml :
     ->
         Form
             error
-            ( Maybe parsed, FieldErrors error )
+            (Validation error parsed)
             data
             (Context error data
              -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
@@ -707,7 +710,7 @@ renderStyledHtml :
     ->
         Form
             error
-            ( Maybe parsed, FieldErrors error )
+            (Validation error parsed)
             data
             (Context error data
              -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) )
@@ -721,7 +724,7 @@ renderHelper :
     RenderOptions
     -> AppContext app
     -> data
-    -> Form error ( Maybe parsed, FieldErrors error ) data (Context error data -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
+    -> Form error (Validation error parsed) data (Context error data -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
     -> Html (Pages.Msg.Msg msg)
 renderHelper options formState data (Form fieldDefinitions parser toInitialValues) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -751,13 +754,13 @@ renderHelper options formState data (Form fieldDefinitions parser toInitialValue
                 |> Dict.union part2
 
         parsed :
-            { result : ( ( Maybe parsed, FieldErrors error ), Dict String (List error) )
+            { result : ( Validation error parsed, Dict String (List error) )
             , view : Context error data -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
             }
         parsed =
             parser (Just data) thisFormState
 
-        merged : ( Maybe parsed, Dict String (List error) )
+        merged : Validation error parsed
         merged =
             mergeResults parsed
 
@@ -771,7 +774,7 @@ renderHelper options formState data (Form fieldDefinitions parser toInitialValue
         context : Context error data
         context =
             { errors =
-                merged |> Tuple.second
+                merged |> unwrapValidation |> Tuple.second
             , isTransitioning =
                 case formState.transition of
                     Just transition ->
@@ -854,7 +857,7 @@ isValid parser data fields =
 renderStyledHelper :
     AppContext app
     -> data
-    -> Form error ( Maybe parsed, FieldErrors error ) data (Context error data -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) ))
+    -> Form error (Validation error parsed) data (Context error data -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) ))
     -> Html.Styled.Html (Pages.Msg.Msg msg)
 renderStyledHelper formState data (Form fieldDefinitions parser toInitialValues) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -884,13 +887,13 @@ renderStyledHelper formState data (Form fieldDefinitions parser toInitialValues)
                 |> Dict.union part2
 
         parsed :
-            { result : ( ( Maybe parsed, FieldErrors error ), Dict String (List error) )
+            { result : ( Validation error parsed, Dict String (List error) )
             , view : Context error data -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) )
             }
         parsed =
             parser (Just data) thisFormState
 
-        merged : ( Maybe parsed, Dict String (List error) )
+        merged : Validation error parsed
         merged =
             mergeResults parsed
 
@@ -904,7 +907,7 @@ renderStyledHelper formState data (Form fieldDefinitions parser toInitialValues)
         context : Context error data
         context =
             { errors =
-                merged |> Tuple.second
+                merged |> unwrapValidation |> Tuple.second
             , isTransitioning =
                 case formState.transition of
                     Just transition ->
@@ -1008,7 +1011,7 @@ toResult ( maybeParsed, fieldErrors ) =
 type alias HtmlForm error parsed data msg =
     Form
         error
-        ( Maybe parsed, FieldErrors error )
+        (Validation error parsed)
         data
         (Context error data -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
 
@@ -1017,7 +1020,7 @@ type alias HtmlForm error parsed data msg =
 type alias HtmlSubForm error parsed data msg =
     Form
         error
-        ( Maybe parsed, FieldErrors error )
+        (Validation error parsed)
         data
         (Context error data -> List (Html (Pages.Msg.Msg msg)))
 
@@ -1026,7 +1029,7 @@ type alias HtmlSubForm error parsed data msg =
 type alias StyledHtmlForm error parsed data msg =
     Form
         error
-        ( Maybe parsed, FieldErrors error )
+        (Validation error parsed)
         data
         (Context error data -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) ))
 

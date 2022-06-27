@@ -127,7 +127,7 @@ type Action
 signoutForm : Form.HtmlForm String Action input Msg
 signoutForm =
     Form.init
-        (Form.ok Signout)
+        (Validation.succeed Signout)
         (\formState ->
             ( []
             , [ Html.button [] [ Html.text "Sign out" ]

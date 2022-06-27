@@ -179,7 +179,7 @@ type alias EditInfo =
 deleteForm : Form.HtmlForm String Action data Msg
 deleteForm =
     Form.init
-        (Form.ok Delete)
+        (Validation.succeed Delete)
         (\formState ->
             ( []
             , [ Html.button

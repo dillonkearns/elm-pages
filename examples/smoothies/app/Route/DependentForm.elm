@@ -185,12 +185,7 @@ dependentParser =
     Form.init
         (\kind postForm_ ->
             kind.value
-                |> Validation.andThen
-                    (\okKind ->
-                        postForm_ okKind
-                            |> Tuple.mapFirst Just
-                            |> Validation.andThen identity
-                    )
+                |> Validation.andThen postForm_
         )
         (\formState kind postForm_ ->
             ( []

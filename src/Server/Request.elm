@@ -106,6 +106,7 @@ import Pages.Form
 import QueryParams
 import Time
 import Url
+import Validation exposing (Validation)
 
 
 {-| A `Server.Request.Parser` lets you send a `Server.Response.Response` based on an incoming HTTP request. For example,
@@ -916,7 +917,7 @@ fileField_ name =
 
 {-| -}
 formParserResultNew :
-    List (Pages.Form.Form error ( Maybe combined, Pages.Form.FieldErrors error ) data (Pages.Form.Context error data -> viewFn))
+    List (Pages.Form.Form error (Validation error combined) data (Pages.Form.Context error data -> viewFn))
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
 formParserResultNew formParsers =
     formData
