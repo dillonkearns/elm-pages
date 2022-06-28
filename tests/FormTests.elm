@@ -218,9 +218,6 @@ all =
                             (Form.init
                                 (\postForm_ ->
                                     postForm_ ()
-                                        -- TODO simplify
-                                        |> Tuple.mapFirst Just
-                                        |> Validation.andThen identity
                                 )
                                 (\formState postForm_ -> ( [], [ Div ] ))
                                 |> Form.dynamic
@@ -291,13 +288,7 @@ all =
                     Form.init
                         (\kind postForm_ ->
                             kind.value
-                                |> Validation.andThen
-                                    (\kindValue ->
-                                        postForm_ kindValue
-                                            ---- TODO simplify
-                                            |> Tuple.mapFirst Just
-                                            |> Validation.andThen identity
-                                    )
+                                |> Validation.andThen postForm_
                         )
                         (\fieldErrors kind postForm_ ->
                             Div

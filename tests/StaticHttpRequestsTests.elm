@@ -504,8 +504,9 @@ config apiRoutes pages =
             |> DataSource.succeed
     , handleRoute = \_ -> DataSource.succeed Nothing
     , urlToRoute = .path >> Route
-    , update = \_ _ _ _ _ -> ( (), Effect.NoEffect )
+    , update = \_ _ _ _ _ _ _ _ -> ( (), Effect.NoEffect )
     , basePath = []
+    , onActionData = \() -> Nothing
     , data =
         \(Route pageRoute) ->
             let
@@ -527,7 +528,7 @@ config apiRoutes pages =
                     Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
     , site = Just site
     , view =
-        \page _ _ ->
+        \_ _ _ page _ _ _ _ ->
             let
                 thing : Maybe (DataSource a)
                 thing =
@@ -538,7 +539,7 @@ config apiRoutes pages =
             in
             case thing of
                 Just _ ->
-                    \_ _ -> { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
+                    { view = \_ -> { title = "Title", body = Html.text "" }, head = [] }
 
                 Nothing ->
                     Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
