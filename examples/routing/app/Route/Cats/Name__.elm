@@ -1,9 +1,10 @@
-module Route.Cats.Name__ exposing (Data, Model, Msg, route)
+module Route.Cats.Name__ exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -23,7 +24,11 @@ type alias RouteParams =
     { name : Maybe String }
 
 
-route : StatelessRoute RouteParams Data
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { head = head
@@ -49,7 +54,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -75,8 +80,8 @@ type alias Data =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { body =
         [ text (static.routeParams.name |> Maybe.withDefault "NOTHING")

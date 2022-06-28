@@ -1,8 +1,9 @@
-module Route.SPLAT__ exposing (Data, Model, Msg, route)
+module Route.SPLAT__ exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource
 import Head
 import Html.Styled exposing (text)
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
@@ -21,7 +22,11 @@ type alias RouteParams =
     { splat : List String }
 
 
-route : StatelessRoute RouteParams Data
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { head = head
@@ -39,7 +44,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     []
@@ -52,8 +57,8 @@ type alias Data =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { body =
         [ Debug.toString static.routeParams |> text

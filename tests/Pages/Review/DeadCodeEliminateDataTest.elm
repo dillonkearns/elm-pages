@@ -38,7 +38,7 @@ type alias Data =
    ()
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
    single
        { head = head
@@ -90,7 +90,7 @@ type alias Data =
    ()
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
    single
        { head = head
@@ -134,7 +134,7 @@ type alias Data =
    ()
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { data = data
@@ -186,7 +186,7 @@ type alias Data =
    ()
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { data = \\_ -> DataSource.fail ""
@@ -217,7 +217,7 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
@@ -250,7 +250,7 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
@@ -275,7 +275,7 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
@@ -315,7 +315,7 @@ type alias Data =
    ()
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
    RouteBuilder.single
        { head = head

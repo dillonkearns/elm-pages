@@ -1,8 +1,12 @@
 module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 
 import Browser.Navigation
+import Bytes exposing (Bytes)
+import Bytes.Decode
+import FormDecoder
 import Http
 import Json.Decode as Decode
+import Pages.Fetcher
 import Url exposing (Url)
 
 
@@ -12,11 +16,16 @@ type Effect msg
     | Batch (List (Effect msg))
     | GetStargazers (Result Http.Error Int -> msg)
     | Logout msg
-    | FetchPageData
-        { body : Maybe { contentType : String, body : String }
-        , path : Maybe String
+    | SetField { formId : String, name : String, value : String }
+    | FetchRouteData
+        { data : Maybe FormDecoder.FormData
         , toMsg : Result Http.Error Url -> msg
         }
+    | Submit
+        { values : FormDecoder.FormData
+        , toMsg : Result Http.Error Url -> msg
+        }
+    | SubmitFetcher (Pages.Fetcher.Fetcher msg)
 
 
 type alias RequestInfo =
@@ -55,32 +64,51 @@ map fn effect =
         GetStargazers toMsg ->
             GetStargazers (toMsg >> fn)
 
-        FetchPageData fetchInfo ->
-            FetchPageData
-                { body = fetchInfo.body
-                , path = fetchInfo.path
+        FetchRouteData fetchInfo ->
+            FetchRouteData
+                { data = fetchInfo.data
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
         Logout msg ->
             Logout (fn msg)
 
+        Submit fetchInfo ->
+            Submit
+                { values = fetchInfo.values
+                , toMsg = fetchInfo.toMsg >> fn
+                }
+
+        SetField info ->
+            SetField info
+
+        SubmitFetcher fetcher ->
+            fetcher
+                |> Pages.Fetcher.map fn
+                |> SubmitFetcher
+
 
 perform :
     { fetchRouteData :
-        { body : Maybe { contentType : String, body : String }
-        , path : Maybe String
+        { data : Maybe FormDecoder.FormData
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
-
-    --, fromSharedMsg : Shared.Msg -> msg
+    , submit :
+        { values : FormDecoder.FormData
+        , toMsg : Result Http.Error Url -> pageMsg
+        }
+        -> Cmd msg
+    , runFetcher :
+        Pages.Fetcher.Fetcher pageMsg
+        -> Cmd msg
     , fromPageMsg : pageMsg -> msg
     , key : Browser.Navigation.Key
+    , setField : { formId : String, name : String, value : String } -> Cmd msg
     }
     -> Effect pageMsg
     -> Cmd msg
-perform ({ fetchRouteData, fromPageMsg } as info) effect =
+perform ({ fromPageMsg, key } as helpers) effect =
     case effect of
         None ->
             Cmd.none
@@ -88,29 +116,36 @@ perform ({ fetchRouteData, fromPageMsg } as info) effect =
         Cmd cmd ->
             Cmd.map fromPageMsg cmd
 
+        SetField info ->
+            helpers.setField info
+
         Batch list ->
-            Cmd.batch (List.map (perform info) list)
+            Cmd.batch (List.map (perform helpers) list)
 
         Logout toMsg ->
-            fetchRouteData
-                { body =
+            helpers.fetchRouteData
+                { data =
                     Just
-                        { contentType = "application/json"
-                        , body = ""
+                        { fields = []
+                        , method = FormDecoder.Post
+                        , action = "/logout"
                         }
-                , path = Just "/logout"
                 , toMsg = \_ -> toMsg
                 }
 
         GetStargazers toMsg ->
             Http.get
-                { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                { url =
+                    "https://api.github.com/repos/dillonkearns/elm-pages"
                 , expect = Http.expectJson (toMsg >> fromPageMsg) (Decode.field "stargazers_count" Decode.int)
                 }
 
-        FetchPageData fetchInfo ->
-            fetchRouteData
-                { body = fetchInfo.body
-                , path = fetchInfo.path
-                , toMsg = fetchInfo.toMsg
-                }
+        FetchRouteData fetchInfo ->
+            helpers.fetchRouteData
+                fetchInfo
+
+        Submit record ->
+            helpers.submit record
+
+        SubmitFetcher record ->
+            helpers.runFetcher record

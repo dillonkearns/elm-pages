@@ -1,4 +1,4 @@
-module Route.Greet exposing (Data, Model, Msg, route)
+module Route.Greet exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
@@ -9,6 +9,7 @@ import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Events exposing (onSubmit)
 import MySession
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -33,11 +34,16 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data Model Msg
+type alias ActionData =
+    {}
+
+
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip ""
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -50,7 +56,7 @@ route =
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}, Effect.none )
@@ -59,7 +65,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
@@ -125,7 +131,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -148,8 +154,8 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
     { title = "Hello!"
     , body =
@@ -159,7 +165,7 @@ view maybeUrl sharedModel model static =
         , Html.text <| "Hello " ++ static.data.username ++ "!"
         , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis static.data.requestTime)
         , Html.div []
-            [ Html.form [ Attr.method "post", Attr.action "/logout", onSubmit Logout ]
+            [ Html.form [ Attr.method "post", Attr.action "/logout", onSubmit (Logout |> Pages.Msg.UserMsg) ]
                 [ Html.button
                     [ Attr.type_ "submit" ]
                     [ Html.text "Logout" ]

@@ -20,7 +20,7 @@ type alias RouteParams =
     {}
 
 
-page : StatelessRoute RouteParams Data
+page : StatelessRoute RouteParams Data ActionData
 page =
     RouteBuilder.single
         { head = head
@@ -35,7 +35,7 @@ data =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -59,7 +59,7 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> View Msg
 view static =
     View.placeholder "Index"

@@ -1,4 +1,4 @@
-module Route.Slide.Number_ exposing (Data, Model, Msg, route)
+module Route.Slide.Number_ exposing (ActionData, Data, Model, Msg, route)
 
 import Browser.Events
 import Browser.Navigation
@@ -10,6 +10,7 @@ import Head.Seo as Seo
 import Html.Styled as Html
 import Html.Styled.Attributes exposing (css)
 import Json.Decode as Decode
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StaticPayload)
@@ -30,7 +31,11 @@ type alias RouteParams =
     { number : String }
 
 
-route : StatefulRoute RouteParams Data Model Msg
+type alias ActionData =
+    {}
+
+
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.preRender
         { head = head
@@ -102,7 +107,7 @@ slideBody route_ =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -130,8 +135,8 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
     { title = "TODO title"
     , body =
@@ -143,7 +148,7 @@ view maybeUrl sharedModel model static =
                 , Tw.py_6
                 ]
             ]
-            (static.data.body
+            ((static.data.body |> List.map (Html.map Pages.Msg.UserMsg))
                 ++ [ Html.text static.routeParams.number ]
             )
         ]

@@ -1,4 +1,4 @@
-module Route.Counter exposing (Data, Model, Msg, route)
+module Route.Counter exposing (ActionData, Data, Model, Msg, route)
 
 import Browser.Navigation
 import DataSource exposing (DataSource)
@@ -7,6 +7,7 @@ import Head
 import Head.Seo as Seo
 import Html.Styled as Html
 import Http
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -29,7 +30,11 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data Model Msg
+type alias ActionData =
+    {}
+
+
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.single
         { head = head
@@ -46,7 +51,7 @@ route =
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( { count = Nothing }, Effect.GetStargazers GotStargazers )
@@ -55,7 +60,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
@@ -86,7 +91,7 @@ data =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -109,8 +114,8 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
     { title = "Counter"
     , body =

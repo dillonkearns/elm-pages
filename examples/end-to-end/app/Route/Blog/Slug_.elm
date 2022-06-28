@@ -1,8 +1,9 @@
-module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
+module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -22,7 +23,11 @@ type alias RouteParams =
     { slug : String }
 
 
-route : StatelessRoute RouteParams Data
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { head = head
@@ -47,7 +52,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -69,7 +74,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     View.placeholder "Blog.Slug_"

@@ -29,7 +29,7 @@ type alias Data =
     {}
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -44,7 +44,7 @@ data =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -66,7 +66,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "elm-pages is running"

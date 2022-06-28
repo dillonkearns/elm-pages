@@ -1,4 +1,4 @@
-module Route.Escaping exposing (Data, Model, Msg, route)
+module Route.Escaping exposing (ActionData, Data, Model, Msg, route)
 
 import Css exposing (..)
 import Css.Global
@@ -9,6 +9,7 @@ import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Lazy as HtmlLazy
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -28,7 +29,11 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -47,7 +52,7 @@ data =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -69,8 +74,8 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { title = ""
     , body =

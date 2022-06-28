@@ -1,4 +1,4 @@
-module Route.Login exposing (Data, Model, Msg, route)
+module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
@@ -7,6 +7,7 @@ import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import MySession
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
@@ -30,11 +31,16 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip ""
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -90,7 +96,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -112,8 +118,8 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { title = "Login"
     , body =

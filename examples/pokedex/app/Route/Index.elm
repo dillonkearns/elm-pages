@@ -59,7 +59,7 @@ data =
 
 
 head :
-    StaticPayload Data RouteParams ActionData
+    StaticPayload Data ActionData RouteParams ActionData
     -> List Head.Tag
 head static =
     Seo.summary
@@ -81,7 +81,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams ActionData
+    -> StaticPayload Data ActionData RouteParams ActionData
     -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { title = "Pokedex"

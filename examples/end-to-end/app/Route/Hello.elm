@@ -1,18 +1,16 @@
-module Route.Hello exposing (Model, Msg, Data, route)
-
-import Server.Request as Request
-
+module Route.Hello exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
-import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
-import Server.Response as Response exposing (Response)
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import Server.Request as Request
+import Server.Response as Response exposing (Response)
 import Shared
-
 import View exposing (View)
 
 
@@ -23,18 +21,23 @@ type alias Model =
 type alias Msg =
     ()
 
-type alias RouteParams =
-    {  }
 
-route : StatelessRoute RouteParams Data
+type alias RouteParams =
+    {}
+
+
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip ""
         }
         |> RouteBuilder.buildNoState { view = view }
-
-
 
 
 type alias Data =
@@ -47,7 +50,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -66,11 +69,10 @@ head static =
         |> Seo.website
 
 
-
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     View.placeholder "Hello"

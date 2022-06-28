@@ -207,7 +207,7 @@ markdownIndexedByHeading index markdownBlocks =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -235,7 +235,7 @@ type alias Data =
 view :
     Model
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view model sharedModel static =
     { title = "TODO title"

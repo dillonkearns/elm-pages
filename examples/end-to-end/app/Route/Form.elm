@@ -1,4 +1,4 @@
-module Route.Form exposing (Data, Model, Msg, route)
+module Route.Form exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Date exposing (Date)
@@ -11,6 +11,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
@@ -31,6 +32,10 @@ type alias Msg =
 
 
 type alias RouteParams =
+    {}
+
+
+type alias ActionData =
     {}
 
 
@@ -77,7 +82,7 @@ errorsView errors =
             Html.div [] []
 
 
-form : User -> Form Msg String User (Html Msg)
+form : User -> Form (Pages.Msg.Msg Msg) String User (Html (Pages.Msg.Msg Msg))
 form user =
     Form.succeed User
         |> Form.with
@@ -189,11 +194,12 @@ form user =
             )
 
 
-route : StatelessRoute RouteParams Data
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip ""
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -233,7 +239,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -255,8 +261,8 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
-    -> View Msg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     let
         user : User
@@ -280,9 +286,9 @@ view maybeUrl sharedModel static =
         , Html.h1
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
-        , form user
-            |> Form.toStatelessHtml { onSubmit = Nothing, onFormMsg = Nothing } Html.form static.data.errors
-            |> Html.map (\_ -> ())
+
+        -- TODO replace with new form API
+        , Form.toStatelessHtml Nothing Html.form static.data.errors (form user)
         ]
             |> List.map Html.Styled.fromUnstyled
     }

@@ -1,11 +1,13 @@
-module Route.Redirect exposing (Data, Model, Msg, route)
+module Route.Redirect exposing (ActionData, Data, Model, Msg, route)
 
 import Browser.Navigation
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FormDecoder
 import Head
 import Head.Seo as Seo
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -29,11 +31,16 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data Model Msg
+type alias ActionData =
+    {}
+
+
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = \_ -> Request.skip "No action."
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -46,17 +53,17 @@ route =
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}
-    , Effect.FetchPageData
-        { body =
+    , Effect.FetchRouteData
+        { data =
             Just
-                { contentType = "application/json"
-                , body = ""
+                { fields = []
+                , action = "/redirect"
+                , method = FormDecoder.Post
                 }
-        , path = Nothing
         , toMsg = \_ -> NoOp
         }
     )
@@ -65,7 +72,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
@@ -94,7 +101,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -117,7 +124,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> templateModel
-    -> StaticPayload templateData routeParams
-    -> View templateMsg
+    -> StaticPayload Data ActionData RouteParams
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
     View.placeholder "Redirect"

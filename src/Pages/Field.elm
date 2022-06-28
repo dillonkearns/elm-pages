@@ -1,13 +1,12 @@
 module Pages.Field exposing
     ( text, checkbox, int, float
-    , select, range
+    , select, range, OutsideRange(..)
     , date
     , Field(..), FieldInfo, exactValue
     , required, withClientValidation, withInitialValue
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep, withMinLength, withMaxLength
     , No(..), Yes(..)
-    , OutsideRange(..)
     )
 
 {-|
@@ -20,7 +19,7 @@ module Pages.Field exposing
 
 ## Multiple Choice Fields
 
-@docs select, range
+@docs select, range, OutsideRange
 
 
 ## Date/Time Fields
@@ -445,6 +444,7 @@ textarea (Field field kind) =
     Field field (FieldRenderer.Input FieldRenderer.Textarea)
 
 
+{-| -}
 type OutsideRange
     = AboveRange
     | BelowRange

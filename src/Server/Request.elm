@@ -137,7 +137,7 @@ That's why `RouteBuilder.preRender` has `data : RouteParams -> DataSource Data`:
     data routeParams =
         DataSource.succeed Data
 
-    route : StatelessRoute RouteParams Data
+    route : StatelessRoute RouteParams Data ActionData
     route =
         RouteBuilder.preRender
             { data = data
@@ -175,7 +175,7 @@ data from the request payload using a Server Request Parser.
             |> DataSource.succeed
             |> Request.succeed
 
-    route : StatelessRoute RouteParams Data
+    route : StatelessRoute RouteParams Data ActionData
     route =
         RouteBuilder.serverRender
             { head = head
