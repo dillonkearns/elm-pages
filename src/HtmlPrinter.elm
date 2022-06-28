@@ -19,7 +19,7 @@ htmlToString viewHtml =
             nodeToStringWithOptions defaultFormatOptions str
 
         Err err ->
-            "Error: " ++ Decode.errorToString err
+            "Error pre-rendering HTML in HtmlPrinter.elm: " ++ Decode.errorToString err
 
 
 asJsonView : Html msg -> Decode.Value
