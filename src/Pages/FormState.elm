@@ -93,7 +93,7 @@ update eventObject pageFormState =
     --    pageFormState
     --
     --else
-    case eventObject |> Decode.decodeValue fieldEventDecoder |> Debug.log "fieldEvent" of
+    case eventObject |> Decode.decodeValue fieldEventDecoder of
         Ok fieldEvent ->
             pageFormState
                 |> Dict.update fieldEvent.formId

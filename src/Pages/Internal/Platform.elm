@@ -835,8 +835,17 @@ startFetcher options model =
                                     |> Just
                                     |> Ok
 
-                            _ ->
-                                Debug.todo ""
+                            Http.BadUrl_ string ->
+                                Err <| Http.BadUrl string
+
+                            Http.Timeout_ ->
+                                Err <| Http.Timeout
+
+                            Http.NetworkError_ ->
+                                Err <| Http.NetworkError
+
+                            Http.BadStatus_ metadata body ->
+                                Err <| Http.BadStatus metadata.statusCode
                     )
             , tracker = Nothing
             , body = Http.stringBody "application/x-www-form-urlencoded" encodedBody
@@ -867,10 +876,17 @@ startFetcher2 formData model =
                                 -- TODO maybe have an optional way to pass the bytes through?
                                 Ok Nothing
 
-                            _ ->
-                                -- TODO where should errors go in application state? Should there be an onError where you can receive application-managed error events that are owned by
-                                -- the Platform Model/Msg's?
-                                Debug.todo ""
+                            Http.BadUrl_ string ->
+                                Err <| Http.BadUrl string
+
+                            Http.Timeout_ ->
+                                Err <| Http.Timeout
+
+                            Http.NetworkError_ ->
+                                Err <| Http.NetworkError
+
+                            Http.BadStatus_ metadata body ->
+                                Err <| Http.BadStatus metadata.statusCode
                     )
             , tracker = Nothing
 

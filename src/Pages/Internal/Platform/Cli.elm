@@ -647,7 +647,6 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                 config.sharedData
                                 model.allRawResponses
                                 |> Result.mapError (StaticHttpRequest.toBuildError "")
-                                |> Debug.log "@@@sharedData"
 
                         apiResponse : Effect
                         apiResponse =
@@ -772,7 +771,6 @@ sendSinglePageProgress site contentJson config model info =
                     case includeHtml of
                         RenderRequest.OnlyJson ->
                             pageDataResult
-                                |> Debug.log "pageDataResult"
                                 |> Result.map
                                     (\okPageData ->
                                         case okPageData of
@@ -896,7 +894,6 @@ sendSinglePageProgress site contentJson config model info =
                                                     }
                                     )
 
-                --Debug.todo ""
                 currentUrl : Url
                 currentUrl =
                     { protocol = Url.Https

@@ -615,9 +615,6 @@ config =
         }
 
 onActionData actionData =
-    let
-        _ = Debug.log "onActionData" actionData
-    in
     case actionData of
 ${templates
   .map(
