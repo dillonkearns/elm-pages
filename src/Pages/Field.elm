@@ -6,6 +6,7 @@ module Pages.Field exposing
     , required, withClientValidation, withInitialValue
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep, withMinLength, withMaxLength
+    , withServerValidation
     , No(..), Yes(..)
     )
 
@@ -47,6 +48,11 @@ module Pages.Field exposing
 @docs withMax, withMin, withStep, withMinLength, withMaxLength
 
 
+## Server Validations
+
+@docs withServerValidation
+
+
 ## Phantom Options
 
 @docs No, Yes
@@ -83,6 +89,32 @@ type Yes
 {-| -}
 type No
     = No Never
+
+
+{-| -}
+withServerValidation : (value -> DataSource (List error)) -> Field error value data kind constraints -> Field error value data kind constraints
+withServerValidation serverValidation (Field field kind) =
+    Field
+        { field
+            | serverValidation =
+                \value ->
+                    case value |> field.decode of
+                        ( Just decoded, [] ) ->
+                            serverValidation decoded
+
+                        ( Just decoded, errors ) ->
+                            DataSource.map2 (++)
+                                (serverValidation decoded)
+                                (DataSource.succeed errors)
+
+                        ( Nothing, errors ) ->
+                            {- We can't decode the form data, which means there were errors previously in the pipeline
+                               we return an empty list, effectively short-circuiting remaining validation and letting
+                               the fatal errors propagate through
+                            -}
+                            DataSource.succeed []
+        }
+        kind
 
 
 {-| -}

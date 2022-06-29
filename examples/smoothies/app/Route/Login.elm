@@ -5,9 +5,12 @@ import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
-import Html
+import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
+import Pages.Field as Field
+import Pages.FieldRenderer
+import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -17,6 +20,7 @@ import Server.Request as Request
 import Server.Response exposing (Response)
 import Server.Session as Session
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -47,35 +51,90 @@ route =
         , action =
             \_ ->
                 MySession.withSession
-                    (Request.expectFormPost (\{ field } -> field "userId"))
-                    (\username session ->
-                        let
-                            maybeUserId : Maybe String
-                            maybeUserId =
-                                userIdMap |> Dict.get username
-                        in
-                        case maybeUserId of
-                            Just userId ->
+                    (Request.formParserResultNew [ form ])
+                    (\usernameResult session ->
+                        case usernameResult of
+                            Err _ ->
                                 ( session
                                     |> Result.withDefault Nothing
                                     |> Maybe.withDefault Session.empty
-                                    |> Session.insert "userId" userId
-                                    |> Session.withFlash "message" ("Welcome " ++ username ++ "!")
-                                , Route.redirectTo Route.Index
-                                )
-                                    |> DataSource.succeed
-
-                            Nothing ->
-                                ( session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
-                                    |> Session.withFlash "message" ("Couldn't find username " ++ username)
+                                    |> Session.withFlash "message" "Invalid form submission - no userId provided"
                                 , Route.redirectTo Route.Login
                                 )
                                     |> DataSource.succeed
+
+                            Ok username ->
+                                case userIdMap |> Dict.get username of
+                                    Just userId ->
+                                        ( session
+                                            |> Result.withDefault Nothing
+                                            |> Maybe.withDefault Session.empty
+                                            |> Session.insert "userId" userId
+                                            |> Session.withFlash "message" ("Welcome " ++ username ++ "!")
+                                        , Route.redirectTo Route.Index
+                                        )
+                                            |> DataSource.succeed
+
+                                    Nothing ->
+                                        ( session
+                                            |> Result.withDefault Nothing
+                                            |> Maybe.withDefault Session.empty
+                                            |> Session.withFlash "message" ("Couldn't find username " ++ username)
+                                        , Route.redirectTo Route.Login
+                                        )
+                                            |> DataSource.succeed
                     )
         }
         |> RouteBuilder.buildNoState { view = view }
+
+
+form : Form.HtmlForm String String data Msg
+form =
+    Form.init
+        (\username ->
+            Validation.succeed identity
+                |> Validation.withField username
+        )
+        (\info username ->
+            ( []
+            , [ Html.label []
+                    [ username |> fieldView info "Username"
+                    ]
+              , Html.button
+                    [ Attr.type_ "submit"
+                    ]
+                    [ Html.text "Login" ]
+              ]
+            )
+        )
+        |> Form.field "username" (Field.text |> Field.required "Required")
+
+
+fieldView :
+    Form.Context String data
+    -> String
+    -> Form.ViewField String parsed Pages.FieldRenderer.Input
+    -> Html msg
+fieldView formState label field =
+    Html.div []
+        [ Html.label []
+            [ Html.text (label ++ " ")
+            , field |> Pages.FieldRenderer.input []
+            ]
+        , errorsForField formState field
+        ]
+
+
+errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsForField formState field =
+    (if formState.submitAttempted then
+        field.errors
+            |> List.map (\error -> Html.li [] [ Html.text error ])
+
+     else
+        []
+    )
+        |> Html.ul [ Attr.style "color" "red" ]
 
 
 type alias Request =
@@ -142,12 +201,12 @@ view :
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
     -> View (Pages.Msg.Msg Msg)
-view maybeUrl sharedModel static =
+view maybeUrl sharedModel app =
     { title = "Login"
     , body =
         [ Html.p []
             [ Html.text
-                (case static.data.username of
+                (case app.data.username of
                     Just username ->
                         "Hello! You are already logged in."
 
@@ -155,15 +214,6 @@ view maybeUrl sharedModel static =
                         "You aren't logged in yet."
                 )
             ]
-        , Html.form
-            [ Attr.method "post"
-            , Attr.action "/login"
-            ]
-            [ Html.label [] [ Html.input [ Attr.name "userId", Attr.type_ "text" ] [] ]
-            , Html.button
-                [ Attr.type_ "submit"
-                ]
-                [ Html.text "Login" ]
-            ]
+        , Form.renderHtml { submitStrategy = Form.TransitionStrategy, method = Form.Post } app () form
         ]
     }

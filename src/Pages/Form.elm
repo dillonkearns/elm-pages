@@ -9,6 +9,7 @@ module Pages.Form exposing
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , FieldDefinition(..)
+    , runOneOfServerSideWithServerValidations
     -- subGroup
     )
 
@@ -63,6 +64,7 @@ module Pages.Form exposing
 
 -}
 
+import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Dict.Extra
 import Html exposing (Html)
@@ -672,6 +674,37 @@ runOneOfServerSide rawFormData parsers =
         [] ->
             -- TODO need to pass errors
             ( Nothing, Dict.empty )
+
+
+{-| -}
+runOneOfServerSideWithServerValidations :
+    List ( String, String )
+    -> List (Form error (Validation error parsed) data (Context error data -> view))
+    -> ( Maybe parsed, DataSource (FieldErrors error) )
+runOneOfServerSideWithServerValidations rawFormData parsers =
+    case parsers of
+        firstParser :: remainingParsers ->
+            let
+                thing : ( Maybe parsed, List ( String, List error ) )
+                thing =
+                    runServerSide rawFormData firstParser
+                        |> Tuple.mapSecond
+                            (\errors ->
+                                errors
+                                    |> Dict.toList
+                                    |> List.filter (Tuple.second >> List.isEmpty >> not)
+                            )
+            in
+            case thing of
+                ( Just parsed, [] ) ->
+                    ( Just parsed, DataSource.succeed Dict.empty )
+
+                _ ->
+                    runOneOfServerSideWithServerValidations rawFormData remainingParsers
+
+        [] ->
+            -- TODO need to pass errors
+            ( Nothing, DataSource.succeed Dict.empty )
 
 
 {-| -}

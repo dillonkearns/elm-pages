@@ -173,6 +173,16 @@ formParser =
             (Field.text
                 |> Field.required "Username is required"
                 |> Field.withClientValidation validateUsername
+                |> Field.withServerValidation
+                    (\username ->
+                        DataSource.succeed
+                            (if username == "dillon123" then
+                                [ "This username is taken" ]
+
+                             else
+                                []
+                            )
+                    )
                 |> Field.withInitialValue (\{ user } -> Form.Value.string user.username)
             )
         |> Form.field "name"
@@ -194,25 +204,29 @@ validateUsername rawUsername =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
-        (Request.formParserResultNew [ formParser ])
+        (Request.formParserResultNew2 [ formParser ])
         Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
-            (\userId ( parsedAction, requestTime ) session ->
-                case parsedAction |> Debug.log "parsedAction" of
-                    Ok { name } ->
-                        User.updateUser { userId = userId, name = name |> Debug.log "Updating name mutation" }
-                            |> Request.Hasura.mutationDataSource requestTime
-                            |> DataSource.map
-                                (\_ ->
-                                    Route.redirectTo Route.Profile
-                                )
-                            |> DataSource.map (Tuple.pair session)
+            (\userId ( parsedActionData, requestTime ) session ->
+                parsedActionData
+                    |> DataSource.andThen
+                        (\parsedAction ->
+                            case parsedAction |> Debug.log "parsedAction" of
+                                Ok { name } ->
+                                    User.updateUser { userId = userId, name = name |> Debug.log "Updating name mutation" }
+                                        |> Request.Hasura.mutationDataSource requestTime
+                                        |> DataSource.map
+                                            (\_ ->
+                                                Route.redirectTo Route.Profile
+                                            )
+                                        |> DataSource.map (Tuple.pair session)
 
-                    Err errors ->
-                        -- TODO need to render errors here?
-                        DataSource.succeed
-                            (Response.render parsedAction)
-                            |> DataSource.map (Tuple.pair session)
+                                Err errors ->
+                                    -- TODO need to render errors here?
+                                    DataSource.succeed
+                                        (Response.render parsedAction)
+                                        |> DataSource.map (Tuple.pair session)
+                        )
             )
 
 

@@ -3,7 +3,6 @@ module Server.Request exposing
     , succeed, fromResult, skip
     , formParserResultNew
     , formData
-    , expectForm
     , method, rawBody, allCookies, rawHeaders, queryParams
     , requestTime, optionalHeader, expectContentType, expectJsonBody
     , acceptMethod, acceptContentTypes
@@ -13,10 +12,10 @@ module Server.Request exposing
     , expectHeader
     , File, expectMultiPartFormPost
     , expectBody
-    , expectFormPost
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
+    , formParserResultNew2
     )
 
 {-|
@@ -31,11 +30,6 @@ module Server.Request exposing
 @docs formParserResultNew
 
 @docs formData
-
-
-### Deprecated?
-
-@docs expectForm
 
 
 ## Direct Values
@@ -75,7 +69,6 @@ module Server.Request exposing
 ## Request Parsers That Can Fail
 
 @docs expectBody
-@docs expectFormPost
 
 
 ## Map Functions
@@ -947,6 +940,41 @@ formParserResultNew formParsers =
 
 
 {-| -}
+formParserResultNew2 :
+    List (Pages.Form.Form error (Validation error combined) data (Pages.Form.Context error data -> viewFn))
+    -> Parser (DataSource (Result { fields : List ( String, String ), errors : Dict String (List error) } combined))
+formParserResultNew2 formParsers =
+    formData
+        |> andThen
+            (\rawFormData ->
+                let
+                    ( maybeDecoded, errorsDataSource ) =
+                        Pages.Form.runOneOfServerSideWithServerValidations
+                            rawFormData
+                            formParsers
+                in
+                errorsDataSource
+                    |> DataSource.map
+                        (\errors ->
+                            case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( key, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
+                                ( Just decoded, Nothing ) ->
+                                    Ok decoded
+
+                                ( _, maybeErrors ) ->
+                                    Err
+                                        { fields = rawFormData
+                                        , errors =
+                                            maybeErrors
+                                                |> Maybe.map List.NonEmpty.toList
+                                                |> Maybe.withDefault []
+                                                |> Dict.fromList
+                                        }
+                        )
+                    |> succeed
+            )
+
+
+{-| -}
 formData : Parser (List ( String, String ))
 formData =
     -- TODO make an optional version
@@ -1006,136 +1034,6 @@ formData =
                                     |> jsonFromResult
                                     |> Internal.Request.Parser
                             )
-            )
-
-
-{-| -}
-expectFormPost :
-    ({ field : String -> Parser String
-     , optionalField : String -> Parser (Maybe String)
-     }
-     -> Parser decodedForm
-    )
-    -> Parser decodedForm
-expectFormPost toForm =
-    map4 (\parsedContentType a b c -> ( ( a, parsedContentType ), b, c ))
-        (rawContentType |> map (Maybe.map parseContentType))
-        (matchesContentType "application/x-www-form-urlencoded")
-        method
-        (rawBody |> map (Maybe.withDefault "")
-         -- TODO warn of empty body in case when field decoding fails?
-        )
-        |> andThen
-            (\( ( validContentType, parsedContentType ), validMethod, justBody ) ->
-                if not ((validContentType |> Maybe.withDefault False) && validMethod == Post) then
-                    Json.Decode.succeed
-                        ( Err
-                            (ValidationError <|
-                                case ( validContentType |> Maybe.withDefault False, validMethod == Post, parsedContentType ) of
-                                    ( False, True, Just contentType_ ) ->
-                                        "expectFormPost did not match - Was form POST but expected content-type `application/x-www-form-urlencoded` and instead got `" ++ contentType_ ++ "`"
-
-                                    ( False, True, Nothing ) ->
-                                        "expectFormPost did not match - Was form POST but expected content-type `application/x-www-form-urlencoded` but the request didn't have a content-type header"
-
-                                    _ ->
-                                        "expectFormPost did not match - expected method POST, but the method was " ++ methodToString validMethod
-                            )
-                        , []
-                        )
-                        |> Internal.Request.Parser
-
-                else
-                    justBody
-                        |> FormData.parse
-                        |> succeed
-                        |> andThen
-                            (\parsedForm ->
-                                let
-                                    thing : Json.Encode.Value
-                                    thing =
-                                        parsedForm
-                                            |> Dict.toList
-                                            |> List.map
-                                                (Tuple.mapSecond
-                                                    (\( first, _ ) ->
-                                                        Json.Encode.string first
-                                                    )
-                                                )
-                                            |> Json.Encode.object
-
-                                    innerDecoder : Json.Decode.Decoder ( Result ValidationError decodedForm, List ValidationError )
-                                    innerDecoder =
-                                        toForm { field = formField_, optionalField = optionalFormField_ }
-                                            |> (\(Internal.Request.Parser decoder) -> decoder)
-                                in
-                                Json.Decode.decodeValue innerDecoder thing
-                                    |> Result.mapError Json.Decode.errorToString
-                                    |> jsonFromResult
-                                    |> Internal.Request.Parser
-                            )
-            )
-
-
-{-| -}
-expectForm :
-    ({ field : String -> Parser String
-     , optionalField : String -> Parser (Maybe String)
-     }
-     -> Parser decodedForm
-    )
-    -> Parser decodedForm
-expectForm toForm =
-    map2 Tuple.pair
-        queryParams
-        method
-        |> andThen
-            (\( queryParams_, validMethod ) ->
-                if validMethod == Get then
-                    queryParams_
-                        |> Dict.map
-                            (\k v ->
-                                v
-                                    |> List.NonEmpty.fromList
-                                    |> Maybe.withDefault ( "", [] )
-                            )
-                        |> succeed
-                        |> andThen
-                            (\parsedForm ->
-                                let
-                                    thing : Json.Encode.Value
-                                    thing =
-                                        parsedForm
-                                            |> Dict.toList
-                                            |> List.map
-                                                (Tuple.mapSecond
-                                                    (\( first, _ ) ->
-                                                        Json.Encode.string first
-                                                    )
-                                                )
-                                            |> Json.Encode.object
-
-                                    innerDecoder : Json.Decode.Decoder ( Result ValidationError decodedForm, List ValidationError )
-                                    innerDecoder =
-                                        toForm { field = formField_, optionalField = optionalFormField_ }
-                                            |> (\(Internal.Request.Parser decoder) -> decoder)
-                                in
-                                Json.Decode.decodeValue innerDecoder thing
-                                    |> Result.mapError Json.Decode.errorToString
-                                    |> jsonFromResult
-                                    |> Internal.Request.Parser
-                            )
-
-                else
-                    Json.Decode.succeed
-                        ( Err
-                            (ValidationError <|
-                                "TODO validation error for not matching GET form submission"
-                             --"expectFormPost did not match - expected method GET, but the method was " ++ methodToString validMethod
-                            )
-                        , []
-                        )
-                        |> Internal.Request.Parser
             )
 
 

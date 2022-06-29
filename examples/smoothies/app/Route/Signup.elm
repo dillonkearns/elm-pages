@@ -54,13 +54,14 @@ route =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action _ =
     MySession.withSession
-        (Request.expectFormPost
-            (\{ field } ->
-                Request.map2 Tuple.pair
-                    (field "first")
-                    (field "email")
-            )
-        )
+        (Request.skip "TODO")
+        --(Request.expectFormPost
+        --    (\{ field } ->
+        --        Request.map2 Tuple.pair
+        --            (field "first")
+        --            (field "email")
+        --    )
+        --)
         (\( first, email ) maybeSession ->
             let
                 session : Session
