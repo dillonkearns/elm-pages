@@ -3,6 +3,7 @@ module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 import Browser.Navigation
 import Bytes exposing (Bytes)
 import Bytes.Decode
+import FormDecoder
 import Http
 import Json.Decode as Decode
 import Pages.Fetcher
@@ -14,15 +15,13 @@ type Effect msg
     | Cmd (Cmd msg)
     | Batch (List (Effect msg))
     | GetStargazers (Result Http.Error Int -> msg)
+    | SetField { formId : String, name : String, value : String }
     | FetchRouteData
-        { body : Maybe { contentType : String, body : String }
-        , path : Maybe String
+        { data : Maybe FormDecoder.FormData
         , toMsg : Result Http.Error Url -> msg
         }
     | Submit
-        { values : List ( String, String )
-        , path : Maybe (List String)
-        , method : Maybe String
+        { values : FormDecoder.FormData
         , toMsg : Result Http.Error Url -> msg
         }
     | SubmitFetcher (Pages.Fetcher.Fetcher msg)
@@ -66,18 +65,18 @@ map fn effect =
 
         FetchRouteData fetchInfo ->
             FetchRouteData
-                { body = fetchInfo.body
-                , path = fetchInfo.path
+                { data = fetchInfo.data
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
         Submit fetchInfo ->
             Submit
                 { values = fetchInfo.values
-                , path = fetchInfo.path
-                , method = fetchInfo.method
                 , toMsg = fetchInfo.toMsg >> fn
                 }
+
+        SetField info ->
+            SetField info
 
         SubmitFetcher fetcher ->
             fetcher
@@ -87,16 +86,12 @@ map fn effect =
 
 perform :
     { fetchRouteData :
-        { body : Maybe { contentType : String, body : String }
-        , path : Maybe String
+        { data : Maybe FormDecoder.FormData
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
     , submit :
-        { values : List ( String, String )
-        , encType : Maybe String
-        , method : Maybe String
-        , path : Maybe String
+        { values : FormDecoder.FormData
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
@@ -105,6 +100,7 @@ perform :
         -> Cmd msg
     , fromPageMsg : pageMsg -> msg
     , key : Browser.Navigation.Key
+    , setField : { formId : String, name : String, value : String } -> Cmd msg
     }
     -> Effect pageMsg
     -> Cmd msg
@@ -115,6 +111,9 @@ perform ({ fromPageMsg, key } as helpers) effect =
 
         Cmd cmd ->
             Cmd.map fromPageMsg cmd
+
+        SetField info ->
+            helpers.setField info
 
         Batch list ->
             Cmd.batch (List.map (perform helpers) list)
@@ -128,19 +127,10 @@ perform ({ fromPageMsg, key } as helpers) effect =
 
         FetchRouteData fetchInfo ->
             helpers.fetchRouteData
-                { body = fetchInfo.body
-                , path = fetchInfo.path
-                , toMsg = fetchInfo.toMsg
-                }
+                fetchInfo
 
         Submit record ->
-            helpers.submit
-                { values = record.values
-                , path = Nothing --fetchInfo.path
-                , method = record.method
-                , encType = Nothing -- TODO
-                , toMsg = record.toMsg
-                }
+            helpers.submit record
 
         SubmitFetcher record ->
             helpers.runFetcher record

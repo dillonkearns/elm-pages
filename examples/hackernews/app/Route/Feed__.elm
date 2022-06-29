@@ -2,6 +2,7 @@ module Route.Feed__ exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import DataSource.Http
+import DataSource.Port
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
@@ -9,6 +10,8 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Json.Decode exposing (Decoder)
+import Json.Encode as Encode
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -83,7 +86,10 @@ pages =
 
 
 type alias Data =
-    { stories : List Item, currentPage : Int }
+    { stories : List Item
+    , currentPage : Int
+    , hello : String
+    }
 
 
 type alias ActionData =
@@ -136,7 +142,11 @@ data routeParams =
                         DataSource.Http.get getStoriesUrl
                             (Story.decoder |> Json.Decode.list)
                 in
-                getStories |> DataSource.map (\stories -> Response.render { stories = stories, currentPage = currentPage })
+                DataSource.map3 Data
+                    getStories
+                    (DataSource.succeed currentPage)
+                    (DataSource.Port.get "hello" (Encode.string "World") Json.Decode.string)
+                    |> DataSource.map Response.render
             )
 
 
@@ -174,11 +184,12 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model static =
     { title = title static.routeParams
     , body =
         [ paginationView static.data.stories static.routeParams static.data.currentPage
+        , Html.div [] [ Html.text static.data.hello ]
         , Html.main_
             [ Attr.class "news-list"
             ]
