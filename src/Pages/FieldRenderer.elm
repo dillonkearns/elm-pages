@@ -21,6 +21,7 @@ type InputType
       -- TODO should submit be a special type, or an Input type?
       -- TODO have an option for a submit with a name/value?
     | Date
+    | Time
     | Checkbox
     | Tel
     | Search
@@ -51,6 +52,9 @@ inputTypeToString inputType =
 
         Date ->
             "date"
+
+        Time ->
+            "time"
 
         Checkbox ->
             "checkbox"

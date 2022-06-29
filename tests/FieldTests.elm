@@ -140,6 +140,14 @@ all =
                         , ( Nothing, Err [ "Required" ] )
                         , ( Just "2022-01-01", Ok (Date.fromRataDie 738156) )
                         ]
+        , test "optional time" <|
+            \() ->
+                Field.time { invalid = \_ -> "Invalid" }
+                    |> expect
+                        [ ( Just "", Ok Nothing )
+                        , ( Nothing, Ok Nothing )
+                        , ( Just "13:45", Ok (Just { hours = 13, minutes = 45 }) )
+                        ]
         ]
 
 

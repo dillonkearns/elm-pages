@@ -1,7 +1,7 @@
 module Pages.Field exposing
     ( text, checkbox, int, float
     , select, range, OutsideRange(..)
-    , date
+    , date, time, TimeOfDay
     , Field(..), FieldInfo, exactValue
     , required, withClientValidation, withInitialValue
     , email, password, search, telephone, url, textarea
@@ -24,7 +24,7 @@ module Pages.Field exposing
 
 ## Date/Time Fields
 
-@docs date
+@docs date, time, TimeOfDay
 
 
 ## Other
@@ -196,6 +196,68 @@ date toError =
         , properties = []
         }
         (FieldRenderer.Input FieldRenderer.Date)
+
+
+{-| -}
+type alias TimeOfDay =
+    { hours : Int
+    , minutes : Int
+    }
+
+
+{-| <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/time>
+-}
+time :
+    { invalid : String -> error }
+    ->
+        Field
+            error
+            (Maybe TimeOfDay)
+            data
+            Input
+            { -- TODO support min/max
+              --min : ???,
+              --, max : ???,
+              required : ()
+            , wasMapped : No
+            }
+time toError =
+    Field
+        { initialValue = Nothing
+        , serverValidation = \_ -> DataSource.succeed []
+        , decode =
+            \rawString ->
+                if (rawString |> Maybe.withDefault "") == "" then
+                    ( Just Nothing, [] )
+
+                else
+                    case
+                        rawString
+                            |> Maybe.withDefault ""
+                            |> parseTimeOfDay
+                            |> Result.mapError (\_ -> toError.invalid (rawString |> Maybe.withDefault ""))
+                    of
+                        Ok parsedDate ->
+                            ( Just (Just parsedDate), [] )
+
+                        Err error ->
+                            ( Nothing, [ error ] )
+        , properties = []
+        }
+        (FieldRenderer.Input FieldRenderer.Time)
+
+
+parseTimeOfDay : String -> Result () { hours : Int, minutes : Int }
+parseTimeOfDay rawTimeOfDay =
+    case rawTimeOfDay |> String.split ":" |> List.map String.toInt of
+        [ Just hours, Just minutes ] ->
+            Ok
+                { hours = hours
+                , minutes = minutes
+                }
+
+        _ ->
+            Err ()
 
 
 {-| -}
