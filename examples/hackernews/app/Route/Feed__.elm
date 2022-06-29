@@ -88,7 +88,6 @@ pages =
 type alias Data =
     { stories : List Item
     , currentPage : Int
-    , hello : String
     }
 
 
@@ -142,10 +141,9 @@ data routeParams =
                         DataSource.Http.get getStoriesUrl
                             (Story.decoder |> Json.Decode.list)
                 in
-                DataSource.map3 Data
+                DataSource.map2 Data
                     getStories
                     (DataSource.succeed currentPage)
-                    (DataSource.Port.get "hello" (Encode.string "World") Json.Decode.string)
                     |> DataSource.map Response.render
             )
 
@@ -189,7 +187,6 @@ view maybeUrl sharedModel model static =
     { title = title static.routeParams
     , body =
         [ paginationView static.data.stories static.routeParams static.data.currentPage
-        , Html.div [] [ Html.text static.data.hello ]
         , Html.main_
             [ Attr.class "news-list" ]
             [ static.data.stories
