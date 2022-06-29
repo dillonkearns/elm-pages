@@ -52,7 +52,7 @@ jobs:
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
       - name: Download lamdera
-        run: curl https://static.lamdera.com/bin/linux/lamdera -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
+        run: curl https://static.lamdera.com/bin/linux/lamdera-next -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
       - name: Tests
         run: npm test
       - name: Add elm-review, elm and elm-format to path
