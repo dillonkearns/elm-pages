@@ -191,8 +191,7 @@ view maybeUrl sharedModel model static =
         [ paginationView static.data.stories static.routeParams static.data.currentPage
         , Html.div [] [ Html.text static.data.hello ]
         , Html.main_
-            [ Attr.class "news-list"
-            ]
+            [ Attr.class "news-list" ]
             [ static.data.stories
                 |> List.map Story.view
                 |> Html.ul []
