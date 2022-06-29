@@ -59,7 +59,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
         if (portsFile === undefined)  {
           throw "missing"
         }
-        const portDataSourcePath = path.join(process.cwd(), portsFile);
+        const portDataSourcePath = path.resolve(portsFile);
         // On Windows, we need cannot use paths directly and instead must use a file:// URL.
         portDataSource = await import(url.pathToFileURL(portDataSourcePath).href);
       } catch (e) {
