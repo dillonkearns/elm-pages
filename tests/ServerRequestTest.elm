@@ -6,7 +6,6 @@ import FormData
 import Internal.Request exposing (Parser(..))
 import Json.Decode as Decode
 import Json.Encode
-import List.NonEmpty as NonEmpty exposing (NonEmpty)
 import Pages.Field as Field
 import Pages.Form as Form
 import Server.Request as Request
@@ -85,7 +84,7 @@ all =
                         , body =
                             Just
                                 (FormData
-                                    (Dict.fromList [ ( "foo", NonEmpty.singleton "bar" ) ])
+                                    (Dict.fromList [ ( "foo", ( "bar", [] ) ) ])
                                 )
                         }
         , test "expectFormPost with missing content-type" <|
@@ -107,7 +106,7 @@ all =
                         , body =
                             Just
                                 (FormData
-                                    (Dict.fromList [ ( "foo", NonEmpty.singleton "bar" ) ])
+                                    (Dict.fromList [ ( "foo", ( "bar", [] ) ) ])
                                 )
                         }
                         """expectFormPost did not match - Was form POST but expected content-type `application/x-www-form-urlencoded` but the request didn't have a content-type header"""
@@ -159,7 +158,7 @@ type alias Request =
 
 
 type Body
-    = FormData (Dict String (NonEmpty String))
+    = FormData (Dict String ( String, List String ))
     | JsonBody Decode.Value
     | StringBody String
 
