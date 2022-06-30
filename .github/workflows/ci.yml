@@ -54,7 +54,7 @@ jobs:
       - name: Download lamdera
         run: curl https://static.lamdera.com/bin/linux/lamdera-next -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
       - name: Lamdera Reset for tests
-        run: yes | lamdera reset
+        run: rm -rf elm-stuff $HOME/.elm
       - name: Tests
         run: npm test
       - name: Add elm-review, elm and elm-format to path
