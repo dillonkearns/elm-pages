@@ -27,7 +27,6 @@
         "Pages.Manifest.Category",
         "Pages.Flags",
         "Pages.Fetcher",
-        "Form",
         "Pages.Field",
         "Pages.Form",
         "Pages.FieldRenderer",
