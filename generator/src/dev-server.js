@@ -105,7 +105,6 @@ async function start(options) {
     );
 
     watcher.add(sourceDirs);
-    watcher.add("./port-data-source.js");
   }
 
   async function compileCliApp(options) {
