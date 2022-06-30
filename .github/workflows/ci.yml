@@ -51,14 +51,14 @@ jobs:
         run: npm ci
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
+      - name: Add elm-review, elm and elm-format to path
+        run: npm bin >> $GITHUB_PATH
       - name: Download lamdera
         run: curl https://static.lamdera.com/bin/linux/lamdera-next -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
       - name: Lamdera Reset for tests
         run: rm -rf elm-stuff $HOME/.elm
       - name: Tests
         run: npm test
-      - name: Add elm-review, elm and elm-format to path
-        run: npm bin >> $GITHUB_PATH
       - uses: sparksp/elm-review-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
