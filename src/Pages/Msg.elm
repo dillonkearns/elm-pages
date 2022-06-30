@@ -13,7 +13,7 @@ module Pages.Msg exposing
 
 import FormDecoder
 import Html exposing (Attribute)
-import Html.Attributes
+import Html.Attributes as Attr
 import Json.Decode
 
 
@@ -30,21 +30,21 @@ type Msg userMsg
 onSubmit : Attribute (Msg userMsg)
 onSubmit =
     FormDecoder.formDataOnSubmit
-        |> Html.Attributes.map Submit
+        |> Attr.map Submit
 
 
 {-| -}
 submitIfValid : (List ( String, String ) -> Bool) -> Attribute (Msg userMsg)
 submitIfValid isValid =
     FormDecoder.formDataOnSubmit
-        |> Html.Attributes.map (\formData -> SubmitIfValid formData (isValid formData.fields))
+        |> Attr.map (\formData -> SubmitIfValid formData (isValid formData.fields))
 
 
 {-| -}
 fetcherOnSubmit : (List ( String, String ) -> Bool) -> Attribute (Msg userMsg)
 fetcherOnSubmit isValid =
     FormDecoder.formDataOnSubmit
-        |> Html.Attributes.map (\formData -> SubmitFetcher formData (isValid formData.fields))
+        |> Attr.map (\formData -> SubmitFetcher formData (isValid formData.fields))
 
 
 {-| -}

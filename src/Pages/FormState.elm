@@ -1,8 +1,8 @@
-module Pages.FormState exposing (..)
+module Pages.FormState exposing (Event(..), FieldEvent, FieldState, FieldStatus(..), FormState, PageFormState, init, listeners, setField, setSubmitAttempted, update)
 
 import Dict exposing (Dict)
 import Html exposing (Attribute)
-import Html.Attributes
+import Html.Attributes as Attr
 import Html.Events
 import Json.Decode as Decode exposing (Decoder)
 import Pages.Msg
@@ -13,7 +13,7 @@ listeners formId =
     [ Html.Events.on "focusin" (Decode.value |> Decode.map Pages.Msg.FormFieldEvent)
     , Html.Events.on "focusout" (Decode.value |> Decode.map Pages.Msg.FormFieldEvent)
     , Html.Events.on "input" (Decode.value |> Decode.map Pages.Msg.FormFieldEvent)
-    , Html.Attributes.id formId
+    , Attr.id formId
     ]
 
 

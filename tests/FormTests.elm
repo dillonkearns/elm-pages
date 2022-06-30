@@ -1,11 +1,10 @@
 module FormTests exposing (all)
 
 import Date exposing (Date)
-import Dict exposing (Dict)
+import Dict
 import Expect
 import Pages.Field as Field
 import Pages.Form as Form exposing (Form)
-import Pages.FormState
 import Test exposing (Test, describe, test)
 import Validation exposing (Validation)
 
@@ -37,7 +36,7 @@ all =
                             |> Validation.withField passwordConfirmation
                             |> Validation.andThen identity
                     )
-                    (\fieldErrors password passwordConfirmation -> Div)
+                    (\_ _ _ -> Div)
                     |> Form.field "password" (Field.text |> Field.required "Password is required")
                     |> Form.field "password-confirmation" (Field.text |> Field.required "Password confirmation is required")
         in
@@ -72,7 +71,7 @@ all =
                 oneOfParsers =
                     [ Form.init
                         (\_ -> Validation.succeed Signout)
-                        (\fieldErrors -> Div)
+                        (\_ -> Div)
                         |> Form.hiddenField "kind" (Field.exactValue "signout" "Expected signout")
                     , Form.init
                         (\_ uuid quantity ->
@@ -80,7 +79,7 @@ all =
                                 |> Validation.andMap (uuid.value |> Validation.map Uuid)
                                 |> Validation.withField quantity
                         )
-                        (\fieldErrors quantity -> Div)
+                        (\_ _ -> Div)
                         |> Form.hiddenField "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
                         |> Form.hiddenField "uuid" (Field.text |> Field.required "Required")
                         |> Form.field "quantity" (Field.int { invalid = \_ -> "Expected int" } |> Field.required "Required")
@@ -129,7 +128,7 @@ all =
                             (\media ->
                                 media.value
                             )
-                            (\fieldErrors media -> Div)
+                            (\_ _ -> Div)
                             |> Form.field "media"
                                 (Field.select
                                     [ ( "book", Book )
@@ -173,7 +172,7 @@ all =
                                     |> Validation.withField checkout
                                     |> Validation.andThen identity
                             )
-                            (\fieldErrors checkin checkout -> Div)
+                            (\_ _ _ -> Div)
                             |> Form.field "checkin"
                                 (Field.date { invalid = \_ -> "Invalid" } |> Field.required "Required")
                             |> Form.field "checkout"
@@ -219,7 +218,7 @@ all =
                                 (\postForm_ ->
                                     postForm_ ()
                                 )
-                                (\formState postForm_ -> ( [], [ Div ] ))
+                                (\_ _ -> ( [], [ Div ] ))
                                 |> Form.dynamic
                                     (\() ->
                                         Form.init
@@ -236,7 +235,7 @@ all =
                                                     |> Validation.withField passwordConfirmation
                                                     |> Validation.andThen identity
                                             )
-                                            (\formState password passwordConfirmation -> [ Div ])
+                                            (\_ _ _ -> [ Div ])
                                             |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
                                             |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
                                     )
@@ -258,7 +257,7 @@ all =
                             Validation.succeed ParsedLink
                                 |> Validation.withField url
                         )
-                        (\fieldErrors url -> Div)
+                        (\_ _ -> Div)
                         |> Form.field "url"
                             (Field.text
                                 |> Field.required "Required"
@@ -279,7 +278,7 @@ all =
                                 |> Validation.withField body
                                 |> Validation.map ParsedPost
                         )
-                        (\fieldErrors title body -> Div)
+                        (\_ _ _ -> Div)
                         |> Form.field "title" (Field.text |> Field.required "Required")
                         |> Form.field "body" Field.text
 
@@ -290,7 +289,7 @@ all =
                             kind.value
                                 |> Validation.andThen postForm_
                         )
-                        (\fieldErrors kind postForm_ ->
+                        (\_ _ _ ->
                             Div
                         )
                         |> Form.field "kind"
@@ -346,28 +345,6 @@ type Media
 
 type MyView
     = Div
-
-
-expectNoErrors : parsed -> ( Maybe parsed, Dict String (List error) ) -> Expect.Expectation
-expectNoErrors parsed =
-    Expect.all
-        [ Tuple.first
-            >> Expect.equal
-                (Just parsed)
-        , Tuple.second
-            >> Dict.values
-            >> List.all List.isEmpty
-            >> Expect.true "Expected no errors"
-        ]
-
-
-field : String -> String -> ( String, Pages.FormState.FieldState )
-field name value =
-    ( name
-    , { value = value
-      , status = Pages.FormState.NotVisited
-      }
-    )
 
 
 fields : List ( String, String ) -> List ( String, String )

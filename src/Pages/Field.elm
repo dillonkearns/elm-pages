@@ -64,7 +64,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Form.Value
 import Json.Encode as Encode
-import Pages.FieldRenderer as FieldRenderer exposing (Input(..), Options(..))
+import Pages.FieldRenderer as FieldRenderer exposing (Input, Options(..))
 
 
 {-| -}
@@ -107,7 +107,7 @@ withServerValidation serverValidation (Field field kind) =
                                 (serverValidation decoded)
                                 (DataSource.succeed errors)
 
-                        ( Nothing, errors ) ->
+                        ( Nothing, _ ) ->
                             {- We can't decode the form data, which means there were errors previously in the pipeline
                                we return an empty list, effectively short-circuiting remaining validation and letting
                                the fatal errors propagate through
@@ -578,15 +578,6 @@ range info field =
         |> withMin info.min (info.invalid BelowRange)
         |> withMax info.max (info.invalid AboveRange)
         |> (\(Field innerField _) -> Field { innerField | initialValue = Just (info.initial >> Form.Value.toString) } (FieldRenderer.Input FieldRenderer.Range))
-
-
-validateRequiredField : { toError | missing : error } -> Maybe String -> Result error String
-validateRequiredField toError maybeRaw =
-    if (maybeRaw |> Maybe.withDefault "") == "" then
-        Err toError.missing
-
-    else
-        Ok (maybeRaw |> Maybe.withDefault "")
 
 
 {-| -}

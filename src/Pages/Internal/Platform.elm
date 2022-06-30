@@ -1032,11 +1032,6 @@ fetchRouteData transitionKey toMsg config url details =
             details
                 |> Maybe.map .method
                 |> Maybe.withDefault FormDecoder.Get
-
-        urlEncodedFields : Maybe String
-        urlEncodedFields =
-            details
-                |> Maybe.map FormDecoder.encodeFormData
     in
     Http.request
         { method = details |> Maybe.map (.method >> FormDecoder.methodToString) |> Maybe.withDefault "GET"
@@ -1074,6 +1069,12 @@ fetchRouteData transitionKey toMsg config url details =
         , body =
             case formMethod of
                 FormDecoder.Post ->
+                    let
+                        urlEncodedFields : Maybe String
+                        urlEncodedFields =
+                            details
+                                |> Maybe.map FormDecoder.encodeFormData
+                    in
                     urlEncodedFields
                         |> Maybe.map (\encoded -> Http.stringBody "application/x-www-form-urlencoded" encoded)
                         |> Maybe.withDefault Http.emptyBody

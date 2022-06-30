@@ -401,16 +401,6 @@ isActionDecoder =
         (Decode.field "headers" (Decode.dict Decode.string))
         |> Decode.map
             (\( method, headers ) ->
-                let
-                    actionOnly : Bool
-                    actionOnly =
-                        case headers |> Dict.get "elm-pages-action-only" of
-                            Just _ ->
-                                True
-
-                            Nothing ->
-                                False
-                in
                 case method |> String.toUpper of
                     "GET" ->
                         Nothing
@@ -419,6 +409,16 @@ isActionDecoder =
                         Nothing
 
                     _ ->
+                        let
+                            actionOnly : Bool
+                            actionOnly =
+                                case headers |> Dict.get "elm-pages-action-only" of
+                                    Just _ ->
+                                        True
+
+                                    Nothing ->
+                                        False
+                        in
                         Just
                             (if actionOnly then
                                 ActionOnlyRequest
@@ -437,18 +437,19 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site renderRequest { staticHttpCache, isDevServer } config =
     let
-        isAction : Maybe ActionRequest
-        isAction =
-            renderRequest
-                |> RenderRequest.maybeRequestPayload
-                |> Maybe.andThen (Decode.decodeValue isActionDecoder >> Result.withDefault Nothing)
-
         staticResponses : StaticResponses
         staticResponses =
             case renderRequest of
                 RenderRequest.SinglePage _ singleRequest _ ->
                     case singleRequest of
                         RenderRequest.Page serverRequestPayload ->
+                            let
+                                isAction : Maybe ActionRequest
+                                isAction =
+                                    renderRequest
+                                        |> RenderRequest.maybeRequestPayload
+                                        |> Maybe.andThen (Decode.decodeValue isActionDecoder >> Result.withDefault Nothing)
+                            in
                             StaticResponses.renderSingleRoute
                                 (case isAction of
                                     Just _ ->
@@ -641,17 +642,18 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
             case toJsPayload of
                 StaticResponses.ApiResponse ->
                     let
-                        sharedDataResult : Result BuildError sharedData
-                        sharedDataResult =
-                            StaticHttpRequest.resolve
-                                config.sharedData
-                                model.allRawResponses
-                                |> Result.mapError (StaticHttpRequest.toBuildError "")
-
                         apiResponse : Effect
                         apiResponse =
                             case model.maybeRequestJson of
                                 RenderRequest.SinglePage _ requestPayload _ ->
+                                    let
+                                        sharedDataResult : Result BuildError sharedData
+                                        sharedDataResult =
+                                            StaticHttpRequest.resolve
+                                                config.sharedData
+                                                model.allRawResponses
+                                                |> Result.mapError (StaticHttpRequest.toBuildError "")
+                                    in
                                     case requestPayload of
                                         RenderRequest.Api ( path, ApiRoute apiHandler ) ->
                                             let
@@ -743,16 +745,16 @@ sendSinglePageProgress site contentJson config model info =
     let
         ( page, route ) =
             ( info.path, info.frontmatter )
-
-        isAction : Maybe ActionRequest
-        isAction =
-            model.maybeRequestJson
-                |> RenderRequest.maybeRequestPayload
-                |> Maybe.andThen (Decode.decodeValue isActionDecoder >> Result.withDefault Nothing)
     in
     case model.maybeRequestJson of
         RenderRequest.SinglePage includeHtml _ _ ->
             let
+                isAction : Maybe ActionRequest
+                isAction =
+                    model.maybeRequestJson
+                        |> RenderRequest.maybeRequestPayload
+                        |> Maybe.andThen (Decode.decodeValue isActionDecoder >> Result.withDefault Nothing)
+
                 pageFoundResult : Result BuildError (Maybe NotFoundReason)
                 pageFoundResult =
                     -- TODO OPTIMIZATION this is redundant

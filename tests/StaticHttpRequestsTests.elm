@@ -9,10 +9,8 @@ import DataSource.Http
 import Dict
 import Expect
 import Html
-import Http
 import Json.Decode as JD exposing (Decoder)
 import Json.Encode as Encode
-import Pages.Internal.NotFoundReason
 import Pages.Internal.Platform.Cli exposing (..)
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
@@ -27,7 +25,6 @@ import RequestsAndPending exposing (ResponseBody(..))
 import Server.Response as Response
 import SimulatedEffect.Cmd
 import SimulatedEffect.Ports
-import Task
 import Test exposing (Test, describe, test)
 
 

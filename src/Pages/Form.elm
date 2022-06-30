@@ -10,6 +10,7 @@ module Pages.Form exposing
     , dynamic, HtmlSubForm
     , runOneOfServerSideWithServerValidations
     , FieldDefinition(..)
+    , AppContext, RenderOptions
     -- subGroup
     )
 
@@ -123,7 +124,7 @@ type alias Context error data =
 init : combined -> (Context String data -> viewFn) -> Form String combined data (Context String data -> viewFn)
 init fn viewFn =
     Form []
-        (\maybeData formState ->
+        (\_ _ ->
             { result = ( fn, Dict.empty )
             , view = viewFn
             , serverValidations = DataSource.succeed []
@@ -149,7 +150,7 @@ dynamic forms formBuilder =
                 toParser : decider -> { result : ( Validation error parsed, FieldErrors error ), view : Context error data -> subView, serverValidations : DataSource (List ( String, List error )) }
                 toParser decider =
                     case forms decider of
-                        Form definitions parseFn toInitialValues ->
+                        Form _ parseFn _ ->
                             -- TODO need to include hidden form fields from `definitions` (should they be automatically rendered? Does that mean the view type needs to be hardcoded?)
                             parseFn maybeData formState
 
@@ -176,7 +177,7 @@ dynamic forms formBuilder =
                             }
                         newThing =
                             case formBuilder of
-                                Form definitions parseFn toInitialValues ->
+                                Form _ parseFn _ ->
                                     parseFn maybeData formState
 
                         anotherThing : combined
@@ -494,7 +495,7 @@ hiddenKind :
     -> Form error combined data (Context error data -> combinedView)
 hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
     let
-        (Field fieldParser kind) =
+        (Field fieldParser _) =
             Field.exactValue value error_
     in
     Form
@@ -503,7 +504,7 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
         )
         (\maybeData formState ->
             let
-                ( maybeParsed, errors ) =
+                ( _, errors ) =
                     fieldParser.decode rawFieldValue
 
                 rawFieldValue : Maybe String
@@ -840,7 +841,7 @@ runOneOfServerSideWithServerValidations rawFormData parsers =
             in
             case thing of
                 -- TODO should it try to look for anything that parses with no errors, or short-circuit if something parses regardless of errors?
-                ( Just parsed, _ ) ->
+                ( Just _, _ ) ->
                     thing
 
                 _ ->
@@ -944,7 +945,7 @@ renderHelper options formState data (Form fieldDefinitions parser toInitialValue
                 merged |> unwrapValidation |> Tuple.second
             , isTransitioning =
                 case formState.transition of
-                    Just transition ->
+                    Just _ ->
                         -- TODO need to track the form's ID and check that to see if it's *this*
                         -- form that is submitting
                         --transition.todo == formId
@@ -1078,7 +1079,7 @@ renderStyledHelper formState data (Form fieldDefinitions parser toInitialValues)
                 merged |> unwrapValidation |> Tuple.second
             , isTransitioning =
                 case formState.transition of
-                    Just transition ->
+                    Just _ ->
                         -- TODO need to track the form's ID and check that to see if it's *this*
                         -- form that is submitting
                         --transition.todo == formId
