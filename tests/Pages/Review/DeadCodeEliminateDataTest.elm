@@ -222,6 +222,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
+        , action = action
         }
         |> RouteBuilder.buildNoState { view = view }
 """
@@ -233,7 +234,7 @@ route =
                                 [ "" ]
                             , under =
                                 """data = data
-        }"""
+        ,"""
                             }
                             |> Review.Test.whenFixed
                                 """module Route.Login exposing (Data, Model, Msg, route)
@@ -255,6 +256,39 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = \\_ -> Request.oneOf []
+        , action = action
+        }
+        |> RouteBuilder.buildNoState { view = view }
+"""
+                        , Review.Test.error
+                            { message = "Codemod"
+                            , details =
+                                [ "" ]
+                            , under =
+                                """action = action
+        }"""
+                            }
+                            |> Review.Test.whenFixed
+                                """module Route.Login exposing (Data, Model, Msg, route)
+
+type alias Model =
+    {}
+
+
+type alias Msg =
+    ()
+
+
+type alias RouteParams =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.serverRender
+        { head = head
+        , data = data
+        , action = \\_ -> Request.oneOf []
         }
         |> RouteBuilder.buildNoState { view = view }
 """

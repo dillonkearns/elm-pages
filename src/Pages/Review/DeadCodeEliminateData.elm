@@ -46,7 +46,7 @@ declarationVisitor node context =
                                             (\recordSetter ->
                                                 case Node.value recordSetter of
                                                     ( keyNode, valueNode ) ->
-                                                        if Node.value keyNode == "data" then
+                                                        if Node.value keyNode == "data" || Node.value keyNode == "action" then
                                                             if isAlreadyApplied (Node.value valueNode) then
                                                                 Nothing
 
@@ -66,6 +66,8 @@ declarationVisitor node context =
                                                 , details = [ "" ]
                                                 }
                                                 (Node.range dataValue)
+                                                -- TODO need to check the right way to refer to `DataSource.fail` based on imports
+                                                -- TODO need to replace `action` as well
                                                 [ Review.Fix.replaceRangeBy (Node.range dataValue) "data = DataSource.fail \"\"\n    "
                                                 ]
                                           ]
@@ -89,55 +91,57 @@ expressionVisitor node context =
             case applicationExpressions |> List.map (\applicationNode -> ( ModuleNameLookupTable.moduleNameFor context.lookupTable applicationNode, Node.value applicationNode )) of
                 [ ( Just [ "RouteBuilder" ], Expression.FunctionOrValue _ pageBuilderName ), ( _, Expression.RecordExpr fields ) ] ->
                     let
-                        dataFieldValue : Maybe (Node ( Node String, Node Expression ))
+                        dataFieldValue : List ( String, Node ( Node String, Node Expression ) )
                         dataFieldValue =
                             fields
                                 |> List.filterMap
                                     (\recordSetter ->
                                         case Node.value recordSetter of
                                             ( keyNode, valueNode ) ->
-                                                if Node.value keyNode == "data" then
+                                                if Node.value keyNode == "data" || Node.value keyNode == "action" then
                                                     if isAlreadyApplied (Node.value valueNode) then
                                                         Nothing
 
                                                     else
-                                                        recordSetter |> Just
+                                                        ( Node.value keyNode, recordSetter ) |> Just
 
                                                 else
                                                     Nothing
                                     )
-                                |> List.head
                     in
-                    dataFieldValue
-                        |> Maybe.map
-                            (\dataValue ->
-                                ( [ Rule.errorWithFix
-                                        { message = "Codemod"
-                                        , details = [ "" ]
-                                        }
-                                        (Node.range dataValue)
-                                        [ case pageBuilderName of
-                                            "preRender" ->
-                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = \\_ -> DataSource.fail \"\""
+                    ( dataFieldValue
+                        |> List.concatMap
+                            (\( key, dataValue ) ->
+                                [ Rule.errorWithFix
+                                    { message = "Codemod"
+                                    , details = [ "" ]
+                                    }
+                                    (Node.range dataValue)
+                                    [ Review.Fix.replaceRangeBy (Node.range dataValue)
+                                        (key
+                                            ++ " = "
+                                            ++ (case pageBuilderName of
+                                                    "preRender" ->
+                                                        "\\_ -> DataSource.fail \"\""
 
-                                            "preRenderWithFallback" ->
-                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = \\_ -> DataSource.fail \"\""
+                                                    "preRenderWithFallback" ->
+                                                        "\\_ -> DataSource.fail \"\""
 
-                                            "serverRender" ->
-                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = \\_ -> Request.oneOf []\n        "
+                                                    "serverRender" ->
+                                                        "\\_ -> Request.oneOf []\n        "
 
-                                            "single" ->
-                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = DataSource.fail \"\"\n       "
+                                                    "single" ->
+                                                        "DataSource.fail \"\"\n       "
 
-                                            _ ->
-                                                Review.Fix.replaceRangeBy (Node.range dataValue) "data = data"
-                                        ]
-                                  ]
-                                , context
-                                )
+                                                    _ ->
+                                                        "data"
+                                               )
+                                        )
+                                    ]
+                                ]
                             )
-                        |> Maybe.withDefault
-                            ( [], context )
+                    , context
+                    )
 
                 _ ->
                     ( [], context )
