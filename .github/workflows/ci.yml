@@ -39,6 +39,8 @@ jobs:
       # Install npm packages, unless we restored them from cache.
       # Since `npm ci` removes the node_modules folder before running it’s
       # important to skip this step if cache was restored.
+      - name: Lamdera Reset for tests
+        run: rm -rf elm-stuff $HOME/.elm
       - name: npm ci
         if: steps.cache-node_modules.outputs.cache-hit != 'true'
         env:
@@ -57,8 +59,6 @@ jobs:
         run: npm bin >> $GITHUB_PATH
       - name: Download lamdera
         run: curl https://static.lamdera.com/bin/linux/lamdera-next -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
-      - name: Lamdera Reset for tests
-        run: rm -rf elm-stuff $HOME/.elm
       - name: Tests
         run: npm test
       - uses: sparksp/elm-review-action@v1
