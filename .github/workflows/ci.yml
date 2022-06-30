@@ -53,8 +53,6 @@ jobs:
         run: npx --no-install elm-tooling install
       - name: Add elm-review, elm and elm-format to path
         run: npm bin >> $GITHUB_PATH
-      - name: Verify that elm-format is on path
-        run: elm-format --version
       - name: Download lamdera
         run: curl https://static.lamdera.com/bin/linux/lamdera-next -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
       - name: Lamdera Reset for tests
