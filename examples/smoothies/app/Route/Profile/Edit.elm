@@ -261,6 +261,17 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!" ]
+        , case app.action of
+            Just (Err error) ->
+                error.errors
+                    |> Debug.toString
+                    |> Html.text
+
+            Nothing ->
+                Html.text "No action"
+
+            _ ->
+                Html.text "No errors"
         , Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } app app.data formParser
         ]
     }
