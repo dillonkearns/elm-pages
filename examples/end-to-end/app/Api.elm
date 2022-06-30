@@ -6,6 +6,8 @@ import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages
+import Pages.Field as Field
+import Pages.Form as Form
 import Random
 import Result.Extra
 import Route exposing (Route)
@@ -14,6 +16,7 @@ import Server.Response as Response exposing (Response)
 import Test.Glob
 import Test.Runner.Html
 import Time
+import Validation
 import Xml.Decode
 
 
@@ -156,10 +159,21 @@ greet : ApiRoute ApiRoute.Response
 greet =
     ApiRoute.succeed
         (Request.oneOf
-            [ Request.expectFormPost
-                (\{ field, optionalField } ->
-                    field "first"
-                )
+            [ Request.formParserResultNew
+                [ Form.init
+                    (\bar ->
+                        Validation.succeed identity
+                            |> Validation.withField bar
+                    )
+                    (\_ _ -> ())
+                    |> Form.field "first" (Field.text |> Field.required "Required")
+                ]
+                |> Request.andThen
+                    (\result ->
+                        result
+                            |> Result.mapError (\_ -> "")
+                            |> Request.fromResult
+                    )
             , Request.expectJsonBody (Decode.field "first" Decode.string)
             , Request.expectQueryParam "first"
             , Request.expectMultiPartFormPost

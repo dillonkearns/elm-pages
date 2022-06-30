@@ -7,15 +7,19 @@ import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import MySession
+import Pages.Field as Field
+import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Result.Extra
 import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -51,18 +55,40 @@ type alias Data =
     }
 
 
+form =
+    Form.init
+        (\bar ->
+            Validation.succeed identity
+                |> Validation.withField bar
+        )
+        (\_ _ -> ())
+        |> Form.field "name" (Field.text |> Field.required "Required")
+
+
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession
-            (Request.expectFormPost (\{ field } -> field "name"))
-            (\name session ->
-                ( session
-                    |> Result.withDefault Nothing
-                    |> Maybe.withDefault Session.empty
-                    |> Session.insert "name" name
-                    |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                , Route.redirectTo Route.Greet
+            (Request.formParserResultNew [ form ])
+            (\nameResult session ->
+                (nameResult
+                    |> Result.Extra.unpack
+                        (\_ ->
+                            ( session
+                                |> Result.withDefault Nothing
+                                |> Maybe.withDefault Session.empty
+                            , Route.redirectTo Route.Greet
+                            )
+                        )
+                        (\name ->
+                            ( session
+                                |> Result.withDefault Nothing
+                                |> Maybe.withDefault Session.empty
+                                |> Session.insert "name" name
+                                |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
+                            , Route.redirectTo Route.Greet
+                            )
+                        )
                 )
                     |> DataSource.succeed
             )
