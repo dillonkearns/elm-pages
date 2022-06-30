@@ -31,7 +31,7 @@ type Value dataType
 
 {-| -}
 toString : Value dataType -> String
-toString (Value kind rawValue) =
+toString (Value _ rawValue) =
     rawValue
 
 

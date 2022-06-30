@@ -794,21 +794,6 @@ sendSinglePageProgress site contentJson config model info =
                                     )
 
                         RenderRequest.HtmlAndJson ->
-                            let
-                                maybeActionData : Maybe actionData
-                                maybeActionData =
-                                    case isAction of
-                                        Just actionRequest ->
-                                            case actionDataResult of
-                                                Ok (PageServerResponse.RenderPage _ actionData) ->
-                                                    Just actionData
-
-                                                _ ->
-                                                    Nothing
-
-                                        Nothing ->
-                                            Nothing
-                            in
                             Result.map2 Tuple.pair pageDataResult sharedDataResult
                                 |> Result.map
                                     (\( pageData_, sharedData ) ->
@@ -818,6 +803,20 @@ sendSinglePageProgress site contentJson config model info =
                                                     currentPage : { path : Path, route : route }
                                                     currentPage =
                                                         { path = page, route = urlToRoute config currentUrl }
+
+                                                    maybeActionData : Maybe actionData
+                                                    maybeActionData =
+                                                        case isAction of
+                                                            Just _ ->
+                                                                case actionDataResult of
+                                                                    Ok (PageServerResponse.RenderPage _ actionData) ->
+                                                                        Just actionData
+
+                                                                    _ ->
+                                                                        Nothing
+
+                                                            Nothing ->
+                                                                Nothing
 
                                                     pageModel : userModel
                                                     pageModel =
@@ -1219,7 +1218,3 @@ urlToRoute config url =
 
     else
         config.urlToRoute url
-
-
-triple a b c =
-    ( a, b, c )

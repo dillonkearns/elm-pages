@@ -152,7 +152,7 @@ all =
 
 
 expect : List ( Maybe String, Result (List error) parsed ) -> Field error parsed data kind constraints -> Expect.Expectation
-expect expectations (Field info kind) =
+expect expectations (Field info _) =
     Expect.all
         (expectations
             |> List.map

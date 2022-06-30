@@ -254,7 +254,6 @@ getDecoder (Internal.Request.Parser decoder) =
 type ValidationError
     = ValidationError String
     | OneOf (List ValidationError)
-    | NotFormPost { method : Maybe Method, contentType : Maybe String }
     | MissingQueryParam { missingParam : String, allQueryParams : String }
 
 
@@ -283,16 +282,6 @@ errorToString validationError_ =
                 ++ (validationErrors
                         |> List.indexedMap (\index error -> "(" ++ String.fromInt (index + 1) ++ ") " ++ errorToString error)
                         |> String.join "\n\n"
-                   )
-
-        NotFormPost record ->
-            "Did not match formPost because\n"
-                ++ ([ record.method
-                        |> Maybe.map (\method_ -> "- Form post must have method POST, but the method was " ++ methodToString method_)
-                    , record.contentType |> Maybe.map (\contentType -> "- Forms must have Content-Type application/x-www-form-urlencoded, but the Content-Type was " ++ contentType)
-                    ]
-                        |> List.filterMap identity
-                        |> String.join "\n"
                    )
 
         MissingQueryParam record ->
@@ -649,20 +638,6 @@ method =
         |> Internal.Request.Parser
 
 
-{-| -}
-matchesMethod : ( Method, List Method ) -> Parser Bool
-matchesMethod ( accepted1, accepted ) =
-    (Json.Decode.field "method" Json.Decode.string
-        |> Json.Decode.map methodFromString
-        |> Json.Decode.map
-            (\method_ ->
-                (accepted1 :: accepted) |> List.member method_
-            )
-    )
-        |> noErrors
-        |> Internal.Request.Parser
-
-
 appendError : ValidationError -> Json.Decode.Decoder ( value, List ValidationError ) -> Json.Decode.Decoder ( value, List ValidationError )
 appendError error decoder =
     decoder
@@ -927,7 +902,7 @@ formParserResultNew formParsers =
                             rawFormData
                             formParsers
                 in
-                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( key, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
+                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
                     ( Just decoded, Nothing ) ->
                         succeed (Ok decoded)
 
@@ -961,7 +936,7 @@ formParserResultNew2 formParsers =
                 errorsDataSource
                     |> DataSource.map
                         (\errors ->
-                            case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( key, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
+                            case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
                                 ( Just decoded, Nothing ) ->
                                     Ok decoded
 

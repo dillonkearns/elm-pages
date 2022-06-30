@@ -813,6 +813,7 @@ startFetcher options model =
                 , method = FormDecoder.Post
                 }
 
+        formData : { method : FormDecoder.Method, action : String, fields : List ( String, String ) }
         formData =
             { -- TODO remove hardcoding
               method = FormDecoder.Get

@@ -489,7 +489,7 @@ float toError =
 telephone :
     Field error parsed data Input { constraints | plainText : () }
     -> Field error parsed data Input constraints
-telephone (Field field kind) =
+telephone (Field field _) =
     Field field
         (FieldRenderer.Input FieldRenderer.Tel)
 
@@ -498,7 +498,7 @@ telephone (Field field kind) =
 search :
     Field error parsed data Input { constraints | plainText : () }
     -> Field error parsed data Input constraints
-search (Field field kind) =
+search (Field field _) =
     Field field
         (FieldRenderer.Input FieldRenderer.Search)
 
@@ -507,7 +507,7 @@ search (Field field kind) =
 password :
     Field error parsed data Input { constraints | plainText : () }
     -> Field error parsed data Input constraints
-password (Field field kind) =
+password (Field field _) =
     Field field
         (FieldRenderer.Input FieldRenderer.Password)
 
@@ -516,7 +516,7 @@ password (Field field kind) =
 email :
     Field error parsed data Input { constraints | plainText : () }
     -> Field error parsed data Input constraints
-email (Field field kind) =
+email (Field field _) =
     Field field
         (FieldRenderer.Input FieldRenderer.Email)
 
@@ -525,7 +525,7 @@ email (Field field kind) =
 url :
     Field error parsed data Input { constraints | plainText : () }
     -> Field error parsed data Input constraints
-url (Field field kind) =
+url (Field field _) =
     Field field
         (FieldRenderer.Input FieldRenderer.Url)
 
@@ -534,7 +534,7 @@ url (Field field kind) =
 textarea :
     Field error parsed data Input { constraints | plainText : () }
     -> Field error parsed data Input constraints
-textarea (Field field kind) =
+textarea (Field field _) =
     Field field (FieldRenderer.Input FieldRenderer.Textarea)
 
 

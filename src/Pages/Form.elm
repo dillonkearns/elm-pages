@@ -10,8 +10,10 @@ module Pages.Form exposing
     , dynamic, HtmlSubForm
     , runOneOfServerSideWithServerValidations
     , FieldDefinition(..)
-    , AppContext, RenderOptions
-    -- subGroup
+    ,  AppContext
+      , RenderOptions
+        -- subGroup
+
     )
 
 {-|
@@ -402,7 +404,7 @@ hiddenField :
     -> Field error parsed data kind constraints
     -> Form error (ParsedField error parsed -> combined) data (Context error data -> combinedView)
     -> Form error combined data (Context error data -> combinedView)
-hiddenField name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
+hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues) =
     Form
         (( name, HiddenField )
             :: definitions
@@ -674,7 +676,7 @@ parse :
     -> data
     -> Form error (Validation error parsed) data (Context error data -> view)
     -> ( Maybe parsed, FieldErrors error )
-parse app data (Form fieldDefinitions parser _) =
+parse app data (Form _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -710,7 +712,7 @@ runServerSide :
     List ( String, String )
     -> Form error (Validation error parsed) data (Context error data -> view)
     -> ( Maybe parsed, FieldErrors error )
-runServerSide rawFormData (Form fieldDefinitions parser _) =
+runServerSide rawFormData (Form _ parser _) =
     let
         parsed :
             { result :
@@ -755,7 +757,7 @@ runServerSide2 :
 ---> ( Maybe parsed, DataSource (List ( String, List error )) )
 
 
-runServerSide2 rawFormData (Form fieldDefinitions parser _) =
+runServerSide2 rawFormData (Form _ parser _) =
     let
         parsed :
             { result :

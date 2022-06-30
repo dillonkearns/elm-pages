@@ -572,7 +572,7 @@ startWithRoutes :
     -> List ( Request.Request, String )
     -> List ( List String, DataSource a )
     -> ProgramTest (Model Route) Msg Effect
-startWithRoutes pageToLoad staticRoutes staticHttpCache pages =
+startWithRoutes pageToLoad _ staticHttpCache pages =
     let
         encodedFlags : Encode.Value
         encodedFlags =
