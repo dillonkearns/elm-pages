@@ -51,6 +51,8 @@ jobs:
         run: npm ci
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
+      - name: Global elm-format install
+        run: npm i -g elm-format@0.8.5
       - name: Add elm-review, elm and elm-format to path
         run: npm bin >> $GITHUB_PATH
       - name: Download lamdera
