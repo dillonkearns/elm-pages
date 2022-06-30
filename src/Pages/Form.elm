@@ -8,8 +8,8 @@ module Pages.Form exposing
     , Method(..), SubmitStrategy(..)
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
-    , FieldDefinition(..)
     , runOneOfServerSideWithServerValidations
+    , FieldDefinition(..)
     -- subGroup
     )
 
@@ -56,6 +56,11 @@ module Pages.Form exposing
 ## Dynamic Fields
 
 @docs dynamic, HtmlSubForm
+
+
+## Work-In-Progress
+
+@docs runOneOfServerSideWithServerValidations
 
 
 ## Internal-Only?
@@ -121,6 +126,7 @@ init fn viewFn =
         (\maybeData formState ->
             { result = ( fn, Dict.empty )
             , view = viewFn
+            , serverValidations = DataSource.succeed []
             }
         )
         (\_ -> [])
@@ -140,7 +146,7 @@ dynamic forms formBuilder =
     Form []
         (\maybeData formState ->
             let
-                toParser : decider -> { result : ( Validation error parsed, FieldErrors error ), view : Context error data -> subView }
+                toParser : decider -> { result : ( Validation error parsed, FieldErrors error ), view : Context error data -> subView, serverValidations : DataSource (List ( String, List error )) }
                 toParser decider =
                     case forms decider of
                         Form definitions parseFn toInitialValues ->
@@ -150,6 +156,7 @@ dynamic forms formBuilder =
                 myFn :
                     { result : ( combined, Dict String (List error) )
                     , view : Context error data -> combinedView
+                    , serverValidations : DataSource (List ( String, List error ))
                     }
                 myFn =
                     let
@@ -165,6 +172,7 @@ dynamic forms formBuilder =
                                 , Dict String (List error)
                                 )
                             , view : Context error data -> (decider -> subView) -> combinedView
+                            , serverValidations : DataSource (List ( String, List error ))
                             }
                         newThing =
                             case formBuilder of
@@ -195,6 +203,7 @@ dynamic forms formBuilder =
                                            )
                             in
                             newThing.view fieldErrors something2
+                    , serverValidations = DataSource.succeed [] -- TODO how do I combine them here?
                     }
             in
             myFn
@@ -335,15 +344,22 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                         , Dict String (List error)
                         )
                     , view : Context error data -> ViewField error parsed kind -> combinedView
+                    , serverValidations : DataSource (List ( String, List error ))
                     }
                     ->
                         { result : ( combined, Dict String (List error) )
                         , view : Context error data -> combinedView
+                        , serverValidations : DataSource (List ( String, List error ))
                         }
                 myFn soFar =
                     let
                         ( fieldThings, errorsSoFar ) =
                             soFar.result
+
+                        serverValidationsForField : DataSource ( String, List error )
+                        serverValidationsForField =
+                            fieldParser.serverValidation rawFieldValue
+                                |> DataSource.map (Tuple.pair name)
                     in
                     { result =
                         ( --case fieldThings of
@@ -358,6 +374,10 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                             |> addErrorsInternal name errors
                         )
                     , view = \fieldErrors -> soFar.view fieldErrors rawField
+                    , serverValidations =
+                        DataSource.map2 (::)
+                            serverValidationsForField
+                            soFar.serverValidations
                     }
             in
             formState
@@ -410,6 +430,11 @@ hiddenField name (Field fieldParser kind) (Form definitions parseFn toInitialVal
                     , errors = errors
                     }
 
+                serverValidationsForField : DataSource (List ( String, List error ))
+                serverValidationsForField =
+                    fieldParser.serverValidation rawFieldValue
+                        |> DataSource.map (Tuple.pair name >> List.singleton)
+
                 --)
                 myFn :
                     { result :
@@ -417,10 +442,12 @@ hiddenField name (Field fieldParser kind) (Form definitions parseFn toInitialVal
                         , Dict String (List error)
                         )
                     , view : Context error data -> combinedView
+                    , serverValidations : DataSource (List ( String, List error ))
                     }
                     ->
                         { result : ( combined, Dict String (List error) )
                         , view : Context error data -> combinedView
+                        , serverValidations : DataSource (List ( String, List error ))
                         }
                 myFn soFar =
                     let
@@ -441,6 +468,7 @@ hiddenField name (Field fieldParser kind) (Form definitions parseFn toInitialVal
 
                     -- TODO pass in `rawField` or similar to the hiddenFields (need the raw data to render it)
                     , view = \fieldErrors -> soFar.view fieldErrors
+                    , serverValidations = serverValidationsForField
                     }
             in
             formState
@@ -493,21 +521,29 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
                         , Dict String (List error)
                         )
                     , view : Context error data -> combinedView
+                    , serverValidations : DataSource (List ( String, List error ))
                     }
                     ->
                         { result : ( combined, Dict String (List error) )
                         , view : Context error data -> combinedView
+                        , serverValidations : DataSource (List ( String, List error ))
                         }
                 myFn soFar =
                     let
                         ( fieldThings, errorsSoFar ) =
                             soFar.result
+
+                        serverValidationsForField : DataSource (List ( String, List error ))
+                        serverValidationsForField =
+                            fieldParser.serverValidation rawFieldValue
+                                |> DataSource.map (Tuple.pair name >> List.singleton)
                     in
                     { result =
                         ( fieldThings
                         , errorsSoFar |> addErrorsInternal name errors
                         )
                     , view = \fieldErrors -> soFar.view fieldErrors
+                    , serverValidations = serverValidationsForField
                     }
             in
             formState
@@ -558,6 +594,62 @@ mergeResults parsed =
                 )
 
 
+mergeResultsDataSource :
+    { a
+        | result : ( Validation error parsed, FieldErrors error )
+        , serverValidations : DataSource (List ( String, List error ))
+    }
+    -> ( Maybe parsed, DataSource (FieldErrors error) )
+mergeResultsDataSource parsed =
+    case parsed.result of
+        ( Validation ( parsedThing, combineErrors ), individualFieldErrors ) ->
+            ( parsedThing
+            , parsed.serverValidations
+                |> DataSource.map
+                    (\serverValidationErrorsList ->
+                        let
+                            serverValidationErrors : Dict String (List error)
+                            serverValidationErrors =
+                                serverValidationErrorsList
+                                    |> List.foldl
+                                        (\( key, errorsForKey ) soFar ->
+                                            soFar
+                                                |> Dict.update key
+                                                    (\maybeList ->
+                                                        maybeList
+                                                            |> Maybe.withDefault []
+                                                            |> List.append errorsForKey
+                                                            |> Just
+                                                    )
+                                        )
+                                        Dict.empty
+                        in
+                        mergeErrors
+                            combineErrors
+                            individualFieldErrors
+                            |> mergeErrors serverValidationErrors
+                    )
+            )
+
+
+
+--resultsToDict : List a -> Dict String (List error)
+--resultsToDict list =
+--    list
+--        |> List.foldl
+--            (\( key, errorsForKey ) soFar ->
+--                soFar
+--                    |> Dict.update key
+--                        (\maybeList ->
+--                            maybeList
+--                                |> Maybe.withDefault []
+--                                |> List.append errorsForKey
+--                                |> Just
+--                        )
+--            )
+--            Dict.empty
+
+
 mergeErrors : Dict comparable (List value) -> Dict comparable (List value) -> Dict comparable (List value)
 mergeErrors errors1 errors2 =
     Dict.merge
@@ -585,7 +677,11 @@ parse app data (Form fieldDefinitions parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
-        parsed : { result : ( Validation error parsed, Dict String (List error) ), view : Context error data -> view }
+        parsed :
+            { result : ( Validation error parsed, Dict String (List error) )
+            , view : Context error data -> view
+            , serverValidations : DataSource (List ( String, List error ))
+            }
         parsed =
             parser (Just data) thisFormState
 
@@ -615,7 +711,14 @@ runServerSide :
     -> ( Maybe parsed, FieldErrors error )
 runServerSide rawFormData (Form fieldDefinitions parser _) =
     let
-        parsed : { result : ( Validation error parsed, Dict String (List error) ), view : Context error data -> view }
+        parsed :
+            { result :
+                ( Validation error parsed
+                , Dict String (List error)
+                )
+            , view : Context error data -> view
+            , serverValidations : DataSource (List ( String, List error ))
+            }
         parsed =
             parser Nothing thisFormState
 
@@ -638,6 +741,52 @@ runServerSide rawFormData (Form fieldDefinitions parser _) =
     parsed
         |> mergeResults
         |> unwrapValidation
+
+
+{-| -}
+runServerSide2 :
+    List ( String, String )
+    -> Form error (Validation error parsed) data (Context error data -> view)
+    -> ( Maybe parsed, DataSource (FieldErrors error) )
+
+
+
+---> ( Maybe parsed, DataSource (List ( String, List error )) )
+
+
+runServerSide2 rawFormData (Form fieldDefinitions parser _) =
+    let
+        parsed :
+            { result :
+                ( Validation error parsed
+                , Dict String (List error)
+                )
+            , view : Context error data -> view
+            , serverValidations : DataSource (List ( String, List error ))
+
+            --, serverValidations : DataSource (FieldErrors error)
+            }
+        parsed =
+            parser Nothing thisFormState
+
+        thisFormState : Form.FormState
+        thisFormState =
+            { initFormState
+                | fields =
+                    rawFormData
+                        |> List.map
+                            (Tuple.mapSecond
+                                (\value ->
+                                    { value = value
+                                    , status = Form.NotVisited
+                                    }
+                                )
+                            )
+                        |> Dict.fromList
+            }
+    in
+    parsed
+        |> mergeResultsDataSource
 
 
 unwrapValidation : Validation error parsed -> ( Maybe parsed, FieldErrors error )
@@ -685,19 +834,14 @@ runOneOfServerSideWithServerValidations rawFormData parsers =
     case parsers of
         firstParser :: remainingParsers ->
             let
-                thing : ( Maybe parsed, List ( String, List error ) )
+                thing : ( Maybe parsed, DataSource (FieldErrors error) )
                 thing =
-                    runServerSide rawFormData firstParser
-                        |> Tuple.mapSecond
-                            (\errors ->
-                                errors
-                                    |> Dict.toList
-                                    |> List.filter (Tuple.second >> List.isEmpty >> not)
-                            )
+                    runServerSide2 rawFormData firstParser
             in
             case thing of
-                ( Just parsed, [] ) ->
-                    ( Just parsed, DataSource.succeed Dict.empty )
+                -- TODO should it try to look for anything that parses with no errors, or short-circuit if something parses regardless of errors?
+                ( Just parsed, _ ) ->
+                    thing
 
                 _ ->
                     runOneOfServerSideWithServerValidations rawFormData remainingParsers
@@ -778,6 +922,7 @@ renderHelper options formState data (Form fieldDefinitions parser toInitialValue
         parsed :
             { result : ( Validation error parsed, Dict String (List error) )
             , view : Context error data -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
+            , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
             parser (Just data) thisFormState
@@ -911,6 +1056,7 @@ renderStyledHelper formState data (Form fieldDefinitions parser toInitialValues)
         parsed :
             { result : ( Validation error parsed, Dict String (List error) )
             , view : Context error data -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) )
+            , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
             parser (Just data) thisFormState
@@ -1069,6 +1215,7 @@ type Form error parsed data view
                 , Dict String (List error)
                 )
             , view : view
+            , serverValidations : DataSource (List ( String, List error ))
             }
         )
         (data -> List ( String, String ))
