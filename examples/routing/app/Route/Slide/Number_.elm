@@ -94,16 +94,9 @@ data routeParams =
         (slideBody routeParams)
 
 
-slideBody : RouteParams -> DataSource.DataSource (List (Html.Html Msg))
+slideBody : RouteParams -> DataSource.DataSource String
 slideBody route_ =
-    DataSource.File.bodyWithoutFrontmatter
-        "slides.md"
-        |> DataSource.map
-            (\rawBody ->
-                [ rawBody
-                    |> Html.text
-                ]
-            )
+    DataSource.File.bodyWithoutFrontmatter "slides.md"
 
 
 head :
@@ -127,7 +120,7 @@ head static =
 
 
 type alias Data =
-    { body : List (Html.Html Msg)
+    { body : String
     }
 
 
@@ -148,8 +141,8 @@ view maybeUrl sharedModel model static =
                 , Tw.py_6
                 ]
             ]
-            ((static.data.body |> List.map (Html.map Pages.Msg.UserMsg))
-                ++ [ Html.text static.routeParams.number ]
+            ((static.data.body |> Html.text)
+                :: [ Html.text static.routeParams.number ]
             )
         ]
     }
