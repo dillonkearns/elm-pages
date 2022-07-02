@@ -83,7 +83,7 @@ import Html.Styled.Attributes as StyledAttr
 import Html.Styled.Lazy
 import Json.Encode as Encode
 import Pages.Field as Field exposing (Field(..))
-import Pages.FormState as Form
+import Pages.FormState as Form exposing (FormState)
 import Pages.Msg
 import Pages.Transition
 import Validation exposing (Validation(..))
@@ -581,7 +581,7 @@ type alias AppContext app =
           --    -> Pages.Fetcher.Fetcher (Result Http.Error action)
           transition : Maybe Pages.Transition.Transition
         , fetchers : List Pages.Transition.FetcherState
-        , pageFormState : Form.PageFormState
+        , pageFormState : Dict String FormState
     }
 
 
@@ -874,7 +874,8 @@ renderHtml options app data combinedParser =
 
 {-| -}
 renderStyledHtml :
-    AppContext app
+    RenderOptions
+    -> AppContext app
     -> data
     ->
         Form
@@ -885,8 +886,8 @@ renderStyledHtml :
              -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) )
             )
     -> Html.Styled.Html (Pages.Msg.Msg msg)
-renderStyledHtml app data combinedParser =
-    Html.Styled.Lazy.lazy3 renderStyledHelper app data combinedParser
+renderStyledHtml options app data combinedParser =
+    Html.Styled.Lazy.lazy4 renderStyledHelper options app data combinedParser
 
 
 renderHelper :
@@ -1025,11 +1026,12 @@ isValid parser data fields =
 
 
 renderStyledHelper :
-    AppContext app
+    RenderOptions
+    -> AppContext app
     -> data
     -> Form error (Validation error parsed) data (Context error data -> ( List (Html.Styled.Attribute (Pages.Msg.Msg msg)), List (Html.Styled.Html (Pages.Msg.Msg msg)) ))
     -> Html.Styled.Html (Pages.Msg.Msg msg)
-renderStyledHelper formState data (Form fieldDefinitions parser toInitialValues) =
+renderStyledHelper options formState data (Form fieldDefinitions parser toInitialValues) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -1125,32 +1127,14 @@ renderStyledHelper formState data (Form fieldDefinitions parser toInitialValues)
     in
     Html.Styled.form
         ((Form.listeners formId |> List.map StyledAttr.fromUnstyled)
-            ++ [ -- TODO remove hardcoded method - make it part of the config for the form? Should the default be POST?
-                 StyledAttr.method "POST"
+            ++ [ StyledAttr.method (methodToString options.method)
                , StyledAttr.novalidate True
-               , -- TODO need to make an option to choose `Pages.Msg.fetcherOnSubmit`
-                 -- TODO `Pages.Msg.fetcherOnSubmit` needs to accept an `isValid` param, too
-                 StyledAttr.fromUnstyled <|
-                    Pages.Msg.submitIfValid
-                        (\fields ->
-                            case
-                                { initFormState
-                                    | fields =
-                                        fields
-                                            |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
-                                            |> Dict.fromList
-                                }
-                                    |> parser (Just data)
-                                    -- TODO use mergedResults here
-                                    |> .result
-                                    |> toResult
-                            of
-                                Ok _ ->
-                                    True
+               , case options.submitStrategy of
+                    FetcherStrategy ->
+                        StyledAttr.fromUnstyled <| Pages.Msg.fetcherOnSubmit (isValid parser data)
 
-                                Err _ ->
-                                    False
-                        )
+                    TransitionStrategy ->
+                        StyledAttr.fromUnstyled <| Pages.Msg.submitIfValid (isValid parser data)
                ]
             ++ formAttributes
         )

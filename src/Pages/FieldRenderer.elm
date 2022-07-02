@@ -1,4 +1,7 @@
-module Pages.FieldRenderer exposing (Input(..), InputType(..), Options(..), input, inputTypeToString, radio, select, toHtmlProperties)
+module Pages.FieldRenderer exposing
+    ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, select, toHtmlProperties
+    , inputStyled, radioStyled
+    )
 
 {-|
 
@@ -8,6 +11,8 @@ module Pages.FieldRenderer exposing (Input(..), InputType(..), Options(..), inpu
 
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Styled
+import Html.Styled.Attributes as StyledAttr
 import Json.Encode as Encode
 
 
@@ -127,6 +132,51 @@ input attrs rawField =
 
 
 {-| -}
+inputStyled :
+    List (Html.Styled.Attribute msg)
+    ->
+        { input
+            | value : Maybe String
+            , name : String
+            , kind : ( Input, List ( String, Encode.Value ) )
+        }
+    -> Html.Styled.Html msg
+inputStyled attrs rawField =
+    case rawField.kind of
+        ( Input Textarea, properties ) ->
+            Html.Styled.textarea
+                (attrs
+                    ++ (toHtmlProperties properties |> List.map StyledAttr.fromUnstyled)
+                    ++ ([ Attr.value (rawField.value |> Maybe.withDefault "")
+                        , Attr.name rawField.name
+                        ]
+                            |> List.map StyledAttr.fromUnstyled
+                       )
+                )
+                []
+
+        ( Input inputType, properties ) ->
+            Html.Styled.input
+                (attrs
+                    ++ (toHtmlProperties properties |> List.map StyledAttr.fromUnstyled)
+                    ++ ([ (case inputType of
+                            Checkbox ->
+                                Attr.checked ((rawField.value |> Maybe.withDefault "") == "on")
+
+                            _ ->
+                                Attr.value (rawField.value |> Maybe.withDefault "")
+                           -- TODO is this an okay default?
+                          )
+                        , Attr.name rawField.name
+                        , inputType |> inputTypeToString |> Attr.type_
+                        ]
+                            |> List.map StyledAttr.fromUnstyled
+                       )
+                )
+                []
+
+
+{-| -}
 select :
     List (Html.Attribute msg)
     ->
@@ -226,6 +276,69 @@ radio selectAttrs enumToOption rawField =
                                                  , Attr.name rawField.name
                                                  , Attr.checked (rawField.value == Just possibleValue)
                                                  ]
+                                                    ++ userHtmlAttrs
+                                                )
+                                                []
+                                        )
+                            in
+                            Just renderedElement
+
+                        Nothing ->
+                            Nothing
+                )
+        )
+
+
+{-| -}
+radioStyled :
+    List (Html.Styled.Attribute msg)
+    ->
+        (parsed
+         -> (List (Html.Styled.Attribute msg) -> Html.Styled.Html msg)
+         -> Html.Styled.Html msg
+        )
+    ->
+        { input
+            | value : Maybe String
+            , name : String
+            , kind : ( Options parsed, List ( String, Encode.Value ) )
+        }
+    -> Html.Styled.Html msg
+radioStyled selectAttrs enumToOption rawField =
+    let
+        (Options parseValue possibleValues) =
+            rawField.kind |> Tuple.first
+    in
+    Html.Styled.fieldset
+        (selectAttrs
+            ++ [ StyledAttr.value (rawField.value |> Maybe.withDefault "")
+               , StyledAttr.name rawField.name
+               ]
+        )
+        (possibleValues
+            |> List.filterMap
+                (\possibleValue ->
+                    let
+                        parsed : Maybe parsed
+                        parsed =
+                            possibleValue
+                                |> parseValue
+                    in
+                    case parsed of
+                        Just justParsed ->
+                            let
+                                renderedElement : Html.Styled.Html msg
+                                renderedElement =
+                                    enumToOption justParsed
+                                        (\userHtmlAttrs ->
+                                            Html.Styled.input
+                                                (([ Attr.type_ "radio"
+                                                  , Attr.value possibleValue
+                                                  , Attr.name rawField.name
+                                                  , Attr.checked (rawField.value == Just possibleValue)
+                                                  ]
+                                                    |> List.map StyledAttr.fromUnstyled
+                                                 )
                                                     ++ userHtmlAttrs
                                                 )
                                                 []
