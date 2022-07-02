@@ -1,4 +1,4 @@
-module Pages.FormState exposing (Event(..), FieldEvent, FieldState, FieldStatus(..), FormState, PageFormState, init, listeners, setField, setSubmitAttempted, update)
+module Pages.FormState exposing (Event(..), FieldEvent, FieldState, FieldStatus(..), FormState, PageFormState, fieldStatusToString, init, listeners, setField, setSubmitAttempted, update)
 
 import Dict exposing (Dict)
 import Html exposing (Attribute)
@@ -213,6 +213,22 @@ type FieldStatus
     | Focused
     | Changed
     | Blurred
+
+
+fieldStatusToString : FieldStatus -> String
+fieldStatusToString fieldStatus =
+    case fieldStatus of
+        NotVisited ->
+            "NotVisited"
+
+        Focused ->
+            "Focused"
+
+        Changed ->
+            "Changed"
+
+        Blurred ->
+            "Blurred"
 
 
 increaseStatusTo : FieldStatus -> FieldStatus -> FieldStatus
