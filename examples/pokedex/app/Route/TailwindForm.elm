@@ -5,9 +5,9 @@ import Css exposing (Color)
 import Css.Global
 import DataSource exposing (DataSource)
 import Date exposing (Date)
+import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Form exposing (Form)
 import Form.Value
 import Head
 import Head.Seo as Seo
@@ -15,6 +15,10 @@ import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Http
 import Icon
+import Pages.Field as Field
+import Pages.FieldRenderer
+import Pages.Form as Form exposing (Form)
+import Pages.FormState
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -27,19 +31,16 @@ import Tailwind.Utilities as Tw
 import Task
 import Time
 import Url exposing (Url)
+import Validation
 import View exposing (View)
 
 
 type alias Model =
-    { form : Form.Model
-    , flashMessage : Maybe (Result String String)
-    }
+    {}
 
 
 type Msg
-    = FormMsg Form.Msg
-    | MovedToTop
-    | OnAction ActionData
+    = MovedToTop
 
 
 type alias RouteParams =
@@ -92,7 +93,7 @@ styleAttrs attrs =
     List.map Attr.fromUnstyled attrs
 
 
-usernameInput ({ toInput, toLabel, errors, submitStatus } as info) =
+usernameInput formState field =
     Html.div []
         [ Html.div
             [ css
@@ -108,20 +109,18 @@ usernameInput ({ toInput, toLabel, errors, submitStatus } as info) =
                 ]
             ]
             [ Html.label
-                (styleAttrs toInput
-                    ++ [ Attr.for "username"
-                       , css
-                            [ Tw.block
-                            , Tw.text_sm
-                            , Tw.font_medium
-                            , Tw.text_gray_700
-                            , Bp.sm
-                                [ Tw.mt_px
-                                , Tw.pt_2
-                                ]
-                            ]
-                       ]
-                )
+                [ Attr.for "username"
+                , css
+                    [ Tw.block
+                    , Tw.text_sm
+                    , Tw.font_medium
+                    , Tw.text_gray_700
+                    , Bp.sm
+                        [ Tw.mt_px
+                        , Tw.pt_2
+                        ]
+                    ]
+                ]
                 [ Html.text "Username" ]
             , Html.div
                 [ css
@@ -158,31 +157,29 @@ usernameInput ({ toInput, toLabel, errors, submitStatus } as info) =
                             ]
                         ]
                         [ Html.text "workcation.com/" ]
-                    , Html.input
-                        (styleAttrs toInput
-                            ++ [ Attr.type_ "text"
-                               , Attr.name "username"
-                               , Attr.id "username"
-                               , Attr.attribute "autocomplete" "username"
-                               , css
-                                    [ Tw.flex_1
-                                    , Tw.block
-                                    , Tw.w_full
-                                    , Tw.min_w_0
-                                    , Tw.rounded_none
-                                    , Tw.rounded_r_md
-                                    , Tw.border_gray_300
-                                    , Css.focus
-                                        [ Tw.ring_indigo_500
-                                        , Tw.border_indigo_500
-                                        ]
-                                    , Bp.sm
-                                        [ Tw.text_sm
-                                        ]
-                                    ]
-                               ]
-                        )
-                        []
+                    , Pages.FieldRenderer.inputStyled
+                        [ Attr.type_ "text"
+                        , Attr.name "username"
+                        , Attr.id "username"
+                        , Attr.attribute "autocomplete" "username"
+                        , css
+                            [ Tw.flex_1
+                            , Tw.block
+                            , Tw.w_full
+                            , Tw.min_w_0
+                            , Tw.rounded_none
+                            , Tw.rounded_r_md
+                            , Tw.border_gray_300
+                            , Css.focus
+                                [ Tw.ring_indigo_500
+                                , Tw.border_indigo_500
+                                ]
+                            , Bp.sm
+                                [ Tw.text_sm
+                                ]
+                            ]
+                        ]
+                        field
                     , Html.div
                         [ css
                             [ Tw.absolute
@@ -194,7 +191,7 @@ usernameInput ({ toInput, toLabel, errors, submitStatus } as info) =
                             , Tw.pointer_events_none
                             ]
                         ]
-                        [ if errors |> List.isEmpty then
+                        [ if Dict.get field.name formState.errors |> Maybe.withDefault [] |> List.isEmpty then
                             Html.text ""
 
                           else
@@ -203,43 +200,163 @@ usernameInput ({ toInput, toLabel, errors, submitStatus } as info) =
                     ]
                 ]
             ]
-        , errorsView info
+        , errorsView formState field
         ]
 
 
-validateCapitalized : String -> Result String String
+validateCapitalized : String -> ( Maybe String, List String )
 validateCapitalized string =
     if string |> String.toList |> List.head |> Maybe.withDefault 'a' |> Char.isUpper then
-        Ok string
+        ( Just string, [] )
 
     else
-        Err "Needs to be capitalized"
+        ( Nothing, [ "Needs to be capitalized" ] )
 
 
-form : User -> Form msg String User (Html msg)
-form user =
-    Form.succeed User
-        |> Form.with
-            (Form.text
-                "first"
-                (textInput "First name")
-                |> Form.required "Required"
-                |> Form.withInitialValue (user.first |> Form.Value.string)
-                |> Form.withClientValidation validateCapitalized
+form : Form.StyledHtmlForm String User User msg
+form =
+    Form.init
+        (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
+            Validation.succeed User
+                |> Validation.withField first
+                |> Validation.withField last
+                |> Validation.withField username
+                |> Validation.withField email
+                |> Validation.withField dob
+                |> Validation.withField checkin
+                |> Validation.withField checkout
+                |> Validation.withField rating
+                |> Validation.andMap
+                    (Validation.map2
+                        (\passwordValue passwordConfirmationValue ->
+                            if passwordValue == passwordConfirmationValue then
+                                Validation.succeed ( passwordValue, passwordConfirmationValue )
+
+                            else
+                                Validation.fail passwordConfirmation.name "Must match password"
+                        )
+                        password.value
+                        passwordConfirmation.value
+                        |> Validation.andThen identity
+                    )
+                |> Validation.andMap
+                    (Validation.succeed NotificationPreferences
+                        |> Validation.withField comments
+                        |> Validation.withField candidates
+                        |> Validation.withField offers
+                        |> Validation.withField pushNotifications
+                    )
+                |> Validation.andThen
+                    (\validated ->
+                        if Date.toRataDie validated.checkIn >= Date.toRataDie validated.checkOut then
+                            Validation.succeed validated |> Validation.withError checkin.name "Must be before checkout"
+
+                        else
+                            Validation.succeed validated
+                    )
+        )
+        (\formState first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
+            let
+                fieldView labelText field =
+                    textInput formState labelText field
+            in
+            ( []
+            , [ wrapSection
+                    [ fieldView "First name" first
+                    , fieldView "Last name" last
+                    , usernameInput formState username
+                    , fieldView "Email" email
+                    , fieldView "Date of Birth" dob
+                    , fieldView "Check-in" checkin
+                    , fieldView "Check-out" checkout
+                    , fieldView "Rating" rating
+                    ]
+              , fieldView "Password" password
+              , fieldView "Password Confirmation" passwordConfirmation
+              , wrapEmailSection
+                    [ checkboxInput { name = "Comments", description = "Get notified when someones posts a comment on a posting." } formState comments
+                    , checkboxInput { name = "Candidates", description = "Get notified when a candidate applies for a job." } formState candidates
+                    , checkboxInput { name = "Offers", description = "Get notified when a candidate accepts or rejects an offer." } formState offers
+                    ]
+              , wrapNotificationsSections
+                    [ wrapPushNotificationsSection formState
+                        pushNotifications
+                        [ Pages.FieldRenderer.radioStyled
+                            [ css
+                                [ Tw.mt_4
+                                , Tw.space_y_4
+                                ]
+                            ]
+                            (radioInput [])
+                            pushNotifications
+                        ]
+                    ]
+              , checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." } formState acceptTerms
+              , Html.div
+                    [ css
+                        [ Tw.pt_5
+                        ]
+                    ]
+                    [ Html.div
+                        [ css
+                            [ Tw.flex
+                            , Tw.justify_end
+                            ]
+                        ]
+                        [ cancelButton
+                        , saveButton False []
+                        ]
+                    ]
+              ]
             )
-        |> Form.with
-            (Form.text
-                "last"
-                (textInput "Last name")
-                |> Form.required "Required"
-                |> Form.withInitialValue (user.last |> Form.Value.string)
-                |> Form.withClientValidation validateCapitalized
+        )
+        |> Form.field "first"
+            (Field.text
+                |> Field.required "Required"
+                |> Field.withInitialValue (.first >> Form.Value.string)
+                |> Field.withClientValidation validateCapitalized
             )
-        |> Form.with
-            (Form.text "username" usernameInput
-                |> Form.withInitialValue (user.username |> Form.Value.string)
-                |> Form.required "Required"
-                |> Form.withServerValidation
+        |> Form.field "last"
+            (Field.text
+                |> Field.required "Required"
+                |> Field.withInitialValue (.last >> Form.Value.string)
+                |> Field.withClientValidation validateCapitalized
+            )
+        |> Form.field "username"
+            (Field.text
+                |> Field.withInitialValue (.username >> Form.Value.string)
+                |> Field.required "Required"
+                |> Field.withClientValidation
+                    (\username ->
+                        ( Just username
+                        , if username |> String.contains "@" then
+                            [ "Cannot contain @ symbol" ]
+
+                          else
+                            []
+                        )
+                    )
+                |> Field.withClientValidation
+                    (\username ->
+                        ( Just username
+                        , if username |> String.contains "#" then
+                            [ "Cannot contain # symbol" ]
+
+                          else
+                            []
+                        )
+                    )
+                |> Field.withClientValidation
+                    (\username ->
+                        ( Just username
+                        , if (username |> String.length) < 3 then
+                            [ "Must be at least 3 characters long" ]
+
+                          else
+                            []
+                        )
+                    )
+                |> Field.withServerValidation
                     (\username ->
                         if username == "asdf" then
                             DataSource.succeed [ "username is taken" ]
@@ -247,228 +364,83 @@ form user =
                         else
                             DataSource.succeed []
                     )
-                |> Form.withRecoverableClientValidation
-                    (\username ->
-                        Ok
-                            ( username
-                            , if username |> String.contains "@" then
-                                [ "Cannot contain @ symbol" ]
-
-                              else
-                                []
-                            )
-                    )
-                |> Form.withRecoverableClientValidation
-                    (\username ->
-                        Ok
-                            ( username
-                            , if username |> String.contains "#" then
-                                [ "Cannot contain # symbol" ]
-
-                              else
-                                []
-                            )
-                    )
-                |> Form.withRecoverableClientValidation
-                    (\username ->
-                        Ok
-                            ( username
-                            , if (username |> String.length) < 3 then
-                                [ "Must be at least 3 characters long" ]
-
-                              else
-                                []
-                            )
-                    )
             )
-        |> Form.with
-            (Form.text
-                "email"
-                (textInput "Email address")
-                |> Form.withInitialValue (user.email |> Form.Value.string)
-                |> Form.email
-                |> Form.required "Required"
+        |> Form.field "email"
+            (Field.text
+                |> Field.withInitialValue (.email >> Form.Value.string)
+                |> Field.email
+                |> Field.required "Required"
             )
-        |> Form.with
-            (Form.date
-                "dob"
-                { invalid = \_ -> "Invalid date"
-                }
-                (textInput "Date of Birth")
-                |> Form.required "Required"
-                |> Form.withInitialValue (user.birthDay |> Form.Value.date)
-                |> Form.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
-                |> Form.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
-                |> Form.withServerValidation
+        |> Form.field "dob"
+            (Field.date
+                { invalid = \_ -> "Invalid date" }
+                |> Field.required "Required"
+                |> Field.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date) "Choose a later date"
+                |> Field.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date) "Choose an earlier date"
+                |> Field.withInitialValue (.birthDay >> Form.Value.date)
+                |> Field.withServerValidation
                     (\birthDate ->
-                        let
-                            _ =
-                                birthDate |> Date.toIsoString
-                        in
                         if birthDate == Date.fromCalendarDate 1969 Time.Jul 20 then
-                            let
-                                _ =
-                                    Debug.log "Validation error!!!" birthDate
-                            in
                             DataSource.succeed [ "No way, that's when the moon landing happened!" ]
 
                         else
                             DataSource.succeed []
                     )
             )
-        |> Form.with
-            (Form.date
-                "checkin"
-                { invalid = \_ -> "Invalid date"
-                }
-                (textInput "Check-in")
-                |> Form.required "Required"
-                |> Form.withInitialValue (user.checkIn |> Form.Value.date)
-                |> Form.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
-                |> Form.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
+        |> Form.field "checkin"
+            (Field.date
+                { invalid = \_ -> "Invalid date" }
+                |> Field.required "Required"
+                |> Field.withInitialValue (.checkIn >> Form.Value.date)
             )
-        |> Form.with
-            (Form.date
-                "checkout"
-                { invalid = \_ -> "Invalid date"
-                }
-                (textInput "Check-out")
-                |> Form.required "Required"
-                |> Form.withInitialValue (user.checkOut |> Form.Value.date)
-                |> Form.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
-                |> Form.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
+        |> Form.field "checkout"
+            (Field.date
+                { invalid = \_ -> "Invalid date" }
+                |> Field.required "Required"
+                |> Field.withInitialValue (.checkOut >> Form.Value.date)
             )
-        |> Form.with
-            (Form.range
-                "rating"
-                { missing = "Required"
-                , invalid = \_ -> "Invalid number"
-                }
-                { initial = 3
-                , min = 1
-                , max = 5
-                }
-                (textInput "Rating")
+        |> Form.field "rating"
+            (Field.int { invalid = \_ -> "Invalid number" }
+                |> Field.range
+                    { missing = "Required"
+                    , invalid = \_ -> "Outside range"
+                    , initial = \_ -> Form.Value.int 3
+                    , min = Form.Value.int 1
+                    , max = Form.Value.int 5
+                    }
             )
-        |> Form.wrap wrapSection
-        |> Form.appendForm (|>)
-            (Form.succeed Tuple.pair
-                |> Form.with
-                    (Form.text "password"
-                        (textInput "Password")
-                        |> Form.password
-                        |> Form.required "Required"
-                    )
-                |> Form.with
-                    (Form.text
-                        "password-confirmation"
-                        (textInput "Password Confirmation")
-                        |> Form.password
-                        |> Form.required "Required"
-                    )
-                |> Form.validate
-                    (\( password, passwordConfirmation ) ->
-                        if password == passwordConfirmation then
+        |> Form.field "password"
+            (Field.text |> Field.password |> Field.required "Required")
+        |> Form.field "password-confirmation"
+            (Field.text |> Field.password |> Field.required "Required")
+        |> Form.field "comments"
+            Field.checkbox
+        |> Form.field "candidates"
+            Field.checkbox
+        |> Form.field "offers"
+            Field.checkbox
+        |> Form.field
+            "push-notifications"
+            (Field.select
+                [ ( "PushAll", PushAll )
+                , ( "PushEmail", PushEmail )
+                , ( "PushNone", PushNone )
+                ]
+                (\_ -> "Invalid option")
+                |> Field.required "Please select your notification preference."
+            )
+        |> Form.field "acceptTerms"
+            (Field.checkbox
+                |> Field.withClientValidation
+                    (\checked ->
+                        ( Just ()
+                        , if checked then
                             []
 
-                        else
-                            [ ( "password-confirmation"
-                              , [ "Must match password" ]
-                              )
-                            ]
+                          else
+                            [ "Please agree to terms to proceed." ]
+                        )
                     )
-            )
-        |> Form.appendForm (|>)
-            ((Form.succeed NotificationPreferences
-                |> Form.with
-                    (Form.checkbox
-                        "comments"
-                        --user.checkbox
-                        False
-                        (checkboxInput { name = "Comments", description = "Get notified when someones posts a comment on a posting." })
-                    )
-                |> Form.with
-                    (Form.checkbox
-                        "candidates"
-                        --user.checkbox
-                        False
-                        (checkboxInput { name = "Candidates", description = "Get notified when a candidate applies for a job." })
-                    )
-                |> Form.with
-                    (Form.checkbox
-                        "offers"
-                        --user.checkbox
-                        False
-                        (checkboxInput { name = "Offers", description = "Get notified when a candidate accepts or rejects an offer." })
-                    )
-                |> Form.wrap wrapEmailSection
-                |> Form.appendForm (|>)
-                    (Form.succeed identity
-                        |> Form.with
-                            (Form.radio
-                                "push-notifications"
-                                "Invalid option"
-                                ( ( "PushAll", PushAll )
-                                , [ ( "PushEmail", PushEmail )
-                                  , ( "PushNone", PushNone )
-                                  ]
-                                )
-                                radioInput
-                                wrapPushNotificationsSection
-                                |> Form.required "Please select your notification preference."
-                            )
-                    )
-             )
-                |> Form.wrap wrapNotificationsSections
-            )
-        |> Form.appendForm (\() rest -> rest)
-            (Form.succeed identity
-                |> Form.with
-                    (Form.checkbox
-                        "acceptTerms"
-                        False
-                        (checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." })
-                        |> Form.withRecoverableClientValidation
-                            (\checked ->
-                                if checked then
-                                    Ok ( (), [] )
-
-                                else
-                                    Ok ( (), [ "Please agree to terms to proceed." ] )
-                            )
-                    )
-            )
-        |> Form.append
-            (Form.submit
-                (\{ attrs, formHasErrors } ->
-                    Html.div
-                        [ css
-                            [ Tw.pt_5
-                            ]
-                        ]
-                        [ Html.div
-                            [ css
-                                [ Tw.flex
-                                , Tw.justify_end
-                                ]
-                            ]
-                            [ cancelButton
-                            , saveButton formHasErrors attrs
-                            ]
-                        ]
-                )
-            )
-        |> Form.validate
-            (\user_ ->
-                [ ( "checkin"
-                  , if Date.compare user_.checkIn user_.checkOut == GT then
-                        [ "Must be before checkout."
-                        ]
-
-                    else
-                        []
-                  )
-                ]
             )
 
 
@@ -560,40 +532,36 @@ route =
             , init = init
             , subscriptions = \_ _ _ _ _ -> Sub.none
             }
-        |> RouteBuilder.withOnAction OnAction
 
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Form.submitHandlers
-        (form defaultUser)
-        (\model decoded ->
-            DataSource.succeed
-                { user = Result.toMaybe decoded
-                , initialForm = model
-                }
-                |> DataSource.map Response.render
-        )
+    Request.formParserResultNew [ form ]
+        |> Request.map
+            (\result ->
+                case result of
+                    Ok user ->
+                        DataSource.succeed
+                            { user = user
+                            , flashMessage =
+                                Ok ("Successfully updated profile for user " ++ user.first ++ " " ++ user.last)
+                            }
+                            |> DataSource.map Response.render
+
+                    Err error ->
+                        DataSource.succeed
+                            { flashMessage = Err "Got errors"
+                            , user = defaultUser
+                            }
+                            |> DataSource.map Response.render
+            )
 
 
 update : a -> b -> c -> Msg -> Model -> ( Model, Effect Msg )
 update _ _ _ msg model =
     case msg of
-        FormMsg formMsg ->
-            model.form
-                |> Form.update Effect.Submit Effect.None FormMsg (form defaultUser) formMsg
-                |> Tuple.mapFirst (\newFormModel -> { model | form = newFormModel })
-
         MovedToTop ->
             ( model, Effect.none )
-
-        OnAction actionData ->
-            loadActionData (Just actionData)
-
-
-withFlash : Result String String -> ( Model, effect ) -> ( Model, effect )
-withFlash flashMessage ( model, cmd ) =
-    ( { model | flashMessage = Just flashMessage }, cmd )
 
 
 init _ _ static =
@@ -601,29 +569,7 @@ init _ _ static =
         _ =
             Debug.log "@@@static.action" static.action
     in
-    loadActionData static.action
-
-
-loadActionData maybeActionData =
-    ( { form = maybeActionData |> Maybe.map .initialForm |> Maybe.withDefault (Form.init (form defaultUser))
-      , flashMessage =
-            maybeActionData
-                |> Maybe.map
-                    (\actionData ->
-                        if Form.hasErrors actionData.initialForm then
-                            Err "Got errors"
-
-                        else
-                            case actionData.user of
-                                Just user ->
-                                    Ok ("Successfully updated profile for user " ++ user.first ++ " " ++ user.last)
-
-                                Nothing ->
-                                    Err "Unexpected"
-                    )
-      }
-    , Effect.none
-    )
+    ( {}, Effect.none )
 
 
 type alias Data =
@@ -631,8 +577,11 @@ type alias Data =
 
 
 type alias ActionData =
-    { user : Maybe User
-    , initialForm : Form.Model
+    { user : User
+
+    -- @@@@@@@ TODO migrate
+    --, initialForm : Form.Model
+    , flashMessage : Result String String
     }
 
 
@@ -725,25 +674,26 @@ view maybeUrl sharedModel model static =
         user : User
         user =
             static.action
-                |> Maybe.andThen .user
+                |> Maybe.map .user
                 |> Maybe.withDefault defaultUser
     in
     { title = "Form Example"
     , body =
-        [ Html.div
-            []
+        [ Html.div []
             [ Css.Global.global Tw.globalStyles
-            , model.flashMessage
+            , static.action
+                |> Maybe.map .flashMessage
                 |> Maybe.map flashView
                 |> Maybe.withDefault (Html.p [] [])
-            , Html.p []
-                [ if Form.isSubmitting model.form then
-                    Html.text "Submitting..."
-
-                  else
-                    Html.text ""
-                ]
-            , Html.div
+            , -- @@@@@@@ TODO migrate
+              --, Html.p []
+              --    [ if Form.isSubmitting model.form then
+              --        Html.text "Submitting..."
+              --
+              --      else
+              --        Html.text ""
+              --    ],
+              Html.div
                 [ css
                     [ Tw.flex
                     , Tw.flex_col
@@ -753,10 +703,7 @@ view maybeUrl sharedModel model static =
                     , Tw.rounded_lg
                     ]
                 ]
-                [ form user
-                    |> Form.toStatefulHtml (FormMsg >> Pages.Msg.UserMsg)
-                        (\attrs children -> Html.form (List.map Attr.fromUnstyled attrs) children)
-                        model.form
+                [ Form.renderStyledHtml { submitStrategy = Form.TransitionStrategy, method = Form.Post } static user form
                 ]
             ]
             |> Html.toUnstyled
@@ -799,7 +746,7 @@ flashView message =
         ]
 
 
-textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
+textInput info labelText field =
     Html.div
         [ css
             [ Bp.sm
@@ -819,7 +766,8 @@ textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
                 [ Tw.font_bold
                 ]
             ]
-            [ Html.text (Form.fieldStatusToString info.status) ]
+            [ Html.text (Pages.FormState.fieldStatusToString field.status)
+            ]
         , Html.label
             ([ css
                 [ Tw.block
@@ -832,7 +780,8 @@ textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
                     ]
                 ]
              ]
-                ++ styleAttrs toLabel
+             -- TODO need for="..." attribute on label
+             --++ styleAttrs toLabel
             )
             [ Html.text labelText ]
         , Html.div
@@ -844,39 +793,37 @@ textInput labelText ({ toInput, toLabel, errors, submitStatus } as info) =
                     ]
                 ]
             ]
-            [ Html.input
-                (styleAttrs toInput
-                    ++ [ --Attr.attribute "autocomplete" "given-name",
-                         css
-                            [ Tw.max_w_lg
-                            , Tw.block
-                            , Tw.w_full
-                            , Tw.shadow_sm
-                            , Tw.border_gray_300
-                            , Tw.rounded_md
-                            , Css.focus
-                                [ Tw.ring_indigo_500
-                                , Tw.border_indigo_500
-                                ]
-                            , Bp.sm
-                                [ Tw.max_w_xs
-                                , Tw.text_sm
-                                ]
+            [ field
+                |> Pages.FieldRenderer.inputStyled
+                    [ --Attr.attribute "autocomplete" "given-name",
+                      css
+                        [ Tw.max_w_lg
+                        , Tw.block
+                        , Tw.w_full
+                        , Tw.shadow_sm
+                        , Tw.border_gray_300
+                        , Tw.rounded_md
+                        , Css.focus
+                            [ Tw.ring_indigo_500
+                            , Tw.border_indigo_500
                             ]
-                       ]
-                )
-                []
+                        , Bp.sm
+                            [ Tw.max_w_xs
+                            , Tw.text_sm
+                            ]
+                        ]
+                    ]
             ]
-        , errorsView info
+        , errorsView info field
         ]
 
 
-errorsView : { a | errors : List String, submitStatus : Form.SubmitStatus, status : Form.FieldStatus } -> Html msg
-errorsView { errors, submitStatus, status } =
+errorsView : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsView formState field =
     let
         showErrors : Bool
         showErrors =
-            --(status |> Form.isAtLeast Form.Focused) || submitStatus == Form.Submitting || submitStatus == Form.Submitted
+            --formState.submitAttempted
             True
     in
     Html.ul
@@ -887,7 +834,9 @@ errorsView { errors, submitStatus, status } =
             ]
         ]
         (if showErrors then
-            errors
+            formState.errors
+                |> Dict.get field.name
+                |> Maybe.withDefault []
                 |> List.map
                     (\error ->
                         Html.li
@@ -901,7 +850,7 @@ errorsView { errors, submitStatus, status } =
         )
 
 
-checkboxInput { name, description } ({ toLabel, toInput, errors } as info) =
+checkboxInput { name, description } info field =
     Html.div
         [ css
             [ Tw.max_w_lg
@@ -922,21 +871,19 @@ checkboxInput { name, description } ({ toLabel, toInput, errors } as info) =
                     , Tw.h_5
                     ]
                 ]
-                [ Html.input
-                    (styleAttrs toInput
-                        ++ [ css
-                                [ Tw.h_4
-                                , Tw.w_4
-                                , Tw.text_indigo_600
-                                , Tw.border_gray_300
-                                , Tw.rounded
-                                , Css.focus
-                                    [ Tw.ring_indigo_500
-                                    ]
+                [ field
+                    |> Pages.FieldRenderer.inputStyled
+                        [ css
+                            [ Tw.h_4
+                            , Tw.w_4
+                            , Tw.text_indigo_600
+                            , Tw.border_gray_300
+                            , Tw.rounded
+                            , Css.focus
+                                [ Tw.ring_indigo_500
                                 ]
-                           ]
-                    )
-                    []
+                            ]
+                        ]
                 ]
             , Html.div
                 [ css
@@ -945,13 +892,11 @@ checkboxInput { name, description } ({ toLabel, toInput, errors } as info) =
                     ]
                 ]
                 [ Html.label
-                    (styleAttrs toLabel
-                        ++ [ css
-                                [ Tw.font_medium
-                                , Tw.text_gray_700
-                                ]
-                           ]
-                    )
+                    [ css
+                        [ Tw.font_medium
+                        , Tw.text_gray_700
+                        ]
+                    ]
                     [ Html.text name ]
                 , Html.p
                     [ css
@@ -961,7 +906,7 @@ checkboxInput { name, description } ({ toLabel, toInput, errors } as info) =
                     [ Html.text description ]
                 ]
             ]
-        , errorsView info
+        , errorsView info field
         ]
 
 
@@ -1072,38 +1017,33 @@ wrapEmailSection children =
         ]
 
 
-radioInput item { toLabel, toInput, errors, status } =
+radioInput errors item toRadio =
     Html.div
         [ css
             [ Tw.flex
             , Tw.items_center
             ]
         ]
-        [ Html.input
-            (styleAttrs toInput
-                ++ [ css
-                        [ Tw.h_4
-                        , Tw.w_4
-                        , Tw.text_indigo_600
-                        , Tw.border_gray_300
-                        , Css.focus
-                            [ Tw.ring_indigo_500
-                            ]
-                        ]
-                   ]
-            )
-            []
+        [ toRadio
+            [ css
+                [ Tw.h_4
+                , Tw.w_4
+                , Tw.text_indigo_600
+                , Tw.border_gray_300
+                , Css.focus
+                    [ Tw.ring_indigo_500
+                    ]
+                ]
+            ]
         , Html.label
-            (styleAttrs toLabel
-                ++ [ css
-                        [ Tw.ml_3
-                        , Tw.block
-                        , Tw.text_sm
-                        , Tw.font_medium
-                        , Tw.text_gray_700
-                        ]
-                   ]
-            )
+            [ css
+                [ Tw.ml_3
+                , Tw.block
+                , Tw.text_sm
+                , Tw.font_medium
+                , Tw.text_gray_700
+                ]
+            ]
             [ (case item of
                 PushAll ->
                     "Everything"
@@ -1119,7 +1059,7 @@ radioInput item { toLabel, toInput, errors, status } =
         ]
 
 
-wrapPushNotificationsSection ({ errors, submitStatus } as info) children =
+wrapPushNotificationsSection formState field children =
     Html.div
         [ css
             [ Tw.pt_6
@@ -1137,7 +1077,8 @@ wrapPushNotificationsSection ({ errors, submitStatus } as info) children =
                     [ Tw.font_bold
                     ]
                 ]
-                [ Html.text (Form.fieldStatusToString info.status) ]
+                [ Html.text (Pages.FormState.fieldStatusToString field.status)
+                ]
             , Html.div
                 [ css
                     [ Bp.sm
@@ -1193,5 +1134,5 @@ wrapPushNotificationsSection ({ errors, submitStatus } as info) children =
                     ]
                 ]
             ]
-        , errorsView info
+        , errorsView formState field
         ]
