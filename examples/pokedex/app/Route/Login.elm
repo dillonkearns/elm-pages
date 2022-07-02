@@ -1,22 +1,25 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
-import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
-import Html
+import Html as Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
+import Pages.Field as Field
+import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Result.Extra
 import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
-import Server.Response exposing (Response)
+import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -32,34 +35,60 @@ type alias RouteParams =
     {}
 
 
+type alias ActionData =
+    {}
+
+
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action = \_ -> Request.skip ""
         }
         |> RouteBuilder.buildNoState { view = view }
 
 
-type alias Request =
-    { cookies : Dict String String
-    , maybeFormData : Maybe (Dict String ( String, List String ))
+type alias Data =
+    { username : Maybe String
+    , flashMessage : Maybe String
     }
+
+
+form =
+    Form.init
+        (\bar ->
+            Validation.succeed identity
+                |> Validation.withField bar
+        )
+        (\_ _ -> ())
+        |> Form.field "name" (Field.text |> Field.required "Required")
 
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession
-            (Request.expectFormPost (\{ field } -> field "name"))
-            (\name session ->
-                ( session
-                    |> Result.withDefault Nothing
-                    |> Maybe.withDefault Session.empty
-                    |> Session.insert "name" name
-                    |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                , Route.redirectTo Route.Greet
+            (Request.formParserResultNew [ form ])
+            (\nameResult session ->
+                (nameResult
+                    |> Result.Extra.unpack
+                        (\_ ->
+                            ( session
+                                |> Result.withDefault Nothing
+                                |> Maybe.withDefault Session.empty
+                            , Route.redirectTo Route.Greet
+                            )
+                        )
+                        (\name ->
+                            ( session
+                                |> Result.withDefault Nothing
+                                |> Maybe.withDefault Session.empty
+                                |> Session.insert "name" name
+                                |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
+                            , Route.redirectTo Route.Greet
+                            )
+                        )
                 )
                     |> DataSource.succeed
             )
@@ -68,18 +97,24 @@ data routeParams =
             (\() session ->
                 case session of
                     Ok (Just okSession) ->
+                        let
+                            flashMessage : Maybe String
+                            flashMessage =
+                                okSession
+                                    |> Session.get "message"
+                        in
                         ( okSession
-                        , okSession
-                            |> Session.get "name"
-                            |> Data
-                            |> Server.Response.render
+                        , Data
+                            (okSession |> Session.get "name")
+                            flashMessage
+                            |> Response.render
                         )
                             |> DataSource.succeed
 
                     _ ->
                         ( Session.empty
-                        , { username = Nothing }
-                            |> Server.Response.render
+                        , { username = Nothing, flashMessage = Nothing }
+                            |> Response.render
                         )
                             |> DataSource.succeed
             )
@@ -106,15 +141,6 @@ head static =
         |> Seo.website
 
 
-type alias Data =
-    { username : Maybe String
-    }
-
-
-type alias ActionData =
-    {}
-
-
 view :
     Maybe PageUrl
     -> Shared.Model
@@ -123,7 +149,10 @@ view :
 view maybeUrl sharedModel static =
     { title = "Login"
     , body =
-        [ Html.p []
+        [ static.data.flashMessage
+            |> Maybe.map (\message -> flashView (Ok message))
+            |> Maybe.withDefault (Html.p [] [ Html.text "No flash" ])
+        , Html.p []
             [ Html.text
                 (case static.data.username of
                     Just username ->
@@ -135,9 +164,18 @@ view maybeUrl sharedModel static =
             ]
         , Html.form
             [ Attr.method "post"
-            , Attr.action "/login"
             ]
-            [ Html.label [] [ Html.input [ Attr.name "name", Attr.type_ "text" ] [] ]
+            [ Html.label
+                [ Attr.attribute "htmlFor" "name"
+                ]
+                [ Html.text "Name"
+                , Html.input
+                    [ Attr.name "name"
+                    , Attr.type_ "text"
+                    , Attr.id "name"
+                    ]
+                    []
+                ]
             , Html.button
                 [ Attr.type_ "submit"
                 ]
@@ -145,3 +183,18 @@ view maybeUrl sharedModel static =
             ]
         ]
     }
+
+
+flashView : Result String String -> Html msg
+flashView message =
+    Html.p
+        [ Attr.style "background-color" "rgb(163 251 163)"
+        ]
+        [ Html.text <|
+            case message of
+                Ok okMessage ->
+                    okMessage
+
+                Err error ->
+                    "Something went wrong: " ++ error
+        ]

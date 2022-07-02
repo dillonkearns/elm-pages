@@ -27,37 +27,39 @@ routes getStaticRoutes htmlToString =
     --, repoStars
     --, repoStars2
     , logout
-    , greet
+
+    --, greet
     , fileLength
     , DataSource.succeed manifest |> Manifest.generator Site.canonicalUrl
     ]
 
 
-greet : ApiRoute ApiRoute.Response
-greet =
-    ApiRoute.succeed
-        (Server.Request.oneOf
-            [ Server.Request.expectFormPost
-                (\{ field, optionalField } ->
-                    field "first"
-                )
-            , Server.Request.expectJsonBody (Json.Decode.field "first" Json.Decode.string)
-            , Server.Request.expectQueryParam "first"
-            , Server.Request.expectMultiPartFormPost
-                (\{ field, optionalField } ->
-                    field "first"
-                )
-            ]
-            |> Server.Request.map
-                (\firstName ->
-                    Server.Response.plainText ("Hello " ++ firstName)
-                        |> DataSource.succeed
-                )
-        )
-        |> ApiRoute.literal "api"
-        |> ApiRoute.slash
-        |> ApiRoute.literal "greet"
-        |> ApiRoute.serverRender
+
+--greet : ApiRoute ApiRoute.Response
+--greet =
+--    ApiRoute.succeed
+--        (Server.Request.oneOf
+--            [ Server.Request.expectFormPost
+--                (\{ field, optionalField } ->
+--                    field "first"
+--                )
+--            , Server.Request.expectJsonBody (Json.Decode.field "first" Json.Decode.string)
+--            , Server.Request.expectQueryParam "first"
+--            , Server.Request.expectMultiPartFormPost
+--                (\{ field, optionalField } ->
+--                    field "first"
+--                )
+--            ]
+--            |> Server.Request.map
+--                (\firstName ->
+--                    Server.Response.plainText ("Hello " ++ firstName)
+--                        |> DataSource.succeed
+--                )
+--        )
+--        |> ApiRoute.literal "api"
+--        |> ApiRoute.slash
+--        |> ApiRoute.literal "greet"
+--        |> ApiRoute.serverRender
 
 
 fileLength : ApiRoute ApiRoute.Response

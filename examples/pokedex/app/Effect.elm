@@ -15,6 +15,7 @@ type Effect msg
     | Cmd (Cmd msg)
     | Batch (List (Effect msg))
     | GetStargazers (Result Http.Error Int -> msg)
+    | SetField { formId : String, name : String, value : String }
     | FetchRouteData
         { data : Maybe FormDecoder.FormData
         , toMsg : Result Http.Error Url -> msg
@@ -74,6 +75,9 @@ map fn effect =
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
+        SetField info ->
+            SetField info
+
         SubmitFetcher fetcher ->
             fetcher
                 |> Pages.Fetcher.map fn
@@ -96,6 +100,7 @@ perform :
         -> Cmd msg
     , fromPageMsg : pageMsg -> msg
     , key : Browser.Navigation.Key
+    , setField : { formId : String, name : String, value : String } -> Cmd msg
     }
     -> Effect pageMsg
     -> Cmd msg
@@ -106,6 +111,9 @@ perform ({ fromPageMsg, key } as helpers) effect =
 
         Cmd cmd ->
             Cmd.map fromPageMsg cmd
+
+        SetField info ->
+            helpers.setField info
 
         Batch list ->
             Cmd.batch (List.map (perform helpers) list)
