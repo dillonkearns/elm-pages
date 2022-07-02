@@ -4,7 +4,7 @@ import Date
 import Expect
 import Form.Value as Value
 import Pages.Field as Field exposing (Field(..))
-import Test exposing (Test, describe, test)
+import Test exposing (Test, test)
 
 
 all : List Test
