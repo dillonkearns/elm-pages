@@ -23,6 +23,7 @@ all =
                         { method = Request.Get
                         , headers = []
                         , body = Nothing
+                        , urlQueryString = Nothing
                         }
         , test "accept GET" <|
             \() ->
@@ -32,6 +33,7 @@ all =
                         { method = Request.Get
                         , headers = []
                         , body = Nothing
+                        , urlQueryString = Nothing
                         }
         , test "accept GET doesn't match POST" <|
             \() ->
@@ -41,23 +43,23 @@ all =
                         { method = Request.Get
                         , headers = []
                         , body = Nothing
+                        , urlQueryString = Nothing
                         }
                         "Expected HTTP method POST but was GET"
-        , test "unexpected method for form POST" <|
+        , test "formData extracts fields from query params for GET" <|
             \() ->
                 Request.formData
                     |> Request.map
-                        (\_ ->
-                            Request.succeed ()
+                        (\formData ->
+                            formData
                         )
-                    |> expectNoMatch
+                    |> expectMatchWith
                         { method = Request.Get
-                        , headers =
-                            [ ( "content-type", "application/x-www-form-urlencoded" )
-                            ]
+                        , headers = []
                         , body = Nothing
+                        , urlQueryString = Just "q=hello"
                         }
-                        "expectFormPost did not match - expected method POST, but the method was GET"
+                        [ ( "q", "hello" ) ]
         , test "tries multiple form post formats" <|
             \() ->
                 Request.formParserResultNew
@@ -86,6 +88,7 @@ all =
                                 (FormData
                                     (Dict.fromList [ ( "foo", ( "bar", [] ) ) ])
                                 )
+                        , urlQueryString = Nothing
                         }
         , test "expectFormPost with missing content-type" <|
             \() ->
@@ -108,6 +111,7 @@ all =
                                 (FormData
                                     (Dict.fromList [ ( "foo", ( "bar", [] ) ) ])
                                 )
+                        , urlQueryString = Nothing
                         }
                         """expectFormPost did not match - Was form POST but expected content-type `application/x-www-form-urlencoded` but the request didn't have a content-type header"""
 
@@ -154,6 +158,7 @@ type alias Request =
     { method : Request.Method
     , headers : List ( String, String )
     , body : Maybe Body
+    , urlQueryString : Maybe String
     }
 
 
@@ -174,6 +179,35 @@ expectMatch request (Parser decoder) =
             case ok of
                 ( Ok _, [] ) ->
                     Expect.pass
+
+                ( Err innerError, otherErrors ) ->
+                    (innerError :: otherErrors)
+                        |> List.map Request.errorToString
+                        |> String.join "\n"
+                        |> Expect.fail
+
+                ( Ok _, nonEmptyErrors ) ->
+                    nonEmptyErrors
+                        |> List.map Request.errorToString
+                        |> String.join "\n"
+                        |> Expect.fail
+
+        Err error ->
+            Expect.fail (Decode.errorToString error)
+
+
+expectMatchWith : Request -> value -> Request.Parser value -> Expectation
+expectMatchWith request expected (Parser decoder) =
+    case
+        request
+            |> requestToJson
+            |> Decode.decodeValue decoder
+    of
+        Ok ok ->
+            case ok of
+                ( Ok actual, [] ) ->
+                    actual
+                        |> Expect.equal expected
 
                 ( Err innerError, otherErrors ) ->
                     (innerError :: otherErrors)
@@ -244,7 +278,17 @@ requestToJson request =
                 |> Maybe.map encodeBody
                 |> Maybe.withDefault Json.Encode.null
           )
-        , ( "query", Json.Encode.null )
+        , ( "query"
+          , Json.Encode.object
+                [ ( "q", Json.Encode.string "hello" )
+                ]
+          )
+        , ( "rawUrl"
+          , Json.Encode.string
+                ("http://localhost:1234/"
+                    ++ (request.urlQueryString |> Maybe.map (\q -> "?" ++ q) |> Maybe.withDefault "")
+                )
+          )
         , ( "multiPartFormData", Json.Encode.null )
         ]
 

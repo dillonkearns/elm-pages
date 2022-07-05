@@ -967,7 +967,12 @@ formData =
         )
         |> andThen
             (\( ( validContentType, parsedContentType ), validMethod, justBody ) ->
-                if not ((validContentType |> Maybe.withDefault False) && validMethod == Post) then
+                if validMethod == Get then
+                    queryParams
+                        |> map Dict.toList
+                        |> map (List.map (Tuple.mapSecond (List.head >> Maybe.withDefault "")))
+
+                else if not ((validContentType |> Maybe.withDefault False) && validMethod == Post) then
                     Json.Decode.succeed
                         ( Err
                             (ValidationError <|
