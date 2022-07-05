@@ -592,7 +592,7 @@ async function runAdapter(adaptFn, processedIndexTemplate) {
       apiRoutePatterns: JSON.parse(
         await fsPromises.readFile("./dist/api-patterns.json", "utf-8")
       ),
-      portsFilePath: "./.elm-pages/compiled-ports/port-data-source.mjs",
+      portsFilePath: "./.elm-pages/compiled-ports/port-data-source.js",
       htmlTemplate: processedIndexTemplate,
     });
     console.log("Success - Adapter script complete");
