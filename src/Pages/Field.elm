@@ -3,7 +3,7 @@ module Pages.Field exposing
     , select, range, OutsideRange(..)
     , date, time, TimeOfDay
     , Field(..), FieldInfo, exactValue
-    , required, withClientValidation, withInitialValue
+    , required, withClientValidation, withInitialValue, map
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep, withMinLength, withMaxLength
     , withServerValidation
@@ -35,7 +35,7 @@ module Pages.Field exposing
 
 ## Field Configuration
 
-@docs required, withClientValidation, withInitialValue
+@docs required, withClientValidation, withInitialValue, map
 
 
 ## Text Field Display Options
@@ -578,6 +578,14 @@ range info field =
         |> withMin info.min (info.invalid BelowRange)
         |> withMax info.max (info.invalid AboveRange)
         |> (\(Field innerField _) -> Field { innerField | initialValue = Just (info.initial >> Form.Value.toString) } (FieldRenderer.Input FieldRenderer.Range))
+
+
+{-| -}
+map : (parsed -> mapped) -> Field error parsed data kind constraints -> Field error mapped data kind { constraints | wasMapped : Yes }
+map mapFn field_ =
+    withClientValidation
+        (\value -> ( Just (mapFn value), [] ))
+        field_
 
 
 {-| -}
