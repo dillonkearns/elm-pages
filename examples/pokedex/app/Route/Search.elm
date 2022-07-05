@@ -7,6 +7,9 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Pages.Field as Field
+import Pages.FieldRenderer
+import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -15,6 +18,7 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -90,24 +94,70 @@ type alias ActionData =
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Request.expectForm
-            (\{ field, optionalField } ->
-                field "q"
-                    |> Request.map
-                        (\query ->
-                            DataSource.succeed
-                                (Response.render
-                                    { results =
-                                        Just
-                                            { query = query
-                                            , results = [ "Hello" ]
-                                            }
-                                    }
-                                )
+        [ Request.formParserResultNew [ form ]
+            |> Request.map
+                (\formResult ->
+                    DataSource.succeed
+                        (Response.render
+                            { results =
+                                formResult
+                                    |> Result.map
+                                        (\query ->
+                                            Just
+                                                { query = query
+                                                , results = [ "Hello" ]
+                                                }
+                                        )
+                                    |> Result.withDefault Nothing
+                            }
                         )
-            )
+                )
         , Request.succeed (DataSource.succeed (Response.render { results = Nothing }))
         ]
+
+
+form : Form.HtmlForm String String data msg
+form =
+    Form.init
+        (\query ->
+            Validation.succeed identity
+                |> Validation.withField query
+        )
+        (\info query ->
+            ( []
+            , [ query |> fieldView info "Query"
+              , Html.button [] [ Html.text "Search" ]
+              ]
+            )
+        )
+        |> Form.field "q" (Field.text |> Field.required "Required")
+
+
+fieldView :
+    Form.Context String data
+    -> String
+    -> Form.ViewField String parsed Pages.FieldRenderer.Input
+    -> Html msg
+fieldView formState label field =
+    Html.div []
+        [ Html.label []
+            [ Html.text (label ++ " ")
+            , field |> Pages.FieldRenderer.input []
+            ]
+        , errorsForField formState field
+        ]
+
+
+errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsForField formState field =
+    (if True then
+        field.errors
+            |> List.map (\error -> Html.li [] [ Html.text error ])
+
+     else
+        []
+    )
+        |> Html.ul [ Attr.style "color" "red" ]
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
@@ -145,13 +195,7 @@ view maybeUrl sharedModel model static =
     { title = "Search"
     , body =
         [ Html.h2 [] [ Html.text "Search" ]
-        , Html.form []
-            [ Html.label []
-                [ Html.text "Query "
-                , Html.input [ Attr.name "q" ] []
-                ]
-            , Html.input [ Attr.type_ "submit", Attr.value "Search" ] []
-            ]
+        , Form.renderHtml { method = Form.Get, submitStrategy = Form.TransitionStrategy } static () form
         , static.data.results
             |> Maybe.map resultsView
             |> Maybe.withDefault (Html.div [] [])
