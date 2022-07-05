@@ -681,15 +681,15 @@ view maybeUrl sharedModel model static =
                 |> Maybe.map .flashMessage
                 |> Maybe.map flashView
                 |> Maybe.withDefault (Html.p [] [])
-            , -- @@@@@@@ TODO migrate
-              --, Html.p []
-              --    [ if Form.isSubmitting model.form then
-              --        Html.text "Submitting..."
-              --
-              --      else
-              --        Html.text ""
-              --    ],
-              Html.div
+            , Html.p []
+                [ -- TODO should this be calling a function in Form and passing in the form, like `Form.isSubmitting form`?
+                  if static.transition /= Nothing then
+                    Html.text "Submitting..."
+
+                  else
+                    Html.text ""
+                ]
+            , Html.div
                 [ css
                     [ Tw.flex
                     , Tw.flex_col
