@@ -138,15 +138,15 @@ async function run(options) {
     const portDataSourceCompiled = esbuild
       .build({
         entryPoints: ["./port-data-source"],
-        outfile: ".elm-pages/compiled-ports/port-data-source.mjs",
+        platform: "node",
+        outfile: ".elm-pages/compiled-ports/port-data-source.js",
         assetNames: "[name]-[hash]",
         chunkNames: "chunks/[name]-[hash]",
-        outExtension: { ".js": ".mjs" },
-
+        outExtension: { ".js": ".js" },
         metafile: true,
-        bundle: false,
+        bundle: true,
         watch: false,
-        logLevel: "silent",
+        logLevel: "error",
       })
       .then((result) => {
         global.portsFilePath = Object.keys(result.metafile.outputs)[0];

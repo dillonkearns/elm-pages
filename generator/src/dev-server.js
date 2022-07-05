@@ -140,15 +140,15 @@ async function start(options) {
     .build({
       entryPoints: ["./port-data-source"],
       entryNames: "[dir]/[name]-[hash]",
-
+      platform: "node",
       outdir: ".elm-pages/compiled-ports",
       assetNames: "[name]-[hash]",
       chunkNames: "chunks/[name]-[hash]",
-      outExtension: { ".js": ".mjs" },
-      logLevel: "silent",
+      outExtension: { ".js": ".js" },
+      logLevel: "error",
 
       metafile: true,
-      bundle: false,
+      bundle: true,
       watch: true,
       plugins: [
         {

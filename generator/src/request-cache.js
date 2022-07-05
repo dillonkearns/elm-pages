@@ -45,7 +45,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
   const { fs } = require("./request-cache-fs.js")(hasFsAccess);
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
-    const portsHash = (portsFile && portsFile.match(/-([^-]+)\.mjs$/)[1]) || "";
+    const portsHash = (portsFile && portsFile.match(/-([^-]+)\.js$/)[1]) || "";
     const responsePath = fullPath(portsHash, request, hasFsAccess);
 
     // TODO check cache expiration time and delete and go to else if expired
@@ -56,12 +56,13 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
       let portDataSource = {};
       let portDataSourceImportError = null;
       try {
-        if (portsFile === undefined)  {
-          throw "missing"
+        if (portsFile === undefined) {
+          throw "missing";
         }
         const portDataSourcePath = path.resolve(portsFile);
         // On Windows, we need cannot use paths directly and instead must use a file:// URL.
-        portDataSource = await import(url.pathToFileURL(portDataSourcePath).href);
+        // portDataSource = await require(url.pathToFileURL(portDataSourcePath).href);
+        portDataSource = require(portDataSourcePath);
       } catch (e) {
         portDataSourceImportError = e;
       }
@@ -152,7 +153,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
                 .yellow()
                 .underline(request.url)} Bad HTTP response ${response.status} ${
                 response.statusText
-                }
+              }
 `,
             });
           }
