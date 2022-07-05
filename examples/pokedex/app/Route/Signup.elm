@@ -4,12 +4,16 @@ import DataSource exposing (DataSource)
 import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Value
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
 import MySession
+import Pages.Field as Field
+import Pages.FieldRenderer
+import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -20,6 +24,7 @@ import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Shared
+import Validation
 import View exposing (View)
 
 
@@ -54,12 +59,9 @@ route =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action _ =
     MySession.withSession
-        (Request.expectFormPost
-            (\{ field } ->
-                Request.map2 Tuple.pair
-                    (field "first")
-                    (field "email")
-            )
+        (Request.formParserResultNew [ form ]
+            |> Request.map (Result.mapError (\error -> "Errors"))
+            |> Request.andThen Request.fromResult
         )
         (\( first, email ) maybeSession ->
             let
@@ -119,6 +121,57 @@ init maybePageUrl sharedModel static =
       --   |> Effect.map GotResponse
       Effect.none
     )
+
+
+fieldView :
+    Form.Context String data
+    -> String
+    -> Form.ViewField String parsed Pages.FieldRenderer.Input
+    -> Html msg
+fieldView formState label field =
+    Html.div []
+        [ Html.label []
+            [ Html.text (label ++ " ")
+            , field |> Pages.FieldRenderer.input []
+            ]
+        , errorsForField formState field
+        ]
+
+
+errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsForField formState field =
+    (if True then
+        field.errors
+            |> List.map (\error -> Html.li [] [ Html.text error ])
+
+     else
+        []
+    )
+        |> Html.ul [ Attr.style "color" "red" ]
+
+
+form : Form.HtmlForm String ( String, String ) data msg
+form =
+    Form.init
+        (\first email ->
+            Validation.succeed Tuple.pair
+                |> Validation.withField first
+                |> Validation.withField email
+        )
+        (\info first email ->
+            ( []
+            , [ first |> fieldView info "First"
+              , email |> fieldView info "Email"
+              , Html.button [] [ Html.text "Sign Up" ]
+              ]
+            )
+        )
+        |> Form.field "first" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "Jane"))
+        |> Form.field "email" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "jane@example.com"))
+
+
+required field =
+    field |> Field.required "Required"
 
 
 update :
@@ -211,13 +264,7 @@ view maybeUrl sharedModel model static =
                     Html.text ""
             ]
         , flashView static.data.flashMessage
-        , Html.form
-            [ Attr.method "POST"
-            ]
-            [ Html.label [] [ Html.text "First", Html.input [ Attr.name "first" ] [] ]
-            , Html.label [] [ Html.text "Email", Html.input [ Attr.name "email" ] [] ]
-            , Html.input [ Attr.type_ "submit", Attr.value "Signup" ] []
-            ]
+        , Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } static () form
         ]
     }
 
