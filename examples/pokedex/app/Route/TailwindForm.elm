@@ -565,10 +565,6 @@ update _ _ _ msg model =
 
 
 init _ _ static =
-    let
-        _ =
-            Debug.log "@@@static.action" static.action
-    in
     ( {}, Effect.none )
 
 
