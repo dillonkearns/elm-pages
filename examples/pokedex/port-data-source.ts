@@ -1,4 +1,5 @@
 import kleur from "kleur";
+import something from './something.ts'
 kleur.enabled = true;
 
 export async function environmentVariable(name) {
@@ -15,7 +16,7 @@ export async function environmentVariable(name) {
 }
 
 export async function hello(name) {
-  return `149 ${name}!!`;
+  return `${something} 149 ${name}!!`;
 }
 
 function waitFor(ms) {
