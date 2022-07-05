@@ -857,7 +857,7 @@ checkboxInput { name, description } info field =
             , Tw.space_y_4
             ]
         ]
-        [ Html.div
+        [ Html.label
             [ css
                 [ Tw.relative
                 , Tw.flex
@@ -891,7 +891,7 @@ checkboxInput { name, description } info field =
                     , Tw.text_sm
                     ]
                 ]
-                [ Html.label
+                [ Html.div
                     [ css
                         [ Tw.font_medium
                         , Tw.text_gray_700
@@ -1018,33 +1018,34 @@ wrapEmailSection children =
 
 
 radioInput errors item toRadio =
-    Html.div
+    Html.label
         [ css
-            [ Tw.flex
-            , Tw.items_center
+            [ Tw.ml_3
+            , Tw.block
+            , Tw.text_sm
+            , Tw.font_medium
+            , Tw.text_gray_700
             ]
         ]
-        [ toRadio
+        [ Html.div
             [ css
-                [ Tw.h_4
-                , Tw.w_4
-                , Tw.text_indigo_600
-                , Tw.border_gray_300
-                , Css.focus
-                    [ Tw.ring_indigo_500
+                [ Tw.flex
+                , Tw.items_center
+                ]
+            ]
+            [ toRadio
+                [ css
+                    [ Tw.h_4
+                    , Tw.w_4
+                    , Tw.text_indigo_600
+                    , Tw.border_gray_300
+                    , Tw.mr_2
+                    , Css.focus
+                        [ Tw.ring_indigo_500
+                        ]
                     ]
                 ]
-            ]
-        , Html.label
-            [ css
-                [ Tw.ml_3
-                , Tw.block
-                , Tw.text_sm
-                , Tw.font_medium
-                , Tw.text_gray_700
-                ]
-            ]
-            [ (case item of
+            , (case item of
                 PushAll ->
                     "Everything"
 
