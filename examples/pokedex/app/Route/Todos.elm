@@ -10,7 +10,6 @@ import Api.Scalar exposing (Id(..))
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Form exposing (Form)
 import Form.Value
 import FormDecoder exposing (FormData)
 import Graphql.Operation exposing (RootMutation, RootQuery)
@@ -20,6 +19,9 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import List.Extra
+import Pages.Field as Field
+import Pages.FieldRenderer
+import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -32,6 +34,7 @@ import Server.Response as Response exposing (Response)
 import Set exposing (Set)
 import Shared
 import Time
+import Validation
 import View exposing (View)
 
 
@@ -40,10 +43,7 @@ type alias Model =
 
 
 type Msg
-    = FormMsg Form.Msg
-    | NoOp
-    | FormSubmitted FormData
-    | DeleteFormSubmitted String FormData
+    = NoOp
 
 
 type alias RouteParams =
@@ -83,30 +83,8 @@ update :
     -> ( Model, Effect Msg )
 update pageUrl sharedModel static msg model =
     case msg of
-        FormMsg formMsg ->
-            ( model, Effect.none )
-
         NoOp ->
-            -- TODO would be nice to have a `Maybe msg` for `SubmitFetcher` to avoid the NoOp Msg
             ( model, Effect.none )
-
-        FormSubmitted { fields } ->
-            ( model
-            , Effect.SubmitFetcher
-                (static.submit
-                    { fields = fields, headers = [] }
-                )
-                |> Effect.map (\_ -> NoOp)
-            )
-
-        DeleteFormSubmitted id { fields } ->
-            ( model
-            , Effect.SubmitFetcher
-                (static.submit
-                    { fields = fields, headers = [] }
-                )
-                |> Effect.map (\_ -> NoOp)
-            )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -120,7 +98,7 @@ type alias Data =
 
 
 type alias ActionData =
-    Maybe Form.Model
+    {}
 
 
 type alias Todo =
@@ -182,38 +160,98 @@ data routeParams =
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action _ =
-    Request.oneOf
-        [ Form.submitHandlers (deleteItemForm "")
-            (\model decoded ->
-                case decoded of
-                    Ok id ->
+    Request.formParserResultNew [ deleteForm, createForm ]
+        |> Request.map
+            (\actionResult ->
+                case actionResult of
+                    Ok (Delete { id }) ->
                         Request.Fauna.mutationDataSource "" (deleteTodo id)
                             |> DataSource.map
                                 (\_ -> Route.redirectTo Route.Todos)
 
-                    Err error ->
-                        Nothing
-                            |> Response.render
-                            |> DataSource.succeed
-            )
-        , Form.submitHandlers (newItemForm False)
-            (\model decoded ->
-                case decoded of
-                    Ok okItem ->
-                        Request.Fauna.mutationDataSource "" (createTodo okItem.description)
+                    Ok (Create { description }) ->
+                        Request.Fauna.mutationDataSource "" (createTodo description)
                             |> DataSource.map
                                 (\_ ->
                                     --Route.redirectTo Route.Todos
-                                    Response.render Nothing
+                                    Response.render {}
                                 )
 
                     Err error ->
-                        model
-                            |> Just
-                            |> Response.render
-                            |> DataSource.succeed
+                        {} |> Response.render |> DataSource.succeed
             )
+
+
+type Action
+    = Delete { id : String }
+    | Create { description : String }
+
+
+deleteForm : Form.HtmlForm String Action String msg
+deleteForm =
+    Form.init
+        (\id ->
+            Validation.succeed (\i -> Delete { id = i })
+                |> Validation.withField id
+        )
+        (\info ->
+            ( [ Attr.style "display" "inline", Attr.style "padding-left" "6px" ]
+            , [ Html.button [] [ Html.text "❌" ]
+              ]
+            )
+        )
+        |> Form.hiddenField "id" (Field.text |> Field.required "Required" |> Field.withInitialValue Form.Value.string)
+
+
+createForm : Form.HtmlForm String Action data msg
+createForm =
+    Form.init
+        (\description ->
+            Validation.succeed (\d -> Create { description = d })
+                |> Validation.withField description
+        )
+        (\info query ->
+            ( []
+            , [ query |> descriptionFieldView info
+              , Html.button []
+                    [ Html.text <|
+                        -- TODO retain isTransitioning state while refetching `data` after a submission
+                        if info.isTransitioning then
+                            "Creating..."
+
+                        else
+                            "Create"
+                    ]
+              ]
+            )
+        )
+        |> Form.field "q" (Field.text |> Field.required "Required")
+
+
+descriptionFieldView :
+    Form.Context String data
+    -> Form.ViewField String parsed Pages.FieldRenderer.Input
+    -> Html msg
+descriptionFieldView formState field =
+    Html.div []
+        [ Html.label []
+            [ Html.text "Description "
+            , field |> Pages.FieldRenderer.input [ Attr.autofocus True ]
+            ]
+        , errorsForField formState field
         ]
+
+
+errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsForField formState field =
+    (if True then
+        field.errors
+            |> List.map (\error -> Html.li [] [ Html.text error ])
+
+     else
+        []
+    )
+        |> Html.ul [ Attr.style "color" "red" ]
 
 
 head :
@@ -300,11 +338,15 @@ view maybeUrl sharedModel model static =
                                 []
                             )
                             [ Html.text item.description
-                            , deleteItemForm item.id
-                                |> Form.toStatelessHtml
-                                    (Just (DeleteFormSubmitted item.id))
-                                    Html.form
-                                    (Form.init (deleteItemForm item.id))
+
+                            -- TODO should the (List Html.Attribute) be passed in to renderHtml instead of the `( List Html, List Attr)` in Form.init?
+                            , Form.renderHtml
+                                { submitStrategy = Form.TransitionStrategy
+                                , method = Form.Post
+                                }
+                                static
+                                item.id
+                                deleteForm
                             ]
                     )
              )
@@ -321,76 +363,12 @@ view maybeUrl sharedModel model static =
                             ]
                    )
             )
-        , errorsView static.action
-        , newItemForm submitting
-            |> Form.toStatelessHtml
-                (Just FormSubmitted)
-                Html.form
-                (Form.init (newItemForm submitting))
+        , Form.renderHtml
+            { submitStrategy = Form.TransitionStrategy
+            , method = Form.Post
+            }
+            static
+            ()
+            createForm
         ]
     }
-
-
-errorsView : Maybe ActionData -> Html msg
-errorsView actionData =
-    case actionData |> Maybe.andThen identity of
-        Just justData ->
-            justData
-                |> Form.getErrors
-                |> List.map (\( name, error ) -> Html.text (name ++ ": " ++ error))
-                |> Html.ul [ Attr.style "color" "red" ]
-
-        Nothing ->
-            Html.div [] []
-
-
-newItemForm : Bool -> Form (Pages.Msg.Msg Msg) String TodoInput (Html (Pages.Msg.Msg Msg))
-newItemForm submitting =
-    Form.succeed (\description () -> TodoInput description)
-        |> Form.with
-            (Form.text "description"
-                (\info ->
-                    Html.div []
-                        [ Html.label info.toLabel
-                            [ Html.text "Description"
-                            ]
-                        , Html.input (Attr.autofocus True :: info.toInput) []
-                        ]
-                )
-                |> Form.required "Required"
-            )
-        |> Form.with
-            (Form.submit
-                (\{ attrs } ->
-                    Html.button attrs
-                        [ Html.text
-                            (if submitting then
-                                "Submitting..."
-
-                             else
-                                "Submit"
-                            )
-                        ]
-                )
-            )
-
-
-deleteItemForm : String -> Form (Pages.Msg.Msg Msg) String String (Html (Pages.Msg.Msg Msg))
-deleteItemForm id =
-    Form.succeed
-        (\id_ _ -> id_)
-        |> Form.with
-            (Form.hidden "id"
-                id
-                (\attrs ->
-                    Html.input attrs []
-                )
-                |> Form.withInitialValue (Form.Value.string id)
-            )
-        |> Form.with
-            (Form.submit
-                (\{ attrs } ->
-                    Html.button attrs
-                        [ Html.text "X" ]
-                )
-            )
