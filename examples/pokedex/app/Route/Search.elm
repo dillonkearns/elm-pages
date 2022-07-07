@@ -195,7 +195,7 @@ view maybeUrl sharedModel model static =
     { title = "Search"
     , body =
         [ Html.h2 [] [ Html.text "Search" ]
-        , Form.renderHtml { method = Form.Get, submitStrategy = Form.TransitionStrategy } static () form
+        , Form.renderHtml { method = Form.Get, submitStrategy = Form.TransitionStrategy, name = Just "test1" } static () form
         , static.data.results
             |> Maybe.map resultsView
             |> Maybe.withDefault (Html.div [] [])

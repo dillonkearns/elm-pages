@@ -265,6 +265,7 @@ view maybeUrl sharedModel static =
         , Form.renderHtml
             { method = Form.Post
             , submitStrategy = Form.TransitionStrategy
+            , name = Just "test1"
             }
             static
             defaultUser

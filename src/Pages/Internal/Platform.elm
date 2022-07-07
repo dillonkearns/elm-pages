@@ -454,9 +454,10 @@ update config appMsg model =
                     , Submit fields
                     )
 
-                Pages.Msg.SubmitIfValid fields isValid ->
+                Pages.Msg.SubmitIfValid formId fields isValid ->
                     if isValid then
                         ( { model
+                            -- TODO should I setSubmitAttempted here, too?
                             | transition =
                                 Just
                                     ( -- TODO remove hardcoded number
@@ -471,15 +472,14 @@ update config appMsg model =
                         ( { model
                             | pageFormState =
                                 model.pageFormState
-                                    |> Pages.FormState.setSubmitAttempted
-                                        -- TODO remove hardcoded fieldId
-                                        "test"
+                                    |> Pages.FormState.setSubmitAttempted formId
                           }
                         , NoEffect
                         )
 
-                Pages.Msg.SubmitFetcher fields isValid ->
+                Pages.Msg.SubmitFetcher fieldId fields isValid ->
                     if isValid then
+                        -- TODO should I setSubmitAttempted here, too?
                         ( model
                         , SubmitFetcher fields
                         )
@@ -488,9 +488,7 @@ update config appMsg model =
                         ( { model
                             | pageFormState =
                                 model.pageFormState
-                                    |> Pages.FormState.setSubmitAttempted
-                                        -- TODO remove hardcoded fieldId
-                                        "test"
+                                    |> Pages.FormState.setSubmitAttempted fieldId
                           }
                         , NoEffect
                         )

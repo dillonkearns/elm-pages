@@ -343,6 +343,7 @@ view maybeUrl sharedModel model static =
                             , Form.renderHtml
                                 { submitStrategy = Form.TransitionStrategy
                                 , method = Form.Post
+                                , name = Just "test1"
                                 }
                                 static
                                 item.id
@@ -366,6 +367,7 @@ view maybeUrl sharedModel model static =
         , Form.renderHtml
             { submitStrategy = Form.TransitionStrategy
             , method = Form.Post
+            , name = Just "test2"
             }
             static
             ()

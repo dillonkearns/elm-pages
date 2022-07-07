@@ -5,7 +5,7 @@ import Css exposing (Color)
 import Css.Global
 import DataSource exposing (DataSource)
 import Date exposing (Date)
-import Dict
+import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form.Value
@@ -213,7 +213,7 @@ validateCapitalized string =
         ( Nothing, [ "Needs to be capitalized" ] )
 
 
-form : Form.StyledHtmlForm String User User msg
+form : Form.StyledHtmlForm String User (Dict String (List String)) msg
 form =
     Form.init
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
@@ -255,76 +255,82 @@ form =
                             Validation.succeed validated
                     )
         )
-        (\formState first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
+        (\formState_ first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
             let
+                formState =
+                    -- TODO merge server-side form errors with client-side errors
+                    --{ formState_
+                    --    | errors =
+                    --        formState_.data
+                    --}
+                    formState_
+
                 fieldView labelText field =
                     textInput formState labelText field
             in
-            ( []
-            , [ wrapSection
-                    [ fieldView "First name" first
-                    , fieldView "Last name" last
-                    , usernameInput formState username
-                    , fieldView "Email" email
-                    , fieldView "Date of Birth" dob
-                    , fieldView "Check-in" checkin
-                    , fieldView "Check-out" checkout
-                    , fieldView "Rating" rating
-                    ]
-              , fieldView "Password" password
-              , fieldView "Password Confirmation" passwordConfirmation
-              , wrapEmailSection
-                    [ checkboxInput { name = "Comments", description = "Get notified when someones posts a comment on a posting." } formState comments
-                    , checkboxInput { name = "Candidates", description = "Get notified when a candidate applies for a job." } formState candidates
-                    , checkboxInput { name = "Offers", description = "Get notified when a candidate accepts or rejects an offer." } formState offers
-                    ]
-              , wrapNotificationsSections
-                    [ wrapPushNotificationsSection formState
-                        pushNotifications
-                        [ Pages.FieldRenderer.radioStyled
-                            [ css
-                                [ Tw.mt_4
-                                , Tw.space_y_4
-                                ]
-                            ]
-                            (radioInput [])
-                            pushNotifications
-                        ]
-                    ]
-              , checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." } formState acceptTerms
-              , Html.div
-                    [ css
-                        [ Tw.pt_5
-                        ]
-                    ]
-                    [ Html.div
+            [ wrapSection
+                [ fieldView "First name" first
+                , fieldView "Last name" last
+                , usernameInput formState username
+                , fieldView "Email" email
+                , fieldView "Date of Birth" dob
+                , fieldView "Check-in" checkin
+                , fieldView "Check-out" checkout
+                , fieldView "Rating" rating
+                ]
+            , fieldView "Password" password
+            , fieldView "Password Confirmation" passwordConfirmation
+            , wrapEmailSection
+                [ checkboxInput { name = "Comments", description = "Get notified when someones posts a comment on a posting." } formState comments
+                , checkboxInput { name = "Candidates", description = "Get notified when a candidate applies for a job." } formState candidates
+                , checkboxInput { name = "Offers", description = "Get notified when a candidate accepts or rejects an offer." } formState offers
+                ]
+            , wrapNotificationsSections
+                [ wrapPushNotificationsSection formState
+                    pushNotifications
+                    [ Pages.FieldRenderer.radioStyled
                         [ css
-                            [ Tw.flex
-                            , Tw.justify_end
+                            [ Tw.mt_4
+                            , Tw.space_y_4
                             ]
                         ]
-                        [ cancelButton
-                        , saveButton False []
+                        (radioInput [])
+                        pushNotifications
+                    ]
+                ]
+            , checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." } formState acceptTerms
+            , Html.div
+                [ css
+                    [ Tw.pt_5
+                    ]
+                ]
+                [ Html.div
+                    [ css
+                        [ Tw.flex
+                        , Tw.justify_end
                         ]
                     ]
-              ]
-            )
+                    [ cancelButton
+                    , saveButton False []
+                    ]
+                ]
+            ]
         )
         |> Form.field "first"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (.first >> Form.Value.string)
+                |> Field.withInitialValue (always defaultUser.first >> Form.Value.string)
                 |> Field.withClientValidation validateCapitalized
             )
         |> Form.field "last"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (.last >> Form.Value.string)
+                |> Field.withInitialValue (always defaultUser.last >> Form.Value.string)
                 |> Field.withClientValidation validateCapitalized
             )
         |> Form.field "username"
             (Field.text
-                |> Field.withInitialValue (.username >> Form.Value.string)
+                |> Field.withInitialValue (always defaultUser.username >> Form.Value.string)
                 |> Field.required "Required"
                 |> Field.withClientValidation
                     (\username ->
@@ -367,7 +373,7 @@ form =
             )
         |> Form.field "email"
             (Field.text
-                |> Field.withInitialValue (.email >> Form.Value.string)
+                |> Field.withInitialValue (always defaultUser.email >> Form.Value.string)
                 |> Field.email
                 |> Field.required "Required"
             )
@@ -377,7 +383,7 @@ form =
                 |> Field.required "Required"
                 |> Field.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date) "Choose a later date"
                 |> Field.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date) "Choose an earlier date"
-                |> Field.withInitialValue (.birthDay >> Form.Value.date)
+                |> Field.withInitialValue (always defaultUser.birthDay >> Form.Value.date)
                 |> Field.withServerValidation
                     (\birthDate ->
                         if birthDate == Date.fromCalendarDate 1969 Time.Jul 20 then
@@ -391,13 +397,13 @@ form =
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
-                |> Field.withInitialValue (.checkIn >> Form.Value.date)
+                |> Field.withInitialValue (always defaultUser.checkIn >> Form.Value.date)
             )
         |> Form.field "checkout"
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
-                |> Field.withInitialValue (.checkOut >> Form.Value.date)
+                |> Field.withInitialValue (always defaultUser.checkOut >> Form.Value.date)
             )
         |> Form.field "rating"
             (Field.int { invalid = \_ -> "Invalid number" }
@@ -536,24 +542,30 @@ route =
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formParserResultNew [ form ]
+    Request.formParserResultNew2 [ form ]
         |> Request.map
-            (\result ->
-                case result of
-                    Ok user ->
-                        DataSource.succeed
-                            { user = user
-                            , flashMessage =
-                                Ok ("Successfully updated profile for user " ++ user.first ++ " " ++ user.last)
-                            }
-                            |> DataSource.map Response.render
+            (\toDataSource ->
+                toDataSource
+                    |> DataSource.andThen
+                        (\result ->
+                            case result of
+                                Ok user ->
+                                    DataSource.succeed
+                                        { user = user
+                                        , flashMessage =
+                                            Ok ("Successfully updated profile for user " ++ user.first ++ " " ++ user.last)
+                                        , formResponse = Nothing
+                                        }
+                                        |> DataSource.map Response.render
 
-                    Err error ->
-                        DataSource.succeed
-                            { flashMessage = Err "Got errors"
-                            , user = defaultUser
-                            }
-                            |> DataSource.map Response.render
+                                Err error ->
+                                    DataSource.succeed
+                                        { flashMessage = Err "Got errors"
+                                        , user = defaultUser
+                                        , formResponse = Just error
+                                        }
+                                        |> DataSource.map Response.render
+                        )
             )
 
 
@@ -578,6 +590,7 @@ type alias ActionData =
     -- @@@@@@@ TODO migrate
     --, initialForm : Form.Model
     , flashMessage : Result String String
+    , formResponse : Maybe { fields : List ( String, String ), errors : Dict String (List String) }
     }
 
 
@@ -699,7 +712,24 @@ view maybeUrl sharedModel model static =
                     , Tw.rounded_lg
                     ]
                 ]
-                [ Form.renderStyledHtml { submitStrategy = Form.TransitionStrategy, method = Form.Post } static user form
+                [ Html.text
+                    (static.action
+                        |> Maybe.andThen .formResponse
+                        |> Debug.toString
+                    )
+                , form
+                    |> Form.toDynamicTransition "test"
+                    |> Form.renderStyledHtmlNew []
+                        (static.action
+                            |> Maybe.andThen .formResponse
+                        )
+                        static
+                        (static.action
+                            |> Maybe.andThen .formResponse
+                            -- TODO wire through errors directly in the Form module (not in user code)
+                            |> Maybe.map .errors
+                            |> Maybe.withDefault Dict.empty
+                        )
                 ]
             ]
             |> Html.toUnstyled
