@@ -218,9 +218,10 @@ async function start(options) {
             pendingCliCompile = compileCliApp(
               options,
               ".elm-pages/Main.elm",
-              "elm.js",
+              path.join(process.cwd(), "elm-stuff/elm-pages/", "elm.js"),
+              // "elm.js",
               "elm-stuff/elm-pages/",
-              path.join("elm-stuff/elm-pages/.elm-pages/", "elm.js")
+              path.join("elm-stuff/elm-pages/", "elm.js")
             );
 
             Promise.all([clientElmMakeProcess, pendingCliCompile])
@@ -250,9 +251,12 @@ async function start(options) {
           pendingCliCompile = compileCliApp(
             options,
             ".elm-pages/Main.elm",
-            "elm.js",
+
+            path.join(process.cwd(), "elm-stuff/elm-pages/", "elm.js"),
+
+            // "elm.js",
             "elm-stuff/elm-pages/",
-            path.join("elm-stuff/elm-pages/.elm-pages/", "elm.js")
+            path.join("elm-stuff/elm-pages/", "elm.js")
           );
         }
 
