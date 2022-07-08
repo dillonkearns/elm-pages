@@ -922,7 +922,7 @@ toDynamicTransition : String -> Form error parsed data view -> FinalForm error p
 toDynamicTransition name (Form a b c) =
     let
         options =
-            { submitStrategy = FetcherStrategy
+            { submitStrategy = TransitionStrategy
             , method = Post
             , name = Just name
             }
