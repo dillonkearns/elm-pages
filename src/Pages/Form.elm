@@ -1171,7 +1171,6 @@ renderStyledHelperNew attrs maybe options formState data (Form fieldDefinitions 
                                 , submitAttempted = True
                                 }
                             )
-                        |> Debug.log "@@@thisFormState"
                         |> Maybe.withDefault Form.init
                     )
                 |> (\state -> { state | fields = fullFormState })
