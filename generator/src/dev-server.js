@@ -142,17 +142,18 @@ async function start(options) {
   esbuild
     .build({
       entryPoints: ["./port-data-source"],
-      entryNames: "[dir]/[name]-[hash]",
       platform: "node",
-      outdir: ".elm-pages/compiled-ports",
       assetNames: "[name]-[hash]",
       chunkNames: "chunks/[name]-[hash]",
       outExtension: { ".js": ".js" },
-      logLevel: "error",
-
       metafile: true,
       bundle: true,
       watch: true,
+      logLevel: "error",
+
+      outdir: ".elm-pages/compiled-ports",
+      entryNames: "[dir]/[name]-[hash]",
+
       plugins: [
         {
           name: "example",
