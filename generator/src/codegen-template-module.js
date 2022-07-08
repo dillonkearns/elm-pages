@@ -135,7 +135,7 @@ init :
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init maybePageUrl sharedModel app =
     ( {}, Effect.none )
 
 
@@ -150,7 +150,7 @@ update :
         ? "( Model, Effect Msg )"
         : "( Model, Effect Msg, Maybe Shared.Msg )"
     }
-update pageUrl sharedModel static msg model =
+update pageUrl sharedModel app msg model =
     case msg of
         NoOp ->
             ${
@@ -221,7 +221,7 @@ action routeParams =
 head :
     StaticPayload Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -247,14 +247,14 @@ ${
     -> Model
     -> StaticPayload Data ActionData RouteParams
     -> View ${serverRender ? "(Pages.Msg.Msg Msg)" : "Msg"}
-view maybeUrl sharedModel model static =
+view maybeUrl sharedModel model app =
 `
     : `view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
     -> View ${serverRender ? "(Pages.Msg.Msg Msg)" : "Msg"}
-view maybeUrl sharedModel static =`
+view maybeUrl sharedModel app =`
 }    View.placeholder "${pageModuleName}"
 `;
 }
