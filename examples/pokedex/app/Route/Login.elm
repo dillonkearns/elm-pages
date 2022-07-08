@@ -59,7 +59,7 @@ form =
     Form.init
         (\bar ->
             Validation.succeed identity
-                |> Validation.withField bar
+                |> Validation.andMap bar
         )
         (\_ _ -> ())
         |> Form.field "name" (Field.text |> Field.required "Required")

@@ -155,8 +155,8 @@ form =
     Form.init
         (\first email ->
             Validation.succeed Tuple.pair
-                |> Validation.withField first
-                |> Validation.withField email
+                |> Validation.andMap first
+                |> Validation.andMap email
         )
         (\info first email ->
             [ first |> fieldView info "First"

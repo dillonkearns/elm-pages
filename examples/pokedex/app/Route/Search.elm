@@ -121,7 +121,7 @@ form =
     Form.init
         (\query ->
             Validation.succeed identity
-                |> Validation.withField query
+                |> Validation.andMap query
         )
         (\info query ->
             [ query |> fieldView info "Query"

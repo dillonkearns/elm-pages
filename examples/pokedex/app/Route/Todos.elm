@@ -192,7 +192,7 @@ deleteForm =
     Form.init
         (\id ->
             Validation.succeed (\i -> Delete { id = i })
-                |> Validation.withField id
+                |> Validation.andMap id
         )
         (\info ->
             [ Html.button [] [ Html.text "❌" ]
@@ -206,7 +206,7 @@ createForm =
     Form.init
         (\description ->
             Validation.succeed (\d -> Create { description = d })
-                |> Validation.withField description
+                |> Validation.andMap description
         )
         (\info query ->
             [ query |> descriptionFieldView info

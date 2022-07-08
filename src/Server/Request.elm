@@ -890,7 +890,7 @@ fileField_ name =
 
 {-| -}
 formParserResultNew :
-    List (Pages.Form.Form error (Validation error combined) data (Pages.Form.Context error data -> viewFn))
+    List (Pages.Form.Form error (Validation error combined named) data (Pages.Form.Context error data -> viewFn))
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
 formParserResultNew formParsers =
     formData
@@ -921,7 +921,7 @@ formParserResultNew formParsers =
 
 {-| -}
 formParserResultNew2 :
-    List (Pages.Form.Form error (Validation error combined) data (Pages.Form.Context error data -> viewFn))
+    List (Pages.Form.Form error (Validation error combined named) data (Pages.Form.Context error data -> viewFn))
     -> Parser (DataSource (Result { fields : List ( String, String ), errors : Dict String (List error) } combined))
 formParserResultNew2 formParsers =
     formData

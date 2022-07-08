@@ -1,20 +1,22 @@
-module Validation exposing (Validation(..), andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback, withField)
+module Validation exposing (Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback)
 
 import Dict exposing (Dict)
+import Pages.Internal.Form exposing (Named, Validation(..))
 
 
-type Validation error parsed
-    = Validation ( Maybe parsed, Dict String (List error) )
+type alias Validation error parsed named =
+    Pages.Internal.Form.Validation error parsed named
 
 
-succeed : parsed -> Validation error parsed
+succeed : parsed -> Validation error parsed Never
 succeed parsed =
-    Validation ( Just parsed, Dict.empty )
+    Validation Nothing ( Just parsed, Dict.empty )
 
 
-withFallback : parsed -> Validation error parsed -> Validation error parsed
-withFallback parsed (Validation ( maybeParsed, errors )) =
+withFallback : parsed -> Validation error parsed named -> Validation error parsed named
+withFallback parsed (Validation name ( maybeParsed, errors )) =
     Validation
+        name
         ( maybeParsed
             |> Maybe.withDefault parsed
             |> Just
@@ -22,82 +24,81 @@ withFallback parsed (Validation ( maybeParsed, errors )) =
         )
 
 
-parseWithError : parsed -> ( String, error ) -> Validation error parsed
+parseWithError : parsed -> ( String, error ) -> Validation error parsed Never
 parseWithError parsed ( key, error ) =
-    Validation ( Just parsed, Dict.singleton key [ error ] )
+    Validation Nothing ( Just parsed, Dict.singleton key [ error ] )
 
 
-fail : String -> error -> Validation error parsed
-fail key parsed =
-    Validation ( Nothing, Dict.singleton key [ parsed ] )
+fail : Validation error parsed1 Named -> error -> Validation error parsed Never
+fail (Validation key _) parsed =
+    Validation Nothing ( Nothing, Dict.singleton (key |> Maybe.withDefault "") [ parsed ] )
 
 
-withError : String -> error -> Validation error parsed -> Validation error parsed
-withError key error (Validation ( maybeParsedA, errorsA )) =
-    Validation ( maybeParsedA, errorsA |> insertIfNonempty key [ error ] )
+withError : Validation error parsed1 Named -> error -> Validation error parsed2 named -> Validation error parsed2 named
+withError (Validation key _) error (Validation name ( maybeParsedA, errorsA )) =
+    Validation name ( maybeParsedA, errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ] )
 
 
-withErrorIf : Bool -> String -> error -> Validation error parsed -> Validation error parsed
-withErrorIf includeError key error (Validation ( maybeParsedA, errorsA )) =
-    Validation
+withErrorIf : Bool -> Validation error parsed Named -> error -> Validation error parsed named -> Validation error parsed named
+withErrorIf includeError (Validation key _) error (Validation name ( maybeParsedA, errorsA )) =
+    Validation name
         ( maybeParsedA
         , if includeError then
-            errorsA |> insertIfNonempty key [ error ]
+            errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ]
 
           else
             errorsA
         )
 
 
-map : (parsed -> mapped) -> Validation error parsed -> Validation error mapped
-map mapFn (Validation ( maybeParsedA, errorsA )) =
-    Validation ( Maybe.map mapFn maybeParsedA, errorsA )
+
+--map : (parsed -> mapped) -> Validation error parsed named -> Validation error mapped named
 
 
-fromResult : Result ( String, error ) parsed -> Validation error parsed
+map : (parsed -> mapped) -> Validation error parsed named -> Validation error mapped Never
+map mapFn (Validation name ( maybeParsedA, errorsA )) =
+    Validation name ( Maybe.map mapFn maybeParsedA, errorsA )
+
+
+fromResult : Result ( String, error ) parsed -> Validation error parsed Never
 fromResult result =
     case result of
         Ok parsed ->
-            Validation ( Just parsed, Dict.empty )
+            Validation Nothing ( Just parsed, Dict.empty )
 
         Err ( key, error ) ->
-            Validation ( Nothing, Dict.singleton key [ error ] )
+            Validation Nothing ( Nothing, Dict.singleton key [ error ] )
 
 
-andMap : Validation error a -> Validation error (a -> b) -> Validation error b
+andMap : Validation error a named1 -> Validation error (a -> b) named2 -> Validation error b Never
 andMap =
     map2 (|>)
 
 
-withField : { field | value : Validation error parsed } -> Validation error (parsed -> combined) -> Validation error combined
-withField field =
-    andMap field.value
-
-
-andThen : (parsed -> Validation error mapped) -> Validation error parsed -> Validation error mapped
-andThen andThenFn (Validation ( maybeParsed, errors )) =
+andThen : (parsed -> Validation error mapped named1) -> Validation error parsed named2 -> Validation error mapped Never
+andThen andThenFn (Validation name ( maybeParsed, errors )) =
     case maybeParsed of
         Just parsed ->
             andThenFn parsed
-                |> (\(Validation ( andThenParsed, andThenErrors )) ->
-                        Validation ( andThenParsed, mergeErrors errors andThenErrors )
+                |> (\(Validation _ ( andThenParsed, andThenErrors )) ->
+                        Validation Nothing ( andThenParsed, mergeErrors errors andThenErrors )
                    )
 
         Nothing ->
-            Validation ( Nothing, errors )
+            Validation Nothing ( Nothing, errors )
 
 
-map2 : (a -> b -> c) -> Validation error a -> Validation error b -> Validation error c
-map2 f (Validation ( maybeParsedA, errorsA )) (Validation ( maybeParsedB, errorsB )) =
-    Validation
+map2 : (a -> b -> c) -> Validation error a named1 -> Validation error b named2 -> Validation error c Never
+map2 f (Validation name1 ( maybeParsedA, errorsA )) (Validation name2 ( maybeParsedB, errorsB )) =
+    Validation Nothing
         ( Maybe.map2 f maybeParsedA maybeParsedB
         , mergeErrors errorsA errorsB
         )
 
 
-fromMaybe : Maybe parsed -> Validation error parsed
+fromMaybe : Maybe parsed -> Validation error parsed Never
 fromMaybe maybe =
-    Validation ( maybe, Dict.empty )
+    Validation Nothing ( maybe, Dict.empty )
 
 
 mergeErrors : Dict comparable (List value) -> Dict comparable (List value) -> Dict comparable (List value)

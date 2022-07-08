@@ -218,14 +218,14 @@ form =
     Form.init
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
             Validation.succeed User
-                |> Validation.withField first
-                |> Validation.withField last
-                |> Validation.withField username
-                |> Validation.withField email
-                |> Validation.withField dob
-                |> Validation.withField checkin
-                |> Validation.withField checkout
-                |> Validation.withField rating
+                |> Validation.andMap first
+                |> Validation.andMap last
+                |> Validation.andMap username
+                |> Validation.andMap email
+                |> Validation.andMap dob
+                |> Validation.andMap checkin
+                |> Validation.andMap checkout
+                |> Validation.andMap rating
                 |> Validation.andMap
                     (Validation.map2
                         (\passwordValue passwordConfirmationValue ->
@@ -233,23 +233,23 @@ form =
                                 Validation.succeed ( passwordValue, passwordConfirmationValue )
 
                             else
-                                Validation.fail passwordConfirmation.name "Must match password"
+                                Validation.fail passwordConfirmation "Must match password"
                         )
-                        password.value
-                        passwordConfirmation.value
+                        password
+                        passwordConfirmation
                         |> Validation.andThen identity
                     )
                 |> Validation.andMap
                     (Validation.succeed NotificationPreferences
-                        |> Validation.withField comments
-                        |> Validation.withField candidates
-                        |> Validation.withField offers
-                        |> Validation.withField pushNotifications
+                        |> Validation.andMap comments
+                        |> Validation.andMap candidates
+                        |> Validation.andMap offers
+                        |> Validation.andMap pushNotifications
                     )
                 |> Validation.andThen
                     (\validated ->
                         if Date.toRataDie validated.checkIn >= Date.toRataDie validated.checkOut then
-                            Validation.succeed validated |> Validation.withError checkin.name "Must be before checkout"
+                            Validation.succeed validated |> Validation.withError checkin "Must be before checkout"
 
                         else
                             Validation.succeed validated

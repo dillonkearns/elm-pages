@@ -70,12 +70,12 @@ form =
     Form.init
         (\first last username email dob check ->
             Validation.succeed User
-                |> Validation.withField first
-                |> Validation.withField last
-                |> Validation.withField username
-                |> Validation.withField email
-                |> Validation.withField dob
-                |> Validation.withField check
+                |> Validation.andMap first
+                |> Validation.andMap last
+                |> Validation.andMap username
+                |> Validation.andMap email
+                |> Validation.andMap dob
+                |> Validation.andMap check
         )
         (\formState firstName lastName username email dob check ->
             let
