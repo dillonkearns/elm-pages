@@ -13,7 +13,6 @@ module Pages.Form exposing
     ,  AppContext
       , RenderOptions
         -- subGroup
-      , renderStyledHtmlNew
       , toDynamicFetcher
       , toDynamicTransition
 
@@ -935,7 +934,7 @@ toDynamicTransition name (Form a b c) =
 
 
 {-| -}
-renderStyledHtmlNew :
+renderStyledHtml :
     List (Html.Styled.Attribute (Pages.Msg.Msg msg))
     ->
         Maybe
@@ -953,26 +952,8 @@ renderStyledHtmlNew :
              -> List (Html.Styled.Html (Pages.Msg.Msg msg))
             )
     -> Html.Styled.Html (Pages.Msg.Msg msg)
-renderStyledHtmlNew attrs maybe app data (FinalForm options a b c) =
+renderStyledHtml attrs maybe app data (FinalForm options a b c) =
     Html.Styled.Lazy.lazy6 renderStyledHelperNew attrs maybe options app data (Form a b c)
-
-
-{-| -}
-renderStyledHtml :
-    RenderOptions
-    -> AppContext app
-    -> data
-    ->
-        Form
-            error
-            (Validation error parsed)
-            data
-            (Context error data
-             -> List (Html.Styled.Html (Pages.Msg.Msg msg))
-            )
-    -> Html.Styled.Html (Pages.Msg.Msg msg)
-renderStyledHtml options app data combinedParser =
-    Html.Styled.Lazy.lazy4 renderStyledHelper options app data combinedParser
 
 
 renderHelper :

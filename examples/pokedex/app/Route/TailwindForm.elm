@@ -719,7 +719,7 @@ view maybeUrl sharedModel model static =
                     )
                 , form
                     |> Form.toDynamicTransition "test"
-                    |> Form.renderStyledHtmlNew []
+                    |> Form.renderStyledHtml []
                         (static.action
                             |> Maybe.andThen .formResponse
                         )
