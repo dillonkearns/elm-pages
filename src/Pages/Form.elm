@@ -5,7 +5,7 @@ module Pages.Form exposing
     , andThen
     , Context, ViewField
     , renderHtml, renderStyledHtml
-    , Method(..), SubmitStrategy(..)
+    , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , runOneOfServerSideWithServerValidations
@@ -13,8 +13,6 @@ module Pages.Form exposing
     ,  AppContext
       , RenderOptions
         -- subGroup
-      , toDynamicFetcher
-      , toDynamicTransition
 
     )
 
@@ -47,10 +45,7 @@ module Pages.Form exposing
 
 @docs renderHtml, renderStyledHtml
 
-
-### Rendering Options
-
-@docs Method, SubmitStrategy
+@docs FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
 
 
 ## Running Parsers
@@ -859,11 +854,10 @@ runOneOfServerSideWithServerValidations rawFormData parsers =
 
 {-| -}
 renderHtml :
-    RenderOptions
-    -> AppContext app
+    AppContext app
     -> data
     ->
-        Form
+        FinalForm
             error
             (Validation error parsed)
             data
@@ -871,8 +865,8 @@ renderHtml :
              -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
             )
     -> Html (Pages.Msg.Msg msg)
-renderHtml options app data combinedParser =
-    Html.Lazy.lazy4 renderHelper options app data combinedParser
+renderHtml app data (FinalForm options a b c) =
+    Html.Lazy.lazy4 renderHelper options app data (Form a b c)
 
 
 {-| -}
@@ -931,6 +925,11 @@ toDynamicTransition name (Form a b c) =
             }
     in
     FinalForm options a b c
+
+
+withGetMethod : FinalForm error parsed data view -> FinalForm error parsed data view
+withGetMethod (FinalForm options a b c) =
+    FinalForm { options | method = Get } a b c
 
 
 {-| -}
@@ -1118,27 +1117,27 @@ renderStyledHelperNew attrs maybe options formState data (Form fieldDefinitions 
 
         part2 : Dict String Form.FieldState
         part2 =
-            --formState.pageFormState
-            --    |> Dict.get formId
-            --    |> Maybe.withDefault
-            --        (maybe
-            --            |> Maybe.map
-            --                (\{ fields } ->
-            --                    { fields =
-            --                        fields
-            --                            |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
-            --                            |> Dict.fromList
-            --                    , submitAttempted = True
-            --                    }
-            --                )
-            --            |> Maybe.withDefault initFormState
-            --        )
-            --    |> .fields
             formState.pageFormState
                 |> Dict.get formId
-                |> Maybe.withDefault initFormState
+                |> Maybe.withDefault
+                    (maybe
+                        |> Maybe.map
+                            (\{ fields } ->
+                                { fields =
+                                    fields
+                                        |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                                        |> Dict.fromList
+                                , submitAttempted = True
+                                }
+                            )
+                        |> Maybe.withDefault initFormState
+                    )
                 |> .fields
 
+        --formState.pageFormState
+        --    |> Dict.get formId
+        --    |> Maybe.withDefault initFormState
+        --    |> .fields
         fullFormState : Dict String Form.FieldState
         fullFormState =
             initialValues

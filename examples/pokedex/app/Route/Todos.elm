@@ -340,14 +340,9 @@ view maybeUrl sharedModel model static =
                             [ Html.text item.description
 
                             -- TODO should the (List Html.Attribute) be passed in to renderHtml instead of the `( List Html, List Attr)` in Form.init?
-                            , Form.renderHtml
-                                { submitStrategy = Form.TransitionStrategy
-                                , method = Form.Post
-                                , name = Just "test1"
-                                }
-                                static
-                                item.id
-                                deleteForm
+                            , deleteForm
+                                |> Form.toDynamicTransition "test1"
+                                |> Form.renderHtml static item.id
                             ]
                     )
              )
@@ -364,13 +359,8 @@ view maybeUrl sharedModel model static =
                             ]
                    )
             )
-        , Form.renderHtml
-            { submitStrategy = Form.TransitionStrategy
-            , method = Form.Post
-            , name = Just "test2"
-            }
-            static
-            ()
-            createForm
+        , createForm
+            |> Form.toDynamicTransition "test2"
+            |> Form.renderHtml static ()
         ]
     }

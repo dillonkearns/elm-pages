@@ -262,13 +262,8 @@ view maybeUrl sharedModel static =
         , Html.h1
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
-        , Form.renderHtml
-            { method = Form.Post
-            , submitStrategy = Form.TransitionStrategy
-            , name = Just "test1"
-            }
-            static
-            defaultUser
-            form
+        , form
+            |> Form.toDynamicTransition "test1"
+            |> Form.renderHtml static defaultUser
         ]
     }

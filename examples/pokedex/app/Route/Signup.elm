@@ -264,7 +264,9 @@ view maybeUrl sharedModel model static =
                     Html.text ""
             ]
         , flashView static.data.flashMessage
-        , Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy, name = Just "test1" } static () form
+        , form
+            |> Form.toDynamicTransition "test1"
+            |> Form.renderHtml static ()
         ]
     }
 
