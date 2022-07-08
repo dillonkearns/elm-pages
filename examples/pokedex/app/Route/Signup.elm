@@ -159,12 +159,10 @@ form =
                 |> Validation.withField email
         )
         (\info first email ->
-            ( []
-            , [ first |> fieldView info "First"
-              , email |> fieldView info "Email"
-              , Html.button [] [ Html.text "Sign Up" ]
-              ]
-            )
+            [ first |> fieldView info "First"
+            , email |> fieldView info "Email"
+            , Html.button [] [ Html.text "Sign Up" ]
+            ]
         )
         |> Form.field "first" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "Jane"))
         |> Form.field "email" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "jane@example.com"))
@@ -266,7 +264,7 @@ view maybeUrl sharedModel model static =
         , flashView static.data.flashMessage
         , form
             |> Form.toDynamicTransition "test1"
-            |> Form.renderHtml static ()
+            |> Form.renderHtml [] static ()
         ]
     }
 

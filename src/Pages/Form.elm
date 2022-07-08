@@ -854,7 +854,8 @@ runOneOfServerSideWithServerValidations rawFormData parsers =
 
 {-| -}
 renderHtml :
-    AppContext app
+    List (Html.Attribute (Pages.Msg.Msg msg))
+    -> AppContext app
     -> data
     ->
         FinalForm
@@ -862,11 +863,11 @@ renderHtml :
             (Validation error parsed)
             data
             (Context error data
-             -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
+             -> List (Html (Pages.Msg.Msg msg))
             )
     -> Html (Pages.Msg.Msg msg)
-renderHtml app data (FinalForm options a b c) =
-    Html.Lazy.lazy4 renderHelper options app data (Form a b c)
+renderHtml attrs app data (FinalForm options a b c) =
+    Html.Lazy.lazy5 renderHelper attrs options app data (Form a b c)
 
 
 {-| -}
@@ -956,12 +957,13 @@ renderStyledHtml attrs maybe app data (FinalForm options a b c) =
 
 
 renderHelper :
-    RenderOptions
+    List (Html.Attribute (Pages.Msg.Msg msg))
+    -> RenderOptions
     -> AppContext app
     -> data
-    -> Form error (Validation error parsed) data (Context error data -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
+    -> Form error (Validation error parsed) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
     -> Html (Pages.Msg.Msg msg)
-renderHelper options formState data (Form fieldDefinitions parser toInitialValues) =
+renderHelper attrs options formState data (Form fieldDefinitions parser toInitialValues) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -989,7 +991,7 @@ renderHelper options formState data (Form fieldDefinitions parser toInitialValue
 
         parsed :
             { result : ( Validation error parsed, Dict String (List error) )
-            , view : Context error data -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) )
+            , view : Context error data -> List (Html (Pages.Msg.Msg msg))
             , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
@@ -1024,7 +1026,7 @@ renderHelper options formState data (Form fieldDefinitions parser toInitialValue
             , data = data
             }
 
-        ( formAttributes, children ) =
+        children =
             parsed.view context
 
         hiddenInputs : List (Html (Pages.Msg.Msg msg))
@@ -1063,7 +1065,7 @@ renderHelper options formState data (Form fieldDefinitions parser toInitialValue
                     TransitionStrategy ->
                         Pages.Msg.submitIfValid formId (isValid parser data)
                ]
-            ++ formAttributes
+            ++ attrs
         )
         (hiddenInputs ++ children)
 
@@ -1384,7 +1386,7 @@ type alias HtmlForm error parsed data msg =
         error
         (Validation error parsed)
         data
-        (Context error data -> ( List (Html.Attribute (Pages.Msg.Msg msg)), List (Html (Pages.Msg.Msg msg)) ))
+        (Context error data -> List (Html (Pages.Msg.Msg msg)))
 
 
 {-| -}

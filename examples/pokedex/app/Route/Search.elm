@@ -124,11 +124,9 @@ form =
                 |> Validation.withField query
         )
         (\info query ->
-            ( []
-            , [ query |> fieldView info "Query"
-              , Html.button [] [ Html.text "Search" ]
-              ]
-            )
+            [ query |> fieldView info "Query"
+            , Html.button [] [ Html.text "Search" ]
+            ]
         )
         |> Form.field "q" (Field.text |> Field.required "Required")
 
@@ -198,7 +196,7 @@ view maybeUrl sharedModel model static =
         , form
             |> Form.toDynamicTransition "test1"
             |> Form.withGetMethod
-            |> Form.renderHtml static ()
+            |> Form.renderHtml [] static ()
         , static.data.results
             |> Maybe.map resultsView
             |> Maybe.withDefault (Html.div [] [])

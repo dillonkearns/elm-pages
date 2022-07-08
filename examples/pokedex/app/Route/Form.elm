@@ -113,26 +113,21 @@ form =
                         , errorsView field
                         ]
             in
-            ( [ Attr.style "display" "flex"
-              , Attr.style "flex-direction" "column"
-              , Attr.style "gap" "20px"
-              ]
-            , [ fieldView "Name" firstName
-              , fieldView "Description" lastName
-              , fieldView "Price" username
-              , fieldView "Image" email
-              , fieldView "Image" dob
-              , Html.button []
-                    [ Html.text
-                        (if formState.isTransitioning then
-                            "Updating..."
+            [ fieldView "Name" firstName
+            , fieldView "Description" lastName
+            , fieldView "Price" username
+            , fieldView "Image" email
+            , fieldView "Image" dob
+            , Html.button []
+                [ Html.text
+                    (if formState.isTransitioning then
+                        "Updating..."
 
-                         else
-                            "Update"
-                        )
-                    ]
-              ]
-            )
+                     else
+                        "Update"
+                    )
+                ]
+            ]
         )
         |> Form.field "first"
             (Field.text
@@ -264,6 +259,12 @@ view maybeUrl sharedModel static =
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form
             |> Form.toDynamicTransition "test1"
-            |> Form.renderHtml static defaultUser
+            |> Form.renderHtml
+                [ Attr.style "display" "flex"
+                , Attr.style "flex-direction" "column"
+                , Attr.style "gap" "20px"
+                ]
+                static
+                defaultUser
         ]
     }

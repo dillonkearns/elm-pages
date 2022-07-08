@@ -195,10 +195,8 @@ deleteForm =
                 |> Validation.withField id
         )
         (\info ->
-            ( [ Attr.style "display" "inline", Attr.style "padding-left" "6px" ]
-            , [ Html.button [] [ Html.text "❌" ]
-              ]
-            )
+            [ Html.button [] [ Html.text "❌" ]
+            ]
         )
         |> Form.hiddenField "id" (Field.text |> Field.required "Required" |> Field.withInitialValue Form.Value.string)
 
@@ -211,19 +209,17 @@ createForm =
                 |> Validation.withField description
         )
         (\info query ->
-            ( []
-            , [ query |> descriptionFieldView info
-              , Html.button []
-                    [ Html.text <|
-                        -- TODO retain isTransitioning state while refetching `data` after a submission
-                        if info.isTransitioning then
-                            "Creating..."
+            [ query |> descriptionFieldView info
+            , Html.button []
+                [ Html.text <|
+                    -- TODO retain isTransitioning state while refetching `data` after a submission
+                    if info.isTransitioning then
+                        "Creating..."
 
-                        else
-                            "Create"
-                    ]
-              ]
-            )
+                    else
+                        "Create"
+                ]
+            ]
         )
         |> Form.field "q" (Field.text |> Field.required "Required")
 
@@ -338,11 +334,14 @@ view maybeUrl sharedModel model static =
                                 []
                             )
                             [ Html.text item.description
-
-                            -- TODO should the (List Html.Attribute) be passed in to renderHtml instead of the `( List Html, List Attr)` in Form.init?
                             , deleteForm
                                 |> Form.toDynamicTransition "test1"
-                                |> Form.renderHtml static item.id
+                                |> Form.renderHtml
+                                    [ Attr.style "display" "inline"
+                                    , Attr.style "padding-left" "6px"
+                                    ]
+                                    static
+                                    item.id
                             ]
                     )
              )
@@ -361,6 +360,6 @@ view maybeUrl sharedModel model static =
             )
         , createForm
             |> Form.toDynamicTransition "test2"
-            |> Form.renderHtml static ()
+            |> Form.renderHtml [] static ()
         ]
     }
