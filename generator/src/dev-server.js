@@ -4,9 +4,9 @@ const which = require("which");
 const chokidar = require("chokidar");
 const { URL } = require("url");
 const {
-  spawnElmMake,
   compileElmForBrowser,
   runElmReview,
+  compileCliApp,
 } = require("./compile-elm.js");
 const http = require("http");
 const https = require("https");
@@ -64,7 +64,18 @@ async function start(options) {
     process.exit(1);
   }
   let clientElmMakeProcess = compileElmForBrowser(options);
-  let pendingCliCompile = compileCliApp(options);
+  console.log({ options });
+  let pendingCliCompile = compileCliApp(
+    options,
+    ".elm-pages/Main.elm",
+
+    path.join(process.cwd(), "elm-stuff/elm-pages/", "elm.js"),
+
+    // "elm.js",
+    "elm-stuff/elm-pages/",
+    path.join("elm-stuff/elm-pages/", "elm.js")
+  );
+
   watchElmSourceDirs(true);
 
   async function setup() {
@@ -107,14 +118,6 @@ async function start(options) {
     watcher.add(sourceDirs);
   }
 
-  async function compileCliApp(options) {
-    await spawnElmMake(
-      options,
-      ".elm-pages/Main.elm",
-      "elm.js",
-      "elm-stuff/elm-pages/"
-    );
-  }
   const viteConfig = await import(
     path.join(process.cwd(), "elm-pages.config.mjs")
   )
@@ -211,7 +214,13 @@ async function start(options) {
           try {
             await codegen.generate(options.base);
             clientElmMakeProcess = compileElmForBrowser(options);
-            pendingCliCompile = compileCliApp(options);
+            pendingCliCompile = compileCliApp(
+              options,
+              ".elm-pages/Main.elm",
+              "elm.js",
+              "elm-stuff/elm-pages/",
+              path.join("elm-stuff/elm-pages/.elm-pages/", "elm.js")
+            );
 
             Promise.all([clientElmMakeProcess, pendingCliCompile])
               .then(() => {
@@ -237,7 +246,13 @@ async function start(options) {
           pendingCliCompile = Promise.reject(errorJson);
         } else {
           clientElmMakeProcess = compileElmForBrowser(options);
-          pendingCliCompile = compileCliApp(options);
+          pendingCliCompile = compileCliApp(
+            options,
+            ".elm-pages/Main.elm",
+            "elm.js",
+            "elm-stuff/elm-pages/",
+            path.join("elm-stuff/elm-pages/.elm-pages/", "elm.js")
+          );
         }
 
         Promise.all([clientElmMakeProcess, pendingCliCompile])
