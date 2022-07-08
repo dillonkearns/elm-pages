@@ -191,7 +191,7 @@ usernameInput formState field =
                             , Tw.pointer_events_none
                             ]
                         ]
-                        [ if Dict.get field.name formState.errors |> Maybe.withDefault [] |> List.isEmpty then
+                        [ if formState.errors |> Form.errorsForField field |> List.isEmpty then
                             Html.text ""
 
                           else
@@ -861,8 +861,7 @@ errorsView formState field =
         ]
         (if showErrors then
             formState.errors
-                |> Dict.get field.name
-                |> Maybe.withDefault []
+                |> Form.errorsForField field
                 |> List.map
                     (\error ->
                         Html.li

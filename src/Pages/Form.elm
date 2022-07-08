@@ -11,8 +11,10 @@ module Pages.Form exposing
     , runOneOfServerSideWithServerValidations
     , FieldDefinition(..)
     ,  AppContext
+      , Errors
       , RenderOptions
         -- subGroup
+      , errorsForField
 
     )
 
@@ -106,7 +108,7 @@ initFormState =
 
 {-| -}
 type alias Context error data =
-    { errors : FieldErrors error
+    { errors : Errors error
     , isTransitioning : Bool
     , submitAttempted : Bool
     , data : data
@@ -562,6 +564,18 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
 
 
 {-| -}
+type Errors error
+    = Errors (Dict String (List error))
+
+
+errorsForField : ViewField error parsed kind -> Errors error -> List error
+errorsForField viewField (Errors errorsDict) =
+    errorsDict
+        |> Dict.get viewField.name
+        |> Maybe.withDefault []
+
+
+{-| -}
 type alias FieldErrors error =
     Dict String (List error)
 
@@ -1011,7 +1025,10 @@ renderHelper attrs options formState data (Form fieldDefinitions parser toInitia
         context : Context error data
         context =
             { errors =
-                merged |> unwrapValidation |> Tuple.second
+                merged
+                    |> unwrapValidation
+                    |> Tuple.second
+                    |> Errors
             , isTransitioning =
                 case formState.transition of
                     Just _ ->
@@ -1179,7 +1196,10 @@ renderStyledHelperNew attrs maybe options formState data (Form fieldDefinitions 
         context : Context error data
         context =
             { errors =
-                merged |> unwrapValidation |> Tuple.second
+                merged
+                    |> unwrapValidation
+                    |> Tuple.second
+                    |> Errors
             , isTransitioning =
                 case formState.transition of
                     Just transition ->
@@ -1298,7 +1318,10 @@ renderStyledHelper options formState data (Form fieldDefinitions parser toInitia
         context : Context error data
         context =
             { errors =
-                merged |> unwrapValidation |> Tuple.second
+                merged
+                    |> unwrapValidation
+                    |> Tuple.second
+                    |> Errors
             , isTransitioning =
                 case formState.transition of
                     Just _ ->

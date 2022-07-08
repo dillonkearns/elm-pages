@@ -81,8 +81,7 @@ form =
             let
                 errors field =
                     formState.errors
-                        |> Dict.get field.name
-                        |> Maybe.withDefault []
+                        |> Form.errorsForField field
 
                 errorsView field =
                     case ( formState.submitAttempted, field |> errors ) of
