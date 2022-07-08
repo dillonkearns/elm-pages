@@ -231,17 +231,22 @@ view :
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
     -> View (Pages.Msg.Msg Msg)
-view maybeUrl sharedModel static =
+view maybeUrl sharedModel app =
     let
         user : User
         user =
-            static.action
+            app.action
                 |> Maybe.map .user
                 |> Maybe.withDefault defaultUser
     in
     { title = "Form Example"
     , body =
-        [ static.action
+        [ Html.pre []
+            [ app.action
+                |> Debug.toString
+                |> Html.text
+            ]
+        , app.action
             |> Maybe.map .user
             |> Maybe.map
                 (\user_ ->
@@ -263,7 +268,7 @@ view maybeUrl sharedModel static =
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                static
+                app
                 defaultUser
         ]
     }
