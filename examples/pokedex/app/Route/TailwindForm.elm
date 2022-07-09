@@ -213,7 +213,7 @@ validateCapitalized string =
         ( Nothing, [ "Needs to be capitalized" ] )
 
 
-form : Form.StyledHtmlForm String User (Dict String (List String)) msg
+form : Form.StyledHtmlForm String User data msg
 form =
     Form.init
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
@@ -255,16 +255,8 @@ form =
                             Validation.succeed validated
                     )
         )
-        (\formState_ first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
+        (\formState first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
             let
-                formState =
-                    -- TODO merge server-side form errors with client-side errors
-                    --{ formState_
-                    --    | errors =
-                    --        formState_.data
-                    --}
-                    formState_
-
                 fieldView labelText field =
                     textInput formState labelText field
             in
@@ -586,9 +578,6 @@ type alias Data =
 
 type alias ActionData =
     { user : User
-
-    -- @@@@@@@ TODO migrate
-    --, initialForm : Form.Model
     , flashMessage : Result String String
     , formResponse : Maybe { fields : List ( String, String ), errors : Dict String (List String) }
     }
@@ -724,12 +713,7 @@ view maybeUrl sharedModel model static =
                             |> Maybe.andThen .formResponse
                         )
                         static
-                        (static.action
-                            |> Maybe.andThen .formResponse
-                            -- TODO wire through errors directly in the Form module (not in user code)
-                            |> Maybe.map .errors
-                            |> Maybe.withDefault Dict.empty
-                        )
+                        never
                 ]
             ]
             |> Html.toUnstyled
