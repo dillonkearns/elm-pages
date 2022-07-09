@@ -64,7 +64,6 @@ async function start(options) {
     process.exit(1);
   }
   let clientElmMakeProcess = compileElmForBrowser(options);
-  console.log({ options });
   let pendingCliCompile = compileCliApp(
     options,
     ".elm-pages/Main.elm",
