@@ -4,6 +4,7 @@ import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict
 import ErrorPage exposing (ErrorPage)
+import Form
 import Form.Field as Field
 import Form.FieldView
 import Form.Validation as Validation
@@ -14,7 +15,6 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
-import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url

@@ -6,6 +6,7 @@ import DataSource exposing (DataSource)
 import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form
 import Form.Field as Field
 import Form.FieldView
 import Form.Validation as Validation
@@ -14,7 +15,6 @@ import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
-import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)

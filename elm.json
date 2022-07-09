@@ -28,7 +28,7 @@
         "Pages.Flags",
         "Pages.Fetcher",
         "Form.Field",
-        "Pages.Form",
+        "Form",
         "Form.FieldView",
         "Form.Value",
         "Pages.Transition",

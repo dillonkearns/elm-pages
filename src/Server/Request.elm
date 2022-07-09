@@ -95,13 +95,13 @@ module Server.Request exposing
 import CookieParser
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
+import Form
 import Form.Validation as Validation exposing (Validation)
 import FormData
 import Internal.Request
 import Json.Decode
 import Json.Encode
 import List.NonEmpty
-import Pages.Form
 import QueryParams
 import Time
 import Url
@@ -890,7 +890,7 @@ fileField_ name =
 
 {-| -}
 formParserResultNew :
-    List (Pages.Form.Form error (Validation error combined named) data (Pages.Form.Context error data -> viewFn))
+    List (Form.Form error (Validation error combined named) data (Form.Context error data -> viewFn))
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
 formParserResultNew formParsers =
     formData
@@ -898,7 +898,7 @@ formParserResultNew formParsers =
             (\rawFormData ->
                 let
                     ( maybeDecoded, errors ) =
-                        Pages.Form.runOneOfServerSide
+                        Form.runOneOfServerSide
                             rawFormData
                             formParsers
                 in
@@ -921,7 +921,7 @@ formParserResultNew formParsers =
 
 {-| -}
 formParserResultNew2 :
-    List (Pages.Form.Form error (Validation error combined named) data (Pages.Form.Context error data -> viewFn))
+    List (Form.Form error (Validation error combined named) data (Form.Context error data -> viewFn))
     -> Parser (DataSource (Result { fields : List ( String, String ), errors : Dict String (List error) } combined))
 formParserResultNew2 formParsers =
     formData
@@ -929,7 +929,7 @@ formParserResultNew2 formParsers =
             (\rawFormData ->
                 let
                     ( maybeDecoded, errorsDataSource ) =
-                        Pages.Form.runOneOfServerSideWithServerValidations
+                        Form.runOneOfServerSideWithServerValidations
                             rawFormData
                             formParsers
                 in

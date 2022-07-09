@@ -1,4 +1,4 @@
-module Pages.Form exposing
+module Form exposing
     ( Form(..), FieldErrors, HtmlForm, StyledHtmlForm
     , init
     , ParsedField, field, hiddenField, hiddenKind

@@ -3,6 +3,7 @@ module Route.Login exposing (ActionData, Data, Model, Msg, route)
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
+import Form
 import Form.Field as Field
 import Form.FieldView
 import Form.Validation as Validation
@@ -11,7 +12,6 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
-import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url

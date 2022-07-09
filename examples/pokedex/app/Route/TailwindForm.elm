@@ -8,6 +8,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form exposing (Form)
 import Form.Field as Field
 import Form.FieldView
 import Form.Validation as Validation
@@ -18,7 +19,6 @@ import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Http
 import Icon
-import Pages.Form as Form exposing (Form)
 import Pages.FormState
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
