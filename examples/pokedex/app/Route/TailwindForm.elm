@@ -16,7 +16,7 @@ import Html.Styled.Attributes as Attr exposing (css)
 import Http
 import Icon
 import Pages.Field as Field
-import Pages.FieldRenderer
+import Pages.FieldView
 import Pages.Form as Form exposing (Form)
 import Pages.FormState
 import Pages.Msg
@@ -157,7 +157,7 @@ usernameInput formState field =
                             ]
                         ]
                         [ Html.text "workcation.com/" ]
-                    , Pages.FieldRenderer.inputStyled
+                    , Pages.FieldView.inputStyled
                         [ Attr.type_ "text"
                         , Attr.name "username"
                         , Attr.id "username"
@@ -280,7 +280,7 @@ form =
             , wrapNotificationsSections
                 [ wrapPushNotificationsSection formState
                     pushNotifications
-                    [ Pages.FieldRenderer.radioStyled
+                    [ Pages.FieldView.radioStyled
                         [ css
                             [ Tw.mt_4
                             , Tw.space_y_4
@@ -804,7 +804,7 @@ textInput info labelText field =
                 ]
             ]
             [ field
-                |> Pages.FieldRenderer.inputStyled
+                |> Pages.FieldView.inputStyled
                     [ --Attr.attribute "autocomplete" "given-name",
                       css
                         [ Tw.max_w_lg
@@ -881,7 +881,7 @@ checkboxInput { name, description } info field =
                     ]
                 ]
                 [ field
-                    |> Pages.FieldRenderer.inputStyled
+                    |> Pages.FieldView.inputStyled
                         [ css
                             [ Tw.h_4
                             , Tw.w_4

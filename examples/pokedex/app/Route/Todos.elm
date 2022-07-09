@@ -20,7 +20,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import List.Extra
 import Pages.Field as Field
-import Pages.FieldRenderer
+import Pages.FieldView
 import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -226,13 +226,13 @@ createForm =
 
 descriptionFieldView :
     Form.Context String data
-    -> Form.ViewField String parsed Pages.FieldRenderer.Input
+    -> Form.ViewField String parsed Pages.FieldView.Input
     -> Html msg
 descriptionFieldView formState field =
     Html.div []
         [ Html.label []
             [ Html.text "Description "
-            , field |> Pages.FieldRenderer.input [ Attr.autofocus True ]
+            , field |> Pages.FieldView.input [ Attr.autofocus True ]
             ]
         , errorsForField formState field
         ]

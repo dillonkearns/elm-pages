@@ -12,7 +12,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
 import Pages.Field as Field
-import Pages.FieldRenderer
+import Pages.FieldView
 import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -225,7 +225,7 @@ form =
                     Html.div []
                         [ Html.label []
                             [ Html.text (label ++ " ")
-                            , field |> Pages.FieldRenderer.input []
+                            , field |> Pages.FieldView.input []
                             ]
                         , errorsView field
                         ]
@@ -238,7 +238,7 @@ form =
               , fieldView "Description" description
               , fieldView "Price" price
               , fieldView "Image" imageUrl
-              , Pages.FieldRenderer.radio []
+              , Pages.FieldView.radio []
                     (\enum toRadio ->
                         Html.label []
                             [ toRadio []

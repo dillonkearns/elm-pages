@@ -1,4 +1,4 @@
-module Pages.FieldRenderer exposing
+module Pages.FieldView exposing
     ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, select, toHtmlProperties
     , inputStyled, radioStyled
     )

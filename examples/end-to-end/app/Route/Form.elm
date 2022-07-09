@@ -12,7 +12,7 @@ import Html.Attributes as Attr
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
 import Pages.Field as Field
-import Pages.FieldRenderer
+import Pages.FieldView
 import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -108,7 +108,7 @@ form =
                     Html.div []
                         [ Html.label []
                             [ Html.text (label ++ " ")
-                            , field |> Pages.FieldRenderer.input []
+                            , field |> Pages.FieldView.input []
                             ]
                         , errorsView field
                         ]

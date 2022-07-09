@@ -12,7 +12,7 @@ import Html.Attributes as Attr
 import Http
 import MySession
 import Pages.Field as Field
-import Pages.FieldRenderer
+import Pages.FieldView
 import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -126,13 +126,13 @@ init maybePageUrl sharedModel static =
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Pages.FieldRenderer.Input
+    -> Form.ViewField String parsed Pages.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Pages.FieldRenderer.input []
+            , field |> Pages.FieldView.input []
             ]
         , errorsForField formState field
         ]

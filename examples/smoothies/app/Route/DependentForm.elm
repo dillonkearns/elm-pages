@@ -7,7 +7,7 @@ import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages.Field as Field
-import Pages.FieldRenderer
+import Pages.FieldView
 import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -189,7 +189,7 @@ dependentParser =
         )
         (\formState kind postForm_ ->
             ( []
-            , [ Pages.FieldRenderer.radio []
+            , [ Pages.FieldView.radio []
                     (\enum toRadio ->
                         Html.label []
                             [ toRadio []
@@ -238,7 +238,7 @@ dependentParser =
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Pages.FieldRenderer.Input
+    -> Form.ViewField String parsed Pages.FieldView.Input
     -> Html msg
 fieldView formState label field =
     let
@@ -256,7 +256,7 @@ fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Pages.FieldRenderer.input []
+            , field |> Pages.FieldView.input []
             ]
         , errorsView
         ]

@@ -9,7 +9,7 @@ import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages.Field as Field
-import Pages.FieldRenderer
+import Pages.FieldView
 import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -157,7 +157,7 @@ postForm =
               , fieldView formState "What's the name of your group?" name
               , fieldView formState "Describe what your group is about (you can fill out this later)" description
               , Html.div []
-                    [ Pages.FieldRenderer.radio []
+                    [ Pages.FieldView.radio []
                         (\enum toRadio ->
                             Html.div []
                                 [ Html.label []
@@ -238,13 +238,13 @@ postForm =
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Pages.FieldRenderer.Input
+    -> Form.ViewField String parsed Pages.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Pages.FieldRenderer.input []
+            , field |> Pages.FieldView.input []
             ]
         , errorsForField formState field
         ]
