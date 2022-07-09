@@ -66,14 +66,14 @@ all =
                     [ Form.init
                         (\bar ->
                             Validation.succeed identity
-                                |> Validation.withField bar
+                                |> Validation.andMap bar
                         )
                         (\_ _ -> ())
                         |> Form.field "bar" Field.text
                     , Form.init
                         (\bar ->
                             Validation.succeed identity
-                                |> Validation.withField bar
+                                |> Validation.andMap bar
                         )
                         (\_ _ -> ())
                         |> Form.field "foo" Field.text
@@ -96,7 +96,7 @@ all =
                     [ Form.init
                         (\bar ->
                             Validation.succeed identity
-                                |> Validation.withField bar
+                                |> Validation.andMap bar
                         )
                         (\_ _ -> ())
                         |> Form.field "bar" Field.text
@@ -122,7 +122,7 @@ all =
         --                      --   [ Form.init
         --                      --       (\bar ->
         --                      --           Validation.succeed identity
-        --                      --               |> Validation.withField bar
+        --                      --               |> Validation.andMap bar
         --                      --       )
         --                      --       (\_ _ -> ())
         --                      --       |> Form.field "first" Field.text

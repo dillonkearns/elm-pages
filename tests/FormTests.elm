@@ -29,11 +29,11 @@ all =
                             (\passwordValue passwordConfirmationValue ->
                                 Validation.succeed { password = passwordValue }
                                     |> Validation.withErrorIf (passwordValue /= passwordConfirmationValue)
-                                        passwordConfirmation.name
+                                        passwordConfirmation
                                         "Must match password"
                             )
-                            |> Validation.withField password
-                            |> Validation.withField passwordConfirmation
+                            |> Validation.andMap password
+                            |> Validation.andMap passwordConfirmation
                             |> Validation.andThen identity
                     )
                     (\_ _ _ -> Div)
@@ -76,8 +76,8 @@ all =
                     , Form.init
                         (\_ uuid quantity ->
                             Validation.succeed SetQuantity
-                                |> Validation.andMap (uuid.value |> Validation.map Uuid)
-                                |> Validation.withField quantity
+                                |> Validation.andMap (uuid |> Validation.map Uuid)
+                                |> Validation.andMap quantity
                         )
                         (\_ _ -> Div)
                         |> Form.hiddenField "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
@@ -126,7 +126,7 @@ all =
                     selectParser =
                         [ Form.init
                             (\media ->
-                                media.value
+                                media
                             )
                             (\_ _ -> Div)
                             |> Form.field "media"
@@ -154,7 +154,7 @@ all =
                 ]
             , describe "dependent validations" <|
                 let
-                    checkinFormParser : Form String (Validation String ( Date, Date )) data (Form.Context String data -> MyView)
+                    checkinFormParser : Form String (Validation String ( Date, Date ) Never) data (Form.Context String data -> MyView)
                     checkinFormParser =
                         Form.init
                             (\checkin checkout ->
@@ -162,14 +162,14 @@ all =
                                     (\checkinValue checkoutValue ->
                                         Validation.succeed ( checkinValue, checkoutValue )
                                             |> (if Date.toRataDie checkinValue >= Date.toRataDie checkoutValue then
-                                                    Validation.withError checkin.name "Must be before checkout"
+                                                    Validation.withError checkin "Must be before checkout"
 
                                                 else
                                                     identity
                                                )
                                     )
-                                    |> Validation.withField checkin
-                                    |> Validation.withField checkout
+                                    |> Validation.andMap checkin
+                                    |> Validation.andMap checkout
                                     |> Validation.andThen identity
                             )
                             (\_ _ _ -> Div)
@@ -229,10 +229,10 @@ all =
                                                             Validation.succeed { password = passwordValue }
 
                                                         else
-                                                            Validation.fail passwordConfirmation.name "Must match password"
+                                                            Validation.fail passwordConfirmation "Must match password"
                                                     )
-                                                    |> Validation.withField password
-                                                    |> Validation.withField passwordConfirmation
+                                                    |> Validation.andMap password
+                                                    |> Validation.andMap passwordConfirmation
                                                     |> Validation.andThen identity
                                             )
                                             (\_ _ _ -> [ Div ])
@@ -250,12 +250,12 @@ all =
             ]
         , describe "dependent parsing" <|
             let
-                linkForm : Form String (Validation String PostAction) data (Form.Context String data -> MyView)
+                linkForm : Form String (Validation String PostAction Never) data (Form.Context String data -> MyView)
                 linkForm =
                     Form.init
                         (\url ->
                             Validation.succeed ParsedLink
-                                |> Validation.withField url
+                                |> Validation.andMap url
                         )
                         (\_ _ -> Div)
                         |> Form.field "url"
@@ -264,7 +264,7 @@ all =
                                 |> Field.url
                             )
 
-                postForm : Form String (Validation String PostAction) data (Form.Context String data -> MyView)
+                postForm : Form String (Validation String PostAction Never) data (Form.Context String data -> MyView)
                 postForm =
                     Form.init
                         (\title body ->
@@ -274,19 +274,19 @@ all =
                                     , body = bodyValue
                                     }
                                 )
-                                |> Validation.withField title
-                                |> Validation.withField body
+                                |> Validation.andMap title
+                                |> Validation.andMap body
                                 |> Validation.map ParsedPost
                         )
                         (\_ _ _ -> Div)
                         |> Form.field "title" (Field.text |> Field.required "Required")
                         |> Form.field "body" Field.text
 
-                dependentParser : Form String (Validation String PostAction) data (Form.Context String data -> MyView)
+                dependentParser : Form String (Validation String PostAction Never) data (Form.Context String data -> MyView)
                 dependentParser =
                     Form.init
                         (\kind postForm_ ->
-                            kind.value
+                            kind
                                 |> Validation.andThen postForm_
                         )
                         (\_ _ _ ->

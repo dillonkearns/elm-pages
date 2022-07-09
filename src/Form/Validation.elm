@@ -52,7 +52,7 @@ withError (Validation key _) error (Validation name ( maybeParsedA, errorsA )) =
 
 
 {-| -}
-withErrorIf : Bool -> Validation error parsed Named -> error -> Validation error parsed named -> Validation error parsed named
+withErrorIf : Bool -> Validation error ignored Named -> error -> Validation error parsed named -> Validation error parsed named
 withErrorIf includeError (Validation key _) error (Validation name ( maybeParsedA, errorsA )) =
     Validation name
         ( maybeParsedA
