@@ -1,8 +1,13 @@
-module Form.Validation exposing (Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback)
+module Form.Validation exposing
+    ( Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
+    , value
+    )
 
 {-|
 
 @docs Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
+
+@docs value
 
 -}
 
@@ -31,6 +36,12 @@ withFallback parsed (Validation name ( maybeParsed, errors )) =
             |> Just
         , errors
         )
+
+
+{-| -}
+value : Validation error parsed named -> Maybe parsed
+value (Validation _ ( maybeParsed, _ )) =
+    maybeParsed
 
 
 {-| -}
