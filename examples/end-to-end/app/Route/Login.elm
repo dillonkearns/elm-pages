@@ -69,7 +69,7 @@ data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession
-            (Request.formParserResultNew [ form ])
+            (Request.formDataWithoutServerValidation [ form ])
             (\nameResult session ->
                 (nameResult
                     |> Result.Extra.unpack

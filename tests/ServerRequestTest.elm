@@ -48,7 +48,7 @@ all =
                         "Expected HTTP method POST but was GET"
         , test "formData extracts fields from query params for GET" <|
             \() ->
-                Request.formData
+                Request.rawFormData
                     |> Request.map
                         (\formData ->
                             formData
@@ -62,7 +62,7 @@ all =
                         [ ( "q", "hello" ) ]
         , test "tries multiple form post formats" <|
             \() ->
-                Request.formParserResultNew
+                Request.formDataWithoutServerValidation
                     [ Form.init
                         (\bar ->
                             Validation.succeed identity
@@ -92,7 +92,7 @@ all =
                         }
         , test "expectFormPost with missing content-type" <|
             \() ->
-                Request.formParserResultNew
+                Request.formDataWithoutServerValidation
                     [ Form.init
                         (\bar ->
                             Validation.succeed identity

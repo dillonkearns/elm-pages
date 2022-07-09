@@ -159,7 +159,7 @@ greet : ApiRoute ApiRoute.Response
 greet =
     ApiRoute.succeed
         (Request.oneOf
-            [ Request.formParserResultNew
+            [ Request.formDataWithoutServerValidation
                 [ Form.init
                     (\bar ->
                         Validation.succeed identity

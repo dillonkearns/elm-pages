@@ -534,7 +534,7 @@ route =
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formParserResultNew2 [ form ]
+    Request.formData [ form ]
         |> Request.map
             (\toDataSource ->
                 toDataSource

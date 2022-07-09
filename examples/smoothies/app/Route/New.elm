@@ -99,7 +99,7 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
-        (Request.formParserResultNew [ form ])
+        (Request.formDataWithoutServerValidation [ form ])
         Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId ( parsed, requestTime ) session ->

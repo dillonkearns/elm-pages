@@ -1,8 +1,8 @@
 module Server.Request exposing
     ( Parser
     , succeed, fromResult, skip
-    , formParserResultNew
-    , formData
+    , formData, formDataWithoutServerValidation
+    , rawFormData
     , method, rawBody, allCookies, rawHeaders, queryParams
     , requestTime, optionalHeader, expectContentType, expectJsonBody
     , acceptMethod, acceptContentTypes
@@ -15,7 +15,6 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
-    , formParserResultNew2
     )
 
 {-|
@@ -27,9 +26,9 @@ module Server.Request exposing
 
 ## Forms
 
-@docs formParserResultNew
+@docs formData, formDataWithoutServerValidation
 
-@docs formData
+@docs rawFormData
 
 
 ## Direct Values
@@ -84,11 +83,6 @@ module Server.Request exposing
 ## Internals
 
 @docs errorsToString, errorToString, getDecoder, ValidationError
-
-
-## Work-In-Progress
-
-@docs formParserResultNew2
 
 -}
 
@@ -889,17 +883,17 @@ fileField_ name =
 
 
 {-| -}
-formParserResultNew :
+formDataWithoutServerValidation :
     List (Form.Form error (Validation error combined named) data (Form.Context error data -> viewFn))
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
-formParserResultNew formParsers =
-    formData
+formDataWithoutServerValidation formParsers =
+    rawFormData
         |> andThen
-            (\rawFormData ->
+            (\rawFormData_ ->
                 let
                     ( maybeDecoded, errors ) =
                         Form.runOneOfServerSide
-                            rawFormData
+                            rawFormData_
                             formParsers
                 in
                 case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
@@ -908,7 +902,7 @@ formParserResultNew formParsers =
 
                     ( _, maybeErrors ) ->
                         Err
-                            { fields = rawFormData
+                            { fields = rawFormData_
                             , errors =
                                 maybeErrors
                                     |> Maybe.map List.NonEmpty.toList
@@ -920,17 +914,17 @@ formParserResultNew formParsers =
 
 
 {-| -}
-formParserResultNew2 :
+formData :
     List (Form.Form error (Validation error combined named) data (Form.Context error data -> viewFn))
     -> Parser (DataSource (Result { fields : List ( String, String ), errors : Dict String (List error) } combined))
-formParserResultNew2 formParsers =
-    formData
+formData formParsers =
+    rawFormData
         |> andThen
-            (\rawFormData ->
+            (\rawFormData_ ->
                 let
                     ( maybeDecoded, errorsDataSource ) =
                         Form.runOneOfServerSideWithServerValidations
-                            rawFormData
+                            rawFormData_
                             formParsers
                 in
                 errorsDataSource
@@ -942,7 +936,7 @@ formParserResultNew2 formParsers =
 
                                 ( _, maybeErrors ) ->
                                     Err
-                                        { fields = rawFormData
+                                        { fields = rawFormData_
                                         , errors =
                                             maybeErrors
                                                 |> Maybe.map List.NonEmpty.toList
@@ -955,8 +949,8 @@ formParserResultNew2 formParsers =
 
 
 {-| -}
-formData : Parser (List ( String, String ))
-formData =
+rawFormData : Parser (List ( String, String ))
+rawFormData =
     -- TODO make an optional version
     map4 (\parsedContentType a b c -> ( ( a, parsedContentType ), b, c ))
         (rawContentType |> map (Maybe.map parseContentType))

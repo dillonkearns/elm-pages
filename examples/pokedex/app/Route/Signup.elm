@@ -59,7 +59,7 @@ route =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action _ =
     MySession.withSession
-        (Request.formParserResultNew [ form ]
+        (Request.formDataWithoutServerValidation [ form ]
             |> Request.map (Result.mapError (\error -> "Errors"))
             |> Request.andThen Request.fromResult
         )
