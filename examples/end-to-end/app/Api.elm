@@ -163,7 +163,7 @@ greet =
                 [ Form.init
                     (\bar ->
                         Validation.succeed identity
-                            |> Validation.withField bar
+                            |> Validation.andMap bar
                     )
                     (\_ _ -> ())
                     |> Form.field "first" (Field.text |> Field.required "Required")

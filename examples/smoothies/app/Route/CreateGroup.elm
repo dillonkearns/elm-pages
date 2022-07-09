@@ -147,9 +147,9 @@ postForm =
     Form.init
         (\name description visibility ->
             Validation.succeed GroupFormValidated
-                |> Validation.withField name
-                |> Validation.withField description
-                |> Validation.withField visibility
+                |> Validation.andMap name
+                |> Validation.andMap description
+                |> Validation.andMap visibility
         )
         (\formState name description visibility ->
             ( []

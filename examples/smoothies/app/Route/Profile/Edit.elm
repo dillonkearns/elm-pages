@@ -124,8 +124,8 @@ formParser =
     Form.init
         (\username name ->
             Validation.succeed Action
-                |> Validation.withField username
-                |> Validation.withField name
+                |> Validation.andMap username
+                |> Validation.andMap name
         )
         (\info username name ->
             let

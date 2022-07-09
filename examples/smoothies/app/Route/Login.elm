@@ -93,7 +93,7 @@ form =
     Form.init
         (\username ->
             Validation.succeed identity
-                |> Validation.withField username
+                |> Validation.andMap username
         )
         (\info username ->
             ( []

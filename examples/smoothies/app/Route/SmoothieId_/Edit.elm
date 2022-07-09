@@ -197,10 +197,10 @@ form =
     Form.init
         (\name description price imageUrl media ->
             Validation.succeed EditInfo
-                |> Validation.withField name
-                |> Validation.withField description
-                |> Validation.withField price
-                |> Validation.withField imageUrl
+                |> Validation.andMap name
+                |> Validation.andMap description
+                |> Validation.andMap price
+                |> Validation.andMap imageUrl
                 |> Validation.map Edit
         )
         (\formState name description price imageUrl media ->

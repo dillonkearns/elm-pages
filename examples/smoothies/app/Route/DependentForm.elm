@@ -147,7 +147,7 @@ linkForm =
     Form.init
         (\url ->
             Validation.succeed ParsedLink
-                |> Validation.withField url
+                |> Validation.andMap url
         )
         (\formState url ->
             [ Html.h2 [] [ Html.text "Create a link" ]
@@ -166,8 +166,8 @@ postForm =
     Form.init
         (\title body ->
             Validation.succeed PostInfo
-                |> Validation.withField title
-                |> Validation.withField body
+                |> Validation.andMap title
+                |> Validation.andMap body
                 |> Validation.map ParsedPost
         )
         (\formState title body ->

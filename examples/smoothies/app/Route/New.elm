@@ -133,10 +133,10 @@ form =
     Form.init
         (\name description price imageUrl ->
             Validation.succeed NewItem
-                |> Validation.withField name
-                |> Validation.withField description
-                |> Validation.withField price
-                |> Validation.withField imageUrl
+                |> Validation.andMap name
+                |> Validation.andMap description
+                |> Validation.andMap price
+                |> Validation.andMap imageUrl
         )
         (\info name description price imageUrl ->
             let

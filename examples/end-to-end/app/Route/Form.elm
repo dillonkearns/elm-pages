@@ -70,19 +70,18 @@ form =
     Form.init
         (\first last username email dob check ->
             Validation.succeed User
-                |> Validation.withField first
-                |> Validation.withField last
-                |> Validation.withField username
-                |> Validation.withField email
-                |> Validation.withField dob
-                |> Validation.withField check
+                |> Validation.andMap first
+                |> Validation.andMap last
+                |> Validation.andMap username
+                |> Validation.andMap email
+                |> Validation.andMap dob
+                |> Validation.andMap check
         )
         (\formState firstName lastName username email dob check ->
             let
                 errors field =
                     formState.errors
-                        |> Dict.get field.name
-                        |> Maybe.withDefault []
+                        |> Form.errorsForField field
 
                 errorsView field =
                     case ( formState.submitAttempted, field |> errors ) of
@@ -113,26 +112,21 @@ form =
                         , errorsView field
                         ]
             in
-            ( [ Attr.style "display" "flex"
-              , Attr.style "flex-direction" "column"
-              , Attr.style "gap" "20px"
-              ]
-            , [ fieldView "Name" firstName
-              , fieldView "Description" lastName
-              , fieldView "Price" username
-              , fieldView "Image" email
-              , fieldView "Image" dob
-              , Html.button []
-                    [ Html.text
-                        (if formState.isTransitioning then
-                            "Updating..."
+            [ fieldView "Name" firstName
+            , fieldView "Description" lastName
+            , fieldView "Price" username
+            , fieldView "Image" email
+            , fieldView "Image" dob
+            , Html.button []
+                [ Html.text
+                    (if formState.isTransitioning then
+                        "Updating..."
 
-                         else
-                            "Update"
-                        )
-                    ]
-              ]
-            )
+                     else
+                        "Update"
+                    )
+                ]
+            ]
         )
         |> Form.field "first"
             (Field.text
@@ -262,13 +256,15 @@ view maybeUrl sharedModel static =
         , Html.h1
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
-        , Form.renderHtml
-            { method = Form.Post
-            , submitStrategy = Form.TransitionStrategy
-            }
-            static
-            defaultUser
-            form
+        , form
+            |> Form.toDynamicTransition "user-form"
+            |> Form.renderHtml
+                [ Attr.style "display" "flex"
+                , Attr.style "flex-direction" "column"
+                , Attr.style "gap" "20px"
+                ]
+                static
+                defaultUser
         ]
             |> List.map Html.Styled.fromUnstyled
     }
