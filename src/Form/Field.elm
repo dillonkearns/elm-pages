@@ -62,9 +62,9 @@ module Form.Field exposing
 import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict exposing (Dict)
+import Form.FieldView as FieldView exposing (Input, Options(..))
 import Form.Value
 import Json.Encode as Encode
-import Pages.FieldView as FieldView exposing (Input, Options(..))
 
 
 {-| -}

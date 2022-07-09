@@ -1,4 +1,4 @@
-module Pages.FieldView exposing
+module Form.FieldView exposing
     ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, select, toHtmlProperties
     , radioStyled, inputStyled
     )

@@ -5,11 +5,11 @@ import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form.Field as Field
+import Form.FieldView
 import Form.Validation as Validation exposing (Validation)
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Pages.FieldView
 import Pages.Form as Form
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)

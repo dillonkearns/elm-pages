@@ -29,7 +29,7 @@
         "Pages.Fetcher",
         "Form.Field",
         "Pages.Form",
-        "Pages.FieldView",
+        "Form.FieldView",
         "Form.Value",
         "Pages.Transition",
         "Form.Validation"
