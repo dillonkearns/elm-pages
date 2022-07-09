@@ -4,7 +4,8 @@
   "description": "Example site built with elm-pages.",
   "scripts": {
     "start": "elm-pages dev",
-    "test": "elm-pages build --debug && git diff --exit-code ./dist && elm-pages build && git diff --exit-code ./dist",
+    "test": "elm-pages build --debug && npm run clean-diff && elm-pages build && npm run clean-diff",
+    "clean-diff": "sed -i.bak 's/src=\".elm.*\\.js\"/src=\"\\/elm.js\"/gi' ./dist/escaping/index.html && git diff --exit-code ./dist",
     "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
     "build": "elm-pages build"
   },
