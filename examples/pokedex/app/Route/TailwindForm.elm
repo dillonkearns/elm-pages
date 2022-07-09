@@ -8,6 +8,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Validation as Validation
 import Form.Value
 import Head
 import Head.Seo as Seo
@@ -31,7 +32,6 @@ import Tailwind.Utilities as Tw
 import Task
 import Time
 import Url exposing (Url)
-import Validation
 import View exposing (View)
 
 

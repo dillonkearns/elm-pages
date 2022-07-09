@@ -2,6 +2,7 @@ module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
+import Form.Validation as Validation
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
@@ -19,7 +20,6 @@ import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
-import Validation
 import View exposing (View)
 
 

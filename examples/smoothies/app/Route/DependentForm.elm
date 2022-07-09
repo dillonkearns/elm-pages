@@ -3,6 +3,7 @@ module Route.DependentForm exposing (ActionData, Data, Model, Msg, route)
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Validation as Validation
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -16,7 +17,6 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
-import Validation
 import View exposing (View)
 
 

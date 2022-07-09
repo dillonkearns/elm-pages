@@ -2,6 +2,7 @@ module Api exposing (routes)
 
 import ApiRoute exposing (ApiRoute)
 import DataSource exposing (DataSource)
+import Form.Validation as Validation
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -16,7 +17,6 @@ import Server.Response as Response exposing (Response)
 import Test.Glob
 import Test.Runner.Html
 import Time
-import Validation
 import Xml.Decode
 
 

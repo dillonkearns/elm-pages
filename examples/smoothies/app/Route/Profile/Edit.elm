@@ -6,6 +6,7 @@ import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Validation as Validation
 import Form.Value
 import Head
 import Head.Seo as Seo
@@ -27,7 +28,6 @@ import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
-import Validation
 import View exposing (View)
 
 

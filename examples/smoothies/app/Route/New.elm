@@ -7,6 +7,7 @@ import Dict
 import Dict.Extra
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Validation as Validation
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -25,7 +26,6 @@ import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
-import Validation
 import View exposing (View)
 
 

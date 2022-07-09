@@ -4,6 +4,7 @@ import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict
 import ErrorPage exposing (ErrorPage)
+import Form.Validation as Validation
 import Form.Value
 import Head
 import Head.Seo as Seo
@@ -23,7 +24,6 @@ import Server.Request as Request exposing (Parser)
 import Server.Response
 import Shared
 import Time
-import Validation
 import View exposing (View)
 
 

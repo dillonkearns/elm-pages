@@ -4,6 +4,7 @@ import DataSource exposing (DataSource)
 import Description exposing (Description)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Validation as Validation
 import GroupName exposing (GroupName)
 import Head
 import Html exposing (Html)
@@ -18,7 +19,6 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
-import Validation
 import View exposing (View)
 
 

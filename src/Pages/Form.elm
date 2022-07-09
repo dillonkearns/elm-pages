@@ -78,6 +78,7 @@ module Pages.Form exposing
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Dict.Extra
+import Form.Validation as Validation exposing (Validation)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
@@ -90,7 +91,6 @@ import Pages.FormState as Form exposing (FormState)
 import Pages.Internal.Form exposing (Named)
 import Pages.Msg
 import Pages.Transition
-import Validation exposing (Validation)
 
 
 

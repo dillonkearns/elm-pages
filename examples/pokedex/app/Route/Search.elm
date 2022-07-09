@@ -3,6 +3,7 @@ module Route.Search exposing (ActionData, Data, Model, Msg, route)
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Validation as Validation
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -18,7 +19,6 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
-import Validation
 import View exposing (View)
 
 

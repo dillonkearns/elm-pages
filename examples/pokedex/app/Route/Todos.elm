@@ -10,6 +10,7 @@ import Api.Scalar exposing (Id(..))
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Validation as Validation
 import Form.Value
 import FormDecoder exposing (FormData)
 import Graphql.Operation exposing (RootMutation, RootQuery)
@@ -34,7 +35,6 @@ import Server.Response as Response exposing (Response)
 import Set exposing (Set)
 import Shared
 import Time
-import Validation
 import View exposing (View)
 
 

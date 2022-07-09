@@ -2,6 +2,7 @@ module ServerRequestTest exposing (all)
 
 import Dict exposing (Dict)
 import Expect exposing (Expectation)
+import Form.Validation as Validation
 import FormData
 import Internal.Request exposing (Parser(..))
 import Json.Decode as Decode
@@ -10,7 +11,6 @@ import Pages.Field as Field
 import Pages.Form as Form
 import Server.Request as Request
 import Test exposing (Test, describe, test)
-import Validation
 
 
 all : Test
