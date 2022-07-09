@@ -1,11 +1,16 @@
 module Pages.FieldView exposing
     ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, select, toHtmlProperties
-    , inputStyled, radioStyled
+    , radioStyled, inputStyled
     )
 
 {-|
 
 @docs Input, InputType, Options, input, inputTypeToString, radio, select, toHtmlProperties
+
+
+## Html.Styled Helpers
+
+@docs radioStyled, inputStyled
 
 -}
 

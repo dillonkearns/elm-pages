@@ -6,16 +6,13 @@ module Pages.Form exposing
     , Context, ViewField
     , renderHtml, renderStyledHtml
     , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
+    , Errors, errorsForField
     , parse, runOneOfServerSide, runServerSide
     , dynamic, HtmlSubForm
     , runOneOfServerSideWithServerValidations
+    , AppContext
     , FieldDefinition(..)
-    ,  AppContext
-      , Errors
-      , RenderOptions
-        -- subGroup
-      , errorsForField
-
+    -- subGroup
     )
 
 {-|
@@ -50,6 +47,11 @@ module Pages.Form exposing
 @docs FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
 
 
+## Showing Errors
+
+@docs Errors, errorsForField
+
+
 ## Running Parsers
 
 @docs parse, runOneOfServerSide, runServerSide
@@ -63,6 +65,8 @@ module Pages.Form exposing
 ## Work-In-Progress
 
 @docs runOneOfServerSideWithServerValidations
+
+@docs AppContext
 
 
 ## Internal-Only?
@@ -556,6 +560,7 @@ type Errors error
     = Errors (Dict String (List error))
 
 
+{-| -}
 errorsForField : ViewField error parsed kind -> Errors error -> List error
 errorsForField viewField (Errors errorsDict) =
     errorsDict
@@ -906,6 +911,7 @@ toStatic (Form a b c) =
     FinalForm options a b c
 
 
+{-| -}
 toDynamicFetcher : String -> Form error parsed data view -> FinalForm error parsed data view
 toDynamicFetcher name (Form a b c) =
     let
@@ -918,6 +924,7 @@ toDynamicFetcher name (Form a b c) =
     FinalForm options a b c
 
 
+{-| -}
 toDynamicTransition : String -> Form error parsed data view -> FinalForm error parsed data view
 toDynamicTransition name (Form a b c) =
     let
@@ -930,6 +937,7 @@ toDynamicTransition name (Form a b c) =
     FinalForm options a b c
 
 
+{-| -}
 withGetMethod : FinalForm error parsed data view -> FinalForm error parsed data view
 withGetMethod (FinalForm options a b c) =
     FinalForm { options | method = Get } a b c
