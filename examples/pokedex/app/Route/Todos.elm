@@ -226,13 +226,13 @@ createForm =
 
 descriptionFieldView :
     Form.Context String data
-    -> Form.ViewField String parsed Pages.FieldView.Input
+    -> Form.ViewField String parsed Form.FieldView.Input
     -> Html msg
 descriptionFieldView formState field =
     Html.div []
         [ Html.label []
             [ Html.text "Description "
-            , field |> Pages.FieldView.input [ Attr.autofocus True ]
+            , field |> Form.FieldView.input [ Attr.autofocus True ]
             ]
         , errorsForField formState field
         ]

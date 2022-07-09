@@ -189,7 +189,7 @@ dependentParser =
         )
         (\formState kind postForm_ ->
             ( []
-            , [ Pages.FieldView.radio []
+            , [ Form.FieldView.radio []
                     (\enum toRadio ->
                         Html.label []
                             [ toRadio []
@@ -238,7 +238,7 @@ dependentParser =
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Pages.FieldView.Input
+    -> Form.ViewField String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     let
@@ -256,7 +256,7 @@ fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Pages.FieldView.input []
+            , field |> Form.FieldView.input []
             ]
         , errorsView
         ]

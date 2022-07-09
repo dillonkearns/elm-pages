@@ -157,7 +157,7 @@ postForm =
               , fieldView formState "What's the name of your group?" name
               , fieldView formState "Describe what your group is about (you can fill out this later)" description
               , Html.div []
-                    [ Pages.FieldView.radio []
+                    [ Form.FieldView.radio []
                         (\enum toRadio ->
                             Html.div []
                                 [ Html.label []
@@ -238,13 +238,13 @@ postForm =
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Pages.FieldView.Input
+    -> Form.ViewField String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Pages.FieldView.input []
+            , field |> Form.FieldView.input []
             ]
         , errorsForField formState field
         ]

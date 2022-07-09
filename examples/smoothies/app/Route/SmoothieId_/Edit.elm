@@ -225,7 +225,7 @@ form =
                     Html.div []
                         [ Html.label []
                             [ Html.text (label ++ " ")
-                            , field |> Pages.FieldView.input []
+                            , field |> Form.FieldView.input []
                             ]
                         , errorsView field
                         ]
@@ -238,7 +238,7 @@ form =
               , fieldView "Description" description
               , fieldView "Price" price
               , fieldView "Image" imageUrl
-              , Pages.FieldView.radio []
+              , Form.FieldView.radio []
                     (\enum toRadio ->
                         Html.label []
                             [ toRadio []
