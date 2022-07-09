@@ -1160,7 +1160,19 @@ renderStyledHelperNew attrs maybe options formState data (Form fieldDefinitions 
 
         merged : Validation error parsed named
         merged =
-            mergeResults parsed
+            mergeResults
+                { parsed
+                    | result =
+                        parsed.result
+                            |> Tuple.mapSecond
+                                (\errors1 ->
+                                    mergeErrors errors1
+                                        (maybe
+                                            |> Maybe.map .errors
+                                            |> Maybe.withDefault Dict.empty
+                                        )
+                                )
+                }
 
         thisFormState : Form.FormState
         thisFormState =
