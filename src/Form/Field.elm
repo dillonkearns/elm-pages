@@ -1,4 +1,4 @@
-module Pages.Field exposing
+module Form.Field exposing
     ( text, checkbox, int, float
     , select, range, OutsideRange(..)
     , date, time, TimeOfDay

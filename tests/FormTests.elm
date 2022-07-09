@@ -3,8 +3,8 @@ module FormTests exposing (all)
 import Date exposing (Date)
 import Dict
 import Expect
+import Form.Field as Field
 import Form.Validation as Validation exposing (Validation)
-import Pages.Field as Field
 import Pages.Form as Form exposing (Form)
 import Test exposing (Test, describe, test)
 

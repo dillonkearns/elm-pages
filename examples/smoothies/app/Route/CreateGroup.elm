@@ -4,12 +4,12 @@ import DataSource exposing (DataSource)
 import Description exposing (Description)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.Field as Field
 import Form.Validation as Validation
 import GroupName exposing (GroupName)
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Pages.Field as Field
 import Pages.FieldView
 import Pages.Form as Form
 import Pages.Msg

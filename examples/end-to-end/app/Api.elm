@@ -2,12 +2,12 @@ module Api exposing (routes)
 
 import ApiRoute exposing (ApiRoute)
 import DataSource exposing (DataSource)
+import Form.Field as Field
 import Form.Validation as Validation
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages
-import Pages.Field as Field
 import Pages.Form as Form
 import Random
 import Result.Extra

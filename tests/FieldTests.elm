@@ -2,8 +2,8 @@ module FieldTests exposing (all)
 
 import Date
 import Expect
+import Form.Field as Field exposing (Field(..))
 import Form.Value as Value
-import Pages.Field as Field exposing (Field(..))
 import Test exposing (Test, test)
 
 
