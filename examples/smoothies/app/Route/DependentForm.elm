@@ -128,7 +128,9 @@ view maybeUrl sharedModel model app =
     { title = "Dependent Form Example"
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
-        , Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } app () dependentParser
+        , dependentParser
+            |> Form.toDynamicTransition "dependent-example"
+            |> Form.renderHtml [] app ()
         ]
     }
 
@@ -184,37 +186,35 @@ dependentParser : Form.HtmlForm String PostAction data Msg
 dependentParser =
     Form.init
         (\kind postForm_ ->
-            kind.value
+            kind
                 |> Validation.andThen postForm_
         )
         (\formState kind postForm_ ->
-            ( []
-            , [ Form.FieldView.radio []
-                    (\enum toRadio ->
-                        Html.label []
-                            [ toRadio []
-                            , Html.text
-                                (case enum of
-                                    Link ->
-                                        "Link"
+            [ Form.FieldView.radio []
+                (\enum toRadio ->
+                    Html.label []
+                        [ toRadio []
+                        , Html.text
+                            (case enum of
+                                Link ->
+                                    "Link"
 
-                                    Post ->
-                                        "Post"
-                                )
-                            ]
-                    )
-                    kind
-              , Html.div []
-                    (case kind.parsed of
-                        Just justKind ->
-                            postForm_ justKind
+                                Post ->
+                                    "Post"
+                            )
+                        ]
+                )
+                kind
+            , Html.div []
+                (case kind.parsed of
+                    Just justKind ->
+                        postForm_ justKind
 
-                        Nothing ->
-                            [ Html.text "Please select a post kind" ]
-                    )
-              , Html.button [] [ Html.text "Submit" ]
-              ]
-            )
+                    Nothing ->
+                        [ Html.text "Please select a post kind" ]
+                )
+            , Html.button [] [ Html.text "Submit" ]
+            ]
         )
         |> Form.field "kind"
             (Field.select

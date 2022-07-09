@@ -119,7 +119,9 @@ view maybeUrl sharedModel model app =
     { title = "Dependent Form Example"
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
-        , Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } app () dependentParser
+        , dependentParser
+            |> Form.toDynamicTransition "form"
+            |> Form.renderHtml [] app ()
         ]
     }
 
@@ -137,7 +139,7 @@ dependentParser : Form.HtmlForm String { username : String, password : String } 
 dependentParser =
     Form.init
         (\username password passwordConfirmation ->
-            username.value
+            username
                 |> Validation.map Validated
                 |> Validation.andMap
                     (Validation.map2
@@ -146,20 +148,18 @@ dependentParser =
                                 Validation.succeed passwordValue
 
                             else
-                                Validation.fail passwordConfirmation.name "Must match password"
+                                Validation.fail passwordConfirmation "Must match password"
                         )
-                        password.value
-                        passwordConfirmation.value
+                        password
+                        passwordConfirmation
                         |> Validation.andThen identity
                     )
         )
         (\formState username password passwordConfirmation ->
-            ( []
-            , [ fieldView formState "Username" username
-              , fieldView formState "Password" password
-              , fieldView formState "Password Confirmation" passwordConfirmation
-              ]
-            )
+            [ fieldView formState "Username" username
+            , fieldView formState "Password" password
+            , fieldView formState "Password Confirmation" passwordConfirmation
+            ]
         )
         |> Form.field "username" (Field.text |> Field.required "Required")
         |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
@@ -177,8 +177,7 @@ fieldView formState label field =
         errorsView =
             (if formState.submitAttempted || True then
                 formState.errors
-                    |> Dict.get field.name
-                    |> Maybe.withDefault []
+                    |> Form.errorsForField field
                     |> List.map (\error -> Html.li [] [ Html.text error ])
 
              else

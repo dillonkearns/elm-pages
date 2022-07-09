@@ -10,19 +10,13 @@ import Json.Encode as Encode
 import Time
 
 
-dataSource : Time.Posix -> SelectionSet value RootQuery -> DataSource value
-dataSource requestTime selectionSet =
+dataSource : SelectionSet value RootQuery -> DataSource value
+dataSource selectionSet =
     DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> DataSource.andThen
             (\hasuraSecret ->
                 DataSource.Http.request
-                    { url =
-                        hasuraUrl
-                            -- for now, this timestamp invalidates the dev server cache
-                            -- it would be helpful to have a way to mark a DataSource as uncached. Maybe only allow
-                            -- from server-rendered pages?
-                            ++ "?time="
-                            ++ (requestTime |> Time.posixToMillis |> String.fromInt)
+                    { url = hasuraUrl
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
                     , body =
@@ -43,13 +37,13 @@ dataSource requestTime selectionSet =
             )
 
 
-mutationDataSource : Time.Posix -> SelectionSet value RootMutation -> DataSource value
-mutationDataSource requestTime selectionSet =
+mutationDataSource : SelectionSet value RootMutation -> DataSource value
+mutationDataSource selectionSet =
     DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> DataSource.andThen
             (\hasuraSecret ->
                 DataSource.Http.request
-                    { url = hasuraUrl ++ "?time=" ++ (requestTime |> Time.posixToMillis |> String.fromInt)
+                    { url = hasuraUrl
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
                     , body =

@@ -96,16 +96,14 @@ form =
                 |> Validation.andMap username
         )
         (\info username ->
-            ( []
-            , [ Html.label []
-                    [ username |> fieldView info "Username"
-                    ]
-              , Html.button
-                    [ Attr.type_ "submit"
-                    ]
-                    [ Html.text "Login" ]
-              ]
-            )
+            [ Html.label []
+                [ username |> fieldView info "Username"
+                ]
+            , Html.button
+                [ Attr.type_ "submit"
+                ]
+                [ Html.text "Login" ]
+            ]
         )
         |> Form.field "username" (Field.text |> Field.required "Required")
 
@@ -214,6 +212,8 @@ view maybeUrl sharedModel app =
                         "You aren't logged in yet."
                 )
             ]
-        , Form.renderHtml { submitStrategy = Form.TransitionStrategy, method = Form.Post } app () form
+        , form
+            |> Form.toDynamicTransition "login"
+            |> Form.renderHtml [] app ()
         ]
     }

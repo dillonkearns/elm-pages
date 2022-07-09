@@ -125,7 +125,9 @@ view :
 view maybeUrl sharedModel model app =
     { title = "Create Group"
     , body =
-        [ Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } app () postForm
+        [ postForm
+            |> Form.toDynamicTransition "create-group"
+            |> Form.renderHtml [] app ()
         ]
     }
 
@@ -152,43 +154,41 @@ postForm =
                 |> Validation.andMap visibility
         )
         (\formState name description visibility ->
-            ( []
-            , [ Html.h2 [] [ Html.text "Create a group" ]
-              , fieldView formState "What's the name of your group?" name
-              , fieldView formState "Describe what your group is about (you can fill out this later)" description
-              , Html.div []
-                    [ Form.FieldView.radio []
-                        (\enum toRadio ->
-                            Html.div []
-                                [ Html.label []
-                                    [ toRadio []
-                                    , Html.text
-                                        (case enum of
-                                            UnlistedGroup ->
-                                                "I want this group to be unlisted (people can only find it if you link it to them)"
+            [ Html.h2 [] [ Html.text "Create a group" ]
+            , fieldView formState "What's the name of your group?" name
+            , fieldView formState "Describe what your group is about (you can fill out this later)" description
+            , Html.div []
+                [ Form.FieldView.radio []
+                    (\enum toRadio ->
+                        Html.div []
+                            [ Html.label []
+                                [ toRadio []
+                                , Html.text
+                                    (case enum of
+                                        UnlistedGroup ->
+                                            "I want this group to be unlisted (people can only find it if you link it to them)"
 
-                                            PublicGroup ->
-                                                "I want this group to be publicly visible"
-                                        )
-                                    ]
+                                        PublicGroup ->
+                                            "I want this group to be publicly visible"
+                                    )
                                 ]
-                        )
-                        visibility
-                    , errorsForField formState visibility
-                    ]
-              , Html.button
-                    [ Attr.disabled formState.isTransitioning
-                    ]
-                    [ Html.text
-                        (if formState.isTransitioning then
-                            "Submitting..."
+                            ]
+                    )
+                    visibility
+                , errorsForField formState visibility
+                ]
+            , Html.button
+                [ Attr.disabled formState.isTransitioning
+                ]
+                [ Html.text
+                    (if formState.isTransitioning then
+                        "Submitting..."
 
-                         else
-                            "Submit"
-                        )
-                    ]
-              ]
-            )
+                     else
+                        "Submit"
+                    )
+                ]
+            ]
         )
         |> Form.field "name"
             (Field.text

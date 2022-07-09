@@ -97,11 +97,11 @@ type alias ActionData =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.requestTime
+    Request.succeed ()
         |> MySession.expectSessionDataOrRedirect (Session.get "userId")
-            (\userId requestTime session ->
+            (\userId () session ->
                 User.selection userId
-                    |> Request.Hasura.dataSource requestTime
+                    |> Request.Hasura.dataSource
                     |> DataSource.map
                         (\user ->
                             user

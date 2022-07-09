@@ -106,14 +106,14 @@ head static =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.requestTime
+    Request.succeed ()
         |> MySession.expectSessionDataOrRedirect (Session.get "userId")
-            (\userId requestTime session ->
+            (\userId () session ->
                 SelectionSet.map3 Data
                     Smoothie.selection
                     (User.selection userId)
                     (Cart.selection userId)
-                    |> Request.Hasura.dataSource requestTime
+                    |> Request.Hasura.dataSource
                     |> DataSource.map Response.render
                     |> DataSource.map (Tuple.pair session)
             )
@@ -129,10 +129,8 @@ signoutForm =
     Form.init
         (Validation.succeed Signout)
         (\formState ->
-            ( []
-            , [ Html.button [] [ Html.text "Sign out" ]
-              ]
-            )
+            [ Html.button [] [ Html.text "Sign out" ]
+            ]
         )
         |> Form.hiddenKind ( "kind", "signout" ) "Expected signout"
 
@@ -142,22 +140,20 @@ setQuantityForm =
     Form.init
         (\uuid quantity ->
             Validation.succeed SetQuantity
-                |> Validation.andMap (uuid.value |> Validation.map Uuid)
-                |> Validation.andMap quantity.value
+                |> Validation.andMap (uuid |> Validation.map Uuid)
+                |> Validation.andMap quantity
         )
         (\formState ->
-            ( []
-            , [ Html.button []
-                    [ Html.text <|
-                        case formState.data of
-                            ( _, Decrement, _ ) ->
-                                "-"
+            [ Html.button []
+                [ Html.text <|
+                    case formState.data of
+                        ( _, Decrement, _ ) ->
+                            "-"
 
-                            ( _, Increment, _ ) ->
-                                "+"
-                    ]
-              ]
-            )
+                        ( _, Increment, _ ) ->
+                            "+"
+                ]
+            ]
         )
         |> Form.hiddenKind ( "kind", "setQuantity" ) "Expected setQuantity"
         |> Form.hiddenField "itemId"
@@ -193,11 +189,9 @@ oneOfParsers =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.map2 Tuple.pair
-        (Request.formDataWithoutServerValidation oneOfParsers)
-        Request.requestTime
+    Request.formDataWithoutServerValidation oneOfParsers
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
-            (\userId ( parsedAction, requestTime ) session ->
+            (\userId parsedAction session ->
                 case parsedAction of
                     Ok Signout ->
                         DataSource.succeed (Route.redirectTo Route.Login)
@@ -205,7 +199,7 @@ action routeParams =
 
                     Ok (SetQuantity itemId quantity) ->
                         (Cart.addItemToCart quantity userId itemId
-                            |> Request.Hasura.mutationDataSource requestTime
+                            |> Request.Hasura.mutationDataSource
                             |> DataSource.map
                                 (\_ -> Response.render {})
                         )
@@ -273,7 +267,9 @@ view maybeUrl sharedModel model app =
             ]
         , Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
-            , Form.renderHtml { method = Form.Post, submitStrategy = Form.FetcherStrategy } app () signoutForm
+            , signoutForm
+                |> Form.toDynamicFetcher "signout"
+                |> Form.renderHtml [] app ()
             ]
         , cartView totals
         , app.data.smoothies
@@ -323,9 +319,14 @@ productView app cart item =
             ]
         , Html.div
             []
-            [ Form.renderHtml { method = Form.Post, submitStrategy = Form.FetcherStrategy } app ( quantityInCart, Decrement, item ) setQuantityForm
+            [ setQuantityForm
+                -- TODO should this be toStaticFetcher (don't need the formId here because there is no client-side state, only hidden form fields
+                |> Form.toDynamicFetcher "increment-quantity"
+                |> Form.renderHtml [] app ( quantityInCart, Decrement, item )
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
-            , Form.renderHtml { method = Form.Post, submitStrategy = Form.FetcherStrategy } app ( quantityInCart, Increment, item ) setQuantityForm
+            , setQuantityForm
+                |> Form.toDynamicFetcher "decrement-quantity"
+                |> Form.renderHtml [] app ( quantityInCart, Increment, item )
             ]
         , Html.div []
             [ Html.img

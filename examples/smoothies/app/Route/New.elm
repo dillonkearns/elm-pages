@@ -98,15 +98,13 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.map2 Tuple.pair
-        (Request.formDataWithoutServerValidation [ form ])
-        Request.requestTime
+    Request.formDataWithoutServerValidation [ form ]
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
-            (\userId ( parsed, requestTime ) session ->
+            (\userId parsed session ->
                 case parsed of
                     Ok okParsed ->
                         Smoothies.create okParsed
-                            |> Request.Hasura.mutationDataSource requestTime
+                            |> Request.Hasura.mutationDataSource
                             |> DataSource.map
                                 (\_ ->
                                     ( session
@@ -142,13 +140,11 @@ form =
             let
                 errors field =
                     info.errors
-                        |> Dict.get field.name
-                        |> Maybe.withDefault []
+                        |> Form.errorsForField field
 
                 errorsView field =
                     (if field.status == Pages.FormState.Blurred then
-                        field
-                            |> errors
+                        errors field
                             |> List.map (\error -> Html.li [] [ Html.text error ])
 
                      else
@@ -162,20 +158,17 @@ form =
                             [ Html.text (label ++ " ")
                             , field |> FieldView.input []
                             ]
+
+                        -- TODO @@@@@@@
                         , errorsView field
                         ]
             in
-            ( [ Attr.style "display" "flex"
-              , Attr.style "flex-direction" "column"
-              , Attr.style "gap" "20px"
-              ]
-            , [ fieldView "Name" name
-              , fieldView "Description" description
-              , fieldView "Price" price
-              , fieldView "Image" imageUrl
-              , Html.button [] [ Html.text "Create" ]
-              ]
-            )
+            [ fieldView "Name" name
+            , fieldView "Description" description
+            , fieldView "Price" price
+            , fieldView "Image" imageUrl
+            , Html.button [] [ Html.text "Create" ]
+            ]
         )
         |> Form.field "name" (Field.text |> Field.required "Required")
         |> Form.field "description"
@@ -214,7 +207,15 @@ view maybeUrl sharedModel model app =
     { title = "New Item"
     , body =
         [ Html.h2 [] [ Html.text "New item" ]
-        , Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } app app.data form
+        , form
+            |> Form.toDynamicTransition "form"
+            |> Form.renderHtml
+                [ Attr.style "display" "flex"
+                , Attr.style "flex-direction" "column"
+                , Attr.style "gap" "20px"
+                ]
+                app
+                app.data
         , pendingCreation
             |> Debug.log "pendingCreation"
             |> Result.toMaybe

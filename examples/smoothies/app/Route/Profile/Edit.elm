@@ -98,11 +98,11 @@ type alias ActionData =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.requestTime
+    Request.succeed ()
         |> MySession.expectSessionDataOrRedirect (Session.get "userId")
-            (\userId requestTime session ->
+            (\userId () session ->
                 User.selection userId
-                    |> Request.Hasura.dataSource requestTime
+                    |> Request.Hasura.dataSource
                     |> DataSource.map
                         (\user ->
                             user
@@ -131,8 +131,7 @@ formParser =
             let
                 errors field =
                     info.errors
-                        |> Dict.get field.name
-                        |> Maybe.withDefault []
+                        |> Form.errorsForField field
 
                 errorsView field =
                     (if field.status == Pages.FormState.Blurred then
@@ -145,29 +144,24 @@ formParser =
                     )
                         |> Html.ul [ Attr.style "color" "red" ]
             in
-            ( [ Attr.style "display" "flex"
-              , Attr.style "flex-direction" "column"
-              , Attr.style "gap" "20px"
-              ]
-            , [ Html.div
-                    []
-                    [ Html.label [] [ Html.text "Username ", username |> FieldView.input [] ]
-                    , errorsView username
-                    ]
-              , Html.div []
-                    [ Html.label [] [ Html.text "Name ", name |> FieldView.input [] ]
-                    , errorsView name
-                    ]
-              , Html.button []
-                    [ Html.text <|
-                        if info.isTransitioning then
-                            "Updating..."
+            [ Html.div
+                []
+                [ Html.label [] [ Html.text "Username ", username |> FieldView.input [] ]
+                , errorsView username
+                ]
+            , Html.div []
+                [ Html.label [] [ Html.text "Name ", name |> FieldView.input [] ]
+                , errorsView name
+                ]
+            , Html.button []
+                [ Html.text <|
+                    if info.isTransitioning then
+                        "Updating..."
 
-                        else
-                            "Update"
-                    ]
-              ]
-            )
+                    else
+                        "Update"
+                ]
+            ]
         )
         |> Form.field "username"
             (Field.text
@@ -203,18 +197,16 @@ validateUsername rawUsername =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.map2 Tuple.pair
-        (Request.formData [ formParser ])
-        Request.requestTime
+    Request.formData [ formParser ]
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
-            (\userId ( parsedActionData, requestTime ) session ->
+            (\userId parsedActionData session ->
                 parsedActionData
                     |> DataSource.andThen
                         (\parsedAction ->
                             case parsedAction |> Debug.log "parsedAction" of
                                 Ok { name } ->
                                     User.updateUser { userId = userId, name = name |> Debug.log "Updating name mutation" }
-                                        |> Request.Hasura.mutationDataSource requestTime
+                                        |> Request.Hasura.mutationDataSource
                                         |> DataSource.map
                                             (\_ ->
                                                 Route.redirectTo Route.Profile
@@ -272,6 +264,14 @@ view maybeUrl sharedModel model app =
 
             _ ->
                 Html.text "No errors"
-        , Form.renderHtml { method = Form.Post, submitStrategy = Form.TransitionStrategy } app app.data formParser
+        , formParser
+            |> Form.toDynamicTransition "edit-form"
+            |> Form.renderHtml
+                [ Attr.style "display" "flex"
+                , Attr.style "flex-direction" "column"
+                , Attr.style "gap" "20px"
+                ]
+                app
+                app.data
         ]
     }
