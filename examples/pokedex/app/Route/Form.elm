@@ -37,7 +37,7 @@ type alias RouteParams =
 
 
 type alias ActionData =
-    { user : User
+    { user : Maybe User
     , formResponse : Maybe { fields : List ( String, String ), errors : Dict String (List String) }
     }
 
@@ -198,12 +198,12 @@ action routeParams =
                         (\userResult ->
                             (case userResult of
                                 Ok user ->
-                                    { user = user
+                                    { user = Just user
                                     , formResponse = Nothing
                                     }
 
                                 Err error ->
-                                    { user = defaultUser
+                                    { user = Nothing
                                     , formResponse = Just error
                                     }
                             )
@@ -242,7 +242,7 @@ view maybeUrl sharedModel app =
         user : User
         user =
             app.action
-                |> Maybe.map .user
+                |> Maybe.andThen .user
                 |> Maybe.withDefault defaultUser
     in
     { title = "Form Example"
@@ -253,7 +253,7 @@ view maybeUrl sharedModel app =
                 |> Html.text
             ]
         , app.action
-            |> Maybe.map .user
+            |> Maybe.andThen .user
             |> Maybe.map
                 (\user_ ->
                     Html.p
@@ -274,6 +274,7 @@ view maybeUrl sharedModel app =
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
+                (app.action |> Maybe.andThen .formResponse)
                 app
                 defaultUser
         ]

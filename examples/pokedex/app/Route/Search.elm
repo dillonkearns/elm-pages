@@ -196,7 +196,11 @@ view maybeUrl sharedModel model static =
         , form
             |> Form.toDynamicTransition "test1"
             |> Form.withGetMethod
-            |> Form.renderHtml [] static ()
+            |> Form.renderHtml []
+                -- TODO pass in server data
+                Nothing
+                static
+                ()
         , static.data.results
             |> Maybe.map resultsView
             |> Maybe.withDefault (Html.div [] [])

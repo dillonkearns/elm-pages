@@ -264,7 +264,11 @@ view maybeUrl sharedModel model static =
         , flashView static.data.flashMessage
         , form
             |> Form.toDynamicTransition "test1"
-            |> Form.renderHtml [] static ()
+            |> Form.renderHtml []
+                -- TODO pass in server data
+                Nothing
+                static
+                ()
         ]
     }
 

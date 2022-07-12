@@ -340,6 +340,8 @@ view maybeUrl sharedModel model static =
                                     [ Attr.style "display" "inline"
                                     , Attr.style "padding-left" "6px"
                                     ]
+                                    -- TODO pass in server data
+                                    Nothing
                                     static
                                     item.id
                             ]
@@ -360,6 +362,10 @@ view maybeUrl sharedModel model static =
             )
         , createForm
             |> Form.toDynamicTransition "test2"
-            |> Form.renderHtml [] static ()
+            |> Form.renderHtml []
+                -- TODO pass in server data
+                Nothing
+                static
+                ()
         ]
     }
