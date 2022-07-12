@@ -175,7 +175,15 @@ function runElmApp(
             patternsToWatch
           );
         } else {
-          runHttpJob(portsFile, app, mode, requestToPerform, fs, hasFsAccess);
+          runHttpJob(
+            portsFile,
+            app,
+            mode,
+            requestToPerform,
+            fs,
+            hasFsAccess,
+            fromElm.args[1]
+          );
         }
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
@@ -241,7 +249,8 @@ async function runHttpJob(
   mode,
   requestToPerform,
   fs,
-  hasFsAccess
+  hasFsAccess,
+  useCache
 ) {
   pendingDataSourceCount += 1;
   try {
@@ -249,7 +258,8 @@ async function runHttpJob(
       portsFile,
       mode,
       requestToPerform,
-      hasFsAccess
+      hasFsAccess,
+      useCache
     );
 
     pendingDataSourceResponses.push({

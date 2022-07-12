@@ -239,7 +239,7 @@ perform site renderRequest config effect =
         Effect.Batch list ->
             flatten site renderRequest config list
 
-        Effect.FetchHttp unmasked ->
+        Effect.FetchHttp useCache unmasked ->
             if unmasked.url == "$$elm-pages$$headers" then
                 case
                     renderRequest
@@ -290,7 +290,7 @@ perform site renderRequest config effect =
                             |> Task.perform GotBuildError
 
             else
-                ToJsPayload.DoHttp unmasked
+                ToJsPayload.DoHttp unmasked useCache
                     |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                     |> config.toJsPort
                     |> Cmd.map never
@@ -633,7 +633,11 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
             else
                 ( updatedModel
                 , (httpRequests
-                    |> List.map Effect.FetchHttp
+                    |> List.map
+                        (Effect.FetchHttp
+                            -- TODO set this useCache value to False for SSR requests, True otherwise
+                            True
+                        )
                   )
                     |> Effect.Batch
                 )

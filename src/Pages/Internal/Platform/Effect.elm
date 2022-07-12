@@ -7,7 +7,7 @@ import Pages.Internal.Platform.ToJsPayload exposing (ToJsSuccessPayloadNewCombin
 
 type Effect
     = NoEffect
-    | FetchHttp RequestDetails
+    | FetchHttp Bool RequestDetails
     | Batch (List Effect)
     | SendSinglePage ToJsSuccessPayloadNewCombined
     | SendSinglePageNew Bytes ToJsSuccessPayloadNewCombined

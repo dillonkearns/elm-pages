@@ -41,7 +41,7 @@ function fullPath(portsHash, request, hasFsAccess) {
  * @param {string} portsFile
  * @param {boolean} hasFsAccess
  */
-function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
+function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
   const { fs } = require("./request-cache-fs.js")(hasFsAccess);
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
@@ -49,7 +49,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess) {
     const responsePath = fullPath(portsHash, request, hasFsAccess);
 
     // TODO check cache expiration time and delete and go to else if expired
-    if (await checkFileExists(fs, responsePath)) {
+    if (useCache && (await checkFileExists(fs, responsePath))) {
       // console.log("Skipping request, found file.");
       resolve(responsePath);
     } else {
