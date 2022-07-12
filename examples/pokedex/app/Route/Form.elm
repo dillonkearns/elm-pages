@@ -2,7 +2,7 @@ module Route.Form exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
 import Date exposing (Date)
-import Dict
+import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
@@ -13,12 +13,9 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Html.Styled
-import Html.Styled.Attributes as StyledAttr
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Route
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
 import Server.Response
@@ -41,6 +38,7 @@ type alias RouteParams =
 
 type alias ActionData =
     { user : User
+    , formResponse : Maybe { fields : List ( String, String ), errors : Dict String (List String) }
     }
 
 
@@ -85,7 +83,7 @@ form =
 
                 errorsView field =
                     case ( formState.submitAttempted, field |> errors ) of
-                        ( True, first :: rest ) ->
+                        ( _, first :: rest ) ->
                             Html.div []
                                 [ Html.ul
                                     [ Attr.style "border" "solid red"
@@ -112,8 +110,8 @@ form =
                         , errorsView field
                         ]
             in
-            [ fieldView "Name" firstName
-            , fieldView "Description" lastName
+            [ fieldView "First" firstName
+            , fieldView "Last" lastName
             , fieldView "Price" username
             , fieldView "Image" email
             , fieldView "Image" dob
@@ -192,17 +190,25 @@ data routeParams =
 
 action : RouteParams -> Parser (DataSource (Server.Response.Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation [ form ]
+    Request.formData [ form ]
         |> Request.map
-            (\userResult ->
-                ActionData
-                    (userResult
-                        -- TODO nicer error handling
-                        -- TODO wire up DataSource server-side validation errors
-                        |> Result.withDefault defaultUser
-                    )
-                    |> Server.Response.render
-                    |> DataSource.succeed
+            (\userResultData ->
+                userResultData
+                    |> DataSource.map
+                        (\userResult ->
+                            (case userResult of
+                                Ok user ->
+                                    { user = user
+                                    , formResponse = Nothing
+                                    }
+
+                                Err error ->
+                                    { user = defaultUser
+                                    , formResponse = Just error
+                                    }
+                            )
+                                |> Server.Response.render
+                        )
             )
 
 
