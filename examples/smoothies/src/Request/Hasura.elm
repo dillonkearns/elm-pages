@@ -15,7 +15,7 @@ dataSource selectionSet =
     DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> DataSource.andThen
             (\hasuraSecret ->
-                DataSource.Http.request
+                DataSource.Http.uncachedRequest
                     { url = hasuraUrl
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
@@ -42,7 +42,7 @@ mutationDataSource selectionSet =
     DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> DataSource.andThen
             (\hasuraSecret ->
-                DataSource.Http.request
+                DataSource.Http.uncachedRequest
                     { url = hasuraUrl
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]

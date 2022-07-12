@@ -56,7 +56,7 @@ renderApiRequest request =
 
 batchUpdate :
     List
-        { request : RequestDetails
+        { request : HashRequest.Request
         , response : RequestsAndPending.Response
         }
     ->
@@ -77,7 +77,7 @@ batchUpdate newEntries model =
 
 insertAll :
     List
-        { request : RequestDetails
+        { request : HashRequest.Request
         , response : RequestsAndPending.Response
         }
     -> RequestsAndPending
@@ -94,7 +94,7 @@ insertAll newEntries dict =
 
 
 type NextStep route
-    = Continue RequestsAndPending (List RequestDetails) (Maybe (List route))
+    = Continue RequestsAndPending (List HashRequest.Request) (Maybe (List route))
     | Finish (FinishKind route)
 
 
@@ -199,7 +199,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     |> List.map (\url -> ( HashRequest.hash url, Nothing ))
                     |> Dict.fromList
 
-            maskedToUnmasked : Dict String RequestDetails
+            maskedToUnmasked : Dict String HashRequest.Request
             maskedToUnmasked =
                 urlsToPerform
                     |> List.map
@@ -214,7 +214,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     |> Dict.keys
                     |> Set.fromList
 
-            newThing : List RequestDetails
+            newThing : List HashRequest.Request
             newThing =
                 maskedToUnmasked
                     |> Dict.Extra.removeMany alreadyPerformed

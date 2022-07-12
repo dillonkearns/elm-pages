@@ -279,6 +279,7 @@ type alias RequestDetails =
     , method : String
     , headers : List ( String, String )
     , body : Body.Body
+    , useCache : Bool
     }
 
 

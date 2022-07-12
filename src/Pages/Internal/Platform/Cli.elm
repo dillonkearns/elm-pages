@@ -62,7 +62,7 @@ type alias Model route =
 type Msg
     = GotDataBatch
         (List
-            { request : RequestDetails
+            { request : Pages.StaticHttp.Request.Request
             , response : RequestsAndPending.Response
             }
         )

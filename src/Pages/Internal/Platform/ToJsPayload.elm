@@ -116,8 +116,8 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
                 PageProgress payload ->
                     success payload
 
-                DoHttp requestUrl useCache ->
-                    vDoHttp requestUrl useCache
+                DoHttp requestUrl _ ->
+                    vDoHttp requestUrl requestUrl.useCache
 
                 SendApiResponse record ->
                     vSendApiResponse record

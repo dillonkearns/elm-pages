@@ -5,6 +5,7 @@ module DataSource.Http exposing
     , Response(..), Metadata, Error(..)
     , expectStringResponse, expectBytesResponse
     , Body, emptyBody, stringBody, jsonBody
+    , uncachedRequest
     )
 
 {-| `DataSource.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -248,22 +249,61 @@ expectToString expect =
             "ExpectBytesResponse"
 
 
-{-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
-This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
-with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
--}
 request :
     RequestDetails
     -> Expect a
     -> DataSource a
 request request__ expect =
     let
-        request_ : RequestDetails
+        request_ : HashRequest.Request
         request_ =
-            { request__
-                | headers =
-                    ( "elm-pages-internal", expectToString expect )
-                        :: request__.headers
+            { url = request__.url
+            , headers = request__.headers
+            , method = request__.method
+            , body = request__.body
+            , useCache = True
+            }
+    in
+    requestRaw request_ expect
+
+
+uncachedRequest :
+    RequestDetails
+    -> Expect a
+    -> DataSource a
+uncachedRequest request__ expect =
+    let
+        request_ : HashRequest.Request
+        request_ =
+            { url = request__.url
+            , headers = request__.headers
+            , method = request__.method
+            , body = request__.body
+            , useCache = False
+            }
+    in
+    requestRaw request_ expect
+
+
+{-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
+This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
+with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
+-}
+requestRaw :
+    HashRequest.Request
+    -> Expect a
+    -> DataSource a
+requestRaw request__ expect =
+    let
+        request_ : HashRequest.Request
+        request_ =
+            { url = request__.url
+            , headers =
+                ( "elm-pages-internal", expectToString expect )
+                    :: request__.headers
+            , method = request__.method
+            , body = request__.body
+            , useCache = False
             }
     in
     Request
@@ -282,7 +322,7 @@ request request__ expect =
                                 Ok rawResponse
 
                             Nothing ->
-                                Err (Pages.StaticHttpRequest.MissingHttpResponse (requestToString request_) [ request_ ])
+                                Err (Pages.StaticHttpRequest.MissingHttpResponse request_.url [ request_ ])
                    )
                 |> Result.andThen
                     (\(RequestsAndPending.Response maybeResponse body) ->
