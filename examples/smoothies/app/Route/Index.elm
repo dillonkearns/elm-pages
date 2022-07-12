@@ -269,7 +269,7 @@ view maybeUrl sharedModel model app =
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
             , signoutForm
                 |> Form.toDynamicFetcher "signout"
-                |> Form.renderHtml [] app ()
+                |> Form.renderHtml [] Nothing app ()
             ]
         , cartView totals
         , app.data.smoothies
@@ -322,11 +322,11 @@ productView app cart item =
             [ setQuantityForm
                 -- TODO should this be toStaticFetcher (don't need the formId here because there is no client-side state, only hidden form fields
                 |> Form.toDynamicFetcher "increment-quantity"
-                |> Form.renderHtml [] app ( quantityInCart, Decrement, item )
+                |> Form.renderHtml [] Nothing app ( quantityInCart, Decrement, item )
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
             , setQuantityForm
                 |> Form.toDynamicFetcher "decrement-quantity"
-                |> Form.renderHtml [] app ( quantityInCart, Increment, item )
+                |> Form.renderHtml [] Nothing app ( quantityInCart, Increment, item )
             ]
         , Html.div []
             [ Html.img

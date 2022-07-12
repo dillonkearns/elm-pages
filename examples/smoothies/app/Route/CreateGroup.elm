@@ -127,7 +127,11 @@ view maybeUrl sharedModel model app =
     , body =
         [ postForm
             |> Form.toDynamicTransition "create-group"
-            |> Form.renderHtml [] app ()
+            |> Form.renderHtml []
+                -- TODO pass in form response from ActionData
+                Nothing
+                app
+                ()
         ]
     }
 
