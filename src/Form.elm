@@ -88,7 +88,7 @@ import Html.Styled.Attributes as StyledAttr
 import Html.Styled.Lazy
 import Json.Encode as Encode
 import Pages.FormState as Form exposing (FormState)
-import Pages.Internal.Form exposing (Named)
+import Pages.Internal.Form exposing (Named, Validation(..))
 import Pages.Msg
 import Pages.Transition
 
@@ -987,7 +987,7 @@ renderHelper attrs maybe options formState data ((Form fieldDefinitions parser t
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
-        { formId, hiddenInputs, children } =
+        { formId, hiddenInputs, children, isValid } =
             helperValues toHiddenInput maybe options formState data form
 
         toHiddenInput : List (Html.Attribute (Pages.Msg.Msg msg)) -> Html (Pages.Msg.Msg msg)
@@ -1000,35 +1000,14 @@ renderHelper attrs maybe options formState data ((Form fieldDefinitions parser t
                , Attr.novalidate True
                , case options.submitStrategy of
                     FetcherStrategy ->
-                        Pages.Msg.fetcherOnSubmit formId (isValid parser data)
+                        Pages.Msg.fetcherOnSubmit formId (\_ -> isValid)
 
                     TransitionStrategy ->
-                        Pages.Msg.submitIfValid formId (isValid parser data)
+                        Pages.Msg.submitIfValid formId (\_ -> isValid)
                ]
             ++ attrs
         )
         (hiddenInputs ++ children)
-
-
-isValid : (Maybe data -> Form.FormState -> { a | result : ( parsed, FieldErrors error ) }) -> data -> List ( String, String ) -> Bool
-isValid parser data fields =
-    case
-        { initFormState
-            | fields =
-                fields
-                    |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
-                    |> Dict.fromList
-        }
-            |> parser (Just data)
-            -- TODO use mergedResults here
-            |> .result
-            |> toResult
-    of
-        Ok _ ->
-            True
-
-        Err _ ->
-            False
 
 
 renderStyledHelper :
@@ -1047,7 +1026,7 @@ renderStyledHelper attrs maybe options formState data ((Form fieldDefinitions pa
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
-        { formId, hiddenInputs, children } =
+        { formId, hiddenInputs, children, isValid } =
             helperValues toHiddenInput maybe options formState data form
 
         toHiddenInput : List (Html.Attribute (Pages.Msg.Msg msg)) -> Html.Styled.Html (Pages.Msg.Msg msg)
@@ -1060,10 +1039,12 @@ renderStyledHelper attrs maybe options formState data ((Form fieldDefinitions pa
                , StyledAttr.novalidate True
                , case options.submitStrategy of
                     FetcherStrategy ->
-                        StyledAttr.fromUnstyled <| Pages.Msg.fetcherOnSubmit formId (isValid parser data)
+                        StyledAttr.fromUnstyled <|
+                            Pages.Msg.fetcherOnSubmit formId (\_ -> isValid)
 
                     TransitionStrategy ->
-                        StyledAttr.fromUnstyled <| Pages.Msg.submitIfValid formId (isValid parser data)
+                        StyledAttr.fromUnstyled <|
+                            Pages.Msg.submitIfValid formId (\_ -> isValid)
                ]
             ++ attrs
         )
@@ -1082,7 +1063,7 @@ helperValues :
     -> data
     ---> Form error parsed data view
     -> Form error (Validation error parsed named) data (Context error data -> List view)
-    -> { formId : String, hiddenInputs : List view, children : List view }
+    -> { formId : String, hiddenInputs : List view, children : List view, isValid : Bool }
 helperValues toHiddenInput maybe options formState data (Form fieldDefinitions parser toInitialValues) =
     let
         formId : String
@@ -1212,10 +1193,20 @@ helperValues toHiddenInput maybe options formState data (Form fieldDefinitions p
                             RegularField ->
                                 Nothing
                     )
+
+        isValid : Bool
+        isValid =
+            case merged of
+                Validation _ ( Just _, errors ) ->
+                    Dict.isEmpty errors
+
+                _ ->
+                    False
     in
     { formId = formId
     , hiddenInputs = hiddenInputs
     , children = children
+    , isValid = isValid
     }
 
 
