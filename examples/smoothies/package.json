@@ -7,7 +7,7 @@
     "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
     "build": "elm-pages build --debug --keep-cache",
     "generate:tailwind": "elm-tailwind-modules --dir ./gen --tailwind-config tailwind.config.js",
-    "generate:graphql": "elm-graphql https://smoothie-shop.hasura.app/v1/graphql --header 'x-hasura-admin-secret: $SMOOTHIES_HASURA_SECRET' --output gen"
+    "generate:graphql": "elm-graphql https://smoothie-shop.hasura.app/v1/graphql --header \"x-hasura-admin-secret: $SMOOTHIES_HASURA_SECRET\" --output gen"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
