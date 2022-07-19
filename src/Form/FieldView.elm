@@ -1,6 +1,7 @@
 module Form.FieldView exposing
     ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, select, toHtmlProperties
     , radioStyled, inputStyled
+    , input2
     )
 
 {-|
@@ -19,6 +20,7 @@ import Html.Attributes as Attr
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
 import Json.Encode as Encode
+import Pages.Internal.Form exposing (Validation)
 
 
 {-| -}
@@ -93,6 +95,16 @@ type Input
 {-| -}
 type Options a
     = Options (String -> Maybe a) (List String)
+
+
+{-| -}
+input2 :
+    List (Html.Attribute msg)
+    -> Validation error parsed { field : Input }
+    -> Html msg
+input2 attrs rawField =
+    -- TODO include `{ value : Maybe String, , kind : ( Input, List ( String, Encode.Value ) ) }` in Validation
+    Html.text "TODO"
 
 
 {-| -}

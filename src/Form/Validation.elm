@@ -1,6 +1,7 @@
 module Form.Validation exposing
     ( Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
     , value
+    , fieldName
     )
 
 {-|
@@ -18,6 +19,12 @@ import Pages.Internal.Form exposing (Named, Validation(..))
 {-| -}
 type alias Validation error parsed named =
     Pages.Internal.Form.Validation error parsed named
+
+
+fieldName : Validation error parsed { field : kind } -> String
+fieldName (Validation name ( maybeParsed, errors )) =
+    name
+        |> Maybe.withDefault ""
 
 
 {-| -}

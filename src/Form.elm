@@ -12,7 +12,13 @@ module Form exposing
     , runOneOfServerSideWithServerValidations
     , AppContext
     , FieldDefinition(..)
-    -- subGroup
+    ,  FormNew(..)
+      , HtmlFormNew
+        -- subGroup
+      , errorsForField2
+      , field2
+      , init2
+
     )
 
 {-|
@@ -133,6 +139,19 @@ init fn viewFn =
         (\_ _ ->
             { result = ( fn, Dict.empty )
             , view = viewFn
+            , serverValidations = DataSource.succeed []
+            }
+        )
+        (\_ -> [])
+
+
+{-| -}
+init2 : parsedAndView -> FormNew String parsedAndView data
+init2 parsedAndView =
+    FormNew []
+        (\_ _ ->
+            { result = Dict.empty
+            , parsedAndView = parsedAndView
             , serverValidations = DataSource.succeed []
             }
         )
@@ -396,6 +415,16 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
 
 
 {-| -}
+field2 :
+    String
+    -> Field error parsed data kind constraints
+    -> FormNew error (Validation error parsed named -> parsedAndView) data
+    -> FormNew error parsedAndView data
+field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValues) =
+    Debug.todo ""
+
+
+{-| -}
 hiddenField :
     String
     -> Field error parsed data kind constraints
@@ -565,6 +594,14 @@ errorsForField : ViewField error parsed kind -> Errors error -> List error
 errorsForField viewField (Errors errorsDict) =
     errorsDict
         |> Dict.get viewField.name
+        |> Maybe.withDefault []
+
+
+{-| -}
+errorsForField2 : Validation error parsed { field : kind } -> Errors error -> List error
+errorsForField2 field_ (Errors errorsDict) =
+    errorsDict
+        |> Dict.get (Validation.fieldName field_)
         |> Maybe.withDefault []
 
 
@@ -1241,6 +1278,16 @@ type alias HtmlForm error parsed data msg =
 
 
 {-| -}
+type alias HtmlFormNew error parsed data msg =
+    FormNew
+        error
+        { combine : Validation error parsed Never
+        , view : Context error parsed -> List (Html (Pages.Msg.Msg msg))
+        }
+        data
+
+
+{-| -}
 type alias HtmlSubForm error parsed data msg =
     Form
         error
@@ -1271,6 +1318,21 @@ type Form error parsed data view
                 , Dict String (List error)
                 )
             , view : view
+            , serverValidations : DataSource (List ( String, List error ))
+            }
+        )
+        (data -> List ( String, String ))
+
+
+{-| -}
+type FormNew error parsedAndView data
+    = FormNew
+        (List ( String, FieldDefinition ))
+        (Maybe data
+         -> Form.FormState
+         ->
+            { result : Dict String (List error)
+            , parsedAndView : parsedAndView
             , serverValidations : DataSource (List ( String, List error ))
             }
         )
