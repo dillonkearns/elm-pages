@@ -18,6 +18,7 @@ module Form exposing
       , errorsForField2
       , field2
       , init2
+      , toDynamicTransitionNew
 
     )
 
@@ -421,7 +422,82 @@ field2 :
     -> FormNew error (Validation error parsed named -> parsedAndView) data
     -> FormNew error parsedAndView data
 field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValues) =
-    Debug.todo ""
+    FormNew
+        (( name, RegularField )
+            :: definitions
+        )
+        (\maybeData formState ->
+            let
+                ( maybeParsed, errors ) =
+                    fieldParser.decode rawFieldValue
+
+                ( rawFieldValue, fieldStatus ) =
+                    case formState.fields |> Dict.get name of
+                        Just info ->
+                            ( Just info.value, info.status )
+
+                        Nothing ->
+                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, Form.NotVisited )
+
+                parsedField : ParsedField error parsed
+                parsedField =
+                    Pages.Internal.Form.Validation (Just name) ( maybeParsed, Dict.empty )
+
+                rawField : ViewField error parsed kind
+                rawField =
+                    { name = name
+                    , value = rawFieldValue
+                    , status = fieldStatus
+                    , kind = ( kind, fieldParser.properties )
+                    , parsed = maybeParsed
+                    , errors = errors
+                    }
+
+                myFn :
+                    { result : Dict String (List error)
+                    , parsedAndView : Validation error parsed named -> parsedAndView
+                    , serverValidations : DataSource (List ( String, List error ))
+                    }
+                    ->
+                        { result : Dict String (List error)
+                        , parsedAndView : parsedAndView
+                        , serverValidations : DataSource (List ( String, List error ))
+                        }
+                myFn soFar =
+                    let
+                        serverValidationsForField : DataSource ( String, List error )
+                        serverValidationsForField =
+                            fieldParser.serverValidation rawFieldValue
+                                |> DataSource.map (Tuple.pair name)
+
+                        validationField : Validation error parsed named
+                        validationField =
+                            Pages.Internal.Form.Validation (Just name) ( maybeParsed, Dict.empty )
+                    in
+                    { result =
+                        soFar.result
+                            |> addErrorsInternal name errors
+                    , parsedAndView =
+                        soFar.parsedAndView validationField
+                    , serverValidations =
+                        DataSource.map2 (::)
+                            serverValidationsForField
+                            soFar.serverValidations
+                    }
+            in
+            formState
+                |> parseFn maybeData
+                |> myFn
+        )
+        (\data ->
+            case fieldParser.initialValue of
+                Just toInitialValue ->
+                    ( name, toInitialValue data )
+                        :: toInitialValues data
+
+                Nothing ->
+                    toInitialValues data
+        )
 
 
 {-| -}
@@ -977,6 +1053,76 @@ toDynamicTransition name (Form a b c) =
             }
     in
     FinalForm options a b c
+
+
+{-| -}
+toDynamicTransitionNew :
+    String
+    ->
+        FormNew
+            error
+            { combine : Validation error parsed field
+            , view : Context error data -> List (Html (Pages.Msg.Msg msg))
+            }
+            data
+    ->
+        FinalForm
+            error
+            (Validation error parsed field)
+            data
+            (Context error data -> List (Html (Pages.Msg.Msg msg)))
+toDynamicTransitionNew name (FormNew a b c) =
+    let
+        options =
+            { submitStrategy = TransitionStrategy
+            , method = Post
+            , name = Just name
+            }
+
+        transformB :
+            (Maybe data
+             -> Form.FormState
+             ->
+                { result : Dict String (List error)
+                , parsedAndView :
+                    { combine : Validation error parsed field
+                    , view : Context error data -> List (Html (Pages.Msg.Msg msg))
+                    }
+                , serverValidations : DataSource (List ( String, List error ))
+                }
+            )
+            ->
+                (Maybe data
+                 -> Form.FormState
+                 ->
+                    { result :
+                        ( Validation error parsed field
+                        , Dict String (List error)
+                        )
+                    , view : Context error data -> List (Html (Pages.Msg.Msg msg))
+                    , serverValidations : DataSource (List ( String, List error ))
+                    }
+                )
+        transformB rawB =
+            \maybeData formState ->
+                let
+                    foo :
+                        { result : Dict String (List error)
+                        , parsedAndView :
+                            { combine : Validation error parsed field
+                            , view : Context error data -> List (Html (Pages.Msg.Msg msg))
+                            }
+                        , serverValidations : DataSource (List ( String, List error ))
+                        }
+                    foo =
+                        rawB maybeData formState
+                in
+                { result = ( foo.parsedAndView.combine, foo.result )
+                , view = foo.parsedAndView.view
+                , serverValidations = foo.serverValidations
+                }
+    in
+    FinalForm options a (transformB b) c
 
 
 {-| -}

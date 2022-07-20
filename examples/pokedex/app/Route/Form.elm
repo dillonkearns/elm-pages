@@ -197,7 +197,7 @@ data routeParams =
 action : RouteParams -> Parser (DataSource (Server.Response.Response ActionData ErrorPage))
 action routeParams =
     --Request.formData [ form ]
-    Debug.todo ""
+    Request.skip "todo"
         |> Request.map
             (\userResultData ->
                 userResultData
@@ -275,8 +275,7 @@ view maybeUrl sharedModel app =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form
-            |> Debug.todo ""
-            |> Form.toDynamicTransition "test1"
+            |> Form.toDynamicTransitionNew "test1"
             |> Form.renderHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
