@@ -20,7 +20,7 @@ import Html.Attributes as Attr
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
 import Json.Encode as Encode
-import Pages.Internal.Form exposing (Validation)
+import Pages.Internal.Form exposing (Validation(..))
 
 
 {-| -}
@@ -102,9 +102,51 @@ input2 :
     List (Html.Attribute msg)
     -> Validation error parsed { field : Input }
     -> Html msg
-input2 attrs rawField =
+input2 attrs (Validation fieldName ( maybeParsed, fieldErrors )) =
     -- TODO include `{ value : Maybe String, , kind : ( Input, List ( String, Encode.Value ) ) }` in Validation
-    Html.text "TODO"
+    let
+        rawFieldKind =
+            --rawField.kind
+            Input Textarea
+
+        rawFieldProperties =
+            [-- TODO properties
+            ]
+
+        rawField =
+            { name = fieldName |> Maybe.withDefault ""
+            , value = Just ""
+            , kind = ( rawFieldKind, rawFieldProperties )
+            }
+    in
+    case rawField.kind of
+        ( Input Textarea, properties ) ->
+            Html.textarea
+                (attrs
+                    ++ toHtmlProperties properties
+                    ++ [ Attr.value (rawField.value |> Maybe.withDefault "")
+                       , Attr.name rawField.name
+                       ]
+                )
+                []
+
+        ( Input inputType, properties ) ->
+            Html.input
+                (attrs
+                    ++ toHtmlProperties properties
+                    ++ [ (case inputType of
+                            Checkbox ->
+                                Attr.checked ((rawField.value |> Maybe.withDefault "") == "on")
+
+                            _ ->
+                                Attr.value (rawField.value |> Maybe.withDefault "")
+                          -- TODO is this an okay default?
+                         )
+                       , Attr.name rawField.name
+                       , inputType |> inputTypeToString |> Attr.type_
+                       ]
+                )
+                []
 
 
 {-| -}
