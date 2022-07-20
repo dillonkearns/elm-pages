@@ -346,7 +346,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
 
                 parsedField : ParsedField error parsed
                 parsedField =
-                    Pages.Internal.Form.Validation (Just name) ( maybeParsed, Dict.empty )
+                    Pages.Internal.Form.Validation Nothing (Just name) ( maybeParsed, Dict.empty )
 
                 rawField : ViewField error parsed kind
                 rawField =
@@ -419,7 +419,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
 field2 :
     String
     -> Field error parsed data kind constraints
-    -> FormNew error (Validation error parsed named -> parsedAndView) data
+    -> FormNew error (Validation error parsed kind -> parsedAndView) data
     -> FormNew error parsedAndView data
 field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValues) =
     FormNew
@@ -439,9 +439,16 @@ field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValue
                         Nothing ->
                             ( Maybe.map2 (|>) maybeData fieldParser.initialValue, Form.NotVisited )
 
-                parsedField : ParsedField error parsed
+                thing : Pages.Internal.Form.ViewField kind
+                thing =
+                    { value = rawFieldValue
+                    , status = fieldStatus
+                    , kind = ( kind, fieldParser.properties )
+                    }
+
+                parsedField : Validation error parsed kind
                 parsedField =
-                    Pages.Internal.Form.Validation (Just name) ( maybeParsed, Dict.empty )
+                    Pages.Internal.Form.Validation (Just thing) (Just name) ( maybeParsed, Dict.empty )
 
                 rawField : ViewField error parsed kind
                 rawField =
@@ -455,7 +462,7 @@ field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValue
 
                 myFn :
                     { result : Dict String (List error)
-                    , parsedAndView : Validation error parsed named -> parsedAndView
+                    , parsedAndView : Validation error parsed kind -> parsedAndView
                     , serverValidations : DataSource (List ( String, List error ))
                     }
                     ->
@@ -470,9 +477,9 @@ field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValue
                             fieldParser.serverValidation rawFieldValue
                                 |> DataSource.map (Tuple.pair name)
 
-                        validationField : Validation error parsed named
+                        validationField : Validation error parsed kind
                         validationField =
-                            Pages.Internal.Form.Validation (Just name) ( maybeParsed, Dict.empty )
+                            parsedField
                     in
                     { result =
                         soFar.result
@@ -527,7 +534,7 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
 
                 parsedField : ParsedField error parsed
                 parsedField =
-                    Pages.Internal.Form.Validation (Just name) ( maybeParsed, Dict.empty )
+                    Pages.Internal.Form.Validation Nothing (Just name) ( maybeParsed, Dict.empty )
 
                 serverValidationsForField : DataSource (List ( String, List error ))
                 serverValidationsForField =
@@ -674,7 +681,7 @@ errorsForField viewField (Errors errorsDict) =
 
 
 {-| -}
-errorsForField2 : Validation error parsed { field : kind } -> Errors error -> List error
+errorsForField2 : Validation error parsed kind -> Errors error -> List error
 errorsForField2 field_ (Errors errorsDict) =
     errorsDict
         |> Dict.get (Validation.fieldName field_)
@@ -707,8 +714,9 @@ mergeResults :
     -> Validation error parsed unnamed
 mergeResults parsed =
     case parsed.result of
-        ( Pages.Internal.Form.Validation name ( parsedThing, combineErrors ), individualFieldErrors ) ->
-            Pages.Internal.Form.Validation name
+        ( Pages.Internal.Form.Validation viewField name ( parsedThing, combineErrors ), individualFieldErrors ) ->
+            Pages.Internal.Form.Validation Nothing
+                name
                 ( parsedThing
                 , mergeErrors combineErrors individualFieldErrors
                 )
@@ -722,7 +730,7 @@ mergeResultsDataSource :
     -> ( Maybe parsed, DataSource (FieldErrors error) )
 mergeResultsDataSource parsed =
     case parsed.result of
-        ( Pages.Internal.Form.Validation name ( parsedThing, combineErrors ), individualFieldErrors ) ->
+        ( Pages.Internal.Form.Validation viewField name ( parsedThing, combineErrors ), individualFieldErrors ) ->
             ( parsedThing
             , parsed.serverValidations
                 |> DataSource.map
@@ -911,7 +919,7 @@ runServerSide2 rawFormData (Form _ parser _) =
 
 
 unwrapValidation : Validation error parsed named -> ( Maybe parsed, FieldErrors error )
-unwrapValidation (Pages.Internal.Form.Validation name ( maybeParsed, errors )) =
+unwrapValidation (Pages.Internal.Form.Validation viewField name ( maybeParsed, errors )) =
     ( maybeParsed, errors )
 
 
@@ -1380,7 +1388,7 @@ helperValues toHiddenInput maybe options formState data (Form fieldDefinitions p
         isValid : Bool
         isValid =
             case merged of
-                Validation _ ( Just _, errors ) ->
+                Validation _ _ ( Just _, errors ) ->
                     Dict.isEmpty errors
 
                 _ ->

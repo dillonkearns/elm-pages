@@ -100,9 +100,9 @@ type Options a
 {-| -}
 input2 :
     List (Html.Attribute msg)
-    -> Validation error parsed { field : Input }
+    -> Validation error parsed Input
     -> Html msg
-input2 attrs (Validation fieldName ( maybeParsed, fieldErrors )) =
+input2 attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     -- TODO include `{ value : Maybe String, , kind : ( Input, List ( String, Encode.Value ) ) }` in Validation
     let
         rawFieldKind =
@@ -114,10 +114,18 @@ input2 attrs (Validation fieldName ( maybeParsed, fieldErrors )) =
             ]
 
         rawField =
-            { name = fieldName |> Maybe.withDefault ""
-            , value = Just ""
-            , kind = ( rawFieldKind, rawFieldProperties )
-            }
+            case viewField of
+                Just justViewField ->
+                    { name = fieldName |> Maybe.withDefault ""
+                    , value = justViewField.value
+                    , kind = justViewField.kind
+                    }
+
+                Nothing ->
+                    { name = fieldName |> Maybe.withDefault ""
+                    , value = Just "Nothing case, this shouldn't happen"
+                    , kind = ( rawFieldKind, rawFieldProperties )
+                    }
     in
     case rawField.kind of
         ( Input Textarea, properties ) ->
