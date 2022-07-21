@@ -1,7 +1,7 @@
 module Form.FieldView exposing
     ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, select, toHtmlProperties
     , radioStyled, inputStyled
-    , input2
+    , Hidden(..), input2
     )
 
 {-|
@@ -90,6 +90,10 @@ inputTypeToString inputType =
 {-| -}
 type Input
     = Input InputType
+
+
+type Hidden
+    = Hidden
 
 
 {-| -}

@@ -15,6 +15,7 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
+    , formData2
     )
 
 {-|
@@ -924,6 +925,46 @@ formData formParsers =
                 let
                     ( maybeDecoded, errorsDataSource ) =
                         Form.runOneOfServerSideWithServerValidations
+                            rawFormData_
+                            formParsers
+                in
+                errorsDataSource
+                    |> DataSource.map
+                        (\errors ->
+                            case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
+                                ( Just decoded, Nothing ) ->
+                                    Ok decoded
+
+                                ( _, maybeErrors ) ->
+                                    Err
+                                        { fields = rawFormData_
+                                        , errors =
+                                            maybeErrors
+                                                |> Maybe.map List.NonEmpty.toList
+                                                |> Maybe.withDefault []
+                                                |> Dict.fromList
+                                        }
+                        )
+                    |> succeed
+            )
+
+
+{-| -}
+formData2 :
+    List
+        (Form.FormNew
+            error
+            { all | combine : Validation error combined kind }
+            data
+        )
+    -> Parser (DataSource (Result { fields : List ( String, String ), errors : Dict String (List error) } combined))
+formData2 formParsers =
+    rawFormData
+        |> andThen
+            (\rawFormData_ ->
+                let
+                    ( maybeDecoded, errorsDataSource ) =
+                        Form.runOneOfServerSideWithServerValidations2
                             rawFormData_
                             formParsers
                 in

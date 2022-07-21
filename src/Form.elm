@@ -17,7 +17,9 @@ module Form exposing
         -- subGroup
       , errorsForField2
       , field2
+      , hiddenField2
       , init2
+      , runOneOfServerSideWithServerValidations2
       , toDynamicTransitionNew
 
     )
@@ -86,6 +88,7 @@ import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Dict.Extra
 import Form.Field as Field exposing (Field(..))
+import Form.FieldView
 import Form.Validation as Validation exposing (Validation)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -508,6 +511,88 @@ field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValue
 
 
 {-| -}
+hiddenField2 :
+    String
+    -> Field error parsed data kind constraints
+    -> FormNew error (Validation error parsed Form.FieldView.Hidden -> parsedAndView) data
+    -> FormNew error parsedAndView data
+hiddenField2 name (Field fieldParser _) (FormNew definitions parseFn toInitialValues) =
+    FormNew
+        (( name, HiddenField )
+            :: definitions
+        )
+        (\maybeData formState ->
+            let
+                ( maybeParsed, errors ) =
+                    fieldParser.decode rawFieldValue
+
+                ( rawFieldValue, fieldStatus ) =
+                    case formState.fields |> Dict.get name of
+                        Just info ->
+                            ( Just info.value, info.status )
+
+                        Nothing ->
+                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, Form.NotVisited )
+
+                thing : Pages.Internal.Form.ViewField Form.FieldView.Hidden
+                thing =
+                    { value = rawFieldValue
+                    , status = fieldStatus
+                    , kind = ( Form.FieldView.Hidden, fieldParser.properties )
+                    }
+
+                parsedField : Validation error parsed Form.FieldView.Hidden
+                parsedField =
+                    Pages.Internal.Form.Validation (Just thing) (Just name) ( maybeParsed, Dict.empty )
+
+                myFn :
+                    { result : Dict String (List error)
+                    , parsedAndView : Validation error parsed Form.FieldView.Hidden -> parsedAndView
+                    , serverValidations : DataSource (List ( String, List error ))
+                    }
+                    ->
+                        { result : Dict String (List error)
+                        , parsedAndView : parsedAndView
+                        , serverValidations : DataSource (List ( String, List error ))
+                        }
+                myFn soFar =
+                    let
+                        serverValidationsForField : DataSource ( String, List error )
+                        serverValidationsForField =
+                            fieldParser.serverValidation rawFieldValue
+                                |> DataSource.map (Tuple.pair name)
+
+                        validationField : Validation error parsed Form.FieldView.Hidden
+                        validationField =
+                            parsedField
+                    in
+                    { result =
+                        soFar.result
+                            |> addErrorsInternal name errors
+                    , parsedAndView =
+                        soFar.parsedAndView validationField
+                    , serverValidations =
+                        DataSource.map2 (::)
+                            serverValidationsForField
+                            soFar.serverValidations
+                    }
+            in
+            formState
+                |> parseFn maybeData
+                |> myFn
+        )
+        (\data ->
+            case fieldParser.initialValue of
+                Just toInitialValue ->
+                    ( name, toInitialValue data )
+                        :: toInitialValues data
+
+                Nothing ->
+                    toInitialValues data
+        )
+
+
+{-| -}
 hiddenField :
     String
     -> Field error parsed data kind constraints
@@ -877,12 +962,6 @@ runServerSide2 :
     List ( String, String )
     -> Form error (Validation error parsed named) data (Context error data -> view)
     -> ( Maybe parsed, DataSource (FieldErrors error) )
-
-
-
----> ( Maybe parsed, DataSource (List ( String, List error )) )
-
-
 runServerSide2 rawFormData (Form _ parser _) =
     let
         parsed :
@@ -915,6 +994,47 @@ runServerSide2 rawFormData (Form _ parser _) =
             }
     in
     parsed
+        |> mergeResultsDataSource
+
+
+{-| -}
+runServerSide3 :
+    List ( String, String )
+    ->
+        FormNew
+            error
+            { all | combine : Validation error parsed kind }
+            data
+    -> ( Maybe parsed, DataSource (FieldErrors error) )
+runServerSide3 rawFormData (FormNew _ parser _) =
+    let
+        parsed :
+            { result : Dict String (List error)
+            , parsedAndView : { all | combine : Validation error parsed kind }
+            , serverValidations : DataSource (List ( String, List error ))
+            }
+        parsed =
+            parser Nothing thisFormState
+
+        thisFormState : Form.FormState
+        thisFormState =
+            { initFormState
+                | fields =
+                    rawFormData
+                        |> List.map
+                            (Tuple.mapSecond
+                                (\value ->
+                                    { value = value
+                                    , status = Form.NotVisited
+                                    }
+                                )
+                            )
+                        |> Dict.fromList
+            }
+    in
+    { result = ( parsed.parsedAndView.combine, parsed.result )
+    , serverValidations = parsed.serverValidations
+    }
         |> mergeResultsDataSource
 
 
@@ -974,6 +1094,38 @@ runOneOfServerSideWithServerValidations rawFormData parsers =
 
                 _ ->
                     runOneOfServerSideWithServerValidations rawFormData remainingParsers
+
+        [] ->
+            -- TODO need to pass errors
+            ( Nothing, DataSource.succeed Dict.empty )
+
+
+{-| -}
+runOneOfServerSideWithServerValidations2 :
+    List ( String, String )
+    ->
+        List
+            (FormNew
+                error
+                { all | combine : Validation error parsed kind }
+                data
+            )
+    -> ( Maybe parsed, DataSource (FieldErrors error) )
+runOneOfServerSideWithServerValidations2 rawFormData parsers =
+    case parsers of
+        firstParser :: remainingParsers ->
+            let
+                thing : ( Maybe parsed, DataSource (FieldErrors error) )
+                thing =
+                    runServerSide3 rawFormData firstParser
+            in
+            case thing of
+                -- TODO should it try to look for anything that parses with no errors, or short-circuit if something parses regardless of errors?
+                ( Just _, _ ) ->
+                    thing
+
+                _ ->
+                    runOneOfServerSideWithServerValidations2 rawFormData remainingParsers
 
         [] ->
             -- TODO need to pass errors

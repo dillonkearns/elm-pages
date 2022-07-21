@@ -196,8 +196,7 @@ data routeParams =
 
 action : RouteParams -> Parser (DataSource (Server.Response.Response ActionData ErrorPage))
 action routeParams =
-    --Request.formData [ form ]
-    Request.skip "todo"
+    Request.formData2 [ form ]
         |> Request.map
             (\userResultData ->
                 userResultData
