@@ -15,6 +15,7 @@ module Form exposing
     ,  FormNew(..)
       , HtmlFormNew
         -- subGroup
+      , StyledHtmlFormNew
       , errorsForField2
       , field2
       , hiddenField2
@@ -1296,7 +1297,7 @@ toDynamicTransitionNew :
         FormNew
             error
             { combine : Validation error parsed field
-            , view : Context error data -> List (Html (Pages.Msg.Msg msg))
+            , view : Context error data -> view
             }
             data
     ->
@@ -1304,7 +1305,7 @@ toDynamicTransitionNew :
             error
             (Validation error parsed field)
             data
-            (Context error data -> List (Html (Pages.Msg.Msg msg)))
+            (Context error data -> view)
 toDynamicTransitionNew name (FormNew a b c) =
     let
         options =
@@ -1320,7 +1321,7 @@ toDynamicTransitionNew name (FormNew a b c) =
                 { result : Dict String (List error)
                 , parsedAndView :
                     { combine : Validation error parsed field
-                    , view : Context error data -> List (Html (Pages.Msg.Msg msg))
+                    , view : Context error data -> view
                     }
                 , serverValidations : DataSource (List ( String, List error ))
                 }
@@ -1333,7 +1334,7 @@ toDynamicTransitionNew name (FormNew a b c) =
                         ( Validation error parsed field
                         , Dict String (List error)
                         )
-                    , view : Context error data -> List (Html (Pages.Msg.Msg msg))
+                    , view : Context error data -> view
                     , serverValidations : DataSource (List ( String, List error ))
                     }
                 )
@@ -1344,7 +1345,7 @@ toDynamicTransitionNew name (FormNew a b c) =
                         { result : Dict String (List error)
                         , parsedAndView :
                             { combine : Validation error parsed field
-                            , view : Context error data -> List (Html (Pages.Msg.Msg msg))
+                            , view : Context error data -> view
                             }
                         , serverValidations : DataSource (List ( String, List error ))
                         }
@@ -1683,6 +1684,16 @@ type alias StyledHtmlForm error parsed data msg =
         (Validation error parsed Never)
         data
         (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
+
+
+{-| -}
+type alias StyledHtmlFormNew error parsed data msg =
+    FormNew
+        error
+        { combine : Validation error parsed Never
+        , view : Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg))
+        }
+        data
 
 
 {-| -}

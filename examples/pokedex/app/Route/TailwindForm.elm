@@ -11,7 +11,7 @@ import ErrorPage exposing (ErrorPage)
 import Form exposing (Form)
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation
+import Form.Validation as Validation exposing (Validation)
 import Form.Value
 import Head
 import Head.Seo as Seo
@@ -157,7 +157,7 @@ usernameInput formState field =
                             ]
                         ]
                         [ Html.text "workcation.com/" ]
-                    , Form.FieldView.inputStyled
+                    , Form.FieldView.inputStyled2
                         [ Attr.type_ "text"
                         , Attr.name "username"
                         , Attr.id "username"
@@ -191,7 +191,7 @@ usernameInput formState field =
                             , Tw.pointer_events_none
                             ]
                         ]
-                        [ if formState.errors |> Form.errorsForField field |> List.isEmpty then
+                        [ if formState.errors |> Form.errorsForField2 field |> List.isEmpty then
                             Html.text ""
 
                           else
@@ -213,114 +213,116 @@ validateCapitalized string =
         ( Nothing, [ "Needs to be capitalized" ] )
 
 
-form : Form.StyledHtmlForm String User data msg
+form : Form.StyledHtmlFormNew String User data msg
 form =
-    Form.init
+    Form.init2
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
-            Validation.succeed User
-                |> Validation.andMap first
-                |> Validation.andMap last
-                |> Validation.andMap username
-                |> Validation.andMap email
-                |> Validation.andMap dob
-                |> Validation.andMap checkin
-                |> Validation.andMap checkout
-                |> Validation.andMap rating
-                |> Validation.andMap
-                    (Validation.map2
-                        (\passwordValue passwordConfirmationValue ->
-                            if passwordValue == passwordConfirmationValue then
-                                Validation.succeed ( passwordValue, passwordConfirmationValue )
+            { combine =
+                Validation.succeed User
+                    |> Validation.andMap first
+                    |> Validation.andMap last
+                    |> Validation.andMap username
+                    |> Validation.andMap email
+                    |> Validation.andMap dob
+                    |> Validation.andMap checkin
+                    |> Validation.andMap checkout
+                    |> Validation.andMap rating
+                    |> Validation.andMap
+                        (Validation.map2
+                            (\passwordValue passwordConfirmationValue ->
+                                if passwordValue == passwordConfirmationValue then
+                                    Validation.succeed ( passwordValue, passwordConfirmationValue )
+
+                                else
+                                    Validation.fail2 passwordConfirmation "Must match password"
+                            )
+                            password
+                            passwordConfirmation
+                            |> Validation.andThen identity
+                        )
+                    |> Validation.andMap
+                        (Validation.succeed NotificationPreferences
+                            |> Validation.andMap comments
+                            |> Validation.andMap candidates
+                            |> Validation.andMap offers
+                            |> Validation.andMap pushNotifications
+                        )
+                    |> Validation.andThen
+                        (\validated ->
+                            if Date.toRataDie validated.checkIn >= Date.toRataDie validated.checkOut then
+                                Validation.succeed validated |> Validation.withError2 checkin "Must be before checkout"
 
                             else
-                                Validation.fail passwordConfirmation "Must match password"
+                                Validation.succeed validated
                         )
-                        password
-                        passwordConfirmation
-                        |> Validation.andThen identity
-                    )
-                |> Validation.andMap
-                    (Validation.succeed NotificationPreferences
-                        |> Validation.andMap comments
-                        |> Validation.andMap candidates
-                        |> Validation.andMap offers
-                        |> Validation.andMap pushNotifications
-                    )
-                |> Validation.andThen
-                    (\validated ->
-                        if Date.toRataDie validated.checkIn >= Date.toRataDie validated.checkOut then
-                            Validation.succeed validated |> Validation.withError checkin "Must be before checkout"
-
-                        else
-                            Validation.succeed validated
-                    )
-        )
-        (\formState first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
-            let
-                fieldView labelText field =
-                    textInput formState labelText field
-            in
-            [ wrapSection
-                [ fieldView "First name" first
-                , fieldView "Last name" last
-                , usernameInput formState username
-                , fieldView "Email" email
-                , fieldView "Date of Birth" dob
-                , fieldView "Check-in" checkin
-                , fieldView "Check-out" checkout
-                , fieldView "Rating" rating
-                ]
-            , fieldView "Password" password
-            , fieldView "Password Confirmation" passwordConfirmation
-            , wrapEmailSection
-                [ checkboxInput { name = "Comments", description = "Get notified when someones posts a comment on a posting." } formState comments
-                , checkboxInput { name = "Candidates", description = "Get notified when a candidate applies for a job." } formState candidates
-                , checkboxInput { name = "Offers", description = "Get notified when a candidate accepts or rejects an offer." } formState offers
-                ]
-            , wrapNotificationsSections
-                [ wrapPushNotificationsSection formState
-                    pushNotifications
-                    [ Form.FieldView.radioStyled
-                        [ css
-                            [ Tw.mt_4
-                            , Tw.space_y_4
+            , view =
+                \formState ->
+                    let
+                        fieldView labelText field =
+                            textInput formState labelText field
+                    in
+                    [ wrapSection
+                        [ fieldView "First name" first
+                        , fieldView "Last name" last
+                        , usernameInput formState username
+                        , fieldView "Email" email
+                        , fieldView "Date of Birth" dob
+                        , fieldView "Check-in" checkin
+                        , fieldView "Check-out" checkout
+                        , fieldView "Rating" rating
+                        ]
+                    , fieldView "Password" password
+                    , fieldView "Password Confirmation" passwordConfirmation
+                    , wrapEmailSection
+                        [ checkboxInput { name = "Comments", description = "Get notified when someones posts a comment on a posting." } formState comments
+                        , checkboxInput { name = "Candidates", description = "Get notified when a candidate applies for a job." } formState candidates
+                        , checkboxInput { name = "Offers", description = "Get notified when a candidate accepts or rejects an offer." } formState offers
+                        ]
+                    , wrapNotificationsSections
+                        [ wrapPushNotificationsSection formState
+                            pushNotifications
+                            [ Form.FieldView.radioStyled2
+                                [ css
+                                    [ Tw.mt_4
+                                    , Tw.space_y_4
+                                    ]
+                                ]
+                                (radioInput [])
+                                pushNotifications
                             ]
                         ]
-                        (radioInput [])
-                        pushNotifications
-                    ]
-                ]
-            , checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." } formState acceptTerms
-            , Html.div
-                [ css
-                    [ Tw.pt_5
-                    ]
-                ]
-                [ Html.div
-                    [ css
-                        [ Tw.flex
-                        , Tw.justify_end
+                    , checkboxInput { name = "Accept terms", description = "Please read the terms before proceeding." } formState acceptTerms
+                    , Html.div
+                        [ css
+                            [ Tw.pt_5
+                            ]
+                        ]
+                        [ Html.div
+                            [ css
+                                [ Tw.flex
+                                , Tw.justify_end
+                                ]
+                            ]
+                            [ cancelButton
+                            , saveButton False []
+                            ]
                         ]
                     ]
-                    [ cancelButton
-                    , saveButton False []
-                    ]
-                ]
-            ]
+            }
         )
-        |> Form.field "first"
+        |> Form.field2 "first"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (always defaultUser.first >> Form.Value.string)
                 |> Field.withClientValidation validateCapitalized
             )
-        |> Form.field "last"
+        |> Form.field2 "last"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (always defaultUser.last >> Form.Value.string)
                 |> Field.withClientValidation validateCapitalized
             )
-        |> Form.field "username"
+        |> Form.field2 "username"
             (Field.text
                 |> Field.withInitialValue (always defaultUser.username >> Form.Value.string)
                 |> Field.required "Required"
@@ -363,13 +365,13 @@ form =
                             DataSource.succeed []
                     )
             )
-        |> Form.field "email"
+        |> Form.field2 "email"
             (Field.text
                 |> Field.withInitialValue (always defaultUser.email >> Form.Value.string)
                 |> Field.email
                 |> Field.required "Required"
             )
-        |> Form.field "dob"
+        |> Form.field2 "dob"
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
@@ -385,19 +387,19 @@ form =
                             DataSource.succeed []
                     )
             )
-        |> Form.field "checkin"
+        |> Form.field2 "checkin"
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
                 |> Field.withInitialValue (always defaultUser.checkIn >> Form.Value.date)
             )
-        |> Form.field "checkout"
+        |> Form.field2 "checkout"
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
                 |> Field.withInitialValue (always defaultUser.checkOut >> Form.Value.date)
             )
-        |> Form.field "rating"
+        |> Form.field2 "rating"
             (Field.int { invalid = \_ -> "Invalid number" }
                 |> Field.range
                     { missing = "Required"
@@ -407,17 +409,17 @@ form =
                     , max = Form.Value.int 5
                     }
             )
-        |> Form.field "password"
+        |> Form.field2 "password"
             (Field.text |> Field.password |> Field.required "Required")
-        |> Form.field "password-confirmation"
+        |> Form.field2 "password-confirmation"
             (Field.text |> Field.password |> Field.required "Required")
-        |> Form.field "comments"
+        |> Form.field2 "comments"
             Field.checkbox
-        |> Form.field "candidates"
+        |> Form.field2 "candidates"
             Field.checkbox
-        |> Form.field "offers"
+        |> Form.field2 "offers"
             Field.checkbox
-        |> Form.field
+        |> Form.field2
             "push-notifications"
             (Field.select
                 [ ( "PushAll", PushAll )
@@ -427,7 +429,7 @@ form =
                 (\_ -> "Invalid option")
                 |> Field.required "Please select your notification preference."
             )
-        |> Form.field "acceptTerms"
+        |> Form.field2 "acceptTerms"
             (Field.checkbox
                 |> Field.withClientValidation
                     (\checked ->
@@ -534,7 +536,7 @@ route =
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formData [ form ]
+    Request.formData2 [ form ]
         |> Request.map
             (\toDataSource ->
                 toDataSource
@@ -707,13 +709,13 @@ view maybeUrl sharedModel model static =
                         |> Debug.toString
                     )
                 , form
-                    |> Form.toDynamicTransition "test"
+                    |> Form.toDynamicTransitionNew "test"
                     |> Form.renderStyledHtml []
                         (static.action
                             |> Maybe.andThen .formResponse
                         )
                         static
-                        never
+                        ()
                 ]
             ]
             |> Html.toUnstyled
@@ -776,7 +778,8 @@ textInput info labelText field =
                 [ Tw.font_bold
                 ]
             ]
-            [ Html.text (Pages.FormState.fieldStatusToString field.status)
+            [-- @@@ TODO WIP need to add a way to get status from a Validation type field
+             --Html.text (Pages.FormState.fieldStatusToString field.status)
             ]
         , Html.label
             ([ css
@@ -804,7 +807,7 @@ textInput info labelText field =
                 ]
             ]
             [ field
-                |> Form.FieldView.inputStyled
+                |> Form.FieldView.inputStyled2
                     [ --Attr.attribute "autocomplete" "given-name",
                       css
                         [ Tw.max_w_lg
@@ -828,7 +831,7 @@ textInput info labelText field =
         ]
 
 
-errorsView : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsView : Form.Context String data -> Validation String parsed kind -> Html msg
 errorsView formState field =
     let
         showErrors : Bool
@@ -845,7 +848,7 @@ errorsView formState field =
         ]
         (if showErrors then
             formState.errors
-                |> Form.errorsForField field
+                |> Form.errorsForField2 field
                 |> List.map
                     (\error ->
                         Html.li
@@ -881,7 +884,7 @@ checkboxInput { name, description } info field =
                     ]
                 ]
                 [ field
-                    |> Form.FieldView.inputStyled
+                    |> Form.FieldView.inputStyled2
                         [ css
                             [ Tw.h_4
                             , Tw.w_4
@@ -1087,7 +1090,8 @@ wrapPushNotificationsSection formState field children =
                     [ Tw.font_bold
                     ]
                 ]
-                [ Html.text (Pages.FormState.fieldStatusToString field.status)
+                [-- @@@ TODO WIP need to add a way to get status from a Validation type field
+                 --Html.text (Pages.FormState.fieldStatusToString field.status)
                 ]
             , Html.div
                 [ css

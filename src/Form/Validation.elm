@@ -1,7 +1,7 @@
 module Form.Validation exposing
     ( Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
     , value
-    , fieldName
+    , fail2, fieldName, withError2
     )
 
 {-|
@@ -64,8 +64,22 @@ fail (Validation _ key _) parsed =
 
 
 {-| -}
+fail2 : Validation error parsed1 field -> error -> Validation error parsed Never
+fail2 (Validation _ key _) parsed =
+    -- TODO need to prevent Never fields from being used
+    Validation Nothing Nothing ( Nothing, Dict.singleton (key |> Maybe.withDefault "") [ parsed ] )
+
+
+{-| -}
 withError : Validation error parsed1 Named -> error -> Validation error parsed2 named -> Validation error parsed2 named
 withError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
+    Validation viewField name ( maybeParsedA, errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ] )
+
+
+{-| -}
+withError2 : Validation error parsed1 field -> error -> Validation error parsed2 named -> Validation error parsed2 named
+withError2 (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
+    -- TODO need to prevent Never fields from being used
     Validation viewField name ( maybeParsedA, errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ] )
 
 
