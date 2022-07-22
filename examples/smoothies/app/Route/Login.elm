@@ -6,7 +6,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation
+import Form.Validation as Validation exposing (Validation)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -51,7 +51,7 @@ route =
         , action =
             \_ ->
                 MySession.withSession
-                    (Request.formDataWithoutServerValidation [ form ])
+                    (Request.formDataWithoutServerValidation2 [ form ])
                     (\usernameResult session ->
                         case usernameResult of
                             Err _ ->
@@ -88,45 +88,48 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-form : Form.HtmlForm String String data Msg
+form : Form.HtmlFormNew String String data Msg
 form =
-    Form.init
+    Form.init2
         (\username ->
-            Validation.succeed identity
-                |> Validation.andMap username
+            { combine =
+                Validation.succeed identity
+                    |> Validation.andMap username
+            , view =
+                \info ->
+                    [ Html.label []
+                        [ username |> fieldView info "Username"
+                        ]
+                    , Html.button
+                        [ Attr.type_ "submit"
+                        ]
+                        [ Html.text "Login" ]
+                    ]
+            }
         )
-        (\info username ->
-            [ Html.label []
-                [ username |> fieldView info "Username"
-                ]
-            , Html.button
-                [ Attr.type_ "submit"
-                ]
-                [ Html.text "Login" ]
-            ]
-        )
-        |> Form.field "username" (Field.text |> Field.required "Required")
+        |> Form.field2 "username" (Field.text |> Field.required "Required")
 
 
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Form.FieldView.Input
+    -> Validation String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input []
+            , field |> Form.FieldView.input2 []
             ]
         , errorsForField formState field
         ]
 
 
-errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsForField : Form.Context String data -> Validation String parsed kind -> Html msg
 errorsForField formState field =
     (if formState.submitAttempted then
-        field.errors
+        formState.errors
+            |> Form.errorsForField2 field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else
@@ -213,7 +216,7 @@ view maybeUrl sharedModel app =
                 )
             ]
         , form
-            |> Form.toDynamicTransition "login"
+            |> Form.toDynamicTransitionNew "login"
             |> Form.renderHtml [] Nothing app ()
         ]
     }
