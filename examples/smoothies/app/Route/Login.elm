@@ -100,10 +100,9 @@ form =
                     [ Html.label []
                         [ username |> fieldView info "Username"
                         ]
-                    , Html.button
-                        [ Attr.type_ "submit"
+                    , Html.button []
+                        [ Html.text "Login"
                         ]
-                        [ Html.text "Login" ]
                     ]
             }
         )
