@@ -124,44 +124,47 @@ type Action
     | SetQuantity Uuid Int
 
 
-signoutForm : Form.HtmlForm String Action input Msg
+signoutForm : Form.HtmlFormNew String Action input Msg
 signoutForm =
-    Form.init
-        (Validation.succeed Signout)
-        (\formState ->
-            [ Html.button [] [ Html.text "Sign out" ]
-            ]
-        )
-        |> Form.hiddenKind ( "kind", "signout" ) "Expected signout"
-
-
-setQuantityForm : Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) Msg
-setQuantityForm =
-    Form.init
-        (\uuid quantity ->
-            Validation.succeed SetQuantity
-                |> Validation.andMap (uuid |> Validation.map Uuid)
-                |> Validation.andMap quantity
-        )
-        (\formState ->
-            [ Html.button []
-                [ Html.text <|
-                    case formState.data of
-                        ( _, Decrement, _ ) ->
-                            "-"
-
-                        ( _, Increment, _ ) ->
-                            "+"
+    Form.init2
+        { combine = Validation.succeed Signout
+        , view =
+            \formState ->
+                [ Html.button [] [ Html.text "Sign out" ]
                 ]
-            ]
+        }
+        |> Form.hiddenKind2 ( "kind", "signout" ) "Expected signout"
+
+
+setQuantityForm : Form.HtmlFormNew String Action ( Int, QuantityChange, Smoothie ) Msg
+setQuantityForm =
+    Form.init2
+        (\uuid quantity ->
+            { combine =
+                Validation.succeed SetQuantity
+                    |> Validation.andMap (uuid |> Validation.map Uuid)
+                    |> Validation.andMap quantity
+            , view =
+                \formState ->
+                    [ Html.button []
+                        [ Html.text <|
+                            case formState.data of
+                                ( _, Decrement, _ ) ->
+                                    "-"
+
+                                ( _, Increment, _ ) ->
+                                    "+"
+                        ]
+                    ]
+            }
         )
-        |> Form.hiddenKind ( "kind", "setQuantity" ) "Expected setQuantity"
-        |> Form.hiddenField "itemId"
+        |> Form.hiddenKind2 ( "kind", "setQuantity" ) "Expected setQuantity"
+        |> Form.hiddenField2 "itemId"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (\( _, _, item ) -> Form.Value.string (uuidToString item.id))
             )
-        |> Form.hiddenField "quantity"
+        |> Form.hiddenField2 "quantity"
             (Field.int { invalid = \_ -> "Expected int" }
                 |> Field.required "Required"
                 |> Field.withInitialValue
@@ -182,14 +185,14 @@ toQuantity quantityChange =
             -1
 
 
-oneOfParsers : List (Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) Msg)
+oneOfParsers : List (Form.HtmlFormNew String Action ( Int, QuantityChange, Smoothie ) Msg)
 oneOfParsers =
     [ signoutForm, setQuantityForm ]
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation oneOfParsers
+    Request.formDataWithoutServerValidation2 oneOfParsers
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsedAction session ->
                 case parsedAction of
@@ -228,7 +231,7 @@ view maybeUrl sharedModel model app =
                 app.fetchers
                     |> List.filterMap
                         (\pending ->
-                            case Form.runOneOfServerSide pending.payload.fields oneOfParsers of
+                            case Form.runOneOfServerSide2 pending.payload.fields oneOfParsers of
                                 ( Just (SetQuantity itemId addAmount), _ ) ->
                                     Just ( uuidToString itemId, addAmount )
 
@@ -268,7 +271,7 @@ view maybeUrl sharedModel model app =
         , Html.p []
             [ Html.text <| "Welcome " ++ app.data.user.name ++ "!"
             , signoutForm
-                |> Form.toDynamicFetcher "signout"
+                |> Form.toDynamicFetcherNew "signout"
                 |> Form.renderHtml [] Nothing app ()
             ]
         , cartView totals
@@ -321,11 +324,11 @@ productView app cart item =
             []
             [ setQuantityForm
                 -- TODO should this be toStaticFetcher (don't need the formId here because there is no client-side state, only hidden form fields
-                |> Form.toDynamicFetcher "increment-quantity"
+                |> Form.toDynamicFetcherNew "increment-quantity"
                 |> Form.renderHtml [] Nothing app ( quantityInCart, Decrement, item )
             , Html.p [] [ quantityInCart |> String.fromInt |> Html.text ]
             , setQuantityForm
-                |> Form.toDynamicFetcher "decrement-quantity"
+                |> Form.toDynamicFetcherNew "decrement-quantity"
                 |> Form.renderHtml [] Nothing app ( quantityInCart, Increment, item )
             ]
         , Html.div []

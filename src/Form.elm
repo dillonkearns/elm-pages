@@ -19,11 +19,13 @@ module Form exposing
       , errorsForField2
       , field2
       , hiddenField2
+      , hiddenKind2
       , init2
       , runOneOfServerSide2
       , runOneOfServerSideWithServerValidations2
       , runServerSide3
       , runServerSide4
+      , toDynamicFetcherNew
       , toDynamicTransitionNew
 
     )
@@ -682,6 +684,77 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
 
 
 {-| -}
+hiddenKind2 :
+    ( String, String )
+    -> error
+    -> FormNew error parsedAndView data
+    -> FormNew error parsedAndView data
+hiddenKind2 ( name, value ) error_ (FormNew definitions parseFn toInitialValues) =
+    let
+        (Field fieldParser _) =
+            Field.exactValue value error_
+    in
+    FormNew
+        (( name, HiddenField )
+            :: definitions
+        )
+        (\maybeData formState ->
+            let
+                ( _, errors ) =
+                    fieldParser.decode rawFieldValue
+
+                rawFieldValue : Maybe String
+                rawFieldValue =
+                    case formState.fields |> Dict.get name of
+                        Just info ->
+                            Just info.value
+
+                        Nothing ->
+                            Maybe.map2 (|>) maybeData fieldParser.initialValue
+
+                myFn :
+                    { result : Dict String (List error)
+                    , parsedAndView : parsedAndView
+                    , serverValidations : DataSource (List ( String, List error ))
+                    }
+                    ->
+                        { result : Dict String (List error)
+                        , parsedAndView : parsedAndView
+                        , serverValidations : DataSource (List ( String, List error ))
+                        }
+                myFn soFar =
+                    let
+                        serverValidationsForField : DataSource ( String, List error )
+                        serverValidationsForField =
+                            fieldParser.serverValidation rawFieldValue
+                                |> DataSource.map (Tuple.pair name)
+                    in
+                    { result =
+                        soFar.result
+                            |> addErrorsInternal name errors
+                    , parsedAndView = soFar.parsedAndView
+                    , serverValidations =
+                        DataSource.map2 (::)
+                            serverValidationsForField
+                            soFar.serverValidations
+                    }
+            in
+            formState
+                |> parseFn maybeData
+                |> myFn
+        )
+        (\data ->
+            case fieldParser.initialValue of
+                Just toInitialValue ->
+                    ( name, toInitialValue data )
+                        :: toInitialValues data
+
+                Nothing ->
+                    toInitialValues data
+        )
+
+
+{-| -}
 hiddenKind :
     ( String, String )
     -> error
@@ -1275,6 +1348,76 @@ toDynamicFetcher name (Form a b c) =
             }
     in
     FinalForm options a b c
+
+
+{-| -}
+toDynamicFetcherNew :
+    String
+    ->
+        FormNew
+            error
+            { combine : Validation error parsed field
+            , view : Context error data -> view
+            }
+            data
+    ->
+        FinalForm
+            error
+            (Validation error parsed field)
+            data
+            (Context error data -> view)
+toDynamicFetcherNew name (FormNew a b c) =
+    let
+        options =
+            { submitStrategy = FetcherStrategy
+            , method = Post
+            , name = Just name
+            }
+
+        transformB :
+            (Maybe data
+             -> Form.FormState
+             ->
+                { result : Dict String (List error)
+                , parsedAndView :
+                    { combine : Validation error parsed field
+                    , view : Context error data -> view
+                    }
+                , serverValidations : DataSource (List ( String, List error ))
+                }
+            )
+            ->
+                (Maybe data
+                 -> Form.FormState
+                 ->
+                    { result :
+                        ( Validation error parsed field
+                        , Dict String (List error)
+                        )
+                    , view : Context error data -> view
+                    , serverValidations : DataSource (List ( String, List error ))
+                    }
+                )
+        transformB rawB =
+            \maybeData formState ->
+                let
+                    foo :
+                        { result : Dict String (List error)
+                        , parsedAndView :
+                            { combine : Validation error parsed field
+                            , view : Context error data -> view
+                            }
+                        , serverValidations : DataSource (List ( String, List error ))
+                        }
+                    foo =
+                        rawB maybeData formState
+                in
+                { result = ( foo.parsedAndView.combine, foo.result )
+                , view = foo.parsedAndView.view
+                , serverValidations = foo.serverValidations
+                }
+    in
+    FinalForm options a (transformB b) c
 
 
 {-| -}
