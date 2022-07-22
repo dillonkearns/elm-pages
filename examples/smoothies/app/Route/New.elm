@@ -161,8 +161,6 @@ form =
                                     [ Html.text (label ++ " ")
                                     , field |> FieldView.input2 []
                                     ]
-
-                                -- TODO @@@@@@@
                                 , errorsView field
                                 ]
                     in
