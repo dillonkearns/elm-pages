@@ -7,7 +7,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation
+import Form.Validation as Validation exposing (Validation)
 import Form.Value
 import Head
 import Head.Seo as Seo
@@ -59,7 +59,7 @@ route =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action _ =
     MySession.withSession
-        (Request.formDataWithoutServerValidation [ form ]
+        (Request.formDataWithoutServerValidation2 [ form ]
             |> Request.map (Result.mapError (\error -> "Errors"))
             |> Request.andThen Request.fromResult
         )
@@ -126,22 +126,23 @@ init maybePageUrl sharedModel static =
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Form.FieldView.Input
+    -> Validation String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input []
+            , field |> Form.FieldView.input2 []
             ]
         , errorsForField formState field
         ]
 
 
-errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsForField : Form.Context String data -> Validation String parsed kind -> Html msg
 errorsForField formState field =
     (if True then
-        field.errors
+        formState.errors
+            |> Form.errorsForField2 field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else
@@ -150,22 +151,24 @@ errorsForField formState field =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-form : Form.HtmlForm String ( String, String ) data msg
+form : Form.HtmlFormNew String ( String, String ) data msg
 form =
-    Form.init
+    Form.init2
         (\first email ->
-            Validation.succeed Tuple.pair
-                |> Validation.andMap first
-                |> Validation.andMap email
+            { combine =
+                Validation.succeed Tuple.pair
+                    |> Validation.andMap first
+                    |> Validation.andMap email
+            , view =
+                \info ->
+                    [ first |> fieldView info "First"
+                    , email |> fieldView info "Email"
+                    , Html.button [] [ Html.text "Sign Up" ]
+                    ]
+            }
         )
-        (\info first email ->
-            [ first |> fieldView info "First"
-            , email |> fieldView info "Email"
-            , Html.button [] [ Html.text "Sign Up" ]
-            ]
-        )
-        |> Form.field "first" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "Jane"))
-        |> Form.field "email" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "jane@example.com"))
+        |> Form.field2 "first" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "Jane"))
+        |> Form.field2 "email" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "jane@example.com"))
 
 
 required field =
@@ -263,7 +266,7 @@ view maybeUrl sharedModel model static =
             ]
         , flashView static.data.flashMessage
         , form
-            |> Form.toDynamicTransition "test1"
+            |> Form.toDynamicTransitionNew "test1"
             |> Form.renderHtml []
                 -- TODO pass in server data
                 Nothing
