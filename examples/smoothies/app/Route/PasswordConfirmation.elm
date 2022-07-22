@@ -90,7 +90,7 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation [ dependentParser ]
+    Request.formDataWithoutServerValidation2 [ dependentParser ]
         |> Request.map
             (\parsedForm ->
                 let
@@ -120,7 +120,7 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
         , dependentParser
-            |> Form.toDynamicTransition "form"
+            |> Form.toDynamicTransitionNew "form"
             |> Form.renderHtml []
                 -- TODO pass in form response from ActionData
                 Nothing
@@ -139,41 +139,43 @@ type alias Validated =
     { username : String, password : String }
 
 
-dependentParser : Form.HtmlForm String { username : String, password : String } data Msg
+dependentParser : Form.HtmlFormNew String { username : String, password : String } data Msg
 dependentParser =
-    Form.init
+    Form.init2
         (\username password passwordConfirmation ->
-            username
-                |> Validation.map Validated
-                |> Validation.andMap
-                    (Validation.map2
-                        (\passwordValue passwordConfirmationValue ->
-                            if passwordValue == passwordConfirmationValue then
-                                Validation.succeed passwordValue
+            { combine =
+                username
+                    |> Validation.map Validated
+                    |> Validation.andMap
+                        (Validation.map2
+                            (\passwordValue passwordConfirmationValue ->
+                                if passwordValue == passwordConfirmationValue then
+                                    Validation.succeed passwordValue
 
-                            else
-                                Validation.fail passwordConfirmation "Must match password"
+                                else
+                                    Validation.fail2 passwordConfirmation "Must match password"
+                            )
+                            password
+                            passwordConfirmation
+                            |> Validation.andThen identity
                         )
-                        password
-                        passwordConfirmation
-                        |> Validation.andThen identity
-                    )
+            , view =
+                \formState ->
+                    [ fieldView formState "Username" username
+                    , fieldView formState "Password" password
+                    , fieldView formState "Password Confirmation" passwordConfirmation
+                    ]
+            }
         )
-        (\formState username password passwordConfirmation ->
-            [ fieldView formState "Username" username
-            , fieldView formState "Password" password
-            , fieldView formState "Password Confirmation" passwordConfirmation
-            ]
-        )
-        |> Form.field "username" (Field.text |> Field.required "Required")
-        |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
-        |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
+        |> Form.field2 "username" (Field.text |> Field.required "Required")
+        |> Form.field2 "password" (Field.text |> Field.password |> Field.required "Required")
+        |> Form.field2 "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
 
 
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Form.FieldView.Input
+    -> Validation String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     let
@@ -181,7 +183,7 @@ fieldView formState label field =
         errorsView =
             (if formState.submitAttempted || True then
                 formState.errors
-                    |> Form.errorsForField field
+                    |> Form.errorsForField2 field
                     |> List.map (\error -> Html.li [] [ Html.text error ])
 
              else
@@ -192,7 +194,7 @@ fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input []
+            , field |> Form.FieldView.input2 []
             ]
         , errorsView
         ]
