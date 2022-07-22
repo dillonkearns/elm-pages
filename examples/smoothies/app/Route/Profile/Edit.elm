@@ -119,51 +119,55 @@ type alias Action =
     }
 
 
-formParser : Form.HtmlForm String Action Data msg
+formParser : Form.HtmlFormNew String Action Data msg
 formParser =
-    Form.init
+    Form.init2
         (\username name ->
-            Validation.succeed Action
-                |> Validation.andMap username
-                |> Validation.andMap name
-        )
-        (\info username name ->
-            let
-                errors field =
-                    info.errors
-                        |> Form.errorsForField field
+            { combine =
+                Validation.succeed Action
+                    |> Validation.andMap username
+                    |> Validation.andMap name
+            , view =
+                \info ->
+                    let
+                        errors field =
+                            info.errors
+                                |> Form.errorsForField field
 
-                errorsView field =
-                    (if field.status == Pages.FormState.Blurred then
-                        field
-                            |> errors
-                            |> List.map (\error -> Html.li [] [ Html.text error ])
+                        errorsView field =
+                            (-- TODO
+                             --if field.status == Pages.FormState.Blurred then
+                             if True then
+                                info.errors
+                                    |> Form.errorsForField2 field
+                                    |> List.map (\error -> Html.li [] [ Html.text error ])
 
-                     else
+                             else
+                                []
+                            )
+                                |> Html.ul [ Attr.style "color" "red" ]
+                    in
+                    [ Html.div
                         []
-                    )
-                        |> Html.ul [ Attr.style "color" "red" ]
-            in
-            [ Html.div
-                []
-                [ Html.label [] [ Html.text "Username ", username |> FieldView.input [] ]
-                , errorsView username
-                ]
-            , Html.div []
-                [ Html.label [] [ Html.text "Name ", name |> FieldView.input [] ]
-                , errorsView name
-                ]
-            , Html.button []
-                [ Html.text <|
-                    if info.isTransitioning then
-                        "Updating..."
+                        [ Html.label [] [ Html.text "Username ", username |> FieldView.input2 [] ]
+                        , errorsView username
+                        ]
+                    , Html.div []
+                        [ Html.label [] [ Html.text "Name ", name |> FieldView.input2 [] ]
+                        , errorsView name
+                        ]
+                    , Html.button []
+                        [ Html.text <|
+                            if info.isTransitioning then
+                                "Updating..."
 
-                    else
-                        "Update"
-                ]
-            ]
+                            else
+                                "Update"
+                        ]
+                    ]
+            }
         )
-        |> Form.field "username"
+        |> Form.field2 "username"
             (Field.text
                 |> Field.required "Username is required"
                 |> Field.withClientValidation validateUsername
@@ -179,7 +183,7 @@ formParser =
                     )
                 |> Field.withInitialValue (\{ user } -> Form.Value.string user.username)
             )
-        |> Form.field "name"
+        |> Form.field2 "name"
             (Field.text
                 |> Field.required "Name is required"
                 |> Field.withInitialValue (\{ user } -> Form.Value.string user.name)
@@ -197,7 +201,7 @@ validateUsername rawUsername =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formData [ formParser ]
+    Request.formData2 [ formParser ]
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsedActionData session ->
                 parsedActionData
@@ -265,7 +269,7 @@ view maybeUrl sharedModel model app =
             _ ->
                 Html.text "No errors"
         , formParser
-            |> Form.toDynamicTransition "edit-form"
+            |> Form.toDynamicTransitionNew "edit-form"
             |> Form.renderHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
