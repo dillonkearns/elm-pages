@@ -1662,7 +1662,7 @@ type alias HtmlFormNew error parsed data msg =
     FormNew
         error
         { combine : Validation error parsed Never
-        , view : Context error parsed -> List (Html (Pages.Msg.Msg msg))
+        , view : Context error data -> List (Html (Pages.Msg.Msg msg))
         }
         data
 

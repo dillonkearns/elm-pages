@@ -6,7 +6,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation
+import Form.Validation as Validation exposing (Validation)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -94,7 +94,7 @@ type alias ActionData =
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Request.formDataWithoutServerValidation [ form ]
+        [ Request.formDataWithoutServerValidation2 [ form ]
             |> Request.map
                 (\formResult ->
                     DataSource.succeed
@@ -116,40 +116,43 @@ data routeParams =
         ]
 
 
-form : Form.HtmlForm String String data msg
+form : Form.HtmlFormNew String String () Msg
 form =
-    Form.init
+    Form.init2
         (\query ->
-            Validation.succeed identity
-                |> Validation.andMap query
+            { combine =
+                Validation.succeed identity
+                    |> Validation.andMap query
+            , view =
+                \info ->
+                    [ query |> fieldView info "Query"
+                    , Html.button [] [ Html.text "Search" ]
+                    ]
+            }
         )
-        (\info query ->
-            [ query |> fieldView info "Query"
-            , Html.button [] [ Html.text "Search" ]
-            ]
-        )
-        |> Form.field "q" (Field.text |> Field.required "Required")
+        |> Form.field2 "q" (Field.text |> Field.required "Required")
 
 
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Form.FieldView.Input
+    -> Validation String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input []
+            , field |> Form.FieldView.input2 []
             ]
         , errorsForField formState field
         ]
 
 
-errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsForField : Form.Context String data -> Validation String parsed kind -> Html msg
 errorsForField formState field =
     (if True then
-        field.errors
+        formState.errors
+            |> Form.errorsForField2 field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else
@@ -194,7 +197,7 @@ view maybeUrl sharedModel model static =
     , body =
         [ Html.h2 [] [ Html.text "Search" ]
         , form
-            |> Form.toDynamicTransition "test1"
+            |> Form.toDynamicTransitionNew "test1"
             |> Form.withGetMethod
             |> Form.renderHtml []
                 -- TODO pass in server data
