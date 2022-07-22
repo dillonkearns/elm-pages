@@ -15,7 +15,7 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
-    , formData2
+    , formData2, formDataWithoutServerValidation2
     )
 
 {-|
@@ -881,6 +881,42 @@ fileField_ name =
                         ( Err (ValidationError ("Missing form field " ++ name)), [] )
             )
         |> Internal.Request.Parser
+
+
+{-| -}
+formDataWithoutServerValidation2 :
+    List
+        (Form.FormNew
+            error
+            { all | combine : Validation error combined kind }
+            data
+        )
+    -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
+formDataWithoutServerValidation2 formParsers =
+    rawFormData
+        |> andThen
+            (\rawFormData_ ->
+                let
+                    ( maybeDecoded, errors ) =
+                        Form.runOneOfServerSide2
+                            rawFormData_
+                            formParsers
+                in
+                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
+                    ( Just decoded, Nothing ) ->
+                        succeed (Ok decoded)
+
+                    ( _, maybeErrors ) ->
+                        Err
+                            { fields = rawFormData_
+                            , errors =
+                                maybeErrors
+                                    |> Maybe.map List.NonEmpty.toList
+                                    |> Maybe.withDefault []
+                                    |> Dict.fromList
+                            }
+                            |> succeed
+            )
 
 
 {-| -}

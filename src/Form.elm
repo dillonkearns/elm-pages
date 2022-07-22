@@ -19,7 +19,10 @@ module Form exposing
       , field2
       , hiddenField2
       , init2
+      , runOneOfServerSide2
       , runOneOfServerSideWithServerValidations2
+      , runServerSide3
+      , runServerSide4
       , toDynamicTransitionNew
 
     )
@@ -1000,11 +1003,7 @@ runServerSide2 rawFormData (Form _ parser _) =
 {-| -}
 runServerSide3 :
     List ( String, String )
-    ->
-        FormNew
-            error
-            { all | combine : Validation error parsed kind }
-            data
+    -> FormNew error { all | combine : Validation error parsed kind } data
     -> ( Maybe parsed, DataSource (FieldErrors error) )
 runServerSide3 rawFormData (FormNew _ parser _) =
     let
@@ -1038,6 +1037,44 @@ runServerSide3 rawFormData (FormNew _ parser _) =
         |> mergeResultsDataSource
 
 
+{-| -}
+runServerSide4 :
+    List ( String, String )
+    -> FormNew error { all | combine : Validation error parsed kind } data
+    -> ( Maybe parsed, FieldErrors error )
+runServerSide4 rawFormData (FormNew _ parser _) =
+    let
+        parsed :
+            { result : Dict String (List error)
+            , parsedAndView : { all | combine : Validation error parsed kind }
+            , serverValidations : DataSource (List ( String, List error ))
+            }
+        parsed =
+            parser Nothing thisFormState
+
+        thisFormState : Form.FormState
+        thisFormState =
+            { initFormState
+                | fields =
+                    rawFormData
+                        |> List.map
+                            (Tuple.mapSecond
+                                (\value ->
+                                    { value = value
+                                    , status = Form.NotVisited
+                                    }
+                                )
+                            )
+                        |> Dict.fromList
+            }
+    in
+    { result = ( parsed.parsedAndView.combine, parsed.result )
+    , serverValidations = parsed.serverValidations
+    }
+        |> mergeResults
+        |> unwrapValidation
+
+
 unwrapValidation : Validation error parsed named -> ( Maybe parsed, FieldErrors error )
 unwrapValidation (Pages.Internal.Form.Validation viewField name ( maybeParsed, errors )) =
     ( maybeParsed, errors )
@@ -1068,6 +1105,43 @@ runOneOfServerSide rawFormData parsers =
 
                 _ ->
                     runOneOfServerSide rawFormData remainingParsers
+
+        [] ->
+            -- TODO need to pass errors
+            ( Nothing, Dict.empty )
+
+
+{-| -}
+runOneOfServerSide2 :
+    List ( String, String )
+    ->
+        List
+            (FormNew
+                error
+                { all | combine : Validation error parsed kind }
+                data
+            )
+    -> ( Maybe parsed, FieldErrors error )
+runOneOfServerSide2 rawFormData parsers =
+    case parsers of
+        firstParser :: remainingParsers ->
+            let
+                thing : ( Maybe parsed, List ( String, List error ) )
+                thing =
+                    runServerSide4 rawFormData firstParser
+                        |> Tuple.mapSecond
+                            (\errors ->
+                                errors
+                                    |> Dict.toList
+                                    |> List.filter (Tuple.second >> List.isEmpty >> not)
+                            )
+            in
+            case thing of
+                ( Just parsed, [] ) ->
+                    ( Just parsed, Dict.empty )
+
+                _ ->
+                    runOneOfServerSide2 rawFormData remainingParsers
 
         [] ->
             -- TODO need to pass errors

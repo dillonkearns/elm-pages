@@ -56,20 +56,22 @@ type alias Data =
 
 
 form =
-    Form.init
+    Form.init2
         (\bar ->
-            Validation.succeed identity
-                |> Validation.andMap bar
+            { combine =
+                Validation.succeed identity
+                    |> Validation.andMap bar
+            , view = ()
+            }
         )
-        (\_ _ -> ())
-        |> Form.field "name" (Field.text |> Field.required "Required")
+        |> Form.field2 "name" (Field.text |> Field.required "Required")
 
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession
-            (Request.formDataWithoutServerValidation [ form ])
+            (Request.formDataWithoutServerValidation2 [ form ])
             (\nameResult session ->
                 (nameResult
                     |> Result.Extra.unpack
