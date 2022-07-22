@@ -13,7 +13,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation
+import Form.Validation as Validation exposing (Validation)
 import Form.Value
 import FormDecoder exposing (FormData)
 import Graphql.Operation exposing (RootMutation, RootQuery)
@@ -160,7 +160,7 @@ data routeParams =
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action _ =
-    Request.formDataWithoutServerValidation [ deleteForm, createForm ]
+    Request.formDataWithoutServerValidation2 [ deleteForm, createForm ]
         |> Request.map
             (\actionResult ->
                 case actionResult of
@@ -187,61 +187,66 @@ type Action
     | Create { description : String }
 
 
-deleteForm : Form.HtmlForm String Action String msg
+deleteForm : Form.HtmlFormNew String Action String msg
 deleteForm =
-    Form.init
+    Form.init2
         (\id ->
-            Validation.succeed (\i -> Delete { id = i })
-                |> Validation.andMap id
+            { combine =
+                Validation.succeed (\i -> Delete { id = i })
+                    |> Validation.andMap id
+            , view =
+                \info ->
+                    [ Html.button [] [ Html.text "❌" ]
+                    ]
+            }
         )
-        (\info ->
-            [ Html.button [] [ Html.text "❌" ]
-            ]
-        )
-        |> Form.hiddenField "id" (Field.text |> Field.required "Required" |> Field.withInitialValue Form.Value.string)
+        |> Form.hiddenField2 "id" (Field.text |> Field.required "Required" |> Field.withInitialValue Form.Value.string)
 
 
-createForm : Form.HtmlForm String Action data msg
+createForm : Form.HtmlFormNew String Action data msg
 createForm =
-    Form.init
-        (\description ->
-            Validation.succeed (\d -> Create { description = d })
-                |> Validation.andMap description
-        )
-        (\info query ->
-            [ query |> descriptionFieldView info
-            , Html.button []
-                [ Html.text <|
-                    -- TODO retain isTransitioning state while refetching `data` after a submission
-                    if info.isTransitioning then
-                        "Creating..."
+    Form.init2
+        (\query ->
+            { combine =
+                Validation.succeed (\d -> Create { description = d })
+                    |> Validation.andMap query
+            , view =
+                \info ->
+                    [ query |> descriptionFieldView info
+                    , Html.button []
+                        [ Html.text <|
+                            -- TODO retain isTransitioning state while refetching `data` after a submission
+                            if info.isTransitioning then
+                                "Creating..."
 
-                    else
-                        "Create"
-                ]
-            ]
+                            else
+                                "Create"
+                        ]
+                    ]
+            }
         )
-        |> Form.field "q" (Field.text |> Field.required "Required")
+        |> Form.field2 "q" (Field.text |> Field.required "Required")
 
 
 descriptionFieldView :
     Form.Context String data
-    -> Form.ViewField String parsed Form.FieldView.Input
+    -> Validation String parsed Form.FieldView.Input
     -> Html msg
 descriptionFieldView formState field =
     Html.div []
         [ Html.label []
             [ Html.text "Description "
-            , field |> Form.FieldView.input [ Attr.autofocus True ]
+            , field |> Form.FieldView.input2 [ Attr.autofocus True ]
             ]
         , errorsForField formState field
         ]
 
 
-errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsForField : Form.Context String data -> Validation String parsed kind -> Html msg
 errorsForField formState field =
     (if True then
-        field.errors
+        formState.errors
+            |> Form.errorsForField2 field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else
@@ -335,7 +340,7 @@ view maybeUrl sharedModel model static =
                             )
                             [ Html.text item.description
                             , deleteForm
-                                |> Form.toDynamicTransition "test1"
+                                |> Form.toDynamicTransitionNew "test1"
                                 |> Form.renderHtml
                                     [ Attr.style "display" "inline"
                                     , Attr.style "padding-left" "6px"
@@ -361,7 +366,7 @@ view maybeUrl sharedModel model static =
                    )
             )
         , createForm
-            |> Form.toDynamicTransition "test2"
+            |> Form.toDynamicTransitionNew "test2"
             |> Form.renderHtml []
                 -- TODO pass in server data
                 Nothing
