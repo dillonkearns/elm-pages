@@ -98,7 +98,7 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation [ form ]
+    Request.formDataWithoutServerValidation2 [ form ]
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsed session ->
                 case parsed of
@@ -126,52 +126,56 @@ head static =
     []
 
 
-form : Form.HtmlForm String NewItem Data Msg
+form : Form.HtmlFormNew String NewItem Data Msg
 form =
-    Form.init
+    Form.init2
         (\name description price imageUrl ->
-            Validation.succeed NewItem
-                |> Validation.andMap name
-                |> Validation.andMap description
-                |> Validation.andMap price
-                |> Validation.andMap imageUrl
+            { combine =
+                Validation.succeed NewItem
+                    |> Validation.andMap name
+                    |> Validation.andMap description
+                    |> Validation.andMap price
+                    |> Validation.andMap imageUrl
+            , view =
+                \info ->
+                    let
+                        errors field =
+                            info.errors
+                                |> Form.errorsForField2 field
+
+                        errorsView field =
+                            (--if field.status == Pages.FormState.Blurred then
+                             -- TODO make field.status available through `Validation` type
+                             if True then
+                                errors field
+                                    |> List.map (\error -> Html.li [] [ Html.text error ])
+
+                             else
+                                []
+                            )
+                                |> Html.ul [ Attr.style "color" "red" ]
+
+                        fieldView label field =
+                            Html.div []
+                                [ Html.label []
+                                    [ Html.text (label ++ " ")
+                                    , field |> FieldView.input2 []
+                                    ]
+
+                                -- TODO @@@@@@@
+                                , errorsView field
+                                ]
+                    in
+                    [ fieldView "Name" name
+                    , fieldView "Description" description
+                    , fieldView "Price" price
+                    , fieldView "Image" imageUrl
+                    , Html.button [] [ Html.text "Create" ]
+                    ]
+            }
         )
-        (\info name description price imageUrl ->
-            let
-                errors field =
-                    info.errors
-                        |> Form.errorsForField field
-
-                errorsView field =
-                    (if field.status == Pages.FormState.Blurred then
-                        errors field
-                            |> List.map (\error -> Html.li [] [ Html.text error ])
-
-                     else
-                        []
-                    )
-                        |> Html.ul [ Attr.style "color" "red" ]
-
-                fieldView label field =
-                    Html.div []
-                        [ Html.label []
-                            [ Html.text (label ++ " ")
-                            , field |> FieldView.input []
-                            ]
-
-                        -- TODO @@@@@@@
-                        , errorsView field
-                        ]
-            in
-            [ fieldView "Name" name
-            , fieldView "Description" description
-            , fieldView "Price" price
-            , fieldView "Image" imageUrl
-            , Html.button [] [ Html.text "Create" ]
-            ]
-        )
-        |> Form.field "name" (Field.text |> Field.required "Required")
-        |> Form.field "description"
+        |> Form.field2 "name" (Field.text |> Field.required "Required")
+        |> Form.field2 "description"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withClientValidation
@@ -186,8 +190,8 @@ form =
                         )
                     )
             )
-        |> Form.field "price" (Field.int { invalid = \_ -> "Invalid int" } |> Field.required "Required")
-        |> Form.field "imageUrl" (Field.text |> Field.required "Required")
+        |> Form.field2 "price" (Field.int { invalid = \_ -> "Invalid int" } |> Field.required "Required")
+        |> Form.field2 "imageUrl" (Field.text |> Field.required "Required")
 
 
 view :
@@ -201,14 +205,14 @@ view maybeUrl sharedModel model app =
         pendingCreation : Result (Form.FieldErrors String) NewItem
         pendingCreation =
             form
-                |> Form.parse app app.data
+                |> Form.parse2 app app.data
                 |> parseIgnoreErrors
     in
     { title = "New Item"
     , body =
         [ Html.h2 [] [ Html.text "New item" ]
         , form
-            |> Form.toDynamicTransition "form"
+            |> Form.toDynamicTransitionNew "form"
             |> Form.renderHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"

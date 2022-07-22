@@ -21,6 +21,7 @@ module Form exposing
       , hiddenField2
       , hiddenKind2
       , init2
+      , parse2
       , runOneOfServerSide2
       , runOneOfServerSideWithServerValidations2
       , runServerSide3
@@ -983,6 +984,38 @@ parse app data (Form _ parser _) =
                 |> Maybe.withDefault initFormState
     in
     parsed |> mergeResults |> unwrapValidation
+
+
+{-| -}
+parse2 :
+    AppContext app
+    -> data
+    -> FormNew error { info | combine : Validation error parsed named } data
+    -> ( Maybe parsed, FieldErrors error )
+parse2 app data (FormNew _ parser _) =
+    -- TODO Get transition context from `app` so you can check if the current form is being submitted
+    -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
+    let
+        parsed :
+            { result : Dict String (List error)
+            , parsedAndView : { info | combine : Validation error parsed named }
+            , serverValidations : DataSource (List ( String, List error ))
+            }
+        parsed =
+            parser (Just data) thisFormState
+
+        thisFormState : Form.FormState
+        thisFormState =
+            app.pageFormState
+                -- TODO remove hardcoding
+                |> Dict.get "test"
+                |> Maybe.withDefault initFormState
+    in
+    { result = ( parsed.parsedAndView.combine, parsed.result )
+    , serverValidations = parsed.serverValidations
+    }
+        |> mergeResults
+        |> unwrapValidation
 
 
 insertIfNonempty : comparable -> List value -> Dict comparable (List value) -> Dict comparable (List value)
