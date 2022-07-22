@@ -7,7 +7,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation
+import Form.Validation as Validation exposing (Validation)
 import GroupName exposing (GroupName)
 import Head
 import Html exposing (Html)
@@ -91,7 +91,7 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation [ postForm ]
+    Request.formDataWithoutServerValidation2 [ postForm ]
         |> Request.map
             (\parsedForm ->
                 let
@@ -126,7 +126,7 @@ view maybeUrl sharedModel model app =
     { title = "Create Group"
     , body =
         [ postForm
-            |> Form.toDynamicTransition "create-group"
+            |> Form.toDynamicTransitionNew "create-group"
             |> Form.renderHtml []
                 -- TODO pass in form response from ActionData
                 Nothing
@@ -148,53 +148,55 @@ type GroupVisibility
     | PublicGroup
 
 
-postForm : Form.HtmlForm String GroupFormValidated data Msg
+postForm : Form.HtmlFormNew String GroupFormValidated data Msg
 postForm =
-    Form.init
+    Form.init2
         (\name description visibility ->
-            Validation.succeed GroupFormValidated
-                |> Validation.andMap name
-                |> Validation.andMap description
-                |> Validation.andMap visibility
-        )
-        (\formState name description visibility ->
-            [ Html.h2 [] [ Html.text "Create a group" ]
-            , fieldView formState "What's the name of your group?" name
-            , fieldView formState "Describe what your group is about (you can fill out this later)" description
-            , Html.div []
-                [ Form.FieldView.radio []
-                    (\enum toRadio ->
-                        Html.div []
-                            [ Html.label []
-                                [ toRadio []
-                                , Html.text
-                                    (case enum of
-                                        UnlistedGroup ->
-                                            "I want this group to be unlisted (people can only find it if you link it to them)"
+            { combine =
+                Validation.succeed GroupFormValidated
+                    |> Validation.andMap name
+                    |> Validation.andMap description
+                    |> Validation.andMap visibility
+            , view =
+                \formState ->
+                    [ Html.h2 [] [ Html.text "Create a group" ]
+                    , fieldView formState "What's the name of your group?" name
+                    , fieldView formState "Describe what your group is about (you can fill out this later)" description
+                    , Html.div []
+                        [ Form.FieldView.radio2 []
+                            (\enum toRadio ->
+                                Html.div []
+                                    [ Html.label []
+                                        [ toRadio []
+                                        , Html.text
+                                            (case enum of
+                                                UnlistedGroup ->
+                                                    "I want this group to be unlisted (people can only find it if you link it to them)"
 
-                                        PublicGroup ->
-                                            "I want this group to be publicly visible"
-                                    )
-                                ]
-                            ]
-                    )
-                    visibility
-                , errorsForField formState visibility
-                ]
-            , Html.button
-                [ Attr.disabled formState.isTransitioning
-                ]
-                [ Html.text
-                    (if formState.isTransitioning then
-                        "Submitting..."
+                                                PublicGroup ->
+                                                    "I want this group to be publicly visible"
+                                            )
+                                        ]
+                                    ]
+                            )
+                            visibility
+                        , errorsForField formState visibility
+                        ]
+                    , Html.button
+                        [ Attr.disabled formState.isTransitioning
+                        ]
+                        [ Html.text
+                            (if formState.isTransitioning then
+                                "Submitting..."
 
-                     else
-                        "Submit"
-                    )
-                ]
-            ]
+                             else
+                                "Submit"
+                            )
+                        ]
+                    ]
+            }
         )
-        |> Form.field "name"
+        |> Form.field2 "name"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withClientValidation
@@ -217,7 +219,7 @@ postForm =
                             |> fromResult
                     )
             )
-        |> Form.field "description"
+        |> Form.field2 "description"
             (Field.text
                 |> Field.textarea
                 |> Field.withClientValidation
@@ -229,7 +231,7 @@ postForm =
                             |> fromResult
                     )
             )
-        |> Form.field "visibility"
+        |> Form.field2 "visibility"
             (Field.select
                 [ ( "unlisted", UnlistedGroup )
                 , ( "public", PublicGroup )
@@ -242,22 +244,23 @@ postForm =
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Form.FieldView.Input
+    -> Validation String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input []
+            , field |> Form.FieldView.input2 []
             ]
         , errorsForField formState field
         ]
 
 
-errorsForField : Form.Context String data -> Form.ViewField String parsed kind -> Html msg
+errorsForField : Form.Context String data -> Validation String parsed kind -> Html msg
 errorsForField formState field =
     (if formState.submitAttempted then
-        field.errors
+        formState.errors
+            |> Form.errorsForField2 field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else

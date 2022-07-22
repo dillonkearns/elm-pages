@@ -1,7 +1,7 @@
 module Form.FieldView exposing
     ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, select, toHtmlProperties
     , radioStyled, inputStyled
-    , Hidden(..), input2, inputStyled2, radioStyled2
+    , Hidden(..), input2, inputStyled2, radio2, radioStyled2
     )
 
 {-|
@@ -352,6 +352,71 @@ radio :
     -> Html msg
 radio selectAttrs enumToOption rawField =
     let
+        (Options parseValue possibleValues) =
+            rawField.kind |> Tuple.first
+    in
+    Html.fieldset
+        (selectAttrs
+            ++ [ Attr.value (rawField.value |> Maybe.withDefault "")
+               , Attr.name rawField.name
+               ]
+        )
+        (possibleValues
+            |> List.filterMap
+                (\possibleValue ->
+                    let
+                        parsed : Maybe parsed
+                        parsed =
+                            possibleValue
+                                |> parseValue
+                    in
+                    case parsed of
+                        Just justParsed ->
+                            let
+                                renderedElement : Html msg
+                                renderedElement =
+                                    enumToOption justParsed
+                                        (\userHtmlAttrs ->
+                                            Html.input
+                                                ([ Attr.type_ "radio"
+                                                 , Attr.value possibleValue
+                                                 , Attr.name rawField.name
+                                                 , Attr.checked (rawField.value == Just possibleValue)
+                                                 ]
+                                                    ++ userHtmlAttrs
+                                                )
+                                                []
+                                        )
+                            in
+                            Just renderedElement
+
+                        Nothing ->
+                            Nothing
+                )
+        )
+
+
+{-| -}
+radio2 :
+    List (Html.Attribute msg)
+    ->
+        (parsed
+         -> (List (Html.Attribute msg) -> Html msg)
+         -> Html msg
+        )
+    -> Validation error parsed2 (Options parsed)
+    -> Html msg
+radio2 selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+    let
+        justViewField =
+            viewField |> expectViewField
+
+        rawField =
+            { name = fieldName |> Maybe.withDefault ""
+            , value = justViewField.value
+            , kind = justViewField.kind
+            }
+
         (Options parseValue possibleValues) =
             rawField.kind |> Tuple.first
     in
