@@ -101,7 +101,11 @@ form =
                         [ username |> fieldView info "Username"
                         ]
                     , Html.button []
-                        [ Html.text "Login"
+                        [ if info.isTransitioning then
+                            Html.text "Logging in..."
+
+                          else
+                            Html.text "Login"
                         ]
                     ]
             }
