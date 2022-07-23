@@ -3,7 +3,7 @@ module FormTests exposing (all)
 import Date exposing (Date)
 import Dict
 import Expect
-import Form exposing (Form)
+import Form exposing (Form, FormNew)
 import Form.Field as Field
 import Form.Validation as Validation exposing (Validation)
 import Test exposing (Test, describe, test)
@@ -132,12 +132,14 @@ all =
             , describe "select" <|
                 let
                     selectParser =
-                        [ Form.init
+                        [ Form.init2
                             (\media ->
-                                media
+                                { combine = media
+                                , view =
+                                    \_ -> Div
+                                }
                             )
-                            (\_ _ -> Div)
-                            |> Form.field "media"
+                            |> Form.field2 "media"
                                 (Field.select
                                     [ ( "book", Book )
                                     , ( "article", Article )
@@ -149,7 +151,7 @@ all =
                 in
                 [ test "example" <|
                     \() ->
-                        Form.runOneOfServerSide
+                        Form.runOneOfServerSide2
                             (fields
                                 [ ( "media", "book" )
                                 ]
@@ -162,33 +164,40 @@ all =
                 ]
             , describe "dependent validations" <|
                 let
-                    checkinFormParser : Form String (Validation String ( Date, Date ) Never) data (Form.Context String data -> MyView)
+                    checkinFormParser :
+                        FormNew
+                            String
+                            { combine : Validation String ( Date, Date ) Never, view : a -> MyView }
+                            data
                     checkinFormParser =
-                        Form.init
+                        Form.init2
                             (\checkin checkout ->
-                                Validation.succeed
-                                    (\checkinValue checkoutValue ->
-                                        Validation.succeed ( checkinValue, checkoutValue )
-                                            |> (if Date.toRataDie checkinValue >= Date.toRataDie checkoutValue then
-                                                    Validation.withError checkin "Must be before checkout"
+                                { combine =
+                                    Validation.succeed
+                                        (\checkinValue checkoutValue ->
+                                            Validation.succeed ( checkinValue, checkoutValue )
+                                                |> (if Date.toRataDie checkinValue >= Date.toRataDie checkoutValue then
+                                                        Validation.withError2 checkin "Must be before checkout"
 
-                                                else
-                                                    identity
-                                               )
-                                    )
-                                    |> Validation.andMap checkin
-                                    |> Validation.andMap checkout
-                                    |> Validation.andThen identity
+                                                    else
+                                                        identity
+                                                   )
+                                        )
+                                        |> Validation.andMap checkin
+                                        |> Validation.andMap checkout
+                                        |> Validation.andThen identity
+                                , view =
+                                    \_ -> Div
+                                }
                             )
-                            (\_ _ _ -> Div)
-                            |> Form.field "checkin"
+                            |> Form.field2 "checkin"
                                 (Field.date { invalid = \_ -> "Invalid" } |> Field.required "Required")
-                            |> Form.field "checkout"
+                            |> Form.field2 "checkout"
                                 (Field.date { invalid = \_ -> "Invalid" } |> Field.required "Required")
                 in
                 [ test "checkin must be before checkout" <|
                     \() ->
-                        Form.runOneOfServerSide
+                        Form.runOneOfServerSide2
                             (fields
                                 [ ( "checkin", "2022-01-01" )
                                 , ( "checkout", "2022-01-03" )
@@ -201,7 +210,7 @@ all =
                                 )
                 , test "checkout is invalid because before checkin" <|
                     \() ->
-                        Form.runServerSide
+                        Form.runServerSide4
                             (fields
                                 [ ( "checkin", "2022-01-03" )
                                 , ( "checkout", "2022-01-01" )
