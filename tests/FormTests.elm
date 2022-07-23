@@ -225,36 +225,41 @@ all =
                                 )
                 , test "sub-form" <|
                     \() ->
-                        Form.runServerSide
+                        Form.runServerSide4
                             (fields
                                 [ ( "password", "mypassword" )
                                 , ( "password-confirmation", "doesnt-match" )
                                 ]
                             )
-                            (Form.init
+                            (Form.init2
                                 (\postForm_ ->
-                                    postForm_ ()
+                                    { combine =
+                                        postForm_.combine ()
+                                    , view =
+                                        \_ -> ( [], [ Div ] )
+                                    }
                                 )
-                                (\_ _ -> ( [], [ Div ] ))
-                                |> Form.dynamic
+                                |> Form.dynamic2
                                     (\() ->
-                                        Form.init
+                                        Form.init2
                                             (\password passwordConfirmation ->
-                                                Validation.succeed
-                                                    (\passwordValue passwordConfirmationValue ->
-                                                        if passwordValue == passwordConfirmationValue then
-                                                            Validation.succeed { password = passwordValue }
+                                                { combine =
+                                                    Validation.succeed
+                                                        (\passwordValue passwordConfirmationValue ->
+                                                            if passwordValue == passwordConfirmationValue then
+                                                                Validation.succeed { password = passwordValue }
 
-                                                        else
-                                                            Validation.fail passwordConfirmation "Must match password"
-                                                    )
-                                                    |> Validation.andMap password
-                                                    |> Validation.andMap passwordConfirmation
-                                                    |> Validation.andThen identity
+                                                            else
+                                                                Validation.fail2 passwordConfirmation "Must match password"
+                                                        )
+                                                        |> Validation.andMap password
+                                                        |> Validation.andMap passwordConfirmation
+                                                        |> Validation.andThen identity
+                                                , view = [ Div ]
+                                                }
                                             )
-                                            (\_ _ _ -> [ Div ])
-                                            |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
-                                            |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
+                                            |> Form.field2 "password" (Field.text |> Field.password |> Field.required "Required")
+                                            |> Form.field2 "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
                                     )
                             )
                             |> Expect.equal
