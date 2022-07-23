@@ -23,26 +23,28 @@ all =
     describe "Form Parser" <|
         let
             passwordConfirmationParser =
-                Form.init
+                Form.init2
                     (\password passwordConfirmation ->
-                        Validation.succeed
-                            (\passwordValue passwordConfirmationValue ->
-                                Validation.succeed { password = passwordValue }
-                                    |> Validation.withErrorIf (passwordValue /= passwordConfirmationValue)
-                                        passwordConfirmation
-                                        "Must match password"
-                            )
-                            |> Validation.andMap password
-                            |> Validation.andMap passwordConfirmation
-                            |> Validation.andThen identity
+                        { combine =
+                            Validation.succeed
+                                (\passwordValue passwordConfirmationValue ->
+                                    Validation.succeed { password = passwordValue }
+                                        |> Validation.withErrorIf2 (passwordValue /= passwordConfirmationValue)
+                                            passwordConfirmation
+                                            "Must match password"
+                                )
+                                |> Validation.andMap password
+                                |> Validation.andMap passwordConfirmation
+                                |> Validation.andThen identity
+                        , view = \info -> Div
+                        }
                     )
-                    (\_ _ _ -> Div)
-                    |> Form.field "password" (Field.text |> Field.required "Password is required")
-                    |> Form.field "password-confirmation" (Field.text |> Field.required "Password confirmation is required")
+                    |> Form.field2 "password" (Field.text |> Field.required "Password is required")
+                    |> Form.field2 "password-confirmation" (Field.text |> Field.required "Password confirmation is required")
         in
         [ test "matching password" <|
             \() ->
-                Form.runServerSide
+                Form.runServerSide4
                     (fields
                         [ ( "password", "mypassword" )
                         , ( "password-confirmation", "mypassword" )
@@ -55,7 +57,7 @@ all =
                         )
         , test "non-matching password" <|
             \() ->
-                Form.runServerSide
+                Form.runServerSide4
                     (fields
                         [ ( "password", "mypassword" )
                         , ( "password-confirmation", "doesnt-match-password" )

@@ -1,7 +1,7 @@
 module Form.Validation exposing
     ( Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
     , value
-    , fail2, fieldName, withError2
+    , fail2, fieldName, withError2, withErrorIf2
     )
 
 {-|
@@ -86,6 +86,21 @@ withError2 (Validation _ key _) error (Validation viewField name ( maybeParsedA,
 {-| -}
 withErrorIf : Bool -> Validation error ignored Named -> error -> Validation error parsed named -> Validation error parsed named
 withErrorIf includeError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
+    Validation viewField
+        name
+        ( maybeParsedA
+        , if includeError then
+            errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ]
+
+          else
+            errorsA
+        )
+
+
+{-| -}
+withErrorIf2 : Bool -> Validation error ignored field -> error -> Validation error parsed named -> Validation error parsed named
+withErrorIf2 includeError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
+    -- TODO use something like { field : kind } for type variable to check that it represents a field
     Validation viewField
         name
         ( maybeParsedA
