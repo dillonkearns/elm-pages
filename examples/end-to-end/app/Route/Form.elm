@@ -65,80 +65,82 @@ defaultUser =
     }
 
 
-form : Form.HtmlForm String User User Msg
+form : Form.HtmlFormNew String User User Msg
 form =
-    Form.init
+    Form.init2
         (\first last username email dob check ->
-            Validation.succeed User
-                |> Validation.andMap first
-                |> Validation.andMap last
-                |> Validation.andMap username
-                |> Validation.andMap email
-                |> Validation.andMap dob
-                |> Validation.andMap check
-        )
-        (\formState firstName lastName username email dob check ->
-            let
-                errors field =
-                    formState.errors
-                        |> Form.errorsForField field
+            { combine =
+                Validation.succeed User
+                    |> Validation.andMap first
+                    |> Validation.andMap last
+                    |> Validation.andMap username
+                    |> Validation.andMap email
+                    |> Validation.andMap dob
+                    |> Validation.andMap check
+            , view =
+                \formState ->
+                    let
+                        errors field =
+                            formState.errors
+                                |> Form.errorsForField2 field
 
-                errorsView field =
-                    case ( formState.submitAttempted, field |> errors ) of
-                        ( True, first :: rest ) ->
+                        errorsView field =
+                            case ( formState.submitAttempted, field |> errors ) of
+                                ( True, firstItem :: rest ) ->
+                                    Html.div []
+                                        [ Html.ul
+                                            [ Attr.style "border" "solid red"
+                                            ]
+                                            (List.map
+                                                (\error ->
+                                                    Html.li []
+                                                        [ Html.text error
+                                                        ]
+                                                )
+                                                (firstItem :: rest)
+                                            )
+                                        ]
+
+                                _ ->
+                                    Html.div [] []
+
+                        fieldView label field =
                             Html.div []
-                                [ Html.ul
-                                    [ Attr.style "border" "solid red"
+                                [ Html.label []
+                                    [ Html.text (label ++ " ")
+                                    , field |> Form.FieldView.input2 []
                                     ]
-                                    (List.map
-                                        (\error ->
-                                            Html.li []
-                                                [ Html.text error
-                                                ]
-                                        )
-                                        (first :: rest)
-                                    )
+                                , errorsView field
                                 ]
+                    in
+                    [ fieldView "Name" first
+                    , fieldView "Description" last
+                    , fieldView "Price" username
+                    , fieldView "Image" email
+                    , fieldView "Image" dob
+                    , Html.button []
+                        [ Html.text
+                            (if formState.isTransitioning then
+                                "Updating..."
 
-                        _ ->
-                            Html.div [] []
-
-                fieldView label field =
-                    Html.div []
-                        [ Html.label []
-                            [ Html.text (label ++ " ")
-                            , field |> Form.FieldView.input []
-                            ]
-                        , errorsView field
+                             else
+                                "Update"
+                            )
                         ]
-            in
-            [ fieldView "Name" firstName
-            , fieldView "Description" lastName
-            , fieldView "Price" username
-            , fieldView "Image" email
-            , fieldView "Image" dob
-            , Html.button []
-                [ Html.text
-                    (if formState.isTransitioning then
-                        "Updating..."
-
-                     else
-                        "Update"
-                    )
-                ]
-            ]
+                    ]
+            }
         )
-        |> Form.field "first"
+        |> Form.field2 "first"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (.first >> Form.Value.string)
             )
-        |> Form.field "last"
+        |> Form.field2 "last"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (.last >> Form.Value.string)
             )
-        |> Form.field "username"
+        |> Form.field2 "username"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (.username >> Form.Value.string)
@@ -151,12 +153,12 @@ form =
              --            DataSource.succeed []
              --    )
             )
-        |> Form.field "email"
+        |> Form.field2 "email"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (.email >> Form.Value.string)
             )
-        |> Form.field "dob"
+        |> Form.field2 "dob"
             (Field.date
                 { invalid = \_ -> "Invalid date"
                 }
@@ -165,7 +167,7 @@ form =
              --|> Field.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
              --|> Field.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
             )
-        |> Form.field "checkbox" Field.checkbox
+        |> Form.field2 "checkbox" Field.checkbox
 
 
 route : StatelessRoute RouteParams Data ActionData
@@ -192,7 +194,7 @@ data routeParams =
 
 action : RouteParams -> Parser (DataSource (Server.Response.Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation [ form ]
+    Request.formDataWithoutServerValidation2 [ form ]
         |> Request.map
             (\userResult ->
                 ActionData
@@ -257,12 +259,13 @@ view maybeUrl sharedModel static =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form
-            |> Form.toDynamicTransition "user-form"
+            |> Form.toDynamicTransitionNew "user-form"
             |> Form.renderHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
+                Nothing
                 static
                 defaultUser
         ]
