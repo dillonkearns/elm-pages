@@ -6,7 +6,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation
+import Form.Validation as Validation exposing (Validation)
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -89,7 +89,7 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation [ dependentParser ]
+    Request.formDataWithoutServerValidation2 [ dependentParser ]
         |> Request.map
             (\parsedForm ->
                 let
@@ -129,7 +129,7 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
         , dependentParser
-            |> Form.toDynamicTransition "dependent-example"
+            |> Form.toDynamicTransitionNew "dependent-example"
             |> Form.renderHtml []
                 -- TODO pass in form response from ActionData
                 Nothing
@@ -148,79 +148,85 @@ type alias PostInfo =
     { title : String, body : Maybe String }
 
 
-linkForm : Form.HtmlSubForm String PostAction data Msg
+linkForm : Form.HtmlFormNew String PostAction data Msg
 linkForm =
-    Form.init
+    Form.init2
         (\url ->
-            Validation.succeed ParsedLink
-                |> Validation.andMap url
+            { combine =
+                Validation.succeed ParsedLink
+                    |> Validation.andMap url
+            , view =
+                \formState ->
+                    [ Html.h2 [] [ Html.text "Create a link" ]
+                    , fieldView formState "URL" url
+                    ]
+            }
         )
-        (\formState url ->
-            [ Html.h2 [] [ Html.text "Create a link" ]
-            , fieldView formState "URL" url
-            ]
-        )
-        |> Form.field "url"
+        |> Form.field2 "url"
             (Field.text
                 |> Field.required "Required"
                 |> Field.url
             )
 
 
-postForm : Form.HtmlSubForm String PostAction data Msg
+postForm : Form.HtmlFormNew String PostAction data Msg
 postForm =
-    Form.init
+    Form.init2
         (\title body ->
-            Validation.succeed PostInfo
-                |> Validation.andMap title
-                |> Validation.andMap body
-                |> Validation.map ParsedPost
+            { combine =
+                Validation.succeed PostInfo
+                    |> Validation.andMap title
+                    |> Validation.andMap body
+                    |> Validation.map ParsedPost
+            , view =
+                \formState ->
+                    [ Html.h2 [] [ Html.text "Create a post" ]
+                    , fieldView formState "Title" title
+                    , fieldView formState "Body" body
+                    ]
+            }
         )
-        (\formState title body ->
-            [ Html.h2 [] [ Html.text "Create a post" ]
-            , fieldView formState "Title" title
-            , fieldView formState "Body" body
-            ]
-        )
-        |> Form.field "title" (Field.text |> Field.required "Required")
-        |> Form.field "body" Field.text
+        |> Form.field2 "title" (Field.text |> Field.required "Required")
+        |> Form.field2 "body" Field.text
 
 
-dependentParser : Form.HtmlForm String PostAction data Msg
+dependentParser : Form.HtmlFormNew String PostAction data Msg
 dependentParser =
-    Form.init
+    Form.init2
         (\kind postForm_ ->
-            kind
-                |> Validation.andThen postForm_
-        )
-        (\formState kind postForm_ ->
-            [ Form.FieldView.radio []
-                (\enum toRadio ->
-                    Html.label []
-                        [ toRadio []
-                        , Html.text
-                            (case enum of
-                                Link ->
-                                    "Link"
-
-                                Post ->
-                                    "Post"
-                            )
-                        ]
-                )
+            { combine =
                 kind
-            , Html.div []
-                (case kind.parsed of
-                    Just justKind ->
-                        postForm_ justKind
+                    |> Validation.andThen postForm_.combine
+            , view =
+                \formState ->
+                    [ Form.FieldView.radio2 []
+                        (\enum toRadio ->
+                            Html.label []
+                                [ toRadio []
+                                , Html.text
+                                    (case enum of
+                                        Link ->
+                                            "Link"
 
-                    Nothing ->
-                        [ Html.text "Please select a post kind" ]
-                )
-            , Html.button [] [ Html.text "Submit" ]
-            ]
+                                        Post ->
+                                            "Post"
+                                    )
+                                ]
+                        )
+                        kind
+                    , Html.div []
+                        (case kind |> Validation.value of
+                            Just justKind ->
+                                postForm_.view justKind formState
+
+                            Nothing ->
+                                [ Html.text "Please select a post kind" ]
+                        )
+                    , Html.button [] [ Html.text "Submit" ]
+                    ]
+            }
         )
-        |> Form.field "kind"
+        |> Form.field2 "kind"
             (Field.select
                 [ ( "link", Link )
                 , ( "post", Post )
@@ -228,7 +234,7 @@ dependentParser =
                 (\_ -> "Invalid")
                 |> Field.required "Required"
             )
-        |> Form.dynamic
+        |> Form.dynamic2
             (\parsedKind ->
                 case parsedKind of
                     Link ->
@@ -242,14 +248,15 @@ dependentParser =
 fieldView :
     Form.Context String data
     -> String
-    -> Form.ViewField String parsed Form.FieldView.Input
+    -> Validation String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     let
         errorsView : Html msg
         errorsView =
             (if formState.submitAttempted || True then
-                field.errors
+                formState.errors
+                    |> Form.errorsForField2 field
                     |> List.map (\error -> Html.li [] [ Html.text error ])
 
              else
@@ -260,7 +267,7 @@ fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input []
+            , field |> Form.FieldView.input2 []
             ]
         , errorsView
         ]

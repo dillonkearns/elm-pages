@@ -16,6 +16,7 @@ module Form exposing
       , HtmlFormNew
         -- subGroup
       , StyledHtmlFormNew
+      , dynamic2
       , errorsForField2
       , field2
       , hiddenField2
@@ -240,6 +241,107 @@ dynamic forms formBuilder =
                                            )
                             in
                             newThing.view fieldErrors something2
+                    , serverValidations = DataSource.succeed [] -- TODO how do I combine them here?
+                    }
+            in
+            myFn
+        )
+        (\_ -> [])
+
+
+
+{-
+   dynamic :
+       (decider -> Form error (Validation error parsed named) data (Context error data -> subView))
+       ->
+           Form
+               error
+               ((decider -> Validation error parsed named) -> combined)
+               data
+               (Context error data -> ((decider -> subView) -> combinedView))
+       -> Form error combined data (Context error data -> combinedView)
+
+-}
+
+
+{-| -}
+dynamic2 :
+    (decider
+     ->
+        FormNew
+            error
+            { combine : Validation error parsed named
+            , view : subView
+            }
+            data
+    )
+    ->
+        FormNew
+            error
+            --((decider -> Validation error parsed named) -> combined)
+            ({ combine : decider -> Validation error parsed named
+             , view : decider -> subView
+             }
+             -> parsedAndView
+            )
+            data
+    ->
+        FormNew
+            error
+            parsedAndView
+            data
+dynamic2 forms formBuilder =
+    FormNew []
+        (\maybeData formState ->
+            let
+                toParser :
+                    decider
+                    ->
+                        { result : Dict String (List error)
+                        , parsedAndView : { combine : Validation error parsed named, view : subView }
+                        , serverValidations : DataSource (List ( String, List error ))
+                        }
+                toParser decider =
+                    case forms decider of
+                        FormNew _ parseFn _ ->
+                            -- TODO need to include hidden form fields from `definitions` (should they be automatically rendered? Does that mean the view type needs to be hardcoded?)
+                            parseFn maybeData formState
+
+                myFn :
+                    { result : Dict String (List error)
+                    , parsedAndView : parsedAndView
+                    , serverValidations : DataSource (List ( String, List error ))
+                    }
+                myFn =
+                    let
+                        newThing :
+                            { result : Dict String (List error)
+                            , parsedAndView : { combine : decider -> Validation error parsed named, view : decider -> subView } -> parsedAndView
+                            , serverValidations : DataSource (List ( String, List error ))
+                            }
+                        newThing =
+                            case formBuilder of
+                                FormNew _ parseFn _ ->
+                                    parseFn maybeData formState
+
+                        arg : { combine : decider -> Validation error parsed named, view : decider -> subView }
+                        arg =
+                            { combine =
+                                toParser
+                                    >> .parsedAndView
+                                    >> .combine
+                            , view =
+                                \decider ->
+                                    decider
+                                        |> toParser
+                                        |> .parsedAndView
+                                        |> .view
+                            }
+                    in
+                    { result =
+                        newThing.result
+                    , parsedAndView =
+                        newThing.parsedAndView arg
                     , serverValidations = DataSource.succeed [] -- TODO how do I combine them here?
                     }
             in
