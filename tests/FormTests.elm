@@ -71,25 +71,31 @@ all =
         , describe "oneOf" <|
             let
                 oneOfParsers =
-                    [ Form.init
-                        (\_ -> Validation.succeed Signout)
-                        (\_ -> Div)
-                        |> Form.hiddenField "kind" (Field.exactValue "signout" "Expected signout")
-                    , Form.init
-                        (\_ uuid quantity ->
-                            Validation.succeed SetQuantity
-                                |> Validation.andMap (uuid |> Validation.map Uuid)
-                                |> Validation.andMap quantity
+                    [ Form.init2
+                        (\_ ->
+                            { combine = Validation.succeed Signout
+                            , view = \_ -> Div
+                            }
                         )
-                        (\_ _ -> Div)
-                        |> Form.hiddenField "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
-                        |> Form.hiddenField "uuid" (Field.text |> Field.required "Required")
-                        |> Form.field "quantity" (Field.int { invalid = \_ -> "Expected int" } |> Field.required "Required")
+                        |> Form.hiddenField2 "kind" (Field.exactValue "signout" "Expected signout")
+                    , Form.init2
+                        (\_ uuid quantity ->
+                            { combine =
+                                Validation.succeed SetQuantity
+                                    |> Validation.andMap (uuid |> Validation.map Uuid)
+                                    |> Validation.andMap quantity
+                            , view =
+                                \_ -> Div
+                            }
+                        )
+                        |> Form.hiddenField2 "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
+                        |> Form.hiddenField2 "uuid" (Field.text |> Field.required "Required")
+                        |> Form.field2 "quantity" (Field.int { invalid = \_ -> "Expected int" } |> Field.required "Required")
                     ]
             in
             [ test "first branch" <|
                 \() ->
-                    Form.runOneOfServerSide
+                    Form.runOneOfServerSide2
                         (fields
                             [ ( "kind", "signout" )
                             ]
@@ -101,7 +107,7 @@ all =
                             )
             , test "second branch" <|
                 \() ->
-                    Form.runOneOfServerSide
+                    Form.runOneOfServerSide2
                         (fields
                             [ ( "kind", "setQuantity" )
                             , ( "uuid", "123" )
