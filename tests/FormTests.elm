@@ -272,49 +272,54 @@ all =
             ]
         , describe "dependent parsing" <|
             let
-                linkForm : Form String (Validation String PostAction Never) data (Form.Context String data -> MyView)
+                linkForm : FormNew String { combine : Validation String PostAction Never, view : Form.Context String data -> MyView } data
                 linkForm =
-                    Form.init
+                    Form.init2
                         (\url ->
-                            Validation.succeed ParsedLink
-                                |> Validation.andMap url
+                            { combine =
+                                Validation.succeed ParsedLink
+                                    |> Validation.andMap url
+                            , view =
+                                \_ -> Div
+                            }
                         )
-                        (\_ _ -> Div)
-                        |> Form.field "url"
+                        |> Form.field2 "url"
                             (Field.text
                                 |> Field.required "Required"
                                 |> Field.url
                             )
 
-                postForm : Form String (Validation String PostAction Never) data (Form.Context String data -> MyView)
+                postForm : FormNew String { combine : Validation String PostAction Never, view : Form.Context String data -> MyView } data
                 postForm =
-                    Form.init
+                    Form.init2
                         (\title body ->
-                            Validation.succeed
-                                (\titleValue bodyValue ->
-                                    { title = titleValue
-                                    , body = bodyValue
-                                    }
-                                )
-                                |> Validation.andMap title
-                                |> Validation.andMap body
-                                |> Validation.map ParsedPost
+                            { combine =
+                                Validation.succeed
+                                    (\titleValue bodyValue ->
+                                        { title = titleValue
+                                        , body = bodyValue
+                                        }
+                                    )
+                                    |> Validation.andMap title
+                                    |> Validation.andMap body
+                                    |> Validation.map ParsedPost
+                            , view = \_ -> Div
+                            }
                         )
-                        (\_ _ _ -> Div)
-                        |> Form.field "title" (Field.text |> Field.required "Required")
-                        |> Form.field "body" Field.text
+                        |> Form.field2 "title" (Field.text |> Field.required "Required")
+                        |> Form.field2 "body" Field.text
 
-                dependentParser : Form String (Validation String PostAction Never) data (Form.Context String data -> MyView)
+                dependentParser : FormNew String { combine : Validation String PostAction Never, view : Form.Context String data -> MyView } data
                 dependentParser =
-                    Form.init
+                    Form.init2
                         (\kind postForm_ ->
-                            kind
-                                |> Validation.andThen postForm_
+                            { combine =
+                                kind
+                                    |> Validation.andThen postForm_.combine
+                            , view = \_ -> Div
+                            }
                         )
-                        (\_ _ _ ->
-                            Div
-                        )
-                        |> Form.field "kind"
+                        |> Form.field2 "kind"
                             (Field.select
                                 [ ( "link", Link )
                                 , ( "post", Post )
@@ -322,7 +327,7 @@ all =
                                 (\_ -> "Invalid")
                                 |> Field.required "Required"
                             )
-                        |> Form.dynamic
+                        |> Form.dynamic2
                             (\parsedKind ->
                                 case parsedKind of
                                     Link ->
@@ -334,7 +339,7 @@ all =
             in
             [ test "parses link" <|
                 \() ->
-                    Form.runOneOfServerSide
+                    Form.runOneOfServerSide2
                         (fields
                             [ ( "kind", "link" )
                             , ( "url", "https://elm-radio.com/episode/wrap-early-unwrap-late" )
