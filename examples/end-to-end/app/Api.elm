@@ -159,14 +159,17 @@ greet : ApiRoute ApiRoute.Response
 greet =
     ApiRoute.succeed
         (Request.oneOf
-            [ Request.formDataWithoutServerValidation
-                [ Form.init
+            [ Request.formDataWithoutServerValidation2
+                [ Form.init2
                     (\bar ->
-                        Validation.succeed identity
-                            |> Validation.andMap bar
+                        { combine =
+                            Validation.succeed identity
+                                |> Validation.andMap bar
+                        , view =
+                            \_ -> ()
+                        }
                     )
-                    (\_ _ -> ())
-                    |> Form.field "first" (Field.text |> Field.required "Required")
+                    |> Form.field2 "first" (Field.text |> Field.required "Required")
                 ]
                 |> Request.andThen
                     (\result ->
