@@ -37,6 +37,7 @@ get url =
     -- TODO try to abstract away hardcoding of elm-pages-internal in test code
     , headers = [ ( "elm-pages-internal", "ExpectJson" ) ]
     , body = DataSource.Http.emptyBody
+    , useCache = False
     }
 
 
@@ -135,7 +136,7 @@ all =
         ]
 
 
-getReq : String -> DataSource.Http.RequestDetails
+getReq : String -> Request.Request
 getReq url =
     { url = url
     , method = "GET"
@@ -143,4 +144,5 @@ getReq url =
     -- TODO try to abstract away hardcoding of elm-pages-internal in test code
     , headers = [ ( "elm-pages-internal", "ExpectJson" ) ]
     , body = DataSource.Http.emptyBody
+    , useCache = False
     }

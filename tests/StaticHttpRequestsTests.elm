@@ -258,6 +258,7 @@ all =
                         , headers =
                             []
                         , body = DataSource.Http.emptyBody
+                        , useCache = True
                         }
                         (StringBody "This is a raw text file.")
                     |> expectSuccess []
@@ -673,6 +674,7 @@ simulateEffects effect =
                     (unmasked
                      --|> withInternalHeader
                     )
+                    True
                     |> sendToJsPort
                     |> SimulatedEffect.Cmd.map never
 
@@ -813,6 +815,7 @@ get url =
     , url = url
     , headers = []
     , body = DataSource.Http.emptyBody
+    , useCache = True
     }
 
 
@@ -822,6 +825,7 @@ post url =
     , url = url
     , headers = []
     , body = DataSource.Http.emptyBody
+    , useCache = True
     }
 
 
@@ -833,7 +837,7 @@ simulateHttp request response program =
             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
             (\actualPorts ->
                 case actualPorts of
-                    [ ToJsPayload.DoHttp _ ] ->
+                    [ ToJsPayload.DoHttp _ _ ] ->
                         Expect.pass
 
                     _ ->
@@ -855,7 +859,7 @@ simulateMultipleHttp requests program =
             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
             (\actualPorts ->
                 case actualPorts of
-                    (ToJsPayload.DoHttp _) :: _ ->
+                    (ToJsPayload.DoHttp _ _) :: _ ->
                         -- TODO check count of HTTP requests, and check the URLs
                         Expect.pass
 
