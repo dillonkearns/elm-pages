@@ -1,7 +1,7 @@
 module Form.Validation exposing
     ( Combined, Field, Validation
     , andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
-    , value, fieldName
+    , value, fieldName, fieldStatus
     )
 
 {-|
@@ -16,12 +16,13 @@ module Form.Validation exposing
 
 ## Field Metadata
 
-@docs value, fieldName
+@docs value, fieldName, fieldStatus
 
 -}
 
 import Dict exposing (Dict)
-import Pages.Internal.Form exposing (Validation(..))
+import Pages.FormState
+import Pages.Internal.Form exposing (Validation(..), ViewField)
 
 
 {-| -}
@@ -44,6 +45,24 @@ fieldName : Field error parsed kind -> String
 fieldName (Validation viewField name ( maybeParsed, errors )) =
     name
         |> Maybe.withDefault ""
+
+
+{-| -}
+fieldStatus : Field error parsed kind -> Pages.FormState.FieldStatus
+fieldStatus (Validation viewField _ ( maybeParsed, errors )) =
+    viewField
+        |> expectViewField
+        |> .status
+
+
+expectViewField : Maybe (ViewField kind) -> ViewField kind
+expectViewField viewField =
+    case viewField of
+        Just justViewField ->
+            justViewField
+
+        Nothing ->
+            expectViewField viewField
 
 
 {-| -}

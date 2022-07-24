@@ -778,8 +778,11 @@ textInput info labelText field =
                 [ Tw.font_bold
                 ]
             ]
-            [-- @@@ TODO WIP need to add a way to get status from a Validation type field
-             --Html.text (Pages.FormState.fieldStatusToString field.status)
+            [ Html.text
+                (field
+                    |> Validation.fieldStatus
+                    |> Pages.FormState.fieldStatusToString
+                )
             ]
         , Html.label
             ([ css
@@ -1090,8 +1093,11 @@ wrapPushNotificationsSection formState field children =
                     [ Tw.font_bold
                     ]
                 ]
-                [-- @@@ TODO WIP need to add a way to get status from a Validation type field
-                 --Html.text (Pages.FormState.fieldStatusToString field.status)
+                [ Html.text
+                    (field
+                        |> Validation.fieldStatus
+                        |> Pages.FormState.fieldStatusToString
+                    )
                 ]
             , Html.div
                 [ css
