@@ -1,13 +1,11 @@
 module Form exposing
-    ( Form(..), FieldErrors, HtmlForm, StyledHtmlForm
-    , ParsedField
+    ( Form(..), FieldErrors
     , andThen
-    , Context, ViewField
+    , Context
     , renderHtml, renderStyledHtml
     , FinalForm, withGetMethod
-    , Errors, errorsForField
+    , Errors
     , parse, runOneOfServerSide, runServerSide
-    , HtmlSubForm
     , runOneOfServerSideWithServerValidations
     , AppContext
     , FieldDefinition(..)
@@ -359,16 +357,6 @@ field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValue
                 parsedField =
                     Pages.Internal.Form.Validation (Just thing) (Just name) ( maybeParsed, Dict.empty )
 
-                rawField : ViewField error parsed kind
-                rawField =
-                    { name = name
-                    , value = rawFieldValue
-                    , status = fieldStatus
-                    , kind = ( kind, fieldParser.properties )
-                    , parsed = maybeParsed
-                    , errors = errors
-                    }
-
                 myFn :
                     { result : Dict String (List error)
                     , parsedAndView : Validation error parsed kind -> parsedAndView
@@ -572,14 +560,6 @@ hiddenKind2 ( name, value ) error_ (FormNew definitions parseFn toInitialValues)
 {-| -}
 type Errors error
     = Errors (Dict String (List error))
-
-
-{-| -}
-errorsForField : ViewField error parsed kind -> Errors error -> List error
-errorsForField viewField (Errors errorsDict) =
-    errorsDict
-        |> Dict.get viewField.name
-        |> Maybe.withDefault []
 
 
 {-| -}
@@ -1539,15 +1519,6 @@ toResult ( maybeParsed, fieldErrors ) =
 
 
 {-| -}
-type alias HtmlForm error parsed data msg =
-    Form
-        error
-        (Validation error parsed Never)
-        data
-        (Context error data -> List (Html (Pages.Msg.Msg msg)))
-
-
-{-| -}
 type alias HtmlFormNew error parsed data msg =
     FormNew
         error
@@ -1555,24 +1526,6 @@ type alias HtmlFormNew error parsed data msg =
         , view : Context error data -> List (Html (Pages.Msg.Msg msg))
         }
         data
-
-
-{-| -}
-type alias HtmlSubForm error parsed data msg =
-    Form
-        error
-        (Validation error parsed Never)
-        data
-        (Context error data -> List (Html (Pages.Msg.Msg msg)))
-
-
-{-| -}
-type alias StyledHtmlForm error parsed data msg =
-    Form
-        error
-        (Validation error parsed Never)
-        data
-        (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
 
 
 {-| -}
@@ -1652,22 +1605,6 @@ type SubmitStrategy
 type FieldDefinition
     = RegularField
     | HiddenField
-
-
-{-| -}
-type alias ParsedField error parsed =
-    Validation error parsed Named
-
-
-{-| -}
-type alias ViewField error parsed kind =
-    { name : String
-    , value : Maybe String
-    , status : Form.FieldStatus
-    , kind : ( kind, List ( String, Encode.Value ) )
-    , parsed : Maybe parsed
-    , errors : List error
-    }
 
 
 {-| -}

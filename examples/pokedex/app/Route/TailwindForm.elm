@@ -8,7 +8,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Form exposing (Form)
+import Form
 import Form.Field as Field
 import Form.FieldView
 import Form.Validation as Validation exposing (Validation)

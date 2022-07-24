@@ -132,7 +132,7 @@ formParser =
                     let
                         errors field =
                             info.errors
-                                |> Form.errorsForField field
+                                |> Form.errorsForField2 field
 
                         errorsView field =
                             (-- TODO
