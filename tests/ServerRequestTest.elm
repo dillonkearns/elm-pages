@@ -63,7 +63,7 @@ all =
         , test "tries multiple form post formats" <|
             \() ->
                 Request.formDataWithoutServerValidation2
-                    [ Form.init2
+                    [ Form.init
                         (\bar ->
                             { combine =
                                 Validation.succeed identity
@@ -72,8 +72,8 @@ all =
                                 \_ -> ()
                             }
                         )
-                        |> Form.field2 "bar" Field.text
-                    , Form.init2
+                        |> Form.field "bar" Field.text
+                    , Form.init
                         (\bar ->
                             { combine =
                                 Validation.succeed identity
@@ -82,7 +82,7 @@ all =
                                 \_ -> ()
                             }
                         )
-                        |> Form.field2 "foo" Field.text
+                        |> Form.field "foo" Field.text
                     ]
                     |> expectMatch
                         { method = Request.Post
@@ -99,7 +99,7 @@ all =
         , test "expectFormPost with missing content-type" <|
             \() ->
                 Request.formDataWithoutServerValidation2
-                    [ Form.init2
+                    [ Form.init
                         (\bar ->
                             { combine =
                                 Validation.succeed identity
@@ -108,7 +108,7 @@ all =
                                 \_ -> ()
                             }
                         )
-                        |> Form.field2 "bar" Field.text
+                        |> Form.field "bar" Field.text
                     ]
                     |> expectNoMatch
                         { method = Request.Post

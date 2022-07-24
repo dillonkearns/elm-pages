@@ -160,7 +160,7 @@ greet =
     ApiRoute.succeed
         (Request.oneOf
             [ Request.formDataWithoutServerValidation2
-                [ Form.init2
+                [ Form.init
                     (\bar ->
                         { combine =
                             Validation.succeed identity
@@ -169,7 +169,7 @@ greet =
                             \_ -> ()
                         }
                     )
-                    |> Form.field2 "first" (Field.text |> Field.required "Required")
+                    |> Form.field "first" (Field.text |> Field.required "Required")
                 ]
                 |> Request.andThen
                     (\result ->

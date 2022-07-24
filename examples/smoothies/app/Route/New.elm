@@ -128,7 +128,7 @@ head static =
 
 form : Form.HtmlForm String NewItem Data Msg
 form =
-    Form.init2
+    Form.init
         (\name description price imageUrl ->
             { combine =
                 Validation.succeed NewItem
@@ -141,7 +141,7 @@ form =
                     let
                         errors field =
                             info.errors
-                                |> Form.errorsForField2 field
+                                |> Form.errorsForField field
 
                         errorsView field =
                             (--if field.status == Pages.FormState.Blurred then
@@ -172,8 +172,8 @@ form =
                     ]
             }
         )
-        |> Form.field2 "name" (Field.text |> Field.required "Required")
-        |> Form.field2 "description"
+        |> Form.field "name" (Field.text |> Field.required "Required")
+        |> Form.field "description"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withClientValidation
@@ -188,8 +188,8 @@ form =
                         )
                     )
             )
-        |> Form.field2 "price" (Field.int { invalid = \_ -> "Invalid int" } |> Field.required "Required")
-        |> Form.field2 "imageUrl" (Field.text |> Field.required "Required")
+        |> Form.field "price" (Field.int { invalid = \_ -> "Invalid int" } |> Field.required "Required")
+        |> Form.field "imageUrl" (Field.text |> Field.required "Required")
 
 
 view :
@@ -203,14 +203,14 @@ view maybeUrl sharedModel model app =
         pendingCreation : Result (Form.FieldErrors String) NewItem
         pendingCreation =
             form
-                |> Form.parse2 app app.data
+                |> Form.parse app app.data
                 |> parseIgnoreErrors
     in
     { title = "New Item"
     , body =
         [ Html.h2 [] [ Html.text "New item" ]
         , form
-            |> Form.toDynamicTransitionNew "form"
+            |> Form.toDynamicTransition "form"
             |> Form.renderHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"

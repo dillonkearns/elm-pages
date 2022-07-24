@@ -120,7 +120,7 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
         , dependentParser
-            |> Form.toDynamicTransitionNew "form"
+            |> Form.toDynamicTransition "form"
             |> Form.renderHtml []
                 -- TODO pass in form response from ActionData
                 Nothing
@@ -141,7 +141,7 @@ type alias Validated =
 
 dependentParser : Form.HtmlForm String { username : String, password : String } data Msg
 dependentParser =
-    Form.init2
+    Form.init
         (\username password passwordConfirmation ->
             { combine =
                 username
@@ -167,9 +167,9 @@ dependentParser =
                     ]
             }
         )
-        |> Form.field2 "username" (Field.text |> Field.required "Required")
-        |> Form.field2 "password" (Field.text |> Field.password |> Field.required "Required")
-        |> Form.field2 "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
+        |> Form.field "username" (Field.text |> Field.required "Required")
+        |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
+        |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
 
 
 fieldView :
@@ -183,7 +183,7 @@ fieldView formState label field =
         errorsView =
             (if formState.submitAttempted || True then
                 formState.errors
-                    |> Form.errorsForField2 field
+                    |> Form.errorsForField field
                     |> List.map (\error -> Html.li [] [ Html.text error ])
 
              else

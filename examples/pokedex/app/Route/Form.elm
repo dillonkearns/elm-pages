@@ -65,7 +65,7 @@ defaultUser =
 
 form : Form.HtmlForm String User User Msg
 form =
-    Form.init2
+    Form.init
         (\firstName lastName username email dob check ->
             { combine =
                 Validation.succeed User
@@ -80,7 +80,7 @@ form =
                     let
                         errors field =
                             formState.errors
-                                |> Form.errorsForField2 field
+                                |> Form.errorsForField field
 
                         errorsView field =
                             case
@@ -132,17 +132,17 @@ form =
                     ]
             }
         )
-        |> Form.field2 "first"
+        |> Form.field "first"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (.first >> Form.Value.string)
             )
-        |> Form.field2 "last"
+        |> Form.field "last"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (.last >> Form.Value.string)
             )
-        |> Form.field2 "username"
+        |> Form.field "username"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (.username >> Form.Value.string)
@@ -155,12 +155,12 @@ form =
              --            DataSource.succeed []
              --    )
             )
-        |> Form.field2 "email"
+        |> Form.field "email"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (.email >> Form.Value.string)
             )
-        |> Form.field2 "dob"
+        |> Form.field "dob"
             (Field.date
                 { invalid = \_ -> "Invalid date"
                 }
@@ -169,7 +169,7 @@ form =
              --|> Field.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
              --|> Field.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
             )
-        |> Form.field2 "checkbox" Field.checkbox
+        |> Form.field "checkbox" Field.checkbox
 
 
 route : StatelessRoute RouteParams Data ActionData
@@ -274,7 +274,7 @@ view maybeUrl sharedModel app =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form
-            |> Form.toDynamicTransitionNew "test1"
+            |> Form.toDynamicTransition "test1"
             |> Form.renderHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"

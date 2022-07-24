@@ -191,7 +191,7 @@ usernameInput formState field =
                             , Tw.pointer_events_none
                             ]
                         ]
-                        [ if formState.errors |> Form.errorsForField2 field |> List.isEmpty then
+                        [ if formState.errors |> Form.errorsForField field |> List.isEmpty then
                             Html.text ""
 
                           else
@@ -215,7 +215,7 @@ validateCapitalized string =
 
 form : Form.StyledHtmlForm String User data msg
 form =
-    Form.init2
+    Form.init
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
             { combine =
                 Validation.succeed User
@@ -310,19 +310,19 @@ form =
                     ]
             }
         )
-        |> Form.field2 "first"
+        |> Form.field "first"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (always defaultUser.first >> Form.Value.string)
                 |> Field.withClientValidation validateCapitalized
             )
-        |> Form.field2 "last"
+        |> Form.field "last"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (always defaultUser.last >> Form.Value.string)
                 |> Field.withClientValidation validateCapitalized
             )
-        |> Form.field2 "username"
+        |> Form.field "username"
             (Field.text
                 |> Field.withInitialValue (always defaultUser.username >> Form.Value.string)
                 |> Field.required "Required"
@@ -365,13 +365,13 @@ form =
                             DataSource.succeed []
                     )
             )
-        |> Form.field2 "email"
+        |> Form.field "email"
             (Field.text
                 |> Field.withInitialValue (always defaultUser.email >> Form.Value.string)
                 |> Field.email
                 |> Field.required "Required"
             )
-        |> Form.field2 "dob"
+        |> Form.field "dob"
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
@@ -387,19 +387,19 @@ form =
                             DataSource.succeed []
                     )
             )
-        |> Form.field2 "checkin"
+        |> Form.field "checkin"
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
                 |> Field.withInitialValue (always defaultUser.checkIn >> Form.Value.date)
             )
-        |> Form.field2 "checkout"
+        |> Form.field "checkout"
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
                 |> Field.withInitialValue (always defaultUser.checkOut >> Form.Value.date)
             )
-        |> Form.field2 "rating"
+        |> Form.field "rating"
             (Field.int { invalid = \_ -> "Invalid number" }
                 |> Field.range
                     { missing = "Required"
@@ -409,17 +409,17 @@ form =
                     , max = Form.Value.int 5
                     }
             )
-        |> Form.field2 "password"
+        |> Form.field "password"
             (Field.text |> Field.password |> Field.required "Required")
-        |> Form.field2 "password-confirmation"
+        |> Form.field "password-confirmation"
             (Field.text |> Field.password |> Field.required "Required")
-        |> Form.field2 "comments"
+        |> Form.field "comments"
             Field.checkbox
-        |> Form.field2 "candidates"
+        |> Form.field "candidates"
             Field.checkbox
-        |> Form.field2 "offers"
+        |> Form.field "offers"
             Field.checkbox
-        |> Form.field2
+        |> Form.field
             "push-notifications"
             (Field.select
                 [ ( "PushAll", PushAll )
@@ -429,7 +429,7 @@ form =
                 (\_ -> "Invalid option")
                 |> Field.required "Please select your notification preference."
             )
-        |> Form.field2 "acceptTerms"
+        |> Form.field "acceptTerms"
             (Field.checkbox
                 |> Field.withClientValidation
                     (\checked ->
@@ -709,7 +709,7 @@ view maybeUrl sharedModel model static =
                         |> Debug.toString
                     )
                 , form
-                    |> Form.toDynamicTransitionNew "test"
+                    |> Form.toDynamicTransition "test"
                     |> Form.renderStyledHtml []
                         (static.action
                             |> Maybe.andThen .formResponse
@@ -848,7 +848,7 @@ errorsView formState field =
         ]
         (if showErrors then
             formState.errors
-                |> Form.errorsForField2 field
+                |> Form.errorsForField field
                 |> List.map
                     (\error ->
                         Html.li

@@ -189,7 +189,7 @@ type Action
 
 deleteForm : Form.HtmlForm String Action String msg
 deleteForm =
-    Form.init2
+    Form.init
         (\id ->
             { combine =
                 Validation.succeed (\i -> Delete { id = i })
@@ -200,12 +200,12 @@ deleteForm =
                     ]
             }
         )
-        |> Form.hiddenField2 "id" (Field.text |> Field.required "Required" |> Field.withInitialValue Form.Value.string)
+        |> Form.hiddenField "id" (Field.text |> Field.required "Required" |> Field.withInitialValue Form.Value.string)
 
 
 createForm : Form.HtmlForm String Action data msg
 createForm =
-    Form.init2
+    Form.init
         (\query ->
             { combine =
                 Validation.succeed (\d -> Create { description = d })
@@ -225,7 +225,7 @@ createForm =
                     ]
             }
         )
-        |> Form.field2 "q" (Field.text |> Field.required "Required")
+        |> Form.field "q" (Field.text |> Field.required "Required")
 
 
 descriptionFieldView :
@@ -246,7 +246,7 @@ errorsForField : Form.Context String data -> Validation String parsed kind -> Ht
 errorsForField formState field =
     (if True then
         formState.errors
-            |> Form.errorsForField2 field
+            |> Form.errorsForField field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else
@@ -340,7 +340,7 @@ view maybeUrl sharedModel model static =
                             )
                             [ Html.text item.description
                             , deleteForm
-                                |> Form.toDynamicTransitionNew "test1"
+                                |> Form.toDynamicTransition "test1"
                                 |> Form.renderHtml
                                     [ Attr.style "display" "inline"
                                     , Attr.style "padding-left" "6px"
@@ -366,7 +366,7 @@ view maybeUrl sharedModel model static =
                    )
             )
         , createForm
-            |> Form.toDynamicTransitionNew "test2"
+            |> Form.toDynamicTransition "test2"
             |> Form.renderHtml []
                 -- TODO pass in server data
                 Nothing

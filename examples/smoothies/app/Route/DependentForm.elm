@@ -129,7 +129,7 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
         , dependentParser
-            |> Form.toDynamicTransitionNew "dependent-example"
+            |> Form.toDynamicTransition "dependent-example"
             |> Form.renderHtml []
                 -- TODO pass in form response from ActionData
                 Nothing
@@ -150,7 +150,7 @@ type alias PostInfo =
 
 linkForm : Form.HtmlForm String PostAction data Msg
 linkForm =
-    Form.init2
+    Form.init
         (\url ->
             { combine =
                 Validation.succeed ParsedLink
@@ -162,7 +162,7 @@ linkForm =
                     ]
             }
         )
-        |> Form.field2 "url"
+        |> Form.field "url"
             (Field.text
                 |> Field.required "Required"
                 |> Field.url
@@ -171,7 +171,7 @@ linkForm =
 
 postForm : Form.HtmlForm String PostAction data Msg
 postForm =
-    Form.init2
+    Form.init
         (\title body ->
             { combine =
                 Validation.succeed PostInfo
@@ -186,13 +186,13 @@ postForm =
                     ]
             }
         )
-        |> Form.field2 "title" (Field.text |> Field.required "Required")
-        |> Form.field2 "body" Field.text
+        |> Form.field "title" (Field.text |> Field.required "Required")
+        |> Form.field "body" Field.text
 
 
 dependentParser : Form.HtmlForm String PostAction data Msg
 dependentParser =
-    Form.init2
+    Form.init
         (\kind postForm_ ->
             { combine =
                 kind
@@ -226,7 +226,7 @@ dependentParser =
                     ]
             }
         )
-        |> Form.field2 "kind"
+        |> Form.field "kind"
             (Field.select
                 [ ( "link", Link )
                 , ( "post", Post )
@@ -234,7 +234,7 @@ dependentParser =
                 (\_ -> "Invalid")
                 |> Field.required "Required"
             )
-        |> Form.dynamic2
+        |> Form.dynamic
             (\parsedKind ->
                 case parsedKind of
                     Link ->
@@ -256,7 +256,7 @@ fieldView formState label field =
         errorsView =
             (if formState.submitAttempted || True then
                 formState.errors
-                    |> Form.errorsForField2 field
+                    |> Form.errorsForField field
                     |> List.map (\error -> Html.li [] [ Html.text error ])
 
              else

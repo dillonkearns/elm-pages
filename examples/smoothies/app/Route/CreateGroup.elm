@@ -126,7 +126,7 @@ view maybeUrl sharedModel model app =
     { title = "Create Group"
     , body =
         [ postForm
-            |> Form.toDynamicTransitionNew "create-group"
+            |> Form.toDynamicTransition "create-group"
             |> Form.renderHtml []
                 -- TODO pass in form response from ActionData
                 Nothing
@@ -150,7 +150,7 @@ type GroupVisibility
 
 postForm : Form.HtmlForm String GroupFormValidated data Msg
 postForm =
-    Form.init2
+    Form.init
         (\name description visibility ->
             { combine =
                 Validation.succeed GroupFormValidated
@@ -196,7 +196,7 @@ postForm =
                     ]
             }
         )
-        |> Form.field2 "name"
+        |> Form.field "name"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withClientValidation
@@ -219,7 +219,7 @@ postForm =
                             |> fromResult
                     )
             )
-        |> Form.field2 "description"
+        |> Form.field "description"
             (Field.text
                 |> Field.textarea
                 |> Field.withClientValidation
@@ -231,7 +231,7 @@ postForm =
                             |> fromResult
                     )
             )
-        |> Form.field2 "visibility"
+        |> Form.field "visibility"
             (Field.select
                 [ ( "unlisted", UnlistedGroup )
                 , ( "public", PublicGroup )
@@ -260,7 +260,7 @@ errorsForField : Form.Context String data -> Validation String parsed kind -> Ht
 errorsForField formState field =
     (if formState.submitAttempted then
         formState.errors
-            |> Form.errorsForField2 field
+            |> Form.errorsForField field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else

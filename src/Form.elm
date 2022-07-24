@@ -1,27 +1,19 @@
 module Form exposing
     ( Form(..), FieldErrors, HtmlForm, StyledHtmlForm
+    , init
+    , field, hiddenField, hiddenKind
     , andThen
     , Context
     , renderHtml, renderStyledHtml
-    , FinalForm, withGetMethod
-    , Errors
+    , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
+    , Errors, errorsForField
+    , parse, runOneOfServerSide
+    , dynamic
+    , runOneOfServerSideWithServerValidations
     , AppContext
     , FieldDefinition(..)
-    ,  dynamic2
-      , errorsForField2
-      , field2
-      , hiddenField2
-      , hiddenKind2
-      , init2
-      , parse2
-      , runOneOfServerSide2
-      , runOneOfServerSideWithServerValidations2
-      , runServerSide3
-      , runServerSide4
-      , toDynamicFetcherNew
-      , toDynamicTransitionNew
-        -- subGroup
-
+    , runServerSide3, runServerSide4
+    -- subGroup
     )
 
 {-|
@@ -137,8 +129,8 @@ type alias Context error data =
 
 
 {-| -}
-init2 : parsedAndView -> Form String parsedAndView data
-init2 parsedAndView =
+init : parsedAndView -> Form String parsedAndView data
+init parsedAndView =
     FormNew []
         (\_ _ ->
             { result = Dict.empty
@@ -150,7 +142,7 @@ init2 parsedAndView =
 
 
 {-| -}
-dynamic2 :
+dynamic :
     (decider
      ->
         Form
@@ -175,7 +167,7 @@ dynamic2 :
             error
             parsedAndView
             data
-dynamic2 forms formBuilder =
+dynamic forms formBuilder =
     FormNew []
         (\maybeData formState ->
             let
@@ -318,12 +310,12 @@ andThen andThenFn ( maybe, fieldErrors ) =
 
 
 {-| -}
-field2 :
+field :
     String
     -> Field error parsed data kind constraints
     -> Form error (Validation error parsed kind -> parsedAndView) data
     -> Form error parsedAndView data
-field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValues) =
+field name (Field fieldParser kind) (FormNew definitions parseFn toInitialValues) =
     FormNew
         (( name, RegularField )
             :: definitions
@@ -400,12 +392,12 @@ field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValue
 
 
 {-| -}
-hiddenField2 :
+hiddenField :
     String
     -> Field error parsed data kind constraints
     -> Form error (Validation error parsed Form.FieldView.Hidden -> parsedAndView) data
     -> Form error parsedAndView data
-hiddenField2 name (Field fieldParser _) (FormNew definitions parseFn toInitialValues) =
+hiddenField name (Field fieldParser _) (FormNew definitions parseFn toInitialValues) =
     FormNew
         (( name, HiddenField )
             :: definitions
@@ -482,12 +474,12 @@ hiddenField2 name (Field fieldParser _) (FormNew definitions parseFn toInitialVa
 
 
 {-| -}
-hiddenKind2 :
+hiddenKind :
     ( String, String )
     -> error
     -> Form error parsedAndView data
     -> Form error parsedAndView data
-hiddenKind2 ( name, value ) error_ (FormNew definitions parseFn toInitialValues) =
+hiddenKind ( name, value ) error_ (FormNew definitions parseFn toInitialValues) =
     let
         (Field fieldParser _) =
             Field.exactValue value error_
@@ -558,8 +550,8 @@ type Errors error
 
 
 {-| -}
-errorsForField2 : Validation error parsed kind -> Errors error -> List error
-errorsForField2 field_ (Errors errorsDict) =
+errorsForField : Validation error parsed kind -> Errors error -> List error
+errorsForField field_ (Errors errorsDict) =
     errorsDict
         |> Dict.get (Validation.fieldName field_)
         |> Maybe.withDefault []
@@ -673,12 +665,12 @@ mergeErrors errors1 errors2 =
 
 
 {-| -}
-parse2 :
+parse :
     AppContext app
     -> data
     -> Form error { info | combine : Validation error parsed named } data
     -> ( Maybe parsed, FieldErrors error )
-parse2 app data (FormNew _ parser _) =
+parse app data (FormNew _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -795,7 +787,7 @@ unwrapValidation (Pages.Internal.Form.Validation viewField name ( maybeParsed, e
 
 
 {-| -}
-runOneOfServerSide2 :
+runOneOfServerSide :
     List ( String, String )
     ->
         List
@@ -805,7 +797,7 @@ runOneOfServerSide2 :
                 data
             )
     -> ( Maybe parsed, FieldErrors error )
-runOneOfServerSide2 rawFormData parsers =
+runOneOfServerSide rawFormData parsers =
     case parsers of
         firstParser :: remainingParsers ->
             let
@@ -824,7 +816,7 @@ runOneOfServerSide2 rawFormData parsers =
                     ( Just parsed, Dict.empty )
 
                 _ ->
-                    runOneOfServerSide2 rawFormData remainingParsers
+                    runOneOfServerSide rawFormData remainingParsers
 
         [] ->
             -- TODO need to pass errors
@@ -832,7 +824,7 @@ runOneOfServerSide2 rawFormData parsers =
 
 
 {-| -}
-runOneOfServerSideWithServerValidations2 :
+runOneOfServerSideWithServerValidations :
     List ( String, String )
     ->
         List
@@ -842,7 +834,7 @@ runOneOfServerSideWithServerValidations2 :
                 data
             )
     -> ( Maybe parsed, DataSource (FieldErrors error) )
-runOneOfServerSideWithServerValidations2 rawFormData parsers =
+runOneOfServerSideWithServerValidations rawFormData parsers =
     case parsers of
         firstParser :: remainingParsers ->
             let
@@ -856,7 +848,7 @@ runOneOfServerSideWithServerValidations2 rawFormData parsers =
                     thing
 
                 _ ->
-                    runOneOfServerSideWithServerValidations2 rawFormData remainingParsers
+                    runOneOfServerSideWithServerValidations rawFormData remainingParsers
 
         [] ->
             -- TODO need to pass errors
@@ -921,7 +913,7 @@ toStatic (FormInternal a b c) =
 
 
 {-| -}
-toDynamicFetcherNew :
+toDynamicFetcher :
     String
     ->
         Form
@@ -936,7 +928,7 @@ toDynamicFetcherNew :
             (Validation error parsed field)
             data
             (Context error data -> view)
-toDynamicFetcherNew name (FormNew a b c) =
+toDynamicFetcher name (FormNew a b c) =
     let
         options =
             { submitStrategy = FetcherStrategy
@@ -991,7 +983,7 @@ toDynamicFetcherNew name (FormNew a b c) =
 
 
 {-| -}
-toDynamicTransitionNew :
+toDynamicTransition :
     String
     ->
         Form
@@ -1006,7 +998,7 @@ toDynamicTransitionNew :
             (Validation error parsed field)
             data
             (Context error data -> view)
-toDynamicTransitionNew name (FormNew a b c) =
+toDynamicTransition name (FormNew a b c) =
     let
         options =
             { submitStrategy = TransitionStrategy

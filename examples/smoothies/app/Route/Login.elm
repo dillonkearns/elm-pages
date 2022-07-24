@@ -90,7 +90,7 @@ route =
 
 form : Form.HtmlForm String String data Msg
 form =
-    Form.init2
+    Form.init
         (\username ->
             { combine =
                 Validation.succeed identity
@@ -110,7 +110,7 @@ form =
                     ]
             }
         )
-        |> Form.field2 "username" (Field.text |> Field.required "Required")
+        |> Form.field "username" (Field.text |> Field.required "Required")
 
 
 fieldView :
@@ -132,7 +132,7 @@ errorsForField : Form.Context String data -> Validation String parsed kind -> Ht
 errorsForField formState field =
     (if formState.submitAttempted then
         formState.errors
-            |> Form.errorsForField2 field
+            |> Form.errorsForField field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else
@@ -219,7 +219,7 @@ view maybeUrl sharedModel app =
                 )
             ]
         , form
-            |> Form.toDynamicTransitionNew "login"
+            |> Form.toDynamicTransition "login"
             |> Form.renderHtml [] Nothing app ()
         ]
     }

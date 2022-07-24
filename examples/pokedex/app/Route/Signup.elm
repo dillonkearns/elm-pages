@@ -142,7 +142,7 @@ errorsForField : Form.Context String data -> Validation String parsed kind -> Ht
 errorsForField formState field =
     (if True then
         formState.errors
-            |> Form.errorsForField2 field
+            |> Form.errorsForField field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else
@@ -153,7 +153,7 @@ errorsForField formState field =
 
 form : Form.HtmlForm String ( String, String ) data msg
 form =
-    Form.init2
+    Form.init
         (\first email ->
             { combine =
                 Validation.succeed Tuple.pair
@@ -167,8 +167,8 @@ form =
                     ]
             }
         )
-        |> Form.field2 "first" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "Jane"))
-        |> Form.field2 "email" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "jane@example.com"))
+        |> Form.field "first" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "Jane"))
+        |> Form.field "email" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "jane@example.com"))
 
 
 required field =
@@ -266,7 +266,7 @@ view maybeUrl sharedModel model static =
             ]
         , flashView static.data.flashMessage
         , form
-            |> Form.toDynamicTransitionNew "test1"
+            |> Form.toDynamicTransition "test1"
             |> Form.renderHtml []
                 -- TODO pass in server data
                 Nothing

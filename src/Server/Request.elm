@@ -897,7 +897,7 @@ formDataWithoutServerValidation2 formParsers =
             (\rawFormData_ ->
                 let
                     ( maybeDecoded, errors ) =
-                        Form.runOneOfServerSide2
+                        Form.runOneOfServerSide
                             rawFormData_
                             formParsers
                 in
@@ -933,7 +933,7 @@ formData2 formParsers =
             (\rawFormData_ ->
                 let
                     ( maybeDecoded, errorsDataSource ) =
-                        Form.runOneOfServerSideWithServerValidations2
+                        Form.runOneOfServerSideWithServerValidations
                             rawFormData_
                             formParsers
                 in

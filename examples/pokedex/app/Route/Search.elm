@@ -118,7 +118,7 @@ data routeParams =
 
 form : Form.HtmlForm String String () Msg
 form =
-    Form.init2
+    Form.init
         (\query ->
             { combine =
                 Validation.succeed identity
@@ -130,7 +130,7 @@ form =
                     ]
             }
         )
-        |> Form.field2 "q" (Field.text |> Field.required "Required")
+        |> Form.field "q" (Field.text |> Field.required "Required")
 
 
 fieldView :
@@ -152,7 +152,7 @@ errorsForField : Form.Context String data -> Validation String parsed kind -> Ht
 errorsForField formState field =
     (if True then
         formState.errors
-            |> Form.errorsForField2 field
+            |> Form.errorsForField field
             |> List.map (\error -> Html.li [] [ Html.text error ])
 
      else
@@ -197,7 +197,7 @@ view maybeUrl sharedModel model static =
     , body =
         [ Html.h2 [] [ Html.text "Search" ]
         , form
-            |> Form.toDynamicTransitionNew "test1"
+            |> Form.toDynamicTransition "test1"
             |> Form.withGetMethod
             |> Form.renderHtml []
                 -- TODO pass in server data

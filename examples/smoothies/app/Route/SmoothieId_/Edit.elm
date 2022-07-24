@@ -175,7 +175,7 @@ type alias EditInfo =
 
 deleteForm : Form.HtmlForm String Action data Msg
 deleteForm =
-    Form.init2
+    Form.init
         { combine = Validation.succeed Delete
         , view =
             \formState ->
@@ -185,12 +185,12 @@ deleteForm =
                     [ Html.text "Delete" ]
                 ]
         }
-        |> Form.hiddenKind2 ( "kind", "delete" ) "Required"
+        |> Form.hiddenKind ( "kind", "delete" ) "Required"
 
 
 form : Form.HtmlForm String Action Data Msg
 form =
-    Form.init2
+    Form.init
         (\name description price imageUrl media ->
             { combine =
                 Validation.succeed EditInfo
@@ -205,7 +205,7 @@ form =
                         errorsView field =
                             (if formState.submitAttempted || True then
                                 formState.errors
-                                    |> Form.errorsForField2 field
+                                    |> Form.errorsForField field
                                     |> List.map (\error -> Html.li [] [ Html.text error ])
 
                              else
@@ -256,28 +256,28 @@ form =
                     ]
             }
         )
-        |> Form.field2 "name"
+        |> Form.field "name"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.name)
             )
-        |> Form.field2 "description"
+        |> Form.field "description"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.description)
             )
-        |> Form.field2 "price"
+        |> Form.field "price"
             (Field.int { invalid = \_ -> "Invalid int" }
                 |> Field.required "Required"
                 |> Field.withMin (Form.Value.int 1) "Price must be at least $1"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.int smoothie.price)
             )
-        |> Form.field2 "imageUrl"
+        |> Form.field "imageUrl"
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.unsplashImage)
             )
-        |> Form.field2 "media"
+        |> Form.field "media"
             (Field.select
                 [ ( "article", Article )
                 , ( "book", Book )
@@ -285,7 +285,7 @@ form =
                 ]
                 (\option -> "Invalid option " ++ option)
             )
-        |> Form.hiddenKind2 ( "kind", "edit" ) "Required"
+        |> Form.hiddenKind ( "kind", "edit" ) "Required"
 
 
 type Media
@@ -315,7 +315,7 @@ view maybeUrl sharedModel model app =
         pendingCreation : Maybe NewItem
         pendingCreation =
             form
-                |> Form.parse2 app app.data
+                |> Form.parse app app.data
                 |> parseIgnoreErrors
                 |> Result.toMaybe
                 |> Maybe.andThen
@@ -332,7 +332,7 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.h2 [] [ Html.text "Update item" ]
         , form
-            |> Form.toDynamicTransitionNew "form"
+            |> Form.toDynamicTransition "form"
             |> Form.renderHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
@@ -346,7 +346,7 @@ view maybeUrl sharedModel model app =
             |> Maybe.map pendingView
             |> Maybe.withDefault (Html.div [] [])
         , deleteForm
-            |> Form.toDynamicTransitionNew "delete-form"
+            |> Form.toDynamicTransition "delete-form"
             |> Form.renderHtml []
                 -- TODO
                 Nothing

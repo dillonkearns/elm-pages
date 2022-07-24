@@ -121,7 +121,7 @@ type alias Action =
 
 formParser : Form.HtmlForm String Action Data msg
 formParser =
-    Form.init2
+    Form.init
         (\username name ->
             { combine =
                 Validation.succeed Action
@@ -132,14 +132,14 @@ formParser =
                     let
                         errors field =
                             info.errors
-                                |> Form.errorsForField2 field
+                                |> Form.errorsForField field
 
                         errorsView field =
                             (-- TODO
                              --if field.status == Pages.FormState.Blurred then
                              if True then
                                 info.errors
-                                    |> Form.errorsForField2 field
+                                    |> Form.errorsForField field
                                     |> List.map (\error -> Html.li [] [ Html.text error ])
 
                              else
@@ -167,7 +167,7 @@ formParser =
                     ]
             }
         )
-        |> Form.field2 "username"
+        |> Form.field "username"
             (Field.text
                 |> Field.required "Username is required"
                 |> Field.withClientValidation validateUsername
@@ -183,7 +183,7 @@ formParser =
                     )
                 |> Field.withInitialValue (\{ user } -> Form.Value.string user.username)
             )
-        |> Form.field2 "name"
+        |> Form.field "name"
             (Field.text
                 |> Field.required "Name is required"
                 |> Field.withInitialValue (\{ user } -> Form.Value.string user.name)
@@ -269,7 +269,7 @@ view maybeUrl sharedModel model app =
             _ ->
                 Html.text "No errors"
         , formParser
-            |> Form.toDynamicTransitionNew "edit-form"
+            |> Form.toDynamicTransition "edit-form"
             |> Form.renderHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"

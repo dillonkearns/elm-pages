@@ -23,7 +23,7 @@ all =
     describe "Form Parser" <|
         let
             passwordConfirmationParser =
-                Form.init2
+                Form.init
                     (\password passwordConfirmation ->
                         { combine =
                             Validation.succeed
@@ -39,8 +39,8 @@ all =
                         , view = \info -> Div
                         }
                     )
-                    |> Form.field2 "password" (Field.text |> Field.required "Password is required")
-                    |> Form.field2 "password-confirmation" (Field.text |> Field.required "Password confirmation is required")
+                    |> Form.field "password" (Field.text |> Field.required "Password is required")
+                    |> Form.field "password-confirmation" (Field.text |> Field.required "Password confirmation is required")
         in
         [ test "matching password" <|
             \() ->
@@ -71,14 +71,14 @@ all =
         , describe "oneOf" <|
             let
                 oneOfParsers =
-                    [ Form.init2
+                    [ Form.init
                         (\_ ->
                             { combine = Validation.succeed Signout
                             , view = \_ -> Div
                             }
                         )
-                        |> Form.hiddenField2 "kind" (Field.exactValue "signout" "Expected signout")
-                    , Form.init2
+                        |> Form.hiddenField "kind" (Field.exactValue "signout" "Expected signout")
+                    , Form.init
                         (\_ uuid quantity ->
                             { combine =
                                 Validation.succeed SetQuantity
@@ -88,14 +88,14 @@ all =
                                 \_ -> Div
                             }
                         )
-                        |> Form.hiddenField2 "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
-                        |> Form.hiddenField2 "uuid" (Field.text |> Field.required "Required")
-                        |> Form.field2 "quantity" (Field.int { invalid = \_ -> "Expected int" } |> Field.required "Required")
+                        |> Form.hiddenField "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
+                        |> Form.hiddenField "uuid" (Field.text |> Field.required "Required")
+                        |> Form.field "quantity" (Field.int { invalid = \_ -> "Expected int" } |> Field.required "Required")
                     ]
             in
             [ test "first branch" <|
                 \() ->
-                    Form.runOneOfServerSide2
+                    Form.runOneOfServerSide
                         (fields
                             [ ( "kind", "signout" )
                             ]
@@ -107,7 +107,7 @@ all =
                             )
             , test "second branch" <|
                 \() ->
-                    Form.runOneOfServerSide2
+                    Form.runOneOfServerSide
                         (fields
                             [ ( "kind", "setQuantity" )
                             , ( "uuid", "123" )
@@ -132,14 +132,14 @@ all =
             , describe "select" <|
                 let
                     selectParser =
-                        [ Form.init2
+                        [ Form.init
                             (\media ->
                                 { combine = media
                                 , view =
                                     \_ -> Div
                                 }
                             )
-                            |> Form.field2 "media"
+                            |> Form.field "media"
                                 (Field.select
                                     [ ( "book", Book )
                                     , ( "article", Article )
@@ -151,7 +151,7 @@ all =
                 in
                 [ test "example" <|
                     \() ->
-                        Form.runOneOfServerSide2
+                        Form.runOneOfServerSide
                             (fields
                                 [ ( "media", "book" )
                                 ]
@@ -170,7 +170,7 @@ all =
                             { combine : Validation String ( Date, Date ) Never, view : a -> MyView }
                             data
                     checkinFormParser =
-                        Form.init2
+                        Form.init
                             (\checkin checkout ->
                                 { combine =
                                     Validation.succeed
@@ -190,14 +190,14 @@ all =
                                     \_ -> Div
                                 }
                             )
-                            |> Form.field2 "checkin"
+                            |> Form.field "checkin"
                                 (Field.date { invalid = \_ -> "Invalid" } |> Field.required "Required")
-                            |> Form.field2 "checkout"
+                            |> Form.field "checkout"
                                 (Field.date { invalid = \_ -> "Invalid" } |> Field.required "Required")
                 in
                 [ test "checkin must be before checkout" <|
                     \() ->
-                        Form.runOneOfServerSide2
+                        Form.runOneOfServerSide
                             (fields
                                 [ ( "checkin", "2022-01-01" )
                                 , ( "checkout", "2022-01-03" )
@@ -231,7 +231,7 @@ all =
                                 , ( "password-confirmation", "doesnt-match" )
                                 ]
                             )
-                            (Form.init2
+                            (Form.init
                                 (\postForm_ ->
                                     { combine =
                                         postForm_.combine ()
@@ -239,9 +239,9 @@ all =
                                         \_ -> ( [], [ Div ] )
                                     }
                                 )
-                                |> Form.dynamic2
+                                |> Form.dynamic
                                     (\() ->
-                                        Form.init2
+                                        Form.init
                                             (\password passwordConfirmation ->
                                                 { combine =
                                                     Validation.succeed
@@ -258,8 +258,8 @@ all =
                                                 , view = [ Div ]
                                                 }
                                             )
-                                            |> Form.field2 "password" (Field.text |> Field.password |> Field.required "Required")
-                                            |> Form.field2 "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
+                                            |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
+                                            |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
                                     )
                             )
                             |> Expect.equal
@@ -274,7 +274,7 @@ all =
             let
                 linkForm : Form String { combine : Validation String PostAction Never, view : Form.Context String data -> MyView } data
                 linkForm =
-                    Form.init2
+                    Form.init
                         (\url ->
                             { combine =
                                 Validation.succeed ParsedLink
@@ -283,7 +283,7 @@ all =
                                 \_ -> Div
                             }
                         )
-                        |> Form.field2 "url"
+                        |> Form.field "url"
                             (Field.text
                                 |> Field.required "Required"
                                 |> Field.url
@@ -291,7 +291,7 @@ all =
 
                 postForm : Form String { combine : Validation String PostAction Never, view : Form.Context String data -> MyView } data
                 postForm =
-                    Form.init2
+                    Form.init
                         (\title body ->
                             { combine =
                                 Validation.succeed
@@ -306,12 +306,12 @@ all =
                             , view = \_ -> Div
                             }
                         )
-                        |> Form.field2 "title" (Field.text |> Field.required "Required")
-                        |> Form.field2 "body" Field.text
+                        |> Form.field "title" (Field.text |> Field.required "Required")
+                        |> Form.field "body" Field.text
 
                 dependentParser : Form String { combine : Validation String PostAction Never, view : Form.Context String data -> MyView } data
                 dependentParser =
-                    Form.init2
+                    Form.init
                         (\kind postForm_ ->
                             { combine =
                                 kind
@@ -319,7 +319,7 @@ all =
                             , view = \_ -> Div
                             }
                         )
-                        |> Form.field2 "kind"
+                        |> Form.field "kind"
                             (Field.select
                                 [ ( "link", Link )
                                 , ( "post", Post )
@@ -327,7 +327,7 @@ all =
                                 (\_ -> "Invalid")
                                 |> Field.required "Required"
                             )
-                        |> Form.dynamic2
+                        |> Form.dynamic
                             (\parsedKind ->
                                 case parsedKind of
                                     Link ->
@@ -339,7 +339,7 @@ all =
             in
             [ test "parses link" <|
                 \() ->
-                    Form.runOneOfServerSide2
+                    Form.runOneOfServerSide
                         (fields
                             [ ( "kind", "link" )
                             , ( "url", "https://elm-radio.com/episode/wrap-early-unwrap-late" )

@@ -56,7 +56,7 @@ type alias Data =
 
 
 form =
-    Form.init2
+    Form.init
         (\bar ->
             { combine =
                 Validation.succeed identity
@@ -64,7 +64,7 @@ form =
             , view = ()
             }
         )
-        |> Form.field2 "name" (Field.text |> Field.required "Required")
+        |> Form.field "name" (Field.text |> Field.required "Required")
 
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
