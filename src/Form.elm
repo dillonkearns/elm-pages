@@ -89,7 +89,7 @@ import Html.Styled.Attributes as StyledAttr
 import Html.Styled.Lazy
 import Json.Encode as Encode
 import Pages.FormState as Form exposing (FormState)
-import Pages.Internal.Form exposing (Named, Validation(..))
+import Pages.Internal.Form exposing (Validation(..))
 import Pages.Msg
 import Pages.Transition
 

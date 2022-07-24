@@ -1,4 +1,4 @@
-module Pages.Internal.Form exposing (Named(..), Validation(..), ViewField)
+module Pages.Internal.Form exposing (Validation(..), ViewField)
 
 import Dict exposing (Dict)
 import Json.Encode as Encode
@@ -15,7 +15,3 @@ type alias ViewField kind =
     , status : Pages.FormState.FieldStatus
     , kind : ( kind, List ( String, Encode.Value ) )
     }
-
-
-type Named
-    = Named

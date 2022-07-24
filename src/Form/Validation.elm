@@ -18,7 +18,7 @@ module Form.Validation exposing
 -}
 
 import Dict exposing (Dict)
-import Pages.Internal.Form exposing (Named, Validation(..))
+import Pages.Internal.Form exposing (Validation(..))
 
 
 {-| -}
