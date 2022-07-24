@@ -1,6 +1,7 @@
 module Form.FieldView exposing
-    ( Input(..), InputType(..), Options(..), inputTypeToString, select, toHtmlProperties
-    , Hidden(..), input2, inputStyled2, radio2, radioStyled2
+    ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, toHtmlProperties
+    , radioStyled, inputStyled
+    , Hidden(..), selectOld
     )
 
 {-|
@@ -101,11 +102,11 @@ type Options a
 
 
 {-| -}
-input2 :
+input :
     List (Html.Attribute msg)
     -> Validation error parsed Input
     -> Html msg
-input2 attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+input attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     let
         justViewField =
             expectViewField viewField
@@ -147,11 +148,11 @@ input2 attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
 
 
 {-| -}
-inputStyled2 :
+inputStyled :
     List (Html.Styled.Attribute msg)
     -> Validation error parsed Input
     -> Html.Styled.Html msg
-inputStyled2 attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+inputStyled attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     let
         justViewField =
             expectViewField viewField
@@ -197,7 +198,7 @@ inputStyled2 attrs (Validation viewField fieldName ( maybeParsed, fieldErrors ))
 
 
 {-| -}
-select :
+selectOld :
     List (Html.Attribute msg)
     ->
         (parsed
@@ -213,7 +214,7 @@ select :
             , kind : ( Options parsed, List ( String, Encode.Value ) )
         }
     -> Html msg
-select selectAttrs enumToOption rawField =
+selectOld selectAttrs enumToOption rawField =
     let
         (Options parseValue possibleValues) =
             rawField.kind |> Tuple.first
@@ -249,7 +250,7 @@ select selectAttrs enumToOption rawField =
 
 
 {-| -}
-radio2 :
+radio :
     List (Html.Attribute msg)
     ->
         (parsed
@@ -258,7 +259,7 @@ radio2 :
         )
     -> Validation error parsed2 (Options parsed)
     -> Html msg
-radio2 selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+radio selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     let
         justViewField =
             viewField |> expectViewField
@@ -324,7 +325,7 @@ expectViewField viewField =
 
 
 {-| -}
-radioStyled2 :
+radioStyled :
     List (Html.Styled.Attribute msg)
     ->
         (parsed
@@ -333,7 +334,7 @@ radioStyled2 :
         )
     -> Validation error parsed2 (Options parsed)
     -> Html.Styled.Html msg
-radioStyled2 selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+radioStyled selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     let
         justViewField =
             viewField |> expectViewField

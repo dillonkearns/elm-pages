@@ -108,7 +108,7 @@ form =
                             Html.div []
                                 [ Html.label []
                                     [ Html.text (label ++ " ")
-                                    , field |> Form.FieldView.input2 []
+                                    , field |> Form.FieldView.input []
                                     ]
                                 , errorsView field
                                 ]

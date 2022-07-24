@@ -236,7 +236,7 @@ descriptionFieldView formState field =
     Html.div []
         [ Html.label []
             [ Html.text "Description "
-            , field |> Form.FieldView.input2 [ Attr.autofocus True ]
+            , field |> Form.FieldView.input [ Attr.autofocus True ]
             ]
         , errorsForField formState field
         ]

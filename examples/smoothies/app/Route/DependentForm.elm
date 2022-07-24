@@ -199,7 +199,7 @@ dependentParser =
                     |> Validation.andThen postForm_.combine
             , view =
                 \formState ->
-                    [ Form.FieldView.radio2 []
+                    [ Form.FieldView.radio []
                         (\enum toRadio ->
                             Html.label []
                                 [ toRadio []
@@ -267,7 +267,7 @@ fieldView formState label field =
     Html.div []
         [ Html.label []
             [ Html.text (label ++ " ")
-            , field |> Form.FieldView.input2 []
+            , field |> Form.FieldView.input []
             ]
         , errorsView
         ]

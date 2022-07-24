@@ -157,7 +157,7 @@ usernameInput formState field =
                             ]
                         ]
                         [ Html.text "workcation.com/" ]
-                    , Form.FieldView.inputStyled2
+                    , Form.FieldView.inputStyled
                         [ Attr.type_ "text"
                         , Attr.name "username"
                         , Attr.id "username"
@@ -281,7 +281,7 @@ form =
                     , wrapNotificationsSections
                         [ wrapPushNotificationsSection formState
                             pushNotifications
-                            [ Form.FieldView.radioStyled2
+                            [ Form.FieldView.radioStyled
                                 [ css
                                     [ Tw.mt_4
                                     , Tw.space_y_4
@@ -807,7 +807,7 @@ textInput info labelText field =
                 ]
             ]
             [ field
-                |> Form.FieldView.inputStyled2
+                |> Form.FieldView.inputStyled
                     [ --Attr.attribute "autocomplete" "given-name",
                       css
                         [ Tw.max_w_lg
@@ -884,7 +884,7 @@ checkboxInput { name, description } info field =
                     ]
                 ]
                 [ field
-                    |> Form.FieldView.inputStyled2
+                    |> Form.FieldView.inputStyled
                         [ css
                             [ Tw.h_4
                             , Tw.w_4

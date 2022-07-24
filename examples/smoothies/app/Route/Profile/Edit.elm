@@ -149,11 +149,11 @@ formParser =
                     in
                     [ Html.div
                         []
-                        [ Html.label [] [ Html.text "Username ", username |> FieldView.input2 [] ]
+                        [ Html.label [] [ Html.text "Username ", username |> FieldView.input [] ]
                         , errorsView username
                         ]
                     , Html.div []
-                        [ Html.label [] [ Html.text "Name ", name |> FieldView.input2 [] ]
+                        [ Html.label [] [ Html.text "Name ", name |> FieldView.input [] ]
                         , errorsView name
                         ]
                     , Html.button []

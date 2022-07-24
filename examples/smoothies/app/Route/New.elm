@@ -159,7 +159,7 @@ form =
                             Html.div []
                                 [ Html.label []
                                     [ Html.text (label ++ " ")
-                                    , field |> FieldView.input2 []
+                                    , field |> FieldView.input []
                                     ]
                                 , errorsView field
                                 ]
