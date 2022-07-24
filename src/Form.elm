@@ -130,7 +130,7 @@ type alias Context error data =
 {-| -}
 init : parsedAndView -> Form String parsedAndView data
 init parsedAndView =
-    FormNew []
+    Form []
         (\_ _ ->
             { result = Dict.empty
             , parsedAndView = parsedAndView
@@ -167,7 +167,7 @@ dynamic :
             parsedAndView
             data
 dynamic forms formBuilder =
-    FormNew []
+    Form []
         (\maybeData formState ->
             let
                 toParser :
@@ -179,7 +179,7 @@ dynamic forms formBuilder =
                         }
                 toParser decider =
                     case forms decider of
-                        FormNew _ parseFn _ ->
+                        Form _ parseFn _ ->
                             -- TODO need to include hidden form fields from `definitions` (should they be automatically rendered? Does that mean the view type needs to be hardcoded?)
                             parseFn maybeData formState
 
@@ -197,7 +197,7 @@ dynamic forms formBuilder =
                             }
                         newThing =
                             case formBuilder of
-                                FormNew _ parseFn _ ->
+                                Form _ parseFn _ ->
                                     parseFn maybeData formState
 
                         arg : { combine : decider -> AnyValidation error parsed named constraints1, view : decider -> subView }
@@ -314,8 +314,8 @@ field :
     -> Field error parsed data kind constraints
     -> Form error (FieldValidation error parsed kind -> parsedAndView) data
     -> Form error parsedAndView data
-field name (Field fieldParser kind) (FormNew definitions parseFn toInitialValues) =
-    FormNew
+field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
+    Form
         (( name, RegularField )
             :: definitions
         )
@@ -396,8 +396,8 @@ hiddenField :
     -> Field error parsed data kind constraints
     -> Form error (FieldValidation error parsed Form.FieldView.Hidden -> parsedAndView) data
     -> Form error parsedAndView data
-hiddenField name (Field fieldParser _) (FormNew definitions parseFn toInitialValues) =
-    FormNew
+hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues) =
+    Form
         (( name, HiddenField )
             :: definitions
         )
@@ -478,12 +478,12 @@ hiddenKind :
     -> error
     -> Form error parsedAndView data
     -> Form error parsedAndView data
-hiddenKind ( name, value ) error_ (FormNew definitions parseFn toInitialValues) =
+hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
     let
         (Field fieldParser _) =
             Field.exactValue value error_
     in
-    FormNew
+    Form
         (( name, HiddenField )
             :: definitions
         )
@@ -670,7 +670,7 @@ parse :
     -> data
     -> Form error { info | combine : AnyValidation error parsed named constraints } data
     -> ( Maybe parsed, FieldErrors error )
-parse formId app data (FormNew _ parser _) =
+parse formId app data (Form _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -710,7 +710,7 @@ runServerSide :
     List ( String, String )
     -> Form error { all | combine : AnyValidation error parsed kind constraints } data
     -> ( Maybe parsed, DataSource (FieldErrors error) )
-runServerSide rawFormData (FormNew _ parser _) =
+runServerSide rawFormData (Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
@@ -747,7 +747,7 @@ runServerSideWithoutServerValidations :
     List ( String, String )
     -> Form error { all | combine : AnyValidation error parsed kind constraints } data
     -> ( Maybe parsed, FieldErrors error )
-runServerSideWithoutServerValidations rawFormData (FormNew _ parser _) =
+runServerSideWithoutServerValidations rawFormData (Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
@@ -927,7 +927,7 @@ toDynamicFetcher :
             (AnyValidation error parsed field constraints)
             data
             (Context error data -> view)
-toDynamicFetcher name (FormNew a b c) =
+toDynamicFetcher name (Form a b c) =
     let
         options =
             { submitStrategy = FetcherStrategy
@@ -997,7 +997,7 @@ toDynamicTransition :
             (AnyValidation error parsed field constraints)
             data
             (Context error data -> view)
-toDynamicTransition name (FormNew a b c) =
+toDynamicTransition name (Form a b c) =
     let
         options =
             { submitStrategy = TransitionStrategy
@@ -1381,7 +1381,7 @@ type FormInternal error parsed data view
 
 {-| -}
 type Form error parsedAndView data
-    = FormNew
+    = Form
         (List ( String, FieldDefinition ))
         (Maybe data
          -> Form.FormState
