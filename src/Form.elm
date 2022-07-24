@@ -1,5 +1,5 @@
 module Form exposing
-    ( Form(..), FieldErrors
+    ( Form(..), FieldErrors, StyledHtmlForm
     , andThen
     , Context
     , renderHtml, renderStyledHtml
@@ -9,7 +9,6 @@ module Form exposing
     , FieldDefinition(..)
     ,  HtmlFormNew
        -- subGroup
-      , StyledHtmlFormNew
       , dynamic2
       , errorsForField2
       , field2
@@ -1362,7 +1361,7 @@ type alias HtmlFormNew error parsed data msg =
 
 
 {-| -}
-type alias StyledHtmlFormNew error parsed data msg =
+type alias StyledHtmlForm error parsed data msg =
     Form
         error
         { combine : Validation error parsed Never

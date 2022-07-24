@@ -213,7 +213,7 @@ validateCapitalized string =
         ( Nothing, [ "Needs to be capitalized" ] )
 
 
-form : Form.StyledHtmlFormNew String User data msg
+form : Form.StyledHtmlForm String User data msg
 form =
     Form.init2
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
