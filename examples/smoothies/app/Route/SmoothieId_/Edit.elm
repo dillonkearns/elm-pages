@@ -315,7 +315,7 @@ view maybeUrl sharedModel model app =
         pendingCreation : Maybe NewItem
         pendingCreation =
             form
-                |> Form.parse app app.data
+                |> Form.parse "form" app app.data
                 |> parseIgnoreErrors
                 |> Result.toMaybe
                 |> Maybe.andThen

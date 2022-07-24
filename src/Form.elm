@@ -665,11 +665,12 @@ mergeErrors errors1 errors2 =
 
 {-| -}
 parse :
-    AppContext app
+    String
+    -> AppContext app
     -> data
     -> Form error { info | combine : Validation error parsed named } data
     -> ( Maybe parsed, FieldErrors error )
-parse app data (FormNew _ parser _) =
+parse formId app data (FormNew _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -684,8 +685,7 @@ parse app data (FormNew _ parser _) =
         thisFormState : Form.FormState
         thisFormState =
             app.pageFormState
-                -- TODO remove hardcoding
-                |> Dict.get "test"
+                |> Dict.get formId
                 |> Maybe.withDefault initFormState
     in
     { result = ( parsed.parsedAndView.combine, parsed.result )

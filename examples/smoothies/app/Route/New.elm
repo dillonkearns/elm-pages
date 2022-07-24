@@ -203,7 +203,7 @@ view maybeUrl sharedModel model app =
         pendingCreation : Result (Form.FieldErrors String) NewItem
         pendingCreation =
             form
-                |> Form.parse app app.data
+                |> Form.parse "form" app app.data
                 |> parseIgnoreErrors
     in
     { title = "New Item"
