@@ -7,7 +7,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Validation)
+import Form.Validation as Validation exposing (FieldValidation, OnlyValidation)
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -175,7 +175,7 @@ dependentParser =
 fieldView :
     Form.Context String data
     -> String
-    -> Validation String parsed Form.FieldView.Input
+    -> FieldValidation String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     let

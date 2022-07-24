@@ -11,7 +11,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Validation)
+import Form.Validation as Validation exposing (OnlyValidation)
 import Form.Value
 import Head
 import Head.Seo as Seo
@@ -831,7 +831,7 @@ textInput info labelText field =
         ]
 
 
-errorsView : Form.Context String data -> Validation String parsed kind -> Html msg
+errorsView : Form.Context String data -> OnlyValidation String parsed kind -> Html msg
 errorsView formState field =
     let
         showErrors : Bool

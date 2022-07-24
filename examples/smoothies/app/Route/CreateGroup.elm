@@ -7,7 +7,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Validation)
+import Form.Validation as Validation exposing (FieldValidation, OnlyValidation)
 import GroupName exposing (GroupName)
 import Head
 import Html exposing (Html)
@@ -244,7 +244,7 @@ postForm =
 fieldView :
     Form.Context String data
     -> String
-    -> Validation String parsed Form.FieldView.Input
+    -> FieldValidation String parsed Form.FieldView.Input
     -> Html msg
 fieldView formState label field =
     Html.div []
@@ -256,7 +256,7 @@ fieldView formState label field =
         ]
 
 
-errorsForField : Form.Context String data -> Validation String parsed kind -> Html msg
+errorsForField : Form.Context String data -> FieldValidation String parsed kind -> Html msg
 errorsForField formState field =
     (if formState.submitAttempted then
         formState.errors
