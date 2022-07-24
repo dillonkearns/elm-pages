@@ -1,17 +1,22 @@
 module Form.FieldView exposing
-    ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, toHtmlProperties
+    ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, toHtmlProperties, Hidden(..)
     , radioStyled, inputStyled
-    , Hidden(..), selectOld
+    , selectOld
     )
 
 {-|
 
-@docs Input, InputType, Options, input, inputTypeToString, radio, select, toHtmlProperties
+@docs Input, InputType, Options, input, inputTypeToString, radio, toHtmlProperties, Hidden
 
 
 ## Html.Styled Helpers
 
 @docs radioStyled, inputStyled
+
+
+## Need to Migrate to New Validation Form type
+
+@docs selectOld
 
 -}
 
@@ -92,6 +97,8 @@ type Input
     = Input InputType
 
 
+{-| There are no render helpers for hidden fields because the `Form.renderHtml` helper functions automatically render hidden fields for you.
+-}
 type Hidden
     = Hidden
 
