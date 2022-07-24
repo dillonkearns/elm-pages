@@ -126,7 +126,7 @@ head static =
     []
 
 
-form : Form.HtmlFormNew String NewItem Data Msg
+form : Form.HtmlForm String NewItem Data Msg
 form =
     Form.init2
         (\name description price imageUrl ->

@@ -1,5 +1,5 @@
 module Form exposing
-    ( Form(..), FieldErrors, StyledHtmlForm
+    ( Form(..), FieldErrors, HtmlForm, StyledHtmlForm
     , andThen
     , Context
     , renderHtml, renderStyledHtml
@@ -7,9 +7,7 @@ module Form exposing
     , Errors
     , AppContext
     , FieldDefinition(..)
-    ,  HtmlFormNew
-       -- subGroup
-      , dynamic2
+    ,  dynamic2
       , errorsForField2
       , field2
       , hiddenField2
@@ -22,6 +20,7 @@ module Form exposing
       , runServerSide4
       , toDynamicFetcherNew
       , toDynamicTransitionNew
+        -- subGroup
 
     )
 
@@ -1351,7 +1350,7 @@ toResult ( maybeParsed, fieldErrors ) =
 
 
 {-| -}
-type alias HtmlFormNew error parsed data msg =
+type alias HtmlForm error parsed data msg =
     Form
         error
         { combine : Validation error parsed Never

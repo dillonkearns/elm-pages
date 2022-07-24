@@ -173,7 +173,7 @@ type alias EditInfo =
     { name : String, description : String, price : Int, imageUrl : String }
 
 
-deleteForm : Form.HtmlFormNew String Action data Msg
+deleteForm : Form.HtmlForm String Action data Msg
 deleteForm =
     Form.init2
         { combine = Validation.succeed Delete
@@ -188,7 +188,7 @@ deleteForm =
         |> Form.hiddenKind2 ( "kind", "delete" ) "Required"
 
 
-form : Form.HtmlFormNew String Action Data Msg
+form : Form.HtmlForm String Action Data Msg
 form =
     Form.init2
         (\name description price imageUrl media ->

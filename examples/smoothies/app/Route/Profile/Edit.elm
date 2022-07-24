@@ -119,7 +119,7 @@ type alias Action =
     }
 
 
-formParser : Form.HtmlFormNew String Action Data msg
+formParser : Form.HtmlForm String Action Data msg
 formParser =
     Form.init2
         (\username name ->

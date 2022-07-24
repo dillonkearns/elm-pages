@@ -151,7 +151,7 @@ errorsForField formState field =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-form : Form.HtmlFormNew String ( String, String ) data msg
+form : Form.HtmlForm String ( String, String ) data msg
 form =
     Form.init2
         (\first email ->

@@ -139,7 +139,7 @@ type alias Validated =
     { username : String, password : String }
 
 
-dependentParser : Form.HtmlFormNew String { username : String, password : String } data Msg
+dependentParser : Form.HtmlForm String { username : String, password : String } data Msg
 dependentParser =
     Form.init2
         (\username password passwordConfirmation ->

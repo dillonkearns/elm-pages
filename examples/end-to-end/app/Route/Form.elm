@@ -65,7 +65,7 @@ defaultUser =
     }
 
 
-form : Form.HtmlFormNew String User User Msg
+form : Form.HtmlForm String User User Msg
 form =
     Form.init2
         (\first last username email dob check ->

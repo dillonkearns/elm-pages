@@ -116,7 +116,7 @@ data routeParams =
         ]
 
 
-form : Form.HtmlFormNew String String () Msg
+form : Form.HtmlForm String String () Msg
 form =
     Form.init2
         (\query ->

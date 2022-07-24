@@ -187,7 +187,7 @@ type Action
     | Create { description : String }
 
 
-deleteForm : Form.HtmlFormNew String Action String msg
+deleteForm : Form.HtmlForm String Action String msg
 deleteForm =
     Form.init2
         (\id ->
@@ -203,7 +203,7 @@ deleteForm =
         |> Form.hiddenField2 "id" (Field.text |> Field.required "Required" |> Field.withInitialValue Form.Value.string)
 
 
-createForm : Form.HtmlFormNew String Action data msg
+createForm : Form.HtmlForm String Action data msg
 createForm =
     Form.init2
         (\query ->

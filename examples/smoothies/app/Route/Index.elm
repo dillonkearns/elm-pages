@@ -124,7 +124,7 @@ type Action
     | SetQuantity Uuid Int
 
 
-signoutForm : Form.HtmlFormNew String Action input Msg
+signoutForm : Form.HtmlForm String Action input Msg
 signoutForm =
     Form.init2
         { combine = Validation.succeed Signout
@@ -136,7 +136,7 @@ signoutForm =
         |> Form.hiddenKind2 ( "kind", "signout" ) "Expected signout"
 
 
-setQuantityForm : Form.HtmlFormNew String Action ( Int, QuantityChange, Smoothie ) Msg
+setQuantityForm : Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) Msg
 setQuantityForm =
     Form.init2
         (\uuid quantity ->
@@ -185,7 +185,7 @@ toQuantity quantityChange =
             -1
 
 
-oneOfParsers : List (Form.HtmlFormNew String Action ( Int, QuantityChange, Smoothie ) Msg)
+oneOfParsers : List (Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) Msg)
 oneOfParsers =
     [ signoutForm, setQuantityForm ]
 

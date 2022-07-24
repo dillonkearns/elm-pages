@@ -148,7 +148,7 @@ type alias PostInfo =
     { title : String, body : Maybe String }
 
 
-linkForm : Form.HtmlFormNew String PostAction data Msg
+linkForm : Form.HtmlForm String PostAction data Msg
 linkForm =
     Form.init2
         (\url ->
@@ -169,7 +169,7 @@ linkForm =
             )
 
 
-postForm : Form.HtmlFormNew String PostAction data Msg
+postForm : Form.HtmlForm String PostAction data Msg
 postForm =
     Form.init2
         (\title body ->
@@ -190,7 +190,7 @@ postForm =
         |> Form.field2 "body" Field.text
 
 
-dependentParser : Form.HtmlFormNew String PostAction data Msg
+dependentParser : Form.HtmlForm String PostAction data Msg
 dependentParser =
     Form.init2
         (\kind postForm_ ->

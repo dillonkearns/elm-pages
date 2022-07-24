@@ -88,7 +88,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-form : Form.HtmlFormNew String String data Msg
+form : Form.HtmlForm String String data Msg
 form =
     Form.init2
         (\username ->

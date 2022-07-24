@@ -148,7 +148,7 @@ type GroupVisibility
     | PublicGroup
 
 
-postForm : Form.HtmlFormNew String GroupFormValidated data Msg
+postForm : Form.HtmlForm String GroupFormValidated data Msg
 postForm =
     Form.init2
         (\name description visibility ->
