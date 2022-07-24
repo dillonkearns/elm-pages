@@ -5,7 +5,7 @@ import Dict
 import Expect
 import Form exposing (Form)
 import Form.Field as Field
-import Form.Validation as Validation exposing (Validation)
+import Form.Validation as Validation exposing (AnyValidation, FieldValidation, Validation)
 import Test exposing (Test, describe, test)
 
 
@@ -167,7 +167,7 @@ all =
                     checkinFormParser :
                         Form
                             String
-                            { combine : Validation String ( Date, Date ) Never, view : a -> MyView }
+                            { combine : Validation String ( Date, Date ), view : a -> MyView }
                             data
                     checkinFormParser =
                         Form.init
@@ -272,7 +272,7 @@ all =
             ]
         , describe "dependent parsing" <|
             let
-                linkForm : Form String { combine : Validation String PostAction Never, view : Form.Context String data -> MyView } data
+                linkForm : Form String { combine : Validation String PostAction, view : Form.Context String data -> MyView } data
                 linkForm =
                     Form.init
                         (\url ->
@@ -289,7 +289,7 @@ all =
                                 |> Field.url
                             )
 
-                postForm : Form String { combine : Validation String PostAction Never, view : Form.Context String data -> MyView } data
+                postForm : Form String { combine : Validation String PostAction, view : Form.Context String data -> MyView } data
                 postForm =
                     Form.init
                         (\title body ->
@@ -309,7 +309,7 @@ all =
                         |> Form.field "title" (Field.text |> Field.required "Required")
                         |> Form.field "body" Field.text
 
-                dependentParser : Form String { combine : Validation String PostAction Never, view : Form.Context String data -> MyView } data
+                dependentParser : Form String { combine : Validation String PostAction, view : Form.Context String data -> MyView } data
                 dependentParser =
                     Form.init
                         (\kind postForm_ ->
