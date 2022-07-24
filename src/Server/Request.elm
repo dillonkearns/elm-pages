@@ -1,7 +1,6 @@
 module Server.Request exposing
     ( Parser
     , succeed, fromResult, skip
-    , formData, formDataWithoutServerValidation
     , rawFormData
     , method, rawBody, allCookies, rawHeaders, queryParams
     , requestTime, optionalHeader, expectContentType, expectJsonBody
@@ -916,72 +915,6 @@ formDataWithoutServerValidation2 formParsers =
                                     |> Dict.fromList
                             }
                             |> succeed
-            )
-
-
-{-| -}
-formDataWithoutServerValidation :
-    List (Form.Form error (Validation error combined named) data (Form.Context error data -> viewFn))
-    -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
-formDataWithoutServerValidation formParsers =
-    rawFormData
-        |> andThen
-            (\rawFormData_ ->
-                let
-                    ( maybeDecoded, errors ) =
-                        Form.runOneOfServerSide
-                            rawFormData_
-                            formParsers
-                in
-                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
-                    ( Just decoded, Nothing ) ->
-                        succeed (Ok decoded)
-
-                    ( _, maybeErrors ) ->
-                        Err
-                            { fields = rawFormData_
-                            , errors =
-                                maybeErrors
-                                    |> Maybe.map List.NonEmpty.toList
-                                    |> Maybe.withDefault []
-                                    |> Dict.fromList
-                            }
-                            |> succeed
-            )
-
-
-{-| -}
-formData :
-    List (Form.Form error (Validation error combined named) data (Form.Context error data -> viewFn))
-    -> Parser (DataSource (Result { fields : List ( String, String ), errors : Dict String (List error) } combined))
-formData formParsers =
-    rawFormData
-        |> andThen
-            (\rawFormData_ ->
-                let
-                    ( maybeDecoded, errorsDataSource ) =
-                        Form.runOneOfServerSideWithServerValidations
-                            rawFormData_
-                            formParsers
-                in
-                errorsDataSource
-                    |> DataSource.map
-                        (\errors ->
-                            case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
-                                ( Just decoded, Nothing ) ->
-                                    Ok decoded
-
-                                ( _, maybeErrors ) ->
-                                    Err
-                                        { fields = rawFormData_
-                                        , errors =
-                                            maybeErrors
-                                                |> Maybe.map List.NonEmpty.toList
-                                                |> Maybe.withDefault []
-                                                |> Dict.fromList
-                                        }
-                        )
-                    |> succeed
             )
 
 

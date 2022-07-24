@@ -5,7 +5,6 @@ module Form exposing
     , renderHtml, renderStyledHtml
     , FinalForm, withGetMethod
     , Errors
-    , parse, runOneOfServerSide, runServerSide
     , runOneOfServerSideWithServerValidations
     , AppContext
     , FieldDefinition(..)
@@ -678,34 +677,6 @@ mergeErrors errors1 errors2 =
 
 
 {-| -}
-parse :
-    AppContext app
-    -> data
-    -> Form error (Validation error parsed named) data (Context error data -> view)
-    -> ( Maybe parsed, FieldErrors error )
-parse app data (Form _ parser _) =
-    -- TODO Get transition context from `app` so you can check if the current form is being submitted
-    -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
-    let
-        parsed :
-            { result : ( Validation error parsed named, Dict String (List error) )
-            , view : Context error data -> view
-            , serverValidations : DataSource (List ( String, List error ))
-            }
-        parsed =
-            parser (Just data) thisFormState
-
-        thisFormState : Form.FormState
-        thisFormState =
-            app.pageFormState
-                -- TODO remove hardcoding
-                |> Dict.get "test"
-                |> Maybe.withDefault initFormState
-    in
-    parsed |> mergeResults |> unwrapValidation
-
-
-{-| -}
 parse2 :
     AppContext app
     -> data
@@ -745,45 +716,6 @@ insertIfNonempty key values dict =
     else
         dict
             |> Dict.insert key values
-
-
-{-| -}
-runServerSide :
-    List ( String, String )
-    -> Form error (Validation error parsed named) data (Context error data -> view)
-    -> ( Maybe parsed, FieldErrors error )
-runServerSide rawFormData (Form _ parser _) =
-    let
-        parsed :
-            { result :
-                ( Validation error parsed named
-                , Dict String (List error)
-                )
-            , view : Context error data -> view
-            , serverValidations : DataSource (List ( String, List error ))
-            }
-        parsed =
-            parser Nothing thisFormState
-
-        thisFormState : Form.FormState
-        thisFormState =
-            { initFormState
-                | fields =
-                    rawFormData
-                        |> List.map
-                            (Tuple.mapSecond
-                                (\value ->
-                                    { value = value
-                                    , status = Form.NotVisited
-                                    }
-                                )
-                            )
-                        |> Dict.fromList
-            }
-    in
-    parsed
-        |> mergeResults
-        |> unwrapValidation
 
 
 {-| -}
@@ -904,37 +836,6 @@ runServerSide4 rawFormData (FormNew _ parser _) =
 unwrapValidation : Validation error parsed named -> ( Maybe parsed, FieldErrors error )
 unwrapValidation (Pages.Internal.Form.Validation viewField name ( maybeParsed, errors )) =
     ( maybeParsed, errors )
-
-
-{-| -}
-runOneOfServerSide :
-    List ( String, String )
-    -> List (Form error (Validation error parsed named) data (Context error data -> view))
-    -> ( Maybe parsed, FieldErrors error )
-runOneOfServerSide rawFormData parsers =
-    case parsers of
-        firstParser :: remainingParsers ->
-            let
-                thing : ( Maybe parsed, List ( String, List error ) )
-                thing =
-                    runServerSide rawFormData firstParser
-                        |> Tuple.mapSecond
-                            (\errors ->
-                                errors
-                                    |> Dict.toList
-                                    |> List.filter (Tuple.second >> List.isEmpty >> not)
-                            )
-            in
-            case thing of
-                ( Just parsed, [] ) ->
-                    ( Just parsed, Dict.empty )
-
-                _ ->
-                    runOneOfServerSide rawFormData remainingParsers
-
-        [] ->
-            -- TODO need to pass errors
-            ( Nothing, Dict.empty )
 
 
 {-| -}
