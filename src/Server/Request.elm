@@ -885,7 +885,7 @@ fileField_ name =
 {-| -}
 formDataWithoutServerValidation2 :
     List
-        (Form.FormNew
+        (Form.Form
             error
             { all | combine : Validation error combined kind }
             data
@@ -921,7 +921,7 @@ formDataWithoutServerValidation2 formParsers =
 {-| -}
 formData2 :
     List
-        (Form.FormNew
+        (Form.Form
             error
             { all | combine : Validation error combined kind }
             data

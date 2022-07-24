@@ -1,5 +1,5 @@
 module Form exposing
-    ( FieldErrors
+    ( Form(..), FieldErrors
     , andThen
     , Context
     , renderHtml, renderStyledHtml
@@ -7,9 +7,8 @@ module Form exposing
     , Errors
     , AppContext
     , FieldDefinition(..)
-    ,  FormNew(..)
-      , HtmlFormNew
-        -- subGroup
+    ,  HtmlFormNew
+       -- subGroup
       , StyledHtmlFormNew
       , dynamic2
       , errorsForField2
@@ -140,7 +139,7 @@ type alias Context error data =
 
 
 {-| -}
-init2 : parsedAndView -> FormNew String parsedAndView data
+init2 : parsedAndView -> Form String parsedAndView data
 init2 parsedAndView =
     FormNew []
         (\_ _ ->
@@ -156,7 +155,7 @@ init2 parsedAndView =
 dynamic2 :
     (decider
      ->
-        FormNew
+        Form
             error
             { combine : Validation error parsed named
             , view : subView
@@ -164,7 +163,7 @@ dynamic2 :
             data
     )
     ->
-        FormNew
+        Form
             error
             --((decider -> Validation error parsed named) -> combined)
             ({ combine : decider -> Validation error parsed named
@@ -174,7 +173,7 @@ dynamic2 :
             )
             data
     ->
-        FormNew
+        Form
             error
             parsedAndView
             data
@@ -324,8 +323,8 @@ andThen andThenFn ( maybe, fieldErrors ) =
 field2 :
     String
     -> Field error parsed data kind constraints
-    -> FormNew error (Validation error parsed kind -> parsedAndView) data
-    -> FormNew error parsedAndView data
+    -> Form error (Validation error parsed kind -> parsedAndView) data
+    -> Form error parsedAndView data
 field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValues) =
     FormNew
         (( name, RegularField )
@@ -406,8 +405,8 @@ field2 name (Field fieldParser kind) (FormNew definitions parseFn toInitialValue
 hiddenField2 :
     String
     -> Field error parsed data kind constraints
-    -> FormNew error (Validation error parsed Form.FieldView.Hidden -> parsedAndView) data
-    -> FormNew error parsedAndView data
+    -> Form error (Validation error parsed Form.FieldView.Hidden -> parsedAndView) data
+    -> Form error parsedAndView data
 hiddenField2 name (Field fieldParser _) (FormNew definitions parseFn toInitialValues) =
     FormNew
         (( name, HiddenField )
@@ -488,8 +487,8 @@ hiddenField2 name (Field fieldParser _) (FormNew definitions parseFn toInitialVa
 hiddenKind2 :
     ( String, String )
     -> error
-    -> FormNew error parsedAndView data
-    -> FormNew error parsedAndView data
+    -> Form error parsedAndView data
+    -> Form error parsedAndView data
 hiddenKind2 ( name, value ) error_ (FormNew definitions parseFn toInitialValues) =
     let
         (Field fieldParser _) =
@@ -679,7 +678,7 @@ mergeErrors errors1 errors2 =
 parse2 :
     AppContext app
     -> data
-    -> FormNew error { info | combine : Validation error parsed named } data
+    -> Form error { info | combine : Validation error parsed named } data
     -> ( Maybe parsed, FieldErrors error )
 parse2 app data (FormNew _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -720,7 +719,7 @@ insertIfNonempty key values dict =
 {-| -}
 runServerSide3 :
     List ( String, String )
-    -> FormNew error { all | combine : Validation error parsed kind } data
+    -> Form error { all | combine : Validation error parsed kind } data
     -> ( Maybe parsed, DataSource (FieldErrors error) )
 runServerSide3 rawFormData (FormNew _ parser _) =
     let
@@ -757,7 +756,7 @@ runServerSide3 rawFormData (FormNew _ parser _) =
 {-| -}
 runServerSide4 :
     List ( String, String )
-    -> FormNew error { all | combine : Validation error parsed kind } data
+    -> Form error { all | combine : Validation error parsed kind } data
     -> ( Maybe parsed, FieldErrors error )
 runServerSide4 rawFormData (FormNew _ parser _) =
     let
@@ -802,7 +801,7 @@ runOneOfServerSide2 :
     List ( String, String )
     ->
         List
-            (FormNew
+            (Form
                 error
                 { all | combine : Validation error parsed kind }
                 data
@@ -839,7 +838,7 @@ runOneOfServerSideWithServerValidations2 :
     List ( String, String )
     ->
         List
-            (FormNew
+            (Form
                 error
                 { all | combine : Validation error parsed kind }
                 data
@@ -927,7 +926,7 @@ toStatic (FormInternal a b c) =
 toDynamicFetcherNew :
     String
     ->
-        FormNew
+        Form
             error
             { combine : Validation error parsed field
             , view : Context error data -> view
@@ -997,7 +996,7 @@ toDynamicFetcherNew name (FormNew a b c) =
 toDynamicTransitionNew :
     String
     ->
-        FormNew
+        Form
             error
             { combine : Validation error parsed field
             , view : Context error data -> view
@@ -1354,7 +1353,7 @@ toResult ( maybeParsed, fieldErrors ) =
 
 {-| -}
 type alias HtmlFormNew error parsed data msg =
-    FormNew
+    Form
         error
         { combine : Validation error parsed Never
         , view : Context error data -> List (Html (Pages.Msg.Msg msg))
@@ -1364,7 +1363,7 @@ type alias HtmlFormNew error parsed data msg =
 
 {-| -}
 type alias StyledHtmlFormNew error parsed data msg =
-    FormNew
+    Form
         error
         { combine : Validation error parsed Never
         , view : Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg))
@@ -1392,7 +1391,7 @@ type FormInternal error parsed data view
 
 
 {-| -}
-type FormNew error parsedAndView data
+type Form error parsedAndView data
     = FormNew
         (List ( String, FieldDefinition ))
         (Maybe data
