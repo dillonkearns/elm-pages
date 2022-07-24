@@ -5,7 +5,7 @@ import Dict
 import Expect
 import Form exposing (Form)
 import Form.Field as Field
-import Form.Validation as Validation exposing (Combined, Field, Validation)
+import Form.Validation as Validation exposing (Combined)
 import Test exposing (Test, describe, test)
 
 
@@ -36,7 +36,7 @@ all =
                                 |> Validation.andMap password
                                 |> Validation.andMap passwordConfirmation
                                 |> Validation.andThen identity
-                        , view = \info -> Div
+                        , view = \_ -> Div
                         }
                     )
                     |> Form.field "password" (Field.text |> Field.required "Password is required")

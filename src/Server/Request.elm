@@ -90,7 +90,7 @@ import CookieParser
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Form
-import Form.Validation as Validation exposing (Combined, Validation)
+import Form.Validation exposing (Validation)
 import FormData
 import Internal.Request
 import Json.Decode

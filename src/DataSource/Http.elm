@@ -152,11 +152,6 @@ type alias RequestDetails =
     }
 
 
-requestToString : RequestDetails -> String
-requestToString requestDetails =
-    requestDetails.url
-
-
 {-| Analogous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
 back in your DataSource.Http request.
 

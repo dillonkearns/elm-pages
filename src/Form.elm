@@ -77,7 +77,6 @@ module Form exposing
 
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
-import Dict.Extra
 import Form.Field as Field exposing (Field(..))
 import Form.FieldView
 import Form.Validation as Validation exposing (Combined, Validation)
@@ -87,7 +86,6 @@ import Html.Lazy
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
 import Html.Styled.Lazy
-import Json.Encode as Encode
 import Pages.FormState as Form exposing (FormState)
 import Pages.Internal.Form exposing (Validation(..))
 import Pages.Msg
@@ -105,7 +103,7 @@ import Pages.Transition
 
 
 {-| -}
-initFormState : Form.FormState
+initFormState : FormState
 initFormState =
     { fields = Dict.empty
     , submitAttempted = False
@@ -582,7 +580,7 @@ mergeResults :
     -> Validation error parsed unnamed constraints2
 mergeResults parsed =
     case parsed.result of
-        ( Pages.Internal.Form.Validation viewField name ( parsedThing, combineErrors ), individualFieldErrors ) ->
+        ( Pages.Internal.Form.Validation _ name ( parsedThing, combineErrors ), individualFieldErrors ) ->
             Pages.Internal.Form.Validation Nothing
                 name
                 ( parsedThing
@@ -598,7 +596,7 @@ mergeResultsDataSource :
     -> ( Maybe parsed, DataSource (FieldErrors error) )
 mergeResultsDataSource parsed =
     case parsed.result of
-        ( Pages.Internal.Form.Validation viewField name ( parsedThing, combineErrors ), individualFieldErrors ) ->
+        ( Pages.Internal.Form.Validation _ _ ( parsedThing, combineErrors ), individualFieldErrors ) ->
             ( parsedThing
             , parsed.serverValidations
                 |> DataSource.map
@@ -682,7 +680,7 @@ parse formId app data (Form _ parser _) =
         parsed =
             parser (Just data) thisFormState
 
-        thisFormState : Form.FormState
+        thisFormState : FormState
         thisFormState =
             app.pageFormState
                 |> Dict.get formId
@@ -720,7 +718,7 @@ runServerSide rawFormData (Form _ parser _) =
         parsed =
             parser Nothing thisFormState
 
-        thisFormState : Form.FormState
+        thisFormState : FormState
         thisFormState =
             { initFormState
                 | fields =
@@ -757,7 +755,7 @@ runServerSideWithoutServerValidations rawFormData (Form _ parser _) =
         parsed =
             parser Nothing thisFormState
 
-        thisFormState : Form.FormState
+        thisFormState : FormState
         thisFormState =
             { initFormState
                 | fields =
@@ -886,7 +884,7 @@ type FinalForm error parsed data view
         }
         (List ( String, FieldDefinition ))
         (Maybe data
-         -> Form.FormState
+         -> FormState
          ->
             { result :
                 ( parsed
@@ -897,18 +895,6 @@ type FinalForm error parsed data view
             }
         )
         (data -> List ( String, String ))
-
-
-toStatic : FormInternal error parsed data view -> FinalForm error parsed data view
-toStatic (FormInternal a b c) =
-    let
-        options =
-            { submitStrategy = FetcherStrategy
-            , method = Post
-            , name = Nothing
-            }
-    in
-    FinalForm options a b c
 
 
 {-| -}
@@ -937,7 +923,7 @@ toDynamicFetcher name (Form a b c) =
 
         transformB :
             (Maybe data
-             -> Form.FormState
+             -> FormState
              ->
                 { result : Dict String (List error)
                 , parsedAndView :
@@ -949,7 +935,7 @@ toDynamicFetcher name (Form a b c) =
             )
             ->
                 (Maybe data
-                 -> Form.FormState
+                 -> FormState
                  ->
                     { result :
                         ( Validation error parsed field constraints
@@ -1007,7 +993,7 @@ toDynamicTransition name (Form a b c) =
 
         transformB :
             (Maybe data
-             -> Form.FormState
+             -> FormState
              ->
                 { result : Dict String (List error)
                 , parsedAndView :
@@ -1019,7 +1005,7 @@ toDynamicTransition name (Form a b c) =
             )
             ->
                 (Maybe data
-                 -> Form.FormState
+                 -> FormState
                  ->
                     { result :
                         ( Validation error parsed field constraints
@@ -1233,7 +1219,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                                 )
                 }
 
-        thisFormState : Form.FormState
+        thisFormState : FormState
         thisFormState =
             formState.pageFormState
                 |> Dict.get formId
@@ -1261,7 +1247,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                     |> Errors
             , isTransitioning =
                 case formState.transition of
-                    Just transition ->
+                    Just _ ->
                         --let
                         --    foo =
                         --        transition.id
@@ -1320,31 +1306,10 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
 
 
 {-| -}
-toResult : ( parsed, FieldErrors error ) -> Result (FieldErrors error) parsed
-toResult ( maybeParsed, fieldErrors ) =
-    let
-        isEmptyDict : Bool
-        isEmptyDict =
-            if Dict.isEmpty fieldErrors then
-                True
-
-            else
-                fieldErrors
-                    |> Dict.Extra.any (\_ errors -> List.isEmpty errors)
-    in
-    case ( maybeParsed, isEmptyDict ) of
-        ( parsed, True ) ->
-            Ok parsed
-
-        _ ->
-            Err fieldErrors
-
-
-{-| -}
 type alias HtmlForm error parsed data msg =
     Form
         error
-        { combine : Validation.Combined error parsed
+        { combine : Combined error parsed
         , view : Context error data -> List (Html (Pages.Msg.Msg msg))
         }
         data
@@ -1366,7 +1331,7 @@ type FormInternal error parsed data view
         -- TODO for renderCustom, pass them as an argument with all hidden fields that the user must render
         (List ( String, FieldDefinition ))
         (Maybe data
-         -> Form.FormState
+         -> FormState
          ->
             { result :
                 ( parsed
@@ -1384,7 +1349,7 @@ type Form error parsedAndView data
     = Form
         (List ( String, FieldDefinition ))
         (Maybe data
-         -> Form.FormState
+         -> FormState
          ->
             { result : Dict String (List error)
             , parsedAndView : parsedAndView
