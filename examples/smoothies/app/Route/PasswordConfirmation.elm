@@ -90,7 +90,7 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation2 [ dependentParser ]
+    Request.formDataWithoutServerValidation [ dependentParser ]
         |> Request.map
             (\parsedForm ->
                 let

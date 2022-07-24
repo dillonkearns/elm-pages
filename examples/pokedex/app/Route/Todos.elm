@@ -160,7 +160,7 @@ data routeParams =
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action _ =
-    Request.formDataWithoutServerValidation2 [ deleteForm, createForm ]
+    Request.formDataWithoutServerValidation [ deleteForm, createForm ]
         |> Request.map
             (\actionResult ->
                 case actionResult of

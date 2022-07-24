@@ -51,7 +51,7 @@ route =
         , action =
             \_ ->
                 MySession.withSession
-                    (Request.formDataWithoutServerValidation2 [ form ])
+                    (Request.formDataWithoutServerValidation [ form ])
                     (\usernameResult session ->
                         case usernameResult of
                             Err _ ->

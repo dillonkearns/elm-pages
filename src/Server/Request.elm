@@ -1,6 +1,7 @@
 module Server.Request exposing
     ( Parser
     , succeed, fromResult, skip
+    , formData, formDataWithoutServerValidation
     , rawFormData
     , method, rawBody, allCookies, rawHeaders, queryParams
     , requestTime, optionalHeader, expectContentType, expectJsonBody
@@ -14,7 +15,6 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
-    , formData2, formDataWithoutServerValidation2
     )
 
 {-|
@@ -883,7 +883,7 @@ fileField_ name =
 
 
 {-| -}
-formDataWithoutServerValidation2 :
+formDataWithoutServerValidation :
     List
         (Form.Form
             error
@@ -891,7 +891,7 @@ formDataWithoutServerValidation2 :
             data
         )
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
-formDataWithoutServerValidation2 formParsers =
+formDataWithoutServerValidation formParsers =
     rawFormData
         |> andThen
             (\rawFormData_ ->
@@ -919,7 +919,7 @@ formDataWithoutServerValidation2 formParsers =
 
 
 {-| -}
-formData2 :
+formData :
     List
         (Form.Form
             error
@@ -927,7 +927,7 @@ formData2 :
             data
         )
     -> Parser (DataSource (Result { fields : List ( String, String ), errors : Dict String (List error) } combined))
-formData2 formParsers =
+formData formParsers =
     rawFormData
         |> andThen
             (\rawFormData_ ->

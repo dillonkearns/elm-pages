@@ -62,7 +62,7 @@ all =
                         [ ( "q", "hello" ) ]
         , test "tries multiple form post formats" <|
             \() ->
-                Request.formDataWithoutServerValidation2
+                Request.formDataWithoutServerValidation
                     [ Form.init
                         (\bar ->
                             { combine =
@@ -98,7 +98,7 @@ all =
                         }
         , test "expectFormPost with missing content-type" <|
             \() ->
-                Request.formDataWithoutServerValidation2
+                Request.formDataWithoutServerValidation
                     [ Form.init
                         (\bar ->
                             { combine =

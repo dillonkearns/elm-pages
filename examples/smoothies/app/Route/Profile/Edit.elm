@@ -201,7 +201,7 @@ validateUsername rawUsername =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formData2 [ formParser ]
+    Request.formData [ formParser ]
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsedActionData session ->
                 parsedActionData
