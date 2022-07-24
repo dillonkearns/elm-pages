@@ -1,14 +1,19 @@
 module Form.Validation exposing
     ( Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
-    , value
-    , fieldName
+    , value, fieldName
     )
 
 {-|
 
+
+## Validations
+
 @docs Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
 
-@docs value
+
+## Field Metadata
+
+@docs value, fieldName
 
 -}
 
@@ -21,6 +26,7 @@ type alias Validation error parsed named =
     Pages.Internal.Form.Validation error parsed named
 
 
+{-| -}
 fieldName : Validation error parsed kind -> String
 fieldName (Validation viewField name ( maybeParsed, errors )) =
     name
