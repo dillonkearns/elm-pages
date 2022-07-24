@@ -234,7 +234,7 @@ form =
                                     Validation.succeed ( passwordValue, passwordConfirmationValue )
 
                                 else
-                                    Validation.fail2 passwordConfirmation "Must match password"
+                                    Validation.fail passwordConfirmation "Must match password"
                             )
                             password
                             passwordConfirmation
@@ -250,7 +250,7 @@ form =
                     |> Validation.andThen
                         (\validated ->
                             if Date.toRataDie validated.checkIn >= Date.toRataDie validated.checkOut then
-                                Validation.succeed validated |> Validation.withError2 checkin "Must be before checkout"
+                                Validation.succeed validated |> Validation.withError checkin "Must be before checkout"
 
                             else
                                 Validation.succeed validated

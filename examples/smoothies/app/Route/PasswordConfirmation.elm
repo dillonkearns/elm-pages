@@ -153,7 +153,7 @@ dependentParser =
                                     Validation.succeed passwordValue
 
                                 else
-                                    Validation.fail2 passwordConfirmation "Must match password"
+                                    Validation.fail passwordConfirmation "Must match password"
                             )
                             password
                             passwordConfirmation

@@ -29,7 +29,7 @@ all =
                             Validation.succeed
                                 (\passwordValue passwordConfirmationValue ->
                                     Validation.succeed { password = passwordValue }
-                                        |> Validation.withErrorIf2 (passwordValue /= passwordConfirmationValue)
+                                        |> Validation.withErrorIf (passwordValue /= passwordConfirmationValue)
                                             passwordConfirmation
                                             "Must match password"
                                 )
@@ -177,7 +177,7 @@ all =
                                         (\checkinValue checkoutValue ->
                                             Validation.succeed ( checkinValue, checkoutValue )
                                                 |> (if Date.toRataDie checkinValue >= Date.toRataDie checkoutValue then
-                                                        Validation.withError2 checkin "Must be before checkout"
+                                                        Validation.withError checkin "Must be before checkout"
 
                                                     else
                                                         identity
@@ -250,7 +250,7 @@ all =
                                                                 Validation.succeed { password = passwordValue }
 
                                                             else
-                                                                Validation.fail2 passwordConfirmation "Must match password"
+                                                                Validation.fail passwordConfirmation "Must match password"
                                                         )
                                                         |> Validation.andMap password
                                                         |> Validation.andMap passwordConfirmation

@@ -1,7 +1,7 @@
 module Form.Validation exposing
-    ( Validation, andMap, andThen, fromMaybe, fromResult, map, map2, parseWithError, succeed, withFallback
+    ( Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
     , value
-    , fail2, fieldName, withError2, withErrorIf2
+    , fieldName
     )
 
 {-|
@@ -58,22 +58,22 @@ parseWithError parsed ( key, error ) =
 
 
 {-| -}
-fail2 : Validation error parsed1 field -> error -> Validation error parsed Never
-fail2 (Validation _ key _) parsed =
+fail : Validation error parsed1 field -> error -> Validation error parsed Never
+fail (Validation _ key _) parsed =
     -- TODO need to prevent Never fields from being used
     Validation Nothing Nothing ( Nothing, Dict.singleton (key |> Maybe.withDefault "") [ parsed ] )
 
 
 {-| -}
-withError2 : Validation error parsed1 field -> error -> Validation error parsed2 named -> Validation error parsed2 named
-withError2 (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
+withError : Validation error parsed1 field -> error -> Validation error parsed2 named -> Validation error parsed2 named
+withError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
     -- TODO need to prevent Never fields from being used
     Validation viewField name ( maybeParsedA, errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ] )
 
 
 {-| -}
-withErrorIf2 : Bool -> Validation error ignored field -> error -> Validation error parsed named -> Validation error parsed named
-withErrorIf2 includeError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
+withErrorIf : Bool -> Validation error ignored field -> error -> Validation error parsed named -> Validation error parsed named
+withErrorIf includeError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
     -- TODO use something like { field : kind } for type variable to check that it represents a field
     Validation viewField
         name
