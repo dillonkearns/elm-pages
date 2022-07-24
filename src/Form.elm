@@ -1,5 +1,5 @@
 module Form exposing
-    ( Form(..), FieldErrors
+    ( FieldErrors
     , andThen
     , Context
     , renderHtml, renderStyledHtml
@@ -886,7 +886,7 @@ renderHtml :
             )
     -> Html (Pages.Msg.Msg msg)
 renderHtml attrs maybe app data (FinalForm options a b c) =
-    Html.Lazy.lazy6 renderHelper attrs maybe options app data (Form a b c)
+    Html.Lazy.lazy6 renderHelper attrs maybe options app data (FormInternal a b c)
 
 
 {-| -}
@@ -911,8 +911,8 @@ type FinalForm error parsed data view
         (data -> List ( String, String ))
 
 
-toStatic : Form error parsed data view -> FinalForm error parsed data view
-toStatic (Form a b c) =
+toStatic : FormInternal error parsed data view -> FinalForm error parsed data view
+toStatic (FormInternal a b c) =
     let
         options =
             { submitStrategy = FetcherStrategy
@@ -1089,7 +1089,7 @@ renderStyledHtml :
             )
     -> Html.Styled.Html (Pages.Msg.Msg msg)
 renderStyledHtml attrs maybe app data (FinalForm options a b c) =
-    Html.Styled.Lazy.lazy6 renderStyledHelper attrs maybe options app data (Form a b c)
+    Html.Styled.Lazy.lazy6 renderStyledHelper attrs maybe options app data (FormInternal a b c)
 
 
 renderHelper :
@@ -1102,9 +1102,9 @@ renderHelper :
     -> RenderOptions
     -> AppContext app
     -> data
-    -> Form error (Validation error parsed named) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
+    -> FormInternal error (Validation error parsed named) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
     -> Html (Pages.Msg.Msg msg)
-renderHelper attrs maybe options formState data ((Form fieldDefinitions parser toInitialValues) as form) =
+renderHelper attrs maybe options formState data ((FormInternal fieldDefinitions parser toInitialValues) as form) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -1141,9 +1141,9 @@ renderStyledHelper :
     -> RenderOptions
     -> AppContext app
     -> data
-    -> Form error (Validation error parsed named) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
+    -> FormInternal error (Validation error parsed named) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
     -> Html.Styled.Html (Pages.Msg.Msg msg)
-renderStyledHelper attrs maybe options formState data ((Form fieldDefinitions parser toInitialValues) as form) =
+renderStyledHelper attrs maybe options formState data ((FormInternal fieldDefinitions parser toInitialValues) as form) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -1183,9 +1183,9 @@ helperValues :
     -> AppContext app
     -> data
     ---> Form error parsed data view
-    -> Form error (Validation error parsed named) data (Context error data -> List view)
+    -> FormInternal error (Validation error parsed named) data (Context error data -> List view)
     -> { formId : String, hiddenInputs : List view, children : List view, isValid : Bool }
-helperValues toHiddenInput maybe options formState data (Form fieldDefinitions parser toInitialValues) =
+helperValues toHiddenInput maybe options formState data (FormInternal fieldDefinitions parser toInitialValues) =
     let
         formId : String
         formId =
@@ -1373,8 +1373,8 @@ type alias StyledHtmlFormNew error parsed data msg =
 
 
 {-| -}
-type Form error parsed data view
-    = Form
+type FormInternal error parsed data view
+    = FormInternal
         -- TODO for renderCustom, pass them as an argument with all hidden fields that the user must render
         (List ( String, FieldDefinition ))
         (Maybe data
