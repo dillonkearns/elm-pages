@@ -1,5 +1,5 @@
 module Form.Validation exposing
-    ( Validation, andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
+    ( Validation, andMap, andThen, fromMaybe, fromResult, map, map2, parseWithError, succeed, withFallback
     , value
     , fail2, fieldName, withError2, withErrorIf2
     )
@@ -58,12 +58,6 @@ parseWithError parsed ( key, error ) =
 
 
 {-| -}
-fail : Validation error parsed1 Named -> error -> Validation error parsed Never
-fail (Validation _ key _) parsed =
-    Validation Nothing Nothing ( Nothing, Dict.singleton (key |> Maybe.withDefault "") [ parsed ] )
-
-
-{-| -}
 fail2 : Validation error parsed1 field -> error -> Validation error parsed Never
 fail2 (Validation _ key _) parsed =
     -- TODO need to prevent Never fields from being used
@@ -71,30 +65,10 @@ fail2 (Validation _ key _) parsed =
 
 
 {-| -}
-withError : Validation error parsed1 Named -> error -> Validation error parsed2 named -> Validation error parsed2 named
-withError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
-    Validation viewField name ( maybeParsedA, errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ] )
-
-
-{-| -}
 withError2 : Validation error parsed1 field -> error -> Validation error parsed2 named -> Validation error parsed2 named
 withError2 (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
     -- TODO need to prevent Never fields from being used
     Validation viewField name ( maybeParsedA, errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ] )
-
-
-{-| -}
-withErrorIf : Bool -> Validation error ignored Named -> error -> Validation error parsed named -> Validation error parsed named
-withErrorIf includeError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
-    Validation viewField
-        name
-        ( maybeParsedA
-        , if includeError then
-            errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ]
-
-          else
-            errorsA
-        )
 
 
 {-| -}
