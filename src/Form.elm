@@ -1,14 +1,13 @@
 module Form exposing
     ( Form(..), FieldErrors, HtmlForm, StyledHtmlForm
-    , init
-    , ParsedField, field, hiddenField, hiddenKind
+    , ParsedField
     , andThen
     , Context, ViewField
     , renderHtml, renderStyledHtml
-    , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
+    , FinalForm, withGetMethod
     , Errors, errorsForField
     , parse, runOneOfServerSide, runServerSide
-    , dynamic, HtmlSubForm
+    , HtmlSubForm
     , runOneOfServerSideWithServerValidations
     , AppContext
     , FieldDefinition(..)
@@ -145,19 +144,6 @@ type alias Context error data =
 
 
 {-| -}
-init : combined -> (Context String data -> viewFn) -> Form String combined data (Context String data -> viewFn)
-init fn viewFn =
-    Form []
-        (\_ _ ->
-            { result = ( fn, Dict.empty )
-            , view = viewFn
-            , serverValidations = DataSource.succeed []
-            }
-        )
-        (\_ -> [])
-
-
-{-| -}
 init2 : parsedAndView -> FormNew String parsedAndView data
 init2 parsedAndView =
     FormNew []
@@ -168,100 +154,6 @@ init2 parsedAndView =
             }
         )
         (\_ -> [])
-
-
-{-| -}
-dynamic :
-    (decider -> Form error (Validation error parsed named) data (Context error data -> subView))
-    ->
-        Form
-            error
-            ((decider -> Validation error parsed named) -> combined)
-            data
-            (Context error data -> ((decider -> subView) -> combinedView))
-    -> Form error combined data (Context error data -> combinedView)
-dynamic forms formBuilder =
-    Form []
-        (\maybeData formState ->
-            let
-                toParser : decider -> { result : ( Validation error parsed named, FieldErrors error ), view : Context error data -> subView, serverValidations : DataSource (List ( String, List error )) }
-                toParser decider =
-                    case forms decider of
-                        Form _ parseFn _ ->
-                            -- TODO need to include hidden form fields from `definitions` (should they be automatically rendered? Does that mean the view type needs to be hardcoded?)
-                            parseFn maybeData formState
-
-                myFn :
-                    { result : ( combined, Dict String (List error) )
-                    , view : Context error data -> combinedView
-                    , serverValidations : DataSource (List ( String, List error ))
-                    }
-                myFn =
-                    let
-                        deciderToParsed : decider -> Validation error parsed named
-                        deciderToParsed decider =
-                            decider
-                                |> toParser
-                                |> mergeResults
-
-                        newThing :
-                            { result :
-                                ( (decider -> Validation error parsed named) -> combined
-                                , Dict String (List error)
-                                )
-                            , view : Context error data -> (decider -> subView) -> combinedView
-                            , serverValidations : DataSource (List ( String, List error ))
-                            }
-                        newThing =
-                            case formBuilder of
-                                Form _ parseFn _ ->
-                                    parseFn maybeData formState
-
-                        anotherThing : combined
-                        anotherThing =
-                            deciderToParsed
-                                |> (newThing.result
-                                        -- TODO are these errors getting dropped? Write a test case to check
-                                        |> Tuple.first
-                                   )
-                    in
-                    { result =
-                        ( anotherThing
-                        , newThing.result |> Tuple.second
-                        )
-                    , view =
-                        \fieldErrors ->
-                            let
-                                something2 : decider -> subView
-                                something2 decider =
-                                    fieldErrors
-                                        |> (decider
-                                                |> toParser
-                                                |> .view
-                                           )
-                            in
-                            newThing.view fieldErrors something2
-                    , serverValidations = DataSource.succeed [] -- TODO how do I combine them here?
-                    }
-            in
-            myFn
-        )
-        (\_ -> [])
-
-
-
-{-
-   dynamic :
-       (decider -> Form error (Validation error parsed named) data (Context error data -> subView))
-       ->
-           Form
-               error
-               ((decider -> Validation error parsed named) -> combined)
-               data
-               (Context error data -> ((decider -> subView) -> combinedView))
-       -> Form error combined data (Context error data -> combinedView)
-
--}
 
 
 {-| -}
@@ -430,101 +322,6 @@ andThen andThenFn ( maybe, fieldErrors ) =
 
         Nothing ->
             ( Nothing, fieldErrors )
-
-
-{-| -}
-field :
-    String
-    -> Field error parsed data kind constraints
-    -> Form error (ParsedField error parsed -> combined) data (Context error data -> (ViewField error parsed kind -> combinedView))
-    -> Form error combined data (Context error data -> combinedView)
-field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
-    Form
-        (( name, RegularField )
-            :: definitions
-        )
-        (\maybeData formState ->
-            let
-                ( maybeParsed, errors ) =
-                    fieldParser.decode rawFieldValue
-
-                ( rawFieldValue, fieldStatus ) =
-                    case formState.fields |> Dict.get name of
-                        Just info ->
-                            ( Just info.value, info.status )
-
-                        Nothing ->
-                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, Form.NotVisited )
-
-                parsedField : ParsedField error parsed
-                parsedField =
-                    Pages.Internal.Form.Validation Nothing (Just name) ( maybeParsed, Dict.empty )
-
-                rawField : ViewField error parsed kind
-                rawField =
-                    { name = name
-                    , value = rawFieldValue
-                    , status = fieldStatus
-                    , kind = ( kind, fieldParser.properties )
-                    , parsed = maybeParsed
-                    , errors = errors
-                    }
-
-                myFn :
-                    { result :
-                        ( ParsedField error parsed -> combined
-                        , Dict String (List error)
-                        )
-                    , view : Context error data -> ViewField error parsed kind -> combinedView
-                    , serverValidations : DataSource (List ( String, List error ))
-                    }
-                    ->
-                        { result : ( combined, Dict String (List error) )
-                        , view : Context error data -> combinedView
-                        , serverValidations : DataSource (List ( String, List error ))
-                        }
-                myFn soFar =
-                    let
-                        ( fieldThings, errorsSoFar ) =
-                            soFar.result
-
-                        serverValidationsForField : DataSource ( String, List error )
-                        serverValidationsForField =
-                            fieldParser.serverValidation rawFieldValue
-                                |> DataSource.map (Tuple.pair name)
-                    in
-                    { result =
-                        ( --case fieldThings of
-                          --    Just fieldPipelineFn ->
-                          parsedField
-                            |> fieldThings
-                          --|> Just
-                          --|> Maybe.map fieldPipelineFn
-                          --Nothing ->
-                          --    Nothing
-                        , errorsSoFar
-                            |> addErrorsInternal name errors
-                        )
-                    , view = \fieldErrors -> soFar.view fieldErrors rawField
-                    , serverValidations =
-                        DataSource.map2 (::)
-                            serverValidationsForField
-                            soFar.serverValidations
-                    }
-            in
-            formState
-                |> parseFn maybeData
-                |> myFn
-        )
-        (\data ->
-            case fieldParser.initialValue of
-                Just toInitialValue ->
-                    ( name, toInitialValue data )
-                        :: toInitialValues data
-
-                Nothing ->
-                    toInitialValues data
-        )
 
 
 {-| -}
@@ -702,91 +499,6 @@ hiddenField2 name (Field fieldParser _) (FormNew definitions parseFn toInitialVa
 
 
 {-| -}
-hiddenField :
-    String
-    -> Field error parsed data kind constraints
-    -> Form error (ParsedField error parsed -> combined) data (Context error data -> combinedView)
-    -> Form error combined data (Context error data -> combinedView)
-hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues) =
-    Form
-        (( name, HiddenField )
-            :: definitions
-        )
-        (\maybeData formState ->
-            let
-                ( maybeParsed, errors ) =
-                    fieldParser.decode rawFieldValue
-
-                rawFieldValue : Maybe String
-                rawFieldValue =
-                    case formState.fields |> Dict.get name of
-                        Just info ->
-                            Just info.value
-
-                        Nothing ->
-                            Maybe.map2 (|>) maybeData fieldParser.initialValue
-
-                parsedField : ParsedField error parsed
-                parsedField =
-                    Pages.Internal.Form.Validation Nothing (Just name) ( maybeParsed, Dict.empty )
-
-                serverValidationsForField : DataSource (List ( String, List error ))
-                serverValidationsForField =
-                    fieldParser.serverValidation rawFieldValue
-                        |> DataSource.map (Tuple.pair name >> List.singleton)
-
-                --)
-                myFn :
-                    { result :
-                        ( ParsedField error parsed -> combined
-                        , Dict String (List error)
-                        )
-                    , view : Context error data -> combinedView
-                    , serverValidations : DataSource (List ( String, List error ))
-                    }
-                    ->
-                        { result : ( combined, Dict String (List error) )
-                        , view : Context error data -> combinedView
-                        , serverValidations : DataSource (List ( String, List error ))
-                        }
-                myFn soFar =
-                    let
-                        ( fieldThings, errorsSoFar ) =
-                            soFar.result
-                    in
-                    { result =
-                        ( --case fieldThings of
-                          --    Just fieldPipelineFn ->
-                          --        fieldPipelineFn
-                          fieldThings parsedField
-                          --
-                          --Nothing ->
-                          --    Nothing
-                        , errorsSoFar
-                            |> addErrorsInternal name errors
-                        )
-
-                    -- TODO pass in `rawField` or similar to the hiddenFields (need the raw data to render it)
-                    , view = \fieldErrors -> soFar.view fieldErrors
-                    , serverValidations = serverValidationsForField
-                    }
-            in
-            formState
-                |> parseFn maybeData
-                |> myFn
-        )
-        (\data ->
-            case fieldParser.initialValue of
-                Just toInitialValue ->
-                    ( name, toInitialValue data )
-                        :: toInitialValues data
-
-                Nothing ->
-                    toInitialValues data
-        )
-
-
-{-| -}
 hiddenKind2 :
     ( String, String )
     -> error
@@ -840,81 +552,6 @@ hiddenKind2 ( name, value ) error_ (FormNew definitions parseFn toInitialValues)
                         DataSource.map2 (::)
                             serverValidationsForField
                             soFar.serverValidations
-                    }
-            in
-            formState
-                |> parseFn maybeData
-                |> myFn
-        )
-        (\data ->
-            case fieldParser.initialValue of
-                Just toInitialValue ->
-                    ( name, toInitialValue data )
-                        :: toInitialValues data
-
-                Nothing ->
-                    toInitialValues data
-        )
-
-
-{-| -}
-hiddenKind :
-    ( String, String )
-    -> error
-    -> Form error combined data (Context error data -> combinedView)
-    -> Form error combined data (Context error data -> combinedView)
-hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
-    let
-        (Field fieldParser _) =
-            Field.exactValue value error_
-    in
-    Form
-        (( name, HiddenField )
-            :: definitions
-        )
-        (\maybeData formState ->
-            let
-                ( _, errors ) =
-                    fieldParser.decode rawFieldValue
-
-                rawFieldValue : Maybe String
-                rawFieldValue =
-                    case formState.fields |> Dict.get name of
-                        Just info ->
-                            Just info.value
-
-                        Nothing ->
-                            Maybe.map2 (|>) maybeData fieldParser.initialValue
-
-                myFn :
-                    { result :
-                        ( combined
-                        , Dict String (List error)
-                        )
-                    , view : Context error data -> combinedView
-                    , serverValidations : DataSource (List ( String, List error ))
-                    }
-                    ->
-                        { result : ( combined, Dict String (List error) )
-                        , view : Context error data -> combinedView
-                        , serverValidations : DataSource (List ( String, List error ))
-                        }
-                myFn soFar =
-                    let
-                        ( fieldThings, errorsSoFar ) =
-                            soFar.result
-
-                        serverValidationsForField : DataSource (List ( String, List error ))
-                        serverValidationsForField =
-                            fieldParser.serverValidation rawFieldValue
-                                |> DataSource.map (Tuple.pair name >> List.singleton)
-                    in
-                    { result =
-                        ( fieldThings
-                        , errorsSoFar |> addErrorsInternal name errors
-                        )
-                    , view = \fieldErrors -> soFar.view fieldErrors
-                    , serverValidations = serverValidationsForField
                     }
             in
             formState
@@ -1473,19 +1110,6 @@ toStatic (Form a b c) =
 
 
 {-| -}
-toDynamicFetcher : String -> Form error parsed data view -> FinalForm error parsed data view
-toDynamicFetcher name (Form a b c) =
-    let
-        options =
-            { submitStrategy = FetcherStrategy
-            , method = Post
-            , name = Just name
-            }
-    in
-    FinalForm options a b c
-
-
-{-| -}
 toDynamicFetcherNew :
     String
     ->
@@ -1553,19 +1177,6 @@ toDynamicFetcherNew name (FormNew a b c) =
                 }
     in
     FinalForm options a (transformB b) c
-
-
-{-| -}
-toDynamicTransition : String -> Form error parsed data view -> FinalForm error parsed data view
-toDynamicTransition name (Form a b c) =
-    let
-        options =
-            { submitStrategy = TransitionStrategy
-            , method = Post
-            , name = Just name
-            }
-    in
-    FinalForm options a b c
 
 
 {-| -}
