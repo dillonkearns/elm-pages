@@ -5,7 +5,6 @@ module Form exposing
     , renderHtml, renderStyledHtml
     , FinalForm, withGetMethod
     , Errors
-    , runOneOfServerSideWithServerValidations
     , AppContext
     , FieldDefinition(..)
     ,  FormNew(..)
@@ -719,46 +718,6 @@ insertIfNonempty key values dict =
 
 
 {-| -}
-runServerSide2 :
-    List ( String, String )
-    -> Form error (Validation error parsed named) data (Context error data -> view)
-    -> ( Maybe parsed, DataSource (FieldErrors error) )
-runServerSide2 rawFormData (Form _ parser _) =
-    let
-        parsed :
-            { result :
-                ( Validation error parsed named
-                , Dict String (List error)
-                )
-            , view : Context error data -> view
-            , serverValidations : DataSource (List ( String, List error ))
-
-            --, serverValidations : DataSource (FieldErrors error)
-            }
-        parsed =
-            parser Nothing thisFormState
-
-        thisFormState : Form.FormState
-        thisFormState =
-            { initFormState
-                | fields =
-                    rawFormData
-                        |> List.map
-                            (Tuple.mapSecond
-                                (\value ->
-                                    { value = value
-                                    , status = Form.NotVisited
-                                    }
-                                )
-                            )
-                        |> Dict.fromList
-            }
-    in
-    parsed
-        |> mergeResultsDataSource
-
-
-{-| -}
 runServerSide3 :
     List ( String, String )
     -> FormNew error { all | combine : Validation error parsed kind } data
@@ -873,32 +832,6 @@ runOneOfServerSide2 rawFormData parsers =
         [] ->
             -- TODO need to pass errors
             ( Nothing, Dict.empty )
-
-
-{-| -}
-runOneOfServerSideWithServerValidations :
-    List ( String, String )
-    -> List (Form error (Validation error parsed named) data (Context error data -> view))
-    -> ( Maybe parsed, DataSource (FieldErrors error) )
-runOneOfServerSideWithServerValidations rawFormData parsers =
-    case parsers of
-        firstParser :: remainingParsers ->
-            let
-                thing : ( Maybe parsed, DataSource (FieldErrors error) )
-                thing =
-                    runServerSide2 rawFormData firstParser
-            in
-            case thing of
-                -- TODO should it try to look for anything that parses with no errors, or short-circuit if something parses regardless of errors?
-                ( Just _, _ ) ->
-                    thing
-
-                _ ->
-                    runOneOfServerSideWithServerValidations rawFormData remainingParsers
-
-        [] ->
-            -- TODO need to pass errors
-            ( Nothing, DataSource.succeed Dict.empty )
 
 
 {-| -}
