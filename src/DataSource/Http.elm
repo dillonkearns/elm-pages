@@ -59,6 +59,11 @@ and describe your use case!
 
 @docs Body, emptyBody, stringBody, jsonBody
 
+
+## Uncached Requests
+
+@docs uncachedRequest
+
 -}
 
 import Bytes exposing (Bytes)
@@ -249,6 +254,7 @@ expectToString expect =
             "ExpectBytesResponse"
 
 
+{-| -}
 request :
     RequestDetails
     -> Expect a
@@ -267,6 +273,7 @@ request request__ expect =
     requestRaw request_ expect
 
 
+{-| -}
 uncachedRequest :
     RequestDetails
     -> Expect a
