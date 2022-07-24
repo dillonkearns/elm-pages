@@ -1,5 +1,5 @@
 module Form.Validation exposing
-    ( Validation, FieldValidation, AnyValidation
+    ( Combined, Field, Validation
     , andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
     , value, fieldName
     )
@@ -9,7 +9,7 @@ module Form.Validation exposing
 
 ## Validations
 
-@docs Validation, FieldValidation, AnyValidation
+@docs Combined, Field, Validation
 
 @docs andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
 
@@ -21,39 +21,39 @@ module Form.Validation exposing
 -}
 
 import Dict exposing (Dict)
-import Pages.Internal.Form exposing (AnyValidation(..))
+import Pages.Internal.Form exposing (Validation(..))
 
 
 {-| -}
-type alias Validation error parsed =
-    Pages.Internal.Form.AnyValidation error parsed Never Never
+type alias Combined error parsed =
+    Pages.Internal.Form.Validation error parsed Never Never
 
 
 {-| -}
-type alias FieldValidation error parsed kind =
-    Pages.Internal.Form.AnyValidation error parsed kind { field : kind }
+type alias Field error parsed kind =
+    Pages.Internal.Form.Validation error parsed kind { field : kind }
 
 
 {-| -}
-type alias AnyValidation error parsed kind constraints =
-    Pages.Internal.Form.AnyValidation error parsed kind constraints
+type alias Validation error parsed kind constraints =
+    Pages.Internal.Form.Validation error parsed kind constraints
 
 
 {-| -}
-fieldName : FieldValidation error parsed kind -> String
+fieldName : Field error parsed kind -> String
 fieldName (Validation viewField name ( maybeParsed, errors )) =
     name
         |> Maybe.withDefault ""
 
 
 {-| -}
-succeed : parsed -> Validation error parsed
+succeed : parsed -> Combined error parsed
 succeed parsed =
     Validation Nothing Nothing ( Just parsed, Dict.empty )
 
 
 {-| -}
-withFallback : parsed -> AnyValidation error parsed named constraints -> AnyValidation error parsed named constraints
+withFallback : parsed -> Validation error parsed named constraints -> Validation error parsed named constraints
 withFallback parsed (Validation viewField name ( maybeParsed, errors )) =
     Validation viewField
         name
@@ -65,33 +65,33 @@ withFallback parsed (Validation viewField name ( maybeParsed, errors )) =
 
 
 {-| -}
-value : AnyValidation error parsed named constraint -> Maybe parsed
+value : Validation error parsed named constraint -> Maybe parsed
 value (Validation _ _ ( maybeParsed, _ )) =
     maybeParsed
 
 
 {-| -}
-parseWithError : parsed -> ( String, error ) -> Validation error parsed
+parseWithError : parsed -> ( String, error ) -> Combined error parsed
 parseWithError parsed ( key, error ) =
     Validation Nothing Nothing ( Just parsed, Dict.singleton key [ error ] )
 
 
 {-| -}
-fail : FieldValidation error parsed1 field -> error -> Validation error parsed
+fail : Field error parsed1 field -> error -> Combined error parsed
 fail (Validation _ key _) parsed =
     -- TODO need to prevent Never fields from being used
     Validation Nothing Nothing ( Nothing, Dict.singleton (key |> Maybe.withDefault "") [ parsed ] )
 
 
 {-| -}
-withError : FieldValidation error parsed1 field -> error -> AnyValidation error parsed2 named constraints -> AnyValidation error parsed2 named constraints
+withError : Field error parsed1 field -> error -> Validation error parsed2 named constraints -> Validation error parsed2 named constraints
 withError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
     -- TODO need to prevent Never fields from being used
     Validation viewField name ( maybeParsedA, errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ] )
 
 
 {-| -}
-withErrorIf : Bool -> FieldValidation error ignored field -> error -> AnyValidation error parsed named constraints -> AnyValidation error parsed named constraints
+withErrorIf : Bool -> Field error ignored field -> error -> Validation error parsed named constraints -> Validation error parsed named constraints
 withErrorIf includeError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
     -- TODO use something like { field : kind } for type variable to check that it represents a field
     Validation viewField
@@ -110,13 +110,13 @@ withErrorIf includeError (Validation _ key _) error (Validation viewField name (
 
 
 {-| -}
-map : (parsed -> mapped) -> AnyValidation error parsed named constraint -> Validation error mapped
+map : (parsed -> mapped) -> Validation error parsed named constraint -> Combined error mapped
 map mapFn (Validation viewField name ( maybeParsedA, errorsA )) =
     Validation Nothing name ( Maybe.map mapFn maybeParsedA, errorsA )
 
 
 {-| -}
-fromResult : Result ( String, error ) parsed -> Validation error parsed
+fromResult : Result ( String, error ) parsed -> Combined error parsed
 fromResult result =
     case result of
         Ok parsed ->
@@ -127,13 +127,13 @@ fromResult result =
 
 
 {-| -}
-andMap : AnyValidation error a named1 constraints1 -> AnyValidation error (a -> b) named2 constraints2 -> Validation error b
+andMap : Validation error a named1 constraints1 -> Validation error (a -> b) named2 constraints2 -> Combined error b
 andMap =
     map2 (|>)
 
 
 {-| -}
-andThen : (parsed -> AnyValidation error mapped named1 constraints1) -> AnyValidation error parsed named2 constraints2 -> Validation error mapped
+andThen : (parsed -> Validation error mapped named1 constraints1) -> Validation error parsed named2 constraints2 -> Combined error mapped
 andThen andThenFn (Validation _ name ( maybeParsed, errors )) =
     case maybeParsed of
         Just parsed ->
@@ -147,7 +147,7 @@ andThen andThenFn (Validation _ name ( maybeParsed, errors )) =
 
 
 {-| -}
-map2 : (a -> b -> c) -> AnyValidation error a named1 constraints1 -> AnyValidation error b named2 constraints2 -> Validation error c
+map2 : (a -> b -> c) -> Validation error a named1 constraints1 -> Validation error b named2 constraints2 -> Combined error c
 map2 f (Validation _ name1 ( maybeParsedA, errorsA )) (Validation _ name2 ( maybeParsedB, errorsB )) =
     Validation Nothing
         Nothing
@@ -157,7 +157,7 @@ map2 f (Validation _ name1 ( maybeParsedA, errorsA )) (Validation _ name2 ( mayb
 
 
 {-| -}
-fromMaybe : Maybe parsed -> Validation error parsed
+fromMaybe : Maybe parsed -> Combined error parsed
 fromMaybe maybe =
     Validation Nothing Nothing ( maybe, Dict.empty )
 

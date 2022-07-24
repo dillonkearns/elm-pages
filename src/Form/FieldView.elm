@@ -26,7 +26,7 @@ import Html.Attributes as Attr
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
 import Json.Encode as Encode
-import Pages.Internal.Form exposing (AnyValidation(..), ViewField)
+import Pages.Internal.Form exposing (Validation(..), ViewField)
 
 
 {-| -}
@@ -112,7 +112,7 @@ type Options a
 {-| -}
 input :
     List (Html.Attribute msg)
-    -> Form.Validation.FieldValidation error parsed Input
+    -> Form.Validation.Field error parsed Input
     -> Html msg
 input attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     let
@@ -158,7 +158,7 @@ input attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
 {-| -}
 inputStyled :
     List (Html.Styled.Attribute msg)
-    -> Form.Validation.FieldValidation error parsed Input
+    -> Form.Validation.Field error parsed Input
     -> Html.Styled.Html msg
 inputStyled attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     let
@@ -265,7 +265,7 @@ radio :
          -> (List (Html.Attribute msg) -> Html msg)
          -> Html msg
         )
-    -> Form.Validation.FieldValidation error parsed2 (Options parsed)
+    -> Form.Validation.Field error parsed2 (Options parsed)
     -> Html msg
 radio selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     let
@@ -340,7 +340,7 @@ radioStyled :
          -> (List (Html.Styled.Attribute msg) -> Html.Styled.Html msg)
          -> Html.Styled.Html msg
         )
-    -> Form.Validation.FieldValidation error parsed2 (Options parsed)
+    -> Form.Validation.Field error parsed2 (Options parsed)
     -> Html.Styled.Html msg
 radioStyled selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     let

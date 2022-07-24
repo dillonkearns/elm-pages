@@ -80,7 +80,7 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Form.Field as Field exposing (Field(..))
 import Form.FieldView
-import Form.Validation as Validation exposing (AnyValidation, FieldValidation, Validation)
+import Form.Validation as Validation exposing (Combined, Validation)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
@@ -89,7 +89,7 @@ import Html.Styled.Attributes as StyledAttr
 import Html.Styled.Lazy
 import Json.Encode as Encode
 import Pages.FormState as Form exposing (FormState)
-import Pages.Internal.Form exposing (AnyValidation(..))
+import Pages.Internal.Form exposing (Validation(..))
 import Pages.Msg
 import Pages.Transition
 
@@ -146,7 +146,7 @@ dynamic :
      ->
         Form
             error
-            { combine : AnyValidation error parsed named constraints1
+            { combine : Validation error parsed named constraints1
             , view : subView
             }
             data
@@ -155,7 +155,7 @@ dynamic :
         Form
             error
             --((decider -> Validation error parsed named) -> combined)
-            ({ combine : decider -> AnyValidation error parsed named constraints1
+            ({ combine : decider -> Validation error parsed named constraints1
              , view : decider -> subView
              }
              -> parsedAndView
@@ -174,7 +174,7 @@ dynamic forms formBuilder =
                     decider
                     ->
                         { result : Dict String (List error)
-                        , parsedAndView : { combine : AnyValidation error parsed named constraints1, view : subView }
+                        , parsedAndView : { combine : Validation error parsed named constraints1, view : subView }
                         , serverValidations : DataSource (List ( String, List error ))
                         }
                 toParser decider =
@@ -192,7 +192,7 @@ dynamic forms formBuilder =
                     let
                         newThing :
                             { result : Dict String (List error)
-                            , parsedAndView : { combine : decider -> AnyValidation error parsed named constraints1, view : decider -> subView } -> parsedAndView
+                            , parsedAndView : { combine : decider -> Validation error parsed named constraints1, view : decider -> subView } -> parsedAndView
                             , serverValidations : DataSource (List ( String, List error ))
                             }
                         newThing =
@@ -200,7 +200,7 @@ dynamic forms formBuilder =
                                 Form _ parseFn _ ->
                                     parseFn maybeData formState
 
-                        arg : { combine : decider -> AnyValidation error parsed named constraints1, view : decider -> subView }
+                        arg : { combine : decider -> Validation error parsed named constraints1, view : decider -> subView }
                         arg =
                             { combine =
                                 toParser
@@ -312,7 +312,7 @@ andThen andThenFn ( maybe, fieldErrors ) =
 field :
     String
     -> Field error parsed data kind constraints
-    -> Form error (FieldValidation error parsed kind -> parsedAndView) data
+    -> Form error (Validation.Field error parsed kind -> parsedAndView) data
     -> Form error parsedAndView data
 field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
     Form
@@ -339,13 +339,13 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                     , kind = ( kind, fieldParser.properties )
                     }
 
-                parsedField : FieldValidation error parsed kind
+                parsedField : Validation.Field error parsed kind
                 parsedField =
                     Pages.Internal.Form.Validation (Just thing) (Just name) ( maybeParsed, Dict.empty )
 
                 myFn :
                     { result : Dict String (List error)
-                    , parsedAndView : FieldValidation error parsed kind -> parsedAndView
+                    , parsedAndView : Validation.Field error parsed kind -> parsedAndView
                     , serverValidations : DataSource (List ( String, List error ))
                     }
                     ->
@@ -360,7 +360,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                             fieldParser.serverValidation rawFieldValue
                                 |> DataSource.map (Tuple.pair name)
 
-                        validationField : FieldValidation error parsed kind
+                        validationField : Validation.Field error parsed kind
                         validationField =
                             parsedField
                     in
@@ -394,7 +394,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
 hiddenField :
     String
     -> Field error parsed data kind constraints
-    -> Form error (FieldValidation error parsed Form.FieldView.Hidden -> parsedAndView) data
+    -> Form error (Validation.Field error parsed Form.FieldView.Hidden -> parsedAndView) data
     -> Form error parsedAndView data
 hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues) =
     Form
@@ -421,13 +421,13 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                     , kind = ( Form.FieldView.Hidden, fieldParser.properties )
                     }
 
-                parsedField : FieldValidation error parsed Form.FieldView.Hidden
+                parsedField : Validation.Field error parsed Form.FieldView.Hidden
                 parsedField =
                     Pages.Internal.Form.Validation (Just thing) (Just name) ( maybeParsed, Dict.empty )
 
                 myFn :
                     { result : Dict String (List error)
-                    , parsedAndView : FieldValidation error parsed Form.FieldView.Hidden -> parsedAndView
+                    , parsedAndView : Validation.Field error parsed Form.FieldView.Hidden -> parsedAndView
                     , serverValidations : DataSource (List ( String, List error ))
                     }
                     ->
@@ -442,7 +442,7 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                             fieldParser.serverValidation rawFieldValue
                                 |> DataSource.map (Tuple.pair name)
 
-                        validationField : FieldValidation error parsed Form.FieldView.Hidden
+                        validationField : Validation.Field error parsed Form.FieldView.Hidden
                         validationField =
                             parsedField
                     in
@@ -549,7 +549,7 @@ type Errors error
 
 
 {-| -}
-errorsForField : FieldValidation error parsed kind -> Errors error -> List error
+errorsForField : Validation.Field error parsed kind -> Errors error -> List error
 errorsForField field_ (Errors errorsDict) =
     errorsDict
         |> Dict.get (Validation.fieldName field_)
@@ -578,8 +578,8 @@ type alias AppContext app =
 
 
 mergeResults :
-    { a | result : ( AnyValidation error parsed named constraints1, Dict String (List error) ) }
-    -> AnyValidation error parsed unnamed constraints2
+    { a | result : ( Validation error parsed named constraints1, Dict String (List error) ) }
+    -> Validation error parsed unnamed constraints2
 mergeResults parsed =
     case parsed.result of
         ( Pages.Internal.Form.Validation viewField name ( parsedThing, combineErrors ), individualFieldErrors ) ->
@@ -592,7 +592,7 @@ mergeResults parsed =
 
 mergeResultsDataSource :
     { a
-        | result : ( AnyValidation error parsed named constraints, FieldErrors error )
+        | result : ( Validation error parsed named constraints, FieldErrors error )
         , serverValidations : DataSource (List ( String, List error ))
     }
     -> ( Maybe parsed, DataSource (FieldErrors error) )
@@ -668,7 +668,7 @@ parse :
     String
     -> AppContext app
     -> data
-    -> Form error { info | combine : AnyValidation error parsed named constraints } data
+    -> Form error { info | combine : Validation error parsed named constraints } data
     -> ( Maybe parsed, FieldErrors error )
 parse formId app data (Form _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -676,7 +676,7 @@ parse formId app data (Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
-            , parsedAndView : { info | combine : AnyValidation error parsed named constraints }
+            , parsedAndView : { info | combine : Validation error parsed named constraints }
             , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
@@ -708,13 +708,13 @@ insertIfNonempty key values dict =
 {-| -}
 runServerSide :
     List ( String, String )
-    -> Form error { all | combine : AnyValidation error parsed kind constraints } data
+    -> Form error { all | combine : Validation error parsed kind constraints } data
     -> ( Maybe parsed, DataSource (FieldErrors error) )
 runServerSide rawFormData (Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
-            , parsedAndView : { all | combine : AnyValidation error parsed kind constraints }
+            , parsedAndView : { all | combine : Validation error parsed kind constraints }
             , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
@@ -745,13 +745,13 @@ runServerSide rawFormData (Form _ parser _) =
 {-| -}
 runServerSideWithoutServerValidations :
     List ( String, String )
-    -> Form error { all | combine : AnyValidation error parsed kind constraints } data
+    -> Form error { all | combine : Validation error parsed kind constraints } data
     -> ( Maybe parsed, FieldErrors error )
 runServerSideWithoutServerValidations rawFormData (Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
-            , parsedAndView : { all | combine : AnyValidation error parsed kind constraints }
+            , parsedAndView : { all | combine : Validation error parsed kind constraints }
             , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
@@ -780,7 +780,7 @@ runServerSideWithoutServerValidations rawFormData (Form _ parser _) =
         |> unwrapValidation
 
 
-unwrapValidation : AnyValidation error parsed named constraints -> ( Maybe parsed, FieldErrors error )
+unwrapValidation : Validation error parsed named constraints -> ( Maybe parsed, FieldErrors error )
 unwrapValidation (Pages.Internal.Form.Validation viewField name ( maybeParsed, errors )) =
     ( maybeParsed, errors )
 
@@ -792,7 +792,7 @@ runOneOfServerSide :
         List
             (Form
                 error
-                { all | combine : AnyValidation error parsed kind constraints }
+                { all | combine : Validation error parsed kind constraints }
                 data
             )
     -> ( Maybe parsed, FieldErrors error )
@@ -829,7 +829,7 @@ runOneOfServerSideWithServerValidations :
         List
             (Form
                 error
-                { all | combine : AnyValidation error parsed kind constraints }
+                { all | combine : Validation error parsed kind constraints }
                 data
             )
     -> ( Maybe parsed, DataSource (FieldErrors error) )
@@ -867,7 +867,7 @@ renderHtml :
     ->
         FinalForm
             error
-            (AnyValidation error parsed named constraints)
+            (Validation error parsed named constraints)
             data
             (Context error data
              -> List (Html (Pages.Msg.Msg msg))
@@ -917,14 +917,14 @@ toDynamicFetcher :
     ->
         Form
             error
-            { combine : AnyValidation error parsed field constraints
+            { combine : Validation error parsed field constraints
             , view : Context error data -> view
             }
             data
     ->
         FinalForm
             error
-            (AnyValidation error parsed field constraints)
+            (Validation error parsed field constraints)
             data
             (Context error data -> view)
 toDynamicFetcher name (Form a b c) =
@@ -941,7 +941,7 @@ toDynamicFetcher name (Form a b c) =
              ->
                 { result : Dict String (List error)
                 , parsedAndView :
-                    { combine : AnyValidation error parsed field constraints
+                    { combine : Validation error parsed field constraints
                     , view : Context error data -> view
                     }
                 , serverValidations : DataSource (List ( String, List error ))
@@ -952,7 +952,7 @@ toDynamicFetcher name (Form a b c) =
                  -> Form.FormState
                  ->
                     { result :
-                        ( AnyValidation error parsed field constraints
+                        ( Validation error parsed field constraints
                         , Dict String (List error)
                         )
                     , view : Context error data -> view
@@ -965,7 +965,7 @@ toDynamicFetcher name (Form a b c) =
                     foo :
                         { result : Dict String (List error)
                         , parsedAndView :
-                            { combine : AnyValidation error parsed field constraints
+                            { combine : Validation error parsed field constraints
                             , view : Context error data -> view
                             }
                         , serverValidations : DataSource (List ( String, List error ))
@@ -987,14 +987,14 @@ toDynamicTransition :
     ->
         Form
             error
-            { combine : AnyValidation error parsed field constraints
+            { combine : Validation error parsed field constraints
             , view : Context error data -> view
             }
             data
     ->
         FinalForm
             error
-            (AnyValidation error parsed field constraints)
+            (Validation error parsed field constraints)
             data
             (Context error data -> view)
 toDynamicTransition name (Form a b c) =
@@ -1011,7 +1011,7 @@ toDynamicTransition name (Form a b c) =
              ->
                 { result : Dict String (List error)
                 , parsedAndView :
-                    { combine : AnyValidation error parsed field constraints
+                    { combine : Validation error parsed field constraints
                     , view : Context error data -> view
                     }
                 , serverValidations : DataSource (List ( String, List error ))
@@ -1022,7 +1022,7 @@ toDynamicTransition name (Form a b c) =
                  -> Form.FormState
                  ->
                     { result :
-                        ( AnyValidation error parsed field constraints
+                        ( Validation error parsed field constraints
                         , Dict String (List error)
                         )
                     , view : Context error data -> view
@@ -1035,7 +1035,7 @@ toDynamicTransition name (Form a b c) =
                     foo :
                         { result : Dict String (List error)
                         , parsedAndView :
-                            { combine : AnyValidation error parsed field constraints
+                            { combine : Validation error parsed field constraints
                             , view : Context error data -> view
                             }
                         , serverValidations : DataSource (List ( String, List error ))
@@ -1070,7 +1070,7 @@ renderStyledHtml :
     ->
         FinalForm
             error
-            (AnyValidation error parsed named constraints)
+            (Validation error parsed named constraints)
             data
             (Context error data
              -> List (Html.Styled.Html (Pages.Msg.Msg msg))
@@ -1090,7 +1090,7 @@ renderHelper :
     -> RenderOptions
     -> AppContext app
     -> data
-    -> FormInternal error (AnyValidation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
+    -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
     -> Html (Pages.Msg.Msg msg)
 renderHelper attrs maybe options formState data ((FormInternal fieldDefinitions parser toInitialValues) as form) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -1129,7 +1129,7 @@ renderStyledHelper :
     -> RenderOptions
     -> AppContext app
     -> data
-    -> FormInternal error (AnyValidation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
+    -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
     -> Html.Styled.Html (Pages.Msg.Msg msg)
 renderStyledHelper attrs maybe options formState data ((FormInternal fieldDefinitions parser toInitialValues) as form) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -1171,7 +1171,7 @@ helperValues :
     -> AppContext app
     -> data
     ---> Form error parsed data view
-    -> FormInternal error (AnyValidation error parsed named constraints) data (Context error data -> List view)
+    -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List view)
     -> { formId : String, hiddenInputs : List view, children : List view, isValid : Bool }
 helperValues toHiddenInput maybe options formState data (FormInternal fieldDefinitions parser toInitialValues) =
     let
@@ -1210,14 +1210,14 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                 |> Dict.union part2
 
         parsed :
-            { result : ( AnyValidation error parsed named constraints, Dict String (List error) )
+            { result : ( Validation error parsed named constraints, Dict String (List error) )
             , view : Context error data -> List view
             , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
             parser (Just data) thisFormState
 
-        merged : AnyValidation error parsed named constraints
+        merged : Validation error parsed named constraints
         merged =
             mergeResults
                 { parsed
@@ -1344,7 +1344,7 @@ toResult ( maybeParsed, fieldErrors ) =
 type alias HtmlForm error parsed data msg =
     Form
         error
-        { combine : Validation.Validation error parsed
+        { combine : Validation.Combined error parsed
         , view : Context error data -> List (Html (Pages.Msg.Msg msg))
         }
         data
@@ -1354,7 +1354,7 @@ type alias HtmlForm error parsed data msg =
 type alias StyledHtmlForm error parsed data msg =
     Form
         error
-        { combine : Validation error parsed
+        { combine : Combined error parsed
         , view : Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg))
         }
         data
