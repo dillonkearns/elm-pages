@@ -26,7 +26,7 @@ import Html.Attributes as Attr
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
 import Json.Encode as Encode
-import Pages.Internal.Form exposing (Validation(..), ViewField)
+import Pages.Internal.Form exposing (AnyValidation(..), ViewField)
 
 
 {-| -}

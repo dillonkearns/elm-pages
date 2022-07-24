@@ -90,7 +90,7 @@ import CookieParser
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Form
-import Form.Validation as Validation exposing (LowLevelValidation, OnlyValidation)
+import Form.Validation as Validation exposing (AnyValidation, Validation)
 import FormData
 import Internal.Request
 import Json.Decode
@@ -887,7 +887,7 @@ formDataWithoutServerValidation :
     List
         (Form.Form
             error
-            { all | combine : LowLevelValidation error combined kind constraints }
+            { all | combine : AnyValidation error combined kind constraints }
             data
         )
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
@@ -923,7 +923,7 @@ formData :
     List
         (Form.Form
             error
-            { all | combine : LowLevelValidation error combined kind constraints }
+            { all | combine : AnyValidation error combined kind constraints }
             data
         )
     -> Parser (DataSource (Result { fields : List ( String, String ), errors : Dict String (List error) } combined))

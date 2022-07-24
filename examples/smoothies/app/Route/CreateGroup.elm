@@ -7,7 +7,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (FieldValidation, OnlyValidation)
+import Form.Validation as Validation exposing (FieldValidation, Validation)
 import GroupName exposing (GroupName)
 import Head
 import Html exposing (Html)

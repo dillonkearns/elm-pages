@@ -13,7 +13,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (OnlyValidation)
+import Form.Validation as Validation exposing (Validation)
 import Form.Value
 import FormDecoder exposing (FormData)
 import Graphql.Operation exposing (RootMutation, RootQuery)
@@ -230,7 +230,7 @@ createForm =
 
 descriptionFieldView :
     Form.Context String data
-    -> OnlyValidation String parsed Form.FieldView.Input
+    -> Validation String parsed Form.FieldView.Input
     -> Html msg
 descriptionFieldView formState field =
     Html.div []
@@ -242,7 +242,7 @@ descriptionFieldView formState field =
         ]
 
 
-errorsForField : Form.Context String data -> OnlyValidation String parsed kind -> Html msg
+errorsForField : Form.Context String data -> Validation String parsed kind -> Html msg
 errorsForField formState field =
     (if True then
         formState.errors
