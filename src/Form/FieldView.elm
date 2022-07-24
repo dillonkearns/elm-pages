@@ -1,22 +1,16 @@
 module Form.FieldView exposing
-    ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, toHtmlProperties, Hidden(..)
+    ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, toHtmlProperties, Hidden(..), select
     , radioStyled, inputStyled
-    , selectOld
     )
 
 {-|
 
-@docs Input, InputType, Options, input, inputTypeToString, radio, toHtmlProperties, Hidden
+@docs Input, InputType, Options, input, inputTypeToString, radio, toHtmlProperties, Hidden, select
 
 
 ## Html.Styled Helpers
 
 @docs radioStyled, inputStyled
-
-
-## Need to Migrate to New Validation Form type
-
-@docs selectOld
 
 -}
 
@@ -206,7 +200,7 @@ inputStyled attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) 
 
 
 {-| -}
-selectOld :
+select :
     List (Html.Attribute msg)
     ->
         (parsed
@@ -215,15 +209,19 @@ selectOld :
             , String
             )
         )
-    ->
-        { input
-            | value : Maybe String
-            , name : String
-            , kind : ( Options parsed, List ( String, Encode.Value ) )
-        }
+    -> Form.Validation.Field error parsed2 (Options parsed)
     -> Html msg
-selectOld selectAttrs enumToOption rawField =
+select selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
     let
+        justViewField =
+            viewField |> expectViewField
+
+        rawField =
+            { name = fieldName |> Maybe.withDefault ""
+            , value = justViewField.value
+            , kind = justViewField.kind
+            }
+
         (Options parseValue possibleValues) =
             rawField.kind |> Tuple.first
     in
