@@ -7,12 +7,11 @@ module Form exposing
     , renderHtml, renderStyledHtml
     , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
     , Errors, errorsForField
-    , parse, runOneOfServerSide
+    , parse, runOneOfServerSide, runServerSide, runServerSideWithoutServerValidations
     , dynamic
     , runOneOfServerSideWithServerValidations
     , AppContext
     , FieldDefinition(..)
-    , runServerSide3, runServerSide4
     -- subGroup
     )
 
@@ -55,7 +54,7 @@ module Form exposing
 
 ## Running Parsers
 
-@docs parse, runOneOfServerSide, runServerSide
+@docs parse, runOneOfServerSide, runServerSide, runServerSideWithoutServerValidations
 
 
 ## Dynamic Fields
@@ -707,11 +706,11 @@ insertIfNonempty key values dict =
 
 
 {-| -}
-runServerSide3 :
+runServerSide :
     List ( String, String )
     -> Form error { all | combine : Validation error parsed kind } data
     -> ( Maybe parsed, DataSource (FieldErrors error) )
-runServerSide3 rawFormData (FormNew _ parser _) =
+runServerSide rawFormData (FormNew _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
@@ -744,11 +743,11 @@ runServerSide3 rawFormData (FormNew _ parser _) =
 
 
 {-| -}
-runServerSide4 :
+runServerSideWithoutServerValidations :
     List ( String, String )
     -> Form error { all | combine : Validation error parsed kind } data
     -> ( Maybe parsed, FieldErrors error )
-runServerSide4 rawFormData (FormNew _ parser _) =
+runServerSideWithoutServerValidations rawFormData (FormNew _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
@@ -803,7 +802,7 @@ runOneOfServerSide rawFormData parsers =
             let
                 thing : ( Maybe parsed, List ( String, List error ) )
                 thing =
-                    runServerSide4 rawFormData firstParser
+                    runServerSideWithoutServerValidations rawFormData firstParser
                         |> Tuple.mapSecond
                             (\errors ->
                                 errors
@@ -840,7 +839,7 @@ runOneOfServerSideWithServerValidations rawFormData parsers =
             let
                 thing : ( Maybe parsed, DataSource (FieldErrors error) )
                 thing =
-                    runServerSide3 rawFormData firstParser
+                    runServerSide rawFormData firstParser
             in
             case thing of
                 -- TODO should it try to look for anything that parses with no errors, or short-circuit if something parses regardless of errors?
