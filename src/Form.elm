@@ -27,7 +27,7 @@ module Form exposing
 
 ## Adding Fields
 
-@docs ParsedField, field, hiddenField, hiddenKind
+@docs field, hiddenField, hiddenKind
 
 
 ### Managing Errors
@@ -37,7 +37,7 @@ module Form exposing
 
 ## View Functions
 
-@docs Context, ViewField
+@docs Context
 
 
 ## Rendering Forms
@@ -59,7 +59,7 @@ module Form exposing
 
 ## Dynamic Fields
 
-@docs dynamic, HtmlSubForm
+@docs dynamic
 
 
 ## Work-In-Progress
