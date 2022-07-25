@@ -102,8 +102,8 @@ parseWithError parsed ( key, error ) =
 
 
 {-| -}
-fail : Field error parsed1 field -> error -> Combined error parsed
-fail (Validation _ key _) parsed =
+fail : error -> Field error parsed1 field -> Combined error parsed
+fail parsed (Validation _ key _) =
     -- TODO need to prevent Never fields from being used
     Validation Nothing Nothing ( Nothing, Dict.singleton (key |> Maybe.withDefault "") [ parsed ] )
 

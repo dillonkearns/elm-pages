@@ -250,7 +250,8 @@ all =
                                                                 Validation.succeed { password = passwordValue }
 
                                                             else
-                                                                Validation.fail passwordConfirmation "Must match password"
+                                                                passwordConfirmation
+                                                                    |> Validation.fail "Must match password"
                                                         )
                                                         |> Validation.andMap password
                                                         |> Validation.andMap passwordConfirmation
