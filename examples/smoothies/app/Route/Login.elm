@@ -48,42 +48,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action =
-            \_ ->
-                MySession.withSession
-                    (Request.formDataWithoutServerValidation [ form ])
-                    (\usernameResult session ->
-                        case usernameResult of
-                            Err _ ->
-                                ( session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
-                                    |> Session.withFlash "message" "Invalid form submission - no userId provided"
-                                , Route.redirectTo Route.Login
-                                )
-                                    |> DataSource.succeed
-
-                            Ok username ->
-                                case userIdMap |> Dict.get username of
-                                    Just userId ->
-                                        ( session
-                                            |> Result.withDefault Nothing
-                                            |> Maybe.withDefault Session.empty
-                                            |> Session.insert "userId" userId
-                                            |> Session.withFlash "message" ("Welcome " ++ username ++ "!")
-                                        , Route.redirectTo Route.Index
-                                        )
-                                            |> DataSource.succeed
-
-                                    Nothing ->
-                                        ( session
-                                            |> Result.withDefault Nothing
-                                            |> Maybe.withDefault Session.empty
-                                            |> Session.withFlash "message" ("Couldn't find username " ++ username)
-                                        , Route.redirectTo Route.Login
-                                        )
-                                            |> DataSource.succeed
-                    )
+        , action = action
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -110,7 +75,7 @@ form =
                     ]
             }
         )
-        |> Form.field "username" (Field.text |> Field.required "Required")
+        |> Form.field "username" (Field.text |> Field.email |> Field.required "Required")
 
 
 fieldView :
@@ -168,6 +133,44 @@ data routeParams =
                         |> Server.Response.render
                     )
                         |> DataSource.succeed
+        )
+
+
+action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action routeParams =
+    MySession.withSession
+        (Request.formDataWithoutServerValidation [ form ])
+        (\usernameResult session ->
+            case usernameResult of
+                Err _ ->
+                    ( session
+                        |> Result.withDefault Nothing
+                        |> Maybe.withDefault Session.empty
+                        |> Session.withFlash "message" "Invalid form submission - no userId provided"
+                    , Route.redirectTo Route.Login
+                    )
+                        |> DataSource.succeed
+
+                Ok username ->
+                    case userIdMap |> Dict.get username of
+                        Just userId ->
+                            ( session
+                                |> Result.withDefault Nothing
+                                |> Maybe.withDefault Session.empty
+                                |> Session.insert "userId" userId
+                                |> Session.withFlash "message" ("Welcome " ++ username ++ "!")
+                            , Route.redirectTo Route.Index
+                            )
+                                |> DataSource.succeed
+
+                        Nothing ->
+                            ( session
+                                |> Result.withDefault Nothing
+                                |> Maybe.withDefault Session.empty
+                                |> Session.withFlash "message" ("Couldn't find username " ++ username)
+                            , Route.redirectTo Route.Login
+                            )
+                                |> DataSource.succeed
         )
 
 
