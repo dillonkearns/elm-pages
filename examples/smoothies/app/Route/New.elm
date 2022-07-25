@@ -3,7 +3,7 @@ module Route.New exposing (ActionData, Data, Model, Msg, route)
 import Api.Scalar exposing (Uuid(..))
 import Data.Smoothies as Smoothies
 import DataSource exposing (DataSource)
-import Dict
+import Dict exposing (Dict)
 import Dict.Extra
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -200,7 +200,7 @@ view :
     -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model app =
     let
-        pendingCreation : Result (Form.FieldErrors String) NewItem
+        pendingCreation : Result (Dict String (List String)) NewItem
         pendingCreation =
             form
                 |> Form.parse "form" app app.data
@@ -233,7 +233,7 @@ type alias NewItem =
     { name : String, description : String, price : Int, imageUrl : String }
 
 
-toResult : ( Maybe parsed, Form.FieldErrors error ) -> Result (Form.FieldErrors error) parsed
+toResult : ( Maybe parsed, Dict String (List error) ) -> Result (Dict String (List error)) parsed
 toResult ( maybeParsed, fieldErrors ) =
     let
         isEmptyDict : Bool
@@ -253,7 +253,7 @@ toResult ( maybeParsed, fieldErrors ) =
             Err fieldErrors
 
 
-parseIgnoreErrors : ( Maybe parsed, Form.FieldErrors error ) -> Result (Form.FieldErrors error) parsed
+parseIgnoreErrors : ( Maybe parsed, Dict String (List error) ) -> Result (Dict String (List error)) parsed
 parseIgnoreErrors ( maybeParsed, fieldErrors ) =
     case maybeParsed of
         Just parsed ->

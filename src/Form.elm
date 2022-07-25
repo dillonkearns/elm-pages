@@ -19,7 +19,7 @@ module Form exposing
 
 ## Building a Form Parser
 
-@docs Form, FieldErrors, HtmlForm, StyledHtmlForm
+@docs Form, HtmlForm, StyledHtmlForm
 
 @docs init
 
@@ -111,12 +111,6 @@ type alias Context error data =
     , submitAttempted : Bool
     , data : data
     }
-
-
-
---mapResult : (parsed -> mapped) -> ( Maybe parsed, FieldErrors error ) -> ( Maybe mapped, FieldErrors error )
---mapResult function ( maybe, fieldErrors ) =
---    ( maybe |> Maybe.map function, fieldErrors )
 
 
 {-| -}
@@ -221,7 +215,7 @@ dynamic forms formBuilder =
 
 --{-| -}
 --subGroup :
---    Form error ( Maybe parsed, FieldErrors error ) data (Context error data -> subView)
+--    Form error ( Maybe parsed, Dict String (List error) ) data (Context error data -> subView)
 --    ->
 --        Form
 --            error
@@ -233,7 +227,7 @@ dynamic forms formBuilder =
 --    Form []
 --        (\maybeData formState ->
 --            let
---                toParser : { result : ( Maybe ( Maybe parsed, FieldErrors error ), Dict String (List error) ), view : Context error data -> subView }
+--                toParser : { result : ( Maybe ( Maybe parsed, Dict String (List error) ), Dict String (List error) ), view : Context error data -> subView }
 --                toParser =
 --                    case forms of
 --                        Form definitions parseFn toInitialValues ->
@@ -246,7 +240,7 @@ dynamic forms formBuilder =
 --                    }
 --                myFn =
 --                    let
---                        deciderToParsed : ( Maybe parsed, FieldErrors error )
+--                        deciderToParsed : ( Maybe parsed, Dict String (List error) )
 --                        deciderToParsed =
 --                            toParser |> mergeResults
 --
@@ -537,11 +531,6 @@ errorsForField field_ (Errors errorsDict) =
 
 
 {-| -}
-type alias FieldErrors error =
-    Dict String (List error)
-
-
-{-| -}
 type alias AppContext app =
     { app
         | --, sharedData : Shared.Data
@@ -572,10 +561,10 @@ mergeResults parsed =
 
 mergeResultsDataSource :
     { a
-        | result : ( Validation error parsed named constraints, FieldErrors error )
+        | result : ( Validation error parsed named constraints, Dict String (List error) )
         , serverValidations : DataSource (List ( String, List error ))
     }
-    -> ( Maybe parsed, DataSource (FieldErrors error) )
+    -> ( Maybe parsed, DataSource (Dict String (List error)) )
 mergeResultsDataSource parsed =
     case parsed.result of
         ( Pages.Internal.Form.Validation _ _ ( parsedThing, combineErrors ), individualFieldErrors ) ->
@@ -649,7 +638,7 @@ parse :
     -> AppContext app
     -> data
     -> Form error { info | combine : Validation error parsed named constraints } data
-    -> ( Maybe parsed, FieldErrors error )
+    -> ( Maybe parsed, Dict String (List error) )
 parse formId app data (Form _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
@@ -689,7 +678,7 @@ insertIfNonempty key values dict =
 runServerSide :
     List ( String, String )
     -> Form error { all | combine : Validation error parsed kind constraints } data
-    -> ( Maybe parsed, DataSource (FieldErrors error) )
+    -> ( Maybe parsed, DataSource (Dict String (List error)) )
 runServerSide rawFormData (Form _ parser _) =
     let
         parsed :
@@ -726,7 +715,7 @@ runServerSide rawFormData (Form _ parser _) =
 runServerSideWithoutServerValidations :
     List ( String, String )
     -> Form error { all | combine : Validation error parsed kind constraints } data
-    -> ( Maybe parsed, FieldErrors error )
+    -> ( Maybe parsed, Dict String (List error) )
 runServerSideWithoutServerValidations rawFormData (Form _ parser _) =
     let
         parsed :
@@ -760,7 +749,7 @@ runServerSideWithoutServerValidations rawFormData (Form _ parser _) =
         |> unwrapValidation
 
 
-unwrapValidation : Validation error parsed named constraints -> ( Maybe parsed, FieldErrors error )
+unwrapValidation : Validation error parsed named constraints -> ( Maybe parsed, Dict String (List error) )
 unwrapValidation (Pages.Internal.Form.Validation viewField name ( maybeParsed, errors )) =
     ( maybeParsed, errors )
 
@@ -775,7 +764,7 @@ runOneOfServerSide :
                 { all | combine : Validation error parsed kind constraints }
                 data
             )
-    -> ( Maybe parsed, FieldErrors error )
+    -> ( Maybe parsed, Dict String (List error) )
 runOneOfServerSide rawFormData parsers =
     case parsers of
         firstParser :: remainingParsers ->
@@ -812,12 +801,12 @@ runOneOfServerSideWithServerValidations :
                 { all | combine : Validation error parsed kind constraints }
                 data
             )
-    -> ( Maybe parsed, DataSource (FieldErrors error) )
+    -> ( Maybe parsed, DataSource (Dict String (List error)) )
 runOneOfServerSideWithServerValidations rawFormData parsers =
     case parsers of
         firstParser :: remainingParsers ->
             let
-                thing : ( Maybe parsed, DataSource (FieldErrors error) )
+                thing : ( Maybe parsed, DataSource (Dict String (List error)) )
                 thing =
                     runServerSide rawFormData firstParser
             in

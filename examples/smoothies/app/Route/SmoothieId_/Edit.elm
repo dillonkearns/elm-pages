@@ -294,7 +294,7 @@ type Media
     | Video
 
 
-parseIgnoreErrors : ( Maybe parsed, Form.FieldErrors error ) -> Result (Form.FieldErrors error) parsed
+parseIgnoreErrors : ( Maybe parsed, Form.Dict String (List error) ) -> Result (Form.Dict String (List error)) parsed
 parseIgnoreErrors ( maybeParsed, fieldErrors ) =
     case maybeParsed of
         Just parsed ->
