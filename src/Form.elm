@@ -13,7 +13,199 @@ module Form exposing
     -- subGroup
     )
 
-{-|
+{-| One of the core features of elm-pages is helping you manage form data end-to-end, including
+
+  - Presenting the HTML form with its fields
+  - Maintaining client-side form state
+  - Showing validation errors on the client-side
+  - Receiving a form submission on the server-side
+  - Using the exact same client-side validations on the server-side
+  - Letting you run server-only Validations with DataSource's (things like checking for a unique username)
+
+Because elm-pages is a framework, it has its own internal Model and Msg's. That means you, the user,
+can offload some of the responsibility to elm-pages and build an interactive form with real-time
+client-side state and validation errors without wiring up your own Model and Msg's to manage that
+state. You define the source of truth for your form (how to parse it into data or errors), and
+elm-pages manages the state.
+
+Let's look at a sign-up form example.
+
+
+### Step 1 - Define the Form
+
+What to look for:
+
+**The field declarations**
+
+Below the `Form.init` call you will find all of the form's fields declared with
+
+    |> Form.field ...
+
+These are the form's field declarations.
+
+These fields each have individual validations. For example, `|> Field.required ...` means we'll get a validation
+error if that field is empty (similar for checking the minimum password length).
+
+There will be a corresponding parameter in the function we pass in to `Form.init` for every
+field declaration (in this example, `\email password passwordConfirmation -> ...`).
+
+**The `combine` validation**
+
+In addition to the validation errors that individual fields can have independently (like
+required fields or minimum password length), we can also do _dependent validations_.
+
+We use the [`Form.Validation`](Form-Validation) module to take each individual field and combine
+them into a type and/or errors.
+
+**The `view`**
+
+Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of the fields declared.
+
+    import DataSource exposing (DataSource)
+    import ErrorPage exposing (ErrorPage)
+    import Form
+    import Form.Field as Field
+    import Form.FieldView as FieldView
+    import Form.Validation as Validation
+    import Html exposing (Html)
+    import Html.Attributes as Attr
+    import Route
+    import Server.Request as Request
+    import Server.Response exposing (Response)
+
+    type alias NewUser =
+        { email : String
+        , password : String
+        }
+
+    signupForm : Form.HtmlForm String NewUser () Msg
+    signupForm =
+        Form.init
+            (\email password passwordConfirmation ->
+                { combine =
+                    Validation.succeed Login
+                        |> Validation.andMap email
+                        |> Validation.andMap
+                            (Validation.map2
+                                (\pass confirmation ->
+                                    if pass == confirmation then
+                                        Validation.succeed pass
+
+                                    else
+                                        passwordConfirmation
+                                            |> Validation.fail
+                                                "Must match password"
+                                )
+                                password
+                                passwordConfirmation
+                                |> Validation.andThen identity
+                            )
+                , view =
+                    \info ->
+                        [ Html.label []
+                            [ fieldView info "Email" email
+                            , fieldView info "Password" password
+                            , fieldView info "Confirm Password" passwordConfirmation
+                            ]
+                        , Html.button []
+                            [ if info.isTransitioning then
+                                Html.text "Signing Up..."
+
+                              else
+                                Html.text "Sign Up"
+                            ]
+                        ]
+                }
+            )
+            |> Form.field "email"
+                (Field.text
+                    |> Field.required "Required"
+                )
+            |> Form.field "password"
+                passwordField
+            |> Form.field "passwordConfirmation"
+                passwordField
+
+    passwordField =
+        Field.text
+            |> Field.password
+            |> Field.required "Required"
+            |> Field.withClientValidation
+                (\password ->
+                    ( Just password
+                    , if String.length password < 4 then
+                        [ "Must be at least 4 characters" ]
+
+                      else
+                        []
+                    )
+                )
+
+    fieldView :
+        Form.Context String data
+        -> String
+        -> Validation.Field String parsed FieldView.Input
+        -> Html msg
+    fieldView formState label field =
+        Html.div []
+            [ Html.label []
+                [ Html.text (label ++ " ")
+                , field |> Form.FieldView.input []
+                ]
+            , (if formState.submitAttempted then
+                formState.errors
+                    |> Form.errorsForField field
+                    |> List.map
+                        (\error ->
+                            Html.li [] [ Html.text error ]
+                        )
+
+               else
+                []
+              )
+                |> Html.ul [ Attr.style "color" "red" ]
+            ]
+
+
+### Step 2 - Render the Form's View
+
+    view maybeUrl sharedModel app =
+        { title = "Sign Up"
+        , body =
+            [ form
+                |> Form.toDynamicTransition "login"
+                |> Form.renderHtml [] Nothing app ()
+            ]
+        }
+
+
+### Step 3 - Handle Server-Side Form Submissions
+
+    action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+    action routeParams =
+        Request.formDataWithoutServerValidation [ signupForm ]
+            |> Request.map
+                (\signupResult ->
+                    case signupResult of
+                        Ok newUser ->
+                            newUser
+                                |> myCreateUserDataSource
+                                |> DataSource.map
+                                    (\() ->
+                                        -- redirect to the home page
+                                        -- after successful sign-up
+                                        Route.redirectTo Route.Index
+                                    )
+
+                        Err _ ->
+                            Route.redirectTo Route.Login
+                                |> DataSource.succeed
+                )
+
+    myCreateUserDataSource : DataSource ()
+    myCreateUserDataSource =
+        DataSource.fail
+            "TODO - make a database call to create a new user"
 
 
 ## Building a Form Parser
