@@ -822,24 +822,6 @@ mergeResultsDataSource parsed =
             )
 
 
-
---resultsToDict : List a -> Dict String (List error)
---resultsToDict list =
---    list
---        |> List.foldl
---            (\( key, errorsForKey ) soFar ->
---                soFar
---                    |> Dict.update key
---                        (\maybeList ->
---                            maybeList
---                                |> Maybe.withDefault []
---                                |> List.append errorsForKey
---                                |> Just
---                        )
---            )
---            Dict.empty
-
-
 mergeErrors : Dict comparable (List value) -> Dict comparable (List value) -> Dict comparable (List value)
 mergeErrors errors1 errors2 =
     Dict.merge
