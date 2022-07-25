@@ -2,6 +2,7 @@ module Form.Validation exposing
     ( Combined, Field, Validation
     , andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
     , value, fieldName, fieldStatus
+    , map3, map4, map5, map6, map7, map8, map9
     )
 
 {-|
@@ -17,6 +18,11 @@ module Form.Validation exposing
 ## Field Metadata
 
 @docs value, fieldName, fieldStatus
+
+
+## Mapping
+
+@docs map3, map4, map5, map6, map7, map8, map9
 
 -}
 
@@ -173,6 +179,146 @@ map2 f (Validation _ name1 ( maybeParsedA, errorsA )) (Validation _ name2 ( mayb
         ( Maybe.map2 f maybeParsedA maybeParsedB
         , mergeErrors errorsA errorsB
         )
+
+
+{-| -}
+map3 :
+    (a1 -> a2 -> a3 -> a4)
+    -> Validation error a1 named1 constraints1
+    -> Validation error a2 named2 constraints2
+    -> Validation error a3 named3 constraints3
+    -> Combined error a4
+map3 f validation1 validation2 validation3 =
+    succeed f
+        |> andMap validation1
+        |> andMap validation2
+        |> andMap validation3
+
+
+{-| -}
+map4 :
+    (a1 -> a2 -> a3 -> a4 -> a5)
+    -> Validation error a1 named1 constraints1
+    -> Validation error a2 named2 constraints2
+    -> Validation error a3 named3 constraints3
+    -> Validation error a4 named4 constraints4
+    -> Combined error a5
+map4 f validation1 validation2 validation3 validation4 =
+    succeed f
+        |> andMap validation1
+        |> andMap validation2
+        |> andMap validation3
+        |> andMap validation4
+
+
+{-| -}
+map5 :
+    (a1 -> a2 -> a3 -> a4 -> a5 -> a6)
+    -> Validation error a1 named1 constraints1
+    -> Validation error a2 named2 constraints2
+    -> Validation error a3 named3 constraints3
+    -> Validation error a4 named4 constraints4
+    -> Validation error a5 named5 constraints5
+    -> Combined error a6
+map5 f validation1 validation2 validation3 validation4 validation5 =
+    succeed f
+        |> andMap validation1
+        |> andMap validation2
+        |> andMap validation3
+        |> andMap validation4
+        |> andMap validation5
+
+
+{-| -}
+map6 :
+    (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7)
+    -> Validation error a1 named1 constraints1
+    -> Validation error a2 named2 constraints2
+    -> Validation error a3 named3 constraints3
+    -> Validation error a4 named4 constraints4
+    -> Validation error a5 named5 constraints5
+    -> Validation error a6 named6 constraints6
+    -> Combined error a7
+map6 f validation1 validation2 validation3 validation4 validation5 validation6 =
+    succeed f
+        |> andMap validation1
+        |> andMap validation2
+        |> andMap validation3
+        |> andMap validation4
+        |> andMap validation5
+        |> andMap validation6
+
+
+{-| -}
+map7 :
+    (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> a8)
+    -> Validation error a1 named1 constraints1
+    -> Validation error a2 named2 constraints2
+    -> Validation error a3 named3 constraints3
+    -> Validation error a4 named4 constraints4
+    -> Validation error a5 named5 constraints5
+    -> Validation error a6 named6 constraints6
+    -> Validation error a7 named7 constraints7
+    -> Combined error a8
+map7 f validation1 validation2 validation3 validation4 validation5 validation6 validation7 =
+    succeed f
+        |> andMap validation1
+        |> andMap validation2
+        |> andMap validation3
+        |> andMap validation4
+        |> andMap validation5
+        |> andMap validation6
+        |> andMap validation7
+
+
+{-| -}
+map8 :
+    (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> a8 -> a9)
+    -> Validation error a1 named1 constraints1
+    -> Validation error a2 named2 constraints2
+    -> Validation error a3 named3 constraints3
+    -> Validation error a4 named4 constraints4
+    -> Validation error a5 named5 constraints5
+    -> Validation error a6 named6 constraints6
+    -> Validation error a7 named7 constraints7
+    -> Validation error a8 named8 constraints8
+    -> Combined error a9
+map8 f validation1 validation2 validation3 validation4 validation5 validation6 validation7 validation8 =
+    succeed f
+        |> andMap validation1
+        |> andMap validation2
+        |> andMap validation3
+        |> andMap validation4
+        |> andMap validation5
+        |> andMap validation6
+        |> andMap validation7
+        |> andMap validation8
+
+
+{-| -}
+map9 :
+    (a1 -> a2 -> a3 -> a4 -> a5 -> a6 -> a7 -> a8 -> a9 -> a10)
+    -> Validation error a1 named1 constraints1
+    -> Validation error a2 named2 constraints2
+    -> Validation error a3 named3 constraints3
+    -> Validation error a4 named4 constraints4
+    -> Validation error a5 named5 constraints5
+    -> Validation error a6 named6 constraints6
+    -> Validation error a7 named7 constraints7
+    -> Validation error a8 named8 constraints8
+    -> Validation error a9 named9 constraints9
+    -> Combined error a10
+map9 f validation1 validation2 validation3 validation4 validation5 validation6 validation7 validation8 validation9 =
+    succeed f
+        |> andMap validation1
+        |> andMap validation2
+        |> andMap validation3
+        |> andMap validation4
+        |> andMap validation5
+        |> andMap validation6
+        |> andMap validation7
+        |> andMap validation8
+        |> andMap validation9
 
 
 {-| -}
