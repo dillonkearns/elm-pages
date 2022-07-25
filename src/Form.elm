@@ -1,8 +1,7 @@
 module Form exposing
-    ( Form(..), FieldErrors, HtmlForm, StyledHtmlForm
+    ( Form(..), HtmlForm, StyledHtmlForm
     , init
     , field, hiddenField, hiddenKind
-    , andThen
     , Context
     , renderHtml, renderStyledHtml
     , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
@@ -28,11 +27,6 @@ module Form exposing
 ## Adding Fields
 
 @docs field, hiddenField, hiddenKind
-
-
-### Managing Errors
-
-@docs andThen
 
 
 ## View Functions
@@ -292,18 +286,6 @@ dynamic forms formBuilder =
 --            myFn
 --        )
 --        (\_ -> [])
-
-
-{-| -}
-andThen : (parsed -> ( Maybe combined, FieldErrors error )) -> ( Maybe parsed, FieldErrors error ) -> ( Maybe combined, FieldErrors error )
-andThen andThenFn ( maybe, fieldErrors ) =
-    case maybe of
-        Just justValue ->
-            andThenFn justValue
-                |> Tuple.mapSecond (mergeErrors fieldErrors)
-
-        Nothing ->
-            ( Nothing, fieldErrors )
 
 
 {-| -}
