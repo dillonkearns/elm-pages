@@ -468,7 +468,23 @@ dynamic forms formBuilder =
 --        (\_ -> [])
 
 
-{-| -}
+{-| Declare a visible field for the form.
+
+Use [`Form.Field`](Form-Field) to define the field and its validations.
+
+    form =
+        Form.init
+            (\email ->
+                { combine =
+                    Validation.succeed NewUser
+                        |> Validation.andMap email
+                , view = \info -> [{- render fields -}]
+                }
+            )
+            |> Form.field "email"
+                (Field.text |> Field.required "Required")
+
+-}
 field :
     String
     -> Field error parsed data kind constraints
@@ -550,7 +566,30 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
         )
 
 
-{-| -}
+{-| Declare a hidden field for the form.
+
+Unlike [`field`](#field) declarations which are rendered using [`Form.ViewField`](Form-ViewField)
+functions, `hiddenField` inputs are automatically inserted into the form when you render it.
+
+You define the field's validations the same way as for `field`, with the
+[`Form.Field`](Form-Field) API.
+
+    form =
+        Form.init
+            (\quantity productId ->
+                { combine = {- combine fields -}
+                , view = \info -> [{- render visible fields -}]
+                }
+            )
+            |> Form.field "quantity"
+                (Field.int |> Field.required "Required")
+            |> Form.field "productId"
+                (Field.text
+                    |> Field.required "Required"
+                    |> Field.withInitialValue (\product -> Form.Value.string product.id)
+                )
+
+-}
 hiddenField :
     String
     -> Field error parsed data kind constraints
