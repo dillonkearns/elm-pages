@@ -1,5 +1,5 @@
 module Form exposing
-    ( Form(..), HtmlForm, StyledHtmlForm
+    ( Form, HtmlForm, StyledHtmlForm
     , init
     , field, hiddenField, hiddenKind
     , Context
@@ -10,7 +10,6 @@ module Form exposing
     , dynamic
     , runOneOfServerSideWithServerValidations
     , AppContext
-    , FieldDefinition(..)
     -- subGroup
     )
 
@@ -61,11 +60,6 @@ module Form exposing
 @docs runOneOfServerSideWithServerValidations
 
 @docs AppContext
-
-
-## Internal-Only?
-
-@docs FieldDefinition
 
 -}
 
