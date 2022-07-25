@@ -44,6 +44,7 @@ type alias Model =
 
 type Msg
     = NoOp
+    | NewItemCreated
 
 
 type alias RouteParams =
@@ -63,6 +64,15 @@ route =
             , subscriptions = subscriptions
             , init = init
             }
+        |> RouteBuilder.withOnAction
+            (\a ->
+                case a of
+                    Deleted ->
+                        NoOp
+
+                    Created ->
+                        NewItemCreated
+            )
 
 
 init :
@@ -86,6 +96,12 @@ update pageUrl sharedModel static msg model =
         NoOp ->
             ( model, Effect.none )
 
+        NewItemCreated ->
+            ( model
+            , Effect.SetField
+                { formId = "test2", name = "description", value = "" }
+            )
+
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
 subscriptions maybePageUrl routeParams path sharedModel model =
@@ -97,8 +113,9 @@ type alias Data =
     }
 
 
-type alias ActionData =
-    {}
+type ActionData
+    = Deleted
+    | Created
 
 
 type alias Todo =
@@ -167,18 +184,15 @@ action _ =
                     Ok (Delete { id }) ->
                         Request.Fauna.mutationDataSource "" (deleteTodo id)
                             |> DataSource.map
-                                (\_ -> Route.redirectTo Route.Todos)
+                                (\_ -> Response.render Deleted)
 
                     Ok (Create { description }) ->
                         Request.Fauna.mutationDataSource "" (createTodo description)
                             |> DataSource.map
-                                (\_ ->
-                                    --Route.redirectTo Route.Todos
-                                    Response.render {}
-                                )
+                                (\_ -> Response.render Created)
 
                     Err error ->
-                        {} |> Response.render |> DataSource.succeed
+                        Deleted |> Response.render |> DataSource.succeed
             )
 
 
@@ -225,7 +239,7 @@ createForm =
                     ]
             }
         )
-        |> Form.field "q" (Field.text |> Field.required "Required")
+        |> Form.field "description" (Field.text |> Field.required "Required")
 
 
 descriptionFieldView :
