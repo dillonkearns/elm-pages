@@ -3,6 +3,7 @@ module Route.SmoothieId_.Edit exposing (ActionData, Data, Model, Msg, route)
 import Api.Scalar exposing (Uuid(..))
 import Data.Smoothies as Smoothies exposing (Smoothie)
 import DataSource exposing (DataSource)
+import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form
@@ -294,7 +295,7 @@ type Media
     | Video
 
 
-parseIgnoreErrors : ( Maybe parsed, Form.Dict String (List error) ) -> Result (Form.Dict String (List error)) parsed
+parseIgnoreErrors : ( Maybe parsed, Dict String (List error) ) -> Result (Dict String (List error)) parsed
 parseIgnoreErrors ( maybeParsed, fieldErrors ) =
     case maybeParsed of
         Just parsed ->
