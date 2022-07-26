@@ -104,21 +104,18 @@ parseWithError parsed ( key, error ) =
 {-| -}
 fail : error -> Field error parsed1 field -> Combined error parsed
 fail parsed (Validation _ key _) =
-    -- TODO need to prevent Never fields from being used
     Validation Nothing Nothing ( Nothing, Dict.singleton (key |> Maybe.withDefault "") [ parsed ] )
 
 
 {-| -}
 withError : Field error parsed1 field -> error -> Validation error parsed2 named constraints -> Validation error parsed2 named constraints
 withError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
-    -- TODO need to prevent Never fields from being used
     Validation viewField name ( maybeParsedA, errorsA |> insertIfNonempty (key |> Maybe.withDefault "") [ error ] )
 
 
 {-| -}
 withErrorIf : Bool -> Field error ignored field -> error -> Validation error parsed named constraints -> Validation error parsed named constraints
 withErrorIf includeError (Validation _ key _) error (Validation viewField name ( maybeParsedA, errorsA )) =
-    -- TODO use something like { field : kind } for type variable to check that it represents a field
     Validation viewField
         name
         ( maybeParsedA
