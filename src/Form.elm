@@ -11,6 +11,7 @@ module Form exposing
     , runOneOfServerSideWithServerValidations
     , AppContext
     -- subGroup
+      , globalErrors
     )
 
 {-| One of the core features of elm-pages is helping you manage form data end-to-end, including
@@ -753,6 +754,12 @@ errorsForField field_ (Errors errorsDict) =
     errorsDict
         |> Dict.get (Validation.fieldName field_)
         |> Maybe.withDefault []
+
+
+{-| -}
+globalErrors : Errors error -> List error
+globalErrors errors =
+    errors |> errorsForField Validation.global
 
 
 {-| -}
