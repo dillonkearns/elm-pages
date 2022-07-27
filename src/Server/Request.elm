@@ -15,6 +15,7 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
+    , formDataNew, formDataWithServerValidation
     )
 
 {-|
@@ -96,6 +97,7 @@ import Internal.Request
 import Json.Decode
 import Json.Encode
 import List.NonEmpty
+import Pages.Internal.Form exposing (Validation(..))
 import QueryParams
 import Time
 import Url
@@ -914,6 +916,71 @@ formDataWithoutServerValidation formParsers =
                                     |> Maybe.withDefault []
                                     |> Dict.fromList
                             }
+                            |> succeed
+            )
+
+
+{-| -}
+formDataWithServerValidation :
+    List
+        (Form.Form
+            error
+            { all | combine : Validation error (DataSource (Validation error combined kind constraints)) kind constraints }
+            data
+        )
+    -> Parser (DataSource (Result (Form.Response error) ( Form.Response error, combined )))
+formDataWithServerValidation formParsers =
+    rawFormData
+        |> andThen
+            (\rawFormData_ ->
+                let
+                    ( maybeDecoded, errors ) =
+                        Form.runOneOfServerSide
+                            rawFormData_
+                            formParsers
+                in
+                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
+                    ( Just decoded, Nothing ) ->
+                        succeed
+                            (decoded
+                                |> DataSource.map
+                                    (\(Validation _ _ ( maybeParsed, errors2 )) ->
+                                        case ( maybeParsed, errors2 |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
+                                            ( Just decodedFinal, Nothing ) ->
+                                                Ok
+                                                    ( Form.Response
+                                                        { fields = rawFormData_
+                                                        , errors = Dict.empty
+                                                        }
+                                                    , decodedFinal
+                                                    )
+
+                                            ( _, maybeErrors ) ->
+                                                Err
+                                                    (Form.Response
+                                                        { fields = rawFormData_
+                                                        , errors =
+                                                            maybeErrors
+                                                                |> Maybe.map List.NonEmpty.toList
+                                                                |> Maybe.withDefault []
+                                                                |> Dict.fromList
+                                                        }
+                                                    )
+                                    )
+                            )
+
+                    ( _, maybeErrors ) ->
+                        Err
+                            (Form.Response
+                                { fields = rawFormData_
+                                , errors =
+                                    maybeErrors
+                                        |> Maybe.map List.NonEmpty.toList
+                                        |> Maybe.withDefault []
+                                        |> Dict.fromList
+                                }
+                            )
+                            |> DataSource.succeed
                             |> succeed
             )
 
