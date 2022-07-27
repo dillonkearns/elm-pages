@@ -1,6 +1,9 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
+import Api.Scalar exposing (Uuid(..))
+import Data.User
 import DataSource exposing (DataSource)
+import DataSource.Port
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import Form
@@ -11,10 +14,13 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Json.Decode
+import Json.Encode
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Request.Hasura
 import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
@@ -36,13 +42,6 @@ type alias RouteParams =
     {}
 
 
-userIdMap =
-    Dict.fromList
-        [ ( "dillon", "2500fcdc-737b-4126-96c2-b3aae64cb5c4" )
-        , ( "jane", "a4808f52-d3b0-47b2-a03f-3a56f334865a" )
-        ]
-
-
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
@@ -53,18 +52,37 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-form : Form.HtmlForm String String data Msg
+type alias Login =
+    { username : String
+    , password : String
+    }
+
+
+form : Form.DoneForm String (DataSource (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
-        (\username ->
+        (\username password ->
             { combine =
-                Validation.succeed identity
+                Validation.succeed
+                    (\u p ->
+                        attemptLogIn u p
+                            |> DataSource.map
+                                (\maybeUserId ->
+                                    case maybeUserId of
+                                        Just (Uuid userId) ->
+                                            Validation.succeed userId
+
+                                        Nothing ->
+                                            Validation.fail "Username and password do not match" Validation.global
+                                )
+                    )
                     |> Validation.andMap username
+                    |> Validation.andMap password
             , view =
                 \info ->
-                    [ Html.label []
-                        [ username |> fieldView info "Username"
-                        ]
+                    [ username |> fieldView info "Username"
+                    , password |> fieldView info "Password"
+                    , globalErrors info
                     , Html.button []
                         [ if info.isTransitioning then
                             Html.text "Logging in..."
@@ -76,6 +94,22 @@ form =
             }
         )
         |> Form.field "username" (Field.text |> Field.email |> Field.required "Required")
+        |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
+
+
+attemptLogIn : String -> String -> DataSource (Maybe Uuid)
+attemptLogIn username password =
+    DataSource.Port.get "hashPassword"
+        (Json.Encode.string password)
+        Json.Decode.string
+        |> DataSource.andThen
+            (\hashed ->
+                { username = username
+                , expectedPasswordHash = hashed
+                }
+                    |> Data.User.login
+                    |> Request.Hasura.dataSource
+            )
 
 
 fieldView :
@@ -95,7 +129,7 @@ fieldView formState label field =
 
 errorsForField : Form.Context String data -> Field String parsed kind -> Html msg
 errorsForField formState field =
-    (if formState.submitAttempted then
+    (if True || formState.submitAttempted then
         formState.errors
             |> Form.errorsForField field
             |> List.map (\error -> Html.li [] [ Html.text error ])
@@ -103,6 +137,14 @@ errorsForField formState field =
      else
         []
     )
+        |> Html.ul [ Attr.style "color" "red" ]
+
+
+globalErrors : Form.Context String data -> Html msg
+globalErrors formState =
+    formState.errors
+        |> Form.globalErrors
+        |> List.map (\error -> Html.li [] [ Html.text error ])
         |> Html.ul [ Attr.style "color" "red" ]
 
 
@@ -139,39 +181,37 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
-        (Request.formDataWithoutServerValidation [ form ])
-        (\usernameResult session ->
-            case usernameResult of
-                Err _ ->
-                    ( session
-                        |> Result.withDefault Nothing
-                        |> Maybe.withDefault Session.empty
-                        |> Session.withFlash "message" "Invalid form submission - no userId provided"
-                    , Route.redirectTo Route.Login
+        (Request.formDataWithServerValidation [ form ])
+        (\usernameDs session ->
+            usernameDs
+                |> DataSource.andThen
+                    (\usernameResult ->
+                        case usernameResult of
+                            Err error ->
+                                ( session
+                                    |> Result.withDefault Nothing
+                                    |> Maybe.withDefault Session.empty
+                                , error |> render
+                                )
+                                    |> DataSource.succeed
+
+                            Ok ( _, userId ) ->
+                                ( session
+                                    |> Result.withDefault Nothing
+                                    |> Maybe.withDefault Session.empty
+                                    |> Session.insert "userId" userId
+                                , Route.redirectTo Route.Index
+                                )
+                                    |> DataSource.succeed
                     )
-                        |> DataSource.succeed
-
-                Ok username ->
-                    case userIdMap |> Dict.get username of
-                        Just userId ->
-                            ( session
-                                |> Result.withDefault Nothing
-                                |> Maybe.withDefault Session.empty
-                                |> Session.insert "userId" userId
-                                |> Session.withFlash "message" ("Welcome " ++ username ++ "!")
-                            , Route.redirectTo Route.Index
-                            )
-                                |> DataSource.succeed
-
-                        Nothing ->
-                            ( session
-                                |> Result.withDefault Nothing
-                                |> Maybe.withDefault Session.empty
-                                |> Session.withFlash "message" ("Couldn't find username " ++ username)
-                            , Route.redirectTo Route.Login
-                            )
-                                |> DataSource.succeed
         )
+
+
+render :
+    Form.Response error
+    -> Response { fields : List ( String, String ), errors : Dict String (List error) } a
+render (Form.Response response) =
+    Server.Response.render response
 
 
 head :
@@ -200,7 +240,9 @@ type alias Data =
 
 
 type alias ActionData =
-    {}
+    { fields : List ( String, String )
+    , errors : Dict String (List String)
+    }
 
 
 view :
@@ -223,6 +265,6 @@ view maybeUrl sharedModel app =
             ]
         , form
             |> Form.toDynamicTransition "login"
-            |> Form.renderHtml [] Nothing app ()
+            |> Form.renderHtml [] app.action app ()
         ]
     }

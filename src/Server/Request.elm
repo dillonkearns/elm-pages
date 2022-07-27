@@ -15,7 +15,7 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
-    , formDataNew, formDataWithServerValidation
+    , formDataWithServerValidation
     )
 
 {-|
