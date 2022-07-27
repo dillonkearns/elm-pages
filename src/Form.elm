@@ -10,8 +10,11 @@ module Form exposing
     , dynamic
     , runOneOfServerSideWithServerValidations
     , AppContext
-    -- subGroup
+    ,  DoneForm
+      , Response(..)
       , globalErrors
+        -- subGroup
+
     )
 
 {-| One of the core features of elm-pages is helping you manage form data end-to-end, including
@@ -1251,6 +1254,13 @@ renderStyledHtml attrs maybe app data (FinalForm options a b c) =
     Html.Styled.Lazy.lazy6 renderStyledHelper attrs maybe options app data (FormInternal a b c)
 
 
+type Response error
+    = Response
+        { fields : List ( String, String )
+        , errors : Dict String (List error)
+        }
+
+
 renderHelper :
     List (Html.Attribute (Pages.Msg.Msg msg))
     ->
@@ -1488,6 +1498,16 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
     , children = children
     , isValid = isValid
     }
+
+
+{-| -}
+type alias DoneForm error parsed data view =
+    Form
+        error
+        { combine : Combined error parsed
+        , view : Context error data -> view
+        }
+        data
 
 
 {-| -}
