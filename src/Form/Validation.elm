@@ -3,6 +3,7 @@ module Form.Validation exposing
     , andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
     , value, fieldName, fieldStatus
     , map3, map4, map5, map6, map7, map8, map9
+    , global
     )
 
 {-|
@@ -75,6 +76,16 @@ expectViewField viewField =
 succeed : parsed -> Combined error parsed
 succeed parsed =
     Validation Nothing Nothing ( Just parsed, Dict.empty )
+
+
+{-| -}
+global : Field error () Never
+global =
+    Validation Nothing
+        (Just "$$global$$")
+        ( Just ()
+        , Dict.empty
+        )
 
 
 {-| -}
