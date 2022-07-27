@@ -22,5 +22,8 @@
     "elm-tooling": "^1.3.0",
     "postcss": "^8.4.5",
     "tailwindcss": "^2.2.19"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3"
   }
 }

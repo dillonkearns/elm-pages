@@ -1,4 +1,6 @@
 import kleur from "kleur";
+import bcrypt from "bcryptjs";
+
 kleur.enabled = true;
 
 export async function environmentVariable(name) {
@@ -16,6 +18,9 @@ export async function environmentVariable(name) {
 
 export async function hello(name) {
   return `147 ${name}!!`;
+}
+export async function hashPassword(password) {
+  return await bcrypt.hash(password, process.env.SMOOTHIES_SALT);
 }
 
 function waitFor(ms) {
