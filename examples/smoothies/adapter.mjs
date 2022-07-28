@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 
 export default async function run({
   renderFunctionFilePath,
@@ -67,7 +68,10 @@ export default async function run({
 ${route.pathPattern}/content.dat /.netlify/builders/render 200`;
         } else {
           return `${route.pathPattern} /.netlify/functions/server-render 200
-${route.pathPattern}/content.dat /.netlify/functions/server-render 200`;
+${path.join(
+  route.pathPattern,
+  "/content.dat"
+)} /.netlify/functions/server-render 200`;
         }
       })
       .join("\n") +
