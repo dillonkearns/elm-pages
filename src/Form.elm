@@ -1398,8 +1398,12 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
         parsed =
             parser (Just data) thisFormState
 
-        merged : Validation error parsed named constraints
-        merged =
+        withoutServerErrors : Validation error parsed named constraints
+        withoutServerErrors =
+            parsed |> mergeResults
+
+        withServerErrors : Validation error parsed named constraints
+        withServerErrors =
             mergeResults
                 { parsed
                     | result =
@@ -1436,7 +1440,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
         context : Context error data
         context =
             { errors =
-                merged
+                withServerErrors
                     |> unwrapValidation
                     |> Tuple.second
                     |> Errors
@@ -1486,7 +1490,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
 
         isValid : Bool
         isValid =
-            case merged of
+            case withoutServerErrors of
                 Validation _ _ ( Just _, errors ) ->
                     Dict.isEmpty errors
 
