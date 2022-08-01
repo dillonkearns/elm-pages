@@ -143,7 +143,7 @@ errorsForField formState field =
 globalErrors : Form.Context String data -> Html msg
 globalErrors formState =
     formState.errors
-        |> Form.globalErrors
+        |> Form.errorsForField Validation.global
         |> List.map (\error -> Html.li [] [ Html.text error ])
         |> Html.ul [ Attr.style "color" "red" ]
 

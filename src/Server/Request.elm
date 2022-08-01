@@ -1,7 +1,7 @@
 module Server.Request exposing
     ( Parser
     , succeed, fromResult, skip
-    , formData, formDataWithoutServerValidation
+    , formData, formDataWithoutServerValidation, formDataWithServerValidation
     , rawFormData
     , method, rawBody, allCookies, rawHeaders, queryParams
     , requestTime, optionalHeader, expectContentType, expectJsonBody
@@ -15,7 +15,6 @@ module Server.Request exposing
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
-    , formDataWithServerValidation
     )
 
 {-|
@@ -27,7 +26,7 @@ module Server.Request exposing
 
 ## Forms
 
-@docs formData, formDataWithoutServerValidation
+@docs formData, formDataWithoutServerValidation, formDataWithServerValidation
 
 @docs rawFormData
 

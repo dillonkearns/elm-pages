@@ -1,5 +1,6 @@
 module Form exposing
-    ( Form, HtmlForm, StyledHtmlForm
+    ( Form, HtmlForm, StyledHtmlForm, DoneForm
+    , Response(..)
     , init
     , field, hiddenField, hiddenKind
     , Context
@@ -10,11 +11,7 @@ module Form exposing
     , dynamic
     , runOneOfServerSideWithServerValidations
     , AppContext
-    ,  DoneForm
-      , Response(..)
-      , globalErrors
-        -- subGroup
-
+    -- subGroup
     )
 
 {-| One of the core features of elm-pages is helping you manage form data end-to-end, including
@@ -214,7 +211,9 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
 ## Building a Form Parser
 
-@docs Form, HtmlForm, StyledHtmlForm
+@docs Form, HtmlForm, StyledHtmlForm, DoneForm
+
+@docs Response
 
 @docs init
 
@@ -760,12 +759,6 @@ errorsForField field_ (Errors errorsDict) =
 
 
 {-| -}
-globalErrors : Errors error -> List error
-globalErrors errors =
-    errors |> errorsForField Validation.global
-
-
-{-| -}
 type alias AppContext app =
     { app
         | --, sharedData : Shared.Data
@@ -1254,6 +1247,7 @@ renderStyledHtml attrs maybe app data (FinalForm options a b c) =
     Html.Styled.Lazy.lazy6 renderStyledHelper attrs maybe options app data (FormInternal a b c)
 
 
+{-| -}
 type Response error
     = Response
         { fields : List ( String, String )

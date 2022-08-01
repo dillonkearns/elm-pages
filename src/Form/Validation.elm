@@ -25,6 +25,11 @@ module Form.Validation exposing
 
 @docs map3, map4, map5, map6, map7, map8, map9
 
+
+## Global Validation
+
+@docs global
+
 -}
 
 import Dict exposing (Dict)
