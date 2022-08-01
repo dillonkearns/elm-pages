@@ -192,7 +192,7 @@ deleteForm =
 form : Form.HtmlForm String Action Data Msg
 form =
     Form.init
-        (\name description price imageUrl media ->
+        (\name description price imageUrl ->
             { combine =
                 Validation.succeed EditInfo
                     |> Validation.andMap name
@@ -227,24 +227,6 @@ form =
                     , fieldView "Description" description
                     , fieldView "Price" price
                     , fieldView "Image" imageUrl
-                    , Form.FieldView.radio []
-                        (\enum toRadio ->
-                            Html.label []
-                                [ toRadio []
-                                , Html.text
-                                    (case enum of
-                                        Article ->
-                                            "📄 Article"
-
-                                        Book ->
-                                            "📕 Book"
-
-                                        Video ->
-                                            "📺 Video"
-                                    )
-                                ]
-                        )
-                        media
                     , Html.button []
                         [ Html.text
                             (if formState.isTransitioning then
@@ -277,14 +259,6 @@ form =
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (\{ smoothie } -> Form.Value.string smoothie.unsplashImage)
-            )
-        |> Form.field "media"
-            (Field.select
-                [ ( "article", Article )
-                , ( "book", Book )
-                , ( "video", Video )
-                ]
-                (\option -> "Invalid option " ++ option)
             )
         |> Form.hiddenKind ( "kind", "edit" ) "Required"
 
