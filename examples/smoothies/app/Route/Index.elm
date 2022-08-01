@@ -172,6 +172,7 @@ setQuantityForm =
                         (quantityInCart + toQuantity quantityChange)
                             |> Form.Value.int
                     )
+                |> Field.withMin (Form.Value.int 0) "Must be 0 or more"
             )
 
 
