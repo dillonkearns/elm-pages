@@ -193,7 +193,7 @@ oneOfParsers =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation oneOfParsers
+    Request.formData oneOfParsers
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsedAction session ->
                 case parsedAction of

@@ -194,7 +194,7 @@ data routeParams =
 
 action : RouteParams -> Parser (DataSource (Server.Response.Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithoutServerValidation [ form ]
+    Request.formData [ form ]
         |> Request.map
             (\userResult ->
                 ActionData

@@ -94,7 +94,7 @@ type alias ActionData =
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Request.formDataWithoutServerValidation [ form ]
+        [ Request.formData [ form ]
             |> Request.map
                 (\formResult ->
                     DataSource.succeed

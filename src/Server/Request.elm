@@ -963,7 +963,7 @@ formData formParsers =
             (\rawFormData_ ->
                 let
                     ( maybeDecoded, errors ) =
-                        Form.runOneOfServerSideWithServerValidations
+                        Form.runOneOfServerSide
                             rawFormData_
                             formParsers
                 in

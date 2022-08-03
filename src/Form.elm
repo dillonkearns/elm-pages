@@ -7,9 +7,8 @@ module Form exposing
     , renderHtml, renderStyledHtml
     , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
     , Errors, errorsForField
-    , parse, runOneOfServerSide, runServerSide
+    , parse, runServerSide, runOneOfServerSide
     , dynamic
-    , runOneOfServerSideWithServerValidations
     , AppContext
     -- subGroup
     )
@@ -184,7 +183,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
     action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
     action routeParams =
-        Request.formDataWithoutServerValidation [ signupForm ]
+        Request.formData [ signupForm ]
             |> Request.map
                 (\signupResult ->
                     case signupResult of
@@ -242,17 +241,12 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
 ## Running Parsers
 
-@docs parse, runOneOfServerSide, runServerSide
+@docs parse, runServerSide, runOneOfServerSide
 
 
 ## Dynamic Fields
 
 @docs dynamic
-
-
-## Work-In-Progress
-
-@docs runOneOfServerSideWithServerValidations
 
 @docs AppContext
 
@@ -915,38 +909,6 @@ runOneOfServerSide rawFormData parsers =
 
                 _ ->
                     runOneOfServerSide rawFormData remainingParsers
-
-        [] ->
-            -- TODO need to pass errors
-            ( Nothing, Dict.empty )
-
-
-{-| -}
-runOneOfServerSideWithServerValidations :
-    List ( String, String )
-    ->
-        List
-            (Form
-                error
-                { all | combine : Validation error parsed kind constraints }
-                data
-            )
-    -> ( Maybe parsed, Dict String (List error) )
-runOneOfServerSideWithServerValidations rawFormData parsers =
-    case parsers of
-        firstParser :: remainingParsers ->
-            let
-                thing : ( Maybe parsed, Dict String (List error) )
-                thing =
-                    runServerSide rawFormData firstParser
-            in
-            case thing of
-                -- TODO should it try to look for anything that parses with no errors, or short-circuit if something parses regardless of errors?
-                ( Just _, _ ) ->
-                    thing
-
-                _ ->
-                    runOneOfServerSideWithServerValidations rawFormData remainingParsers
 
         [] ->
             -- TODO need to pass errors
