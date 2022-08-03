@@ -6,7 +6,6 @@ module Form.Field exposing
     , required, withClientValidation, withInitialValue, map
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep, withMinLength, withMaxLength
-    , withServerValidation
     , No(..), Yes(..)
     )
 
@@ -48,18 +47,12 @@ module Form.Field exposing
 @docs withMax, withMin, withStep, withMinLength, withMaxLength
 
 
-## Server Validations
-
-@docs withServerValidation
-
-
 ## Phantom Options
 
 @docs No, Yes
 
 -}
 
-import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Form.FieldView as FieldView exposing (Input, Options(..))
@@ -75,7 +68,6 @@ type Field error parsed data kind constraints
 {-| -}
 type alias FieldInfo error parsed data =
     { initialValue : Maybe (data -> String)
-    , serverValidation : Maybe String -> DataSource (List error)
     , decode : Maybe String -> ( Maybe parsed, List error )
     , properties : List ( String, Encode.Value )
     }
@@ -89,32 +81,6 @@ type Yes
 {-| -}
 type No
     = No Never
-
-
-{-| -}
-withServerValidation : (value -> DataSource (List error)) -> Field error value data kind constraints -> Field error value data kind constraints
-withServerValidation serverValidation (Field field kind) =
-    Field
-        { field
-            | serverValidation =
-                \value ->
-                    case value |> field.decode of
-                        ( Just decoded, [] ) ->
-                            serverValidation decoded
-
-                        ( Just decoded, errors ) ->
-                            DataSource.map2 (++)
-                                (serverValidation decoded)
-                                (DataSource.succeed errors)
-
-                        ( Nothing, _ ) ->
-                            {- We can't decode the form data, which means there were errors previously in the pipeline
-                               we return an empty list, effectively short-circuiting remaining validation and letting
-                               the fatal errors propagate through
-                            -}
-                            DataSource.succeed []
-        }
-        kind
 
 
 {-| -}
@@ -134,7 +100,6 @@ required :
 required missingError (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , serverValidation = field.serverValidation
         , decode =
             \rawValue ->
                 let
@@ -174,7 +139,6 @@ text :
 text =
     Field
         { initialValue = Nothing
-        , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawValue ->
                 ( if rawValue == Just "" then
@@ -207,7 +171,6 @@ date :
 date toError =
     Field
         { initialValue = Nothing
-        , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
                 if (rawString |> Maybe.withDefault "") == "" then
@@ -256,7 +219,6 @@ time :
 time toError =
     Field
         { initialValue = Nothing
-        , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
                 if (rawString |> Maybe.withDefault "") == "" then
@@ -317,7 +279,6 @@ select optionsMapping invalidError =
     in
     Field
         { initialValue = Nothing
-        , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawValue ->
                 case rawValue of
@@ -367,7 +328,6 @@ exactValue :
 exactValue initialValue error =
     Field
         { initialValue = Just (\_ -> initialValue)
-        , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawValue ->
                 if rawValue == Just initialValue then
@@ -392,7 +352,6 @@ checkbox :
 checkbox =
     Field
         { initialValue = Nothing
-        , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
                 ( (rawString == Just "on")
@@ -423,7 +382,6 @@ int :
 int toError =
     Field
         { initialValue = Nothing
-        , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
                 case rawString of
@@ -463,7 +421,6 @@ float :
 float toError =
     Field
         { initialValue = Nothing
-        , serverValidation = \_ -> DataSource.succeed []
         , decode =
             \rawString ->
                 case rawString of
@@ -593,7 +550,6 @@ withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error p
 withClientValidation mapFn (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , serverValidation = field.serverValidation
         , decode =
             \value ->
                 value
@@ -633,7 +589,6 @@ withMin : Form.Value.Value valueType -> error -> Field error parsed data kind { 
 withMin min error (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , serverValidation = field.serverValidation
         , decode =
             \value ->
                 value
@@ -665,7 +620,6 @@ withMinLength : Int -> error -> Field error parsed data kind { constraints | min
 withMinLength minLength error (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , serverValidation = field.serverValidation
         , decode =
             \value ->
                 value
@@ -692,7 +646,6 @@ withMaxLength : Int -> error -> Field error parsed data kind { constraints | max
 withMaxLength maxLength error (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , serverValidation = field.serverValidation
         , decode =
             \value ->
                 value
@@ -724,7 +677,6 @@ withMax : Form.Value.Value valueType -> error -> Field error parsed data kind { 
 withMax max error (Field field kind) =
     Field
         { initialValue = field.initialValue
-        , serverValidation = field.serverValidation
         , decode =
             \value ->
                 value

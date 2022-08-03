@@ -992,35 +992,32 @@ formData :
             { all | combine : Validation error combined kind constraints }
             data
         )
-    -> Parser (DataSource (Result { fields : List ( String, String ), errors : Dict String (List error) } combined))
+    -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
 formData formParsers =
     rawFormData
         |> andThen
             (\rawFormData_ ->
                 let
-                    ( maybeDecoded, errorsDataSource ) =
+                    ( maybeDecoded, errors ) =
                         Form.runOneOfServerSideWithServerValidations
                             rawFormData_
                             formParsers
                 in
-                errorsDataSource
-                    |> DataSource.map
-                        (\errors ->
-                            case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
-                                ( Just decoded, Nothing ) ->
-                                    Ok decoded
+                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
+                    ( Just decoded, Nothing ) ->
+                        Ok decoded
+                            |> succeed
 
-                                ( _, maybeErrors ) ->
-                                    Err
-                                        { fields = rawFormData_
-                                        , errors =
-                                            maybeErrors
-                                                |> Maybe.map List.NonEmpty.toList
-                                                |> Maybe.withDefault []
-                                                |> Dict.fromList
-                                        }
-                        )
-                    |> succeed
+                    ( _, maybeErrors ) ->
+                        Err
+                            { fields = rawFormData_
+                            , errors =
+                                maybeErrors
+                                    |> Maybe.map List.NonEmpty.toList
+                                    |> Maybe.withDefault []
+                                    |> Dict.fromList
+                            }
+                            |> succeed
             )
 
 

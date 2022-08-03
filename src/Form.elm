@@ -309,7 +309,6 @@ init combineAndView =
         (\_ _ ->
             { result = Dict.empty
             , combineAndView = combineAndView
-            , serverValidations = DataSource.succeed []
             }
         )
         (\_ -> [])
@@ -350,7 +349,6 @@ dynamic forms formBuilder =
                     ->
                         { result : Dict String (List error)
                         , combineAndView : { combine : Validation error parsed named constraints1, view : subView }
-                        , serverValidations : DataSource (List ( String, List error ))
                         }
                 toParser decider =
                     case forms decider of
@@ -361,14 +359,12 @@ dynamic forms formBuilder =
                 myFn :
                     { result : Dict String (List error)
                     , combineAndView : combineAndView
-                    , serverValidations : DataSource (List ( String, List error ))
                     }
                 myFn =
                     let
                         newThing :
                             { result : Dict String (List error)
                             , combineAndView : { combine : decider -> Validation error parsed named constraints1, view : decider -> subView } -> combineAndView
-                            , serverValidations : DataSource (List ( String, List error ))
                             }
                         newThing =
                             case formBuilder of
@@ -393,7 +389,6 @@ dynamic forms formBuilder =
                         newThing.result
                     , combineAndView =
                         newThing.combineAndView arg
-                    , serverValidations = DataSource.succeed [] -- TODO how do I combine them here?
                     }
             in
             myFn
@@ -525,20 +520,13 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                 myFn :
                     { result : Dict String (List error)
                     , combineAndView : Validation.Field error parsed kind -> combineAndView
-                    , serverValidations : DataSource (List ( String, List error ))
                     }
                     ->
                         { result : Dict String (List error)
                         , combineAndView : combineAndView
-                        , serverValidations : DataSource (List ( String, List error ))
                         }
                 myFn soFar =
                     let
-                        serverValidationsForField : DataSource ( String, List error )
-                        serverValidationsForField =
-                            fieldParser.serverValidation rawFieldValue
-                                |> DataSource.map (Tuple.pair name)
-
                         validationField : Validation.Field error parsed kind
                         validationField =
                             parsedField
@@ -548,10 +536,6 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                             |> addErrorsInternal name errors
                     , combineAndView =
                         soFar.combineAndView validationField
-                    , serverValidations =
-                        DataSource.map2 (::)
-                            serverValidationsForField
-                            soFar.serverValidations
                     }
             in
             formState
@@ -630,20 +614,13 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                 myFn :
                     { result : Dict String (List error)
                     , combineAndView : Validation.Field error parsed Form.FieldView.Hidden -> combineAndView
-                    , serverValidations : DataSource (List ( String, List error ))
                     }
                     ->
                         { result : Dict String (List error)
                         , combineAndView : combineAndView
-                        , serverValidations : DataSource (List ( String, List error ))
                         }
                 myFn soFar =
                     let
-                        serverValidationsForField : DataSource ( String, List error )
-                        serverValidationsForField =
-                            fieldParser.serverValidation rawFieldValue
-                                |> DataSource.map (Tuple.pair name)
-
                         validationField : Validation.Field error parsed Form.FieldView.Hidden
                         validationField =
                             parsedField
@@ -653,10 +630,6 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                             |> addErrorsInternal name errors
                     , combineAndView =
                         soFar.combineAndView validationField
-                    , serverValidations =
-                        DataSource.map2 (::)
-                            serverValidationsForField
-                            soFar.serverValidations
                     }
             in
             formState
@@ -706,28 +679,16 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
                 myFn :
                     { result : Dict String (List error)
                     , combineAndView : combineAndView
-                    , serverValidations : DataSource (List ( String, List error ))
                     }
                     ->
                         { result : Dict String (List error)
                         , combineAndView : combineAndView
-                        , serverValidations : DataSource (List ( String, List error ))
                         }
                 myFn soFar =
-                    let
-                        serverValidationsForField : DataSource ( String, List error )
-                        serverValidationsForField =
-                            fieldParser.serverValidation rawFieldValue
-                                |> DataSource.map (Tuple.pair name)
-                    in
                     { result =
                         soFar.result
                             |> addErrorsInternal name errors
                     , combineAndView = soFar.combineAndView
-                    , serverValidations =
-                        DataSource.map2 (::)
-                            serverValidationsForField
-                            soFar.serverValidations
                     }
             in
             formState
@@ -856,7 +817,6 @@ parse formId app data (Form _ parser _) =
         parsed :
             { result : Dict String (List error)
             , combineAndView : { info | combine : Validation error parsed named constraints }
-            , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
             parser (Just data) thisFormState
@@ -868,7 +828,6 @@ parse formId app data (Form _ parser _) =
                 |> Maybe.withDefault initFormState
     in
     { result = ( parsed.combineAndView.combine, parsed.result )
-    , serverValidations = parsed.serverValidations
     }
         |> mergeResults
         |> unwrapValidation
@@ -888,13 +847,12 @@ insertIfNonempty key values dict =
 runServerSide :
     List ( String, String )
     -> Form error { all | combine : Validation error parsed kind constraints } data
-    -> ( Maybe parsed, DataSource (Dict String (List error)) )
+    -> ( Maybe parsed, Dict String (List error) )
 runServerSide rawFormData (Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
             , combineAndView : { all | combine : Validation error parsed kind constraints }
-            , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
             parser Nothing thisFormState
@@ -916,9 +874,9 @@ runServerSide rawFormData (Form _ parser _) =
             }
     in
     { result = ( parsed.combineAndView.combine, parsed.result )
-    , serverValidations = parsed.serverValidations
     }
-        |> mergeResultsDataSource
+        |> mergeResults
+        |> unwrapValidation
 
 
 {-| -}
@@ -931,7 +889,6 @@ runServerSideWithoutServerValidations rawFormData (Form _ parser _) =
         parsed :
             { result : Dict String (List error)
             , combineAndView : { all | combine : Validation error parsed kind constraints }
-            , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
             parser Nothing thisFormState
@@ -953,7 +910,6 @@ runServerSideWithoutServerValidations rawFormData (Form _ parser _) =
             }
     in
     { result = ( parsed.combineAndView.combine, parsed.result )
-    , serverValidations = parsed.serverValidations
     }
         |> mergeResults
         |> unwrapValidation
@@ -1011,12 +967,12 @@ runOneOfServerSideWithServerValidations :
                 { all | combine : Validation error parsed kind constraints }
                 data
             )
-    -> ( Maybe parsed, DataSource (Dict String (List error)) )
+    -> ( Maybe parsed, Dict String (List error) )
 runOneOfServerSideWithServerValidations rawFormData parsers =
     case parsers of
         firstParser :: remainingParsers ->
             let
-                thing : ( Maybe parsed, DataSource (Dict String (List error)) )
+                thing : ( Maybe parsed, Dict String (List error) )
                 thing =
                     runServerSide rawFormData firstParser
             in
@@ -1030,7 +986,7 @@ runOneOfServerSideWithServerValidations rawFormData parsers =
 
         [] ->
             -- TODO need to pass errors
-            ( Nothing, DataSource.succeed Dict.empty )
+            ( Nothing, Dict.empty )
 
 
 {-| -}
@@ -1072,7 +1028,6 @@ type FinalForm error parsed data view
                 , Dict String (List error)
                 )
             , view : view
-            , serverValidations : DataSource (List ( String, List error ))
             }
         )
         (data -> List ( String, String ))
@@ -1111,7 +1066,6 @@ toDynamicFetcher name (Form a b c) =
                     { combine : Validation error parsed field constraints
                     , view : Context error data -> view
                     }
-                , serverValidations : DataSource (List ( String, List error ))
                 }
             )
             ->
@@ -1123,7 +1077,6 @@ toDynamicFetcher name (Form a b c) =
                         , Dict String (List error)
                         )
                     , view : Context error data -> view
-                    , serverValidations : DataSource (List ( String, List error ))
                     }
                 )
         transformB rawB =
@@ -1135,14 +1088,12 @@ toDynamicFetcher name (Form a b c) =
                             { combine : Validation error parsed field constraints
                             , view : Context error data -> view
                             }
-                        , serverValidations : DataSource (List ( String, List error ))
                         }
                     foo =
                         rawB maybeData formState
                 in
                 { result = ( foo.combineAndView.combine, foo.result )
                 , view = foo.combineAndView.view
-                , serverValidations = foo.serverValidations
                 }
     in
     FinalForm options a (transformB b) c
@@ -1181,7 +1132,6 @@ toDynamicTransition name (Form a b c) =
                     { combine : Validation error parsed field constraints
                     , view : Context error data -> view
                     }
-                , serverValidations : DataSource (List ( String, List error ))
                 }
             )
             ->
@@ -1193,7 +1143,6 @@ toDynamicTransition name (Form a b c) =
                         , Dict String (List error)
                         )
                     , view : Context error data -> view
-                    , serverValidations : DataSource (List ( String, List error ))
                     }
                 )
         transformB rawB =
@@ -1205,14 +1154,12 @@ toDynamicTransition name (Form a b c) =
                             { combine : Validation error parsed field constraints
                             , view : Context error data -> view
                             }
-                        , serverValidations : DataSource (List ( String, List error ))
                         }
                     foo =
                         rawB maybeData formState
                 in
                 { result = ( foo.combineAndView.combine, foo.result )
                 , view = foo.combineAndView.view
-                , serverValidations = foo.serverValidations
                 }
     in
     FinalForm options a (transformB b) c
@@ -1387,7 +1334,6 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
         parsed :
             { result : ( Validation error parsed named constraints, Dict String (List error) )
             , view : Context error data -> List view
-            , serverValidations : DataSource (List ( String, List error ))
             }
         parsed =
             parser (Just data) thisFormState
@@ -1541,7 +1487,6 @@ type FormInternal error parsed data view
                 , Dict String (List error)
                 )
             , view : view
-            , serverValidations : DataSource (List ( String, List error ))
             }
         )
         (data -> List ( String, String ))
@@ -1556,7 +1501,6 @@ type Form error combineAndView data
          ->
             { result : Dict String (List error)
             , combineAndView : combineAndView
-            , serverValidations : DataSource (List ( String, List error ))
             }
         )
         (data -> List ( String, String ))

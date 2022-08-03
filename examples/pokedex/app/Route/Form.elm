@@ -146,14 +146,6 @@ form =
             (Field.text
                 |> Field.required "Required"
                 |> Field.withInitialValue (.username >> Form.Value.string)
-             --|> Form.withServerValidation
-             --    (\username ->
-             --        if username == "asdf" then
-             --            DataSource.succeed [ "username is taken" ]
-             --
-             --        else
-             --            DataSource.succeed []
-             --    )
             )
         |> Form.field "email"
             (Field.text

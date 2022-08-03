@@ -119,12 +119,21 @@ type alias Action =
     }
 
 
-formParser : Form.HtmlForm String Action Data msg
+formParser : Form.DoneForm String (DataSource (Validation.Combined String Action)) Data (List (Html (Pages.Msg.Msg msg)))
 formParser =
     Form.init
         (\username name ->
             { combine =
-                Validation.succeed Action
+                Validation.succeed
+                    (\u n ->
+                        toValidUsername u username
+                            |> DataSource.map
+                                (\vu ->
+                                    Validation.succeed Action
+                                        |> Validation.andMap vu
+                                        |> Validation.andMap (Validation.succeed n)
+                                )
+                    )
                     |> Validation.andMap username
                     |> Validation.andMap name
             , view =
@@ -171,16 +180,6 @@ formParser =
             (Field.text
                 |> Field.required "Username is required"
                 |> Field.withClientValidation validateUsername
-                |> Field.withServerValidation
-                    (\username ->
-                        DataSource.succeed
-                            (if username == "dillon123" then
-                                [ "This username is taken" ]
-
-                             else
-                                []
-                            )
-                    )
                 |> Field.withInitialValue (\{ user } -> Form.Value.string user.username)
             )
         |> Form.field "name"
@@ -188,6 +187,17 @@ formParser =
                 |> Field.required "Name is required"
                 |> Field.withInitialValue (\{ user } -> Form.Value.string user.name)
             )
+
+
+toValidUsername : String -> Validation.Field String parsed1 field -> DataSource (Validation.Combined String String)
+toValidUsername username usernameField =
+    DataSource.succeed
+        (if username == "dillon123" then
+            Validation.fail "This username is taken" usernameField
+
+         else
+            Validation.succeed username
+        )
 
 
 validateUsername : String -> ( Maybe String, List String )
@@ -201,14 +211,14 @@ validateUsername rawUsername =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formData [ formParser ]
+    Request.formDataWithServerValidation [ formParser ]
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsedActionData session ->
                 parsedActionData
                     |> DataSource.andThen
                         (\parsedAction ->
                             case parsedAction |> Debug.log "parsedAction" of
-                                Ok { name } ->
+                                Ok ( response, { name } ) ->
                                     User.updateUser { userId = userId, name = name |> Debug.log "Updating name mutation" }
                                         |> Request.Hasura.mutationDataSource
                                         |> DataSource.map
@@ -217,10 +227,10 @@ action routeParams =
                                             )
                                         |> DataSource.map (Tuple.pair session)
 
-                                Err errors ->
+                                Err (Form.Response errors) ->
                                     -- TODO need to render errors here?
                                     DataSource.succeed
-                                        (Response.render parsedAction)
+                                        (Response.render (Err errors))
                                         |> DataSource.map (Tuple.pair session)
                         )
             )
