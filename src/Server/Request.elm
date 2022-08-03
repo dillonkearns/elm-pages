@@ -1,7 +1,7 @@
 module Server.Request exposing
     ( Parser
     , succeed, fromResult, skip
-    , formData, formDataWithoutServerValidation, formDataWithServerValidation
+    , formData, formDataWithServerValidation
     , rawFormData
     , method, rawBody, allCookies, rawHeaders, queryParams
     , requestTime, optionalHeader, expectContentType, expectJsonBody
@@ -26,7 +26,7 @@ module Server.Request exposing
 
 ## Forms
 
-@docs formData, formDataWithoutServerValidation, formDataWithServerValidation
+@docs formData, formDataWithServerValidation
 
 @docs rawFormData
 
@@ -881,42 +881,6 @@ fileField_ name =
                         ( Err (ValidationError ("Missing form field " ++ name)), [] )
             )
         |> Internal.Request.Parser
-
-
-{-| -}
-formDataWithoutServerValidation :
-    List
-        (Form.Form
-            error
-            { all | combine : Validation error combined kind constraints }
-            data
-        )
-    -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
-formDataWithoutServerValidation formParsers =
-    rawFormData
-        |> andThen
-            (\rawFormData_ ->
-                let
-                    ( maybeDecoded, errors ) =
-                        Form.runOneOfServerSide
-                            rawFormData_
-                            formParsers
-                in
-                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
-                    ( Just decoded, Nothing ) ->
-                        succeed (Ok decoded)
-
-                    ( _, maybeErrors ) ->
-                        Err
-                            { fields = rawFormData_
-                            , errors =
-                                maybeErrors
-                                    |> Maybe.map List.NonEmpty.toList
-                                    |> Maybe.withDefault []
-                                    |> Dict.fromList
-                            }
-                            |> succeed
-            )
 
 
 {-| -}
