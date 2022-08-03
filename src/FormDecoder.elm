@@ -11,6 +11,7 @@ type alias FormData =
     { fields : List ( String, String )
     , method : Method
     , action : String
+    , id : Maybe String
     }
 
 
@@ -22,7 +23,7 @@ type Method
 formDataOnSubmit : Html.Attribute FormData
 formDataOnSubmit =
     Html.Events.preventDefaultOn "submit"
-        (Decode.map3 FormData
+        (Decode.map4 FormData
             (Decode.value
                 |> Decode.andThen
                     (\decodeValue ->
@@ -40,6 +41,7 @@ formDataOnSubmit =
             )
             (Decode.at [ "submitter", "form", "method" ] methodDecoder)
             (Decode.at [ "submitter", "form", "action" ] Decode.string)
+            (Decode.at [ "submitter", "form", "id" ] (Decode.nullable Decode.string))
             |> Decode.map alwaysPreventDefault
         )
 

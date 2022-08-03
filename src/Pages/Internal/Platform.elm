@@ -809,9 +809,10 @@ startFetcher options model =
 
                 -- TODO remove hardcoding
                 , method = FormDecoder.Post
+                , id = Nothing
                 }
 
-        formData : { method : FormDecoder.Method, action : String, fields : List ( String, String ) }
+        formData : { method : FormDecoder.Method, action : String, fields : List ( String, String ), id : Maybe String }
         formData =
             { -- TODO remove hardcoding
               method = FormDecoder.Get
@@ -819,6 +820,7 @@ startFetcher options model =
             -- TODO pass FormData directly
             , action = options.url |> Maybe.withDefault model.url.path
             , fields = options.fields
+            , id = Nothing
             }
     in
     -- TODO make sure that `actionData` isn't updated in Model for fetchers
