@@ -7,7 +7,7 @@ module Form exposing
     , renderHtml, renderStyledHtml
     , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
     , Errors, errorsForField
-    , parse, runOneOfServerSide, runServerSide, runServerSideWithoutServerValidations
+    , parse, runOneOfServerSide, runServerSide
     , dynamic
     , runOneOfServerSideWithServerValidations
     , AppContext
@@ -242,7 +242,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
 ## Running Parsers
 
-@docs parse, runOneOfServerSide, runServerSide, runServerSideWithoutServerValidations
+@docs parse, runOneOfServerSide, runServerSide
 
 
 ## Dynamic Fields
@@ -879,42 +879,6 @@ runServerSide rawFormData (Form _ parser _) =
         |> unwrapValidation
 
 
-{-| -}
-runServerSideWithoutServerValidations :
-    List ( String, String )
-    -> Form error { all | combine : Validation error parsed kind constraints } data
-    -> ( Maybe parsed, Dict String (List error) )
-runServerSideWithoutServerValidations rawFormData (Form _ parser _) =
-    let
-        parsed :
-            { result : Dict String (List error)
-            , combineAndView : { all | combine : Validation error parsed kind constraints }
-            }
-        parsed =
-            parser Nothing thisFormState
-
-        thisFormState : FormState
-        thisFormState =
-            { initFormState
-                | fields =
-                    rawFormData
-                        |> List.map
-                            (Tuple.mapSecond
-                                (\value ->
-                                    { value = value
-                                    , status = Form.NotVisited
-                                    }
-                                )
-                            )
-                        |> Dict.fromList
-            }
-    in
-    { result = ( parsed.combineAndView.combine, parsed.result )
-    }
-        |> mergeResults
-        |> unwrapValidation
-
-
 unwrapValidation : Validation error parsed named constraints -> ( Maybe parsed, Dict String (List error) )
 unwrapValidation (Pages.Internal.Form.Validation viewField name ( maybeParsed, errors )) =
     ( maybeParsed, errors )
@@ -937,7 +901,7 @@ runOneOfServerSide rawFormData parsers =
             let
                 thing : ( Maybe parsed, List ( String, List error ) )
                 thing =
-                    runServerSideWithoutServerValidations rawFormData firstParser
+                    runServerSide rawFormData firstParser
                         |> Tuple.mapSecond
                             (\errors ->
                                 errors

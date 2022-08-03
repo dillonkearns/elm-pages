@@ -44,7 +44,7 @@ all =
         in
         [ test "matching password" <|
             \() ->
-                Form.runServerSideWithoutServerValidations
+                Form.runServerSide
                     (fields
                         [ ( "password", "mypassword" )
                         , ( "password-confirmation", "mypassword" )
@@ -57,7 +57,7 @@ all =
                         )
         , test "non-matching password" <|
             \() ->
-                Form.runServerSideWithoutServerValidations
+                Form.runServerSide
                     (fields
                         [ ( "password", "mypassword" )
                         , ( "password-confirmation", "doesnt-match-password" )
@@ -210,7 +210,7 @@ all =
                                 )
                 , test "checkout is invalid because before checkin" <|
                     \() ->
-                        Form.runServerSideWithoutServerValidations
+                        Form.runServerSide
                             (fields
                                 [ ( "checkin", "2022-01-03" )
                                 , ( "checkout", "2022-01-01" )
@@ -225,7 +225,7 @@ all =
                                 )
                 , test "sub-form" <|
                     \() ->
-                        Form.runServerSideWithoutServerValidations
+                        Form.runServerSide
                             (fields
                                 [ ( "password", "mypassword" )
                                 , ( "password-confirmation", "doesnt-match" )
