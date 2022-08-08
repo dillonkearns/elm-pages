@@ -634,7 +634,7 @@ function showCompiling_(message) {
   ></div>
 `;
   setTimeout(function () {
-    document.getElementById("__elm-pages-loading").style.opacity = 1;
+    nodeContainer && (nodeContainer.style.opacity = "1");
   }, delay);
 }
 
