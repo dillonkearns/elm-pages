@@ -213,7 +213,7 @@ validateCapitalized string =
         ( Nothing, [ "Needs to be capitalized" ] )
 
 
-form : Form.StyledHtmlForm String User data msg
+form : Form.DoneForm String (DataSource (Combined String User)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
@@ -255,6 +255,26 @@ form =
 
                             else
                                 Validation.succeed validated
+                        )
+                    |> Validation.andThen
+                        (\clientValidatedForm ->
+                            Validation.map2
+                                (\dobValue usernameValue ->
+                                    isValidDob dobValue
+                                        |> DataSource.map
+                                            (\maybeError ->
+                                                case maybeError of
+                                                    Nothing ->
+                                                        Validation.succeed clientValidatedForm
+
+                                                    Just error ->
+                                                        dob |> Validation.fail error
+                                            )
+                                        |> DataSource.map
+                                            (Validation.withErrorIf (usernameValue == "asdf") username "username is taken")
+                                )
+                                dob
+                                username
                         )
             , view =
                 \formState ->
@@ -357,14 +377,6 @@ form =
                             []
                         )
                     )
-                |> Field.withServerValidation
-                    (\username ->
-                        if username == "asdf" then
-                            DataSource.succeed [ "username is taken" ]
-
-                        else
-                            DataSource.succeed []
-                    )
             )
         |> Form.field "email"
             (Field.text
@@ -379,14 +391,6 @@ form =
                 |> Field.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date) "Choose a later date"
                 |> Field.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date) "Choose an earlier date"
                 |> Field.withInitialValue (always defaultUser.birthDay >> Form.Value.date)
-                |> Field.withServerValidation
-                    (\birthDate ->
-                        if birthDate == Date.fromCalendarDate 1969 Time.Jul 20 then
-                            DataSource.succeed [ "No way, that's when the moon landing happened!" ]
-
-                        else
-                            DataSource.succeed []
-                    )
             )
         |> Form.field "checkin"
             (Field.date
@@ -443,6 +447,15 @@ form =
                         )
                     )
             )
+
+
+isValidDob : Date -> DataSource (Maybe String)
+isValidDob birthDate =
+    if birthDate == Date.fromCalendarDate 1969 Time.Jul 20 then
+        DataSource.succeed (Just "No way, that's when the moon landing happened!")
+
+    else
+        DataSource.succeed Nothing
 
 
 type PushNotificationsSetting
@@ -537,14 +550,14 @@ route =
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formData [ form ]
+    Request.formDataWithServerValidation [ form ]
         |> Request.map
             (\toDataSource ->
                 toDataSource
                     |> DataSource.andThen
                         (\result ->
                             case result of
-                                Ok user ->
+                                Ok ( _, user ) ->
                                     DataSource.succeed
                                         { user = user
                                         , flashMessage =
@@ -553,7 +566,7 @@ action routeParams =
                                         }
                                         |> DataSource.map Response.render
 
-                                Err error ->
+                                Err (Form.Response error) ->
                                     DataSource.succeed
                                         { flashMessage = Err "Got errors"
                                         , user = defaultUser
