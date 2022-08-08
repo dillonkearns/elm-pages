@@ -1,8 +1,6 @@
 module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 
 import Browser.Navigation
-import Bytes exposing (Bytes)
-import Bytes.Decode
 import FormDecoder
 import Http
 import Json.Decode as Decode
@@ -129,6 +127,7 @@ perform ({ fromPageMsg, key } as helpers) effect =
                         { fields = []
                         , method = FormDecoder.Post
                         , action = "/logout"
+                        , id = Nothing
                         }
                 , toMsg = \_ -> toMsg
                 }

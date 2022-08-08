@@ -63,6 +63,7 @@ init maybePageUrl sharedModel static =
                 { fields = []
                 , action = "/redirect"
                 , method = FormDecoder.Post
+                , id = Nothing
                 }
         , toMsg = \_ -> NoOp
         }
