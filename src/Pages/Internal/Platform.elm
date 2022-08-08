@@ -254,6 +254,7 @@ init config flags url key =
                     , nextTransitionKey = 0
                     , inFlightFetchers = Dict.empty
                     , pageFormState = Dict.empty
+                    , pendingRedirect = False
                     }
             in
             ( { initialModel
@@ -274,6 +275,7 @@ init config flags url key =
               , nextTransitionKey = 0
               , inFlightFetchers = Dict.empty
               , pageFormState = Dict.empty
+              , pendingRedirect = False
               }
             , NoEffect
             )
@@ -293,6 +295,7 @@ init config flags url key =
               , nextTransitionKey = 0
               , inFlightFetchers = Dict.empty
               , pageFormState = Dict.empty
+              , pendingRedirect = False
               }
             , NoEffect
             )
@@ -332,6 +335,7 @@ type alias Model userModel pageData actionData sharedData =
     , nextTransitionKey : Int
     , inFlightFetchers : Dict Int Pages.Transition.FetcherState
     , pageFormState : Pages.FormState.PageFormState
+    , pendingRedirect : Bool
     }
 
 
@@ -515,7 +519,7 @@ update config appMsg model =
                             newUrl /= urlWithoutRedirectResolution
                     in
                     if redirectPending then
-                        ( model, BrowserReplaceUrl newUrl.path )
+                        ( { model | pendingRedirect = True }, BrowserReplaceUrl newUrl.path )
 
                     else
                         let
@@ -562,12 +566,22 @@ update config appMsg model =
 
                             updatedModel : Model userModel pageData actionData sharedData
                             updatedModel =
-                                { model
-                                    | url = newUrl
-                                    , pageData = Ok updatedPageData
-                                    , transition = Nothing
-                                }
-                                    |> clearLoadingFetchers
+                                if model.pendingRedirect || redirectPending then
+                                    { model
+                                        | url = newUrl
+                                        , pageData = Ok updatedPageData
+                                        , transition = Nothing
+                                        , pendingRedirect = False
+                                        , pageFormState = Dict.empty
+                                    }
+
+                                else
+                                    { model
+                                        | url = newUrl
+                                        , pageData = Ok updatedPageData
+                                        , pendingRedirect = False
+                                    }
+                                        |> clearLoadingFetchers
 
                             onActionMsg : Maybe userMsg
                             onActionMsg =
@@ -1157,9 +1171,23 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
         | nextTransitionKey = model.nextTransitionKey + 1
         , transition =
             ( model.nextTransitionKey
-            , Pages.Transition.Loading
-                (urlToGet.path |> Path.fromString)
-                Pages.Transition.Load
+            , case model.transition of
+                Just ( transitionKey, Pages.Transition.LoadAfterSubmit submitData _ _ ) ->
+                    Pages.Transition.LoadAfterSubmit
+                        submitData
+                        (urlToGet.path |> Path.fromString)
+                        Pages.Transition.Load
+
+                Just ( transitionKey, Pages.Transition.Submitting submitData ) ->
+                    Pages.Transition.LoadAfterSubmit
+                        submitData
+                        (urlToGet.path |> Path.fromString)
+                        Pages.Transition.Load
+
+                _ ->
+                    Pages.Transition.Loading
+                        (urlToGet.path |> Path.fromString)
+                        Pages.Transition.Load
             )
                 |> Just
       }

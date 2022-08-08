@@ -1,7 +1,6 @@
 module Pages.Transition exposing
     ( Transition(..), LoadingState(..)
-    , FetcherState
-    , FetcherSubmitStatus(..)
+    , FetcherState, FetcherSubmitStatus(..)
     )
 
 {-|
@@ -22,6 +21,7 @@ import Path exposing (Path)
 {-| -}
 type Transition
     = Submitting FormDecoder.FormData
+    | LoadAfterSubmit FormDecoder.FormData Path LoadingState
     | Loading Path LoadingState
 
 

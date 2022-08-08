@@ -266,7 +266,7 @@ import Html.Styled.Lazy
 import Pages.FormState as Form exposing (FormState)
 import Pages.Internal.Form exposing (Validation(..))
 import Pages.Msg
-import Pages.Transition
+import Pages.Transition exposing (Transition(..))
 
 
 
@@ -1312,7 +1312,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                     |> Errors
             , isTransitioning =
                 case formState.transition of
-                    Just _ ->
+                    Just (Submitting formData) ->
                         --let
                         --    foo =
                         --        transition.id
@@ -1320,7 +1320,13 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                         -- TODO need to track the form's ID and check that to see if it's *this*
                         -- form that is submitting
                         --transition.todo == formId
-                        True
+                        formData.id == Just formId
+
+                    Just (LoadAfterSubmit submitData path state) ->
+                        submitData.id == Just formId
+
+                    Just (Loading path state) ->
+                        False
 
                     Nothing ->
                         False
