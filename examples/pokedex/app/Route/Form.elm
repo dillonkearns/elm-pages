@@ -190,23 +190,20 @@ action : RouteParams -> Parser (DataSource (Server.Response.Response ActionData 
 action routeParams =
     Request.formData [ form ]
         |> Request.map
-            (\userResultData ->
-                userResultData
-                    |> DataSource.map
-                        (\userResult ->
-                            (case userResult of
-                                Ok user ->
-                                    { user = Just user
-                                    , formResponse = Nothing
-                                    }
+            (\userResult ->
+                (case userResult of
+                    Ok user ->
+                        { user = Just user
+                        , formResponse = Nothing
+                        }
 
-                                Err error ->
-                                    { user = Nothing
-                                    , formResponse = Just error
-                                    }
-                            )
-                                |> Server.Response.render
-                        )
+                    Err error ->
+                        { user = Nothing
+                        , formResponse = Just error
+                        }
+                )
+                    |> Server.Response.render
+                    |> DataSource.succeed
             )
 
 
