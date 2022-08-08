@@ -183,7 +183,14 @@ deleteForm =
                 [ Html.button
                     [ Attr.style "color" "red"
                     ]
-                    [ Html.text "Delete" ]
+                    [ (if formState.isTransitioning then
+                        "Deleting..."
+
+                       else
+                        "Delete"
+                      )
+                        |> Html.text
+                    ]
                 ]
         }
         |> Form.hiddenKind ( "kind", "delete" ) "Required"
