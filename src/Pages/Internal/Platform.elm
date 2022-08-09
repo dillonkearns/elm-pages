@@ -580,6 +580,7 @@ update config appMsg model =
                                         | url = newUrl
                                         , pageData = Ok updatedPageData
                                         , pendingRedirect = False
+                                        , transition = Nothing
                                     }
                                         |> clearLoadingFetchers
 
