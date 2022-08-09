@@ -1,7 +1,6 @@
 module Route.Logout exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource exposing (DataSource)
-import Dict
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
@@ -9,6 +8,7 @@ import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
@@ -38,9 +38,22 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action = action
         }
         |> RouteBuilder.buildNoState { view = view }
+
+
+action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action _ =
+    MySession.withSession
+        (Request.succeed ())
+        (\_ _ ->
+            ( Session.empty
+                |> Session.withFlash "message" "You have been successfully logged out."
+            , Route.redirectTo Route.Login
+            )
+                |> DataSource.succeed
+        )
 
 
 type alias Data =
@@ -49,17 +62,7 @@ type alias Data =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.oneOf
-        [ MySession.withSession
-            (Request.acceptMethod ( Request.Post, [] ) (Request.succeed ()))
-            (\_ _ ->
-                ( Session.empty
-                    |> Session.withFlash "message" "You have been successfully logged out."
-                , Response.temporaryRedirect "/login"
-                )
-                    |> DataSource.succeed
-            )
-        ]
+    Request.succeed (DataSource.succeed (Response.render {}))
 
 
 head :
