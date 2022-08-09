@@ -165,11 +165,11 @@ view maybeUrl sharedModel model static =
         , Html.text <| "Hello " ++ static.data.username ++ "!"
         , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis static.data.requestTime)
         , Html.div []
-            [ Html.form [ Attr.method "post", Attr.action "/logout", onSubmit (Logout |> Pages.Msg.UserMsg) ]
-                [ Html.button
-                    [ Attr.type_ "submit" ]
-                    [ Html.text "Logout" ]
-                ]
+            [ Html.form
+                -- TODO use client-side form submission
+                -- TODO should there be a helper function to easily invoke a form submission to a different route?
+                [ Attr.method "post", Attr.action "/logout" ]
+                [ Html.button [] [ Html.text "Logout" ] ]
             ]
         ]
     }
