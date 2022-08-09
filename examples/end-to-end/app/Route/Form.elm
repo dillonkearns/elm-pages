@@ -113,8 +113,8 @@ form =
                                 , errorsView field
                                 ]
                     in
-                    [ fieldView "Name" first
-                    , fieldView "Description" last
+                    [ fieldView "First" first
+                    , fieldView "Last" last
                     , fieldView "Price" username
                     , fieldView "Image" email
                     , fieldView "Image" dob
