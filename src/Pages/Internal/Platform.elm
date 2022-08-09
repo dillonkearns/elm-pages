@@ -755,19 +755,19 @@ perform config model effect =
             fetchRouteData transitionKey toMsg config url maybeRequestInfo
 
         Submit fields ->
-            let
-                urlToSubmitTo : Url
-                urlToSubmitTo =
-                    -- TODO add optional path parameter to Submit variant to allow submitting to other routes
-                    model.url
-            in
-            Cmd.batch
-                [ -- TODO run this for GET form submission?
-                  --model.key
-                  --    |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
-                  --    |> Maybe.withDefault Cmd.none
-                  fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
-                ]
+            if fields.method == FormDecoder.Get then
+                model.key
+                    |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
+                    |> Maybe.withDefault Cmd.none
+
+            else
+                let
+                    urlToSubmitTo : Url
+                    urlToSubmitTo =
+                        -- TODO add optional path parameter to Submit variant to allow submitting to other routes
+                        model.url
+                in
+                fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
 
         SubmitFetcher formData ->
             startFetcher2 formData model
