@@ -13,7 +13,6 @@ type Effect msg
     | Cmd (Cmd msg)
     | Batch (List (Effect msg))
     | GetStargazers (Result Http.Error Int -> msg)
-    | Logout msg
     | SetField { formId : String, name : String, value : String }
     | FetchRouteData
         { data : Maybe FormDecoder.FormData
@@ -68,9 +67,6 @@ map fn effect =
                 , toMsg = fetchInfo.toMsg >> fn
                 }
 
-        Logout msg ->
-            Logout (fn msg)
-
         Submit fetchInfo ->
             Submit
                 { values = fetchInfo.values
@@ -119,18 +115,6 @@ perform ({ fromPageMsg, key } as helpers) effect =
 
         Batch list ->
             Cmd.batch (List.map (perform helpers) list)
-
-        Logout toMsg ->
-            helpers.fetchRouteData
-                { data =
-                    Just
-                        { fields = []
-                        , method = FormDecoder.Post
-                        , action = "/logout"
-                        , id = Nothing
-                        }
-                , toMsg = \_ -> toMsg
-                }
 
         GetStargazers toMsg ->
             Http.get

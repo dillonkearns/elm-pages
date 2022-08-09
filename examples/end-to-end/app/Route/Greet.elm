@@ -26,8 +26,7 @@ type alias Model =
 
 
 type Msg
-    = Logout
-    | NoOp
+    = NoOp
 
 
 type alias RouteParams =
@@ -73,9 +72,6 @@ update pageUrl sharedModel static msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
-
-        Logout ->
-            ( model, Effect.Logout NoOp )
 
 
 type alias Data =
@@ -168,7 +164,10 @@ view maybeUrl sharedModel model static =
             [ Html.form
                 -- TODO use client-side form submission
                 -- TODO should there be a helper function to easily invoke a form submission to a different route?
-                [ Attr.method "post", Attr.action "/logout" ]
+                [ Attr.method "post"
+                , Attr.action "/logout"
+                , Pages.Msg.onSubmit |> Attr.fromUnstyled
+                ]
                 [ Html.button [] [ Html.text "Logout" ] ]
             ]
         ]

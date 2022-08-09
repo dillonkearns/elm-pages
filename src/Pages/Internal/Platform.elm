@@ -573,6 +573,7 @@ update config appMsg model =
                                         , transition = Nothing
                                         , pendingRedirect = False
                                         , pageFormState = Dict.empty
+                                        , inFlightFetchers = Dict.empty
                                     }
 
                                 else
@@ -581,6 +582,7 @@ update config appMsg model =
                                         , pageData = Ok updatedPageData
                                         , pendingRedirect = False
                                         , transition = Nothing
+                                        , inFlightFetchers = Dict.empty
                                     }
                                         |> clearLoadingFetchers
 
@@ -1055,7 +1057,13 @@ fetchRouteData transitionKey toMsg config url details =
         , headers = []
         , url =
             "/"
-                ++ (url.path
+                ++ ((details
+                        |> Maybe.map .action
+                        |> Maybe.andThen Url.fromString
+                        -- TODO what should happen when there is an action pointing to a different domain? Should it be a no-op? Log a warning?
+                        |> Maybe.withDefault url
+                    )
+                        |> .path
                         |> chopForwardSlashes
                         |> String.split "/"
                         |> List.filter ((/=) "")
