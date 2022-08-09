@@ -91,6 +91,13 @@ type alias ActionData =
     {}
 
 
+list : List String
+list =
+    [ "Inspiration Point"
+    , "Jesusita"
+    ]
+
+
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
@@ -105,7 +112,7 @@ data routeParams =
                                         (\query ->
                                             Just
                                                 { query = query
-                                                , results = [ "Hello" ]
+                                                , results = list |> List.filter (\item -> item |> String.contains query)
                                                 }
                                         )
                                     |> Result.withDefault Nothing
@@ -215,4 +222,7 @@ resultsView : SearchResults -> Html msg
 resultsView results =
     Html.div []
         [ Html.h2 [] [ Html.text <| "Results matching " ++ results.query ]
+        , results.results
+            |> List.map (\result -> Html.li [] [ Html.text result ])
+            |> Html.ul []
         ]
