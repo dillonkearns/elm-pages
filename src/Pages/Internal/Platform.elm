@@ -761,10 +761,11 @@ perform config model effect =
                     model.url
             in
             Cmd.batch
-                [ model.key
-                    |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
-                    |> Maybe.withDefault Cmd.none
-                , fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
+                [ -- TODO run this for GET form submission?
+                  --model.key
+                  --    |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
+                  --    |> Maybe.withDefault Cmd.none
+                  fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
                 ]
 
         SubmitFetcher formData ->

@@ -4,7 +4,8 @@ import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
-import Form.Validation as Validation
+import Form.FieldView
+import Form.Validation as Validation exposing (Combined)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
@@ -13,7 +14,6 @@ import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Result.Extra
 import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
@@ -36,7 +36,8 @@ type alias RouteParams =
 
 
 type alias ActionData =
-    {}
+    { errors : Form.Response String
+    }
 
 
 route : StatelessRoute RouteParams Data ActionData
@@ -44,7 +45,34 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip ""
+        , action =
+            \_ ->
+                MySession.withSession
+                    (Request.formDataWithServerValidation [ form ])
+                    (\nameResultData session ->
+                        nameResultData
+                            |> DataSource.map
+                                (\nameResult ->
+                                    case nameResult of
+                                        Err errors ->
+                                            ( session
+                                                |> Result.withDefault Nothing
+                                                |> Maybe.withDefault Session.empty
+                                            , Response.render
+                                                { errors = errors
+                                                }
+                                            )
+
+                                        Ok ( _, name ) ->
+                                            ( session
+                                                |> Result.withDefault Nothing
+                                                |> Maybe.withDefault Session.empty
+                                                |> Session.insert "name" name
+                                                |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
+                                            , Route.redirectTo Route.Greet
+                                            )
+                                )
+                    )
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -55,13 +83,74 @@ type alias Data =
     }
 
 
+form : Form.DoneForm String (DataSource (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
-        (\bar ->
+        (\username ->
             { combine =
                 Validation.succeed identity
-                    |> Validation.andMap bar
-            , view = \info -> ()
+                    |> Validation.andMap username
+                    |> Validation.map
+                        (\clientValidated ->
+                            DataSource.succeed
+                                (Validation.succeed clientValidated
+                                    |> Validation.withErrorIf
+                                        (clientValidated == "error")
+                                        username
+                                        "Invalid username"
+                                )
+                        )
+            , view =
+                \formState ->
+                    let
+                        errors field =
+                            formState.errors
+                                |> Form.errorsForField field
+
+                        errorsView field =
+                            case
+                                ( formState.submitAttempted
+                                , errors field
+                                )
+                            of
+                                ( _, first :: rest ) ->
+                                    Html.div []
+                                        [ Html.ul
+                                            [ Attr.style "border" "solid red"
+                                            ]
+                                            (List.map
+                                                (\error ->
+                                                    Html.li []
+                                                        [ Html.text error
+                                                        ]
+                                                )
+                                                (first :: rest)
+                                            )
+                                        ]
+
+                                _ ->
+                                    Html.div [] []
+
+                        fieldView label field =
+                            Html.div []
+                                [ Html.label []
+                                    [ Html.text (label ++ " ")
+                                    , field |> Form.FieldView.inputStyled []
+                                    ]
+                                , errorsView field
+                                ]
+                    in
+                    [ fieldView "Username" username
+                    , Html.button []
+                        [ (if formState.isTransitioning then
+                            "Logging in..."
+
+                           else
+                            "Log in"
+                          )
+                            |> Html.text
+                        ]
+                    ]
             }
         )
         |> Form.field "name" (Field.text |> Field.required "Required")
@@ -71,30 +160,6 @@ data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession
-            (Request.formData [ form ])
-            (\nameResult session ->
-                (nameResult
-                    |> Result.Extra.unpack
-                        (\_ ->
-                            ( session
-                                |> Result.withDefault Nothing
-                                |> Maybe.withDefault Session.empty
-                            , Route.redirectTo Route.Greet
-                            )
-                        )
-                        (\name ->
-                            ( session
-                                |> Result.withDefault Nothing
-                                |> Maybe.withDefault Session.empty
-                                |> Session.insert "name" name
-                                |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                            , Route.redirectTo Route.Greet
-                            )
-                        )
-                )
-                    |> DataSource.succeed
-            )
-        , MySession.withSession
             (Request.succeed ())
             (\() session ->
                 case session of
@@ -164,25 +229,12 @@ view maybeUrl sharedModel static =
                         "You aren't logged in yet."
                 )
             ]
-        , Html.form
-            [ Attr.method "post"
-            ]
-            [ Html.label
-                [ Attr.attribute "htmlFor" "name"
-                ]
-                [ Html.text "Name"
-                , Html.input
-                    [ Attr.name "name"
-                    , Attr.type_ "text"
-                    , Attr.id "name"
-                    ]
-                    []
-                ]
-            , Html.button
-                [ Attr.type_ "submit"
-                ]
-                [ Html.text "Login" ]
-            ]
+        , form
+            |> Form.toDynamicTransition "form"
+            |> Form.renderStyledHtml []
+                (static.action |> Maybe.map .errors |> Maybe.map (\(Form.Response response) -> response))
+                static
+                ()
         ]
     }
 
