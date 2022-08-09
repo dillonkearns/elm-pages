@@ -188,7 +188,9 @@ toQuantity quantityChange =
 
 oneOfParsers : List (Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) Msg)
 oneOfParsers =
-    [ signoutForm, setQuantityForm ]
+    [ signoutForm
+    , setQuantityForm
+    ]
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
