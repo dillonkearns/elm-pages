@@ -53,7 +53,7 @@
     "@types/micromatch": "^4.0.2",
     "@types/node": "12.20.12",
     "@types/serve-static": "1.13.10",
-    "cypress": "^9.5.1",
+    "cypress": "^10.4.0",
     "elm-optimize-level-2": "^0.1.5",
     "elm-review": "^2.7.2",
     "elm-test": "^0.19.1-revision8",
