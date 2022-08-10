@@ -255,6 +255,7 @@ init config flags url key =
                     , inFlightFetchers = Dict.empty
                     , pageFormState = Dict.empty
                     , pendingRedirect = False
+                    , pendingData = Nothing
                     }
             in
             ( { initialModel
@@ -276,6 +277,7 @@ init config flags url key =
               , inFlightFetchers = Dict.empty
               , pageFormState = Dict.empty
               , pendingRedirect = False
+              , pendingData = Nothing
               }
             , NoEffect
             )
@@ -296,6 +298,7 @@ init config flags url key =
               , inFlightFetchers = Dict.empty
               , pageFormState = Dict.empty
               , pendingRedirect = False
+              , pendingData = Nothing
               }
             , NoEffect
             )
@@ -336,6 +339,7 @@ type alias Model userModel pageData actionData sharedData =
     , inFlightFetchers : Dict Int Pages.Transition.FetcherState
     , pageFormState : Pages.FormState.PageFormState
     , pendingRedirect : Bool
+    , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
     }
 
 
@@ -392,15 +396,27 @@ update config appMsg model =
             )
 
         UrlChanged url ->
-            ( { model
-                -- update the URL in case query params or fragment changed
-                | url = url
-              }
-            , NoEffect
-            )
-                -- TODO is it reasonable to always re-fetch route data if you re-navigate to the current route? Might be a good
-                -- parallel to the browser behavior
-                |> startNewGetLoad url (UpdateCacheAndUrlNew False url Nothing)
+            case model.pendingData of
+                Just ( newPageData, newSharedData, newActionData ) ->
+                    loadDataAndUpdateUrl
+                        ( newPageData, newSharedData, newActionData )
+                        Nothing
+                        url
+                        url
+                        False
+                        config
+                        model
+
+                Nothing ->
+                    ( { model
+                        -- update the URL in case query params or fragment changed
+                        | url = url
+                      }
+                    , NoEffect
+                    )
+                        -- TODO is it reasonable to always re-fetch route data if you re-navigate to the current route? Might be a good
+                        -- parallel to the browser behavior
+                        |> startNewGetLoad url (UpdateCacheAndUrlNew False url Nothing)
 
         FetcherComplete fetcherId userMsgResult ->
             case userMsgResult of
@@ -519,7 +535,21 @@ update config appMsg model =
                             newUrl /= urlWithoutRedirectResolution
                     in
                     if redirectPending then
-                        ( { model | pendingRedirect = True }, BrowserReplaceUrl newUrl.path )
+                        ( { model
+                            | pendingRedirect = True
+                            , pendingData =
+                                case newData of
+                                    ResponseSketch.RenderPage pageData actionData ->
+                                        Just ( pageData, previousPageData.sharedData, actionData )
+
+                                    ResponseSketch.HotUpdate pageData sharedData actionData ->
+                                        Just ( pageData, sharedData, actionData )
+
+                                    _ ->
+                                        Nothing
+                          }
+                        , BrowserReplaceUrl newUrl.path
+                        )
 
                     else
                         let
@@ -566,6 +596,7 @@ update config appMsg model =
 
                             updatedModel : Model userModel pageData actionData sharedData
                             updatedModel =
+                                -- TODO should these be the same (no if)?
                                 if model.pendingRedirect || redirectPending then
                                     { model
                                         | url = newUrl
@@ -1225,3 +1256,117 @@ clearLoadingFetchers model =
 currentUrlWithPath : String -> Model userModel pageData actionData sharedData -> Url
 currentUrlWithPath path { url } =
     { url | path = path }
+
+
+loadDataAndUpdateUrl :
+    ( pageData, sharedData, Maybe actionData )
+    -> Maybe userMsg
+    -> Url
+    -> Url
+    -> Bool
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Model userModel pageData actionData sharedData
+    -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
+loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg urlWithoutRedirectResolution newUrl redirectPending config model =
+    case model.pageData of
+        Ok previousPageData ->
+            let
+                updatedPageData : { userModel : userModel, sharedData : sharedData, actionData : Maybe actionData, pageData : pageData }
+                updatedPageData =
+                    { userModel = userModel
+                    , sharedData = newSharedData
+                    , pageData = newPageData
+                    , actionData = newActionData
+                    }
+
+                ( userModel, _ ) =
+                    -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
+                    -- instead of calling update, call pushUrl (I think?)
+                    -- TODO include user Cmd
+                    config.update model.pageFormState
+                        (model.inFlightFetchers |> Dict.values)
+                        (model.transition |> Maybe.map Tuple.second)
+                        newSharedData
+                        newPageData
+                        model.key
+                        (config.onPageChange
+                            { protocol = model.url.protocol
+                            , host = model.url.host
+                            , port_ = model.url.port_
+                            , path = urlPathToPath urlWithoutRedirectResolution
+                            , query = urlWithoutRedirectResolution.query
+                            , fragment = urlWithoutRedirectResolution.fragment
+                            , metadata = config.urlToRoute urlWithoutRedirectResolution
+                            }
+                        )
+                        previousPageData.userModel
+
+                updatedModel : Model userModel pageData actionData sharedData
+                updatedModel =
+                    -- TODO should these be the same (no if)?
+                    if model.pendingRedirect || redirectPending then
+                        { model
+                            | url = newUrl
+                            , pageData = Ok updatedPageData
+                            , transition = Nothing
+                            , pendingRedirect = False
+                            , pageFormState = Dict.empty
+                            , inFlightFetchers = Dict.empty
+                            , pendingData = Nothing
+                        }
+
+                    else
+                        { model
+                            | url = newUrl
+                            , pageData = Ok updatedPageData
+                            , pendingRedirect = False
+                            , transition = Nothing
+                            , inFlightFetchers = Dict.empty
+                            , pendingData = Nothing
+                        }
+                            |> clearLoadingFetchers
+
+                onActionMsg : Maybe userMsg
+                onActionMsg =
+                    newActionData |> Maybe.andThen config.onActionData
+            in
+            ( { updatedModel
+                | ariaNavigationAnnouncement = mainView config updatedModel |> .title
+                , currentPath = newUrl.path
+              }
+            , ScrollToTop
+            )
+                |> (case maybeUserMsg of
+                        Just userMsg ->
+                            withUserMsg config userMsg
+
+                        Nothing ->
+                            identity
+                   )
+                |> (case onActionMsg of
+                        Just actionMsg ->
+                            withUserMsg config actionMsg
+
+                        Nothing ->
+                            identity
+                   )
+
+        Err _ ->
+            {-
+               When there is an error loading the content.dat, we are either
+               1) in the dev server, and should show the relevant DataSource error for the page
+                  we're navigating to. This could be done more cleanly, but it's simplest to just
+                  do a fresh page load and use the code path for presenting an error for a fresh page.
+               2) In a production app. That means we had a successful build, so there were no DataSource failures,
+                  so the app must be stale (unless it's in some unexpected state from a bug). In the future,
+                  it probably makes sense to include some sort of hash of the app version we are fetching, match
+                  it with the current version that's running, and perform this logic when we see there is a mismatch.
+                  But for now, if there is any error we do a full page load (not a single-page navigation), which
+                  gives us a fresh version of the app to make sure things are in sync.
+
+            -}
+            ( model
+            , urlWithoutRedirectResolution
+                |> Url.toString
+                |> BrowserLoadUrl
+            )
