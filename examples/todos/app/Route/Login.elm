@@ -1,7 +1,6 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
-import Data.User
 import DataSource exposing (DataSource)
 import DataSource.Port
 import Dict exposing (Dict)
@@ -14,19 +13,18 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Json.Decode
-import Json.Encode
+import Json.Decode as Decode
+import Json.Encode as Encode
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Request.Hasura
-import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
 import Server.Response exposing (Response)
 import Server.Session as Session
 import Shared
+import Time
 import View exposing (View)
 
 
@@ -61,27 +59,27 @@ type alias Login =
 form : Form.DoneForm String (DataSource (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
-        (\username password ->
+        (\email ->
             { combine =
                 Validation.succeed
-                    (\u p ->
-                        attemptLogIn u p
-                            |> DataSource.map
-                                (\maybeUserId ->
-                                    case maybeUserId of
-                                        Just (Uuid userId) ->
-                                            Validation.succeed userId
-
-                                        Nothing ->
-                                            Validation.fail "Username and password do not match" Validation.global
-                                )
+                    (\u ->
+                        --attemptLogIn u
+                        --    |> DataSource.map
+                        --        (\maybeUserId ->
+                        --            case maybeUserId of
+                        --                Just (Uuid userId) ->
+                        --                    Validation.succeed userId
+                        --
+                        --                Nothing ->
+                        --                    Validation.fail "Username and password do not match" Validation.global
+                        --        )
+                        DataSource.succeed
+                            (Validation.succeed u)
                     )
-                    |> Validation.andMap username
-                    |> Validation.andMap password
+                    |> Validation.andMap email
             , view =
                 \info ->
-                    [ username |> fieldView info "Username"
-                    , password |> fieldView info "Password"
+                    [ email |> fieldView info "Email"
                     , globalErrors info
                     , Html.button []
                         [ if info.isTransitioning then
@@ -93,12 +91,11 @@ form =
                     ]
             }
         )
-        |> Form.field "username" (Field.text |> Field.email |> Field.required "Required")
-        |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
+        |> Form.field "email" (Field.text |> Field.email |> Field.required "Required")
 
 
-attemptLogIn : String -> String -> DataSource (Maybe Uuid)
-attemptLogIn username password =
+attemptLogIn : String -> DataSource (Maybe Uuid)
+attemptLogIn username =
     --DataSource.Port.get "hashPassword"
     --    (Json.Encode.string password)
     --    Json.Decode.string
@@ -179,33 +176,55 @@ data routeParams =
         )
 
 
+encryptInfo : String -> Time.Posix -> DataSource String
+encryptInfo emailAddress requestTime =
+    DataSource.Port.get "encrypt"
+        (Encode.object
+            [ ( "text", Encode.string emailAddress )
+            , ( "expiresAt", requestTime |> Time.posixToMillis |> Encode.int )
+            ]
+            |> Encode.encode 0
+            |> Encode.string
+        )
+        Decode.string
+
+
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    MySession.withSession
-        (Request.formDataWithServerValidation [ form ])
-        (\usernameDs session ->
+    Request.map2
+        (\usernameDs requestTime ->
             usernameDs
                 |> DataSource.andThen
                     (\usernameResult ->
                         case usernameResult of
                             Err error ->
-                                ( session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
-                                , error |> render
-                                )
+                                --(error |> render)
+                                Server.Response.render (ActionData Nothing)
                                     |> DataSource.succeed
 
-                            Ok ( _, userId ) ->
-                                ( session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
-                                    |> Session.insert "userId" userId
-                                , Route.redirectTo Route.Index
-                                )
-                                    |> DataSource.succeed
+                            Ok ( _, emailAddress ) ->
+                                let
+                                    foo : DataSource String
+                                    foo =
+                                        encryptInfo emailAddress requestTime
+                                in
+                                foo
+                                    |> DataSource.map
+                                        (\encryptedName ->
+                                            let
+                                                _ =
+                                                    Debug.log "@@@encrypted"
+                                                        { encrypted = encryptedName
+                                                        }
+                                            in
+                                            { maybeError = Nothing
+                                            }
+                                                |> Server.Response.render
+                                        )
                     )
         )
+        (Request.formDataWithServerValidation [ form ])
+        Request.requestTime
 
 
 render :
@@ -241,8 +260,11 @@ type alias Data =
 
 
 type alias ActionData =
-    { fields : List ( String, String )
-    , errors : Dict String (List String)
+    { maybeError :
+        Maybe
+            { fields : List ( String, String )
+            , errors : Dict String (List String)
+            }
     }
 
 
@@ -266,6 +288,11 @@ view maybeUrl sharedModel app =
             ]
         , form
             |> Form.toDynamicTransition "login"
-            |> Form.renderHtml [] app.action app ()
+            |> Form.renderHtml []
+                (app.action
+                    |> Maybe.andThen .maybeError
+                )
+                app
+                ()
         ]
     }
