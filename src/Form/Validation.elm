@@ -148,14 +148,29 @@ withErrorIf includeError (Validation _ key _) error (Validation viewField name (
 
 
 {-| -}
-map : (parsed -> mapped) -> Validation error parsed named constraint -> Combined error mapped
+map : (parsed -> mapped) -> Validation error parsed named constraint -> Validation error mapped named constraint
 map mapFn (Validation viewField name ( maybeParsedA, errorsA )) =
     Validation Nothing name ( Maybe.map mapFn maybeParsedA, errorsA )
 
 
 {-| -}
-fromResult : Result ( String, error ) parsed -> Combined error parsed
-fromResult result =
+fromResult : Field error (Result error parsed) kind -> Combined error parsed
+fromResult fieldResult =
+    fieldResult
+        |> andThen
+            (\parsedValue ->
+                case parsedValue of
+                    Ok okValue ->
+                        succeed okValue
+
+                    Err error ->
+                        fail error fieldResult
+            )
+
+
+{-| -}
+fromResultOld : Result ( String, error ) parsed -> Combined error parsed
+fromResultOld result =
     case result of
         Ok parsed ->
             Validation Nothing Nothing ( Just parsed, Dict.empty )

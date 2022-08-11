@@ -6,7 +6,8 @@
         "../../src",
         ".elm-pages",
         "../../plugins",
-        "gen"
+        "gen",
+        "send-grid/src"
     ],
     "elm-version": "0.19.1",
     "dependencies": {
@@ -38,6 +39,7 @@
             "justinmimbs/date": "4.0.0",
             "lamdera/codecs": "1.0.0",
             "lamdera/core": "1.0.0",
+            "mgold/elm-nonempty-list": "4.2.0",
             "miniBill/elm-codec": "1.2.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "pablohirafuji/elm-syntax-highlight": "3.4.0",
@@ -57,7 +59,6 @@
             "fredcy/elm-parseint": "2.0.1",
             "j-maas/elm-ordered-containers": "1.0.0",
             "lukewestby/elm-string-interpolate": "1.0.4",
-            "mgold/elm-nonempty-list": "4.2.0",
             "rtfeldman/elm-hex": "1.0.0"
         }
     },
