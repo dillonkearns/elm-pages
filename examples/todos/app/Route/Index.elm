@@ -1,5 +1,8 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
+import Api.Scalar exposing (Uuid(..))
+import Data.Session
+import Data.Todo exposing (Todo)
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -16,6 +19,7 @@ import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
+import Request.Hasura
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Seo.Common
 import Server.Request as Request
@@ -40,7 +44,7 @@ type alias RouteParams =
 
 
 type alias Data =
-    { entries : List Entry
+    { entries : List Todo
     }
 
 
@@ -107,34 +111,20 @@ head static =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    MySession.withSession
-        (Request.succeed ())
-        (\() session ->
-            let
-                okSessionThing : Session
-                okSessionThing =
-                    session
-                        |> Result.withDefault Nothing
-                        |> Maybe.withDefault Session.empty
-            in
-            DataSource.succeed
-                ( okSessionThing
-                , Response.render
-                    { entries =
-                        [ { description = "Test"
-                          , completed = False
-                          , editing = False
-                          , id = 1
-                          }
-                        , { description = "Test 2"
-                          , completed = False
-                          , editing = False
-                          , id = 2
-                          }
-                        ]
-                    }
-                )
-        )
+    Request.succeed ()
+        |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
+            (\parsedSession () session ->
+                Data.Todo.findAllBySession parsedSession
+                    |> Request.Hasura.dataSource
+                    |> DataSource.map
+                        (\todos ->
+                            ( session
+                            , Response.render
+                                { entries = todos |> Maybe.withDefault [] -- TODO add error handling for Nothing case
+                                }
+                            )
+                        )
+            )
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
@@ -167,14 +157,6 @@ view maybeUrl sharedModel model app =
             , infoFooter
             ]
         ]
-    }
-
-
-type alias Entry =
-    { description : String
-    , completed : Bool
-    , editing : Bool
-    , id : Int
     }
 
 
@@ -211,7 +193,7 @@ newItemForm =
 -- VIEW ALL ENTRIES
 
 
-viewEntries : String -> List Entry -> Html (Pages.Msg.Msg Msg)
+viewEntries : String -> List Todo -> Html (Pages.Msg.Msg Msg)
 viewEntries visibility entries =
     let
         isVisible todo =
@@ -260,15 +242,20 @@ viewEntries visibility entries =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedEntry : Entry -> ( String, Html (Pages.Msg.Msg Msg) )
+viewKeyedEntry : Todo -> ( String, Html (Pages.Msg.Msg Msg) )
 viewKeyedEntry todo =
-    ( String.fromInt todo.id, lazy viewEntry todo )
+    ( uuidToString todo.id, lazy viewEntry todo )
 
 
-viewEntry : Entry -> Html (Pages.Msg.Msg Msg)
+viewEntry : Todo -> Html (Pages.Msg.Msg Msg)
 viewEntry todo =
     li
-        [ classList [ ( "completed", todo.completed ), ( "editing", todo.editing ) ] ]
+        [ classList
+            [ ( "completed", todo.completed )
+
+            --, ( "editing", todo.editing )
+            ]
+        ]
         [ div
             [ class "view" ]
             [ input
@@ -294,7 +281,7 @@ viewEntry todo =
             [ class "edit"
             , value todo.description
             , name "title"
-            , id ("todo-" ++ String.fromInt todo.id)
+            , id ("todo-" ++ uuidToString todo.id)
 
             --, onInput (UpdateEntry todo.id)
             --, onBlur (EditingEntry todo.id False)
@@ -304,11 +291,15 @@ viewEntry todo =
         ]
 
 
+uuidToString (Uuid uuid) =
+    uuid
+
+
 
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : String -> List Entry -> Html (Pages.Msg.Msg Msg)
+viewControls : String -> List Todo -> Html (Pages.Msg.Msg Msg)
 viewControls visibility entries =
     let
         entriesCompleted =
