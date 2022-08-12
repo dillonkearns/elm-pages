@@ -129,7 +129,62 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.skip ""
+    MySession.withSession
+        (Request.formData [ newItemForm ])
+        (\formResult session ->
+            let
+                okSessionThing : Session
+                okSessionThing =
+                    session
+                        |> Result.withDefault Nothing
+                        |> Maybe.withDefault Session.empty
+            in
+            case formResult of
+                Ok newItemDescription ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.create userId newItemDescription
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\newItemId ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
+                Err _ ->
+                    DataSource.succeed
+                        ( okSessionThing
+                        , Response.render {}
+                        )
+        )
 
 
 view :
@@ -147,8 +202,7 @@ view maybeUrl sharedModel model app =
             ]
             [ section
                 [ class "todoapp" ]
-                [ --lazy viewInput model.field
-                  newItemForm
+                [ newItemForm
                     |> Form.toDynamicFetcher "new-item"
                     |> Form.renderHtml [] Nothing app ()
                 , lazy2 viewEntries model.visibility app.data.entries
@@ -182,6 +236,7 @@ newItemForm =
                             , autofocus True
                             ]
                             description
+                        , Html.button [] [ Html.text "Create" ]
                         ]
                     ]
             }

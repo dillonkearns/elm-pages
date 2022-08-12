@@ -62,12 +62,17 @@ create expiresAt userId =
 
 
 type alias Session =
-    { emailAddress : String }
+    { emailAddress : String
+    , id : Uuid
+    }
 
 
 get : String -> SelectionSet (Maybe Session) RootQuery
 get sessionId =
     Api.Query.sessions_by_pk { id = Uuid sessionId }
-        (SelectionSet.map Session
-            (Api.Object.Sessions.user Api.Object.Users.email)
+        (Api.Object.Sessions.user
+            (SelectionSet.map2 Session
+                Api.Object.Users.email
+                Api.Object.Users.id
+            )
         )
