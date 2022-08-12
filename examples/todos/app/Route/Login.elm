@@ -294,13 +294,6 @@ action routeParams =
         Request.requestTime
 
 
-render :
-    Form.Response error
-    -> Response { fields : List ( String, String ), errors : Dict String (List error) } a
-render (Form.Response response) =
-    Server.Response.render response
-
-
 head :
     StaticPayload Data ActionData RouteParams
     -> List Head.Tag
