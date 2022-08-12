@@ -1,6 +1,7 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
+import Data.Session
 import DataSource exposing (DataSource)
 import DataSource.Env
 import DataSource.Http
@@ -23,11 +24,12 @@ import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Request.Hasura
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import SendGrid
 import Server.Request as Request
 import Server.Response exposing (Response)
-import Server.Session as Session
+import Server.Session as Session exposing (Session)
 import Shared
 import String.Nonempty exposing (NonemptyString)
 import Time
@@ -149,7 +151,7 @@ fieldView formState label field =
 
 errorsForField : Form.Context String data -> Field String parsed kind -> Html msg
 errorsForField formState field =
-    (if True || formState.submitAttempted then
+    (if formState.submitAttempted then
         formState.errors
             |> Form.errorsForField field
             |> List.map (\error -> Html.li [] [ Html.text error ])
@@ -179,51 +181,97 @@ data routeParams =
     MySession.withSession
         (Request.queryParam "magic")
         (\magicLinkHash session ->
+            let
+                _ =
+                    Debug.log "cookie session" okSessionThing
+
+                okSessionThing : Session
+                okSessionThing =
+                    session
+                        |> Result.withDefault Nothing
+                        |> Maybe.withDefault Session.empty
+
+                maybeSessionId : Maybe String
+                maybeSessionId =
+                    okSessionThing
+                        |> Session.get "sessionId"
+            in
             case magicLinkHash of
                 Just magicHash ->
                     parseMagicHashIfNotExpired magicHash
-                        |> DataSource.map
+                        |> DataSource.andThen
                             (\emailIfValid ->
                                 let
                                     _ =
                                         Debug.log "@decrypted" emailIfValid
                                 in
-                                case session of
-                                    Ok (Just okSession) ->
-                                        ( okSession
-                                        , okSession
-                                            |> Session.get "userId"
-                                            |> Data
-                                            |> Server.Response.render
-                                        )
+                                case maybeSessionId of
+                                    Just sessionId ->
+                                        Data.Session.get sessionId
+                                            |> Request.Hasura.dataSource
+                                            |> DataSource.map
+                                                (\maybeUserSession ->
+                                                    ( okSessionThing
+                                                    , maybeUserSession
+                                                        |> Maybe.map .emailAddress
+                                                        |> Data
+                                                        |> Server.Response.render
+                                                    )
+                                                )
 
-                                    _ ->
-                                        ( Session.empty
-                                        , { username = Nothing }
-                                            |> Server.Response.render
-                                        )
+                                    Nothing ->
+                                        case emailIfValid of
+                                            Just confirmedEmail ->
+                                                Data.Session.findOrCreateUser confirmedEmail
+                                                    |> Request.Hasura.mutationDataSource
+                                                    |> DataSource.andThen
+                                                        (\userId ->
+                                                            now
+                                                                |> DataSource.andThen
+                                                                    (\now_ ->
+                                                                        let
+                                                                            expirationTime : Time.Posix
+                                                                            expirationTime =
+                                                                                Time.millisToPosix (Time.posixToMillis now_ + (1000 * 60 * 30))
+                                                                        in
+                                                                        Data.Session.create expirationTime userId
+                                                                            |> Request.Hasura.mutationDataSource
+                                                                    )
+                                                        )
+                                                    |> DataSource.map
+                                                        (\(Uuid sessionId) ->
+                                                            ( okSessionThing
+                                                                |> Session.insert "sessionId" sessionId
+                                                            , Just confirmedEmail
+                                                                |> Data
+                                                                |> Server.Response.render
+                                                            )
+                                                        )
+
+                                            Nothing ->
+                                                DataSource.succeed
+                                                    ( okSessionThing
+                                                      -- TODO give flash message saying it was an invalid magic link
+                                                    , Nothing
+                                                        |> Data
+                                                        |> Server.Response.render
+                                                    )
                             )
 
                 Nothing ->
-                    ( Session.empty
-                    , { username = Nothing }
-                        |> Server.Response.render
-                    )
-                        |> DataSource.succeed
+                    maybeSessionId
+                        |> Maybe.map (Data.Session.get >> Request.Hasura.dataSource)
+                        |> Maybe.withDefault (DataSource.succeed Nothing)
+                        |> DataSource.map
+                            (\maybeUserSession ->
+                                ( okSessionThing
+                                , maybeUserSession
+                                    |> Maybe.map .emailAddress
+                                    |> Data
+                                    |> Server.Response.render
+                                )
+                            )
         )
-
-
-encryptInfo : String -> Time.Posix -> DataSource String
-encryptInfo emailAddress requestTime =
-    DataSource.Port.get "encrypt"
-        (Encode.object
-            [ ( "text", Encode.string emailAddress )
-            , ( "expiresAt", requestTime |> Time.posixToMillis |> Encode.int )
-            ]
-            |> Encode.encode 0
-            |> Encode.string
-        )
-        Decode.string
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
@@ -307,7 +355,7 @@ view maybeUrl sharedModel app =
             [ Html.text
                 (case app.data.username of
                     Just username ->
-                        "Hello! You are already logged in."
+                        "Hello! You are already logged in as " ++ username
 
                     Nothing ->
                         "You aren't logged in yet."
@@ -325,6 +373,7 @@ view maybeUrl sharedModel app =
     }
 
 
+sendFake : Bool
 sendFake =
     True
 
