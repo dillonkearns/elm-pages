@@ -348,6 +348,7 @@ checkbox :
         data
         Input
         { required : ()
+        , initial : Bool
         }
 checkbox =
     Field

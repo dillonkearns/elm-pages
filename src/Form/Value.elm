@@ -1,11 +1,11 @@
 module Form.Value exposing
-    ( Value, date, float, int, string, toString
+    ( Value, date, float, int, string, bool, toString
     , compare
     )
 
 {-|
 
-@docs Value, date, float, int, string, toString
+@docs Value, date, float, int, string, bool, toString
 
 
 ## Comparison
@@ -22,6 +22,7 @@ type Kind
     | DateValue
     | IntValue
     | FloatValue
+    | BoolValue
 
 
 {-| -}
@@ -60,6 +61,19 @@ int int_ =
 
 
 {-| -}
+bool : Bool -> Value Bool
+bool bool_ =
+    (case bool_ of
+        True ->
+            "on"
+
+        False ->
+            ""
+    )
+        |> Value IntValue
+
+
+{-| -}
 string : String -> Value String
 string string_ =
     string_
@@ -80,6 +94,11 @@ compare a (Value kind rawValue) =
                     LT
 
         StringValue ->
+            -- the phantom types in the Field API don't ever run this, so it won't be called there
+            -- Just in case anyone calls it, it delegates to Basics.compare
+            Basics.compare a rawValue
+
+        BoolValue ->
             -- the phantom types in the Field API don't ever run this, so it won't be called there
             -- Just in case anyone calls it, it delegates to Basics.compare
             Basics.compare a rawValue
