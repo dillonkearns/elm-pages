@@ -1,8 +1,5 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
-import Api.Scalar exposing (Uuid(..))
-import Browser
-import Browser.Dom as Dom
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -13,10 +10,8 @@ import Form.Validation as Validation
 import Head
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (..)
 import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy, lazy2)
-import Json.Decode as Json
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -25,7 +20,6 @@ import Seo.Common
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
-import Task
 import View exposing (View)
 
 
