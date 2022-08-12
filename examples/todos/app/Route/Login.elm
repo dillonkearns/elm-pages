@@ -182,9 +182,6 @@ data routeParams =
         (Request.queryParam "magic")
         (\magicLinkHash session ->
             let
-                _ =
-                    Debug.log "cookie session" okSessionThing
-
                 okSessionThing : Session
                 okSessionThing =
                     session
@@ -201,10 +198,6 @@ data routeParams =
                     parseMagicHashIfNotExpired magicHash
                         |> DataSource.andThen
                             (\emailIfValid ->
-                                let
-                                    _ =
-                                        Debug.log "@decrypted" emailIfValid
-                                in
                                 case maybeSessionId of
                                     Just sessionId ->
                                         Data.Session.get sessionId
@@ -472,8 +465,9 @@ parseMagicHashIfNotExpired magicHash =
     DataSource.map2
         (\( email, expiresAt ) currentTime ->
             let
+                isExpired : Bool
                 isExpired =
-                    (Time.posixToMillis currentTime |> Debug.log "current") > (Time.posixToMillis expiresAt |> Debug.log "expires")
+                    Time.posixToMillis currentTime > Time.posixToMillis expiresAt
             in
             if isExpired then
                 Nothing
