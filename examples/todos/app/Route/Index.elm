@@ -7,6 +7,8 @@ import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form
+import Form.Field as Field
+import Form.FieldView as FieldView
 import Form.Validation as Validation
 import Head
 import Html exposing (..)
@@ -150,7 +152,10 @@ view maybeUrl sharedModel model app =
             [ section
                 [ class "todoapp" ]
                 [ --lazy viewInput model.field
-                  lazy2 viewEntries model.visibility app.data.entries
+                  newItemForm
+                    |> Form.toDynamicFetcher "new-item"
+                    |> Form.renderHtml [] Nothing app ()
+                , lazy2 viewEntries model.visibility app.data.entries
                 , lazy2 viewControls model.visibility app.data.entries
                 ]
             , infoFooter
@@ -171,20 +176,29 @@ type alias Entry =
 -- VIEW
 
 
-viewInput : String -> Html Msg
-viewInput task =
-    header
-        [ class "header" ]
-        [ h1 [] [ text "todos" ]
-        , input
-            [ class "new-todo"
-            , placeholder "What needs to be done?"
-            , autofocus True
-            , value task
-            , name "newTodo"
-            ]
-            []
-        ]
+newItemForm : Form.HtmlForm String String input Msg
+newItemForm =
+    Form.init
+        (\description ->
+            { combine =
+                Validation.succeed identity
+                    |> Validation.andMap description
+            , view =
+                \formState ->
+                    [ header
+                        [ class "header" ]
+                        [ h1 [] [ text "todos" ]
+                        , FieldView.input
+                            [ class "new-todo"
+                            , placeholder "What needs to be done?"
+                            , autofocus True
+                            ]
+                            description
+                        ]
+                    ]
+            }
+        )
+        |> Form.field "description" (Field.text |> Field.required "Must be present")
 
 
 
