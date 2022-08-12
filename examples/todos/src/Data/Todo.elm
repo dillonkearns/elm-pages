@@ -52,3 +52,43 @@ create userId title =
         }
         Api.Object.Todos.id
         |> SelectionSet.nonNullOrFail
+
+
+setCompleteTo : { userId : Uuid, itemId : Uuid, newCompleteValue : Bool } -> SelectionSet () RootMutation
+setCompleteTo { userId, itemId, newCompleteValue } =
+    Api.Mutation.update_todos
+        (\_ ->
+            { set_ =
+                Present
+                    (Api.InputObject.buildTodos_set_input
+                        (\opts ->
+                            { opts
+                                | complete = Present newCompleteValue
+                            }
+                        )
+                    )
+            }
+        )
+        { where_ =
+            Api.InputObject.buildTodos_bool_exp
+                (\opts ->
+                    { opts
+                        | id =
+                            Present (eqUuid itemId)
+                        , user_id = Present (eqUuid userId)
+                    }
+                )
+        }
+        SelectionSet.empty
+        |> SelectionSet.nonNullOrFail
+
+
+eq : a -> { b | eq_ : OptionalArgument a } -> { b | eq_ : OptionalArgument a }
+eq equalTo =
+    \opts -> { opts | eq_ = Present equalTo }
+
+
+eqUuid : Uuid -> Api.InputObject.Uuid_comparison_exp
+eqUuid equalTo =
+    Api.InputObject.buildUuid_comparison_exp
+        (eq equalTo)

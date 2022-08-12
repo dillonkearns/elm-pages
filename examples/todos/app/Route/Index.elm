@@ -10,11 +10,12 @@ import Form
 import Form.Field as Field
 import Form.FieldView as FieldView
 import Form.Validation as Validation
+import Form.Value
 import Head
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed as Keyed
-import Html.Lazy exposing (lazy, lazy2)
+import Html.Lazy exposing (lazy, lazy2, lazy3)
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -130,7 +131,7 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
-        (Request.formData [ newItemForm ])
+        (Request.formData [ newItemForm, completeItemForm ])
         (\formResult session ->
             let
                 okSessionThing : Session
@@ -140,7 +141,50 @@ action routeParams =
                         |> Maybe.withDefault Session.empty
             in
             case formResult of
-                Ok newItemDescription ->
+                Ok (ToggleItem ( newCompleteValue, itemId )) ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.setCompleteTo
+                                                { userId = userId
+                                                , itemId = Uuid itemId
+                                                , newCompleteValue = newCompleteValue
+                                                }
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
+                Ok (CreateItem newItemDescription) ->
                     okSessionThing
                         |> Session.get "sessionId"
                         |> Maybe.map Data.Session.get
@@ -205,7 +249,7 @@ view maybeUrl sharedModel model app =
                 [ newItemForm
                     |> Form.toDynamicFetcher "new-item"
                     |> Form.renderHtml [] Nothing app ()
-                , lazy2 viewEntries model.visibility app.data.entries
+                , lazy3 viewEntries app model.visibility app.data.entries
                 , lazy2 viewControls model.visibility app.data.entries
                 ]
             , infoFooter
@@ -218,13 +262,14 @@ view maybeUrl sharedModel model app =
 -- VIEW
 
 
-newItemForm : Form.HtmlForm String String input Msg
+newItemForm : Form.HtmlForm String Action input Msg
 newItemForm =
     Form.init
         (\description ->
             { combine =
                 Validation.succeed identity
                     |> Validation.andMap description
+                    |> Validation.map CreateItem
             , view =
                 \formState ->
                     [ header
@@ -244,12 +289,51 @@ newItemForm =
         |> Form.field "description" (Field.text |> Field.required "Must be present")
 
 
+type Action
+    = CreateItem String
+    | ToggleItem ( Bool, String )
+
+
+completeItemForm : Form.HtmlForm String Action Todo Msg
+completeItemForm =
+    Form.init
+        (\todoId complete ->
+            { combine =
+                Validation.succeed Tuple.pair
+                    |> Validation.andMap complete
+                    |> Validation.andMap todoId
+                    |> Validation.map ToggleItem
+            , view =
+                \formState ->
+                    [ Html.button []
+                        [ Html.text
+                            (if formState.data.completed then
+                                "( )"
+
+                             else
+                                "√"
+                            )
+                        ]
+                    ]
+            }
+        )
+        |> Form.hiddenField "todoId"
+            (Field.text
+                |> Field.required "Must be present"
+                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
+            )
+        |> Form.hiddenField "complete"
+            (Field.checkbox
+                |> Field.withInitialValue (.completed >> not >> Form.Value.bool)
+            )
+
+
 
 -- VIEW ALL ENTRIES
 
 
-viewEntries : String -> List Todo -> Html (Pages.Msg.Msg Msg)
-viewEntries visibility entries =
+viewEntries : StaticPayload Data ActionData RouteParams -> String -> List Todo -> Html (Pages.Msg.Msg Msg)
+viewEntries app visibility entries =
     let
         isVisible todo =
             case visibility of
@@ -289,7 +373,7 @@ viewEntries visibility entries =
             [ for "toggle-all" ]
             [ text "Mark all as complete" ]
         , Keyed.ul [ class "todo-list" ] <|
-            List.map viewKeyedEntry (List.filter isVisible entries)
+            List.map (viewKeyedEntry app) (List.filter isVisible entries)
         ]
 
 
@@ -297,13 +381,13 @@ viewEntries visibility entries =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedEntry : Todo -> ( String, Html (Pages.Msg.Msg Msg) )
-viewKeyedEntry todo =
-    ( uuidToString todo.id, lazy viewEntry todo )
+viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Todo -> ( String, Html (Pages.Msg.Msg Msg) )
+viewKeyedEntry app todo =
+    ( uuidToString todo.id, lazy2 viewEntry app todo )
 
 
-viewEntry : Todo -> Html (Pages.Msg.Msg Msg)
-viewEntry todo =
+viewEntry : StaticPayload Data ActionData RouteParams -> { description : String, completed : Bool, id : Uuid } -> Html (Pages.Msg.Msg Msg)
+viewEntry app todo =
     li
         [ classList
             [ ( "completed", todo.completed )
@@ -313,14 +397,12 @@ viewEntry todo =
         ]
         [ div
             [ class "view" ]
-            [ input
-                [ class "toggle"
-                , type_ "checkbox"
-                , checked todo.completed
-
-                --, onClick (Check todo.id (not todo.completed))
-                ]
-                []
+            [ completeItemForm
+                |> Form.toDynamicFetcher ("toggle-" ++ uuidToString todo.id)
+                |> Form.renderHtml []
+                    Nothing
+                    app
+                    todo
             , label
                 [--onDoubleClick (EditingEntry todo.id True)
                 ]
@@ -346,6 +428,7 @@ viewEntry todo =
         ]
 
 
+uuidToString : Uuid -> String
 uuidToString (Uuid uuid) =
     uuid
 
