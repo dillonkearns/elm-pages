@@ -373,42 +373,40 @@ sendFake =
 
 sendEmailDataSource : EmailAddress -> String -> DataSource (Result SendGrid.Error ())
 sendEmailDataSource recipient apiKey =
-    if sendFake then
-        emailToMagicLink recipient
-            |> DataSource.andThen
-                (\magicLinkString ->
-                    let
-                        emailBody : String
-                        emailBody =
-                            "Welcome! Please confirm that this is your email address.\n" ++ magicLinkString
-                    in
-                    log emailBody
+    emailToMagicLink recipient
+        |> DataSource.andThen
+            (\magicLinkString ->
+                let
+                    message : NonemptyString
+                    message =
+                        String.Nonempty.NonemptyString 'W' ("elcome! Please confirm that this is your email address.\n" ++ magicLinkString)
+                in
+                if sendFake then
+                    message
+                        |> String.Nonempty.toString
+                        |> log
                         |> DataSource.map Ok
-                )
 
-    else
-        let
-            senderEmail : Maybe EmailAddress
-            senderEmail =
-                EmailAddress.fromString "dillon@incrementalelm.com"
-        in
-        senderEmail
-            |> Maybe.map
-                (\justSender ->
-                    emailToMagicLink recipient
-                        |> DataSource.andThen
-                            (\magicLinkString ->
+                else
+                    let
+                        senderEmail : Maybe EmailAddress
+                        senderEmail =
+                            EmailAddress.fromString "dillon@incrementalelm.com"
+                    in
+                    senderEmail
+                        |> Maybe.map
+                            (\justSender ->
                                 SendGrid.textEmail
                                     { subject = String.Nonempty.NonemptyString 'T' "odo app login"
                                     , to = List.Nonempty.fromElement recipient
-                                    , content = String.Nonempty.NonemptyString 'W' ("elcome! Please confirm that this is your email address.\n" ++ magicLinkString)
+                                    , content = message
                                     , nameOfSender = "Todo App"
                                     , emailAddressOfSender = justSender
                                     }
                                     |> sendEmail apiKey
                             )
-                )
-            |> Maybe.withDefault (DataSource.fail "Expected a valid sender email address.")
+                        |> Maybe.withDefault (DataSource.fail "Expected a valid sender email address.")
+            )
 
 
 sendEmail :
