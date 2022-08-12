@@ -12,6 +12,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy, lazy2)
+import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -19,6 +20,7 @@ import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Seo.Common
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
+import Server.Session as Session exposing (Session)
 import Shared
 import View exposing (View)
 
@@ -105,23 +107,33 @@ head static =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.succeed
-        (DataSource.succeed
-            (Response.render
-                { entries =
-                    [ { description = "Test"
-                      , completed = False
-                      , editing = False
-                      , id = 1
-                      }
-                    , { description = "Test 2"
-                      , completed = False
-                      , editing = False
-                      , id = 2
-                      }
-                    ]
-                }
-            )
+    MySession.withSession
+        (Request.succeed ())
+        (\() session ->
+            let
+                okSessionThing : Session
+                okSessionThing =
+                    session
+                        |> Result.withDefault Nothing
+                        |> Maybe.withDefault Session.empty
+            in
+            DataSource.succeed
+                ( okSessionThing
+                , Response.render
+                    { entries =
+                        [ { description = "Test"
+                          , completed = False
+                          , editing = False
+                          , id = 1
+                          }
+                        , { description = "Test 2"
+                          , completed = False
+                          , editing = False
+                          , id = 2
+                          }
+                        ]
+                    }
+                )
         )
 
 
