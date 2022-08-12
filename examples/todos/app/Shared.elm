@@ -102,14 +102,7 @@ view sharedData page model toMsg pageView =
                 [ Attr.style "display" "flex"
                 , Attr.style "justify-content" "space-evenly"
                 ]
-                [ Html.span [ Attr.class "icon" ]
-                    [ Html.text " "
-                    , Html.kbd [] [ Html.text "Ctrl" ]
-                    , Html.text "+"
-                    , Html.kbd [] [ Html.text "R" ]
-                    , Html.text " Smoothies"
-                    ]
-                ]
+                []
             , Html.div
                 [ Attr.style "padding" "40px"
                 ]
