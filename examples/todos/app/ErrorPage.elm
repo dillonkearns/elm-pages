@@ -59,7 +59,7 @@ view error model =
                 [ Html.div []
                     [ Html.p []
                         [ Html.text "Let's find you a nice refreshing smoothie. Check out "
-                        , Route.Index |> Route.link [] [ Html.text "our menu" ]
+                        , Route.Visibility__ { visibility = Nothing } |> Route.link [] [ Html.text "our menu" ]
                         ]
                     , Html.div [] []
                     ]

@@ -1,4 +1,4 @@
-module Route.Index exposing (ActionData, Data, Model, Msg, route)
+module Route.Visibility__ exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
 import Data.Session
@@ -47,21 +47,20 @@ route =
 
 
 type alias Model =
-    { visibility : String
-    }
+    {}
 
 
 type Msg
     = NoOp
-    | ChangeVisibility String
 
 
 type alias RouteParams =
-    {}
+    { visibility : Maybe String }
 
 
 type alias Data =
     { entries : List Todo
+    , visibility : String
     }
 
 
@@ -75,8 +74,7 @@ init :
     -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
-    ( { visibility = "All"
-      }
+    ( {}
     , Effect.none
     )
 
@@ -92,11 +90,6 @@ update pageUrl sharedModel static msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
-
-        ChangeVisibility visibility ->
-            ( { model | visibility = visibility }
-            , Effect.none
-            )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -123,6 +116,7 @@ data routeParams =
                             ( session
                             , Response.render
                                 { entries = todos |> Maybe.withDefault [] -- TODO add error handling for Nothing case
+                                , visibility = routeParams.visibility |> Maybe.withDefault "All"
                                 }
                             )
                         )
@@ -345,8 +339,8 @@ view maybeUrl sharedModel model app =
                 [ newItemForm
                     |> Form.toDynamicFetcher "new-item"
                     |> Form.renderHtml [] Nothing app ()
-                , lazy3 viewEntries app model.visibility optimisticEntities
-                , lazy2 viewControls model.visibility optimisticEntities
+                , lazy3 viewEntries app app.data.visibility optimisticEntities
+                , lazy2 viewControls app.data.visibility optimisticEntities
                 ]
             , infoFooter
             ]
