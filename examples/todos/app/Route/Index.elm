@@ -30,6 +30,21 @@ import Shared
 import View exposing (View)
 
 
+route : StatefulRoute RouteParams Data ActionData Model Msg
+route =
+    RouteBuilder.serverRender
+        { head = head
+        , data = data
+        , action = action
+        }
+        |> RouteBuilder.buildWithLocalState
+            { view = view
+            , update = update
+            , subscriptions = subscriptions
+            , init = init
+            }
+
+
 type alias Model =
     { visibility : String
     }
@@ -51,21 +66,6 @@ type alias Data =
 
 type alias ActionData =
     {}
-
-
-route : StatefulRoute RouteParams Data ActionData Model Msg
-route =
-    RouteBuilder.serverRender
-        { head = head
-        , data = data
-        , action = action
-        }
-        |> RouteBuilder.buildWithLocalState
-            { view = view
-            , update = update
-            , subscriptions = subscriptions
-            , init = init
-            }
 
 
 init :
@@ -131,7 +131,7 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
-        (Request.formData [ newItemForm, completeItemForm ])
+        (Request.formData [ newItemForm, completeItemForm, deleteItemForm ])
         (\formResult session ->
             let
                 okSessionThing : Session
@@ -140,7 +140,51 @@ action routeParams =
                         |> Result.withDefault Nothing
                         |> Maybe.withDefault Session.empty
             in
-            case formResult of
+            case formResult |> Debug.log "formResult" of
+                Ok (DeleteItem itemId) ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.delete
+                                                ({ userId = userId
+                                                 , itemId = Uuid itemId
+                                                 }
+                                                    |> Debug.log "@delete"
+                                                )
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
                 Ok (ToggleItem ( newCompleteValue, itemId )) ->
                     okSessionThing
                         |> Session.get "sessionId"
@@ -287,10 +331,12 @@ newItemForm =
             }
         )
         |> Form.field "description" (Field.text |> Field.required "Must be present")
+        |> Form.hiddenKind ( "kind", "new-item" ) "Expected kind"
 
 
 type Action
     = CreateItem String
+    | DeleteItem String
     | ToggleItem ( Bool, String )
 
 
@@ -326,6 +372,28 @@ completeItemForm =
             (Field.checkbox
                 |> Field.withInitialValue (.completed >> not >> Form.Value.bool)
             )
+        |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
+
+
+deleteItemForm : Form.HtmlForm String Action Todo Msg
+deleteItemForm =
+    Form.init
+        (\todoId ->
+            { combine =
+                Validation.succeed DeleteItem
+                    |> Validation.andMap todoId
+            , view =
+                \formState ->
+                    [ button [ class "destroy" ] []
+                    ]
+            }
+        )
+        |> Form.hiddenField "todoId"
+            (Field.text
+                |> Field.required "Must be present"
+                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
+            )
+        |> Form.hiddenKind ( "kind", "delete" ) "Expected kind"
 
 
 
@@ -407,12 +475,12 @@ viewEntry app todo =
                 [--onDoubleClick (EditingEntry todo.id True)
                 ]
                 [ text todo.description ]
-            , button
-                [ class "destroy"
-
-                --, onClick (Delete todo.id)
-                ]
-                []
+            , deleteItemForm
+                |> Form.toDynamicFetcher ("delete-" ++ uuidToString todo.id)
+                |> Form.renderHtml []
+                    Nothing
+                    app
+                    todo
             ]
         , input
             [ class "edit"

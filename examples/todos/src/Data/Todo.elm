@@ -92,3 +92,19 @@ eqUuid : Uuid -> Api.InputObject.Uuid_comparison_exp
 eqUuid equalTo =
     Api.InputObject.buildUuid_comparison_exp
         (eq equalTo)
+
+
+delete : { userId : Uuid, itemId : Uuid } -> SelectionSet () RootMutation
+delete { userId, itemId } =
+    Api.Mutation.delete_todos
+        { where_ =
+            Api.InputObject.buildTodos_bool_exp
+                (\opts ->
+                    { opts
+                        | id = Present (eqUuid itemId)
+                        , user_id = Present (eqUuid userId)
+                    }
+                )
+        }
+        SelectionSet.empty
+        |> SelectionSet.nonNullOrFail
