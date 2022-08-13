@@ -4,6 +4,7 @@ import Api.Scalar exposing (Uuid(..))
 import Data.Session
 import Data.Todo exposing (Todo)
 import DataSource exposing (DataSource)
+import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form
@@ -344,11 +345,35 @@ view maybeUrl sharedModel model app =
                     )
                 |> Set.fromList
 
+        togglingItems : Dict String Bool
+        togglingItems =
+            pendingFetchers
+                |> List.filterMap
+                    (\fetcher ->
+                        case fetcher of
+                            ToggleItem ( bool, id ) ->
+                                Just ( id, bool )
+
+                            _ ->
+                                Nothing
+                    )
+                |> Dict.fromList
+
+        optimisticEntities : List Todo
         optimisticEntities =
             (app.data.entries
-                |> List.filter
+                |> List.filterMap
                     (\item ->
-                        deletingItems |> Set.member (uuidToString item.id) |> not
+                        if deletingItems |> Set.member (uuidToString item.id) then
+                            Nothing
+
+                        else
+                            case togglingItems |> Dict.get (uuidToString item.id) of
+                                Just toggleTo ->
+                                    Just { item | completed = toggleTo }
+
+                                Nothing ->
+                                    Just item
                     )
             )
                 ++ creatingItems
