@@ -21,6 +21,7 @@ import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Request.Hasura
+import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Seo.Common
 import Server.Request as Request
@@ -60,7 +61,7 @@ type alias RouteParams =
 
 type alias Data =
     { entries : List Todo
-    , visibility : String
+    , visibility : Visibility
     }
 
 
@@ -104,22 +105,46 @@ head static =
     Seo.Common.tags
 
 
+visibilityFromRouteParams { visibility } =
+    case visibility of
+        Nothing ->
+            Just All
+
+        Just "completed" ->
+            Just Completed
+
+        Just "active" ->
+            Just Active
+
+        _ ->
+            Nothing
+
+
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.succeed ()
         |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
             (\parsedSession () session ->
-                Data.Todo.findAllBySession parsedSession
-                    |> Request.Hasura.dataSource
-                    |> DataSource.map
-                        (\todos ->
+                case visibilityFromRouteParams routeParams of
+                    Just visibility ->
+                        Data.Todo.findAllBySession parsedSession
+                            |> Request.Hasura.dataSource
+                            |> DataSource.map
+                                (\todos ->
+                                    ( session
+                                    , Response.render
+                                        { entries = todos |> Maybe.withDefault [] -- TODO add error handling for Nothing case
+                                        , visibility = visibility
+                                        }
+                                    )
+                                )
+
+                    Nothing ->
+                        DataSource.succeed
                             ( session
-                            , Response.render
-                                { entries = todos |> Maybe.withDefault [] -- TODO add error handling for Nothing case
-                                , visibility = routeParams.visibility |> Maybe.withDefault "All"
-                                }
+                            , Route.Visibility__ { visibility = Nothing }
+                                |> Route.redirectTo
                             )
-                        )
             )
 
 
@@ -446,18 +471,18 @@ deleteItemForm =
 -- VIEW ALL ENTRIES
 
 
-viewEntries : StaticPayload Data ActionData RouteParams -> String -> List Todo -> Html (Pages.Msg.Msg Msg)
+viewEntries : StaticPayload Data ActionData RouteParams -> Visibility -> List Todo -> Html (Pages.Msg.Msg Msg)
 viewEntries app visibility entries =
     let
         isVisible todo =
             case visibility of
-                "Completed" ->
+                Completed ->
                     todo.completed
 
-                "Active" ->
+                Active ->
                     not todo.completed
 
-                _ ->
+                All ->
                     True
 
         allCompleted =
@@ -555,7 +580,7 @@ uuidToString (Uuid uuid) =
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : String -> List Todo -> Html (Pages.Msg.Msg Msg)
+viewControls : Visibility -> List Todo -> Html (Pages.Msg.Msg Msg)
 viewControls visibility entries =
     let
         entriesCompleted =
@@ -591,25 +616,43 @@ viewControlsCount entriesLeft =
         ]
 
 
-viewControlsFilters : String -> Html (Pages.Msg.Msg Msg)
+type Visibility
+    = All
+    | Active
+    | Completed
+
+
+viewControlsFilters : Visibility -> Html (Pages.Msg.Msg Msg)
 viewControlsFilters visibility =
     ul
         [ class "filters" ]
-        [ visibilitySwap "#/" "All" visibility
+        [ visibilitySwap "/" All visibility
         , text " "
-        , visibilitySwap "#/active" "Active" visibility
+        , visibilitySwap "/active" Active visibility
         , text " "
-        , visibilitySwap "#/completed" "Completed" visibility
+        , visibilitySwap "/completed" Completed visibility
         ]
 
 
-visibilitySwap : String -> String -> String -> Html (Pages.Msg.Msg Msg)
+visibilityToString : Visibility -> String
+visibilityToString visibility =
+    case visibility of
+        All ->
+            "All"
+
+        Active ->
+            "Active"
+
+        Completed ->
+            "Completed"
+
+
+visibilitySwap : String -> Visibility -> Visibility -> Html (Pages.Msg.Msg Msg)
 visibilitySwap uri visibility actualVisibility =
     li
-        [--onClick (ChangeVisibility visibility)
-        ]
+        []
         [ a [ href uri, classList [ ( "selected", visibility == actualVisibility ) ] ]
-            [ text visibility ]
+            [ visibility |> visibilityToString |> text ]
         ]
 
 
