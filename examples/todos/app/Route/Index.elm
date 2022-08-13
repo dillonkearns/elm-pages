@@ -26,6 +26,7 @@ import Seo.Common
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
+import Set exposing (Set)
 import Shared
 import View exposing (View)
 
@@ -282,6 +283,38 @@ view :
     -> StaticPayload Data ActionData RouteParams
     -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model app =
+    let
+        pendingFetchers : List Action
+        pendingFetchers =
+            app.fetchers
+                |> List.filterMap
+                    (\{ status, payload } ->
+                        [ newItemForm, completeItemForm, deleteItemForm ]
+                            |> Form.runOneOfServerSide payload.fields
+                            |> Tuple.first
+                    )
+
+        deletingItems : Set String
+        deletingItems =
+            pendingFetchers
+                |> List.filterMap
+                    (\fetcher ->
+                        case fetcher of
+                            DeleteItem id ->
+                                Just id
+
+                            _ ->
+                                Nothing
+                    )
+                |> Set.fromList
+
+        entriesWithoutDeleted =
+            app.data.entries
+                |> List.filter
+                    (\item ->
+                        deletingItems |> Set.member (uuidToString item.id) |> not
+                    )
+    in
     { title = "Elm • TodoMVC"
     , body =
         [ div
@@ -293,8 +326,8 @@ view maybeUrl sharedModel model app =
                 [ newItemForm
                     |> Form.toDynamicFetcher "new-item"
                     |> Form.renderHtml [] Nothing app ()
-                , lazy3 viewEntries app model.visibility app.data.entries
-                , lazy2 viewControls model.visibility app.data.entries
+                , lazy3 viewEntries app model.visibility entriesWithoutDeleted
+                , lazy2 viewControls model.visibility entriesWithoutDeleted
                 ]
             , infoFooter
             ]
