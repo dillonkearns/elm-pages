@@ -38,6 +38,7 @@ import Pages.Transition
 import Path exposing (Path)
 import QueryParams
 import Task
+import Time
 import Url exposing (Url)
 
 
@@ -312,7 +313,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | SetField { formId : String, name : String, value : String }
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
     | FetcherComplete Int (Result Http.Error (Maybe userMsg))
-    | FetcherStarted FormDecoder.FormData
+    | FetcherStarted FormDecoder.FormData Time.Posix
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
@@ -713,14 +714,17 @@ update config appMsg model =
                     )
                 |> Result.withDefault ( model, NoEffect )
 
-        FetcherStarted fetcherData ->
+        FetcherStarted fetcherData initiatedAt ->
             -- TODO
             ( { model
                 | nextTransitionKey = model.nextTransitionKey + 1
                 , inFlightFetchers =
                     model.inFlightFetchers
                         |> Dict.insert model.nextTransitionKey
-                            { payload = fetcherData, status = Pages.Transition.FetcherSubmitting }
+                            { payload = fetcherData
+                            , status = Pages.Transition.FetcherSubmitting
+                            , initiatedAt = initiatedAt
+                            }
               }
             , NoEffect
             )
@@ -874,7 +878,7 @@ startFetcher options model =
     in
     -- TODO make sure that `actionData` isn't updated in Model for fetchers
     Cmd.batch
-        [ Task.succeed (FetcherStarted formData) |> Task.perform identity
+        [ Time.now |> Task.map (FetcherStarted formData) |> Task.perform identity
         , Http.request
             { expect =
                 Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
@@ -916,7 +920,7 @@ startFetcher2 formData model =
     in
     -- TODO make sure that `actionData` isn't updated in Model for fetchers
     Cmd.batch
-        [ Task.succeed (FetcherStarted formData) |> Task.perform identity
+        [ Time.now |> Task.map (FetcherStarted formData) |> Task.perform identity
         , Http.request
             { expect =
                 Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
