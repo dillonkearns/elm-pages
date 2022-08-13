@@ -294,6 +294,23 @@ view maybeUrl sharedModel model app =
                             |> Tuple.first
                     )
 
+        creatingItems : List Todo
+        creatingItems =
+            pendingFetchers
+                |> List.filterMap
+                    (\fetcher ->
+                        case fetcher of
+                            CreateItem description ->
+                                Just
+                                    { description = description
+                                    , completed = False
+                                    , id = Uuid ""
+                                    }
+
+                            _ ->
+                                Nothing
+                    )
+
         deletingItems : Set String
         deletingItems =
             pendingFetchers
@@ -308,12 +325,14 @@ view maybeUrl sharedModel model app =
                     )
                 |> Set.fromList
 
-        entriesWithoutDeleted =
-            app.data.entries
+        optimisticEntities =
+            (app.data.entries
                 |> List.filter
                     (\item ->
                         deletingItems |> Set.member (uuidToString item.id) |> not
                     )
+            )
+                ++ creatingItems
     in
     { title = "Elm • TodoMVC"
     , body =
@@ -326,8 +345,8 @@ view maybeUrl sharedModel model app =
                 [ newItemForm
                     |> Form.toDynamicFetcher "new-item"
                     |> Form.renderHtml [] Nothing app ()
-                , lazy3 viewEntries app model.visibility entriesWithoutDeleted
-                , lazy2 viewControls model.visibility entriesWithoutDeleted
+                , lazy3 viewEntries app model.visibility optimisticEntities
+                , lazy2 viewControls model.visibility optimisticEntities
                 ]
             , infoFooter
             ]
@@ -508,12 +527,16 @@ viewEntry app todo =
                 [--onDoubleClick (EditingEntry todo.id True)
                 ]
                 [ text todo.description ]
-            , deleteItemForm
-                |> Form.toDynamicFetcher ("delete-" ++ uuidToString todo.id)
-                |> Form.renderHtml []
-                    Nothing
-                    app
-                    todo
+            , if uuidToString todo.id == "" then
+                Html.text ""
+
+              else
+                deleteItemForm
+                    |> Form.toDynamicFetcher ("delete-" ++ uuidToString todo.id)
+                    |> Form.renderHtml []
+                        Nothing
+                        app
+                        todo
             ]
         , input
             [ class "edit"
