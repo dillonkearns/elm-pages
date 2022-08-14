@@ -161,7 +161,7 @@ action routeParams =
                         |> Result.withDefault Nothing
                         |> Maybe.withDefault Session.empty
             in
-            case formResult |> Debug.log "formResult" of
+            case formResult of
                 Ok (DeleteItem itemId) ->
                     okSessionThing
                         |> Session.get "sessionId"
@@ -185,11 +185,9 @@ action routeParams =
 
                                         Just userId ->
                                             Data.Todo.delete
-                                                ({ userId = userId
-                                                 , itemId = Uuid itemId
-                                                 }
-                                                    |> Debug.log "@delete"
-                                                )
+                                                { userId = userId
+                                                , itemId = Uuid itemId
+                                                }
                                                 |> Request.Hasura.mutationDataSource
                                                 |> DataSource.map
                                                     (\() ->
