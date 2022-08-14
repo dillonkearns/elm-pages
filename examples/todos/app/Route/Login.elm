@@ -108,7 +108,7 @@ form =
                     (\email ->
                         DataSource.map2 EnvVariables
                             (DataSource.Env.expect "TODOS_SEND_GRID_KEY")
-                            (DataSource.Env.get "URL"
+                            (DataSource.Env.get "BASE_URL"
                                 |> DataSource.map (Maybe.withDefault "http://localhost:1234")
                             )
                             |> DataSource.andThen (sendEmailDataSource email)
