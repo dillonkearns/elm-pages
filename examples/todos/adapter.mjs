@@ -187,8 +187,9 @@ async function render(event, context) {
     }
   } catch (error) {
     console.error(error);
+    console.error(JSON.stringify(error, null, 2));
     return {
-      body: \`<body><h1>Error</h1><pre>\${error.toString()}</pre></body>\`,
+      body: \`<body><h1>Error</h1><pre>\${JSON.stringify(error, null, 2)}</pre></body>\`,
       statusCode: 500,
       headers: {
         "Content-Type": "text/html",
