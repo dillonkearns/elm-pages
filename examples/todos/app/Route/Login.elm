@@ -288,13 +288,13 @@ action routeParams =
                             Err (Form.Response error) ->
                                 Server.Response.render
                                     { maybeError = Just error
-                                    , maybeFlash = Nothing
+                                    , sentLink = False
                                     }
                                     |> DataSource.succeed
 
                             Ok ( _, emailAddress ) ->
                                 { maybeError = Nothing
-                                , maybeFlash = Just "Check your inbox for your login link!"
+                                , sentLink = True
                                 }
                                     |> Server.Response.render
                                     |> DataSource.succeed
@@ -335,7 +335,7 @@ type alias ActionData =
             { fields : List ( String, String )
             , errors : Dict String (List String)
             }
-    , maybeFlash : Maybe String
+    , sentLink : Bool
     }
 
 
@@ -347,24 +347,30 @@ view :
 view maybeUrl sharedModel app =
     { title = "Login"
     , body =
-        [ Html.p []
-            [ Html.text
-                (case app.data.username of
-                    Just username ->
-                        "Hello! You are already logged in as " ++ username
+        [ if app.action |> Maybe.map .sentLink |> Maybe.withDefault False then
+            Html.text "Check your inbox for your login link!"
 
-                    Nothing ->
-                        "You aren't logged in yet."
-                )
-            ]
-        , form
-            |> Form.toDynamicTransition "login"
-            |> Form.renderHtml []
-                (app.action
-                    |> Maybe.andThen .maybeError
-                )
-                app
-                ()
+          else
+            Html.div []
+                [ Html.p []
+                    [ Html.text
+                        (case app.data.username of
+                            Just username ->
+                                "Hello! You are already logged in as " ++ username
+
+                            Nothing ->
+                                "You aren't logged in yet."
+                        )
+                    ]
+                , form
+                    |> Form.toDynamicTransition "login"
+                    |> Form.renderHtml []
+                        (app.action
+                            |> Maybe.andThen .maybeError
+                        )
+                        app
+                        ()
+                ]
         ]
     }
 
