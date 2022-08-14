@@ -25,6 +25,7 @@ import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Request.Hasura
+import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import SendGrid
 import Server.Request as Request
@@ -245,9 +246,8 @@ data routeParams =
                                                         (\(Uuid sessionId) ->
                                                             ( okSessionThing
                                                                 |> Session.insert "sessionId" sessionId
-                                                            , Just confirmedEmail
-                                                                |> Data
-                                                                |> Server.Response.render
+                                                            , Route.Visibility__ { visibility = Nothing }
+                                                                |> Route.redirectTo
                                                             )
                                                         )
 
