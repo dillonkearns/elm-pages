@@ -71,8 +71,8 @@ now =
         (Decode.int |> Decode.map Time.millisToPosix)
 
 
-emailToMagicLink : EmailAddress -> DataSource String
-emailToMagicLink email =
+emailToMagicLink : EmailAddress -> String -> DataSource String
+emailToMagicLink email baseUrl =
     now
         |> DataSource.andThen
             (\now_ ->
@@ -87,10 +87,16 @@ emailToMagicLink email =
                     (Decode.string
                         |> Decode.map
                             (\encryptedString ->
-                                "http://localhost:1234/login?magic=" ++ encryptedString
+                                baseUrl ++ "/login?magic=" ++ encryptedString
                             )
                     )
             )
+
+
+type alias EnvVariables =
+    { sendGridKey : String
+    , siteUrl : String
+    }
 
 
 form : Form.DoneForm String (DataSource (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
@@ -100,7 +106,11 @@ form =
             { combine =
                 Validation.succeed
                     (\email ->
-                        DataSource.Env.expect "TODOS_SEND_GRID_KEY"
+                        DataSource.map2 EnvVariables
+                            (DataSource.Env.expect "TODOS_SEND_GRID_KEY")
+                            (DataSource.Env.get "URL"
+                                |> DataSource.map (Maybe.withDefault "http://localhost:1234")
+                            )
                             |> DataSource.andThen (sendEmailDataSource email)
                             |> DataSource.map
                                 (\emailSendResult ->
@@ -364,9 +374,9 @@ sendFake =
     False
 
 
-sendEmailDataSource : EmailAddress -> String -> DataSource (Result SendGrid.Error ())
-sendEmailDataSource recipient apiKey =
-    emailToMagicLink recipient
+sendEmailDataSource : EmailAddress -> EnvVariables -> DataSource (Result SendGrid.Error ())
+sendEmailDataSource recipient env =
+    emailToMagicLink recipient env.siteUrl
         |> DataSource.andThen
             (\magicLinkString ->
                 let
@@ -396,7 +406,7 @@ sendEmailDataSource recipient apiKey =
                                     , nameOfSender = "Todo App"
                                     , emailAddressOfSender = justSender
                                     }
-                                    |> sendEmail apiKey
+                                    |> sendEmail env.sendGridKey
                             )
                         |> Maybe.withDefault (DataSource.fail "Expected a valid sender email address.")
             )
