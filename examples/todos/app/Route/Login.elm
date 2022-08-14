@@ -143,6 +143,26 @@ form =
             }
         )
         |> Form.field "email" (Field.text |> Field.email |> Field.required "Required")
+        |> Form.hiddenKind ( "kind", "login" ) "Expected kind"
+
+
+logoutForm : Form.DoneForm String () data (List (Html (Pages.Msg.Msg Msg)))
+logoutForm =
+    Form.init
+        { combine =
+            Validation.succeed ()
+        , view =
+            \info ->
+                [ Html.button []
+                    [ if info.isTransitioning then
+                        Html.text "Logging out..."
+
+                      else
+                        Html.text "Log out"
+                    ]
+                ]
+        }
+        |> Form.hiddenKind ( "kind", "logout" ) "Expected kind"
 
 
 fieldView :
@@ -279,29 +299,58 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.map2
-        (\sendMagicLinkDataSource requestTime ->
-            sendMagicLinkDataSource
-                |> DataSource.andThen
-                    (\usernameResult ->
-                        case usernameResult of
-                            Err (Form.Response error) ->
-                                Server.Response.render
-                                    { maybeError = Just error
-                                    , sentLink = False
-                                    }
-                                    |> DataSource.succeed
-
-                            Ok ( _, emailAddress ) ->
-                                { maybeError = Nothing
-                                , sentLink = True
-                                }
-                                    |> Server.Response.render
-                                    |> DataSource.succeed
-                    )
+    MySession.withSession
+        (Request.map2 Tuple.pair
+            (Request.oneOf
+                [ Request.formData [ logoutForm ] |> Request.map (\_ -> Logout)
+                , Request.formDataWithServerValidation [ form ] |> Request.map LI
+                ]
+            )
+            Request.requestTime
         )
-        (Request.formDataWithServerValidation [ form ])
-        Request.requestTime
+        (\( parsedRequest, requestTime ) session ->
+            case parsedRequest of
+                Logout ->
+                    ( Session.empty
+                    , Route.Login |> Route.redirectTo
+                    )
+                        |> DataSource.succeed
+
+                LI sendMagicLinkDataSource ->
+                    sendMagicLinkDataSource
+                        |> DataSource.andThen
+                            (\usernameResult ->
+                                let
+                                    okSession =
+                                        session
+                                            |> Result.withDefault Nothing
+                                            |> Maybe.withDefault Session.empty
+                                in
+                                case usernameResult of
+                                    Err (Form.Response error) ->
+                                        ( okSession
+                                        , Server.Response.render
+                                            { maybeError = Just error
+                                            , sentLink = False
+                                            }
+                                        )
+                                            |> DataSource.succeed
+
+                                    Ok ( _, emailAddress ) ->
+                                        ( okSession
+                                        , { maybeError = Nothing
+                                          , sentLink = True
+                                          }
+                                            |> Server.Response.render
+                                        )
+                                            |> DataSource.succeed
+                            )
+        )
+
+
+type Action
+    = LI (DataSource (Result (Form.Response String) ( Form.Response String, EmailAddress )))
+    | Logout
 
 
 head :
@@ -353,14 +402,20 @@ view maybeUrl sharedModel app =
           else
             Html.div []
                 [ Html.p []
-                    [ Html.text
-                        (case app.data.username of
-                            Just username ->
-                                "Hello! You are already logged in as " ++ username
+                    [ case app.data.username of
+                        Just username ->
+                            Html.div []
+                                [ Html.text <| "Hello! You are already logged in as " ++ username
+                                , logoutForm
+                                    |> Form.toDynamicTransition "logout"
+                                    |> Form.renderHtml []
+                                        Nothing
+                                        app
+                                        ()
+                                ]
 
-                            Nothing ->
-                                "You aren't logged in yet."
-                        )
+                        Nothing ->
+                            Html.text "You aren't logged in yet."
                     ]
                 , form
                     |> Form.toDynamicTransition "login"
