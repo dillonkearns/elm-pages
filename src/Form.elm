@@ -10,8 +10,9 @@ module Form exposing
     , parse, runServerSide, runOneOfServerSide
     , dynamic
     , AppContext
-    , toServerForm
-    -- subGroup
+    ,  toServerForm
+       -- subGroup
+
     )
 
 {-| One of the core features of elm-pages is helping you manage form data end-to-end, including
@@ -939,18 +940,16 @@ renderHtml :
             (Context error data
              -> List (Html (Pages.Msg.Msg msg))
             )
+            msg
     -> Html (Pages.Msg.Msg msg)
 renderHtml attrs maybe app data (FinalForm options a b c) =
     Html.Lazy.lazy6 renderHelper attrs maybe options app data (FormInternal a b c)
 
 
 {-| -}
-type FinalForm error parsed data view
+type FinalForm error parsed data view userMsg
     = FinalForm
-        { submitStrategy : SubmitStrategy
-        , method : Method
-        , name : Maybe String
-        }
+        (RenderOptions userMsg)
         (List ( String, FieldDefinition ))
         (Maybe data
          -> FormState
@@ -981,12 +980,14 @@ toDynamicFetcher :
             (Validation error parsed field constraints)
             data
             (Context error data -> view)
+            userMsg
 toDynamicFetcher name (Form a b c) =
     let
         options =
             { submitStrategy = FetcherStrategy
             , method = Post
             , name = Just name
+            , onSubmit = Nothing
             }
 
         transformB :
@@ -1047,12 +1048,14 @@ toDynamicTransition :
             (Validation error parsed field constraints)
             data
             (Context error data -> view)
+            userMsg
 toDynamicTransition name (Form a b c) =
     let
         options =
             { submitStrategy = TransitionStrategy
             , method = Post
             , name = Just name
+            , onSubmit = Nothing
             }
 
         transformB :
@@ -1098,7 +1101,7 @@ toDynamicTransition name (Form a b c) =
 
 
 {-| -}
-withGetMethod : FinalForm error parsed data view -> FinalForm error parsed data view
+withGetMethod : FinalForm error parsed data view userMsg -> FinalForm error parsed data view userMsg
 withGetMethod (FinalForm options a b c) =
     FinalForm { options | method = Get } a b c
 
@@ -1121,6 +1124,7 @@ renderStyledHtml :
             (Context error data
              -> List (Html.Styled.Html (Pages.Msg.Msg msg))
             )
+            msg
     -> Html.Styled.Html (Pages.Msg.Msg msg)
 renderStyledHtml attrs maybe app data (FinalForm options a b c) =
     Html.Styled.Lazy.lazy6 renderStyledHelper attrs maybe options app data (FormInternal a b c)
@@ -1141,7 +1145,7 @@ renderHelper :
             { fields : List ( String, String )
             , errors : Dict String (List error)
             }
-    -> RenderOptions
+    -> RenderOptions msg
     -> AppContext app
     -> data
     -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
@@ -1180,7 +1184,7 @@ renderStyledHelper :
             { fields : List ( String, String )
             , errors : Dict String (List error)
             }
-    -> RenderOptions
+    -> RenderOptions msg
     -> AppContext app
     -> data
     -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
@@ -1215,13 +1219,13 @@ renderStyledHelper attrs maybe options formState data ((FormInternal fieldDefini
 
 
 helperValues :
-    (List (Html.Attribute msg) -> view)
+    (List (Html.Attribute (Pages.Msg.Msg msg)) -> view)
     ->
         Maybe
             { fields : List ( String, String )
             , errors : Dict String (List error)
             }
-    -> RenderOptions
+    -> RenderOptions msg
     -> AppContext app
     -> data
     ---> Form error parsed data view
@@ -1444,10 +1448,11 @@ type Form error combineAndView data
         (data -> List ( String, String ))
 
 
-type alias RenderOptions =
+type alias RenderOptions userMsg =
     { submitStrategy : SubmitStrategy
     , method : Method
     , name : Maybe String
+    , onSubmit : Maybe ({ fields : List ( String, String ) } -> userMsg)
     }
 
 
