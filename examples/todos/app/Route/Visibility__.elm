@@ -188,6 +188,13 @@ action routeParams =
                         |> Maybe.withDefault Session.empty
             in
             case formResult of
+                Ok (EditItem itemId) ->
+                    ( okSessionThing
+                      -- TODO implement
+                    , Response.render {}
+                    )
+                        |> DataSource.succeed
+
                 Ok (DeleteItem itemId) ->
                     okSessionThing
                         |> Session.get "sessionId"
@@ -406,14 +413,17 @@ view maybeUrl sharedModel model app =
     , body =
         [ div
             [ class "todomvc-wrapper"
-            , style "visibility" "hidden"
             ]
             [ section
                 [ class "todoapp" ]
                 [ newItemForm
                     |> Form.toDynamicFetcher "new-item"
                     |> Form.withOnSubmit (\_ -> ClearNewItemInput)
-                    |> Form.renderHtml [] Nothing app ()
+                    |> Form.renderHtml
+                        [ class "create-form" ]
+                        Nothing
+                        app
+                        ()
                 , lazy3 viewEntries app app.data.visibility optimisticEntities
                 , lazy2 viewControls app.data.visibility optimisticEntities
                 ]
@@ -459,6 +469,7 @@ type Action
     = CreateItem String
     | DeleteItem String
     | ToggleItem ( Bool, String )
+    | EditItem ( String, String )
 
 
 completeItemForm : Form.HtmlForm String Action Todo Msg
@@ -547,12 +558,16 @@ viewEntries app visibility entries =
         [ class "main"
         , style "visibility" cssVisibility
         ]
-        [ input
-            [ class "toggle-all"
-            , type_ "checkbox"
+        [ button
+            [ classList
+                [ ( "toggle-all", True )
+                , ( "checked"
+                  , True
+                  )
+                ]
             , name "toggle"
-            , checked allCompleted
 
+            --, checked allCompleted
             --, onClick (CheckAll (not allCompleted))
             ]
             []
@@ -590,10 +605,12 @@ viewEntry app todo =
                     Nothing
                     app
                     todo
-            , label
-                [--onDoubleClick (EditingEntry todo.id True)
-                ]
-                [ text todo.description ]
+            , editItemForm
+                |> Form.toDynamicFetcher ("edit-" ++ uuidToString todo.id)
+                |> Form.renderHtml []
+                    Nothing
+                    app
+                    todo
             , if uuidToString todo.id == "" then
                 Html.text ""
 
@@ -605,18 +622,37 @@ viewEntry app todo =
                         app
                         todo
             ]
-        , input
-            [ class "edit"
-            , value todo.description
-            , name "title"
-            , id ("todo-" ++ uuidToString todo.id)
-
-            --, onInput (UpdateEntry todo.id)
-            --, onBlur (EditingEntry todo.id False)
-            --, onEnter (EditingEntry todo.id False)
-            ]
-            []
         ]
+
+
+editItemForm : Form.HtmlForm String Action Todo Msg
+editItemForm =
+    Form.init
+        (\itemId description ->
+            { combine =
+                Validation.succeed Tuple.pair
+                    |> Validation.andMap itemId
+                    |> Validation.andMap description
+                    |> Validation.map EditItem
+            , view =
+                \formState ->
+                    [ FieldView.input
+                        [ class "edit-input"
+                        , name "title"
+                        , id ("todo-" ++ uuidToString formState.data.id)
+                        ]
+                        description
+                    , Html.button [ style "display" "none" ] [ Html.text "Edit" ]
+                    ]
+            }
+        )
+        |> Form.hiddenField "itemId" (Field.text |> Field.required "Must be present")
+        |> Form.field "description"
+            (Field.text
+                |> Field.required "Must be present"
+                |> Field.withInitialValue (.description >> Form.Value.string)
+            )
+        |> Form.hiddenKind ( "kind", "edit-item" ) "Expected kind"
 
 
 uuidToString : Uuid -> String
