@@ -13,6 +13,7 @@ import Form.FieldView as FieldView
 import Form.Validation as Validation
 import Form.Value
 import Head
+import Head.Seo as Seo
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed as Keyed
@@ -20,11 +21,11 @@ import Html.Lazy exposing (lazy, lazy2, lazy3)
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
 import Path exposing (Path)
 import Request.Hasura
 import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
-import Seo.Common
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
@@ -105,7 +106,20 @@ head :
     StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
-    Seo.Common.tags
+    Seo.summary
+        { canonicalUrlOverride = Nothing
+        , siteName = "Ctrl-R Smoothies"
+        , image =
+            { url = Pages.Url.external "https://images.unsplash.com/photo-1499750310107-5fef28a66643?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=600&q=80"
+            , alt = "Desk with a Todo List"
+            , dimensions = Nothing
+            , mimeType = Nothing
+            }
+        , description = "Manage your list"
+        , locale = Nothing
+        , title = "Ctrl-R Smoothies"
+        }
+        |> Seo.website
 
 
 visibilityFromRouteParams { visibility } =
