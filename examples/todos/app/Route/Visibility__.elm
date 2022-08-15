@@ -437,6 +437,12 @@ view maybeUrl sharedModel model app =
                                 Nothing
                     )
 
+        isClearing : Bool
+        isClearing =
+            pendingFetchers
+                |> List.any
+                    (\fetcher -> fetcher == ClearCompleted)
+
         deletingItems : Set String
         deletingItems =
             pendingFetchers
@@ -470,7 +476,7 @@ view maybeUrl sharedModel model app =
             (app.data.entries
                 |> List.filterMap
                     (\item ->
-                        if deletingItems |> Set.member (uuidToString item.id) then
+                        if (isClearing && item.completed) || (deletingItems |> Set.member (uuidToString item.id)) then
                             Nothing
 
                         else
