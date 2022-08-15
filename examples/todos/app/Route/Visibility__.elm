@@ -57,6 +57,7 @@ type alias Model =
 
 type Msg
     = NoOp
+    | ClearNewItemInput
 
 
 type alias RouteParams =
@@ -95,6 +96,15 @@ update pageUrl sharedModel static msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
+
+        ClearNewItemInput ->
+            ( model
+            , Effect.SetField
+                { formId = "new-item"
+                , name = "description"
+                , value = ""
+                }
+            )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -402,6 +412,7 @@ view maybeUrl sharedModel model app =
                 [ class "todoapp" ]
                 [ newItemForm
                     |> Form.toDynamicFetcher "new-item"
+                    |> Form.withOnSubmit (\_ -> ClearNewItemInput)
                     |> Form.renderHtml [] Nothing app ()
                 , lazy3 viewEntries app app.data.visibility optimisticEntities
                 , lazy2 viewControls app.data.visibility optimisticEntities
