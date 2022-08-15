@@ -12,6 +12,7 @@ module Form exposing
     , AppContext
     ,  toServerForm
        -- subGroup
+      , withOnSubmit
 
     )
 
@@ -261,6 +262,7 @@ import Form.FieldView
 import Form.Validation as Validation exposing (Combined, Validation)
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Events
 import Html.Lazy
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
@@ -1107,6 +1109,12 @@ withGetMethod (FinalForm options a b c) =
 
 
 {-| -}
+withOnSubmit : ({ fields : List ( String, String ) } -> userMsg) -> FinalForm error parsed data view userMsg -> FinalForm error parsed data view userMsg
+withOnSubmit onSubmit (FinalForm options a b c) =
+    FinalForm { options | onSubmit = Just onSubmit } a b c
+
+
+{-| -}
 renderStyledHtml :
     List (Html.Styled.Attribute (Pages.Msg.Msg msg))
     ->
@@ -1167,7 +1175,7 @@ renderHelper attrs maybe options formState data ((FormInternal fieldDefinitions 
                , Attr.novalidate True
                , case options.submitStrategy of
                     FetcherStrategy ->
-                        Pages.Msg.fetcherOnSubmit formId (\_ -> isValid)
+                        Pages.Msg.fetcherOnSubmit options.onSubmit formId (\_ -> isValid)
 
                     TransitionStrategy ->
                         Pages.Msg.submitIfValid formId (\_ -> isValid)
@@ -1207,7 +1215,7 @@ renderStyledHelper attrs maybe options formState data ((FormInternal fieldDefini
                , case options.submitStrategy of
                     FetcherStrategy ->
                         StyledAttr.fromUnstyled <|
-                            Pages.Msg.fetcherOnSubmit formId (\_ -> isValid)
+                            Pages.Msg.fetcherOnSubmit options.onSubmit formId (\_ -> isValid)
 
                     TransitionStrategy ->
                         StyledAttr.fromUnstyled <|

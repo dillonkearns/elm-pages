@@ -498,12 +498,19 @@ update config appMsg model =
                         , NoEffect
                         )
 
-                Pages.Msg.SubmitFetcher fieldId fields isValid ->
+                Pages.Msg.SubmitFetcher fieldId fields isValid maybeUserMsg ->
                     if isValid then
                         -- TODO should I setSubmitAttempted here, too?
                         ( model
                         , SubmitFetcher fields
                         )
+                            |> (case maybeUserMsg of
+                                    Just justUserMsg ->
+                                        performUserMsg justUserMsg config
+
+                                    Nothing ->
+                                        identity
+                               )
 
                     else
                         ( { model
