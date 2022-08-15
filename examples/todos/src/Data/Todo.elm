@@ -96,6 +96,26 @@ update { todoId, userId, newDescription } =
         |> SelectionSet.nonNullOrFail
 
 
+clearCompletedTodos : Uuid -> SelectionSet () RootMutation
+clearCompletedTodos userId =
+    Api.Mutation.delete_todos
+        { where_ =
+            Api.InputObject.buildTodos_bool_exp
+                (\opts ->
+                    { opts
+                        | user_id = Present (eqUuid userId)
+                        , complete =
+                            Present
+                                (Api.InputObject.buildBoolean_comparison_exp
+                                    (eq True)
+                                )
+                    }
+                )
+        }
+        SelectionSet.empty
+        |> SelectionSet.nonNullOrFail
+
+
 setCompleteTo : { userId : Uuid, itemId : Uuid, newCompleteValue : Bool } -> SelectionSet () RootMutation
 setCompleteTo { userId, itemId, newCompleteValue } =
     Api.Mutation.update_todos

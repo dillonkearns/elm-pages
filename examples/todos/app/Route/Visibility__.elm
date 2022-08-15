@@ -178,7 +178,7 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
-        (Request.formData [ newItemForm, completeItemForm, deleteItemForm, editItemForm ])
+        (Request.formData [ newItemForm, completeItemForm, deleteItemForm, editItemForm, clearCompletedForm ])
         (\formResult session ->
             let
                 okSessionThing : Session
@@ -188,6 +188,45 @@ action routeParams =
                         |> Maybe.withDefault Session.empty
             in
             case formResult of
+                Ok ClearCompleted ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.clearCompletedTodos userId
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
                 Ok (EditItem ( itemId, newDescription )) ->
                     okSessionThing
                         |> Session.get "sessionId"
@@ -376,7 +415,7 @@ view maybeUrl sharedModel model app =
             app.fetchers
                 |> List.filterMap
                     (\{ status, payload } ->
-                        [ editItemForm, newItemForm, completeItemForm, deleteItemForm ]
+                        [ editItemForm, newItemForm, completeItemForm, deleteItemForm, clearCompletedForm ]
                             |> Form.runOneOfServerSide payload.fields
                             |> Tuple.first
                     )
@@ -461,7 +500,7 @@ view maybeUrl sharedModel model app =
                         app
                         ()
                 , lazy3 viewEntries app app.data.visibility optimisticEntities
-                , lazy2 viewControls app.data.visibility optimisticEntities
+                , lazy3 viewControls app app.data.visibility optimisticEntities
                 ]
             , infoFooter
             ]
@@ -506,6 +545,7 @@ type Action
     | DeleteItem String
     | ToggleItem ( Bool, String )
     | EditItem ( String, String )
+    | ClearCompleted
 
 
 completeItemForm : Form.HtmlForm String Action Todo Msg
@@ -539,6 +579,29 @@ completeItemForm =
                 |> Field.withInitialValue (.completed >> not >> Form.Value.bool)
             )
         |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
+
+
+clearCompletedForm : Form.HtmlForm String Action input Msg
+clearCompletedForm =
+    Form.init
+        { combine =
+            Validation.succeed ClearCompleted
+        , view =
+            \formState ->
+                [ button
+                    [ class "clear-completed"
+
+                    --, hidden (entriesCompleted == 0)
+                    ]
+                    [ text "Clear completed"
+
+                    -- TODO need to enable merging forms with different input types (and action types) to make this possible (input types are all Todo now,
+                    -- need it to be Int)
+                    -- text ("Clear completed (" ++ String.fromInt entriesCompleted ++ ")")
+                    ]
+                ]
+        }
+        |> Form.hiddenKind ( "kind", "clear-completed" ) "Expected kind"
 
 
 deleteItemForm : Form.HtmlForm String Action Todo Msg
@@ -702,8 +765,8 @@ uuidToString (Uuid uuid) =
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : Visibility -> List Todo -> Html (Pages.Msg.Msg Msg)
-viewControls visibility entries =
+viewControls : StaticPayload Data ActionData RouteParams -> Visibility -> List Todo -> Html (Pages.Msg.Msg Msg)
+viewControls app visibility entries =
     let
         entriesCompleted =
             List.length (List.filter .completed entries)
@@ -717,7 +780,7 @@ viewControls visibility entries =
         ]
         [ lazy viewControlsCount entriesLeft
         , lazy viewControlsFilters visibility
-        , lazy viewControlsClear entriesCompleted
+        , lazy2 viewControlsClear app entriesCompleted
         ]
 
 
@@ -778,16 +841,11 @@ visibilitySwap uri visibility actualVisibility =
         ]
 
 
-viewControlsClear : Int -> Html (Pages.Msg.Msg Msg)
-viewControlsClear entriesCompleted =
-    button
-        [ class "clear-completed"
-        , hidden (entriesCompleted == 0)
-
-        --, onClick DeleteComplete
-        ]
-        [ text ("Clear completed (" ++ String.fromInt entriesCompleted ++ ")")
-        ]
+viewControlsClear : StaticPayload Data ActionData RouteParams -> Int -> Html (Pages.Msg.Msg Msg)
+viewControlsClear app entriesCompleted =
+    clearCompletedForm
+        |> Form.toDynamicFetcher "clear-completed"
+        |> Form.renderHtml [] Nothing app ()
 
 
 infoFooter : Html msg
