@@ -10,6 +10,7 @@ module Form exposing
     , parse, runServerSide, runOneOfServerSide
     , dynamic
     , AppContext
+    , toServerForm
     -- subGroup
     )
 
@@ -641,6 +642,49 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
         )
 
 
+toServerForm :
+    Form
+        error
+        { combine : Validation error combined kind constraints
+        , view : viewFn
+        }
+        data
+    ->
+        Form
+            error
+            { combine : Validation error (DataSource (Validation error combined kind constraints)) kind constraints
+            , view : viewFn
+            }
+            data
+toServerForm (Form a b c) =
+    let
+        mappedB :
+            Maybe data
+            -> FormState
+            ->
+                { result : Dict String (List error)
+                , combineAndView :
+                    { combine : Validation error (DataSource (Validation error combined kind constraints)) kind constraints
+                    , view : viewFn
+                    }
+                }
+        mappedB maybeData formState =
+            b maybeData formState
+                |> (\thing ->
+                        { result = thing.result
+                        , combineAndView =
+                            { combine =
+                                thing.combineAndView.combine
+                                    |> DataSource.succeed
+                                    |> Validation.succeed2
+                            , view = thing.combineAndView.view
+                            }
+                        }
+                   )
+    in
+    Form a mappedB c
+
+
 {-| -}
 hiddenKind :
     ( String, String )
@@ -740,44 +784,6 @@ mergeResults parsed =
                 ( parsedThing
                 , mergeErrors combineErrors individualFieldErrors
                 )
-
-
-mergeResultsDataSource :
-    { a
-        | result : ( Validation error parsed named constraints, Dict String (List error) )
-        , serverValidations : DataSource (List ( String, List error ))
-    }
-    -> ( Maybe parsed, DataSource (Dict String (List error)) )
-mergeResultsDataSource parsed =
-    case parsed.result of
-        ( Pages.Internal.Form.Validation _ _ ( parsedThing, combineErrors ), individualFieldErrors ) ->
-            ( parsedThing
-            , parsed.serverValidations
-                |> DataSource.map
-                    (\serverValidationErrorsList ->
-                        let
-                            serverValidationErrors : Dict String (List error)
-                            serverValidationErrors =
-                                serverValidationErrorsList
-                                    |> List.foldl
-                                        (\( key, errorsForKey ) soFar ->
-                                            soFar
-                                                |> Dict.update key
-                                                    (\maybeList ->
-                                                        maybeList
-                                                            |> Maybe.withDefault []
-                                                            |> List.append errorsForKey
-                                                            |> Just
-                                                    )
-                                        )
-                                        Dict.empty
-                        in
-                        mergeErrors
-                            combineErrors
-                            individualFieldErrors
-                            |> mergeErrors serverValidationErrors
-                    )
-            )
 
 
 mergeErrors : Dict comparable (List value) -> Dict comparable (List value) -> Dict comparable (List value)

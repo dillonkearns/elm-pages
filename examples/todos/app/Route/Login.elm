@@ -100,7 +100,7 @@ type alias EnvVariables =
     }
 
 
-form : Form.DoneForm String (DataSource (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (DataSource (Combined String Action)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\fieldEmail ->
@@ -117,7 +117,7 @@ form =
                                 (\emailSendResult ->
                                     case emailSendResult of
                                         Ok () ->
-                                            Validation.succeed email
+                                            Validation.succeed (LI email)
 
                                         Err error ->
                                             Validation.fail "Whoops, something went wrong sending an email to that address. Try again?" Validation.global
@@ -146,11 +146,11 @@ form =
         |> Form.hiddenKind ( "kind", "login" ) "Expected kind"
 
 
-logoutForm : Form.DoneForm String () data (List (Html (Pages.Msg.Msg Msg)))
+logoutForm : Form.DoneForm String Action data (List (Html (Pages.Msg.Msg Msg)))
 logoutForm =
     Form.init
         { combine =
-            Validation.succeed ()
+            Validation.succeed Logout
         , view =
             \info ->
                 [ Html.button []
@@ -302,54 +302,54 @@ action routeParams =
     MySession.withSession
         (Request.map2 Tuple.pair
             (Request.oneOf
-                [ Request.formData [ logoutForm ] |> Request.map (\_ -> Logout)
-                , Request.formDataWithServerValidation [ form ] |> Request.map LI
+                [ Request.formDataWithServerValidation
+                    [ logoutForm |> Form.toServerForm
+                    , form
+                    ]
                 ]
             )
             Request.requestTime
         )
-        (\( parsedRequest, requestTime ) session ->
-            case parsedRequest of
-                Logout ->
-                    ( Session.empty
-                    , Route.Login |> Route.redirectTo
+        (\( resolveFormDataSource, requestTime ) session ->
+            resolveFormDataSource
+                |> DataSource.andThen
+                    (\usernameResult ->
+                        let
+                            okSession =
+                                session
+                                    |> Result.withDefault Nothing
+                                    |> Maybe.withDefault Session.empty
+                        in
+                        case usernameResult of
+                            Err (Form.Response error) ->
+                                ( okSession
+                                , Server.Response.render
+                                    { maybeError = Just error
+                                    , sentLink = False
+                                    }
+                                )
+                                    |> DataSource.succeed
+
+                            Ok ( _, Logout ) ->
+                                ( Session.empty
+                                , Route.redirectTo Route.Login
+                                )
+                                    |> DataSource.succeed
+
+                            Ok ( _, LI emailAddress ) ->
+                                ( okSession
+                                , { maybeError = Nothing
+                                  , sentLink = True
+                                  }
+                                    |> Server.Response.render
+                                )
+                                    |> DataSource.succeed
                     )
-                        |> DataSource.succeed
-
-                LI sendMagicLinkDataSource ->
-                    sendMagicLinkDataSource
-                        |> DataSource.andThen
-                            (\usernameResult ->
-                                let
-                                    okSession =
-                                        session
-                                            |> Result.withDefault Nothing
-                                            |> Maybe.withDefault Session.empty
-                                in
-                                case usernameResult of
-                                    Err (Form.Response error) ->
-                                        ( okSession
-                                        , Server.Response.render
-                                            { maybeError = Just error
-                                            , sentLink = False
-                                            }
-                                        )
-                                            |> DataSource.succeed
-
-                                    Ok ( _, emailAddress ) ->
-                                        ( okSession
-                                        , { maybeError = Nothing
-                                          , sentLink = True
-                                          }
-                                            |> Server.Response.render
-                                        )
-                                            |> DataSource.succeed
-                            )
         )
 
 
 type Action
-    = LI (DataSource (Result (Form.Response String) ( Form.Response String, EmailAddress )))
+    = LI EmailAddress
     | Logout
 
 

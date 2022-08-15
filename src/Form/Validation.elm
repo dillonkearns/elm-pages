@@ -4,6 +4,7 @@ module Form.Validation exposing
     , value, fieldName, fieldStatus
     , map3, map4, map5, map6, map7, map8, map9
     , global
+    , succeed2
     )
 
 {-|
@@ -80,6 +81,12 @@ expectViewField viewField =
 {-| -}
 succeed : parsed -> Combined error parsed
 succeed parsed =
+    Validation Nothing Nothing ( Just parsed, Dict.empty )
+
+
+{-| -}
+succeed2 : parsed -> Validation error parsed kind constraints
+succeed2 parsed =
     Validation Nothing Nothing ( Just parsed, Dict.empty )
 
 
