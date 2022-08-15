@@ -30,6 +30,8 @@ import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Set exposing (Set)
 import Shared
+import Svg
+import Svg.Attributes as SvgAttr
 import View exposing (View)
 
 
@@ -445,14 +447,12 @@ completeItemForm =
                     |> Validation.map ToggleItem
             , view =
                 \formState ->
-                    [ Html.button []
-                        [ Html.text
-                            (if formState.data.completed then
-                                "( )"
+                    [ Html.button [ class "toggle" ]
+                        [ if formState.data.completed then
+                            completeIcon
 
-                             else
-                                "√"
-                            )
+                          else
+                            incompleteIcon
                         ]
                     ]
             }
@@ -707,4 +707,47 @@ infoFooter =
             [ text "Part of "
             , a [ href "http://todomvc.com" ] [ text "TodoMVC" ]
             ]
+        ]
+
+
+completeIcon : Html msg
+completeIcon =
+    Svg.svg
+        [ SvgAttr.width "40"
+        , SvgAttr.height "40"
+        , SvgAttr.viewBox "-10 -18 100 135"
+        ]
+        [ Svg.circle
+            [ SvgAttr.cx "50"
+            , SvgAttr.cy "50"
+            , SvgAttr.r "50"
+            , SvgAttr.fill "none"
+            , SvgAttr.stroke "#bddad5"
+            , SvgAttr.strokeWidth "3"
+            ]
+            []
+        , Svg.path
+            [ SvgAttr.fill "#5dc2af"
+            , SvgAttr.d "M72 25L42 71 27 56l-4 4 20 20 34-52z"
+            ]
+            []
+        ]
+
+
+incompleteIcon : Html msg
+incompleteIcon =
+    Svg.svg
+        [ SvgAttr.width "40"
+        , SvgAttr.height "40"
+        , SvgAttr.viewBox "-10 -18 100 135"
+        ]
+        [ Svg.circle
+            [ SvgAttr.cx "50"
+            , SvgAttr.cy "50"
+            , SvgAttr.r "50"
+            , SvgAttr.fill "none"
+            , SvgAttr.stroke "#ededed"
+            , SvgAttr.strokeWidth "3"
+            ]
+            []
         ]
