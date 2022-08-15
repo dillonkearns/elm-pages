@@ -178,7 +178,7 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
-        (Request.formData [ newItemForm, completeItemForm, deleteItemForm ])
+        (Request.formData [ newItemForm, completeItemForm, deleteItemForm, editItemForm ])
         (\formResult session ->
             let
                 okSessionThing : Session
@@ -188,12 +188,48 @@ action routeParams =
                         |> Maybe.withDefault Session.empty
             in
             case formResult of
-                Ok (EditItem itemId) ->
-                    ( okSessionThing
-                      -- TODO implement
-                    , Response.render {}
-                    )
-                        |> DataSource.succeed
+                Ok (EditItem ( itemId, newDescription )) ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.update
+                                                { userId = userId
+                                                , todoId = Uuid itemId
+                                                , newDescription = newDescription
+                                                }
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
 
                 Ok (DeleteItem itemId) ->
                     okSessionThing
@@ -340,7 +376,7 @@ view maybeUrl sharedModel model app =
             app.fetchers
                 |> List.filterMap
                     (\{ status, payload } ->
-                        [ newItemForm, completeItemForm, deleteItemForm ]
+                        [ editItemForm, newItemForm, completeItemForm, deleteItemForm ]
                             |> Form.runOneOfServerSide payload.fields
                             |> Tuple.first
                     )
@@ -593,8 +629,6 @@ viewEntry app todo =
     li
         [ classList
             [ ( "completed", todo.completed )
-
-            --, ( "editing", todo.editing )
             ]
         ]
         [ div
@@ -642,15 +676,19 @@ editItemForm =
                         , id ("todo-" ++ uuidToString formState.data.id)
                         ]
                         description
-                    , Html.button [ style "display" "none" ] [ Html.text "Edit" ]
+                    , Html.button [ style "display" "none" ] []
                     ]
             }
         )
-        |> Form.hiddenField "itemId" (Field.text |> Field.required "Must be present")
+        |> Form.hiddenField "itemId"
+            (Field.text
+                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
+                |> Field.required "Must be present"
+            )
         |> Form.field "description"
             (Field.text
-                |> Field.required "Must be present"
                 |> Field.withInitialValue (.description >> Form.Value.string)
+                |> Field.required "Must be present"
             )
         |> Form.hiddenKind ( "kind", "edit-item" ) "Expected kind"
 

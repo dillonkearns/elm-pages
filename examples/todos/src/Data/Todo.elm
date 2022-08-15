@@ -68,6 +68,34 @@ create userId title =
         |> SelectionSet.nonNullOrFail
 
 
+update : { todoId : Uuid, userId : Uuid, newDescription : String } -> SelectionSet () RootMutation
+update { todoId, userId, newDescription } =
+    Api.Mutation.update_todos
+        (\_ ->
+            { set_ =
+                Api.InputObject.buildTodos_set_input
+                    (\opts ->
+                        { opts
+                            | title = Present newDescription
+                        }
+                    )
+                    |> Present
+            }
+        )
+        { where_ =
+            Api.InputObject.buildTodos_bool_exp
+                (\opts ->
+                    { opts
+                        | id =
+                            Present (eqUuid todoId)
+                        , user_id = Present (eqUuid userId)
+                    }
+                )
+        }
+        SelectionSet.empty
+        |> SelectionSet.nonNullOrFail
+
+
 setCompleteTo : { userId : Uuid, itemId : Uuid, newCompleteValue : Bool } -> SelectionSet () RootMutation
 setCompleteTo { userId, itemId, newCompleteValue } =
     Api.Mutation.update_todos
