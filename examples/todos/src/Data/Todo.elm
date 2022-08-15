@@ -1,5 +1,6 @@
 module Data.Todo exposing (..)
 
+import Api.Enum.Order_by
 import Api.InputObject
 import Api.Mutation
 import Api.Object
@@ -24,7 +25,20 @@ findAllBySession : String -> SelectionSet (Maybe (List Todo)) RootQuery
 findAllBySession sessionId =
     Api.Query.sessions_by_pk { id = Uuid sessionId }
         (Api.Object.Sessions.user
-            (Api.Object.Users.todos identity
+            (Api.Object.Users.todos
+                (\opts ->
+                    { opts
+                        | order_by =
+                            Present
+                                [ Api.InputObject.buildTodos_order_by
+                                    (\opts2 ->
+                                        { opts2
+                                            | created_at = Present Api.Enum.Order_by.Asc
+                                        }
+                                    )
+                                ]
+                    }
+                )
                 todoSelection
             )
         )
