@@ -17,7 +17,7 @@ import Head.Seo as Seo
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed as Keyed
-import Html.Lazy exposing (lazy, lazy2, lazy3)
+import Html.Lazy exposing (lazy, lazy2)
 import Icon
 import MySession
 import Pages.Msg
@@ -33,8 +33,6 @@ import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Set exposing (Set)
 import Shared
-import Svg
-import Svg.Attributes as SvgAttr
 import View exposing (View)
 
 
@@ -203,10 +201,7 @@ action routeParams =
                                 |> Result.withDefault Nothing
                                 |> Maybe.withDefault Session.empty
                     in
-                    DataSource.succeed
-                        ( okSession
-                        , Response.render {}
-                        )
+                    DataSource.succeed ( okSession, Response.render {} )
         )
 
 
@@ -272,6 +267,7 @@ head static =
         |> Seo.website
 
 
+visibilityFromRouteParams : RouteParams -> Maybe Visibility
 visibilityFromRouteParams { visibility } =
     case visibility of
         Nothing ->
