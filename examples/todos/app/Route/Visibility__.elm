@@ -46,7 +46,7 @@ route =
         |> RouteBuilder.buildWithLocalState
             { view = view
             , update = update
-            , subscriptions = subscriptions
+            , subscriptions = \_ _ _ _ _ -> Sub.none
             , init = init
             }
 
@@ -240,11 +240,6 @@ withUserSession cookieSession continue =
                 )
             )
         |> Maybe.withDefault (DataSource.succeed ( okSession, Response.render {} ))
-
-
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
-    Sub.none
 
 
 head :
