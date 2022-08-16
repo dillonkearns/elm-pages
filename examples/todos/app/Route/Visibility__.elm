@@ -21,6 +21,7 @@ import Html.Lazy exposing (lazy, lazy2, lazy3)
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
+import Pages.Transition
 import Pages.Url
 import Path exposing (Path)
 import Request.Hasura
@@ -551,7 +552,7 @@ view maybeUrl sharedModel model app =
         optimisticVisibility : Visibility
         optimisticVisibility =
             case app.transition of
-                Just (Loading path _) ->
+                Just (Pages.Transition.Loading path _) ->
                     case path |> Path.toSegments of
                         [ "active" ] ->
                             Active
