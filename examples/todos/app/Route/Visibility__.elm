@@ -159,22 +159,6 @@ action routeParams =
                                 |> DataSource.map (\_ -> Response.render {})
                         )
 
-                Ok (CheckAll toggleTo) ->
-                    withUserSession session
-                        (\userId ->
-                            Data.Todo.toggleAllTo userId toggleTo
-                                |> Request.Hasura.mutationDataSource
-                                |> DataSource.map (\() -> Response.render {})
-                        )
-
-                Ok DeleteComplete ->
-                    withUserSession session
-                        (\userId ->
-                            Data.Todo.clearCompletedTodos userId
-                                |> Request.Hasura.mutationDataSource
-                                |> DataSource.map (\() -> Response.render {})
-                        )
-
                 Ok (UpdateEntry ( itemId, newDescription )) ->
                     withUserSession session
                         (\userId ->
@@ -198,6 +182,14 @@ action routeParams =
                                 |> DataSource.map (\() -> Response.render {})
                         )
 
+                Ok DeleteComplete ->
+                    withUserSession session
+                        (\userId ->
+                            Data.Todo.clearCompletedTodos userId
+                                |> Request.Hasura.mutationDataSource
+                                |> DataSource.map (\() -> Response.render {})
+                        )
+
                 Ok (Check ( newCompleteValue, itemId )) ->
                     withUserSession session
                         (\userId ->
@@ -206,6 +198,14 @@ action routeParams =
                                 , itemId = Uuid itemId
                                 , newCompleteValue = newCompleteValue
                                 }
+                                |> Request.Hasura.mutationDataSource
+                                |> DataSource.map (\() -> Response.render {})
+                        )
+
+                Ok (CheckAll toggleTo) ->
+                    withUserSession session
+                        (\userId ->
+                            Data.Todo.toggleAllTo userId toggleTo
                                 |> Request.Hasura.mutationDataSource
                                 |> DataSource.map (\() -> Response.render {})
                         )
