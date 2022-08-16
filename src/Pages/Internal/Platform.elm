@@ -885,7 +885,8 @@ startFetcher options model =
     in
     -- TODO make sure that `actionData` isn't updated in Model for fetchers
     Cmd.batch
-        [ Time.now |> Task.map (FetcherStarted formData) |> Task.perform identity
+        [ cancelStaleFetchers model
+        , Time.now |> Task.map (FetcherStarted formData) |> Task.perform identity
         , Http.request
             { expect =
                 Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
@@ -927,7 +928,8 @@ startFetcher2 formData model =
     in
     -- TODO make sure that `actionData` isn't updated in Model for fetchers
     Cmd.batch
-        [ Time.now |> Task.map (FetcherStarted formData) |> Task.perform identity
+        [ cancelStaleFetchers model
+        , Time.now |> Task.map (FetcherStarted formData) |> Task.perform identity
         , Http.request
             { expect =
                 Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
@@ -961,6 +963,23 @@ startFetcher2 formData model =
             , timeout = Nothing
             }
         ]
+
+
+cancelStaleFetchers : Model userModel pageData actionData sharedData -> Cmd msg
+cancelStaleFetchers model =
+    model.inFlightFetchers
+        |> Dict.toList
+        |> List.filterMap
+            (\( id, fetcher ) ->
+                case fetcher.status of
+                    Pages.Transition.FetcherReloading ->
+                        Http.cancel (String.fromInt id)
+                            |> Just
+
+                    Pages.Transition.FetcherSubmitting ->
+                        Nothing
+            )
+        |> Cmd.batch
 
 
 appendFormQueryParams : FormDecoder.FormData -> String
