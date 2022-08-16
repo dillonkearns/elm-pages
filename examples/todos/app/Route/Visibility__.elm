@@ -182,7 +182,7 @@ performAction actionInput userId =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
-        (Request.formData [ newItemForm, completeItemForm, deleteItemForm, editItemForm, clearCompletedForm, toggleAllForm ])
+        (Request.formData allForms)
         (\formResult session ->
             case formResult of
                 Ok actionInput ->
@@ -296,7 +296,7 @@ view maybeUrl sharedModel model app =
             app.fetchers
                 |> List.filterMap
                     (\{ status, payload } ->
-                        [ editItemForm, newItemForm, completeItemForm, deleteItemForm, clearCompletedForm, toggleAllForm ]
+                        allForms
                             |> Form.runOneOfServerSide payload.fields
                             |> Tuple.first
                     )
@@ -429,6 +429,11 @@ view maybeUrl sharedModel model app =
             ]
         ]
     }
+
+
+allForms : List (Form.HtmlForm String Action Todo Msg)
+allForms =
+    [ editItemForm, newItemForm, completeItemForm, deleteItemForm, clearCompletedForm, toggleAllForm ]
 
 
 
