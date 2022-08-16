@@ -139,67 +139,49 @@ update pageUrl sharedModel static msg model =
             )
 
 
-performAction : Result error (Maybe Session) -> Action -> DataSource ( Session, Response ActionData ErrorPage )
-performAction session actionInput =
+performAction : Action -> Uuid -> DataSource (Response ActionData ErrorPage)
+performAction actionInput userId =
     case actionInput of
         Add newItemDescription ->
-            withUserSession session
-                (\userId ->
-                    Data.Todo.create userId newItemDescription
-                        |> Request.Hasura.mutationDataSource
-                        |> DataSource.map (\_ -> Response.render {})
-                )
+            Data.Todo.create userId newItemDescription
+                |> Request.Hasura.mutationDataSource
+                |> DataSource.map (\_ -> Response.render {})
 
         UpdateEntry ( itemId, newDescription ) ->
-            withUserSession session
-                (\userId ->
-                    Data.Todo.update
-                        { userId = userId
-                        , todoId = Uuid itemId
-                        , newDescription = newDescription
-                        }
-                        |> Request.Hasura.mutationDataSource
-                        |> DataSource.map (\() -> Response.render {})
-                )
+            Data.Todo.update
+                { userId = userId
+                , todoId = Uuid itemId
+                , newDescription = newDescription
+                }
+                |> Request.Hasura.mutationDataSource
+                |> DataSource.map (\() -> Response.render {})
 
         Delete itemId ->
-            withUserSession session
-                (\userId ->
-                    Data.Todo.delete
-                        { userId = userId
-                        , itemId = Uuid itemId
-                        }
-                        |> Request.Hasura.mutationDataSource
-                        |> DataSource.map (\() -> Response.render {})
-                )
+            Data.Todo.delete
+                { userId = userId
+                , itemId = Uuid itemId
+                }
+                |> Request.Hasura.mutationDataSource
+                |> DataSource.map (\() -> Response.render {})
 
         DeleteComplete ->
-            withUserSession session
-                (\userId ->
-                    Data.Todo.clearCompletedTodos userId
-                        |> Request.Hasura.mutationDataSource
-                        |> DataSource.map (\() -> Response.render {})
-                )
+            Data.Todo.clearCompletedTodos userId
+                |> Request.Hasura.mutationDataSource
+                |> DataSource.map (\() -> Response.render {})
 
         Check ( newCompleteValue, itemId ) ->
-            withUserSession session
-                (\userId ->
-                    Data.Todo.setCompleteTo
-                        { userId = userId
-                        , itemId = Uuid itemId
-                        , newCompleteValue = newCompleteValue
-                        }
-                        |> Request.Hasura.mutationDataSource
-                        |> DataSource.map (\() -> Response.render {})
-                )
+            Data.Todo.setCompleteTo
+                { userId = userId
+                , itemId = Uuid itemId
+                , newCompleteValue = newCompleteValue
+                }
+                |> Request.Hasura.mutationDataSource
+                |> DataSource.map (\() -> Response.render {})
 
         CheckAll toggleTo ->
-            withUserSession session
-                (\userId ->
-                    Data.Todo.toggleAllTo userId toggleTo
-                        |> Request.Hasura.mutationDataSource
-                        |> DataSource.map (\() -> Response.render {})
-                )
+            Data.Todo.toggleAllTo userId toggleTo
+                |> Request.Hasura.mutationDataSource
+                |> DataSource.map (\() -> Response.render {})
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
@@ -209,7 +191,9 @@ action routeParams =
         (\formResult session ->
             case formResult of
                 Ok actionInput ->
-                    performAction session actionInput
+                    actionInput
+                        |> performAction
+                        |> withUserSession session
 
                 Err _ ->
                     let
@@ -232,13 +216,13 @@ withUserSession :
     -> DataSource ( Session, Response ActionData ErrorPage )
 withUserSession cookieSession continue =
     let
-        okSessionThing : Session
-        okSessionThing =
+        okSession : Session
+        okSession =
             cookieSession
                 |> Result.withDefault Nothing
                 |> Maybe.withDefault Session.empty
     in
-    okSessionThing
+    okSession
         |> Session.get "sessionId"
         |> Maybe.map Data.Session.get
         |> Maybe.map Request.Hasura.dataSource
@@ -253,22 +237,14 @@ withUserSession cookieSession continue =
                     in
                     case maybeUserId of
                         Nothing ->
-                            DataSource.succeed
-                                ( okSessionThing
-                                , Response.render {}
-                                )
+                            DataSource.succeed ( okSession, Response.render {} )
 
                         Just userId ->
                             continue userId
-                                |> DataSource.map (Tuple.pair okSessionThing)
+                                |> DataSource.map (Tuple.pair okSession)
                 )
             )
-        |> Maybe.withDefault
-            (DataSource.succeed
-                ( okSessionThing
-                , Response.render {}
-                )
-            )
+        |> Maybe.withDefault (DataSource.succeed ( okSession, Response.render {} ))
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
