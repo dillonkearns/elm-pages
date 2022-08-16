@@ -116,103 +116,83 @@ type Action
     | CheckAll Bool
 
 
-update :
-    PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
-    -> Msg
-    -> Model
-    -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
-    case msg of
-        NoOp ->
-            ( model, Effect.none )
-
-        ClearNewItemInput ->
-            ( model
-            , Effect.SetField
-                { formId = "new-item"
-                , name = "description"
-                , value = ""
-                }
-            )
-
-
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
         (Request.formData [ newItemForm, completeItemForm, deleteItemForm, editItemForm, clearCompletedForm, toggleAllForm ])
         (\formResult session ->
-            let
-                okSessionThing : Session
-                okSessionThing =
-                    session
-                        |> Result.withDefault Nothing
-                        |> Maybe.withDefault Session.empty
-            in
             case formResult of
-                Ok (Add newItemDescription) ->
-                    withUserSession session
-                        (\userId ->
-                            Data.Todo.create userId newItemDescription
-                                |> Request.Hasura.mutationDataSource
-                                |> DataSource.map (\_ -> Response.render {})
-                        )
+                Ok actionInput ->
+                    case actionInput of
+                        Add newItemDescription ->
+                            withUserSession session
+                                (\userId ->
+                                    Data.Todo.create userId newItemDescription
+                                        |> Request.Hasura.mutationDataSource
+                                        |> DataSource.map (\_ -> Response.render {})
+                                )
 
-                Ok (UpdateEntry ( itemId, newDescription )) ->
-                    withUserSession session
-                        (\userId ->
-                            Data.Todo.update
-                                { userId = userId
-                                , todoId = Uuid itemId
-                                , newDescription = newDescription
-                                }
-                                |> Request.Hasura.mutationDataSource
-                                |> DataSource.map (\() -> Response.render {})
-                        )
+                        UpdateEntry ( itemId, newDescription ) ->
+                            withUserSession session
+                                (\userId ->
+                                    Data.Todo.update
+                                        { userId = userId
+                                        , todoId = Uuid itemId
+                                        , newDescription = newDescription
+                                        }
+                                        |> Request.Hasura.mutationDataSource
+                                        |> DataSource.map (\() -> Response.render {})
+                                )
 
-                Ok (Delete itemId) ->
-                    withUserSession session
-                        (\userId ->
-                            Data.Todo.delete
-                                { userId = userId
-                                , itemId = Uuid itemId
-                                }
-                                |> Request.Hasura.mutationDataSource
-                                |> DataSource.map (\() -> Response.render {})
-                        )
+                        Delete itemId ->
+                            withUserSession session
+                                (\userId ->
+                                    Data.Todo.delete
+                                        { userId = userId
+                                        , itemId = Uuid itemId
+                                        }
+                                        |> Request.Hasura.mutationDataSource
+                                        |> DataSource.map (\() -> Response.render {})
+                                )
 
-                Ok DeleteComplete ->
-                    withUserSession session
-                        (\userId ->
-                            Data.Todo.clearCompletedTodos userId
-                                |> Request.Hasura.mutationDataSource
-                                |> DataSource.map (\() -> Response.render {})
-                        )
+                        DeleteComplete ->
+                            withUserSession session
+                                (\userId ->
+                                    Data.Todo.clearCompletedTodos userId
+                                        |> Request.Hasura.mutationDataSource
+                                        |> DataSource.map (\() -> Response.render {})
+                                )
 
-                Ok (Check ( newCompleteValue, itemId )) ->
-                    withUserSession session
-                        (\userId ->
-                            Data.Todo.setCompleteTo
-                                { userId = userId
-                                , itemId = Uuid itemId
-                                , newCompleteValue = newCompleteValue
-                                }
-                                |> Request.Hasura.mutationDataSource
-                                |> DataSource.map (\() -> Response.render {})
-                        )
+                        Check ( newCompleteValue, itemId ) ->
+                            withUserSession session
+                                (\userId ->
+                                    Data.Todo.setCompleteTo
+                                        { userId = userId
+                                        , itemId = Uuid itemId
+                                        , newCompleteValue = newCompleteValue
+                                        }
+                                        |> Request.Hasura.mutationDataSource
+                                        |> DataSource.map (\() -> Response.render {})
+                                )
 
-                Ok (CheckAll toggleTo) ->
-                    withUserSession session
-                        (\userId ->
-                            Data.Todo.toggleAllTo userId toggleTo
-                                |> Request.Hasura.mutationDataSource
-                                |> DataSource.map (\() -> Response.render {})
-                        )
+                        CheckAll toggleTo ->
+                            withUserSession session
+                                (\userId ->
+                                    Data.Todo.toggleAllTo userId toggleTo
+                                        |> Request.Hasura.mutationDataSource
+                                        |> DataSource.map (\() -> Response.render {})
+                                )
 
                 Err _ ->
+                    let
+                        okSession : Session
+                        okSession =
+                            session
+                                |> Result.withDefault Nothing
+                                |> Maybe.withDefault Session.empty
+                    in
                     DataSource.succeed
-                        ( okSessionThing
+                        ( okSession
                         , Response.render {}
                         )
         )
@@ -260,6 +240,28 @@ withUserSession cookieSession continue =
                 ( okSessionThing
                 , Response.render {}
                 )
+            )
+
+
+update :
+    PageUrl
+    -> Shared.Model
+    -> StaticPayload Data ActionData RouteParams
+    -> Msg
+    -> Model
+    -> ( Model, Effect Msg )
+update pageUrl sharedModel static msg model =
+    case msg of
+        NoOp ->
+            ( model, Effect.none )
+
+        ClearNewItemInput ->
+            ( model
+            , Effect.SetField
+                { formId = "new-item"
+                , name = "description"
+                , value = ""
+                }
             )
 
 
