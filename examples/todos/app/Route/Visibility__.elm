@@ -178,7 +178,7 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
-        (Request.formData [ newItemForm, completeItemForm, deleteItemForm, editItemForm, clearCompletedForm ])
+        (Request.formData [ newItemForm, completeItemForm, deleteItemForm, editItemForm, clearCompletedForm, toggleAllForm ])
         (\formResult session ->
             let
                 okSessionThing : Session
@@ -188,6 +188,45 @@ action routeParams =
                         |> Maybe.withDefault Session.empty
             in
             case formResult of
+                Ok (ToggleAll toggleTo) ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.toggleAllTo userId toggleTo
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
                 Ok ClearCompleted ->
                     okSessionThing
                         |> Session.get "sessionId"
@@ -415,7 +454,7 @@ view maybeUrl sharedModel model app =
             app.fetchers
                 |> List.filterMap
                     (\{ status, payload } ->
-                        [ editItemForm, newItemForm, completeItemForm, deleteItemForm, clearCompletedForm ]
+                        [ editItemForm, newItemForm, completeItemForm, deleteItemForm, clearCompletedForm, toggleAllForm ]
                             |> Form.runOneOfServerSide payload.fields
                             |> Tuple.first
                     )
@@ -551,6 +590,7 @@ type Action
     | DeleteItem String
     | ToggleItem ( Bool, String )
     | EditItem ( String, String )
+    | ToggleAll Bool
     | ClearCompleted
 
 
@@ -663,25 +703,50 @@ viewEntries app visibility entries =
         [ class "main"
         , style "visibility" cssVisibility
         ]
-        [ button
-            [ classList
-                [ ( "toggle-all", True )
-                , ( "checked"
-                  , True
-                  )
-                ]
-            , name "toggle"
-
-            --, checked allCompleted
-            --, onClick (CheckAll (not allCompleted))
-            ]
-            []
-        , label
-            [ for "toggle-all" ]
-            [ text "Mark all as complete" ]
+        [ toggleAllForm
+            |> Form.toDynamicFetcher "toggle-all"
+            |> Form.renderHtml []
+                Nothing
+                app
+                ()
         , Keyed.ul [ class "todo-list" ] <|
             List.map (viewKeyedEntry app) (List.filter isVisible entries)
         ]
+
+
+toggleAllForm : Form.HtmlForm String Action input Msg
+toggleAllForm =
+    Form.init
+        (\toggleTo ->
+            { combine =
+                Validation.succeed ToggleAll
+                    |> Validation.andMap toggleTo
+            , view =
+                \formState ->
+                    [ button
+                        [ class "toggle-all"
+                        , name "toggle"
+
+                        --, checked allCompleted
+                        ]
+                        [ text "❯" ]
+                    , label
+                        [ for "toggle-all" ]
+                        [ text "Mark all as complete" ]
+                    ]
+            }
+        )
+        |> Form.hiddenField "toggleTo"
+            (Field.checkbox
+                |> Field.withInitialValue
+                    (\_ ->
+                        Form.Value.bool
+                            -- TODO remove hardcoding
+                            --, onClick (CheckAll (not allCompleted))
+                            True
+                    )
+            )
+        |> Form.hiddenKind ( "kind", "toggle-all" ) "Expected kind"
 
 
 

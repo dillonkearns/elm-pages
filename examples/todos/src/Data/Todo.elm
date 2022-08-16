@@ -145,6 +145,33 @@ setCompleteTo { userId, itemId, newCompleteValue } =
         |> SelectionSet.nonNullOrFail
 
 
+toggleAllTo : Uuid -> Bool -> SelectionSet () RootMutation
+toggleAllTo userId newCompleteValue =
+    Api.Mutation.update_todos
+        (\_ ->
+            { set_ =
+                Present
+                    (Api.InputObject.buildTodos_set_input
+                        (\opts ->
+                            { opts
+                                | complete = Present newCompleteValue
+                            }
+                        )
+                    )
+            }
+        )
+        { where_ =
+            Api.InputObject.buildTodos_bool_exp
+                (\opts ->
+                    { opts
+                        | user_id = Present (eqUuid userId)
+                    }
+                )
+        }
+        SelectionSet.empty
+        |> SelectionSet.nonNullOrFail
+
+
 eq : a -> { b | eq_ : OptionalArgument a } -> { b | eq_ : OptionalArgument a }
 eq equalTo =
     \opts -> { opts | eq_ = Present equalTo }
