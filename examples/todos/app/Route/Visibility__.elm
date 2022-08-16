@@ -188,46 +188,15 @@ action routeParams =
                         )
 
                 Ok (Delete itemId) ->
-                    okSessionThing
-                        |> Session.get "sessionId"
-                        |> Maybe.map Data.Session.get
-                        |> Maybe.map Request.Hasura.dataSource
-                        |> Maybe.map
-                            (DataSource.andThen
-                                (\maybeUserSession ->
-                                    let
-                                        bar : Maybe Uuid
-                                        bar =
-                                            maybeUserSession
-                                                |> Maybe.map .id
-                                    in
-                                    case bar of
-                                        Nothing ->
-                                            DataSource.succeed
-                                                ( okSessionThing
-                                                , Response.render {}
-                                                )
-
-                                        Just userId ->
-                                            Data.Todo.delete
-                                                { userId = userId
-                                                , itemId = Uuid itemId
-                                                }
-                                                |> Request.Hasura.mutationDataSource
-                                                |> DataSource.map
-                                                    (\() ->
-                                                        ( okSessionThing
-                                                        , Response.render {}
-                                                        )
-                                                    )
-                                )
-                            )
-                        |> Maybe.withDefault
-                            (DataSource.succeed
-                                ( okSessionThing
-                                , Response.render {}
-                                )
-                            )
+                    withUserSession session
+                        (\userId ->
+                            Data.Todo.delete
+                                { userId = userId
+                                , itemId = Uuid itemId
+                                }
+                                |> Request.Hasura.mutationDataSource
+                                |> DataSource.map (\() -> Response.render {})
+                        )
 
                 Ok (Check ( newCompleteValue, itemId )) ->
                     okSessionThing
