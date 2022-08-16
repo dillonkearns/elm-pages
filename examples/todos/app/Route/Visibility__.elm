@@ -510,6 +510,20 @@ view maybeUrl sharedModel model app =
                     )
                 |> Dict.fromList
 
+        togglingAllTo : Maybe Bool
+        togglingAllTo =
+            pendingFetchers
+                |> List.filterMap
+                    (\fetcher ->
+                        case fetcher of
+                            ToggleAll toggleTo ->
+                                Just toggleTo
+
+                            _ ->
+                                Nothing
+                    )
+                |> List.head
+
         optimisticEntities : List Todo
         optimisticEntities =
             (app.data.entries
@@ -519,12 +533,17 @@ view maybeUrl sharedModel model app =
                             Nothing
 
                         else
-                            case togglingItems |> Dict.get (uuidToString item.id) of
-                                Just toggleTo ->
-                                    Just { item | completed = toggleTo }
+                            case togglingAllTo of
+                                Just justTogglingAllTo ->
+                                    Just { item | completed = justTogglingAllTo }
 
                                 Nothing ->
-                                    Just item
+                                    case togglingItems |> Dict.get (uuidToString item.id) of
+                                        Just toggleTo ->
+                                            Just { item | completed = toggleTo }
+
+                                        Nothing ->
+                                            Just item
                     )
             )
                 ++ creatingItems
