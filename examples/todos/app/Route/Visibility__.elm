@@ -152,43 +152,12 @@ action routeParams =
             in
             case formResult of
                 Ok (Add newItemDescription) ->
-                    okSessionThing
-                        |> Session.get "sessionId"
-                        |> Maybe.map Data.Session.get
-                        |> Maybe.map Request.Hasura.dataSource
-                        |> Maybe.map
-                            (DataSource.andThen
-                                (\maybeUserSession ->
-                                    let
-                                        bar : Maybe Uuid
-                                        bar =
-                                            maybeUserSession
-                                                |> Maybe.map .id
-                                    in
-                                    case bar of
-                                        Nothing ->
-                                            DataSource.succeed
-                                                ( okSessionThing
-                                                , Response.render {}
-                                                )
-
-                                        Just userId ->
-                                            Data.Todo.create userId newItemDescription
-                                                |> Request.Hasura.mutationDataSource
-                                                |> DataSource.map
-                                                    (\newItemId ->
-                                                        ( okSessionThing
-                                                        , Response.render {}
-                                                        )
-                                                    )
-                                )
-                            )
-                        |> Maybe.withDefault
-                            (DataSource.succeed
-                                ( okSessionThing
-                                , Response.render {}
-                                )
-                            )
+                    withUserSession session
+                        (\userId ->
+                            Data.Todo.create userId newItemDescription
+                                |> Request.Hasura.mutationDataSource
+                                |> DataSource.map (\_ -> Response.render {})
+                        )
 
                 Ok (CheckAll toggleTo) ->
                     okSessionThing
@@ -402,6 +371,51 @@ action routeParams =
                         , Response.render {}
                         )
         )
+
+
+withUserSession :
+    Result x (Maybe Session)
+    -> (Uuid -> DataSource (Response ActionData ErrorPage))
+    -> DataSource ( Session, Response ActionData ErrorPage )
+withUserSession cookieSession continue =
+    let
+        okSessionThing : Session
+        okSessionThing =
+            cookieSession
+                |> Result.withDefault Nothing
+                |> Maybe.withDefault Session.empty
+    in
+    okSessionThing
+        |> Session.get "sessionId"
+        |> Maybe.map Data.Session.get
+        |> Maybe.map Request.Hasura.dataSource
+        |> Maybe.map
+            (DataSource.andThen
+                (\maybeUserSession ->
+                    let
+                        maybeUserId : Maybe Uuid
+                        maybeUserId =
+                            maybeUserSession
+                                |> Maybe.map .id
+                    in
+                    case maybeUserId of
+                        Nothing ->
+                            DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+
+                        Just userId ->
+                            continue userId
+                                |> DataSource.map (Tuple.pair okSessionThing)
+                )
+            )
+        |> Maybe.withDefault
+            (DataSource.succeed
+                ( okSessionThing
+                , Response.render {}
+                )
+            )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
