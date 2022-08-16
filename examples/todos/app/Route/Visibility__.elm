@@ -547,6 +547,23 @@ view maybeUrl sharedModel model app =
                     )
             )
                 ++ creatingItems
+
+        optimisticVisibility : Visibility
+        optimisticVisibility =
+            case app.transition of
+                Just (Loading path _) ->
+                    case path |> Path.toSegments of
+                        [ "active" ] ->
+                            Active
+
+                        [ "completed" ] ->
+                            Completed
+
+                        _ ->
+                            All
+
+                _ ->
+                    app.data.visibility
     in
     { title = "Elm • TodoMVC"
     , body =
@@ -563,8 +580,8 @@ view maybeUrl sharedModel model app =
                         Nothing
                         app
                         ()
-                , lazy3 viewEntries app app.data.visibility optimisticEntities
-                , lazy3 viewControls app app.data.visibility optimisticEntities
+                , viewEntries app optimisticVisibility optimisticEntities
+                , viewControls app optimisticVisibility optimisticEntities
                 ]
             , infoFooter
             ]
