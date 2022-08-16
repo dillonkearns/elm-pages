@@ -431,15 +431,6 @@ view maybeUrl sharedModel model app =
     }
 
 
-allForms : List (Form.HtmlForm String Action Todo Msg)
-allForms =
-    [ editItemForm, newItemForm, completeItemForm, deleteItemForm, clearCompletedForm, toggleAllForm ]
-
-
-
--- VIEW
-
-
 newItemForm : Form.HtmlForm String Action input Msg
 newItemForm =
     Form.init
@@ -468,61 +459,13 @@ newItemForm =
         |> Form.hiddenKind ( "kind", "new-item" ) "Expected kind"
 
 
-completeItemForm : Form.HtmlForm String Action Todo Msg
-completeItemForm =
-    Form.init
-        (\todoId complete ->
-            { combine =
-                Validation.succeed Tuple.pair
-                    |> Validation.andMap complete
-                    |> Validation.andMap todoId
-                    |> Validation.map Check
-            , view =
-                \formState ->
-                    [ Html.button [ class "toggle" ]
-                        [ if formState.data.completed then
-                            Icon.complete
-
-                          else
-                            Icon.incomplete
-                        ]
-                    ]
-            }
-        )
-        |> Form.hiddenField "todoId"
-            (Field.text
-                |> Field.required "Must be present"
-                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
-            )
-        |> Form.hiddenField "complete"
-            (Field.checkbox
-                |> Field.withInitialValue (.completed >> not >> Form.Value.bool)
-            )
-        |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
-
-
-deleteItemForm : Form.HtmlForm String Action Todo Msg
-deleteItemForm =
-    Form.init
-        (\todoId ->
-            { combine =
-                Validation.succeed Delete
-                    |> Validation.andMap todoId
-            , view =
-                \formState ->
-                    [ button [ class "destroy" ] []
-                    ]
-            }
-        )
-        |> Form.hiddenField "todoId"
-            (Field.text
-                |> Field.required "Must be present"
-                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
-            )
-        |> Form.hiddenKind ( "kind", "delete" ) "Expected kind"
+allForms : List (Form.HtmlForm String Action Todo Msg)
+allForms =
+    [ editItemForm, newItemForm, completeItemForm, deleteItemForm, clearCompletedForm, toggleAllForm ]
 
 
 
+-- VIEW
 -- VIEW ALL ENTRIES
 
 
@@ -644,6 +587,39 @@ viewEntry app todo =
         ]
 
 
+completeItemForm : Form.HtmlForm String Action Todo Msg
+completeItemForm =
+    Form.init
+        (\todoId complete ->
+            { combine =
+                Validation.succeed Tuple.pair
+                    |> Validation.andMap complete
+                    |> Validation.andMap todoId
+                    |> Validation.map Check
+            , view =
+                \formState ->
+                    [ Html.button [ class "toggle" ]
+                        [ if formState.data.completed then
+                            Icon.complete
+
+                          else
+                            Icon.incomplete
+                        ]
+                    ]
+            }
+        )
+        |> Form.hiddenField "todoId"
+            (Field.text
+                |> Field.required "Must be present"
+                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
+            )
+        |> Form.hiddenField "complete"
+            (Field.checkbox
+                |> Field.withInitialValue (.completed >> not >> Form.Value.bool)
+            )
+        |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
+
+
 editItemForm : Form.HtmlForm String Action Todo Msg
 editItemForm =
     Form.init
@@ -676,6 +652,26 @@ editItemForm =
                 |> Field.required "Must be present"
             )
         |> Form.hiddenKind ( "kind", "edit-item" ) "Expected kind"
+
+
+deleteItemForm : Form.HtmlForm String Action Todo Msg
+deleteItemForm =
+    Form.init
+        (\todoId ->
+            { combine =
+                Validation.succeed Delete
+                    |> Validation.andMap todoId
+            , view =
+                \formState ->
+                    [ button [ class "destroy" ] [] ]
+            }
+        )
+        |> Form.hiddenField "todoId"
+            (Field.text
+                |> Field.required "Must be present"
+                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
+            )
+        |> Form.hiddenKind ( "kind", "delete" ) "Expected kind"
 
 
 uuidToString : Uuid -> String
