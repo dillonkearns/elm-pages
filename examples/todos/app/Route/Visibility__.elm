@@ -629,6 +629,15 @@ viewKeyedEntry app todo =
 
 viewEntry : StaticPayload Data ActionData RouteParams -> { description : String, completed : Bool, id : Uuid } -> Html (Pages.Msg.Msg Msg)
 viewEntry app todo =
+    let
+        isOptimisticEntry : Bool
+        isOptimisticEntry =
+            uuidToString todo.id == ""
+
+        empty : Html msg
+        empty =
+            text ""
+    in
     li
         [ classList
             [ ( "completed", todo.completed )
@@ -638,26 +647,17 @@ viewEntry app todo =
             [ class "view" ]
             [ completeItemForm
                 |> Form.toDynamicFetcher ("toggle-" ++ uuidToString todo.id)
-                |> Form.renderHtml []
-                    Nothing
-                    app
-                    todo
+                |> Form.renderHtml [] Nothing app todo
             , editItemForm
                 |> Form.toDynamicFetcher ("edit-" ++ uuidToString todo.id)
-                |> Form.renderHtml []
-                    Nothing
-                    app
-                    todo
-            , if uuidToString todo.id == "" then
-                Html.text ""
+                |> Form.renderHtml [] Nothing app todo
+            , if isOptimisticEntry then
+                empty
 
               else
                 deleteItemForm
                     |> Form.toDynamicFetcher ("delete-" ++ uuidToString todo.id)
-                    |> Form.renderHtml []
-                        Nothing
-                        app
-                        todo
+                    |> Form.renderHtml [] Nothing app todo
             ]
         ]
 
