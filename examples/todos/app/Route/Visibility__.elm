@@ -116,6 +116,91 @@ type Action
     | CheckAll Bool
 
 
+
+-- How we update our Model on a given Msg?
+
+
+update :
+    PageUrl
+    -> Shared.Model
+    -> StaticPayload Data ActionData RouteParams
+    -> Msg
+    -> Model
+    -> ( Model, Effect Msg )
+update pageUrl sharedModel static msg model =
+    case msg of
+        NoOp ->
+            ( model, Effect.none )
+
+        ClearNewItemInput ->
+            ( model
+            , Effect.SetField { formId = "new-item", name = "description", value = "" }
+            )
+
+
+performAction : Result error (Maybe Session) -> Action -> DataSource ( Session, Response ActionData ErrorPage )
+performAction session actionInput =
+    case actionInput of
+        Add newItemDescription ->
+            withUserSession session
+                (\userId ->
+                    Data.Todo.create userId newItemDescription
+                        |> Request.Hasura.mutationDataSource
+                        |> DataSource.map (\_ -> Response.render {})
+                )
+
+        UpdateEntry ( itemId, newDescription ) ->
+            withUserSession session
+                (\userId ->
+                    Data.Todo.update
+                        { userId = userId
+                        , todoId = Uuid itemId
+                        , newDescription = newDescription
+                        }
+                        |> Request.Hasura.mutationDataSource
+                        |> DataSource.map (\() -> Response.render {})
+                )
+
+        Delete itemId ->
+            withUserSession session
+                (\userId ->
+                    Data.Todo.delete
+                        { userId = userId
+                        , itemId = Uuid itemId
+                        }
+                        |> Request.Hasura.mutationDataSource
+                        |> DataSource.map (\() -> Response.render {})
+                )
+
+        DeleteComplete ->
+            withUserSession session
+                (\userId ->
+                    Data.Todo.clearCompletedTodos userId
+                        |> Request.Hasura.mutationDataSource
+                        |> DataSource.map (\() -> Response.render {})
+                )
+
+        Check ( newCompleteValue, itemId ) ->
+            withUserSession session
+                (\userId ->
+                    Data.Todo.setCompleteTo
+                        { userId = userId
+                        , itemId = Uuid itemId
+                        , newCompleteValue = newCompleteValue
+                        }
+                        |> Request.Hasura.mutationDataSource
+                        |> DataSource.map (\() -> Response.render {})
+                )
+
+        CheckAll toggleTo ->
+            withUserSession session
+                (\userId ->
+                    Data.Todo.toggleAllTo userId toggleTo
+                        |> Request.Hasura.mutationDataSource
+                        |> DataSource.map (\() -> Response.render {})
+                )
+
+
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
@@ -123,65 +208,7 @@ action routeParams =
         (\formResult session ->
             case formResult of
                 Ok actionInput ->
-                    case actionInput of
-                        Add newItemDescription ->
-                            withUserSession session
-                                (\userId ->
-                                    Data.Todo.create userId newItemDescription
-                                        |> Request.Hasura.mutationDataSource
-                                        |> DataSource.map (\_ -> Response.render {})
-                                )
-
-                        UpdateEntry ( itemId, newDescription ) ->
-                            withUserSession session
-                                (\userId ->
-                                    Data.Todo.update
-                                        { userId = userId
-                                        , todoId = Uuid itemId
-                                        , newDescription = newDescription
-                                        }
-                                        |> Request.Hasura.mutationDataSource
-                                        |> DataSource.map (\() -> Response.render {})
-                                )
-
-                        Delete itemId ->
-                            withUserSession session
-                                (\userId ->
-                                    Data.Todo.delete
-                                        { userId = userId
-                                        , itemId = Uuid itemId
-                                        }
-                                        |> Request.Hasura.mutationDataSource
-                                        |> DataSource.map (\() -> Response.render {})
-                                )
-
-                        DeleteComplete ->
-                            withUserSession session
-                                (\userId ->
-                                    Data.Todo.clearCompletedTodos userId
-                                        |> Request.Hasura.mutationDataSource
-                                        |> DataSource.map (\() -> Response.render {})
-                                )
-
-                        Check ( newCompleteValue, itemId ) ->
-                            withUserSession session
-                                (\userId ->
-                                    Data.Todo.setCompleteTo
-                                        { userId = userId
-                                        , itemId = Uuid itemId
-                                        , newCompleteValue = newCompleteValue
-                                        }
-                                        |> Request.Hasura.mutationDataSource
-                                        |> DataSource.map (\() -> Response.render {})
-                                )
-
-                        CheckAll toggleTo ->
-                            withUserSession session
-                                (\userId ->
-                                    Data.Todo.toggleAllTo userId toggleTo
-                                        |> Request.Hasura.mutationDataSource
-                                        |> DataSource.map (\() -> Response.render {})
-                                )
+                    performAction session actionInput
 
                 Err _ ->
                     let
@@ -240,28 +267,6 @@ withUserSession cookieSession continue =
                 ( okSessionThing
                 , Response.render {}
                 )
-            )
-
-
-update :
-    PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
-    -> Msg
-    -> Model
-    -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
-    case msg of
-        NoOp ->
-            ( model, Effect.none )
-
-        ClearNewItemInput ->
-            ( model
-            , Effect.SetField
-                { formId = "new-item"
-                , name = "description"
-                , value = ""
-                }
             )
 
 
