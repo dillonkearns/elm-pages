@@ -52,8 +52,24 @@ route =
             }
 
 
+
+-- MODEL
+-- The full application state of our todo app.
+
+
 type alias Model =
     {}
+
+
+init :
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data ActionData RouteParams
+    -> ( Model, Effect Msg )
+init maybePageUrl sharedModel static =
+    ( {}
+    , Effect.none
+    )
 
 
 type Msg
@@ -75,15 +91,29 @@ type alias ActionData =
     {}
 
 
-init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
-    -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
-    ( {}
-    , Effect.none
-    )
+
+-- UPDATE
+
+
+{-| elm-pages apps only use Msg's and Model state for client-side interaction, but most of the behavior in
+Todo MVC is handled by our `action` which is an Elm function that runs server-side and can handle form submissions
+and other server requests.
+
+Most of our state moves out of the `Model` and into more declarative state in the URL (`RouteParams`) and
+form submissions (`Action`). Since elm-pages handles client-side form state, we don't need equivalents for some of these
+Msg's like `UpdateField`, `EditingEntry`. We don't need the `ChangeVisibility` because we use the declarative URL
+state from `RouteParams` instead.
+
+Some onClick handlers also go away because forms parse into one of these `Action` variants when it is received on the server.
+
+-}
+type Action
+    = UpdateEntry ( String, String )
+    | Add String
+    | Delete String
+    | DeleteComplete
+    | Check ( Bool, String )
+    | CheckAll Bool
 
 
 update :
@@ -106,6 +136,272 @@ update pageUrl sharedModel static msg model =
                 , value = ""
                 }
             )
+
+
+action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action routeParams =
+    MySession.withSession
+        (Request.formData [ newItemForm, completeItemForm, deleteItemForm, editItemForm, clearCompletedForm, toggleAllForm ])
+        (\formResult session ->
+            let
+                okSessionThing : Session
+                okSessionThing =
+                    session
+                        |> Result.withDefault Nothing
+                        |> Maybe.withDefault Session.empty
+            in
+            case formResult of
+                Ok (Add newItemDescription) ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.create userId newItemDescription
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\newItemId ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
+                Ok (CheckAll toggleTo) ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.toggleAllTo userId toggleTo
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
+                Ok DeleteComplete ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.clearCompletedTodos userId
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
+                Ok (UpdateEntry ( itemId, newDescription )) ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.update
+                                                { userId = userId
+                                                , todoId = Uuid itemId
+                                                , newDescription = newDescription
+                                                }
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
+                Ok (Delete itemId) ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.delete
+                                                { userId = userId
+                                                , itemId = Uuid itemId
+                                                }
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
+                Ok (Check ( newCompleteValue, itemId )) ->
+                    okSessionThing
+                        |> Session.get "sessionId"
+                        |> Maybe.map Data.Session.get
+                        |> Maybe.map Request.Hasura.dataSource
+                        |> Maybe.map
+                            (DataSource.andThen
+                                (\maybeUserSession ->
+                                    let
+                                        bar : Maybe Uuid
+                                        bar =
+                                            maybeUserSession
+                                                |> Maybe.map .id
+                                    in
+                                    case bar of
+                                        Nothing ->
+                                            DataSource.succeed
+                                                ( okSessionThing
+                                                , Response.render {}
+                                                )
+
+                                        Just userId ->
+                                            Data.Todo.setCompleteTo
+                                                { userId = userId
+                                                , itemId = Uuid itemId
+                                                , newCompleteValue = newCompleteValue
+                                                }
+                                                |> Request.Hasura.mutationDataSource
+                                                |> DataSource.map
+                                                    (\() ->
+                                                        ( okSessionThing
+                                                        , Response.render {}
+                                                        )
+                                                    )
+                                )
+                            )
+                        |> Maybe.withDefault
+                            (DataSource.succeed
+                                ( okSessionThing
+                                , Response.render {}
+                                )
+                            )
+
+                Err _ ->
+                    DataSource.succeed
+                        ( okSessionThing
+                        , Response.render {}
+                        )
+        )
 
 
 subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -176,272 +472,6 @@ data routeParams =
             )
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
-action routeParams =
-    MySession.withSession
-        (Request.formData [ newItemForm, completeItemForm, deleteItemForm, editItemForm, clearCompletedForm, toggleAllForm ])
-        (\formResult session ->
-            let
-                okSessionThing : Session
-                okSessionThing =
-                    session
-                        |> Result.withDefault Nothing
-                        |> Maybe.withDefault Session.empty
-            in
-            case formResult of
-                Ok (ToggleAll toggleTo) ->
-                    okSessionThing
-                        |> Session.get "sessionId"
-                        |> Maybe.map Data.Session.get
-                        |> Maybe.map Request.Hasura.dataSource
-                        |> Maybe.map
-                            (DataSource.andThen
-                                (\maybeUserSession ->
-                                    let
-                                        bar : Maybe Uuid
-                                        bar =
-                                            maybeUserSession
-                                                |> Maybe.map .id
-                                    in
-                                    case bar of
-                                        Nothing ->
-                                            DataSource.succeed
-                                                ( okSessionThing
-                                                , Response.render {}
-                                                )
-
-                                        Just userId ->
-                                            Data.Todo.toggleAllTo userId toggleTo
-                                                |> Request.Hasura.mutationDataSource
-                                                |> DataSource.map
-                                                    (\() ->
-                                                        ( okSessionThing
-                                                        , Response.render {}
-                                                        )
-                                                    )
-                                )
-                            )
-                        |> Maybe.withDefault
-                            (DataSource.succeed
-                                ( okSessionThing
-                                , Response.render {}
-                                )
-                            )
-
-                Ok ClearCompleted ->
-                    okSessionThing
-                        |> Session.get "sessionId"
-                        |> Maybe.map Data.Session.get
-                        |> Maybe.map Request.Hasura.dataSource
-                        |> Maybe.map
-                            (DataSource.andThen
-                                (\maybeUserSession ->
-                                    let
-                                        bar : Maybe Uuid
-                                        bar =
-                                            maybeUserSession
-                                                |> Maybe.map .id
-                                    in
-                                    case bar of
-                                        Nothing ->
-                                            DataSource.succeed
-                                                ( okSessionThing
-                                                , Response.render {}
-                                                )
-
-                                        Just userId ->
-                                            Data.Todo.clearCompletedTodos userId
-                                                |> Request.Hasura.mutationDataSource
-                                                |> DataSource.map
-                                                    (\() ->
-                                                        ( okSessionThing
-                                                        , Response.render {}
-                                                        )
-                                                    )
-                                )
-                            )
-                        |> Maybe.withDefault
-                            (DataSource.succeed
-                                ( okSessionThing
-                                , Response.render {}
-                                )
-                            )
-
-                Ok (EditItem ( itemId, newDescription )) ->
-                    okSessionThing
-                        |> Session.get "sessionId"
-                        |> Maybe.map Data.Session.get
-                        |> Maybe.map Request.Hasura.dataSource
-                        |> Maybe.map
-                            (DataSource.andThen
-                                (\maybeUserSession ->
-                                    let
-                                        bar : Maybe Uuid
-                                        bar =
-                                            maybeUserSession
-                                                |> Maybe.map .id
-                                    in
-                                    case bar of
-                                        Nothing ->
-                                            DataSource.succeed
-                                                ( okSessionThing
-                                                , Response.render {}
-                                                )
-
-                                        Just userId ->
-                                            Data.Todo.update
-                                                { userId = userId
-                                                , todoId = Uuid itemId
-                                                , newDescription = newDescription
-                                                }
-                                                |> Request.Hasura.mutationDataSource
-                                                |> DataSource.map
-                                                    (\() ->
-                                                        ( okSessionThing
-                                                        , Response.render {}
-                                                        )
-                                                    )
-                                )
-                            )
-                        |> Maybe.withDefault
-                            (DataSource.succeed
-                                ( okSessionThing
-                                , Response.render {}
-                                )
-                            )
-
-                Ok (DeleteItem itemId) ->
-                    okSessionThing
-                        |> Session.get "sessionId"
-                        |> Maybe.map Data.Session.get
-                        |> Maybe.map Request.Hasura.dataSource
-                        |> Maybe.map
-                            (DataSource.andThen
-                                (\maybeUserSession ->
-                                    let
-                                        bar : Maybe Uuid
-                                        bar =
-                                            maybeUserSession
-                                                |> Maybe.map .id
-                                    in
-                                    case bar of
-                                        Nothing ->
-                                            DataSource.succeed
-                                                ( okSessionThing
-                                                , Response.render {}
-                                                )
-
-                                        Just userId ->
-                                            Data.Todo.delete
-                                                { userId = userId
-                                                , itemId = Uuid itemId
-                                                }
-                                                |> Request.Hasura.mutationDataSource
-                                                |> DataSource.map
-                                                    (\() ->
-                                                        ( okSessionThing
-                                                        , Response.render {}
-                                                        )
-                                                    )
-                                )
-                            )
-                        |> Maybe.withDefault
-                            (DataSource.succeed
-                                ( okSessionThing
-                                , Response.render {}
-                                )
-                            )
-
-                Ok (ToggleItem ( newCompleteValue, itemId )) ->
-                    okSessionThing
-                        |> Session.get "sessionId"
-                        |> Maybe.map Data.Session.get
-                        |> Maybe.map Request.Hasura.dataSource
-                        |> Maybe.map
-                            (DataSource.andThen
-                                (\maybeUserSession ->
-                                    let
-                                        bar : Maybe Uuid
-                                        bar =
-                                            maybeUserSession
-                                                |> Maybe.map .id
-                                    in
-                                    case bar of
-                                        Nothing ->
-                                            DataSource.succeed
-                                                ( okSessionThing
-                                                , Response.render {}
-                                                )
-
-                                        Just userId ->
-                                            Data.Todo.setCompleteTo
-                                                { userId = userId
-                                                , itemId = Uuid itemId
-                                                , newCompleteValue = newCompleteValue
-                                                }
-                                                |> Request.Hasura.mutationDataSource
-                                                |> DataSource.map
-                                                    (\() ->
-                                                        ( okSessionThing
-                                                        , Response.render {}
-                                                        )
-                                                    )
-                                )
-                            )
-                        |> Maybe.withDefault
-                            (DataSource.succeed
-                                ( okSessionThing
-                                , Response.render {}
-                                )
-                            )
-
-                Ok (CreateItem newItemDescription) ->
-                    okSessionThing
-                        |> Session.get "sessionId"
-                        |> Maybe.map Data.Session.get
-                        |> Maybe.map Request.Hasura.dataSource
-                        |> Maybe.map
-                            (DataSource.andThen
-                                (\maybeUserSession ->
-                                    let
-                                        bar : Maybe Uuid
-                                        bar =
-                                            maybeUserSession
-                                                |> Maybe.map .id
-                                    in
-                                    case bar of
-                                        Nothing ->
-                                            DataSource.succeed
-                                                ( okSessionThing
-                                                , Response.render {}
-                                                )
-
-                                        Just userId ->
-                                            Data.Todo.create userId newItemDescription
-                                                |> Request.Hasura.mutationDataSource
-                                                |> DataSource.map
-                                                    (\newItemId ->
-                                                        ( okSessionThing
-                                                        , Response.render {}
-                                                        )
-                                                    )
-                                )
-                            )
-                        |> Maybe.withDefault
-                            (DataSource.succeed
-                                ( okSessionThing
-                                , Response.render {}
-                                )
-                            )
-
-                Err _ ->
-                    DataSource.succeed
-                        ( okSessionThing
-                        , Response.render {}
-                        )
-        )
-
-
 view :
     Maybe PageUrl
     -> Shared.Model
@@ -466,7 +496,7 @@ view maybeUrl sharedModel model app =
                 |> List.filterMap
                     (\fetcher ->
                         case fetcher of
-                            CreateItem description ->
+                            Add description ->
                                 Just
                                     { description = description
                                     , completed = False
@@ -481,7 +511,7 @@ view maybeUrl sharedModel model app =
         isClearing =
             pendingFetchers
                 |> List.any
-                    (\fetcher -> fetcher == ClearCompleted)
+                    (\fetcher -> fetcher == DeleteComplete)
 
         deletingItems : Set String
         deletingItems =
@@ -489,7 +519,7 @@ view maybeUrl sharedModel model app =
                 |> List.filterMap
                     (\fetcher ->
                         case fetcher of
-                            DeleteItem id ->
+                            Delete id ->
                                 Just id
 
                             _ ->
@@ -503,7 +533,7 @@ view maybeUrl sharedModel model app =
                 |> List.filterMap
                     (\fetcher ->
                         case fetcher of
-                            ToggleItem ( bool, id ) ->
+                            Check ( bool, id ) ->
                                 Just ( id, bool )
 
                             _ ->
@@ -517,7 +547,7 @@ view maybeUrl sharedModel model app =
                 |> List.filterMap
                     (\fetcher ->
                         case fetcher of
-                            ToggleAll toggleTo ->
+                            CheckAll toggleTo ->
                                 Just toggleTo
 
                             _ ->
@@ -601,7 +631,7 @@ newItemForm =
             { combine =
                 Validation.succeed identity
                     |> Validation.andMap description
-                    |> Validation.map CreateItem
+                    |> Validation.map Add
             , view =
                 \formState ->
                     [ header
@@ -622,15 +652,6 @@ newItemForm =
         |> Form.hiddenKind ( "kind", "new-item" ) "Expected kind"
 
 
-type Action
-    = CreateItem String
-    | DeleteItem String
-    | ToggleItem ( Bool, String )
-    | EditItem ( String, String )
-    | ToggleAll Bool
-    | ClearCompleted
-
-
 completeItemForm : Form.HtmlForm String Action Todo Msg
 completeItemForm =
     Form.init
@@ -639,7 +660,7 @@ completeItemForm =
                 Validation.succeed Tuple.pair
                     |> Validation.andMap complete
                     |> Validation.andMap todoId
-                    |> Validation.map ToggleItem
+                    |> Validation.map Check
             , view =
                 \formState ->
                     [ Html.button [ class "toggle" ]
@@ -668,7 +689,7 @@ clearCompletedForm : Form.HtmlForm String Action input Msg
 clearCompletedForm =
     Form.init
         { combine =
-            Validation.succeed ClearCompleted
+            Validation.succeed DeleteComplete
         , view =
             \formState ->
                 [ button
@@ -692,7 +713,7 @@ deleteItemForm =
     Form.init
         (\todoId ->
             { combine =
-                Validation.succeed DeleteItem
+                Validation.succeed Delete
                     |> Validation.andMap todoId
             , view =
                 \formState ->
@@ -756,7 +777,7 @@ toggleAllForm =
     Form.init
         (\toggleTo ->
             { combine =
-                Validation.succeed ToggleAll
+                Validation.succeed CheckAll
                     |> Validation.andMap toggleTo
             , view =
                 \formState ->
@@ -838,7 +859,7 @@ editItemForm =
                 Validation.succeed Tuple.pair
                     |> Validation.andMap itemId
                     |> Validation.andMap description
-                    |> Validation.map EditItem
+                    |> Validation.map UpdateEntry
             , view =
                 \formState ->
                     [ FieldView.input
