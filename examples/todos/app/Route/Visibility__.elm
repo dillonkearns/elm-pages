@@ -12,8 +12,6 @@ import Form.Field as Field
 import Form.FieldView as FieldView
 import Form.Validation as Validation
 import Form.Value
-import Head
-import Head.Seo as Seo
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed as Keyed
@@ -23,7 +21,6 @@ import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition
-import Pages.Url
 import Path exposing (Path)
 import Request.Hasura
 import Route
@@ -39,7 +36,7 @@ import View exposing (View)
 route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
-        { head = head
+        { head = \_ -> []
         , data = data
         , action = action
         }
@@ -240,26 +237,6 @@ withUserSession cookieSession continue =
                 )
             )
         |> Maybe.withDefault (DataSource.succeed ( okSession, Response.render {} ))
-
-
-head :
-    StaticPayload Data ActionData RouteParams
-    -> List Head.Tag
-head static =
-    Seo.summary
-        { canonicalUrlOverride = Nothing
-        , siteName = "Ctrl-R Smoothies"
-        , image =
-            { url = Pages.Url.external "https://images.unsplash.com/photo-1499750310107-5fef28a66643?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=600&q=80"
-            , alt = "Desk with a Todo List"
-            , dimensions = Nothing
-            , mimeType = Nothing
-            }
-        , description = "Manage your list"
-        , locale = Nothing
-        , title = "Ctrl-R Smoothies"
-        }
-        |> Seo.website
 
 
 visibilityFromRouteParams : RouteParams -> Maybe Visibility
