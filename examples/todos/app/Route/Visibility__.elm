@@ -806,11 +806,11 @@ viewControlsFilters : Visibility -> Html (Pages.Msg.Msg Msg)
 viewControlsFilters visibility =
     ul
         [ class "filters" ]
-        [ visibilitySwap "/" All visibility
+        [ visibilitySwap Nothing All visibility
         , text " "
-        , visibilitySwap "/active" Active visibility
+        , visibilitySwap (Just "active") Active visibility
         , text " "
-        , visibilitySwap "/completed" Completed visibility
+        , visibilitySwap (Just "completed") Completed visibility
         ]
 
 
@@ -827,12 +827,14 @@ visibilityToString visibility =
             "Completed"
 
 
-visibilitySwap : String -> Visibility -> Visibility -> Html (Pages.Msg.Msg Msg)
-visibilitySwap uri visibility actualVisibility =
+visibilitySwap : Maybe String -> Visibility -> Visibility -> Html (Pages.Msg.Msg Msg)
+visibilitySwap visibilityParam visibility actualVisibility =
     li
         []
-        [ a [ href uri, classList [ ( "selected", visibility == actualVisibility ) ] ]
-            [ visibility |> visibilityToString |> text ]
+        [ Route.Visibility__ { visibility = visibilityParam }
+            |> Route.link
+                [ classList [ ( "selected", visibility == actualVisibility ) ] ]
+                [ visibility |> visibilityToString |> text ]
         ]
 
 
