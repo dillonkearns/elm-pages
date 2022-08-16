@@ -501,29 +501,6 @@ completeItemForm =
         |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
 
 
-clearCompletedForm : Form.HtmlForm String Action input Msg
-clearCompletedForm =
-    Form.init
-        { combine =
-            Validation.succeed DeleteComplete
-        , view =
-            \formState ->
-                [ button
-                    [ class "clear-completed"
-
-                    --, hidden (entriesCompleted == 0)
-                    ]
-                    [ text "Clear completed"
-
-                    -- TODO need to enable merging forms with different input types (and action types) to make this possible (input types are all Todo now,
-                    -- need it to be Int)
-                    -- text ("Clear completed (" ++ String.fromInt entriesCompleted ++ ")")
-                    ]
-                ]
-        }
-        |> Form.hiddenKind ( "kind", "clear-completed" ) "Expected kind"
-
-
 deleteItemForm : Form.HtmlForm String Action Todo Msg
 deleteItemForm =
     Form.init
@@ -786,6 +763,28 @@ visibilitySwap visibilityParam visibility actualVisibility =
                 [ classList [ ( "selected", visibility == actualVisibility ) ] ]
                 [ visibility |> visibilityToString |> text ]
         ]
+
+
+clearCompletedForm : Form.HtmlForm String Action input Msg
+clearCompletedForm =
+    Form.init
+        { combine = Validation.succeed DeleteComplete
+        , view =
+            \formState ->
+                [ button
+                    [ class "clear-completed"
+
+                    --, hidden (entriesCompleted == 0)
+                    ]
+                    [ text "Clear completed"
+
+                    -- TODO need to enable merging forms with different input types (and action types) to make this possible (input types are all Todo now,
+                    -- need it to be Int)
+                    -- text ("Clear completed (" ++ String.fromInt entriesCompleted ++ ")")
+                    ]
+                ]
+        }
+        |> Form.hiddenKind ( "kind", "clear-completed" ) "Expected kind"
 
 
 viewControlsClear : StaticPayload Data ActionData RouteParams -> Int -> Html (Pages.Msg.Msg Msg)
