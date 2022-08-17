@@ -1,5 +1,4 @@
 const path = require("path");
-const url = require("url");
 const fetch = require("node-fetch");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
