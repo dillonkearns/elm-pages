@@ -76,7 +76,7 @@ mainView config model =
                             model.url
                     in
                     (config.view model.pageFormState
-                        (model.inFlightFetchers |> Dict.values)
+                        (model.inFlightFetchers |> toFetcherState)
                         (model.transition |> Maybe.map Tuple.second)
                         { path = ContentCache.pathForUrl urls |> Path.join
                         , route = config.urlToRoute { currentUrl | path = model.currentPath }
@@ -312,8 +312,8 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UserMsg (Pages.Msg.Msg userMsg)
     | SetField { formId : String, name : String, value : String }
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
-    | FetcherComplete Int (Result Http.Error (Maybe userMsg))
-    | FetcherStarted FormDecoder.FormData Time.Posix
+    | FetcherComplete String Int (Result Http.Error (Maybe userMsg))
+    | FetcherStarted String Int FormDecoder.FormData Time.Posix
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
@@ -337,7 +337,7 @@ type alias Model userModel pageData actionData sharedData =
     , userFlags : Decode.Value
     , transition : Maybe ( Int, Pages.Transition.Transition )
     , nextTransitionKey : Int
-    , inFlightFetchers : Dict Int Pages.Transition.FetcherState
+    , inFlightFetchers : Dict String ( Int, Pages.Transition.FetcherState )
     , pageFormState : Pages.FormState.PageFormState
     , pendingRedirect : Bool
     , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
@@ -352,7 +352,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | BrowserReplaceUrl String
     | FetchPageData Int (Maybe FormDecoder.FormData) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     | Submit FormDecoder.FormData
-    | SubmitFetcher FormDecoder.FormData
+    | SubmitFetcher String Int FormDecoder.FormData
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
     | UserCmd userEffect
     | CancelRequest Int
@@ -419,16 +419,16 @@ update config appMsg model =
                         -- parallel to the browser behavior
                         |> startNewGetLoad url (UpdateCacheAndUrlNew False url Nothing)
 
-        FetcherComplete fetcherId userMsgResult ->
+        FetcherComplete fetcherKey transitionId___ userMsgResult ->
             case userMsgResult of
                 Ok userMsg ->
                     ( { model
                         | inFlightFetchers =
                             model.inFlightFetchers
-                                |> Dict.update fetcherId
+                                |> Dict.update fetcherKey
                                     (Maybe.map
-                                        (\fetcherState ->
-                                            { fetcherState | status = Pages.Transition.FetcherReloading }
+                                        (\( transitionId, fetcherState ) ->
+                                            ( transitionId, { fetcherState | status = Pages.Transition.FetcherReloading } )
                                         )
                                     )
                       }
@@ -498,11 +498,11 @@ update config appMsg model =
                         , NoEffect
                         )
 
-                Pages.Msg.SubmitFetcher fieldId fields isValid maybeUserMsg ->
+                Pages.Msg.SubmitFetcher fetcherKey fields isValid maybeUserMsg ->
                     if isValid then
                         -- TODO should I setSubmitAttempted here, too?
-                        ( model
-                        , SubmitFetcher fields
+                        ( { model | nextTransitionKey = model.nextTransitionKey + 1 }
+                        , SubmitFetcher fetcherKey model.nextTransitionKey fields
                         )
                             |> (case maybeUserMsg of
                                     Just justUserMsg ->
@@ -516,7 +516,7 @@ update config appMsg model =
                         ( { model
                             | pageFormState =
                                 model.pageFormState
-                                    |> Pages.FormState.setSubmitAttempted fieldId
+                                    |> Pages.FormState.setSubmitAttempted fetcherKey
                           }
                         , NoEffect
                         )
@@ -585,7 +585,7 @@ update config appMsg model =
                                 -- instead of calling update, call pushUrl (I think?)
                                 -- TODO include user Cmd
                                 config.update model.pageFormState
-                                    (model.inFlightFetchers |> Dict.values)
+                                    (model.inFlightFetchers |> toFetcherState)
                                     (model.transition |> Maybe.map Tuple.second)
                                     newSharedData
                                     newPageData
@@ -721,20 +721,27 @@ update config appMsg model =
                     )
                 |> Result.withDefault ( model, NoEffect )
 
-        FetcherStarted fetcherData initiatedAt ->
-            -- TODO
+        FetcherStarted fetcherKey transitionId fetcherData initiatedAt ->
             ( { model
-                | nextTransitionKey = model.nextTransitionKey + 1
-                , inFlightFetchers =
+                | inFlightFetchers =
                     model.inFlightFetchers
-                        |> Dict.insert model.nextTransitionKey
-                            { payload = fetcherData
-                            , status = Pages.Transition.FetcherSubmitting
-                            , initiatedAt = initiatedAt
-                            }
+                        |> Dict.insert fetcherKey
+                            ( transitionId
+                            , { payload = fetcherData
+                              , status = Pages.Transition.FetcherSubmitting
+                              , initiatedAt = initiatedAt
+                              }
+                            )
               }
             , NoEffect
             )
+
+
+toFetcherState : Dict String ( Int, Pages.Transition.FetcherState ) -> List Pages.Transition.FetcherState
+toFetcherState inFlightFetchers =
+    inFlightFetchers
+        |> Dict.values
+        |> List.map Tuple.second
 
 
 performUserMsg :
@@ -747,7 +754,7 @@ performUserMsg userMsg config ( model, effect ) =
         Ok pageData ->
             let
                 ( userModel, userCmd ) =
-                    config.update model.pageFormState (model.inFlightFetchers |> Dict.values) (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+                    config.update model.pageFormState (model.inFlightFetchers |> toFetcherState) (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
                 updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
                 updatedPageData =
@@ -813,8 +820,8 @@ perform config model effect =
                 in
                 fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
 
-        SubmitFetcher formData ->
-            startFetcher2 formData model
+        SubmitFetcher fetcherKey transitionId formData ->
+            startFetcher2 fetcherKey transitionId formData model
 
         UserCmd cmd ->
             case model.key of
@@ -843,7 +850,9 @@ perform config model effect =
                                     fetchRouteData -1 (prepare fetchInfo.toMsg) config (fetchInfo.values.action |> Url.fromString |> Maybe.withDefault model.url) (Just fetchInfo.values)
                             , runFetcher =
                                 \(Pages.Fetcher.Fetcher options) ->
-                                    startFetcher options model
+                                    -- TODO need to get the fetcherId here
+                                    -- TODO need to increment and pass in the transitionId
+                                    startFetcher "TODO" -1 options model
                             , fromPageMsg = Pages.Msg.UserMsg >> UserMsg
                             , key = key
                             , setField = \info -> Task.succeed (SetField info) |> Task.perform identity
@@ -856,8 +865,8 @@ perform config model effect =
             Http.cancel (String.fromInt transitionKey)
 
 
-startFetcher : { fields : List ( String, String ), url : Maybe String, decoder : Result error Bytes -> value, headers : List ( String, String ) } -> Model userModel pageData actionData sharedData -> Cmd (Msg value pageData actionData sharedData errorPage)
-startFetcher options model =
+startFetcher : String -> Int -> { fields : List ( String, String ), url : Maybe String, decoder : Result error Bytes -> value, headers : List ( String, String ) } -> Model userModel pageData actionData sharedData -> Cmd (Msg value pageData actionData sharedData errorPage)
+startFetcher fetcherKey transitionId options model =
     let
         encodedBody : String
         encodedBody =
@@ -886,10 +895,10 @@ startFetcher options model =
     -- TODO make sure that `actionData` isn't updated in Model for fetchers
     Cmd.batch
         [ cancelStaleFetchers model
-        , Time.now |> Task.map (FetcherStarted formData) |> Task.perform identity
+        , Time.now |> Task.map (FetcherStarted fetcherKey transitionId formData) |> Task.perform identity
         , Http.request
             { expect =
-                Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
+                Http.expectBytesResponse (FetcherComplete fetcherKey model.nextTransitionKey)
                     (\bytes ->
                         case bytes of
                             Http.GoodStatus_ metadata bytesBody ->
@@ -919,8 +928,8 @@ startFetcher options model =
         ]
 
 
-startFetcher2 : FormDecoder.FormData -> Model userModel pageData actionData sharedData -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
-startFetcher2 formData model =
+startFetcher2 : String -> Int -> FormDecoder.FormData -> Model userModel pageData actionData sharedData -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
+startFetcher2 fetcherKey transitionId formData model =
     let
         encodedBody : String
         encodedBody =
@@ -929,10 +938,16 @@ startFetcher2 formData model =
     -- TODO make sure that `actionData` isn't updated in Model for fetchers
     Cmd.batch
         [ cancelStaleFetchers model
-        , Time.now |> Task.map (FetcherStarted formData) |> Task.perform identity
+        , case Dict.get fetcherKey model.inFlightFetchers of
+            Just ( inFlightId, inFlightFetcher ) ->
+                Http.cancel (String.fromInt inFlightId)
+
+            Nothing ->
+                Cmd.none
+        , Time.now |> Task.map (FetcherStarted fetcherKey transitionId formData) |> Task.perform identity
         , Http.request
             { expect =
-                Http.expectBytesResponse (FetcherComplete model.nextTransitionKey)
+                Http.expectBytesResponse (FetcherComplete fetcherKey model.nextTransitionKey)
                     (\bytes ->
                         case bytes of
                             Http.GoodStatus_ metadata bytesBody ->
@@ -951,7 +966,7 @@ startFetcher2 formData model =
                             Http.BadStatus_ metadata body ->
                                 Err <| Http.BadStatus metadata.statusCode
                     )
-            , tracker = Nothing
+            , tracker = Just (String.fromInt transitionId)
 
             -- TODO use formData.method to do either query params or POST body
             , body = Http.stringBody "application/x-www-form-urlencoded" encodedBody
@@ -970,7 +985,7 @@ cancelStaleFetchers model =
     model.inFlightFetchers
         |> Dict.toList
         |> List.filterMap
-            (\( id, fetcher ) ->
+            (\( fetcherKey, ( id, fetcher ) ) ->
                 case fetcher.status of
                     Pages.Transition.FetcherReloading ->
                         Http.cancel (String.fromInt id)
@@ -1064,7 +1079,7 @@ withUserMsg config userMsg ( model, effect ) =
         Ok pageData ->
             let
                 ( userModel, userCmd ) =
-                    config.update model.pageFormState (model.inFlightFetchers |> Dict.values) (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
+                    config.update model.pageFormState (model.inFlightFetchers |> toFetcherState) (model.transition |> Maybe.map Tuple.second) pageData.sharedData pageData.pageData model.key userMsg pageData.userModel
 
                 updatedPageData : Result error { userModel : userModel, pageData : pageData, actionData : Maybe actionData, sharedData : sharedData }
                 updatedPageData =
@@ -1279,7 +1294,7 @@ clearLoadingFetchers model =
     { model
         | inFlightFetchers =
             model.inFlightFetchers
-                |> Dict.filter (\_ fetcherState -> fetcherState.status /= Pages.Transition.FetcherReloading)
+                |> Dict.filter (\_ ( _, fetcherState ) -> fetcherState.status /= Pages.Transition.FetcherReloading)
     }
 
 
@@ -1314,7 +1329,7 @@ loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg 
                     -- instead of calling update, call pushUrl (I think?)
                     -- TODO include user Cmd
                     config.update model.pageFormState
-                        (model.inFlightFetchers |> Dict.values)
+                        (model.inFlightFetchers |> toFetcherState)
                         (model.transition |> Maybe.map Tuple.second)
                         newSharedData
                         newPageData
