@@ -8,10 +8,12 @@ import Api.Object.Sessions
 import Api.Object.Todos
 import Api.Object.Users
 import Api.Query
-import Api.Scalar exposing (Uuid(..))
+import Api.Scalar exposing (Timestamptz(..), Uuid(..))
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
+import Iso8601
+import Time
 
 
 type alias Todo =
@@ -52,8 +54,8 @@ todoSelection =
         Api.Object.Todos.id
 
 
-create : Uuid -> String -> SelectionSet Uuid RootMutation
-create userId title =
+create : Time.Posix -> Uuid -> String -> SelectionSet Uuid RootMutation
+create requestTime userId title =
     Api.Mutation.insert_todos_one identity
         { object =
             Api.InputObject.buildTodos_insert_input
@@ -61,6 +63,11 @@ create userId title =
                     { opts
                         | title = Present title
                         , user_id = Present userId
+                        , created_at =
+                            requestTime
+                                |> Iso8601.fromTime
+                                |> Timestamptz
+                                |> Present
                     }
                 )
         }

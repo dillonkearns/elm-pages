@@ -30,6 +30,7 @@ import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Set exposing (Set)
 import Shared
+import Time
 import View exposing (View)
 
 
@@ -134,11 +135,11 @@ update pageUrl sharedModel static msg model =
             )
 
 
-performAction : Action -> Uuid -> DataSource (Response ActionData ErrorPage)
-performAction actionInput userId =
+performAction : Time.Posix -> Action -> Uuid -> DataSource (Response ActionData ErrorPage)
+performAction requestTime actionInput userId =
     case actionInput of
         Add newItemDescription ->
-            Data.Todo.create userId newItemDescription
+            Data.Todo.create requestTime userId newItemDescription
                 |> Request.Hasura.mutationDataSource
                 |> DataSource.map (\_ -> Response.render {})
 
@@ -182,12 +183,15 @@ performAction actionInput userId =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
-        (Request.formData allForms)
-        (\formResult session ->
+        (Request.map2 Tuple.pair
+            Request.requestTime
+            (Request.formData allForms)
+        )
+        (\( requestTime, formResult ) session ->
             case formResult of
                 Ok actionInput ->
                     actionInput
-                        |> performAction
+                        |> performAction requestTime
                         |> withUserSession session
 
                 Err _ ->
