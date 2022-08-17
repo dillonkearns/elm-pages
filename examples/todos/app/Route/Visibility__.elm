@@ -2,7 +2,7 @@ module Route.Visibility__ exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
 import Data.Session
-import Data.Todo exposing (Todo)
+import Data.Todo
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
@@ -272,7 +272,11 @@ data routeParams =
                                 (\todos ->
                                     ( session
                                     , Response.render
-                                        { entries = todos |> Maybe.withDefault [] -- TODO add error handling for Nothing case
+                                        { entries =
+                                            todos
+                                                -- TODO add error handling for Nothing case
+                                                |> Maybe.withDefault []
+                                                |> List.map toOptimisticTodo
                                         , visibility = visibility
                                         }
                                     )
@@ -285,6 +289,23 @@ data routeParams =
                                 |> Route.redirectTo
                             )
             )
+
+
+toOptimisticTodo : Data.Todo.Todo -> Todo
+toOptimisticTodo todo =
+    { description = todo.description
+    , completed = todo.completed
+    , id = todo.id
+    , isSaving = False
+    }
+
+
+type alias Todo =
+    { description : String
+    , completed : Bool
+    , id : Uuid
+    , isSaving : Bool
+    }
 
 
 view :
@@ -316,6 +337,7 @@ view maybeUrl sharedModel model app =
                                     { description = description
                                     , completed = False
                                     , id = Uuid ""
+                                    , isSaving = True
                                     }
 
                             _ ->
@@ -386,7 +408,7 @@ view maybeUrl sharedModel model app =
                                 Nothing ->
                                     case togglingItems |> Dict.get (uuidToString item.id) of
                                         Just toggleTo ->
-                                            Just { item | completed = toggleTo }
+                                            Just { item | completed = toggleTo, isSaving = True }
 
                                         Nothing ->
                                             Just item
@@ -556,7 +578,7 @@ viewKeyedEntry app todo =
     ( uuidToString todo.id, lazy2 viewEntry app todo )
 
 
-viewEntry : StaticPayload Data ActionData RouteParams -> { description : String, completed : Bool, id : Uuid } -> Html (Pages.Msg.Msg Msg)
+viewEntry : StaticPayload Data ActionData RouteParams -> Todo -> Html (Pages.Msg.Msg Msg)
 viewEntry app todo =
     let
         isOptimisticEntry : Bool
@@ -580,6 +602,11 @@ viewEntry app todo =
             , editItemForm
                 |> Form.toDynamicFetcher ("edit-" ++ uuidToString todo.id)
                 |> Form.renderHtml [] Nothing app todo
+            , if todo.isSaving then
+                Html.div [ style "width" "10px" ] [ text "..." ]
+
+              else
+                empty
             , if isOptimisticEntry then
                 empty
 
