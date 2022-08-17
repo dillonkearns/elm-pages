@@ -1,51 +1,54 @@
-module Route.Visibility__ exposing (ActionData, Data, Model, Msg, route)
+port module Main exposing (..)
 
-import Api.Scalar exposing (Uuid(..))
-import Data.Session
-import Data.Todo exposing (Todo)
-import DataSource exposing (DataSource)
-import Dict exposing (Dict)
-import Effect exposing (Effect)
-import ErrorPage exposing (ErrorPage)
-import Form
-import Form.Field as Field
-import Form.FieldView as FieldView
-import Form.Validation as Validation
-import Form.Value
+{-| TodoMVC implemented in Elm, using plain HTML and CSS for rendering.
+
+This application is broken up into three key parts:
+
+1.  Model - a full definition of the application's state
+2.  Update - a way to step the application state forward
+3.  View - a way to visualize our application state with HTML
+
+This clean division of concerns is a core part of Elm. You can read more about
+this in <http://guide.elm-lang.org/architecture/index.html>
+
+-}
+
+import Browser
+import Browser.Dom as Dom
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (..)
 import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy, lazy2)
-import Icon
-import MySession
-import Pages.Msg
-import Pages.PageUrl exposing (PageUrl)
-import Pages.Transition
-import Path exposing (Path)
-import Request.Hasura
-import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
-import Server.Request as Request
-import Server.Response as Response exposing (Response)
-import Server.Session as Session exposing (Session)
-import Set exposing (Set)
-import Shared
-import View exposing (View)
+import Json.Decode as Json
+import Task
 
 
-route : StatefulRoute RouteParams Data ActionData Model Msg
-route =
-    RouteBuilder.serverRender
-        { head = \_ -> []
-        , data = data
-        , action = action
+main : Program (Maybe Model) Model Msg
+main =
+    Browser.document
+        { init = init
+        , view = \model -> { title = "Elm • TodoMVC", body = [ view model ] }
+        , update = updateWithStorage
+        , subscriptions = \_ -> Sub.none
         }
-        |> RouteBuilder.buildWithLocalState
-            { view = view
-            , update = update
-            , subscriptions = \_ _ _ _ _ -> Sub.none
-            , init = init
-            }
+
+
+port setStorage : Model -> Cmd msg
+
+
+{-| We want to `setStorage` on every update. This function adds the setStorage
+command for every step of the update function.
+-}
+updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
+updateWithStorage msg model =
+    let
+        ( newModel, cmds ) =
+            update msg model
+    in
+    ( newModel
+    , Cmd.batch [ setStorage newModel, cmds ]
+    )
 
 
 
@@ -54,433 +57,230 @@ route =
 
 
 type alias Model =
-    {}
-
-
-init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
-    -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
-    ( {}
-    , Effect.none
-    )
-
-
-type Msg
-    = NoOp
-    | ClearNewItemInput
-
-
-type alias RouteParams =
-    { visibility : Maybe String }
-
-
-type alias Data =
-    { entries : List Todo
-    , visibility : Visibility
+    { entries : List Entry
+    , field : String
+    , uid : Int
+    , visibility : String
     }
 
 
-type alias ActionData =
-    {}
+type alias Entry =
+    { description : String
+    , completed : Bool
+    , editing : Bool
+    , id : Int
+    }
+
+
+emptyModel : Model
+emptyModel =
+    { entries = []
+    , visibility = "All"
+    , field = ""
+    , uid = 0
+    }
+
+
+newEntry : String -> Int -> Entry
+newEntry desc id =
+    { description = desc
+    , completed = False
+    , editing = False
+    , id = id
+    }
+
+
+init : Maybe Model -> ( Model, Cmd Msg )
+init maybeModel =
+    ( Maybe.withDefault emptyModel maybeModel
+    , Cmd.none
+    )
 
 
 
 -- UPDATE
 
 
-{-| elm-pages apps only use Msg's and Model state for client-side interaction, but most of the behavior in
-Todo MVC is handled by our `action` which is an Elm function that runs server-side and can handle form submissions
-and other server requests.
-
-Most of our state moves out of the `Model` and into more declarative state in the URL (`RouteParams`) and
-form submissions (`Action`). Since elm-pages handles client-side form state, we don't need equivalents for some of these
-Msg's like `UpdateField`, `EditingEntry`. We don't need the `ChangeVisibility` because we use the declarative URL
-state from `RouteParams` instead.
-
-Some onClick handlers also go away because forms parse into one of these `Action` variants when it is received on the server.
-
+{-| Users of our app can trigger messages by clicking and typing. These
+messages are fed into the `update` function as they occur, letting us react
+to them.
 -}
-type Action
-    = UpdateEntry ( String, String )
-    | Add String
-    | Delete String
+type Msg
+    = NoOp
+    | UpdateField String
+    | EditingEntry Int Bool
+    | UpdateEntry Int String
+    | Add
+    | Delete Int
     | DeleteComplete
-    | Check ( Bool, String )
+    | Check Int Bool
     | CheckAll Bool
+    | ChangeVisibility String
 
 
 
 -- How we update our Model on a given Msg?
 
 
-update :
-    PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
-    -> Msg
-    -> Model
-    -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
     case msg of
         NoOp ->
-            ( model, Effect.none )
+            ( model, Cmd.none )
 
-        ClearNewItemInput ->
-            ( model
-            , Effect.SetField { formId = "new-item", name = "description", value = "" }
+        Add ->
+            ( { model
+                | uid = model.uid + 1
+                , field = ""
+                , entries =
+                    if String.isEmpty model.field then
+                        model.entries
+
+                    else
+                        model.entries ++ [ newEntry model.field model.uid ]
+              }
+            , Cmd.none
             )
 
+        UpdateField str ->
+            ( { model | field = str }
+            , Cmd.none
+            )
 
-performAction : Action -> Uuid -> DataSource (Response ActionData ErrorPage)
-performAction actionInput userId =
-    case actionInput of
-        Add newItemDescription ->
-            Data.Todo.create userId newItemDescription
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\_ -> Response.render {})
+        EditingEntry id isEditing ->
+            let
+                updateEntry t =
+                    if t.id == id then
+                        { t | editing = isEditing }
 
-        UpdateEntry ( itemId, newDescription ) ->
-            Data.Todo.update
-                { userId = userId
-                , todoId = Uuid itemId
-                , newDescription = newDescription
-                }
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
+                    else
+                        t
 
-        Delete itemId ->
-            Data.Todo.delete
-                { userId = userId
-                , itemId = Uuid itemId
-                }
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
+                focus =
+                    Dom.focus ("todo-" ++ String.fromInt id)
+            in
+            ( { model | entries = List.map updateEntry model.entries }
+            , Task.attempt (\_ -> NoOp) focus
+            )
+
+        UpdateEntry id task ->
+            let
+                updateEntry t =
+                    if t.id == id then
+                        { t | description = task }
+
+                    else
+                        t
+            in
+            ( { model | entries = List.map updateEntry model.entries }
+            , Cmd.none
+            )
+
+        Delete id ->
+            ( { model | entries = List.filter (\t -> t.id /= id) model.entries }
+            , Cmd.none
+            )
 
         DeleteComplete ->
-            Data.Todo.clearCompletedTodos userId
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
-
-        Check ( newCompleteValue, itemId ) ->
-            Data.Todo.setCompleteTo
-                { userId = userId
-                , itemId = Uuid itemId
-                , newCompleteValue = newCompleteValue
-                }
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
-
-        CheckAll toggleTo ->
-            Data.Todo.toggleAllTo userId toggleTo
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
-
-
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
-action routeParams =
-    MySession.withSession
-        (Request.formData allForms)
-        (\formResult session ->
-            case formResult of
-                Ok actionInput ->
-                    actionInput
-                        |> performAction
-                        |> withUserSession session
-
-                Err _ ->
-                    let
-                        okSession : Session
-                        okSession =
-                            session
-                                |> Result.withDefault Nothing
-                                |> Maybe.withDefault Session.empty
-                    in
-                    DataSource.succeed ( okSession, Response.render {} )
-        )
-
-
-withUserSession :
-    Result x (Maybe Session)
-    -> (Uuid -> DataSource (Response ActionData ErrorPage))
-    -> DataSource ( Session, Response ActionData ErrorPage )
-withUserSession cookieSession continue =
-    let
-        okSession : Session
-        okSession =
-            cookieSession
-                |> Result.withDefault Nothing
-                |> Maybe.withDefault Session.empty
-    in
-    okSession
-        |> Session.get "sessionId"
-        |> Maybe.map Data.Session.get
-        |> Maybe.map Request.Hasura.dataSource
-        |> Maybe.map
-            (DataSource.andThen
-                (\maybeUserSession ->
-                    let
-                        maybeUserId : Maybe Uuid
-                        maybeUserId =
-                            maybeUserSession
-                                |> Maybe.map .id
-                    in
-                    case maybeUserId of
-                        Nothing ->
-                            DataSource.succeed ( okSession, Response.render {} )
-
-                        Just userId ->
-                            continue userId
-                                |> DataSource.map (Tuple.pair okSession)
-                )
-            )
-        |> Maybe.withDefault (DataSource.succeed ( okSession, Response.render {} ))
-
-
-visibilityFromRouteParams : RouteParams -> Maybe Visibility
-visibilityFromRouteParams { visibility } =
-    case visibility of
-        Nothing ->
-            Just All
-
-        Just "completed" ->
-            Just Completed
-
-        Just "active" ->
-            Just Active
-
-        _ ->
-            Nothing
-
-
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
-data routeParams =
-    Request.succeed ()
-        |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
-            (\parsedSession () session ->
-                case visibilityFromRouteParams routeParams of
-                    Just visibility ->
-                        Data.Todo.findAllBySession parsedSession
-                            |> Request.Hasura.dataSource
-                            |> DataSource.map
-                                (\todos ->
-                                    ( session
-                                    , Response.render
-                                        { entries = todos |> Maybe.withDefault [] -- TODO add error handling for Nothing case
-                                        , visibility = visibility
-                                        }
-                                    )
-                                )
-
-                    Nothing ->
-                        DataSource.succeed
-                            ( session
-                            , Route.Visibility__ { visibility = Nothing }
-                                |> Route.redirectTo
-                            )
+            ( { model | entries = List.filter (not << .completed) model.entries }
+            , Cmd.none
             )
 
+        Check id isCompleted ->
+            let
+                updateEntry t =
+                    if t.id == id then
+                        { t | completed = isCompleted }
 
-view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> Model
-    -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
-view maybeUrl sharedModel model app =
-    let
-        pendingFetchers : List Action
-        pendingFetchers =
-            app.fetchers
-                |> List.filterMap
-                    (\{ status, payload } ->
-                        allForms
-                            |> Form.runOneOfServerSide payload.fields
-                            |> Tuple.first
-                    )
-
-        creatingItems : List Todo
-        creatingItems =
-            pendingFetchers
-                |> List.filterMap
-                    (\fetcher ->
-                        case fetcher of
-                            Add description ->
-                                Just
-                                    { description = description
-                                    , completed = False
-                                    , id = Uuid ""
-                                    }
-
-                            _ ->
-                                Nothing
-                    )
-
-        isClearing : Bool
-        isClearing =
-            pendingFetchers
-                |> List.any
-                    (\fetcher -> fetcher == DeleteComplete)
-
-        deletingItems : Set String
-        deletingItems =
-            pendingFetchers
-                |> List.filterMap
-                    (\fetcher ->
-                        case fetcher of
-                            Delete id ->
-                                Just id
-
-                            _ ->
-                                Nothing
-                    )
-                |> Set.fromList
-
-        togglingItems : Dict String Bool
-        togglingItems =
-            pendingFetchers
-                |> List.filterMap
-                    (\fetcher ->
-                        case fetcher of
-                            Check ( bool, id ) ->
-                                Just ( id, bool )
-
-                            _ ->
-                                Nothing
-                    )
-                |> Dict.fromList
-
-        togglingAllTo : Maybe Bool
-        togglingAllTo =
-            pendingFetchers
-                |> List.filterMap
-                    (\fetcher ->
-                        case fetcher of
-                            CheckAll toggleTo ->
-                                Just toggleTo
-
-                            _ ->
-                                Nothing
-                    )
-                |> List.head
-
-        optimisticEntities : List Todo
-        optimisticEntities =
-            (app.data.entries
-                |> List.filterMap
-                    (\item ->
-                        if (isClearing && item.completed) || (deletingItems |> Set.member (uuidToString item.id)) then
-                            Nothing
-
-                        else
-                            case togglingAllTo of
-                                Just justTogglingAllTo ->
-                                    Just { item | completed = justTogglingAllTo }
-
-                                Nothing ->
-                                    case togglingItems |> Dict.get (uuidToString item.id) of
-                                        Just toggleTo ->
-                                            Just { item | completed = toggleTo }
-
-                                        Nothing ->
-                                            Just item
-                    )
+                    else
+                        t
+            in
+            ( { model | entries = List.map updateEntry model.entries }
+            , Cmd.none
             )
-                ++ creatingItems
 
-        optimisticVisibility : Visibility
-        optimisticVisibility =
-            case app.transition of
-                Just (Pages.Transition.Loading path _) ->
-                    case path |> Path.toSegments of
-                        [ "active" ] ->
-                            Active
+        CheckAll isCompleted ->
+            let
+                updateEntry t =
+                    { t | completed = isCompleted }
+            in
+            ( { model | entries = List.map updateEntry model.entries }
+            , Cmd.none
+            )
 
-                        [ "completed" ] ->
-                            Completed
-
-                        _ ->
-                            All
-
-                _ ->
-                    app.data.visibility
-    in
-    { title = "Elm • TodoMVC"
-    , body =
-        [ div
-            [ class "todomvc-wrapper"
-            ]
-            [ section
-                [ class "todoapp" ]
-                [ newItemForm
-                    |> Form.toDynamicFetcher "new-item"
-                    |> Form.withOnSubmit (\_ -> ClearNewItemInput)
-                    |> Form.renderHtml
-                        [ class "create-form" ]
-                        Nothing
-                        app
-                        ()
-                , viewEntries app optimisticVisibility optimisticEntities
-                , viewControls app optimisticVisibility optimisticEntities
-                ]
-            , infoFooter
-            ]
-        ]
-    }
-
-
-newItemForm : Form.HtmlForm String Action input Msg
-newItemForm =
-    Form.init
-        (\description ->
-            { combine =
-                Validation.succeed identity
-                    |> Validation.andMap description
-                    |> Validation.map Add
-            , view =
-                \formState ->
-                    [ header
-                        [ class "header" ]
-                        [ h1 [] [ text "todos" ]
-                        , FieldView.input
-                            [ class "new-todo"
-                            , placeholder "What needs to be done?"
-                            , autofocus True
-                            ]
-                            description
-                        , Html.button [] [ Html.text "Create" ]
-                        ]
-                    ]
-            }
-        )
-        |> Form.field "description" (Field.text |> Field.required "Must be present")
-        |> Form.hiddenKind ( "kind", "new-item" ) "Expected kind"
-
-
-allForms : List (Form.HtmlForm String Action Todo Msg)
-allForms =
-    [ editItemForm, newItemForm, completeItemForm, deleteItemForm, clearCompletedForm, toggleAllForm ]
+        ChangeVisibility visibility ->
+            ( { model | visibility = visibility }
+            , Cmd.none
+            )
 
 
 
 -- VIEW
+
+
+view : Model -> Html Msg
+view model =
+    div
+        [ class "todomvc-wrapper"
+        , style "visibility" "hidden"
+        ]
+        [ section
+            [ class "todoapp" ]
+            [ lazy viewInput model.field
+            , lazy2 viewEntries model.visibility model.entries
+            , lazy2 viewControls model.visibility model.entries
+            ]
+        , infoFooter
+        ]
+
+
+viewInput : String -> Html Msg
+viewInput task =
+    header
+        [ class "header" ]
+        [ h1 [] [ text "todos" ]
+        , input
+            [ class "new-todo"
+            , placeholder "What needs to be done?"
+            , autofocus True
+            , value task
+            , name "newTodo"
+            , onInput UpdateField
+            , onEnter Add
+            ]
+            []
+        ]
+
+
+onEnter : Msg -> Attribute Msg
+onEnter msg =
+    let
+        isEnter code =
+            if code == 13 then
+                Json.succeed msg
+
+            else
+                Json.fail "not ENTER"
+    in
+    on "keydown" (Json.andThen isEnter keyCode)
+
+
+
 -- VIEW ALL ENTRIES
 
 
-viewEntries : StaticPayload Data ActionData RouteParams -> Visibility -> List Todo -> Html (Pages.Msg.Msg Msg)
-viewEntries app visibility entries =
+viewEntries : String -> List Entry -> Html Msg
+viewEntries visibility entries =
     let
         isVisible todo =
             case visibility of
-                Completed ->
+                "Completed" ->
                     todo.completed
 
-                Active ->
+                "Active" ->
                     not todo.completed
 
-                All ->
+                _ ->
                     True
 
         allCompleted =
@@ -497,194 +297,72 @@ viewEntries app visibility entries =
         [ class "main"
         , style "visibility" cssVisibility
         ]
-        [ toggleAllForm
-            |> Form.toDynamicFetcher "toggle-all"
-            |> Form.renderHtml []
-                Nothing
-                app
-                ()
+        [ input
+            [ class "toggle-all"
+            , type_ "checkbox"
+            , name "toggle"
+            , checked allCompleted
+            , onClick (CheckAll (not allCompleted))
+            ]
+            []
+        , label
+            [ for "toggle-all" ]
+            [ text "Mark all as complete" ]
         , Keyed.ul [ class "todo-list" ] <|
-            List.map (viewKeyedEntry app) (List.filter isVisible entries)
+            List.map viewKeyedEntry (List.filter isVisible entries)
         ]
-
-
-toggleAllForm : Form.HtmlForm String Action input Msg
-toggleAllForm =
-    Form.init
-        (\toggleTo ->
-            { combine =
-                Validation.succeed CheckAll
-                    |> Validation.andMap toggleTo
-            , view =
-                \formState ->
-                    [ button
-                        [ class "toggle-all"
-                        , name "toggle"
-
-                        --, checked allCompleted
-                        ]
-                        [ text "❯" ]
-                    , label
-                        [ for "toggle-all" ]
-                        [ text "Mark all as complete" ]
-                    ]
-            }
-        )
-        |> Form.hiddenField "toggleTo"
-            (Field.checkbox
-                |> Field.withInitialValue
-                    (\_ ->
-                        Form.Value.bool
-                            -- TODO remove hardcoding
-                            --, onClick (CheckAll (not allCompleted))
-                            True
-                    )
-            )
-        |> Form.hiddenKind ( "kind", "toggle-all" ) "Expected kind"
 
 
 
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Todo -> ( String, Html (Pages.Msg.Msg Msg) )
-viewKeyedEntry app todo =
-    ( uuidToString todo.id, lazy2 viewEntry app todo )
+viewKeyedEntry : Entry -> ( String, Html Msg )
+viewKeyedEntry todo =
+    ( String.fromInt todo.id, lazy viewEntry todo )
 
 
-viewEntry : StaticPayload Data ActionData RouteParams -> { description : String, completed : Bool, id : Uuid } -> Html (Pages.Msg.Msg Msg)
-viewEntry app todo =
-    let
-        isOptimisticEntry : Bool
-        isOptimisticEntry =
-            uuidToString todo.id == ""
-
-        empty : Html msg
-        empty =
-            text ""
-    in
+viewEntry : Entry -> Html Msg
+viewEntry todo =
     li
-        [ classList
-            [ ( "completed", todo.completed )
-            ]
-        ]
+        [ classList [ ( "completed", todo.completed ), ( "editing", todo.editing ) ] ]
         [ div
             [ class "view" ]
-            [ completeItemForm
-                |> Form.toDynamicFetcher ("toggle-" ++ uuidToString todo.id)
-                |> Form.renderHtml [] Nothing app todo
-            , editItemForm
-                |> Form.toDynamicFetcher ("edit-" ++ uuidToString todo.id)
-                |> Form.renderHtml [] Nothing app todo
-            , if isOptimisticEntry then
-                empty
-
-              else
-                deleteItemForm
-                    |> Form.toDynamicFetcher ("delete-" ++ uuidToString todo.id)
-                    |> Form.renderHtml [] Nothing app todo
+            [ input
+                [ class "toggle"
+                , type_ "checkbox"
+                , checked todo.completed
+                , onClick (Check todo.id (not todo.completed))
+                ]
+                []
+            , label
+                [ onDoubleClick (EditingEntry todo.id True) ]
+                [ text todo.description ]
+            , button
+                [ class "destroy"
+                , onClick (Delete todo.id)
+                ]
+                []
             ]
+        , input
+            [ class "edit"
+            , value todo.description
+            , name "title"
+            , id ("todo-" ++ String.fromInt todo.id)
+            , onInput (UpdateEntry todo.id)
+            , onBlur (EditingEntry todo.id False)
+            , onEnter (EditingEntry todo.id False)
+            ]
+            []
         ]
-
-
-completeItemForm : Form.HtmlForm String Action Todo Msg
-completeItemForm =
-    Form.init
-        (\todoId complete ->
-            { combine =
-                Validation.succeed Tuple.pair
-                    |> Validation.andMap complete
-                    |> Validation.andMap todoId
-                    |> Validation.map Check
-            , view =
-                \formState ->
-                    [ Html.button [ class "toggle" ]
-                        [ if formState.data.completed then
-                            Icon.complete
-
-                          else
-                            Icon.incomplete
-                        ]
-                    ]
-            }
-        )
-        |> Form.hiddenField "todoId"
-            (Field.text
-                |> Field.required "Must be present"
-                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
-            )
-        |> Form.hiddenField "complete"
-            (Field.checkbox
-                |> Field.withInitialValue (.completed >> not >> Form.Value.bool)
-            )
-        |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
-
-
-editItemForm : Form.HtmlForm String Action Todo Msg
-editItemForm =
-    Form.init
-        (\itemId description ->
-            { combine =
-                Validation.succeed Tuple.pair
-                    |> Validation.andMap itemId
-                    |> Validation.andMap description
-                    |> Validation.map UpdateEntry
-            , view =
-                \formState ->
-                    [ FieldView.input
-                        [ class "edit-input"
-                        , name "title"
-                        , id ("todo-" ++ uuidToString formState.data.id)
-                        ]
-                        description
-                    , Html.button [ style "display" "none" ] []
-                    ]
-            }
-        )
-        |> Form.hiddenField "itemId"
-            (Field.text
-                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
-                |> Field.required "Must be present"
-            )
-        |> Form.field "description"
-            (Field.text
-                |> Field.withInitialValue (.description >> Form.Value.string)
-                |> Field.required "Must be present"
-            )
-        |> Form.hiddenKind ( "kind", "edit-item" ) "Expected kind"
-
-
-deleteItemForm : Form.HtmlForm String Action Todo Msg
-deleteItemForm =
-    Form.init
-        (\todoId ->
-            { combine =
-                Validation.succeed Delete
-                    |> Validation.andMap todoId
-            , view =
-                \formState ->
-                    [ button [ class "destroy" ] [] ]
-            }
-        )
-        |> Form.hiddenField "todoId"
-            (Field.text
-                |> Field.required "Must be present"
-                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
-            )
-        |> Form.hiddenKind ( "kind", "delete" ) "Expected kind"
-
-
-uuidToString : Uuid -> String
-uuidToString (Uuid uuid) =
-    uuid
 
 
 
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : StaticPayload Data ActionData RouteParams -> Visibility -> List Todo -> Html (Pages.Msg.Msg Msg)
-viewControls app visibility entries =
+viewControls : String -> List Entry -> Html Msg
+viewControls visibility entries =
     let
         entriesCompleted =
             List.length (List.filter .completed entries)
@@ -698,11 +376,11 @@ viewControls app visibility entries =
         ]
         [ lazy viewControlsCount entriesLeft
         , lazy viewControlsFilters visibility
-        , lazy2 viewControlsClear app entriesCompleted
+        , lazy viewControlsClear entriesCompleted
         ]
 
 
-viewControlsCount : Int -> Html (Pages.Msg.Msg Msg)
+viewControlsCount : Int -> Html Msg
 viewControlsCount entriesLeft =
     let
         item_ =
@@ -719,75 +397,36 @@ viewControlsCount entriesLeft =
         ]
 
 
-type Visibility
-    = All
-    | Active
-    | Completed
-
-
-viewControlsFilters : Visibility -> Html (Pages.Msg.Msg Msg)
+viewControlsFilters : String -> Html Msg
 viewControlsFilters visibility =
     ul
         [ class "filters" ]
-        [ visibilitySwap Nothing All visibility
+        [ visibilitySwap "#/" "All" visibility
         , text " "
-        , visibilitySwap (Just "active") Active visibility
+        , visibilitySwap "#/active" "Active" visibility
         , text " "
-        , visibilitySwap (Just "completed") Completed visibility
+        , visibilitySwap "#/completed" "Completed" visibility
         ]
 
 
-visibilityToString : Visibility -> String
-visibilityToString visibility =
-    case visibility of
-        All ->
-            "All"
-
-        Active ->
-            "Active"
-
-        Completed ->
-            "Completed"
-
-
-visibilitySwap : Maybe String -> Visibility -> Visibility -> Html (Pages.Msg.Msg Msg)
-visibilitySwap visibilityParam visibility actualVisibility =
+visibilitySwap : String -> String -> String -> Html Msg
+visibilitySwap uri visibility actualVisibility =
     li
-        []
-        [ Route.Visibility__ { visibility = visibilityParam }
-            |> Route.link
-                [ classList [ ( "selected", visibility == actualVisibility ) ] ]
-                [ visibility |> visibilityToString |> text ]
+        [ onClick (ChangeVisibility visibility) ]
+        [ a [ href uri, classList [ ( "selected", visibility == actualVisibility ) ] ]
+            [ text visibility ]
         ]
 
 
-clearCompletedForm : Form.HtmlForm String Action input Msg
-clearCompletedForm =
-    Form.init
-        { combine = Validation.succeed DeleteComplete
-        , view =
-            \formState ->
-                [ button
-                    [ class "clear-completed"
-
-                    --, hidden (entriesCompleted == 0)
-                    ]
-                    [ text "Clear completed"
-
-                    -- TODO need to enable merging forms with different input types (and action types) to make this possible (input types are all Todo now,
-                    -- need it to be Int)
-                    -- text ("Clear completed (" ++ String.fromInt entriesCompleted ++ ")")
-                    ]
-                ]
-        }
-        |> Form.hiddenKind ( "kind", "clear-completed" ) "Expected kind"
-
-
-viewControlsClear : StaticPayload Data ActionData RouteParams -> Int -> Html (Pages.Msg.Msg Msg)
-viewControlsClear app entriesCompleted =
-    clearCompletedForm
-        |> Form.toDynamicFetcher "clear-completed"
-        |> Form.renderHtml [] Nothing app ()
+viewControlsClear : Int -> Html Msg
+viewControlsClear entriesCompleted =
+    button
+        [ class "clear-completed"
+        , hidden (entriesCompleted == 0)
+        , onClick DeleteComplete
+        ]
+        [ text ("Clear completed (" ++ String.fromInt entriesCompleted ++ ")")
+        ]
 
 
 infoFooter : Html msg
@@ -796,11 +435,7 @@ infoFooter =
         [ p [] [ text "Double-click to edit a todo" ]
         , p []
             [ text "Written by "
-            , a [ href "https://github.com/dillonkearns" ] [ text "Dillon Kearns" ]
-            ]
-        , p []
-            [ text "Forked from Evan Czaplicki's vanilla Elm implementation "
-            , a [ href "https://github.com/evancz/elm-todomvc/blob/f236e7e56941c7705aba6e42cb020ff515fe3290/src/Main.elm" ] [ text "github.com/evancz/elm-todomvc" ]
+            , a [ href "https://github.com/evancz" ] [ text "Evan Czaplicki" ]
             ]
         , p []
             [ text "Part of "
