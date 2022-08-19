@@ -95,6 +95,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
         }
       } else {
         try {
+          console.time(`fetch ${request.url}`);
           const response = await fetch(request.url, {
             method: request.method,
             body: request.body,
@@ -103,6 +104,8 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
               ...request.headers,
             },
           });
+
+          console.timeEnd(`fetch ${request.url}`);
           const expectString = request.headers["elm-pages-internal"];
 
           if (response.ok || expectString === "ExpectResponse") {
