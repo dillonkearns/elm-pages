@@ -31,6 +31,7 @@ import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Set exposing (Set)
 import Shared
+import Task
 import Time
 import View exposing (View)
 
@@ -56,7 +57,8 @@ route =
 
 
 type alias Model =
-    {}
+    { nextId : Time.Posix
+    }
 
 
 init :
@@ -64,15 +66,16 @@ init :
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
-    ( {}
+init maybePageUrl sharedModel app =
+    ( { nextId = app.data.requestTime }
     , Effect.none
     )
 
 
 type Msg
     = NoOp
-    | ClearNewItemInput
+    | NewItemSubmitted
+    | GenerateNextNewItemId Time.Posix
 
 
 type alias RouteParams =
@@ -82,6 +85,7 @@ type alias RouteParams =
 type alias Data =
     { entries : List Todo
     , visibility : Visibility
+    , requestTime : Time.Posix
     }
 
 
@@ -130,10 +134,17 @@ update pageUrl sharedModel static msg model =
         NoOp ->
             ( model, Effect.none )
 
-        ClearNewItemInput ->
+        NewItemSubmitted ->
             ( model
-            , Effect.SetField { formId = "new-item", name = "description", value = "" }
+            , Time.now
+                |> Task.perform GenerateNextNewItemId
+                |> Effect.fromCmd
             )
+
+        GenerateNextNewItemId currentTime ->
+            -- this will clear out the input from the previous input because we will use
+            -- the new form-id to render the new item form
+            ( { model | nextId = currentTime }, Effect.none )
 
 
 performAction : Time.Posix -> Action -> Uuid -> DataSource (Response ActionData ErrorPage)
@@ -262,9 +273,9 @@ visibilityFromRouteParams { visibility } =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    Request.succeed ()
+    Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
-            (\parsedSession () session ->
+            (\parsedSession requestTime session ->
                 case visibilityFromRouteParams routeParams of
                     Just visibility ->
                         Data.Todo.findAllBySession parsedSession
@@ -279,6 +290,7 @@ data routeParams =
                                                 |> Maybe.withDefault []
                                                 |> List.map toOptimisticTodo
                                         , visibility = visibility
+                                        , requestTime = requestTime
                                         }
                                     )
                                 )
@@ -442,8 +454,11 @@ view maybeUrl sharedModel model app =
             [ section
                 [ class "todoapp" ]
                 [ newItemForm
-                    |> Form.toDynamicFetcher "new-item"
-                    |> Form.withOnSubmit (\_ -> ClearNewItemInput)
+                    |> Form.toDynamicFetcher
+                        ("new-item-"
+                            ++ (model.nextId |> Time.posixToMillis |> String.fromInt)
+                        )
+                    |> Form.withOnSubmit (\_ -> NewItemSubmitted)
                     |> Form.renderHtml
                         [ class "create-form" ]
                         Nothing
