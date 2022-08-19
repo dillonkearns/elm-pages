@@ -436,14 +436,7 @@ view maybeUrl sharedModel model app =
     in
     { title = "Elm • TodoMVC"
     , body =
-        [ pre []
-            [ text
-                (app.fetchers
-                    |> List.map Debug.toString
-                    |> String.join "\n"
-                )
-            ]
-        , div
+        [ div
             [ class "todomvc-wrapper"
             ]
             [ section
@@ -460,6 +453,13 @@ view maybeUrl sharedModel model app =
                 , viewControls app optimisticVisibility optimisticEntities
                 ]
             , infoFooter
+            , pre [ style "white-space" "break-spaces" ]
+                [ text
+                    (app.fetchers
+                        |> List.map Debug.toString
+                        |> String.join "\n"
+                    )
+                ]
             ]
         ]
     }
