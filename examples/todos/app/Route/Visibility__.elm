@@ -17,6 +17,7 @@ import Html.Attributes exposing (..)
 import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy, lazy2)
 import Icon
+import LoadingSpinner
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -610,12 +611,7 @@ viewEntry app todo =
                 |> Form.toDynamicFetcher ("edit-" ++ uuidToString todo.id)
                 |> Form.renderHtml [] Nothing app todo
             , if todo.isSaving then
-                Html.div [ style "width" "10px" ] [ text "..." ]
-
-              else
-                empty
-            , if isOptimisticEntry then
-                empty
+                LoadingSpinner.view
 
               else
                 deleteItemForm
