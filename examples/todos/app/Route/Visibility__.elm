@@ -435,7 +435,14 @@ view maybeUrl sharedModel model app =
     in
     { title = "Elm • TodoMVC"
     , body =
-        [ div
+        [ pre []
+            [ text
+                (app.fetchers
+                    |> List.map Debug.toString
+                    |> String.join "\n"
+                )
+            ]
+        , div
             [ class "todomvc-wrapper"
             ]
             [ section
