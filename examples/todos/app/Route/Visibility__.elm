@@ -476,7 +476,7 @@ newItemForm =
                             , autofocus True
                             ]
                             description
-                        , Html.button [] [ Html.text "Create" ]
+                        , Html.button [ style "display" "none" ] [ Html.text "Create" ]
                         ]
                     ]
             }
@@ -551,7 +551,7 @@ toggleAllForm =
                         ]
                         [ text "❯" ]
                     , label
-                        [ for "toggle-all" ]
+                        [ for "toggle-all", style "display" "none" ]
                         [ text "Mark all as complete" ]
                     ]
             }
