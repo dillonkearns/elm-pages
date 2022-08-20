@@ -73,8 +73,7 @@ init maybePageUrl sharedModel app =
 
 
 type Msg
-    = NoOp
-    | NewItemSubmitted
+    = NewItemSubmitted
     | GenerateNextNewItemId Time.Posix
 
 
@@ -131,9 +130,6 @@ update :
     -> ( Model, Effect Msg )
 update pageUrl sharedModel static msg model =
     case msg of
-        NoOp ->
-            ( model, Effect.none )
-
         NewItemSubmitted ->
             ( model
             , Time.now
