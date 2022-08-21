@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - debug
   pull_request:
     branches:
       - master
@@ -39,8 +40,6 @@ jobs:
       # Install npm packages, unless we restored them from cache.
       # Since `npm ci` removes the node_modules folder before running it’s
       # important to skip this step if cache was restored.
-      - name: Lamdera Reset for tests
-        run: rm -rf elm-stuff $HOME/.elm
       - name: npm ci
         if: steps.cache-node_modules.outputs.cache-hit != 'true'
         env:
@@ -69,8 +68,7 @@ jobs:
       - name: Build elm docs
         id: docs
         run: npx --no-install elm make --docs docs.json
-      - name: Lamdera Reset for cypress
-        run: yes | lamdera reset
+
       - name: Setup for cypress
         run: (cd examples/end-to-end && npm install && npx elm-tooling install && rm -rf elm-stuff && npx elm-pages codegen && lamdera make app/Route/Index.elm)
       - name: Cypress tests
