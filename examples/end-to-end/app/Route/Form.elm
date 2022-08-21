@@ -80,10 +80,12 @@ form =
             , view =
                 \formState ->
                     let
+                        errors : Validation.Field String parsed kind -> List String
                         errors field =
                             formState.errors
                                 |> Form.errorsForField field
 
+                        errorsView : Validation.Field String parsed kind -> Html msg
                         errorsView field =
                             case ( formState.submitAttempted, field |> errors ) of
                                 ( True, firstItem :: rest ) ->
@@ -104,6 +106,7 @@ form =
                                 _ ->
                                     Html.div [] []
 
+                        fieldView : String -> Validation.Field String parsed Form.FieldView.Input -> Html msg
                         fieldView label field =
                             Html.div []
                                 [ Html.label []
