@@ -66,7 +66,7 @@ jobs:
         run: npx --no-install elm-format --validate src/ generator/src
       - name: Build elm docs
         id: docs
-        run: npx --no-install elm make --docs docs.json
+        run: lamdera make --docs docs.json
 
       - name: Setup for cypress
         run: (cd examples/end-to-end && npm install && npx elm-tooling install && rm -rf elm-stuff && npx elm-pages codegen && lamdera make app/Route/Index.elm)
