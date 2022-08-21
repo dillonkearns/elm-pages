@@ -39,17 +39,17 @@ import Pages.Internal.Form exposing (Validation(..), ViewField)
 
 {-| -}
 type alias Combined error parsed =
-    Pages.Internal.Form.Validation error parsed Never Never
+    Validation error parsed Never Never
 
 
 {-| -}
 type alias Field error parsed kind =
-    Pages.Internal.Form.Validation error parsed kind { field : kind }
+    Validation error parsed kind { field : kind }
 
 
 {-| -}
 type alias Validation error parsed kind constraints =
-    Pages.Internal.Form.Validation error parsed kind constraints
+    Validation error parsed kind constraints
 
 
 {-| -}
@@ -172,17 +172,6 @@ fromResult fieldResult =
                     Err error ->
                         fail error fieldResult
             )
-
-
-{-| -}
-fromResultOld : Result ( String, error ) parsed -> Combined error parsed
-fromResultOld result =
-    case result of
-        Ok parsed ->
-            Validation Nothing Nothing ( Just parsed, Dict.empty )
-
-        Err ( key, error ) ->
-            Validation Nothing Nothing ( Nothing, Dict.singleton key [ error ] )
 
 
 {-| -}

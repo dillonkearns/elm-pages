@@ -265,7 +265,6 @@ import Form.FieldView
 import Form.Validation as Validation exposing (Combined, Validation)
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Html.Events
 import Html.Lazy
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
@@ -774,7 +773,7 @@ type alias AppContext app =
           --, submit :
           --    { fields : List ( String, String ), headers : List ( String, String ) }
           --    -> Pages.Fetcher.Fetcher (Result Http.Error action)
-          transition : Maybe Pages.Transition.Transition
+          transition : Maybe Transition
         , fetchers : List Pages.Transition.FetcherState
         , pageFormState : Dict String FormState
     }
@@ -1344,10 +1343,10 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                         --transition.todo == formId
                         formData.id == Just formId
 
-                    Just (LoadAfterSubmit submitData path state) ->
+                    Just (LoadAfterSubmit submitData _ _) ->
                         submitData.id == Just formId
 
-                    Just (Loading path state) ->
+                    Just (Loading _ _) ->
                         False
 
                     Nothing ->
