@@ -7,7 +7,7 @@
   "main": "index.js",
   "scripts": {
     "start": "cd examples/end-to-end && npm i && npx elm-pages dev",
-    "test": "set -x; (cd examples/routing && npm i && npm run build && elm-test-rs --compiler=lamdera) && npm run test:snapshot && npx elmi-to-json --version && rm -rf elm-stuff && elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera' && elm-test-rs --compiler=lamdera && (cd generator && mocha)",
+    "test": "./test.sh",
     "test:snapshot": "(cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)",
     "cypress": "npm start & cypress run",
     "review": "elm-review"

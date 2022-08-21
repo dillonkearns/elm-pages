@@ -10,10 +10,8 @@ module Form exposing
     , parse, runServerSide, runOneOfServerSide
     , dynamic
     , AppContext
-    ,  toServerForm
-       -- subGroup
-      , withOnSubmit
-
+    , toServerForm, withOnSubmit
+    -- subGroup
     )
 
 {-| One of the core features of elm-pages is helping you manage form data end-to-end, including
@@ -252,6 +250,11 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 @docs dynamic
 
 @docs AppContext
+
+
+## Submission
+
+@docs toServerForm, withOnSubmit
 
 -}
 
@@ -645,6 +648,7 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
         )
 
 
+{-| -}
 toServerForm :
     Form
         error
