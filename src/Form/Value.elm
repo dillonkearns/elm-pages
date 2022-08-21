@@ -70,7 +70,7 @@ bool bool_ =
         False ->
             ""
     )
-        |> Value IntValue
+        |> Value BoolValue
 
 
 {-| -}
