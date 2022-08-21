@@ -1408,13 +1408,13 @@ type alias DoneForm error parsed data view =
 
 
 {-| -}
-type alias HtmlForm error parsed data msg =
+type alias HtmlForm error parsed input msg =
     Form
         error
         { combine : Combined error parsed
-        , view : Context error data -> List (Html (Pages.Msg.Msg msg))
+        , view : Context error input -> List (Html (Pages.Msg.Msg msg))
         }
-        data
+        input
 
 
 {-| -}
