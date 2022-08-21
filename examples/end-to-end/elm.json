@@ -11,13 +11,11 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
-            "MartinSStewart/elm-serialize": "1.2.5",
             "avh4/elm-color": "1.0.0",
             "avh4/elm-fifo": "1.0.4",
             "danfishgold/base64-bytes": "1.1.0",
             "danyx23/elm-mimetype": "4.0.1",
             "dillonkearns/elm-bcp47-language-tag": "1.0.1",
-            "dillonkearns/elm-markdown": "6.0.1",
             "elm/browser": "1.0.2",
             "elm/bytes": "1.0.8",
             "elm/core": "1.0.5",
@@ -40,22 +38,16 @@
             "justinmimbs/date": "4.0.1",
             "lamdera/codecs": "1.0.0",
             "lamdera/core": "1.0.0",
-            "matheus23/elm-default-tailwind-modules": "2.0.1",
             "mgold/elm-nonempty-list": "4.2.0",
             "miniBill/elm-codec": "2.0.0",
             "noahzgordon/elm-color-extra": "1.0.2",
-            "pablohirafuji/elm-syntax-highlight": "3.4.0",
             "robinheghan/fnv1a": "1.0.0",
-            "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-css": "16.1.1",
-            "tripokey/elm-fuzzy": "5.2.1",
             "turboMaCk/non-empty-list-alias": "1.2.0",
             "vito/elm-ansi": "10.0.1",
-            "ymtszw/elm-xml-decode": "3.2.1",
-            "zwilias/json-decode-exploration": "6.0.0"
+            "ymtszw/elm-xml-decode": "3.2.1"
         },
         "indirect": {
-            "bburdette/toop": "1.0.1",
             "elm/file": "1.0.5",
             "elm-community/maybe-extra": "5.3.0",
             "fredcy/elm-parseint": "2.0.1",
