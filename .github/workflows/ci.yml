@@ -7,6 +7,8 @@ on:
   pull_request:
     branches:
       - master
+env:
+  SESSION_SECRET: hello
 
 jobs:
   main:
