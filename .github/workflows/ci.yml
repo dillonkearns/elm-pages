@@ -130,7 +130,7 @@ jobs:
         run: curl https://static.lamdera.com/bin/win/lamdera.exe -o ./lamdera && chmod a+x ./lamdera
       - name: Add Lamdera to path
         shell: bash
-        run: $GITHUB_WORKSPACE >> $GITHUB_PATH
+        run: echo "$GITHUB_WORKSPACE" >> $GITHUB_PATH
       - name: Confirm that lamdera is on path
         shell: bash
         run: lamdera --version
