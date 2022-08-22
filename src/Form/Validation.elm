@@ -33,6 +33,7 @@ module Form.Validation exposing
 -}
 
 import Dict exposing (Dict)
+import Form.FieldStatus exposing (FieldStatus)
 import Pages.FormState
 import Pages.Internal.Form exposing (ViewField)
 
@@ -60,7 +61,7 @@ fieldName (Pages.Internal.Form.Validation viewField name ( maybeParsed, errors )
 
 
 {-| -}
-fieldStatus : Field error parsed kind -> Pages.FormState.FieldStatus
+fieldStatus : Field error parsed kind -> FieldStatus
 fieldStatus (Pages.Internal.Form.Validation viewField _ ( maybeParsed, errors )) =
     viewField
         |> expectViewField

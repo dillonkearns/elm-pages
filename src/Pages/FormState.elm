@@ -1,6 +1,7 @@
-module Pages.FormState exposing (Event(..), FieldEvent, FieldState, FieldStatus(..), FormState, PageFormState, fieldStatusToString, init, listeners, setField, setSubmitAttempted, update)
+module Pages.FormState exposing (Event(..), FieldEvent, FieldState, FormState, PageFormState, init, listeners, setField, setSubmitAttempted, update)
 
 import Dict exposing (Dict)
+import Form.FieldStatus as FieldStatus exposing (FieldStatus)
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Html.Events
@@ -133,7 +134,7 @@ setField info pageFormState =
                                         previousFieldValue : FieldState
                                         previousFieldValue =
                                             previousFieldValue_
-                                                |> Maybe.withDefault { value = "", status = NotVisited }
+                                                |> Maybe.withDefault { value = "", status = FieldStatus.NotVisited }
                                     in
                                     { previousFieldValue | value = info.value }
                                         |> Just
@@ -154,17 +155,17 @@ updateForm fieldEvent formState =
                             previousValue : FieldState
                             previousValue =
                                 previousValue_
-                                    |> Maybe.withDefault { value = fieldEvent.value, status = NotVisited }
+                                    |> Maybe.withDefault { value = fieldEvent.value, status = FieldStatus.NotVisited }
                         in
                         (case fieldEvent.event of
                             InputEvent newValue ->
                                 { previousValue | value = newValue }
 
                             FocusEvent ->
-                                { previousValue | status = previousValue.status |> increaseStatusTo Focused }
+                                { previousValue | status = previousValue.status |> increaseStatusTo FieldStatus.Focused }
 
                             BlurEvent ->
-                                { previousValue | status = previousValue.status |> increaseStatusTo Blurred }
+                                { previousValue | status = previousValue.status |> increaseStatusTo FieldStatus.Blurred }
                         )
                             |> Just
                     )
@@ -208,29 +209,6 @@ type alias FieldState =
     }
 
 
-type FieldStatus
-    = NotVisited
-    | Focused
-    | Changed
-    | Blurred
-
-
-fieldStatusToString : FieldStatus -> String
-fieldStatusToString fieldStatus =
-    case fieldStatus of
-        NotVisited ->
-            "NotVisited"
-
-        Focused ->
-            "Focused"
-
-        Changed ->
-            "Changed"
-
-        Blurred ->
-            "Blurred"
-
-
 increaseStatusTo : FieldStatus -> FieldStatus -> FieldStatus
 increaseStatusTo increaseTo currentStatus =
     if statusRank increaseTo > statusRank currentStatus then
@@ -243,14 +221,14 @@ increaseStatusTo increaseTo currentStatus =
 statusRank : FieldStatus -> Int
 statusRank status =
     case status of
-        NotVisited ->
+        FieldStatus.NotVisited ->
             0
 
-        Focused ->
+        FieldStatus.Focused ->
             1
 
-        Changed ->
+        FieldStatus.Changed ->
             2
 
-        Blurred ->
+        FieldStatus.Blurred ->
             3

@@ -261,6 +261,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Form.Field as Field exposing (Field(..))
+import Form.FieldStatus as FieldStatus
 import Form.FieldView
 import Form.Validation as Validation exposing (Combined, Validation)
 import Html exposing (Html)
@@ -504,7 +505,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                             ( Just info.value, info.status )
 
                         Nothing ->
-                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, Form.NotVisited )
+                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, FieldStatus.NotVisited )
 
                 thing : Pages.Internal.Form.ViewField kind
                 thing =
@@ -598,7 +599,7 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                             ( Just info.value, info.status )
 
                         Nothing ->
-                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, Form.NotVisited )
+                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, FieldStatus.NotVisited )
 
                 thing : Pages.Internal.Form.ViewField Form.FieldView.Hidden
                 thing =
@@ -872,7 +873,7 @@ runServerSide rawFormData (Form _ parser _) =
                             (Tuple.mapSecond
                                 (\value ->
                                     { value = value
-                                    , status = Form.NotVisited
+                                    , status = FieldStatus.NotVisited
                                     }
                                 )
                             )
@@ -1251,7 +1252,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
         initialValues : Dict String Form.FieldState
         initialValues =
             toInitialValues data
-                |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                |> List.map (Tuple.mapSecond (\value -> { value = value, status = FieldStatus.NotVisited }))
                 |> Dict.fromList
 
         part2 : Dict String Form.FieldState
@@ -1264,7 +1265,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                             (\{ fields } ->
                                 { fields =
                                     fields
-                                        |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                                        |> List.map (Tuple.mapSecond (\value -> { value = value, status = FieldStatus.NotVisited }))
                                         |> Dict.fromList
                                 , submitAttempted = True
                                 }
@@ -1315,7 +1316,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                             (\{ fields } ->
                                 { fields =
                                     fields
-                                        |> List.map (Tuple.mapSecond (\value -> { value = value, status = Form.NotVisited }))
+                                        |> List.map (Tuple.mapSecond (\value -> { value = value, status = FieldStatus.NotVisited }))
                                         |> Dict.fromList
                                 , submitAttempted = True
                                 }
