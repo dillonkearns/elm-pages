@@ -3,7 +3,6 @@ module Pages.Internal.Form exposing (Validation(..), ViewField)
 import Dict exposing (Dict)
 import Form.FieldStatus exposing (FieldStatus)
 import Json.Encode as Encode
-import Pages.FormState
 
 
 type Validation error parsed kind field
