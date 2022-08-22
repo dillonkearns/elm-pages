@@ -112,6 +112,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Download lamdera
+        shell: bash
+        run: curl https://static.lamdera.com/bin/win/lamdera.exe -o ./lamdera && chmod a+x ./lamdera
+      - name: Add Lamdera to path
+        shell: bash
+        run: echo "$GITHUB_WORKSPACE\\lamdera" >> $GITHUB_PATH
+      - name: Confirm that lamdera is on path
+        shell: bash
+        run: lamdera --version && which lamdera
       - name: Use Node.js 16
         uses: actions/setup-node@v1
         with:
@@ -125,15 +134,6 @@ jobs:
             ~/.cache/Cypress
             node_modules
           key: node_modules-node-windows-v${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
-      - name: Download lamdera
-        shell: bash
-        run: curl https://static.lamdera.com/bin/win/lamdera.exe -o ./lamdera && chmod a+x ./lamdera
-      - name: Add Lamdera to path
-        shell: bash
-        run: echo "$GITHUB_WORKSPACE" >> $GITHUB_PATH
-      - name: Confirm that lamdera is on path
-        shell: bash
-        run: lamdera --version
       - run: git config core.autocrlf true
       # Re-use ~/.elm between runs until elm.json, elm-tooling.json or
       # review/elm.json changes. The Elm compiler saves downloaded Elm packages
