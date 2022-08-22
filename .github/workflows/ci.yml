@@ -152,6 +152,10 @@ jobs:
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
       - name: Download lamdera
-        run: curl https://static.lamdera.com/bin/win/lamdera.exe -o node_modules/.bin/lamdera && chmod a+x node_modules/.bin/lamdera
+        shell: bash
+        run: curl https://static.lamdera.com/bin/win/lamdera.exe -o ./lamdera && chmod a+x ./lamdera
+      - name: Add Lamdera to path
+        shell: bash
+        run: echo "::add-path::$GITHUB_WORKSPACE"
       - name: Snapshot Tests
         run: npm run test:snapshot
