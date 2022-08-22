@@ -125,7 +125,15 @@ jobs:
             ~/.cache/Cypress
             node_modules
           key: node_modules-node-windows-v${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
-
+      - name: Download lamdera
+        shell: bash
+        run: curl https://static.lamdera.com/bin/win/lamdera.exe -o ./lamdera && chmod a+x ./lamdera
+      - name: Add Lamdera to path
+        shell: bash
+        run: $GITHUB_WORKSPACE >> $GITHUB_PATH
+      - name: Confirm that lamdera is on path
+        shell: bash
+        run: lamdera --version
       - run: git config core.autocrlf true
       # Re-use ~/.elm between runs until elm.json, elm-tooling.json or
       # review/elm.json changes. The Elm compiler saves downloaded Elm packages
@@ -140,6 +148,7 @@ jobs:
       # Since `npm ci` removes the node_modules folder before running it’s
       # important to skip this step if cache was restored.
       - name: npm ci
+        shell: bash
         if: steps.cache-node_modules.outputs.cache-hit != 'true'
         env:
           # If you have a `"postinstall": "elm-tooling install"` script in your
@@ -150,12 +159,8 @@ jobs:
           NO_ELM_TOOLING_INSTALL: 1
         run: npm ci
       - name: elm-tooling install
+        shell: bash
         run: npx --no-install elm-tooling install
-      - name: Download lamdera
-        shell: bash
-        run: curl https://static.lamdera.com/bin/win/lamdera.exe -o ./lamdera && chmod a+x ./lamdera
-      - name: Add Lamdera to path
-        shell: bash
-        run: echo "::add-path::$GITHUB_WORKSPACE"
       - name: Snapshot Tests
+        shell: bash
         run: npm run test:snapshot
