@@ -455,9 +455,7 @@ update config appMsg model =
                         |> startNewGetLoad (currentUrlWithPath redirectTo model) toMsg
 
                 _ ->
-                    model
-                        |> clearLoadingFetchersAfterDataLoad transitionId
-                        |> update config (toMsg response)
+                    update config (toMsg response) (clearLoadingFetchersAfterDataLoad transitionId model)
 
         UserMsg userMsg_ ->
             case userMsg_ of

@@ -108,11 +108,13 @@ input :
     List (Html.Attribute msg)
     -> Form.Validation.Field error parsed Input
     -> Html msg
-input attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+input attrs (Validation viewField fieldName _) =
     let
+        justViewField : ViewField Input
         justViewField =
             expectViewField viewField
 
+        rawField : { name : String, value : Maybe String, kind : ( Input, List ( String, Encode.Value ) ) }
         rawField =
             { name = fieldName |> Maybe.withDefault ""
             , value = justViewField.value
@@ -154,11 +156,13 @@ inputStyled :
     List (Html.Styled.Attribute msg)
     -> Form.Validation.Field error parsed Input
     -> Html.Styled.Html msg
-inputStyled attrs (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+inputStyled attrs (Validation viewField fieldName _) =
     let
+        justViewField : ViewField Input
         justViewField =
             expectViewField viewField
 
+        rawField : { name : String, value : Maybe String, kind : ( Input, List ( String, Encode.Value ) ) }
         rawField =
             { name = fieldName |> Maybe.withDefault ""
             , value = justViewField.value
@@ -211,11 +215,13 @@ select :
         )
     -> Form.Validation.Field error parsed2 (Options parsed)
     -> Html msg
-select selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+select selectAttrs enumToOption (Validation viewField fieldName _) =
     let
+        justViewField : ViewField (Options parsed)
         justViewField =
             viewField |> expectViewField
 
+        rawField : { name : String, value : Maybe String, kind : ( Options parsed, List ( String, Encode.Value ) ) }
         rawField =
             { name = fieldName |> Maybe.withDefault ""
             , value = justViewField.value
@@ -265,11 +271,13 @@ radio :
         )
     -> Form.Validation.Field error parsed2 (Options parsed)
     -> Html msg
-radio selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+radio selectAttrs enumToOption (Validation viewField fieldName _) =
     let
+        justViewField : ViewField (Options parsed)
         justViewField =
             viewField |> expectViewField
 
+        rawField : { name : String, value : Maybe String, kind : ( Options parsed, List ( String, Encode.Value ) ) }
         rawField =
             { name = fieldName |> Maybe.withDefault ""
             , value = justViewField.value
@@ -340,11 +348,13 @@ radioStyled :
         )
     -> Form.Validation.Field error parsed2 (Options parsed)
     -> Html.Styled.Html msg
-radioStyled selectAttrs enumToOption (Validation viewField fieldName ( maybeParsed, fieldErrors )) =
+radioStyled selectAttrs enumToOption (Validation viewField fieldName _) =
     let
+        justViewField : ViewField (Options parsed)
         justViewField =
             viewField |> expectViewField
 
+        rawField : { name : String, value : Maybe String, kind : ( Options parsed, List ( String, Encode.Value ) ) }
         rawField =
             { name = fieldName |> Maybe.withDefault ""
             , value = justViewField.value

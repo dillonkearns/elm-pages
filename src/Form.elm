@@ -887,7 +887,7 @@ runServerSide rawFormData (Form _ parser _) =
 
 
 unwrapValidation : Validation error parsed named constraints -> ( Maybe parsed, Dict String (List error) )
-unwrapValidation (Pages.Internal.Form.Validation viewField name ( maybeParsed, errors )) =
+unwrapValidation (Pages.Internal.Form.Validation _ _ ( maybeParsed, errors )) =
     ( maybeParsed, errors )
 
 
@@ -989,6 +989,7 @@ toDynamicFetcher :
             userMsg
 toDynamicFetcher name (Form a b c) =
     let
+        options : { submitStrategy : SubmitStrategy, method : Method, name : Maybe String, onSubmit : Maybe a }
         options =
             { submitStrategy = FetcherStrategy
             , method = Post
@@ -1057,6 +1058,7 @@ toDynamicTransition :
             userMsg
 toDynamicTransition name (Form a b c) =
     let
+        options : { submitStrategy : SubmitStrategy, method : Method, name : Maybe String, onSubmit : Maybe a }
         options =
             { submitStrategy = TransitionStrategy
             , method = Post
@@ -1162,7 +1164,7 @@ renderHelper :
     -> data
     -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
     -> Html (Pages.Msg.Msg msg)
-renderHelper attrs maybe options formState data ((FormInternal fieldDefinitions parser toInitialValues) as form) =
+renderHelper attrs maybe options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -1201,7 +1203,7 @@ renderStyledHelper :
     -> data
     -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
     -> Html.Styled.Html (Pages.Msg.Msg msg)
-renderStyledHelper attrs maybe options formState data ((FormInternal fieldDefinitions parser toInitialValues) as form) =
+renderStyledHelper attrs maybe options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -1356,6 +1358,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
             , data = data
             }
 
+        children : List view
         children =
             parsed.view context
 

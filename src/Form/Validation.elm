@@ -54,14 +54,14 @@ type alias Validation error parsed kind constraints =
 
 {-| -}
 fieldName : Field error parsed kind -> String
-fieldName (Pages.Internal.Form.Validation viewField name ( maybeParsed, errors )) =
+fieldName (Pages.Internal.Form.Validation _ name _) =
     name
         |> Maybe.withDefault ""
 
 
 {-| -}
 fieldStatus : Field error parsed kind -> FieldStatus
-fieldStatus (Pages.Internal.Form.Validation viewField _ ( maybeParsed, errors )) =
+fieldStatus (Pages.Internal.Form.Validation viewField _ _) =
     viewField
         |> expectViewField
         |> .status
@@ -155,7 +155,7 @@ withErrorIf includeError (Pages.Internal.Form.Validation _ key _) error (Pages.I
 
 {-| -}
 map : (parsed -> mapped) -> Validation error parsed named constraint -> Validation error mapped named constraint
-map mapFn (Pages.Internal.Form.Validation viewField name ( maybeParsedA, errorsA )) =
+map mapFn (Pages.Internal.Form.Validation _ name ( maybeParsedA, errorsA )) =
     Pages.Internal.Form.Validation Nothing name ( Maybe.map mapFn maybeParsedA, errorsA )
 
 
@@ -182,7 +182,7 @@ andMap =
 
 {-| -}
 andThen : (parsed -> Validation error mapped named1 constraints1) -> Validation error parsed named2 constraints2 -> Combined error mapped
-andThen andThenFn (Pages.Internal.Form.Validation _ name ( maybeParsed, errors )) =
+andThen andThenFn (Pages.Internal.Form.Validation _ _ ( maybeParsed, errors )) =
     case maybeParsed of
         Just parsed ->
             andThenFn parsed
@@ -196,7 +196,7 @@ andThen andThenFn (Pages.Internal.Form.Validation _ name ( maybeParsed, errors )
 
 {-| -}
 map2 : (a -> b -> c) -> Validation error a named1 constraints1 -> Validation error b named2 constraints2 -> Combined error c
-map2 f (Pages.Internal.Form.Validation _ name1 ( maybeParsedA, errorsA )) (Pages.Internal.Form.Validation _ name2 ( maybeParsedB, errorsB )) =
+map2 f (Pages.Internal.Form.Validation _ _ ( maybeParsedA, errorsA )) (Pages.Internal.Form.Validation _ _ ( maybeParsedB, errorsB )) =
     Pages.Internal.Form.Validation Nothing
         Nothing
         ( Maybe.map2 f maybeParsedA maybeParsedB
