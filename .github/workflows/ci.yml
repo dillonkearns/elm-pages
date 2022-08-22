@@ -163,4 +163,4 @@ jobs:
         run: npx --no-install elm-tooling install
       - name: Snapshot Tests
         shell: bash
-        run: npm run test:snapshot
+        run: (cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)
