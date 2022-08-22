@@ -261,7 +261,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Form.Field as Field exposing (Field(..))
-import Form.FieldStatus as FieldStatus
+import Form.FieldStatus as FieldStatus exposing (FieldStatus)
 import Form.FieldView
 import Form.Validation as Validation exposing (Combined, Validation)
 import Html exposing (Html)
@@ -776,7 +776,8 @@ type alias AppContext app =
           --    -> Pages.Fetcher.Fetcher (Result Http.Error action)
           transition : Maybe Transition
         , fetchers : List Pages.Transition.FetcherState
-        , pageFormState : Dict String FormState
+        , pageFormState :
+            Dict String { fields : Dict String { value : String, status : FieldStatus }, submitAttempted : Bool }
     }
 
 

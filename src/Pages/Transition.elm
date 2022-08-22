@@ -14,15 +14,15 @@ module Pages.Transition exposing
 
 -}
 
-import FormDecoder
+import Form.FormData exposing (FormData)
 import Path exposing (Path)
 import Time
 
 
 {-| -}
 type Transition
-    = Submitting FormDecoder.FormData
-    | LoadAfterSubmit FormDecoder.FormData Path LoadingState
+    = Submitting FormData
+    | LoadAfterSubmit FormData Path LoadingState
     | Loading Path LoadingState
 
 
@@ -36,7 +36,7 @@ type LoadingState
 {-| -}
 type alias FetcherState =
     { status : FetcherSubmitStatus
-    , payload : FormDecoder.FormData
+    , payload : FormData
     , initiatedAt : Time.Posix
     }
 

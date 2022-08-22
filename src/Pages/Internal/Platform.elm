@@ -18,6 +18,7 @@ import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
+import Form.FormData exposing (FormData, Method(..))
 import FormDecoder
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -44,7 +45,7 @@ import Url exposing (Url)
 
 type Transition
     = Loading Int Path
-    | Submitting FormDecoder.FormData
+    | Submitting FormData
 
 
 {-| -}
@@ -313,7 +314,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | SetField { formId : String, name : String, value : String }
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
     | FetcherComplete Bool String Int (Result Http.Error (Maybe userMsg))
-    | FetcherStarted String Int FormDecoder.FormData Time.Posix
+    | FetcherStarted String Int FormData Time.Posix
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse Int (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
@@ -350,9 +351,9 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | BrowserLoadUrl String
     | BrowserPushUrl String
     | BrowserReplaceUrl String
-    | FetchPageData Int (Maybe FormDecoder.FormData) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
-    | Submit FormDecoder.FormData
-    | SubmitFetcher String Int FormDecoder.FormData
+    | FetchPageData Int (Maybe FormData) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
+    | Submit FormData
+    | SubmitFetcher String Int FormData
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
     | UserCmd userEffect
     | CancelRequest Int
@@ -803,7 +804,7 @@ perform config model effect =
             fetchRouteData True transitionKey toMsg config url maybeRequestInfo
 
         Submit fields ->
-            if fields.method == FormDecoder.Get then
+            if fields.method == Get then
                 model.key
                     |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
                     |> Maybe.withDefault Cmd.none
@@ -875,14 +876,14 @@ startFetcher fetcherKey transitionId options model =
                 , action = ""
 
                 -- TODO remove hardcoding
-                , method = FormDecoder.Post
+                , method = Post
                 , id = Nothing
                 }
 
-        formData : { method : FormDecoder.Method, action : String, fields : List ( String, String ), id : Maybe String }
+        formData : { method : Method, action : String, fields : List ( String, String ), id : Maybe String }
         formData =
             { -- TODO remove hardcoding
-              method = FormDecoder.Get
+              method = Get
 
             -- TODO pass FormData directly
             , action = options.url |> Maybe.withDefault model.url.path
@@ -926,7 +927,7 @@ startFetcher fetcherKey transitionId options model =
         ]
 
 
-startFetcher2 : Bool -> String -> Int -> FormDecoder.FormData -> Model userModel pageData actionData sharedData -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
+startFetcher2 : Bool -> String -> Int -> FormData -> Model userModel pageData actionData sharedData -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
 startFetcher2 fromPageReload fetcherKey transitionId formData model =
     let
         encodedBody : String
@@ -995,7 +996,7 @@ cancelStaleFetchers model =
         |> Cmd.batch
 
 
-appendFormQueryParams : FormDecoder.FormData -> String
+appendFormQueryParams : FormData -> String
 appendFormQueryParams fields =
     (fields.action
         |> Url.fromString
@@ -1003,15 +1004,15 @@ appendFormQueryParams fields =
         |> Maybe.withDefault "/"
     )
         ++ (case fields.method of
-                FormDecoder.Get ->
+                Get ->
                     "?" ++ FormDecoder.encodeFormData fields
 
-                FormDecoder.Post ->
+                Post ->
                     ""
            )
 
 
-urlFromAction : Url -> Maybe FormDecoder.FormData -> Url
+urlFromAction : Url -> Maybe FormData -> Url
 urlFromAction currentUrl fetchInfo =
     fetchInfo |> Maybe.map .action |> Maybe.andThen Url.fromString |> Maybe.withDefault currentUrl
 
@@ -1105,7 +1106,7 @@ fetchRouteData :
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Url
-    -> Maybe FormDecoder.FormData
+    -> Maybe FormData
     -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
 fetchRouteData forPageDataReload transitionKey toMsg config url details =
     {-
@@ -1121,11 +1122,11 @@ fetchRouteData forPageDataReload transitionKey toMsg config url details =
 
     -}
     let
-        formMethod : FormDecoder.Method
+        formMethod : Method
         formMethod =
             details
                 |> Maybe.map .method
-                |> Maybe.withDefault FormDecoder.Get
+                |> Maybe.withDefault Get
     in
     Http.request
         { method = details |> Maybe.map (.method >> FormDecoder.methodToString) |> Maybe.withDefault "GET"
@@ -1146,10 +1147,10 @@ fetchRouteData forPageDataReload transitionKey toMsg config url details =
                         |> String.join "/"
                    )
                 ++ (case formMethod of
-                        FormDecoder.Post ->
+                        Post ->
                             "/"
 
-                        FormDecoder.Get ->
+                        Get ->
                             details
                                 |> Maybe.map FormDecoder.encodeFormData
                                 |> Maybe.map (\encoded -> "?" ++ encoded)
@@ -1158,17 +1159,17 @@ fetchRouteData forPageDataReload transitionKey toMsg config url details =
                 ++ (case formMethod of
                         -- TODO extract this to something unit testable
                         -- TODO make states mutually exclusive for submissions and direct URL requests (shouldn't be possible to append two query param strings)
-                        FormDecoder.Post ->
+                        Post ->
                             ""
 
-                        FormDecoder.Get ->
+                        Get ->
                             url.query
                                 |> Maybe.map (\encoded -> "?" ++ encoded)
                                 |> Maybe.withDefault ""
                    )
         , body =
             case formMethod of
-                FormDecoder.Post ->
+                Post ->
                     let
                         urlEncodedFields : Maybe String
                         urlEncodedFields =

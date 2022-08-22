@@ -6,7 +6,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
 import DataSource exposing (DataSource)
-import FormDecoder
+import Form.FormData exposing (FormData)
 import Head
 import Html exposing (Html)
 import Http
@@ -102,12 +102,12 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , cmdToEffect : Cmd userMsg -> effect
     , perform :
         { fetchRouteData :
-            { data : Maybe FormDecoder.FormData
+            { data : Maybe FormData
             , toMsg : Result Http.Error Url -> userMsg
             }
             -> Cmd mappedMsg
         , submit :
-            { values : FormDecoder.FormData
+            { values : FormData
             , toMsg : Result Http.Error Url -> userMsg
             }
             -> Cmd mappedMsg

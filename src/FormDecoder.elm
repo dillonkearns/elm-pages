@@ -1,23 +1,11 @@
-module FormDecoder exposing (FormData, Method(..), encodeFormData, formDataOnSubmit, methodToString)
+module FormDecoder exposing (encodeFormData, formDataOnSubmit, methodToString)
 
+import Form.FormData as FormData exposing (FormData)
 import Html
 import Html.Events
 import Json.Decode as Decode
 import Json.Encode
 import Url
-
-
-type alias FormData =
-    { fields : List ( String, String )
-    , method : Method
-    , action : String
-    , id : Maybe String
-    }
-
-
-type Method
-    = Get
-    | Post
 
 
 formDataOnSubmit : Html.Attribute FormData
@@ -46,22 +34,22 @@ formDataOnSubmit =
         )
 
 
-methodDecoder : Decode.Decoder Method
+methodDecoder : Decode.Decoder FormData.Method
 methodDecoder =
     Decode.string
         |> Decode.map
             (\methodString ->
                 case methodString |> String.toUpper of
                     "GET" ->
-                        Get
+                        FormData.Get
 
                     "POST" ->
-                        Post
+                        FormData.Post
 
                     _ ->
                         -- TODO what about "dialog" method? Is it okay for that to be interpreted as GET,
                         -- or should there be a variant for that?
-                        Get
+                        FormData.Get
             )
 
 
@@ -84,13 +72,13 @@ tuplesDecoder =
         )
 
 
-methodToString : Method -> String
+methodToString : FormData.Method -> String
 methodToString method =
     case method of
-        Get ->
+        FormData.Get ->
             "GET"
 
-        Post ->
+        FormData.Post ->
             "POST"
 
 

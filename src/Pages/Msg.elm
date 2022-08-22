@@ -11,6 +11,7 @@ module Pages.Msg exposing
 
 -}
 
+import Form.FormData exposing (FormData)
 import FormDecoder
 import Html exposing (Attribute)
 import Html.Attributes as Attr
@@ -20,9 +21,9 @@ import Json.Decode
 {-| -}
 type Msg userMsg
     = UserMsg userMsg
-    | Submit FormDecoder.FormData
-    | SubmitIfValid String FormDecoder.FormData Bool
-    | SubmitFetcher String FormDecoder.FormData Bool (Maybe userMsg)
+    | Submit FormData
+    | SubmitIfValid String FormData Bool
+    | SubmitFetcher String FormData Bool (Maybe userMsg)
     | FormFieldEvent Json.Decode.Value
 
 
