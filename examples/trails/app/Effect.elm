@@ -1,9 +1,7 @@
 module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 
 import Browser.Navigation
-import Bytes exposing (Bytes)
-import Bytes.Decode
-import FormDecoder
+import Form.FormData exposing (FormData)
 import Http
 import Json.Decode as Decode
 import Pages.Fetcher
@@ -16,11 +14,11 @@ type Effect msg
     | Batch (List (Effect msg))
     | GetStargazers (Result Http.Error Int -> msg)
     | FetchRouteData
-        { data : Maybe FormDecoder.FormData
+        { data : Maybe FormData
         , toMsg : Result Http.Error Url -> msg
         }
     | Submit
-        { values : FormDecoder.FormData
+        { values : FormData
         , toMsg : Result Http.Error Url -> msg
         }
     | SubmitFetcher (Pages.Fetcher.Fetcher msg)
@@ -82,12 +80,12 @@ map fn effect =
 
 perform :
     { fetchRouteData :
-        { data : Maybe FormDecoder.FormData
+        { data : Maybe FormData
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
     , submit :
-        { values : FormDecoder.FormData
+        { values : FormData
         , toMsg : Result Http.Error Url -> pageMsg
         }
         -> Cmd msg
