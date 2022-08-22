@@ -1,6 +1,5 @@
 module Route.TailwindForm exposing (ActionData, Data, Model, Msg, route)
 
-import Browser.Dom
 import Css exposing (Color)
 import Css.Global
 import DataSource exposing (DataSource)
@@ -10,6 +9,7 @@ import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
+import Form.FieldStatus as FieldStatus
 import Form.FieldView
 import Form.Validation as Validation exposing (Combined, Field)
 import Form.Value
@@ -17,9 +17,7 @@ import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
-import Http
 import Icon
-import Pages.FormState
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -29,9 +27,7 @@ import Server.Response as Response exposing (Response)
 import Shared
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
-import Task
 import Time
-import Url exposing (Url)
 import View exposing (View)
 
 
@@ -795,7 +791,7 @@ textInput info labelText field =
             [ Html.text
                 (field
                     |> Validation.fieldStatus
-                    |> Pages.FormState.fieldStatusToString
+                    |> FieldStatus.fieldStatusToString
                 )
             ]
         , Html.label
@@ -1110,7 +1106,7 @@ wrapPushNotificationsSection formState field children =
                 [ Html.text
                     (field
                         |> Validation.fieldStatus
-                        |> Pages.FormState.fieldStatusToString
+                        |> FieldStatus.fieldStatusToString
                     )
                 ]
             , Html.div

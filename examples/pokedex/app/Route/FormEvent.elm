@@ -1,9 +1,9 @@
 module Route.FormEvent exposing (ActionData, Data, Model, Msg, route)
 
-import Browser.Navigation
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
-import FormDecoder exposing (FormData)
+import Form.FormData exposing (FormData)
+import FormDecoder
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
