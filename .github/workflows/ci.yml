@@ -114,10 +114,10 @@ jobs:
       - uses: actions/checkout@v2
       - name: Download lamdera
         shell: bash
-        run: curl https://static.lamdera.com/bin/win/lamdera.exe -o ./lamdera && chmod a+x ./lamdera
+        run: mkdir bin && curl https://static.lamdera.com/bin/win/lamdera.exe -o ./bin/lamdera && chmod a+x ./bin/lamdera
       - name: Add Lamdera to path
         shell: bash
-        run: echo "$GITHUB_WORKSPACE\\lamdera" >> $GITHUB_PATH
+        run: echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
       - name: Confirm that lamdera is on path
         shell: bash
         run: lamdera --version && which lamdera
