@@ -135,11 +135,11 @@ todos =
 
 
 createTodo : String -> SelectionSet.SelectionSet Todo RootMutation
-createTodo description =
+createTodo title =
     Api.Mutation.createTodo
         { data =
             Api.InputObject.buildTodoInput
-                { description = description
+                { title = title
                 , completed = False
                 }
         }
@@ -156,7 +156,7 @@ deleteTodo id =
 todoSelection : SelectionSet.SelectionSet Todo Api.Object.Todo
 todoSelection =
     SelectionSet.map2 Todo
-        Api.Object.Todo.description
+        Api.Object.Todo.title
         (Api.Object.Todo.id_ |> SelectionSet.map (\(Id id) -> id))
 
 
