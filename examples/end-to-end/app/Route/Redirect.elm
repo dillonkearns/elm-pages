@@ -4,6 +4,7 @@ import Browser.Navigation
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Form.FormData exposing (Method(..))
 import FormDecoder
 import Head
 import Head.Seo as Seo
@@ -62,7 +63,7 @@ init maybePageUrl sharedModel static =
             Just
                 { fields = []
                 , action = "/redirect"
-                , method = FormDecoder.Post
+                , method = Post
                 , id = Nothing
                 }
         , toMsg = \_ -> NoOp
