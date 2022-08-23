@@ -903,7 +903,17 @@ runOneOfServerSide :
     List ( String, String )
     -> ServerForms error parsed
     -> ( Maybe parsed, Dict String (List error) )
-runOneOfServerSide rawFormData (ServerForms parsers) =
+runOneOfServerSide rawFormData forms =
+    runOneOfServerSideHelp rawFormData Nothing forms
+
+
+{-| -}
+runOneOfServerSideHelp :
+    List ( String, String )
+    -> Maybe (List ( String, List error ))
+    -> ServerForms error parsed
+    -> ( Maybe parsed, Dict String (List error) )
+runOneOfServerSideHelp rawFormData firstFoundErrors (ServerForms parsers) =
     case parsers of
         firstParser :: remainingParsers ->
             let
@@ -918,15 +928,23 @@ runOneOfServerSide rawFormData (ServerForms parsers) =
                             )
             in
             case thing of
-                ( Just parsed, [] ) ->
-                    ( Just parsed, Dict.empty )
+                ( Just parsed, errors ) ->
+                    ( Just parsed, errors |> Dict.fromList )
 
-                _ ->
-                    runOneOfServerSide rawFormData (ServerForms remainingParsers)
+                ( Nothing, errors ) ->
+                    runOneOfServerSideHelp rawFormData
+                        (firstFoundErrors
+                            -- TODO is this logic what we want here? Might need to think through the semantics a bit more
+                            -- of which errors to parse into - could be the first errors, the last, or some other way of
+                            -- having higher precedence for deciding which form should be used
+                            |> Maybe.withDefault errors
+                            |> Just
+                        )
+                        (ServerForms remainingParsers)
 
         [] ->
             -- TODO need to pass errors
-            ( Nothing, Dict.empty )
+            ( Nothing, firstFoundErrors |> Maybe.withDefault [] |> Dict.fromList )
 
 
 {-| -}
