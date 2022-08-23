@@ -48,7 +48,7 @@ route =
         , action =
             \_ ->
                 MySession.withSession
-                    (Request.formDataWithServerValidation [ form ])
+                    (Request.formDataWithServerValidation (form |> Form.initCombinedServer identity))
                     (\nameResultData session ->
                         nameResultData
                             |> DataSource.map
