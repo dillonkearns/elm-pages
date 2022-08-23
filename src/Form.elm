@@ -1510,29 +1510,8 @@ initCombinedServer :
             }
             input
     -> ServerForms error (DataSource (Validation error combined kind constraints))
-initCombinedServer mapFn (Form _ parseFn _) =
-    ServerForms
-        [ Form
-            []
-            (\_ formState ->
-                let
-                    --foo :
-                    --    { result : Dict String (List error)
-                    --    , combineAndView : { combineAndView | combine : Combined error parsed }
-                    --    }
-                    foo :
-                        { result : Dict String (List error)
-                        , combineAndView : { combineAndView | combine : Combined error (DataSource (Validation error parsed kind constraints)) }
-                        }
-                    foo =
-                        parseFn Nothing formState
-                in
-                { result = foo.result
-                , combineAndView = foo.combineAndView.combine |> Validation.map (DataSource.map (Validation.map mapFn))
-                }
-            )
-            (\_ -> [])
-        ]
+initCombinedServer mapFn serverForms =
+    initCombined (DataSource.map (Validation.map mapFn)) serverForms
 
 
 {-| -}
@@ -1548,29 +1527,8 @@ combineServer :
             input
     -> ServerForms error (DataSource (Validation error combined kind constraints))
     -> ServerForms error (DataSource (Validation error combined kind constraints))
-combineServer mapFn (Form _ parseFn _) (ServerForms serverForms) =
-    ServerForms
-        (Form []
-            (\_ formState ->
-                let
-                    --foo :
-                    --    { result : Dict String (List error)
-                    --    , combineAndView : { combineAndView | combine : Combined error parsed }
-                    --    }
-                    foo :
-                        { result : Dict String (List error)
-                        , combineAndView : { combineAndView | combine : Combined error (DataSource (Validation error parsed kind constraints)) }
-                        }
-                    foo =
-                        parseFn Nothing formState
-                in
-                { result = foo.result
-                , combineAndView = foo.combineAndView.combine |> Validation.map (DataSource.map (Validation.map mapFn))
-                }
-            )
-            (\_ -> [])
-            :: serverForms
-        )
+combineServer mapFn a b =
+    combine (DataSource.map (Validation.map mapFn)) a b
 
 
 {-| -}
