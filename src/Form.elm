@@ -11,7 +11,13 @@ module Form exposing
     , dynamic
     , AppContext
     , toServerForm, withOnSubmit
-    -- subGroup
+    ,  ServerForms(..)
+       -- subGroup
+      , combine
+      , combineServer
+      , initCombined
+      , initCombinedServer
+
     )
 
 {-| One of the core features of elm-pages is helping you manage form data end-to-end, including
@@ -854,13 +860,13 @@ insertIfNonempty key values dict =
 {-| -}
 runServerSide :
     List ( String, String )
-    -> Form error { all | combine : Validation error parsed kind constraints } data
+    -> Form error (Validation error parsed kind constraints) data
     -> ( Maybe parsed, Dict String (List error) )
 runServerSide rawFormData (Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
-            , combineAndView : { all | combine : Validation error parsed kind constraints }
+            , combineAndView : Validation error parsed kind constraints
             }
         parsed =
             parser Nothing thisFormState
@@ -881,7 +887,7 @@ runServerSide rawFormData (Form _ parser _) =
                         |> Dict.fromList
             }
     in
-    { result = ( parsed.combineAndView.combine, parsed.result )
+    { result = ( parsed.combineAndView, parsed.result )
     }
         |> mergeResults
         |> unwrapValidation
@@ -895,15 +901,9 @@ unwrapValidation (Pages.Internal.Form.Validation _ _ ( maybeParsed, errors )) =
 {-| -}
 runOneOfServerSide :
     List ( String, String )
-    ->
-        List
-            (Form
-                error
-                { all | combine : Validation error parsed kind constraints }
-                data
-            )
+    -> ServerForms error parsed
     -> ( Maybe parsed, Dict String (List error) )
-runOneOfServerSide rawFormData parsers =
+runOneOfServerSide rawFormData (ServerForms parsers) =
     case parsers of
         firstParser :: remainingParsers ->
             let
@@ -922,7 +922,7 @@ runOneOfServerSide rawFormData parsers =
                     ( Just parsed, Dict.empty )
 
                 _ ->
-                    runOneOfServerSide rawFormData remainingParsers
+                    runOneOfServerSide rawFormData (ServerForms remainingParsers)
 
         [] ->
             -- TODO need to pass errors
@@ -1423,6 +1423,157 @@ type alias HtmlForm error parsed input msg =
 
 
 {-| -}
+type ServerForms error parsed
+    = ServerForms
+        (List
+            (Form
+                error
+                (Combined error parsed)
+                Never
+            )
+        )
+
+
+{-| -}
+initCombined :
+    (parsed -> combined)
+    ->
+        Form
+            error
+            { combineAndView
+                | combine : Combined error parsed
+            }
+            input
+    -> ServerForms error combined
+initCombined mapFn (Form _ parseFn _) =
+    ServerForms
+        [ Form
+            []
+            (\_ formState ->
+                let
+                    foo :
+                        { result : Dict String (List error)
+                        , combineAndView : { combineAndView | combine : Combined error parsed }
+                        }
+                    foo =
+                        parseFn Nothing formState
+                in
+                { result = foo.result
+                , combineAndView = foo.combineAndView.combine |> Validation.map mapFn
+                }
+            )
+            (\_ -> [])
+        ]
+
+
+{-| -}
+combine :
+    (parsed -> combined)
+    ->
+        Form
+            error
+            { combineAndView
+                | combine : Combined error parsed
+            }
+            input
+    -> ServerForms error combined
+    -> ServerForms error combined
+combine mapFn (Form _ parseFn _) (ServerForms serverForms) =
+    ServerForms
+        (Form []
+            (\_ formState ->
+                let
+                    foo :
+                        { result : Dict String (List error)
+                        , combineAndView : { combineAndView | combine : Combined error parsed }
+                        }
+                    foo =
+                        parseFn Nothing formState
+                in
+                { result = foo.result
+                , combineAndView = foo.combineAndView.combine |> Validation.map mapFn
+                }
+            )
+            (\_ -> [])
+            :: serverForms
+        )
+
+
+{-| -}
+initCombinedServer :
+    (parsed -> combined)
+    ->
+        Form
+            error
+            { combineAndView
+                | combine : Combined error (DataSource (Validation error parsed kind constraints))
+            }
+            input
+    -> ServerForms error (DataSource (Validation error combined kind constraints))
+initCombinedServer mapFn (Form _ parseFn _) =
+    ServerForms
+        [ Form
+            []
+            (\_ formState ->
+                let
+                    --foo :
+                    --    { result : Dict String (List error)
+                    --    , combineAndView : { combineAndView | combine : Combined error parsed }
+                    --    }
+                    foo :
+                        { result : Dict String (List error)
+                        , combineAndView : { combineAndView | combine : Combined error (DataSource (Validation error parsed kind constraints)) }
+                        }
+                    foo =
+                        parseFn Nothing formState
+                in
+                { result = foo.result
+                , combineAndView = foo.combineAndView.combine |> Validation.map (DataSource.map (Validation.map mapFn))
+                }
+            )
+            (\_ -> [])
+        ]
+
+
+{-| -}
+combineServer :
+    (parsed -> combined)
+    ->
+        Form
+            error
+            { combineAndView
+                | combine :
+                    Combined error (DataSource (Validation error parsed kind constraints))
+            }
+            input
+    -> ServerForms error (DataSource (Validation error combined kind constraints))
+    -> ServerForms error (DataSource (Validation error combined kind constraints))
+combineServer mapFn (Form _ parseFn _) (ServerForms serverForms) =
+    ServerForms
+        (Form []
+            (\_ formState ->
+                let
+                    --foo :
+                    --    { result : Dict String (List error)
+                    --    , combineAndView : { combineAndView | combine : Combined error parsed }
+                    --    }
+                    foo :
+                        { result : Dict String (List error)
+                        , combineAndView : { combineAndView | combine : Combined error (DataSource (Validation error parsed kind constraints)) }
+                        }
+                    foo =
+                        parseFn Nothing formState
+                in
+                { result = foo.result
+                , combineAndView = foo.combineAndView.combine |> Validation.map (DataSource.map (Validation.map mapFn))
+                }
+            )
+            (\_ -> [])
+            :: serverForms
+        )
+
+
+{-| -}
 type alias StyledHtmlForm error parsed data msg =
     Form
         error
@@ -1451,17 +1602,17 @@ type FormInternal error parsed data view
 
 
 {-| -}
-type Form error combineAndView data
+type Form error combineAndView input
     = Form
         (List ( String, FieldDefinition ))
-        (Maybe data
+        (Maybe input
          -> FormState
          ->
             { result : Dict String (List error)
             , combineAndView : combineAndView
             }
         )
-        (data -> List ( String, String ))
+        (input -> List ( String, String ))
 
 
 type alias RenderOptions userMsg =

@@ -12,7 +12,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Field)
+import Form.Validation as Validation exposing (Combined, Field, Validation)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -100,7 +100,7 @@ type alias EnvVariables =
     }
 
 
-form : Form.DoneForm String (DataSource (Combined String Action)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (DataSource (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\fieldEmail ->
@@ -117,7 +117,7 @@ form =
                                 (\emailSendResult ->
                                     case emailSendResult of
                                         Ok () ->
-                                            Validation.succeed (LI email)
+                                            Validation.succeed email
 
                                         Err error ->
                                             Validation.fail "Whoops, something went wrong sending an email to that address. Try again?" Validation.global
@@ -146,11 +146,11 @@ form =
         |> Form.hiddenKind ( "kind", "login" ) "Expected kind"
 
 
-logoutForm : Form.DoneForm String Action data (List (Html (Pages.Msg.Msg Msg)))
+logoutForm : Form.DoneForm String () data (List (Html (Pages.Msg.Msg Msg)))
 logoutForm =
     Form.init
         { combine =
-            Validation.succeed Logout
+            Validation.succeed ()
         , view =
             \info ->
                 [ Html.button []
@@ -297,15 +297,20 @@ data routeParams =
         )
 
 
+allForms : Form.ServerForms String (DataSource (Combined String Action))
+allForms =
+    logoutForm
+        |> Form.toServerForm
+        |> Form.initCombinedServer (\_ -> Logout)
+        |> Form.combineServer LI form
+
+
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
         (Request.map2 Tuple.pair
             (Request.oneOf
-                [ Request.formDataWithServerValidation
-                    [ logoutForm |> Form.toServerForm
-                    , form
-                    ]
+                [ Request.formDataWithServerValidation allForms
                 ]
             )
             Request.requestTime

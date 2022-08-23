@@ -885,12 +885,7 @@ fileField_ name =
 
 {-| -}
 formDataWithServerValidation :
-    List
-        (Form.Form
-            error
-            { all | combine : Validation error (DataSource (Validation error combined kind constraints)) kind constraints }
-            data
-        )
+    Form.ServerForms error (DataSource (Validation error combined kind constraints))
     -> Parser (DataSource (Result (Form.Response error) ( Form.Response error, combined )))
 formDataWithServerValidation formParsers =
     rawFormData
@@ -950,12 +945,7 @@ formDataWithServerValidation formParsers =
 
 {-| -}
 formData :
-    List
-        (Form.Form
-            error
-            { all | combine : Validation error combined kind constraints }
-            data
-        )
+    Form.ServerForms error combined
     -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
 formData formParsers =
     rawFormData

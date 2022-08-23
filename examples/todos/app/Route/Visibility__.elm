@@ -477,14 +477,13 @@ view maybeUrl sharedModel model app =
     }
 
 
-newItemForm : Form.HtmlForm String Action input Msg
+newItemForm : Form.HtmlForm String String input Msg
 newItemForm =
     Form.init
         (\description ->
             { combine =
                 Validation.succeed identity
                     |> Validation.andMap description
-                    |> Validation.map Add
             , view =
                 \formState ->
                     [ header
@@ -505,9 +504,15 @@ newItemForm =
         |> Form.hiddenKind ( "kind", "new-item" ) "Expected kind"
 
 
-allForms : List (Form.HtmlForm String Action Todo Msg)
+allForms : Form.ServerForms String Action
 allForms =
-    [ editItemForm, newItemForm, completeItemForm, deleteItemForm, clearCompletedForm, toggleAllForm ]
+    editItemForm
+        |> Form.initCombined UpdateEntry
+        |> Form.combine Add newItemForm
+        |> Form.combine Check completeItemForm
+        |> Form.combine Delete deleteItemForm
+        |> Form.combine (\_ -> DeleteComplete) clearCompletedForm
+        |> Form.combine CheckAll toggleAllForm
 
 
 
@@ -554,12 +559,12 @@ viewEntries app visibility entries =
         ]
 
 
-toggleAllForm : Form.HtmlForm String Action input Msg
+toggleAllForm : Form.HtmlForm String Bool input Msg
 toggleAllForm =
     Form.init
         (\toggleTo ->
             { combine =
-                Validation.succeed CheckAll
+                Validation.succeed identity
                     |> Validation.andMap toggleTo
             , view =
                 \formState ->
@@ -633,7 +638,7 @@ viewEntry app todo =
         ]
 
 
-completeItemForm : Form.HtmlForm String Action Todo Msg
+completeItemForm : Form.HtmlForm String ( Bool, String ) Todo Msg
 completeItemForm =
     Form.init
         (\todoId complete ->
@@ -641,7 +646,6 @@ completeItemForm =
                 Validation.succeed Tuple.pair
                     |> Validation.andMap complete
                     |> Validation.andMap todoId
-                    |> Validation.map Check
             , view =
                 \formState ->
                     [ Html.button [ class "toggle" ]
@@ -666,7 +670,7 @@ completeItemForm =
         |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
 
 
-editItemForm : Form.HtmlForm String Action Todo Msg
+editItemForm : Form.HtmlForm String ( String, String ) Todo Msg
 editItemForm =
     Form.init
         (\itemId description ->
@@ -674,7 +678,6 @@ editItemForm =
                 Validation.succeed Tuple.pair
                     |> Validation.andMap itemId
                     |> Validation.andMap description
-                    |> Validation.map UpdateEntry
             , view =
                 \formState ->
                     [ FieldView.input
@@ -700,12 +703,12 @@ editItemForm =
         |> Form.hiddenKind ( "kind", "edit-item" ) "Expected kind"
 
 
-deleteItemForm : Form.HtmlForm String Action Todo Msg
+deleteItemForm : Form.HtmlForm String String Todo Msg
 deleteItemForm =
     Form.init
         (\todoId ->
             { combine =
-                Validation.succeed Delete
+                Validation.succeed identity
                     |> Validation.andMap todoId
             , view =
                 \formState ->
@@ -807,10 +810,10 @@ visibilitySwap visibilityParam visibility actualVisibility =
         ]
 
 
-clearCompletedForm : Form.HtmlForm String Action input Msg
+clearCompletedForm : Form.HtmlForm String () input Msg
 clearCompletedForm =
     Form.init
-        { combine = Validation.succeed DeleteComplete
+        { combine = Validation.succeed ()
         , view =
             \formState ->
                 [ button
