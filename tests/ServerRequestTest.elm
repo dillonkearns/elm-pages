@@ -63,7 +63,7 @@ all =
         , test "tries multiple form post formats" <|
             \() ->
                 Request.formData
-                    [ Form.init
+                    (Form.init
                         (\bar ->
                             { combine =
                                 Validation.succeed identity
@@ -73,17 +73,20 @@ all =
                             }
                         )
                         |> Form.field "bar" Field.text
-                    , Form.init
-                        (\bar ->
-                            { combine =
-                                Validation.succeed identity
-                                    |> Validation.andMap bar
-                            , view =
-                                \_ -> ()
-                            }
-                        )
-                        |> Form.field "foo" Field.text
-                    ]
+                        |> Form.initCombined identity
+                        |> Form.combine identity
+                            (Form.init
+                                (\bar ->
+                                    { combine =
+                                        Validation.succeed identity
+                                            |> Validation.andMap bar
+                                    , view =
+                                        \_ -> ()
+                                    }
+                                )
+                                |> Form.field "foo" Field.text
+                            )
+                    )
                     |> expectMatch
                         { method = Request.Post
                         , headers =
@@ -99,7 +102,7 @@ all =
         , test "expectFormPost with missing content-type" <|
             \() ->
                 Request.formData
-                    [ Form.init
+                    (Form.init
                         (\bar ->
                             { combine =
                                 Validation.succeed identity
@@ -109,7 +112,8 @@ all =
                             }
                         )
                         |> Form.field "bar" Field.text
-                    ]
+                        |> Form.initCombined identity
+                    )
                     |> expectNoMatch
                         { method = Request.Post
                         , headers =

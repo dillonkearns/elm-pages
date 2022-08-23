@@ -4,6 +4,7 @@ module Form.Validation exposing
     , value, fieldName, fieldStatus
     , map3, map4, map5, map6, map7, map8, map9
     , global
+    , mapWithNever
     )
 
 {-|
@@ -156,6 +157,12 @@ withErrorIf includeError (Pages.Internal.Form.Validation _ key _) error (Pages.I
 {-| -}
 map : (parsed -> mapped) -> Validation error parsed named constraint -> Validation error mapped named constraint
 map mapFn (Pages.Internal.Form.Validation _ name ( maybeParsedA, errorsA )) =
+    Pages.Internal.Form.Validation Nothing name ( Maybe.map mapFn maybeParsedA, errorsA )
+
+
+{-| -}
+mapWithNever : (parsed -> mapped) -> Validation error parsed named constraint -> Validation error mapped Never Never
+mapWithNever mapFn (Pages.Internal.Form.Validation _ name ( maybeParsedA, errorsA )) =
     Pages.Internal.Form.Validation Nothing name ( Maybe.map mapFn maybeParsedA, errorsA )
 
 

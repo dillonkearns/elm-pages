@@ -15,7 +15,7 @@ type Uuid
 
 type Action
     = Signout
-    | SetQuantity Uuid Int
+    | SetQuantity ( Uuid, Int )
 
 
 all : Test
@@ -44,26 +44,26 @@ all =
         in
         [ test "matching password" <|
             \() ->
-                Form.runServerSide
+                Form.runOneOfServerSide
                     (fields
                         [ ( "password", "mypassword" )
                         , ( "password-confirmation", "mypassword" )
                         ]
                     )
-                    passwordConfirmationParser
+                    (passwordConfirmationParser |> Form.initCombined identity)
                     |> Expect.equal
                         ( Just { password = "mypassword" }
                         , Dict.empty
                         )
         , test "non-matching password" <|
             \() ->
-                Form.runServerSide
+                Form.runOneOfServerSide
                     (fields
                         [ ( "password", "mypassword" )
                         , ( "password-confirmation", "doesnt-match-password" )
                         ]
                     )
-                    passwordConfirmationParser
+                    (passwordConfirmationParser |> Form.initCombined identity)
                     |> Expect.equal
                         ( Just { password = "mypassword" }
                         , Dict.fromList [ ( "password-confirmation", [ "Must match password" ] ) ]
@@ -71,27 +71,29 @@ all =
         , describe "oneOf" <|
             let
                 oneOfParsers =
-                    [ Form.init
+                    Form.init
                         (\_ ->
-                            { combine = Validation.succeed Signout
+                            { combine = Validation.succeed ()
                             , view = \_ -> Div
                             }
                         )
                         |> Form.hiddenField "kind" (Field.exactValue "signout" "Expected signout")
-                    , Form.init
-                        (\_ uuid quantity ->
-                            { combine =
-                                Validation.succeed SetQuantity
-                                    |> Validation.andMap (uuid |> Validation.map Uuid)
-                                    |> Validation.andMap quantity
-                            , view =
-                                \_ -> Div
-                            }
-                        )
-                        |> Form.hiddenField "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
-                        |> Form.hiddenField "uuid" (Field.text |> Field.required "Required")
-                        |> Form.field "quantity" (Field.int { invalid = \_ -> "Expected int" } |> Field.required "Required")
-                    ]
+                        |> Form.initCombined (\() -> Signout)
+                        |> Form.combine SetQuantity
+                            (Form.init
+                                (\_ uuid quantity ->
+                                    { combine =
+                                        Validation.succeed Tuple.pair
+                                            |> Validation.andMap (uuid |> Validation.map Uuid)
+                                            |> Validation.andMap quantity
+                                    , view =
+                                        \_ -> Div
+                                    }
+                                )
+                                |> Form.hiddenField "kind" (Field.exactValue "setQuantity" "Expected setQuantity")
+                                |> Form.hiddenField "uuid" (Field.text |> Field.required "Required")
+                                |> Form.field "quantity" (Field.int { invalid = \_ -> "Expected int" } |> Field.required "Required")
+                            )
             in
             [ test "first branch" <|
                 \() ->
@@ -116,7 +118,7 @@ all =
                         )
                         oneOfParsers
                         |> Expect.equal
-                            ( Just (SetQuantity (Uuid "123") 1)
+                            ( Just (SetQuantity ( Uuid "123", 1 ))
                             , Dict.empty
                             )
 
@@ -132,7 +134,7 @@ all =
             , describe "select" <|
                 let
                     selectParser =
-                        [ Form.init
+                        Form.init
                             (\media ->
                                 { combine = media
                                 , view =
@@ -147,7 +149,6 @@ all =
                                     ]
                                     (\_ -> "Invalid")
                                 )
-                        ]
                 in
                 [ test "example" <|
                     \() ->
@@ -156,7 +157,7 @@ all =
                                 [ ( "media", "book" )
                                 ]
                             )
-                            selectParser
+                            (selectParser |> Form.initCombined identity)
                             |> Expect.equal
                                 ( Just (Just Book)
                                 , Dict.empty
@@ -203,20 +204,20 @@ all =
                                 , ( "checkout", "2022-01-03" )
                                 ]
                             )
-                            [ checkinFormParser ]
+                            (checkinFormParser |> Form.initCombined identity)
                             |> Expect.equal
                                 ( Just ( Date.fromRataDie 738156, Date.fromRataDie 738158 )
                                 , Dict.empty
                                 )
                 , test "checkout is invalid because before checkin" <|
                     \() ->
-                        Form.runServerSide
+                        Form.runOneOfServerSide
                             (fields
                                 [ ( "checkin", "2022-01-03" )
                                 , ( "checkout", "2022-01-01" )
                                 ]
                             )
-                            checkinFormParser
+                            (checkinFormParser |> Form.initCombined identity)
                             |> Expect.equal
                                 ( Just ( Date.fromRataDie 738158, Date.fromRataDie 738156 )
                                 , Dict.fromList
@@ -225,7 +226,7 @@ all =
                                 )
                 , test "sub-form" <|
                     \() ->
-                        Form.runServerSide
+                        Form.runOneOfServerSide
                             (fields
                                 [ ( "password", "mypassword" )
                                 , ( "password-confirmation", "doesnt-match" )
@@ -262,6 +263,7 @@ all =
                                             |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
                                             |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
                                     )
+                                |> Form.initCombined identity
                             )
                             |> Expect.equal
                                 ( Nothing
@@ -346,7 +348,7 @@ all =
                             , ( "url", "https://elm-radio.com/episode/wrap-early-unwrap-late" )
                             ]
                         )
-                        [ dependentParser ]
+                        (dependentParser |> Form.initCombined identity)
                         |> Expect.equal
                             ( Just (ParsedLink "https://elm-radio.com/episode/wrap-early-unwrap-late")
                             , Dict.empty

@@ -1441,7 +1441,7 @@ initCombined :
         Form
             error
             { combineAndView
-                | combine : Combined error parsed
+                | combine : Validation error parsed kind constraints
             }
             input
     -> ServerForms error combined
@@ -1453,13 +1453,13 @@ initCombined mapFn (Form _ parseFn _) =
                 let
                     foo :
                         { result : Dict String (List error)
-                        , combineAndView : { combineAndView | combine : Combined error parsed }
+                        , combineAndView : { combineAndView | combine : Validation error parsed kind constraints }
                         }
                     foo =
                         parseFn Nothing formState
                 in
                 { result = foo.result
-                , combineAndView = foo.combineAndView.combine |> Validation.map mapFn
+                , combineAndView = foo.combineAndView.combine |> Validation.mapWithNever mapFn
                 }
             )
             (\_ -> [])
@@ -1473,29 +1473,30 @@ combine :
         Form
             error
             { combineAndView
-                | combine : Combined error parsed
+                | combine : Validation error parsed kind constraints
             }
             input
     -> ServerForms error combined
     -> ServerForms error combined
 combine mapFn (Form _ parseFn _) (ServerForms serverForms) =
     ServerForms
-        (Form []
-            (\_ formState ->
-                let
-                    foo :
-                        { result : Dict String (List error)
-                        , combineAndView : { combineAndView | combine : Combined error parsed }
+        (serverForms
+            ++ [ Form []
+                    (\_ formState ->
+                        let
+                            foo :
+                                { result : Dict String (List error)
+                                , combineAndView : { combineAndView | combine : Validation error parsed kind constraints }
+                                }
+                            foo =
+                                parseFn Nothing formState
+                        in
+                        { result = foo.result
+                        , combineAndView = foo.combineAndView.combine |> Validation.mapWithNever mapFn
                         }
-                    foo =
-                        parseFn Nothing formState
-                in
-                { result = foo.result
-                , combineAndView = foo.combineAndView.combine |> Validation.map mapFn
-                }
-            )
-            (\_ -> [])
-            :: serverForms
+                    )
+                    (\_ -> [])
+               ]
         )
 
 
