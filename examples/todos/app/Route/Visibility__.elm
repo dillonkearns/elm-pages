@@ -550,16 +550,13 @@ viewEntries app visibility entries =
         ]
         [ toggleAllForm
             |> Form.toDynamicFetcher "toggle-all"
-            |> Form.renderHtml []
-                Nothing
-                app
-                ()
+            |> Form.renderHtml [] Nothing app { allCompleted = allCompleted }
         , Keyed.ul [ class "todo-list" ] <|
             List.map (viewKeyedEntry app) (List.filter isVisible entries)
         ]
 
 
-toggleAllForm : Form.HtmlForm String Bool input Msg
+toggleAllForm : Form.HtmlForm String Bool { allCompleted : Bool } Msg
 toggleAllForm =
     Form.init
         (\toggleTo ->
@@ -571,8 +568,7 @@ toggleAllForm =
                     [ button
                         [ class "toggle-all"
                         , name "toggle"
-
-                        --, checked allCompleted
+                        , checked formState.data.allCompleted
                         ]
                         [ text "❯" ]
                     , label
@@ -584,11 +580,8 @@ toggleAllForm =
         |> Form.hiddenField "toggleTo"
             (Field.checkbox
                 |> Field.withInitialValue
-                    (\_ ->
-                        Form.Value.bool
-                            -- TODO remove hardcoding
-                            --, onClick (CheckAll (not allCompleted))
-                            True
+                    (\{ allCompleted } ->
+                        Form.Value.bool (not allCompleted)
                     )
             )
         |> Form.hiddenKind ( "kind", "toggle-all" ) "Expected kind"
@@ -609,10 +602,6 @@ viewEntry app todo =
         isOptimisticEntry : Bool
         isOptimisticEntry =
             uuidToString todo.id == ""
-
-        empty : Html msg
-        empty =
-            text ""
     in
     li
         [ classList
@@ -810,7 +799,7 @@ visibilitySwap visibilityParam visibility actualVisibility =
         ]
 
 
-clearCompletedForm : Form.HtmlForm String () input Msg
+clearCompletedForm : Form.HtmlForm String () { entriesCompleted : Int } Msg
 clearCompletedForm =
     Form.init
         { combine = Validation.succeed ()
@@ -818,14 +807,9 @@ clearCompletedForm =
             \formState ->
                 [ button
                     [ class "clear-completed"
-
-                    --, hidden (entriesCompleted == 0)
+                    , hidden (formState.data.entriesCompleted == 0)
                     ]
-                    [ text "Clear completed"
-
-                    -- TODO need to enable merging forms with different input types (and action types) to make this possible (input types are all Todo now,
-                    -- need it to be Int)
-                    -- text ("Clear completed (" ++ String.fromInt entriesCompleted ++ ")")
+                    [ text ("Clear completed (" ++ String.fromInt formState.data.entriesCompleted ++ ")")
                     ]
                 ]
         }
@@ -836,7 +820,7 @@ viewControlsClear : StaticPayload Data ActionData RouteParams -> Int -> Html (Pa
 viewControlsClear app entriesCompleted =
     clearCompletedForm
         |> Form.toDynamicFetcher "clear-completed"
-        |> Form.renderHtml [] Nothing app ()
+        |> Form.renderHtml [] Nothing app { entriesCompleted = entriesCompleted }
 
 
 infoFooter : Html msg
