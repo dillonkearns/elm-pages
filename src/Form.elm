@@ -316,6 +316,7 @@ init combineAndView =
         (\_ _ ->
             { result = Dict.empty
             , combineAndView = combineAndView
+            , isMatchCandidate = True
             }
         )
         (\_ -> [])
@@ -355,6 +356,7 @@ dynamic forms formBuilder =
                     decider
                     ->
                         { result : Dict String (List error)
+                        , isMatchCandidate : Bool
                         , combineAndView : { combine : Validation error parsed named constraints1, view : subView }
                         }
                 toParser decider =
@@ -365,12 +367,14 @@ dynamic forms formBuilder =
 
                 myFn :
                     { result : Dict String (List error)
+                    , isMatchCandidate : Bool
                     , combineAndView : combineAndView
                     }
                 myFn =
                     let
                         newThing :
                             { result : Dict String (List error)
+                            , isMatchCandidate : Bool
                             , combineAndView : { combine : decider -> Validation error parsed named constraints1, view : decider -> subView } -> combineAndView
                             }
                         newThing =
@@ -396,6 +400,7 @@ dynamic forms formBuilder =
                         newThing.result
                     , combineAndView =
                         newThing.combineAndView arg
+                    , isMatchCandidate = newThing.isMatchCandidate
                     }
             in
             myFn
@@ -503,6 +508,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
         (\maybeData formState ->
             let
                 ( maybeParsed, errors ) =
+                    -- @@@@@@ use code from here
                     fieldParser.decode rawFieldValue
 
                 ( rawFieldValue, fieldStatus ) =
@@ -527,10 +533,12 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                 myFn :
                     { result : Dict String (List error)
                     , combineAndView : Validation.Field error parsed kind -> combineAndView
+                    , isMatchCandidate : Bool
                     }
                     ->
                         { result : Dict String (List error)
                         , combineAndView : combineAndView
+                        , isMatchCandidate : Bool
                         }
                 myFn soFar =
                     let
@@ -543,6 +551,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                             |> addErrorsInternal name errors
                     , combineAndView =
                         soFar.combineAndView validationField
+                    , isMatchCandidate = soFar.isMatchCandidate
                     }
             in
             formState
@@ -621,10 +630,12 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                 myFn :
                     { result : Dict String (List error)
                     , combineAndView : Validation.Field error parsed Form.FieldView.Hidden -> combineAndView
+                    , isMatchCandidate : Bool
                     }
                     ->
                         { result : Dict String (List error)
                         , combineAndView : combineAndView
+                        , isMatchCandidate : Bool
                         }
                 myFn soFar =
                     let
@@ -637,6 +648,7 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                             |> addErrorsInternal name errors
                     , combineAndView =
                         soFar.combineAndView validationField
+                    , isMatchCandidate = soFar.isMatchCandidate
                     }
             in
             formState
@@ -676,6 +688,7 @@ toServerForm (Form a b c) =
             -> FormState
             ->
                 { result : Dict String (List error)
+                , isMatchCandidate : Bool
                 , combineAndView :
                     { combine : Validation error (DataSource (Validation error combined kind constraints)) kind constraints
                     , view : viewFn
@@ -692,6 +705,7 @@ toServerForm (Form a b c) =
                                     |> Validation.succeed2
                             , view = thing.combineAndView.view
                             }
+                        , isMatchCandidate = thing.isMatchCandidate
                         }
                    )
     in
@@ -715,7 +729,7 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
         )
         (\maybeData formState ->
             let
-                ( _, errors ) =
+                ( decodedValue, errors ) =
                     fieldParser.decode rawFieldValue
 
                 rawFieldValue : Maybe String
@@ -729,10 +743,12 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
 
                 myFn :
                     { result : Dict String (List error)
+                    , isMatchCandidate : Bool
                     , combineAndView : combineAndView
                     }
                     ->
                         { result : Dict String (List error)
+                        , isMatchCandidate : Bool
                         , combineAndView : combineAndView
                         }
                 myFn soFar =
@@ -740,6 +756,7 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
                         soFar.result
                             |> addErrorsInternal name errors
                     , combineAndView = soFar.combineAndView
+                    , isMatchCandidate = soFar.isMatchCandidate && decodedValue == Just value
                     }
             in
             formState
@@ -830,6 +847,7 @@ parse formId app data (Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
+            , isMatchCandidate : Bool
             , combineAndView : { info | combine : Validation error parsed named constraints }
             }
         parsed =
@@ -861,11 +879,12 @@ insertIfNonempty key values dict =
 runServerSide :
     List ( String, String )
     -> Form error (Validation error parsed kind constraints) data
-    -> ( Maybe parsed, Dict String (List error) )
+    -> ( Bool, ( Maybe parsed, Dict String (List error) ) )
 runServerSide rawFormData (Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
+            , isMatchCandidate : Bool
             , combineAndView : Validation error parsed kind constraints
             }
         parsed =
@@ -887,10 +906,12 @@ runServerSide rawFormData (Form _ parser _) =
                         |> Dict.fromList
             }
     in
-    { result = ( parsed.combineAndView, parsed.result )
-    }
+    ( parsed.isMatchCandidate
+    , { result = ( parsed.combineAndView, parsed.result )
+      }
         |> mergeResults
         |> unwrapValidation
+    )
 
 
 unwrapValidation : Validation error parsed named constraints -> ( Maybe parsed, Dict String (List error) )
@@ -917,9 +938,12 @@ runOneOfServerSideHelp rawFormData firstFoundErrors (ServerForms parsers) =
     case parsers of
         firstParser :: remainingParsers ->
             let
+                ( isMatchCandidate, thing1 ) =
+                    runServerSide rawFormData firstParser
+
                 thing : ( Maybe parsed, List ( String, List error ) )
                 thing =
-                    runServerSide rawFormData firstParser
+                    thing1
                         |> Tuple.mapSecond
                             (\errors ->
                                 errors
@@ -927,11 +951,11 @@ runOneOfServerSideHelp rawFormData firstFoundErrors (ServerForms parsers) =
                                     |> List.filter (Tuple.second >> List.isEmpty >> not)
                             )
             in
-            case thing of
-                ( Just parsed, errors ) ->
+            case ( isMatchCandidate, thing ) of
+                ( True, ( Just parsed, errors ) ) ->
                     ( Just parsed, errors |> Dict.fromList )
 
-                ( Nothing, errors ) ->
+                ( _, ( _, errors ) ) ->
                     runOneOfServerSideHelp rawFormData
                         (firstFoundErrors
                             -- TODO is this logic what we want here? Might need to think through the semantics a bit more
@@ -983,6 +1007,7 @@ type FinalForm error parsed data view userMsg
                 ( parsed
                 , Dict String (List error)
                 )
+            , isMatchCandidate : Bool
             , view : view
             }
         )
@@ -1021,6 +1046,7 @@ toDynamicFetcher name (Form a b c) =
              -> FormState
              ->
                 { result : Dict String (List error)
+                , isMatchCandidate : Bool
                 , combineAndView :
                     { combine : Validation error parsed field constraints
                     , view : Context error data -> view
@@ -1035,6 +1061,7 @@ toDynamicFetcher name (Form a b c) =
                         ( Validation error parsed field constraints
                         , Dict String (List error)
                         )
+                    , isMatchCandidate : Bool
                     , view : Context error data -> view
                     }
                 )
@@ -1043,6 +1070,7 @@ toDynamicFetcher name (Form a b c) =
                 let
                     foo :
                         { result : Dict String (List error)
+                        , isMatchCandidate : Bool
                         , combineAndView :
                             { combine : Validation error parsed field constraints
                             , view : Context error data -> view
@@ -1053,6 +1081,7 @@ toDynamicFetcher name (Form a b c) =
                 in
                 { result = ( foo.combineAndView.combine, foo.result )
                 , view = foo.combineAndView.view
+                , isMatchCandidate = foo.isMatchCandidate
                 }
     in
     FinalForm options a (transformB b) c
@@ -1090,6 +1119,7 @@ toDynamicTransition name (Form a b c) =
              -> FormState
              ->
                 { result : Dict String (List error)
+                , isMatchCandidate : Bool
                 , combineAndView :
                     { combine : Validation error parsed field constraints
                     , view : Context error data -> view
@@ -1104,6 +1134,7 @@ toDynamicTransition name (Form a b c) =
                         ( Validation error parsed field constraints
                         , Dict String (List error)
                         )
+                    , isMatchCandidate : Bool
                     , view : Context error data -> view
                     }
                 )
@@ -1112,6 +1143,7 @@ toDynamicTransition name (Form a b c) =
                 let
                     foo :
                         { result : Dict String (List error)
+                        , isMatchCandidate : Bool
                         , combineAndView :
                             { combine : Validation error parsed field constraints
                             , view : Context error data -> view
@@ -1122,6 +1154,7 @@ toDynamicTransition name (Form a b c) =
                 in
                 { result = ( foo.combineAndView.combine, foo.result )
                 , view = foo.combineAndView.view
+                , isMatchCandidate = foo.isMatchCandidate
                 }
     in
     FinalForm options a (transformB b) c
@@ -1302,6 +1335,7 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
 
         parsed :
             { result : ( Validation error parsed named constraints, Dict String (List error) )
+            , isMatchCandidate : Bool
             , view : Context error data -> List view
             }
         parsed =
@@ -1471,6 +1505,7 @@ initCombined mapFn (Form _ parseFn _) =
                 let
                     foo :
                         { result : Dict String (List error)
+                        , isMatchCandidate : Bool
                         , combineAndView : { combineAndView | combine : Validation error parsed kind constraints }
                         }
                     foo =
@@ -1478,6 +1513,7 @@ initCombined mapFn (Form _ parseFn _) =
                 in
                 { result = foo.result
                 , combineAndView = foo.combineAndView.combine |> Validation.mapWithNever mapFn
+                , isMatchCandidate = foo.isMatchCandidate
                 }
             )
             (\_ -> [])
@@ -1504,6 +1540,7 @@ combine mapFn (Form _ parseFn _) (ServerForms serverForms) =
                         let
                             foo :
                                 { result : Dict String (List error)
+                                , isMatchCandidate : Bool
                                 , combineAndView : { combineAndView | combine : Validation error parsed kind constraints }
                                 }
                             foo =
@@ -1511,6 +1548,7 @@ combine mapFn (Form _ parseFn _) (ServerForms serverForms) =
                         in
                         { result = foo.result
                         , combineAndView = foo.combineAndView.combine |> Validation.mapWithNever mapFn
+                        , isMatchCandidate = foo.isMatchCandidate
                         }
                     )
                     (\_ -> [])
@@ -1572,6 +1610,7 @@ type FormInternal error parsed data view
                 ( parsed
                 , Dict String (List error)
                 )
+            , isMatchCandidate : Bool
             , view : view
             }
         )
@@ -1586,6 +1625,7 @@ type Form error combineAndView input
          -> FormState
          ->
             { result : Dict String (List error)
+            , isMatchCandidate : Bool
             , combineAndView : combineAndView
             }
         )

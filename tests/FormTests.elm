@@ -6,6 +6,7 @@ import Expect
 import Form exposing (Form)
 import Form.Field as Field
 import Form.Validation as Validation exposing (Combined)
+import Form.Value
 import Test exposing (Test, describe, test)
 
 
@@ -121,6 +122,19 @@ all =
                         oneOfParsers
                         |> Expect.equal
                             ( Just (SetQuantity ( Uuid "123", 1 ))
+                            , Dict.empty
+                            )
+            , test "3rd" <|
+                \() ->
+                    Form.runOneOfServerSide
+                        (fields
+                            [ ( "kind", "toggle-all" )
+                            , ( "toggleTo", "" )
+                            ]
+                        )
+                        todoForm
+                        |> Expect.equal
+                            ( Just (CheckAll False)
                             , Dict.empty
                             )
 
@@ -382,3 +396,120 @@ type MyView
 fields : List ( String, String ) -> List ( String, String )
 fields list =
     list
+
+
+todoForm : Form.ServerForms String TodoAction
+todoForm =
+    editItemForm
+        |> Form.initCombined UpdateEntry
+        |> Form.combine Add newItemForm
+        |> Form.combine Check completeItemForm
+        |> Form.combine Delete deleteItemForm
+        |> Form.combine (\_ -> DeleteComplete) clearCompletedForm
+        |> Form.combine CheckAll toggleAllForm
+
+
+type TodoAction
+    = UpdateEntry ( String, String )
+    | Add String
+    | Delete String
+    | DeleteComplete
+    | Check ( Bool, String )
+    | CheckAll Bool
+
+
+editItemForm : Form.HtmlForm String ( String, String ) input msg
+editItemForm =
+    Form.init
+        (\itemId description ->
+            { combine =
+                Validation.succeed Tuple.pair
+                    |> Validation.andMap itemId
+                    |> Validation.andMap description
+            , view = \formState -> []
+            }
+        )
+        |> Form.hiddenField "itemId"
+            (Field.text
+                |> Field.required "Must be present"
+            )
+        |> Form.field "description"
+            (Field.text
+                |> Field.required "Must be present"
+            )
+        |> Form.hiddenKind ( "kind", "edit-item" ) "Expected kind"
+
+
+newItemForm : Form.HtmlForm String String input msg
+newItemForm =
+    Form.init
+        (\description ->
+            { combine =
+                Validation.succeed identity
+                    |> Validation.andMap description
+            , view = \formState -> []
+            }
+        )
+        |> Form.field "description" (Field.text |> Field.required "Must be present")
+        |> Form.hiddenKind ( "kind", "new-item" ) "Expected kind"
+
+
+completeItemForm : Form.HtmlForm String ( Bool, String ) input msg
+completeItemForm =
+    Form.init
+        (\todoId complete ->
+            { combine =
+                Validation.succeed Tuple.pair
+                    |> Validation.andMap complete
+                    |> Validation.andMap todoId
+            , view = \formState -> []
+            }
+        )
+        |> Form.hiddenField "todoId"
+            (Field.text
+                |> Field.required "Must be present"
+            )
+        |> Form.hiddenField "complete"
+            Field.checkbox
+        |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
+
+
+deleteItemForm : Form.HtmlForm String String input msg
+deleteItemForm =
+    Form.init
+        (\todoId ->
+            { combine =
+                Validation.succeed identity
+                    |> Validation.andMap todoId
+            , view = \formState -> []
+            }
+        )
+        |> Form.hiddenField "todoId"
+            (Field.text
+                |> Field.required "Must be present"
+             --|> Field.withInitialValue (.id >> Form.Value.string)
+            )
+        |> Form.hiddenKind ( "kind", "delete" ) "Expected kind"
+
+
+clearCompletedForm : Form.HtmlForm String () { entriesCompleted : Int } msg
+clearCompletedForm =
+    Form.init
+        { combine = Validation.succeed ()
+        , view = \formState -> []
+        }
+        |> Form.hiddenKind ( "kind", "clear-completed" ) "Expected kind"
+
+
+toggleAllForm : Form.HtmlForm String Bool input msg
+toggleAllForm =
+    Form.init
+        (\toggleTo ->
+            { combine =
+                Validation.succeed identity
+                    |> Validation.andMap toggleTo
+            , view = \formState -> []
+            }
+        )
+        |> Form.hiddenField "toggleTo" Field.checkbox
+        |> Form.hiddenKind ( "kind", "toggle-all" ) "Expected kind"
