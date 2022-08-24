@@ -6,7 +6,6 @@ import Expect
 import Form exposing (Form)
 import Form.Field as Field
 import Form.Validation as Validation exposing (Combined)
-import Form.Value
 import Test exposing (Test, describe, test)
 
 
@@ -426,7 +425,7 @@ editItemForm =
                 Validation.succeed Tuple.pair
                     |> Validation.andMap itemId
                     |> Validation.andMap description
-            , view = \formState -> []
+            , view = \_ -> []
             }
         )
         |> Form.hiddenField "itemId"
@@ -447,7 +446,7 @@ newItemForm =
             { combine =
                 Validation.succeed identity
                     |> Validation.andMap description
-            , view = \formState -> []
+            , view = \_ -> []
             }
         )
         |> Form.field "description" (Field.text |> Field.required "Must be present")
@@ -462,7 +461,7 @@ completeItemForm =
                 Validation.succeed Tuple.pair
                     |> Validation.andMap complete
                     |> Validation.andMap todoId
-            , view = \formState -> []
+            , view = \_ -> []
             }
         )
         |> Form.hiddenField "todoId"
@@ -481,7 +480,7 @@ deleteItemForm =
             { combine =
                 Validation.succeed identity
                     |> Validation.andMap todoId
-            , view = \formState -> []
+            , view = \_ -> []
             }
         )
         |> Form.hiddenField "todoId"
@@ -496,7 +495,7 @@ clearCompletedForm : Form.HtmlForm String () { entriesCompleted : Int } msg
 clearCompletedForm =
     Form.init
         { combine = Validation.succeed ()
-        , view = \formState -> []
+        , view = \_ -> []
         }
         |> Form.hiddenKind ( "kind", "clear-completed" ) "Expected kind"
 
@@ -508,7 +507,7 @@ toggleAllForm =
             { combine =
                 Validation.succeed identity
                     |> Validation.andMap toggleTo
-            , view = \formState -> []
+            , view = \_ -> []
             }
         )
         |> Form.hiddenField "toggleTo" Field.checkbox
