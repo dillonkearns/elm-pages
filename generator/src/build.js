@@ -393,7 +393,7 @@ function elmOptimizeLevel2(outputPath, cwd) {
  */
 async function spawnElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
   await runElmMake(mode, options, elmEntrypointPath, outputPath, cwd);
-  if (!options.debug) {
+  if (mode === "optimize") {
     await elmOptimizeLevel2(outputPath, cwd);
   }
   await fsPromises.writeFile(
