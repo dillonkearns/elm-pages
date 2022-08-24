@@ -89,11 +89,16 @@ type alias ActionData =
     {}
 
 
-init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
-    -> ( Model, Effect Msg )
+toOptimisticTodo : Data.Todo.Todo -> Entry
+toOptimisticTodo todo =
+    { description = todo.description
+    , completed = todo.completed
+    , isSaving = False
+    , id = todo.id
+    }
+
+
+init : Maybe PageUrl -> Shared.Model -> StaticPayload Data ActionData RouteParams -> ( Model, Effect Msg )
 init maybePageUrl sharedModel app =
     ( { nextId = app.data.requestTime }
     , Effect.none
@@ -196,6 +201,39 @@ performAction requestTime actionInput userId =
                 |> DataSource.map (\() -> Response.render {})
 
 
+data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data routeParams =
+    Request.requestTime
+        |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
+            (\parsedSession requestTime session ->
+                case visibilityFromRouteParams routeParams of
+                    Just visibility ->
+                        Data.Todo.findAllBySession parsedSession
+                            |> Request.Hasura.dataSource
+                            |> DataSource.map
+                                (\todos ->
+                                    ( session
+                                    , Response.render
+                                        { entries =
+                                            todos
+                                                -- TODO add error handling for Nothing case
+                                                |> Maybe.withDefault []
+                                                |> List.map toOptimisticTodo
+                                        , visibility = visibility
+                                        , requestTime = requestTime
+                                        }
+                                    )
+                                )
+
+                    Nothing ->
+                        DataSource.succeed
+                            ( session
+                            , Route.Visibility__ { visibility = Nothing }
+                                |> Route.redirectTo
+                            )
+            )
+
+
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
@@ -273,48 +311,6 @@ visibilityFromRouteParams { visibility } =
 
         _ ->
             Nothing
-
-
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
-data routeParams =
-    Request.requestTime
-        |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
-            (\parsedSession requestTime session ->
-                case visibilityFromRouteParams routeParams of
-                    Just visibility ->
-                        Data.Todo.findAllBySession parsedSession
-                            |> Request.Hasura.dataSource
-                            |> DataSource.map
-                                (\todos ->
-                                    ( session
-                                    , Response.render
-                                        { entries =
-                                            todos
-                                                -- TODO add error handling for Nothing case
-                                                |> Maybe.withDefault []
-                                                |> List.map toOptimisticTodo
-                                        , visibility = visibility
-                                        , requestTime = requestTime
-                                        }
-                                    )
-                                )
-
-                    Nothing ->
-                        DataSource.succeed
-                            ( session
-                            , Route.Visibility__ { visibility = Nothing }
-                                |> Route.redirectTo
-                            )
-            )
-
-
-toOptimisticTodo : Data.Todo.Todo -> Entry
-toOptimisticTodo todo =
-    { description = todo.description
-    , completed = todo.completed
-    , id = todo.id
-    , isSaving = False
-    }
 
 
 view :
