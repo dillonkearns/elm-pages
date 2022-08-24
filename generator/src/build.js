@@ -320,6 +320,7 @@ async function compileElm(options) {
   const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
   await generateClientFolder(options.base);
   await spawnElmMake(
+    options.debug ? "debug" : "optimize",
     options,
     ".elm-pages/Main.elm",
     fullOutputPath,
@@ -382,13 +383,16 @@ function elmOptimizeLevel2(outputPath, cwd) {
   });
 }
 
+/** @typedef {"debug" | "optimize" | "default"} CompileMode  */
+
 /**
+ * @param {CompileMode} mode
  * @param {string} elmEntrypointPath
  * @param {string} outputPath
  * @param {string | undefined} cwd
  */
-async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
-  await runElmMake(options, elmEntrypointPath, outputPath, cwd);
+async function spawnElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
+  await runElmMake(mode, options, elmEntrypointPath, outputPath, cwd);
   if (!options.debug) {
     await elmOptimizeLevel2(outputPath, cwd);
   }
@@ -410,7 +414,26 @@ function getAssetHash(content) {
   return createHash("sha256").update(content).digest("hex").slice(0, 8);
 }
 
-function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
+/**
+ * @param {CompileMode} mode
+ */
+function modeToOptions(mode) {
+  if (mode === "debug") {
+    return ["--debug"];
+  } else if (mode === "optimize") {
+    return ["--debug"];
+  } else {
+    return [];
+  }
+}
+
+/**
+ * @param {CompileMode} mode
+ * @param {string} elmEntrypointPath
+ * @param {string} outputPath
+ * @param {string | undefined} cwd
+ */
+function runElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
   return new Promise(async (resolve, reject) => {
     const subprocess = spawnCallback(
       `lamdera`,
@@ -419,7 +442,7 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
         elmEntrypointPath,
         "--output",
         outputPath,
-        ...(options.debug ? ["--debug"] : ["--optimize"]),
+        ...modeToOptions(mode),
         "--report",
         "json",
       ],
@@ -515,6 +538,8 @@ async function runTerser(filePath) {
 
 async function compileCliApp(options) {
   await spawnElmMake(
+    // TODO should be --optimize, but there seems to be an issue with the html to JSON with --optimize
+    options.debug ? "debug" : "default",
     options,
     path.join(process.cwd(), "elm-stuff/elm-pages/.elm-pages/Main.elm"),
     path.join(process.cwd(), "elm-stuff/elm-pages/elm.js"),
