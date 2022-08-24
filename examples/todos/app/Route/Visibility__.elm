@@ -313,6 +313,10 @@ visibilityFromRouteParams { visibility } =
             Nothing
 
 
+
+-- VIEW
+
+
 view :
     Maybe PageUrl
     -> Shared.Model
@@ -465,6 +469,21 @@ view maybeUrl sharedModel model app =
     }
 
 
+
+-- FORMS
+
+
+allForms : Form.ServerForms String Action
+allForms =
+    editItemForm
+        |> Form.initCombined UpdateEntry
+        |> Form.combine Add newItemForm
+        |> Form.combine Check completeItemForm
+        |> Form.combine Delete deleteItemForm
+        |> Form.combine (\_ -> DeleteComplete) clearCompletedForm
+        |> Form.combine CheckAll toggleAllForm
+
+
 newItemForm : Form.HtmlForm String String input Msg
 newItemForm =
     Form.init
@@ -490,158 +509,6 @@ newItemForm =
         )
         |> Form.field "description" (Field.text |> Field.required "Must be present")
         |> Form.hiddenKind ( "kind", "new-item" ) "Expected kind"
-
-
-allForms : Form.ServerForms String Action
-allForms =
-    editItemForm
-        |> Form.initCombined UpdateEntry
-        |> Form.combine Add newItemForm
-        |> Form.combine Check completeItemForm
-        |> Form.combine Delete deleteItemForm
-        |> Form.combine (\_ -> DeleteComplete) clearCompletedForm
-        |> Form.combine CheckAll toggleAllForm
-
-
-
--- VIEW
--- VIEW ALL ENTRIES
-
-
-viewEntries : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (Pages.Msg.Msg Msg)
-viewEntries app visibility entries =
-    let
-        isVisible todo =
-            case visibility of
-                Completed ->
-                    todo.completed
-
-                Active ->
-                    not todo.completed
-
-                All ->
-                    True
-
-        allCompleted =
-            List.all .completed entries
-
-        cssVisibility =
-            if List.isEmpty entries then
-                "hidden"
-
-            else
-                "visible"
-    in
-    section
-        [ class "main"
-        , style "visibility" cssVisibility
-        ]
-        [ toggleAllForm
-            |> Form.toDynamicFetcher "toggle-all"
-            |> Form.renderHtml [] Nothing app { allCompleted = allCompleted }
-        , Keyed.ul [ class "todo-list" ] <|
-            List.map (viewKeyedEntry app) (List.filter isVisible entries)
-        ]
-
-
-toggleAllForm : Form.HtmlForm String Bool { allCompleted : Bool } Msg
-toggleAllForm =
-    Form.init
-        (\toggleTo ->
-            { combine =
-                Validation.succeed identity
-                    |> Validation.andMap toggleTo
-            , view =
-                \formState ->
-                    [ button
-                        [ classList
-                            [ ( "toggle-all", True )
-                            , ( "toggle", True )
-                            , ( "checked", formState.data.allCompleted )
-                            ]
-                        ]
-                        [ text "❯" ]
-                    , label
-                        [ for "toggle-all", style "display" "none" ]
-                        [ text "Mark all as complete" ]
-                    ]
-            }
-        )
-        |> Form.hiddenField "toggleTo"
-            (Field.checkbox
-                |> Field.withInitialValue
-                    (\{ allCompleted } ->
-                        Form.Value.bool (not allCompleted)
-                    )
-            )
-        |> Form.hiddenKind ( "kind", "toggle-all" ) "Expected kind"
-
-
-
--- VIEW INDIVIDUAL ENTRIES
-
-
-viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Entry -> ( String, Html (Pages.Msg.Msg Msg) )
-viewKeyedEntry app todo =
-    ( uuidToString todo.id, lazy2 viewEntry app todo )
-
-
-viewEntry : StaticPayload Data ActionData RouteParams -> Entry -> Html (Pages.Msg.Msg Msg)
-viewEntry app todo =
-    li
-        [ classList
-            [ ( "completed", todo.completed )
-            ]
-        ]
-        [ div
-            [ class "view" ]
-            [ completeItemForm
-                |> Form.toDynamicFetcher ("toggle-" ++ uuidToString todo.id)
-                |> Form.renderHtml [] Nothing app todo
-            , editItemForm
-                |> Form.toDynamicFetcher ("edit-" ++ uuidToString todo.id)
-                |> Form.renderHtml [] Nothing app todo
-            , if todo.isSaving then
-                LoadingSpinner.view
-
-              else
-                deleteItemForm
-                    |> Form.toDynamicFetcher ("delete-" ++ uuidToString todo.id)
-                    |> Form.renderHtml [] Nothing app todo
-            ]
-        ]
-
-
-completeItemForm : Form.HtmlForm String ( Bool, String ) Entry Msg
-completeItemForm =
-    Form.init
-        (\todoId complete ->
-            { combine =
-                Validation.succeed Tuple.pair
-                    |> Validation.andMap complete
-                    |> Validation.andMap todoId
-            , view =
-                \formState ->
-                    [ Html.button [ class "toggle" ]
-                        [ if formState.data.completed then
-                            Icon.complete
-
-                          else
-                            Icon.incomplete
-                        ]
-                    ]
-            }
-        )
-        |> Form.hiddenField "todoId"
-            (Field.text
-                |> Field.required "Must be present"
-                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
-            )
-        |> Form.hiddenField "complete"
-            (Field.checkbox
-                |> Field.withInitialValue (.completed >> not >> Form.Value.bool)
-            )
-        |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
 
 
 editItemForm : Form.HtmlForm String ( String, String ) Entry Msg
@@ -695,6 +562,163 @@ deleteItemForm =
                 |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
             )
         |> Form.hiddenKind ( "kind", "delete" ) "Expected kind"
+
+
+toggleAllForm : Form.HtmlForm String Bool { allCompleted : Bool } Msg
+toggleAllForm =
+    Form.init
+        (\toggleTo ->
+            { combine =
+                Validation.succeed identity
+                    |> Validation.andMap toggleTo
+            , view =
+                \formState ->
+                    [ button
+                        [ classList
+                            [ ( "toggle-all", True )
+                            , ( "toggle", True )
+                            , ( "checked", formState.data.allCompleted )
+                            ]
+                        ]
+                        [ text "❯" ]
+                    , label
+                        [ for "toggle-all", style "display" "none" ]
+                        [ text "Mark all as complete" ]
+                    ]
+            }
+        )
+        |> Form.hiddenField "toggleTo"
+            (Field.checkbox
+                |> Field.withInitialValue
+                    (\{ allCompleted } ->
+                        Form.Value.bool (not allCompleted)
+                    )
+            )
+        |> Form.hiddenKind ( "kind", "toggle-all" ) "Expected kind"
+
+
+completeItemForm : Form.HtmlForm String ( Bool, String ) Entry Msg
+completeItemForm =
+    Form.init
+        (\todoId complete ->
+            { combine =
+                Validation.succeed Tuple.pair
+                    |> Validation.andMap complete
+                    |> Validation.andMap todoId
+            , view =
+                \formState ->
+                    [ Html.button [ class "toggle" ]
+                        [ if formState.data.completed then
+                            Icon.complete
+
+                          else
+                            Icon.incomplete
+                        ]
+                    ]
+            }
+        )
+        |> Form.hiddenField "todoId"
+            (Field.text
+                |> Field.required "Must be present"
+                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
+            )
+        |> Form.hiddenField "complete"
+            (Field.checkbox
+                |> Field.withInitialValue (.completed >> not >> Form.Value.bool)
+            )
+        |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
+
+
+clearCompletedForm : Form.HtmlForm String () { entriesCompleted : Int } Msg
+clearCompletedForm =
+    Form.init
+        { combine = Validation.succeed ()
+        , view =
+            \formState ->
+                [ button
+                    [ class "clear-completed"
+                    , hidden (formState.data.entriesCompleted == 0)
+                    ]
+                    [ text ("Clear completed (" ++ String.fromInt formState.data.entriesCompleted ++ ")")
+                    ]
+                ]
+        }
+        |> Form.hiddenKind ( "kind", "clear-completed" ) "Expected kind"
+
+
+
+-- VIEW ALL ENTRIES
+
+
+viewEntries : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (Pages.Msg.Msg Msg)
+viewEntries app visibility entries =
+    let
+        isVisible todo =
+            case visibility of
+                Completed ->
+                    todo.completed
+
+                Active ->
+                    not todo.completed
+
+                All ->
+                    True
+
+        allCompleted =
+            List.all .completed entries
+
+        cssVisibility =
+            if List.isEmpty entries then
+                "hidden"
+
+            else
+                "visible"
+    in
+    section
+        [ class "main"
+        , style "visibility" cssVisibility
+        ]
+        [ toggleAllForm
+            |> Form.toDynamicFetcher "toggle-all"
+            |> Form.renderHtml [] Nothing app { allCompleted = allCompleted }
+        , Keyed.ul [ class "todo-list" ] <|
+            List.map (viewKeyedEntry app) (List.filter isVisible entries)
+        ]
+
+
+
+-- VIEW INDIVIDUAL ENTRIES
+
+
+viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Entry -> ( String, Html (Pages.Msg.Msg Msg) )
+viewKeyedEntry app todo =
+    ( uuidToString todo.id, lazy2 viewEntry app todo )
+
+
+viewEntry : StaticPayload Data ActionData RouteParams -> Entry -> Html (Pages.Msg.Msg Msg)
+viewEntry app todo =
+    li
+        [ classList
+            [ ( "completed", todo.completed )
+            ]
+        ]
+        [ div
+            [ class "view" ]
+            [ completeItemForm
+                |> Form.toDynamicFetcher ("toggle-" ++ uuidToString todo.id)
+                |> Form.renderHtml [] Nothing app todo
+            , editItemForm
+                |> Form.toDynamicFetcher ("edit-" ++ uuidToString todo.id)
+                |> Form.renderHtml [] Nothing app todo
+            , if todo.isSaving then
+                LoadingSpinner.view
+
+              else
+                deleteItemForm
+                    |> Form.toDynamicFetcher ("delete-" ++ uuidToString todo.id)
+                    |> Form.renderHtml [] Nothing app todo
+            ]
+        ]
 
 
 uuidToString : Uuid -> String
@@ -782,23 +806,6 @@ visibilitySwap visibilityParam visibility actualVisibility =
                 [ classList [ ( "selected", visibility == actualVisibility ) ] ]
                 [ visibility |> visibilityToString |> text ]
         ]
-
-
-clearCompletedForm : Form.HtmlForm String () { entriesCompleted : Int } Msg
-clearCompletedForm =
-    Form.init
-        { combine = Validation.succeed ()
-        , view =
-            \formState ->
-                [ button
-                    [ class "clear-completed"
-                    , hidden (formState.data.entriesCompleted == 0)
-                    ]
-                    [ text ("Clear completed (" ++ String.fromInt formState.data.entriesCompleted ++ ")")
-                    ]
-                ]
-        }
-        |> Form.hiddenKind ( "kind", "clear-completed" ) "Expected kind"
 
 
 viewControlsClear : StaticPayload Data ActionData RouteParams -> Int -> Html (Pages.Msg.Msg Msg)
