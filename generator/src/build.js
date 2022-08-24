@@ -594,14 +594,9 @@ function _HtmlAsJson_toJson(html) {
     elmFileContent
       .replace(
         /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-        "return " +
-          (options.debug
-            ? `${forceThunksSource}
+        `return ${forceThunksSource}
   return _Json_wrap(forceThunks(html));
 `
-            : `${forceThunksSource}
-return forceThunks(html);
-`)
       )
       .replace(`console.log('App dying')`, "")
   );
