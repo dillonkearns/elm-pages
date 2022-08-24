@@ -31,6 +31,11 @@ module Form.Validation exposing
 
 @docs global
 
+
+## Temporary?
+
+@docs mapWithNever
+
 -}
 
 import Dict exposing (Dict)

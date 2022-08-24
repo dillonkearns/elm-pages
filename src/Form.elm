@@ -8,16 +8,12 @@ module Form exposing
     , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
     , Errors, errorsForField
     , parse, runServerSide, runOneOfServerSide
+    , ServerForms(..)
+    , initCombined, combine, initCombinedServer, combineServer
     , dynamic
     , AppContext
     , toServerForm, withOnSubmit
-    ,  ServerForms(..)
-       -- subGroup
-      , combine
-      , combineServer
-      , initCombined
-      , initCombinedServer
-
+    -- subGroup
     )
 
 {-| One of the core features of elm-pages is helping you manage form data end-to-end, including
@@ -249,6 +245,13 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 ## Running Parsers
 
 @docs parse, runServerSide, runOneOfServerSide
+
+
+## Combining Forms to Run on Server
+
+@docs ServerForms
+
+@docs initCombined, combine, initCombinedServer, combineServer
 
 
 ## Dynamic Fields
