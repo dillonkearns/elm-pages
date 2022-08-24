@@ -61,6 +61,14 @@ type alias Model =
     }
 
 
+type alias Entry =
+    { description : String
+    , completed : Bool
+    , isSaving : Bool
+    , id : Uuid
+    }
+
+
 init :
     Maybe PageUrl
     -> Shared.Model
@@ -82,7 +90,7 @@ type alias RouteParams =
 
 
 type alias Data =
-    { entries : List Todo
+    { entries : List Entry
     , visibility : Visibility
     , requestTime : Time.Posix
     }
@@ -300,20 +308,12 @@ data routeParams =
             )
 
 
-toOptimisticTodo : Data.Todo.Todo -> Todo
+toOptimisticTodo : Data.Todo.Todo -> Entry
 toOptimisticTodo todo =
     { description = todo.description
     , completed = todo.completed
     , id = todo.id
     , isSaving = False
-    }
-
-
-type alias Todo =
-    { description : String
-    , completed : Bool
-    , id : Uuid
-    , isSaving : Bool
     }
 
 
@@ -335,7 +335,7 @@ view maybeUrl sharedModel model app =
                             |> Tuple.first
                     )
 
-        creatingItems : List Todo
+        creatingItems : List Entry
         creatingItems =
             pendingFetchers
                 |> List.filterMap
@@ -401,7 +401,7 @@ view maybeUrl sharedModel model app =
                     )
                 |> List.head
 
-        optimisticEntities : List Todo
+        optimisticEntities : List Entry
         optimisticEntities =
             (app.data.entries
                 |> List.filterMap
@@ -512,7 +512,7 @@ allForms =
 -- VIEW ALL ENTRIES
 
 
-viewEntries : StaticPayload Data ActionData RouteParams -> Visibility -> List Todo -> Html (Pages.Msg.Msg Msg)
+viewEntries : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (Pages.Msg.Msg Msg)
 viewEntries app visibility entries =
     let
         isVisible todo =
@@ -585,12 +585,12 @@ toggleAllForm =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Todo -> ( String, Html (Pages.Msg.Msg Msg) )
+viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Entry -> ( String, Html (Pages.Msg.Msg Msg) )
 viewKeyedEntry app todo =
     ( uuidToString todo.id, lazy2 viewEntry app todo )
 
 
-viewEntry : StaticPayload Data ActionData RouteParams -> Todo -> Html (Pages.Msg.Msg Msg)
+viewEntry : StaticPayload Data ActionData RouteParams -> Entry -> Html (Pages.Msg.Msg Msg)
 viewEntry app todo =
     li
         [ classList
@@ -616,7 +616,7 @@ viewEntry app todo =
         ]
 
 
-completeItemForm : Form.HtmlForm String ( Bool, String ) Todo Msg
+completeItemForm : Form.HtmlForm String ( Bool, String ) Entry Msg
 completeItemForm =
     Form.init
         (\todoId complete ->
@@ -648,7 +648,7 @@ completeItemForm =
         |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
 
 
-editItemForm : Form.HtmlForm String ( String, String ) Todo Msg
+editItemForm : Form.HtmlForm String ( String, String ) Entry Msg
 editItemForm =
     Form.init
         (\itemId description ->
@@ -681,7 +681,7 @@ editItemForm =
         |> Form.hiddenKind ( "kind", "edit-item" ) "Expected kind"
 
 
-deleteItemForm : Form.HtmlForm String String Todo Msg
+deleteItemForm : Form.HtmlForm String String Entry Msg
 deleteItemForm =
     Form.init
         (\todoId ->
@@ -710,7 +710,7 @@ uuidToString (Uuid uuid) =
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : StaticPayload Data ActionData RouteParams -> Visibility -> List Todo -> Html (Pages.Msg.Msg Msg)
+viewControls : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (Pages.Msg.Msg Msg)
 viewControls app visibility entries =
     let
         entriesCompleted =
