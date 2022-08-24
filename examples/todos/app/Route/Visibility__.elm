@@ -548,7 +548,7 @@ deleteItemForm =
                 Validation.succeed identity
                     |> Validation.andMap todoId
             , view =
-                \formState ->
+                \_ ->
                     [ button [ class "destroy" ] [] ]
             }
         )
