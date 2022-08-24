@@ -814,7 +814,7 @@ viewControlsClear app entriesCompleted =
 infoFooter : Html msg
 infoFooter =
     footer [ class "info" ]
-        [ p [] [ text "Double-click to edit a todo" ]
+        [ p [] [ text "Click to edit a todo" ]
         , p []
             [ text "Written by "
             , a [ href "https://github.com/dillonkearns" ] [ text "Dillon Kearns" ]
