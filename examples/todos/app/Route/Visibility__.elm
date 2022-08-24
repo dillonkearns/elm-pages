@@ -566,9 +566,11 @@ toggleAllForm =
             , view =
                 \formState ->
                     [ button
-                        [ class "toggle-all"
-                        , name "toggle"
-                        , checked formState.data.allCompleted
+                        [ classList
+                            [ ( "toggle-all", True )
+                            , ( "toggle", True )
+                            , ( "checked", formState.data.allCompleted )
+                            ]
                         ]
                         [ text "❯" ]
                     , label
