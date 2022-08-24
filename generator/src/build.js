@@ -421,7 +421,7 @@ function modeToOptions(mode) {
   if (mode === "debug") {
     return ["--debug"];
   } else if (mode === "optimize") {
-    return ["--debug"];
+    return ["--optimize"];
   } else {
     return [];
   }
