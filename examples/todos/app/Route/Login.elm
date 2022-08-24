@@ -437,7 +437,7 @@ view maybeUrl sharedModel app =
 
 sendFake : Bool
 sendFake =
-    True
+    False
 
 
 sendEmailDataSource : EmailAddress -> EnvVariables -> DataSource (Result SendGrid.Error ())
