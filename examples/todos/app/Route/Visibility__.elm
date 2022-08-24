@@ -455,11 +455,7 @@ view maybeUrl sharedModel model app =
                             ++ (model.nextId |> Time.posixToMillis |> String.fromInt)
                         )
                     |> Form.withOnSubmit (\_ -> NewItemSubmitted)
-                    |> Form.renderHtml
-                        [ class "create-form" ]
-                        Nothing
-                        app
-                        ()
+                    |> Form.renderHtml [ class "create-form" ] Nothing app ()
                 , viewEntries app optimisticVisibility optimisticEntities
                 , viewControls app optimisticVisibility optimisticEntities
                 ]
