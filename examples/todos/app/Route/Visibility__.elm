@@ -464,14 +464,6 @@ view maybeUrl sharedModel model app =
                 , viewControls app optimisticVisibility optimisticEntities
                 ]
             , infoFooter
-
-            --, pre [ style "white-space" "break-spaces" ]
-            --    [ text
-            --        (app.fetchers
-            --            |> List.map Debug.toString
-            --            |> String.join "\n"
-            --        )
-            --    ]
             ]
         ]
     }
@@ -600,11 +592,6 @@ viewKeyedEntry app todo =
 
 viewEntry : StaticPayload Data ActionData RouteParams -> Todo -> Html (Pages.Msg.Msg Msg)
 viewEntry app todo =
-    let
-        isOptimisticEntry : Bool
-        isOptimisticEntry =
-            uuidToString todo.id == ""
-    in
     li
         [ classList
             [ ( "completed", todo.completed )
