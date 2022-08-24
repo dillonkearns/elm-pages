@@ -69,17 +69,6 @@ type alias Entry =
     }
 
 
-init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
-    -> ( Model, Effect Msg )
-init maybePageUrl sharedModel app =
-    ( { nextId = app.data.requestTime }
-    , Effect.none
-    )
-
-
 type Msg
     = NewItemSubmitted
     | GenerateNextNewItemId Time.Posix
@@ -98,6 +87,17 @@ type alias Data =
 
 type alias ActionData =
     {}
+
+
+init :
+    Maybe PageUrl
+    -> Shared.Model
+    -> StaticPayload Data ActionData RouteParams
+    -> ( Model, Effect Msg )
+init maybePageUrl sharedModel app =
+    ( { nextId = app.data.requestTime }
+    , Effect.none
+    )
 
 
 
