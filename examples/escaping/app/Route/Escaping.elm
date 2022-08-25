@@ -102,7 +102,8 @@ view maybeUrl sharedModel static =
         -- lazy and non-lazy versions render the same output
         , Html.text static.data
         , HtmlLazy.lazy (.data >> text) static
-        , [ 1 ]
+        , -- lazy nodes as direct children of keyed nodes
+          [ 1 ]
             |> List.indexedMap
                 (\index _ ->
                     ( String.fromInt index
@@ -116,6 +117,26 @@ view maybeUrl sharedModel static =
                         )
                         ()
                         ()
+                    )
+                )
+            |> HtmlKeyed.ul []
+        , -- lazy nested within keyed nodes
+          [ 1 ]
+            |> List.indexedMap
+                (\index _ ->
+                    ( String.fromInt index
+                    , div []
+                        [ HtmlLazy.lazy2
+                            (\_ _ ->
+                                li []
+                                    [ Html.text <|
+                                        "This is nested number "
+                                            ++ String.fromInt index
+                                    ]
+                            )
+                            ()
+                            ()
+                        ]
                     )
                 )
             |> HtmlKeyed.ul []
