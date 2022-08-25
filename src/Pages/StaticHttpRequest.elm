@@ -3,18 +3,9 @@ module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..)
 import BuildError exposing (BuildError)
 import Dict
 import List.Extra
-import Pages.Internal.StaticHttpBody
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
-
-
-type alias RequestDetails =
-    { url : String
-    , method : String
-    , headers : List ( String, String )
-    , body : Pages.Internal.StaticHttpBody.Body
-    }
 
 
 type alias MockResolver =

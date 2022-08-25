@@ -3,7 +3,7 @@ module Timestamps exposing (Timestamps, data, format)
 import DataSource exposing (DataSource)
 import DataSource.Port
 import DateFormat
-import Json.Decode as Decode exposing (Decoder)
+import Json.Decode as Decode
 import Json.Decode.Extra
 import Json.Encode
 import List.Extra

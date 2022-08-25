@@ -29,7 +29,6 @@ type Msg
         , query : Maybe String
         , fragment : Maybe String
         }
-    | SharedMsg SharedMsg
 
 
 type alias Data =
@@ -69,9 +68,6 @@ update msg model =
     case msg of
         OnPageChange _ ->
             ( { model | showMobileMenu = False }, Effect.none )
-
-        SharedMsg globalMsg ->
-            ( model, Effect.none )
 
 
 subscriptions : Path -> Model -> Sub Msg

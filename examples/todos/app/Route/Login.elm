@@ -12,7 +12,7 @@ import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Field, Validation)
+import Form.Validation as Validation exposing (Combined, Field)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -26,7 +26,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Request.Hasura
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import SendGrid
 import Server.Request as Request
 import Server.Response exposing (Response)
@@ -57,12 +57,6 @@ route =
         , action = action
         }
         |> RouteBuilder.buildNoState { view = view }
-
-
-type alias Login =
-    { username : String
-    , password : String
-    }
 
 
 now : DataSource Time.Posix
@@ -199,12 +193,6 @@ globalErrors formState =
         |> Form.errorsForField Validation.global
         |> List.map (\error -> Html.li [] [ Html.text error ])
         |> Html.ul [ Attr.style "color" "red" ]
-
-
-type alias Request =
-    { cookies : Dict String String
-    , maybeFormData : Maybe (Dict String ( String, List String ))
-    }
 
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))

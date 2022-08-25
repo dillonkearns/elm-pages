@@ -12,7 +12,6 @@ import Bytes exposing (Bytes)
 import Bytes.Encode
 import Codec
 import DataSource exposing (DataSource)
-import DataSource.Http exposing (RequestDetails)
 import Dict
 import Head
 import Html exposing (Html)
@@ -67,7 +66,6 @@ type Msg
             }
         )
     | GotBuildError BuildError
-    | Continue
 
 
 {-| -}
@@ -556,17 +554,6 @@ update site config msg model =
                 updatedModel =
                     model
                         |> StaticResponses.batchUpdate batch
-            in
-            StaticResponses.nextStep
-                updatedModel
-                Nothing
-                |> nextStepToEffect site config updatedModel
-
-        Continue ->
-            let
-                updatedModel : Model route
-                updatedModel =
-                    model
             in
             StaticResponses.nextStep
                 updatedModel

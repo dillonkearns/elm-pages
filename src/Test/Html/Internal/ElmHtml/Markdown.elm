@@ -12,7 +12,6 @@ module Test.Html.Internal.ElmHtml.Markdown exposing
 -}
 
 import Json.Decode exposing (field)
-import Json.Encode
 import Test.Internal.KernelConstants exposing (kernelConstants)
 
 
