@@ -8,6 +8,7 @@ import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
+import Html.Styled.Keyed as HtmlKeyed
 import Html.Styled.Lazy as HtmlLazy
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -101,5 +102,22 @@ view maybeUrl sharedModel static =
         -- lazy and non-lazy versions render the same output
         , Html.text static.data
         , HtmlLazy.lazy (.data >> text) static
+        , [ 1 ]
+            |> List.indexedMap
+                (\index _ ->
+                    ( String.fromInt index
+                    , HtmlLazy.lazy2
+                        (\_ _ ->
+                            li []
+                                [ Html.text <|
+                                    "This is number "
+                                        ++ String.fromInt index
+                                ]
+                        )
+                        ()
+                        ()
+                    )
+                )
+            |> HtmlKeyed.ul []
         ]
     }

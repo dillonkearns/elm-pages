@@ -563,7 +563,9 @@ async function compileCliApp(options) {
   }
 
 function forceThunks(vNode) {
-  if (typeof vNode !== "undefined" && ( (vNode.b && vNode.b.$ === virtualDomKernelConstants.nodeTypeThunk) || vNode.$ === "#2" )) {
+if ( (typeof vNode !== "undefined" && vNode.$ === "#2") // normal/debug mode
+     || (typeof vNode !== "undefined" && typeof vNode.$ === "undefined" && typeof vNode.a == "string" && typeof vNode.b == "object" ) // optimize mode
+   ) {
     // This is a tuple (the kids : List (String, Html) field of a Keyed node); recurse into the right side of the tuple
     vNode.b = forceThunks(vNode.b);
   }
