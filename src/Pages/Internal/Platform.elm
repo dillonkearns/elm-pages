@@ -735,11 +735,10 @@ update config appMsg model =
             )
 
 
-toFetcherState : Dict String ( Int, Pages.Transition.FetcherState ) -> List Pages.Transition.FetcherState
+toFetcherState : Dict String ( Int, Pages.Transition.FetcherState ) -> Dict String Pages.Transition.FetcherState
 toFetcherState inFlightFetchers =
     inFlightFetchers
-        |> Dict.values
-        |> List.map Tuple.second
+        |> Dict.map (\_ ( index, fetcherState ) -> fetcherState)
 
 
 performUserMsg :

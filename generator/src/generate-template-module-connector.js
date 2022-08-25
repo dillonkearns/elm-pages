@@ -162,7 +162,7 @@ type ActionData
 
 view :
     Pages.FormState.PageFormState
-    -> List Pages.Transition.FetcherState
+    -> Dict.Dict String Pages.Transition.FetcherState
     -> Maybe Pages.Transition.Transition
     -> { path : Path
     , route : Maybe Route
@@ -259,7 +259,7 @@ view pageFormState fetchers transition page maybePageUrl globalData pageData act
                         name
                       )}.w3_decode_ActionData
                       , transition = Nothing -- TODO is this safe?
-                      , fetchers = [] -- TODO is this safe?
+                      , fetchers = Dict.empty -- TODO is this safe?
                       , pageFormState = Dict.empty -- TODO is this safe?
                       }
                       `
@@ -341,7 +341,7 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
                           name
                         )}.w3_decode_ActionData
                         , transition = Nothing -- TODO is this safe, will this always be Nothing?
-                        , fetchers = []
+                        , fetchers = Dict.empty
                         , pageFormState = Dict.empty
                         }
                         |> Tuple.mapBoth Model${pathNormalizedName(
@@ -373,7 +373,7 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
 
 
 
-update : Pages.FormState.PageFormState  -> List Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
+update : Pages.FormState.PageFormState  -> Dict.Dict String Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
 update pageFormState fetchers transition sharedData pageData navigationKey msg model =
     case msg of
         MsgErrorPage____ msg_ ->

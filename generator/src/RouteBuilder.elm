@@ -88,6 +88,7 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 import Bytes exposing (Bytes)
 import DataSource exposing (DataSource)
 import DataSource.Http
+import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
@@ -145,7 +146,7 @@ type alias StaticPayload data action routeParams =
         { fields : List ( String, String ), headers : List ( String, String ) }
         -> Pages.Fetcher.Fetcher (Result Http.Error action)
     , transition : Maybe Pages.Transition.Transition
-    , fetchers : List Pages.Transition.FetcherState
+    , fetchers : Dict String Pages.Transition.FetcherState
     , pageFormState : Pages.FormState.PageFormState
     }
 

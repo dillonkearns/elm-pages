@@ -328,6 +328,7 @@ view maybeUrl sharedModel model app =
         pendingFetchers : List Action
         pendingFetchers =
             app.fetchers
+                |> Dict.values
                 |> List.filterMap
                     (\{ status, payload } ->
                         allForms

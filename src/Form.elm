@@ -801,7 +801,7 @@ type alias AppContext app =
           --    { fields : List ( String, String ), headers : List ( String, String ) }
           --    -> Pages.Fetcher.Fetcher (Result Http.Error action)
           transition : Maybe Transition
-        , fetchers : List Pages.Transition.FetcherState
+        , fetchers : Dict String Pages.Transition.FetcherState
         , pageFormState :
             Dict String { fields : Dict String { value : String, status : FieldStatus }, submitAttempted : Bool }
     }
@@ -1391,25 +1391,21 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                     |> Tuple.second
                     |> Errors
             , isTransitioning =
-                case formState.transition of
-                    Just (Submitting formData) ->
-                        --let
-                        --    foo =
-                        --        transition.id
-                        --in
-                        -- TODO need to track the form's ID and check that to see if it's *this*
-                        -- form that is submitting
-                        --transition.todo == formId
-                        formData.id == Just formId
+                -- TODO instead of isTransitioning : Bool, it would be useful to get a custom type with the exact state
+                (formState.fetchers |> Dict.member formId)
+                    || (case formState.transition of
+                            Just (Submitting formData) ->
+                                formData.id == Just formId
 
-                    Just (LoadAfterSubmit submitData _ _) ->
-                        submitData.id == Just formId
+                            Just (LoadAfterSubmit submitData _ _) ->
+                                submitData.id == Just formId
 
-                    Just (Loading _ _) ->
-                        False
+                            Just (Loading _ _) ->
+                                False
 
-                    Nothing ->
-                        False
+                            Nothing ->
+                                False
+                       )
             , submitAttempted = thisFormState.submitAttempted
             , data = data
             }
