@@ -539,7 +539,7 @@ async function runTerser(filePath) {
 async function compileCliApp(options) {
   await spawnElmMake(
     // TODO should be --optimize, but there seems to be an issue with the html to JSON with --optimize
-    options.debug ? "debug" : "default",
+    options.debug ? "debug" : "optimize",
     options,
     path.join(process.cwd(), "elm-stuff/elm-pages/.elm-pages/Main.elm"),
     path.join(process.cwd(), "elm-stuff/elm-pages/elm.js"),
@@ -563,7 +563,7 @@ async function compileCliApp(options) {
   }
 
 function forceThunks(vNode) {
-  if (typeof vNode !== "undefined" && vNode.$ === "#2") {
+  if (typeof vNode !== "undefined" && ( (vNode.b && vNode.b.$ === virtualDomKernelConstants.nodeTypeThunk) || vNode.$ === "#2" )) {
     // This is a tuple (the kids : List (String, Html) field of a Keyed node); recurse into the right side of the tuple
     vNode.b = forceThunks(vNode.b);
   }
