@@ -302,7 +302,7 @@ allForms =
     logoutForm
         |> Form.toServerForm
         |> Form.initCombinedServer (\_ -> Logout)
-        |> Form.combineServer LI form
+        |> Form.combineServer LogIn form
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
@@ -341,7 +341,7 @@ action routeParams =
                                 )
                                     |> DataSource.succeed
 
-                            Ok ( _, LI emailAddress ) ->
+                            Ok ( _, LogIn emailAddress ) ->
                                 ( okSession
                                 , { maybeError = Nothing
                                   , sentLink = True
@@ -354,7 +354,7 @@ action routeParams =
 
 
 type Action
-    = LI EmailAddress
+    = LogIn EmailAddress
     | Logout
 
 
