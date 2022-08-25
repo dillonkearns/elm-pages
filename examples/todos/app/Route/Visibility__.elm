@@ -449,7 +449,7 @@ view maybeUrl sharedModel model app =
             ]
             [ section
                 [ class "todoapp" ]
-                [ newItemForm
+                [ addItemForm
                     |> Form.toDynamicFetcher
                         ("new-item-"
                             ++ (model.nextId |> Time.posixToMillis |> String.fromInt)
@@ -473,15 +473,15 @@ allForms : Form.ServerForms String Action
 allForms =
     editItemForm
         |> Form.initCombined UpdateEntry
-        |> Form.combine Add newItemForm
+        |> Form.combine Add addItemForm
         |> Form.combine Check completeItemForm
         |> Form.combine Delete deleteItemForm
         |> Form.combine (\_ -> DeleteComplete) clearCompletedForm
         |> Form.combine CheckAll toggleAllForm
 
 
-newItemForm : Form.HtmlForm String String input Msg
-newItemForm =
+addItemForm : Form.HtmlForm String String input Msg
+addItemForm =
     Form.init
         (\description ->
             { combine =
