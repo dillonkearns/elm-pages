@@ -17,6 +17,7 @@ import Html.Attributes as Attr
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
+import Pages.Transition exposing (Transition(..))
 import Path exposing (Path)
 import Request.Hasura
 import Route
@@ -292,6 +293,20 @@ parseIgnoreErrors ( maybeParsed, fieldErrors ) =
             Err fieldErrors
 
 
+getTransitionFields : Transition -> Maybe (List ( String, String ))
+getTransitionFields transition =
+    -- TODO should this be in the standard library?
+    case transition of
+        Submitting formData ->
+            Just formData.fields
+
+        LoadAfterSubmit formData path loadingState ->
+            Just formData.fields
+
+        Loading path loadingState ->
+            Nothing
+
+
 view :
     Maybe PageUrl
     -> Shared.Model
@@ -302,18 +317,23 @@ view maybeUrl sharedModel model app =
     let
         pendingCreation : Maybe NewItem
         pendingCreation =
-            form
-                |> Form.parse "form" app app.data
-                |> parseIgnoreErrors
-                |> Result.toMaybe
+            app.transition
+                |> Maybe.andThen getTransitionFields
                 |> Maybe.andThen
-                    (\actionItem ->
-                        case actionItem of
-                            Edit newItem ->
-                                Just newItem
+                    (\transitionFields ->
+                        Form.runOneOfServerSide transitionFields
+                            formParsers
+                            |> parseIgnoreErrors
+                            |> Result.toMaybe
+                            |> Maybe.andThen
+                                (\actionItem ->
+                                    case actionItem of
+                                        Edit newItem ->
+                                            Just newItem
 
-                            _ ->
-                                Nothing
+                                        _ ->
+                                            Nothing
+                                )
                     )
     in
     { title = "Update Item"
