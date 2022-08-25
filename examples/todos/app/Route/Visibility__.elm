@@ -474,7 +474,7 @@ allForms =
     editItemForm
         |> Form.initCombined UpdateEntry
         |> Form.combine Add addItemForm
-        |> Form.combine Check completeItemForm
+        |> Form.combine Check checkItemForm
         |> Form.combine Delete deleteItemForm
         |> Form.combine (\_ -> DeleteComplete) clearCompletedForm
         |> Form.combine CheckAll toggleAllForm
@@ -593,8 +593,8 @@ toggleAllForm =
         |> Form.hiddenKind ( "kind", "toggle-all" ) "Expected kind"
 
 
-completeItemForm : Form.HtmlForm String ( Bool, String ) Entry Msg
-completeItemForm =
+checkItemForm : Form.HtmlForm String ( Bool, String ) Entry Msg
+checkItemForm =
     Form.init
         (\todoId complete ->
             { combine =
@@ -700,7 +700,7 @@ viewEntry app todo =
         ]
         [ div
             [ class "view" ]
-            [ completeItemForm
+            [ checkItemForm
                 |> Form.toDynamicFetcher ("toggle-" ++ uuidToString todo.id)
                 |> Form.renderHtml [] Nothing app todo
             , editItemForm
