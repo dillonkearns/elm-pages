@@ -98,7 +98,7 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formData [ form ]
+    Request.formData (form |> Form.initCombined identity)
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsed session ->
                 case parsed of

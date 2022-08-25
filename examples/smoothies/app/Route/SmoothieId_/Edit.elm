@@ -123,9 +123,16 @@ data routeParams =
             )
 
 
+formParsers : Form.ServerForms String Action
+formParsers =
+    deleteForm
+        |> Form.initCombined (\() -> Delete)
+        |> Form.combine Edit form
+
+
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formData [ form, deleteForm ]
+    Request.formData formParsers
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsed session ->
                 case parsed of
@@ -174,10 +181,10 @@ type alias EditInfo =
     { name : String, description : String, price : Int, imageUrl : String }
 
 
-deleteForm : Form.HtmlForm String Action data Msg
+deleteForm : Form.HtmlForm String () data Msg
 deleteForm =
     Form.init
-        { combine = Validation.succeed Delete
+        { combine = Validation.succeed ()
         , view =
             \formState ->
                 [ Html.button
@@ -196,7 +203,7 @@ deleteForm =
         |> Form.hiddenKind ( "kind", "delete" ) "Required"
 
 
-form : Form.HtmlForm String Action Data Msg
+form : Form.HtmlForm String EditInfo Data Msg
 form =
     Form.init
         (\name description price imageUrl ->
@@ -206,7 +213,6 @@ form =
                     |> Validation.andMap description
                     |> Validation.andMap price
                     |> Validation.andMap imageUrl
-                    |> Validation.map Edit
             , view =
                 \formState ->
                     let

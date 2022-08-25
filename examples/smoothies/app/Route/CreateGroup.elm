@@ -91,7 +91,7 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formData [ postForm ]
+    Request.formData (postForm |> Form.initCombined identity)
         |> Request.map
             (\parsedForm ->
                 let

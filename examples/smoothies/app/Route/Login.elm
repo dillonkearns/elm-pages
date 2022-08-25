@@ -181,7 +181,7 @@ data routeParams =
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
-        (Request.formDataWithServerValidation [ form ])
+        (Request.formDataWithServerValidation (form |> Form.initCombined identity))
         (\usernameDs session ->
             usernameDs
                 |> DataSource.andThen

@@ -124,10 +124,10 @@ type Action
     | SetQuantity Uuid Int
 
 
-signoutForm : Form.HtmlForm String Action input Msg
+signoutForm : Form.HtmlForm String () input Msg
 signoutForm =
     Form.init
-        { combine = Validation.succeed Signout
+        { combine = Validation.succeed ()
         , view =
             \formState ->
                 [ Html.button [] [ Html.text "Sign out" ]
@@ -136,12 +136,12 @@ signoutForm =
         |> Form.hiddenKind ( "kind", "signout" ) "Expected signout"
 
 
-setQuantityForm : Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) Msg
+setQuantityForm : Form.HtmlForm String ( Uuid, Int ) ( Int, QuantityChange, Smoothie ) Msg
 setQuantityForm =
     Form.init
         (\uuid quantity ->
             { combine =
-                Validation.succeed SetQuantity
+                Validation.succeed Tuple.pair
                     |> Validation.andMap (uuid |> Validation.map Uuid)
                     |> Validation.andMap quantity
             , view =
@@ -186,11 +186,11 @@ toQuantity quantityChange =
             -1
 
 
-oneOfParsers : List (Form.HtmlForm String Action ( Int, QuantityChange, Smoothie ) Msg)
+oneOfParsers : Form.ServerForms String Action
 oneOfParsers =
-    [ signoutForm
-    , setQuantityForm
-    ]
+    signoutForm
+        |> Form.initCombined (\() -> Signout)
+        |> Form.combine (\( uuid, int ) -> SetQuantity uuid int) setQuantityForm
 
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
@@ -232,6 +232,7 @@ view maybeUrl sharedModel model app =
             pendingItems : Dict String Int
             pendingItems =
                 app.fetchers
+                    |> Dict.values
                     |> List.filterMap
                         (\pending ->
                             case Form.runOneOfServerSide pending.payload.fields oneOfParsers of
