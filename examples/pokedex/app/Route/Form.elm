@@ -188,7 +188,7 @@ data routeParams =
 
 action : RouteParams -> Parser (DataSource (Server.Response.Response ActionData ErrorPage))
 action routeParams =
-    Request.formData [ form ]
+    Request.formData (form |> Form.initCombined identity)
         |> Request.map
             (\userResult ->
                 (case userResult of

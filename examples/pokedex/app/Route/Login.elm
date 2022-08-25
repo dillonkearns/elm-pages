@@ -71,7 +71,7 @@ data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession
-            (Request.formData [ form ])
+            (Request.formData (form |> Form.initCombined identity))
             (\nameResult session ->
                 (nameResult
                     |> Result.Extra.unpack

@@ -173,9 +173,16 @@ data routeParams =
         ]
 
 
+allForms : Form.ServerForms String Action
+allForms =
+    deleteForm
+        |> Form.initCombined identity
+        |> Form.combine identity createForm
+
+
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action _ =
-    Request.formData [ deleteForm, createForm ]
+    Request.formData allForms
         |> Request.map
             (\actionResult ->
                 case actionResult of

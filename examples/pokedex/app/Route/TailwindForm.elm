@@ -546,7 +546,7 @@ route =
 
 action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithServerValidation [ form ]
+    Request.formDataWithServerValidation (form |> Form.initCombined identity)
         |> Request.map
             (\toDataSource ->
                 toDataSource

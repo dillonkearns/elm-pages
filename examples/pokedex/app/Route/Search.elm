@@ -101,7 +101,7 @@ list =
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Request.formData [ form ]
+        [ Request.formData (form |> Form.initCombined identity)
             |> Request.map
                 (\formResult ->
                     DataSource.succeed
