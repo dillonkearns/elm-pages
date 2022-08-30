@@ -363,18 +363,16 @@ function elmOptimizeLevel2(outputPath, cwd) {
     });
 
     subprocess.on("close", async (code) => {
-      if (
-        code === 0 &&
-        commandOutput === "" &&
-        (await fs.fileExists(optimizedOutputPath))
-      ) {
+      if (code === 0) {
         await fs.copyFile(optimizedOutputPath, outputPath);
         resolve();
       } else {
         if (!buildError) {
           buildError = true;
           process.exitCode = 1;
-          reject(commandOutput);
+          reject(
+            `I encountered an error when running elm-optimize-level-2:\n\n ${commandOutput}`
+          );
         } else {
           // avoid unhandled error printing duplicate message, let process.exit in top loop take over
         }
