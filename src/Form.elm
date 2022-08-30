@@ -680,7 +680,7 @@ toServerForm :
     ->
         Form
             error
-            { combine : Validation error (DataSource (Validation error combined kind constraints)) kind constraints
+            { combine : Validation error (DataSource Never (Validation error combined kind constraints)) kind constraints
             , view : viewFn
             }
             data
@@ -693,7 +693,7 @@ toServerForm (Form a b c) =
                 { result : Dict String (List error)
                 , isMatchCandidate : Bool
                 , combineAndView :
-                    { combine : Validation error (DataSource (Validation error combined kind constraints)) kind constraints
+                    { combine : Validation error (DataSource Never (Validation error combined kind constraints)) kind constraints
                     , view : viewFn
                     }
                 }
@@ -1562,10 +1562,10 @@ initCombinedServer :
         Form
             error
             { combineAndView
-                | combine : Combined error (DataSource (Validation error parsed kind constraints))
+                | combine : Combined error (DataSource Never (Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (DataSource (Validation error combined kind constraints))
+    -> ServerForms error (DataSource Never (Validation error combined kind constraints))
 initCombinedServer mapFn serverForms =
     initCombined (DataSource.map (Validation.map mapFn)) serverForms
 
@@ -1578,11 +1578,12 @@ combineServer :
             error
             { combineAndView
                 | combine :
-                    Combined error (DataSource (Validation error parsed kind constraints))
+                    Combined error (DataSource Never (Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (DataSource (Validation error combined kind constraints))
-    -> ServerForms error (DataSource (Validation error combined kind constraints))
+    -- TODO should the DataSource error and Validation error be the same type or different? Should the error be moved up to the DataSource error type variable?
+    -> ServerForms error (DataSource Never (Validation error combined kind constraints))
+    -> ServerForms error (DataSource Never (Validation error combined kind constraints))
 combineServer mapFn a b =
     combine (DataSource.map (Validation.map mapFn)) a b
 

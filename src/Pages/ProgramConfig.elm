@@ -49,9 +49,9 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> ( userModel, effect )
     , update : Pages.FormState.PageFormState -> Dict String Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
-    , sharedData : DataSource sharedData
-    , data : route -> DataSource (PageServerResponse pageData errorPage)
-    , action : route -> DataSource (PageServerResponse actionData errorPage)
+    , sharedData : DataSource Never sharedData
+    , data : route -> DataSource Never (PageServerResponse pageData errorPage)
+    , action : route -> DataSource Never (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
         Pages.FormState.PageFormState
@@ -69,8 +69,8 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
             { view : userModel -> { title : String, body : Html (Pages.Msg.Msg userMsg) }
             , head : List Head.Tag
             }
-    , handleRoute : route -> DataSource (Maybe NotFoundReason)
-    , getStaticRoutes : DataSource (List route)
+    , handleRoute : route -> DataSource Never (Maybe NotFoundReason)
+    , getStaticRoutes : DataSource Never (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , site : Maybe SiteConfig
@@ -99,7 +99,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , encodeResponse : ResponseSketch pageData actionData sharedData -> Bytes.Encode.Encoder
     , encodeAction : actionData -> Bytes.Encode.Encoder
     , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData actionData sharedData)
-    , globalHeadTags : Maybe (DataSource (List Head.Tag))
+    , globalHeadTags : Maybe (DataSource Never (List Head.Tag))
     , cmdToEffect : Cmd userMsg -> effect
     , perform :
         { fetchRouteData :

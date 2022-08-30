@@ -14,7 +14,7 @@ import Json.Encode as Encode
 
 
 {-| -}
-get : String -> DataSource (Maybe String)
+get : String -> DataSource error (Maybe String)
 get envVariableName =
     DataSource.Internal.Request.request
         { name = "env"
@@ -26,7 +26,13 @@ get envVariableName =
 
 
 {-| -}
-expect : String -> DataSource String
+expect : String -> DataSource error String
+
+
+
+-- TODO pull up error explicitly
+
+
 expect envVariableName =
     envVariableName
         |> get

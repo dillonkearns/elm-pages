@@ -14,11 +14,11 @@ import Set exposing (Set)
 type StaticResponses
     = ApiRequest StaticHttpResult
     | StaticResponses StaticHttpResult
-    | CheckIfHandled (DataSource (Maybe NotFoundReason)) StaticHttpResult StaticHttpResult
+    | CheckIfHandled (DataSource Never (Maybe NotFoundReason)) StaticHttpResult StaticHttpResult
 
 
 type StaticHttpResult
-    = NotFetched (DataSource ()) (Dict String (Result () String))
+    = NotFetched (DataSource Never ()) (Dict String (Result () String))
 
 
 empty : StaticResponses
@@ -28,8 +28,8 @@ empty =
 
 
 renderSingleRoute :
-    DataSource a
-    -> DataSource (Maybe NotFoundReason)
+    DataSource Never a
+    -> DataSource Never (Maybe NotFoundReason)
     -> StaticResponses
 renderSingleRoute request cliData =
     CheckIfHandled cliData
@@ -43,7 +43,7 @@ renderSingleRoute request cliData =
 
 
 renderApiRequest :
-    DataSource response
+    DataSource Never response
     -> StaticResponses
 renderApiRequest request =
     ApiRequest
@@ -112,12 +112,12 @@ nextStep :
     -> ( StaticResponses, NextStep route )
 nextStep ({ allRawResponses, errors } as model) maybeRoutes =
     let
-        staticRequestsStatus : StaticHttpRequest.Status ()
+        staticRequestsStatus : StaticHttpRequest.Status Never ()
         staticRequestsStatus =
             allRawResponses
                 |> StaticHttpRequest.cacheRequestResolution request
 
-        request : DataSource ()
+        request : DataSource Never ()
         request =
             case staticResponses of
                 NotFetched request_ _ ->
@@ -229,7 +229,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     failedRequests : List BuildError
                     failedRequests =
                         let
-                            maybePermanentError : Maybe StaticHttpRequest.Error
+                            maybePermanentError : Maybe (StaticHttpRequest.Error Never)
                             maybePermanentError =
                                 case staticRequestsStatus of
                                     StaticHttpRequest.HasPermanentError theError ->
@@ -275,7 +275,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
 
             CheckIfHandled pageFoundDataSource (NotFetched _ _) andThenRequest ->
                 let
-                    pageFoundResult : Result StaticHttpRequest.Error (Maybe NotFoundReason)
+                    pageFoundResult : Result (StaticHttpRequest.Error Never) (Maybe NotFoundReason)
                     pageFoundResult =
                         StaticHttpRequest.resolve
                             pageFoundDataSource
@@ -296,7 +296,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                             failedRequests : List BuildError
                             failedRequests =
                                 let
-                                    maybePermanentError : Maybe StaticHttpRequest.Error
+                                    maybePermanentError : Maybe (StaticHttpRequest.Error Never)
                                     maybePermanentError =
                                         case staticRequestsStatus of
                                             StaticHttpRequest.HasPermanentError theError ->

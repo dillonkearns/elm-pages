@@ -631,7 +631,7 @@ ${templates
 
 
 
-globalHeadTags : DataSource (List Head.Tag)
+globalHeadTags : DataSource Never (List Head.Tag)
 globalHeadTags =
     (Site.config.head
         :: (Api.routes getStaticRoutes HtmlPrinter.htmlToString
@@ -711,7 +711,7 @@ ${templates
 
 
 
-dataForRoute : Maybe Route -> DataSource (Server.Response.Response PageData ErrorPage)
+dataForRoute : Maybe Route -> DataSource Never (Server.Response.Response PageData ErrorPage)
 dataForRoute route =
     case route of
         Nothing ->
@@ -737,7 +737,7 @@ dataForRoute route =
           )
           .join("\n        ")}
 
-action : Maybe Route -> DataSource (Server.Response.Response ActionData ErrorPage)
+action : Maybe Route -> DataSource Never (Server.Response.Response ActionData ErrorPage)
 action route =
     case route of
         Nothing ->
@@ -765,7 +765,7 @@ action route =
 
 
 
-handleRoute : Maybe Route -> DataSource (Maybe Pages.Internal.NotFoundReason.NotFoundReason)
+handleRoute : Maybe Route -> DataSource Never (Maybe Pages.Internal.NotFoundReason.NotFoundReason)
 handleRoute maybeRoute =
     case maybeRoute of
         Nothing ->
@@ -902,7 +902,7 @@ routePatterns3 =
       .join("\n    , ")}
     ]
 
-getStaticRoutes : DataSource (List Route)
+getStaticRoutes : DataSource Never (List Route)
 getStaticRoutes =
     DataSource.combine
         [ ${templates

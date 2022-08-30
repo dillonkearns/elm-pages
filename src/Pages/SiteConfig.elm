@@ -6,5 +6,5 @@ import Head
 
 type alias SiteConfig =
     { canonicalUrl : String
-    , head : DataSource (List Head.Tag)
+    , head : DataSource Never (List Head.Tag)
     }

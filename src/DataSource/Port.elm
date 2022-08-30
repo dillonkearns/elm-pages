@@ -74,7 +74,13 @@ prefer to add ANSI color codes within the error string in an exception and it wi
 As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For example, avoid using `fs.readFileSync`, because blocking IO can slow down your elm-pages builds and dev server.
 
 -}
-get : String -> Encode.Value -> Decoder b -> DataSource.DataSource b
+get : String -> Encode.Value -> Decoder b -> DataSource.DataSource error b
+
+
+
+-- TODO pull up error explicitly
+
+
 get portName input decoder =
     DataSource.Internal.Request.request
         { name = "port"

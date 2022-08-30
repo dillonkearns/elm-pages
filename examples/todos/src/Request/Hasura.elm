@@ -7,10 +7,9 @@ import Graphql.Document
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Encode as Encode
-import Time
 
 
-dataSource : SelectionSet value RootQuery -> DataSource value
+dataSource : SelectionSet value RootQuery -> DataSource error value
 dataSource selectionSet =
     DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> DataSource.andThen
@@ -37,7 +36,7 @@ dataSource selectionSet =
             )
 
 
-mutationDataSource : SelectionSet value RootMutation -> DataSource value
+mutationDataSource : SelectionSet value RootMutation -> DataSource error value
 mutationDataSource selectionSet =
     DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> DataSource.andThen

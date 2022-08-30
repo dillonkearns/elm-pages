@@ -126,7 +126,8 @@ type alias Body =
 get :
     String
     -> Json.Decode.Decoder a
-    -> DataSource a
+    -- TODO pull up error here
+    -> DataSource error a
 get url decoder =
     request
         ((\okUrl ->
@@ -253,7 +254,7 @@ expectToString expect =
 request :
     RequestDetails
     -> Expect a
-    -> DataSource a
+    -> DataSource error a
 request request__ expect =
     let
         request_ : HashRequest.Request
@@ -272,7 +273,7 @@ request request__ expect =
 uncachedRequest :
     RequestDetails
     -> Expect a
-    -> DataSource a
+    -> DataSource error a
 uncachedRequest request__ expect =
     let
         request_ : HashRequest.Request
@@ -294,7 +295,7 @@ with this as a low-level detail, or you can use functions like [DataSource.Http.
 requestRaw :
     HashRequest.Request
     -> Expect a
-    -> DataSource a
+    -> DataSource error a
 requestRaw request__ expect =
     let
         request_ : HashRequest.Request
@@ -436,7 +437,7 @@ type Error
     | BadBody String
 
 
-toResult : Result Pages.StaticHttpRequest.Error b -> RawRequest b
+toResult : Result (Pages.StaticHttpRequest.Error error) b -> RawRequest error b
 toResult result =
     case result of
         Err error ->

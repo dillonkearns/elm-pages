@@ -59,14 +59,14 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-now : DataSource Time.Posix
+now : DataSource Never Time.Posix
 now =
     DataSource.Port.get "now"
         Encode.null
         (Decode.int |> Decode.map Time.millisToPosix)
 
 
-emailToMagicLink : EmailAddress -> String -> DataSource String
+emailToMagicLink : EmailAddress -> String -> DataSource Never String
 emailToMagicLink email baseUrl =
     now
         |> DataSource.andThen
@@ -94,7 +94,7 @@ type alias EnvVariables =
     }
 
 
-form : Form.DoneForm String (DataSource (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (DataSource Never (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\fieldEmail ->
@@ -195,7 +195,7 @@ globalErrors formState =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (DataSource Never (Response Data ErrorPage))
 data routeParams =
     MySession.withSession
         (Request.queryParam "magic")
@@ -285,7 +285,7 @@ data routeParams =
         )
 
 
-allForms : Form.ServerForms String (DataSource (Combined String Action))
+allForms : Form.ServerForms String (DataSource Never (Combined String Action))
 allForms =
     logoutForm
         |> Form.toServerForm
@@ -293,7 +293,7 @@ allForms =
         |> Form.combineServer LogIn form
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (DataSource Never (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
         (Request.map2 Tuple.pair
@@ -428,7 +428,7 @@ sendFake =
     False
 
 
-sendEmailDataSource : EmailAddress -> EnvVariables -> DataSource (Result SendGrid.Error ())
+sendEmailDataSource : EmailAddress -> EnvVariables -> DataSource Never (Result SendGrid.Error ())
 sendEmailDataSource recipient env =
     emailToMagicLink recipient env.siteUrl
         |> DataSource.andThen
@@ -469,7 +469,7 @@ sendEmailDataSource recipient env =
 sendEmail :
     String
     -> SendGrid.Email
-    -> DataSource (Result SendGrid.Error ())
+    -> DataSource Never (Result SendGrid.Error ())
 sendEmail apiKey_ email_ =
     DataSource.Http.uncachedRequest
         { method = "POST"
@@ -498,7 +498,7 @@ sendEmail apiKey_ email_ =
             )
 
 
-parseMagicHash : String -> DataSource ( String, Time.Posix )
+parseMagicHash : String -> DataSource Never ( String, Time.Posix )
 parseMagicHash magicHash =
     DataSource.Port.get "decrypt"
         (Encode.string magicHash)
@@ -515,7 +515,7 @@ parseMagicHash magicHash =
         |> DataSource.andThen DataSource.fromResult
 
 
-parseMagicHashIfNotExpired : String -> DataSource (Maybe String)
+parseMagicHashIfNotExpired : String -> DataSource Never (Maybe String)
 parseMagicHashIfNotExpired magicHash =
     DataSource.map2
         (\( email, expiresAt ) currentTime ->
@@ -534,7 +534,7 @@ parseMagicHashIfNotExpired magicHash =
         now
 
 
-log : String -> DataSource ()
+log : String -> DataSource Never ()
 log message =
     DataSource.Port.get "log"
         (Encode.string message)

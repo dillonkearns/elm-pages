@@ -11,8 +11,8 @@ import Server.Session as Session
 
 withSession :
     Parser request
-    -> (request -> Result () (Maybe Session.Session) -> DataSource ( Session.Session, Response data errorPage ))
-    -> Parser (DataSource (Response data errorPage))
+    -> (request -> Result () (Maybe Session.Session) -> DataSource error ( Session.Session, Response data errorPage ))
+    -> Parser (DataSource error (Response data errorPage))
 withSession =
     Session.withSession
         { name = "mysession"
@@ -23,8 +23,8 @@ withSession =
 
 withSessionOrRedirect :
     Parser request
-    -> (request -> Maybe Session.Session -> DataSource ( Session.Session, Response data errorPage ))
-    -> Parser (DataSource (Response data errorPage))
+    -> (request -> Maybe Session.Session -> DataSource error ( Session.Session, Response data errorPage ))
+    -> Parser (DataSource error (Response data errorPage))
 withSessionOrRedirect handler toRequest =
     Session.withSession
         { name = "mysession"
@@ -45,9 +45,9 @@ withSessionOrRedirect handler toRequest =
 
 
 expectSessionOrRedirect :
-    (request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> DataSource error ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data errorPage))
+    -> Parser (DataSource error (Response data errorPage))
 expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
@@ -70,9 +70,9 @@ expectSessionOrRedirect toRequest handler =
 
 expectSessionDataOrRedirect :
     (Session.Session -> Maybe parsedSession)
-    -> (parsedSession -> request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    -> (parsedSession -> request -> Session.Session -> DataSource error ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data errorPage))
+    -> Parser (DataSource error (Response data errorPage))
 expectSessionDataOrRedirect parseSessionData handler toRequest =
     toRequest
         |> expectSessionOrRedirect

@@ -22,7 +22,7 @@ canonicalUrl =
     "https://elm-pages.com"
 
 
-head : DataSource (List Head.Tag)
+head : DataSource Never (List Head.Tag)
 head =
     [ Head.sitemapLink "/sitemap.xml"
     ]

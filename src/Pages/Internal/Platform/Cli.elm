@@ -644,7 +644,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                     case requestPayload of
                                         RenderRequest.Api ( path, ApiRoute apiHandler ) ->
                                             let
-                                                thing : DataSource (Maybe ApiRoute.Response)
+                                                thing : DataSource Never (Maybe ApiRoute.Response)
                                                 thing =
                                                     apiHandler.matchesToResponse path
                                             in

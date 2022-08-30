@@ -164,12 +164,12 @@ clearFlashCookies dict =
 {-| -}
 expectSession :
     { name : String
-    , secrets : DataSource (List String)
+    , secrets : DataSource error (List String)
     , sameSite : String
     }
     -> Parser request
-    -> (request -> Result () Session -> DataSource ( Session, Response data errorPage ))
-    -> Parser (DataSource (Response data errorPage))
+    -> (request -> Result () Session -> DataSource error ( Session, Response data errorPage ))
+    -> Parser (DataSource error (Response data errorPage))
 expectSession config userRequest toRequest =
     Request.map2
         (\sessionCookie userRequestData ->
@@ -185,17 +185,17 @@ expectSession config userRequest toRequest =
 {-| -}
 withSession :
     { name : String
-    , secrets : DataSource (List String)
+    , secrets : DataSource error (List String)
     , sameSite : String
     }
     -> Parser request
-    -> (request -> Result () (Maybe Session) -> DataSource ( Session, Response data errorPage ))
-    -> Parser (DataSource (Response data errorPage))
+    -> (request -> Result () (Maybe Session) -> DataSource error ( Session, Response data errorPage ))
+    -> Parser (DataSource error (Response data errorPage))
 withSession config userRequest toRequest =
     Request.map2
         (\maybeSessionCookie userRequestData ->
             let
-                decrypted : DataSource (Result () (Maybe Session))
+                decrypted : DataSource error (Result () (Maybe Session))
                 decrypted =
                     case maybeSessionCookie of
                         Just sessionCookie ->
@@ -215,7 +215,7 @@ withSession config userRequest toRequest =
         userRequest
 
 
-encodeSessionUpdate : { a | name : String, secrets : DataSource (List String) } -> (c -> d -> DataSource ( Session, Response data errorPage )) -> c -> d -> DataSource (Response data errorPage)
+encodeSessionUpdate : { a | name : String, secrets : DataSource error (List String) } -> (c -> d -> DataSource error ( Session, Response data errorPage )) -> c -> d -> DataSource error (Response data errorPage)
 encodeSessionUpdate config toRequest userRequestData sessionResult =
     sessionResult
         |> toRequest userRequestData
@@ -240,7 +240,7 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
             )
 
 
-decryptCookie : { a | secrets : DataSource (List String) } -> String -> DataSource (Result () Session)
+decryptCookie : { a | secrets : DataSource error (List String) } -> String -> DataSource error (Result () Session)
 decryptCookie config sessionCookie =
     sessionCookie
         |> decrypt config.secrets (Json.Decode.dict Json.Decode.string)
@@ -265,7 +265,7 @@ decryptCookie config sessionCookie =
             )
 
 
-encrypt : DataSource (List String) -> Json.Encode.Value -> DataSource String
+encrypt : DataSource error (List String) -> Json.Encode.Value -> DataSource error String
 encrypt getSecrets input =
     getSecrets
         |> DataSource.andThen
@@ -293,7 +293,7 @@ encrypt getSecrets input =
             )
 
 
-decrypt : DataSource (List String) -> Json.Decode.Decoder a -> String -> DataSource (Result () a)
+decrypt : DataSource error (List String) -> Json.Decode.Decoder a -> String -> DataSource error (Result () a)
 decrypt getSecrets decoder input =
     getSecrets
         |> DataSource.andThen

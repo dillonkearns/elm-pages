@@ -44,12 +44,12 @@ tryMatchDone path (ApiRoute handler) =
 type ApiRoute response
     = ApiRoute
         { regex : Regex
-        , matchesToResponse : String -> DataSource (Maybe response)
-        , buildTimeRoutes : DataSource (List String)
-        , handleRoute : String -> DataSource Bool
+        , matchesToResponse : String -> DataSource Never (Maybe response)
+        , buildTimeRoutes : DataSource Never (List String)
+        , handleRoute : String -> DataSource Never Bool
         , pattern : Pattern
         , kind : String
-        , globalHeadTags : Maybe (DataSource (List Head.Tag))
+        , globalHeadTags : Maybe (DataSource Never (List Head.Tag))
         }
 
 

@@ -5,6 +5,7 @@ module DataSource exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
+    , combine2
     )
 
 {-| In an `elm-pages` app, each page can define a value `data` which is a `DataSource` that will be resolved **before** `init` is called. That means it is also available
@@ -92,8 +93,8 @@ import RequestsAndPending exposing (RequestsAndPending)
 {-| A DataSource represents data that will be gathered at build time. Multiple `DataSource`s can be combined together using the `mapN` functions,
 very similar to how you can manipulate values with Json Decoders in Elm.
 -}
-type alias DataSource value =
-    RawRequest value
+type alias DataSource error value =
+    RawRequest error value
 
 
 {-| Transform a request into an arbitrary value. The same underlying HTTP requests will be performed during the build
@@ -120,7 +121,7 @@ A common use for this is to map your data into your elm-pages view:
                 )
 
 -}
-map : (a -> b) -> DataSource a -> DataSource b
+map : (a -> b) -> DataSource error a -> DataSource error b
 map fn requestInfo =
     case requestInfo of
         RequestError error ->
@@ -135,14 +136,73 @@ map fn requestInfo =
             ApiRoute (fn value)
 
 
-mapLookupFn : (a -> b) -> (d -> c -> DataSource a) -> d -> c -> DataSource b
+mapError : (errorA -> errorB) -> DataSource errorA value -> DataSource errorB value
+mapError fn requestInfo =
+    case requestInfo of
+        RequestError error ->
+            RequestError
+                (case error of
+                    Pages.StaticHttpRequest.UserError userError ->
+                        fn userError |> Pages.StaticHttpRequest.UserError
+
+                    Pages.StaticHttpRequest.MissingHttpResponse string requests ->
+                        Pages.StaticHttpRequest.MissingHttpResponse string requests
+
+                    Pages.StaticHttpRequest.DecoderError string ->
+                        Pages.StaticHttpRequest.DecoderError string
+
+                    Pages.StaticHttpRequest.UserCalledStaticHttpFail string ->
+                        Pages.StaticHttpRequest.UserCalledStaticHttpFail string
+                )
+
+        Request urls lookupFn ->
+            Request urls (\a b -> lookupFn a b |> mapError fn)
+
+        ApiRoute value ->
+            ApiRoute value
+
+
+combine2 : DataSource value value -> DataSource Never value
+combine2 requestInfo =
+    case requestInfo of
+        RequestError error ->
+            liftError error
+
+        Request urls lookupFn ->
+            Request urls
+                (\a b -> lookupFn a b |> combine2)
+
+        ApiRoute value ->
+            ApiRoute value
+
+
+liftError : Pages.StaticHttpRequest.Error error -> RawRequest a error
+liftError error =
+    case error of
+        Pages.StaticHttpRequest.MissingHttpResponse string requests ->
+            Pages.StaticHttpRequest.MissingHttpResponse string requests
+                |> RequestError
+
+        Pages.StaticHttpRequest.DecoderError string ->
+            Pages.StaticHttpRequest.DecoderError string
+                |> RequestError
+
+        Pages.StaticHttpRequest.UserCalledStaticHttpFail string ->
+            Pages.StaticHttpRequest.UserCalledStaticHttpFail string
+                |> RequestError
+
+        Pages.StaticHttpRequest.UserError innerError ->
+            ApiRoute innerError
+
+
+mapLookupFn : (a -> b) -> (d -> c -> DataSource error a) -> d -> c -> DataSource error b
 mapLookupFn fn lookupFn maybeMock requests =
     map fn (lookupFn maybeMock requests)
 
 
 {-| Helper to remove an inner layer of Request wrapping.
 -}
-resolve : DataSource (List (DataSource value)) -> DataSource (List value)
+resolve : DataSource error (List (DataSource error value)) -> DataSource error (List value)
 resolve =
     andThen combine
 
@@ -181,7 +241,7 @@ resolve =
             |> StaticHttp.andThen StaticHttp.combine
 
 -}
-combine : List (DataSource value) -> DataSource (List value)
+combine : List (DataSource error value) -> DataSource error (List value)
 combine =
     List.foldr (map2 (::)) (succeed [])
 
@@ -209,7 +269,7 @@ combine =
             )
 
 -}
-map2 : (a -> b -> c) -> DataSource a -> DataSource b -> DataSource c
+map2 : (a -> b -> c) -> DataSource error a -> DataSource error b -> DataSource error c
 map2 fn request1 request2 =
     case ( request1, request2 ) of
         ( RequestError error, _ ) ->
@@ -237,14 +297,14 @@ map2 fn request1 request2 =
             ApiRoute (fn value1 value2)
 
 
-mapReq : (a -> b -> c) -> (e -> d -> DataSource a) -> (e -> d -> DataSource b) -> e -> d -> DataSource c
+mapReq : (a -> b -> c) -> (e -> d -> DataSource error a) -> (e -> d -> DataSource error b) -> e -> d -> DataSource error c
 mapReq fn lookupFn1 lookupFn2 maybeMock rawResponses =
     map2 fn
         (lookupFn1 maybeMock rawResponses)
         (lookupFn2 maybeMock rawResponses)
 
 
-lookup : Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
+lookup : Maybe Pages.StaticHttpRequest.MockResolver -> DataSource error value -> RequestsAndPending -> Result (Pages.StaticHttpRequest.Error error) value
 lookup maybeMockResolver requestInfo rawResponses =
     case requestInfo of
         RequestError error ->
@@ -259,7 +319,7 @@ lookup maybeMockResolver requestInfo rawResponses =
             Ok value
 
 
-addUrls : List HashRequest.Request -> DataSource value -> DataSource value
+addUrls : List HashRequest.Request -> DataSource error value -> DataSource error value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
         RequestError error ->
@@ -283,7 +343,7 @@ type alias RequestDetails =
     }
 
 
-lookupUrls : DataSource value -> List RequestDetails
+lookupUrls : DataSource error value -> List RequestDetails
 lookupUrls requestInfo =
     case requestInfo of
         RequestError _ ->
@@ -314,7 +374,7 @@ from the previous response to build up the URL, headers, etc. that you send to t
                 )
 
 -}
-andThen : (a -> DataSource b) -> DataSource a -> DataSource b
+andThen : (a -> DataSource error b) -> DataSource error a -> DataSource error b
 andThen fn requestInfo =
     Request
         (lookupUrls requestInfo)
@@ -343,7 +403,7 @@ andThen fn requestInfo =
 
 {-| A helper for combining `DataSource`s in pipelines.
 -}
-andMap : DataSource a -> DataSource (a -> b) -> DataSource b
+andMap : DataSource error a -> DataSource error (a -> b) -> DataSource error b
 andMap =
     map2 (|>)
 
@@ -372,7 +432,7 @@ andMap =
             }
 
 -}
-succeed : a -> DataSource a
+succeed : a -> DataSource error a
 succeed value =
     ApiRoute value
 
@@ -381,14 +441,14 @@ succeed value =
 you will get a build error. Or in the dev server, you will see the error message in an overlay in your browser (and in
 the terminal).
 -}
-fail : String -> DataSource a
+fail : String -> DataSource error a
 fail errorMessage =
     RequestError (Pages.StaticHttpRequest.UserCalledStaticHttpFail errorMessage)
 
 
 {-| Turn an Err into a DataSource failure.
 -}
-fromResult : Result String value -> DataSource value
+fromResult : Result String value -> DataSource error value
 fromResult result =
     case result of
         Ok okValue ->
@@ -401,10 +461,10 @@ fromResult result =
 {-| -}
 map3 :
     (value1 -> value2 -> value3 -> valueCombined)
-    -> DataSource value1
-    -> DataSource value2
-    -> DataSource value3
-    -> DataSource valueCombined
+    -> DataSource error value1
+    -> DataSource error value2
+    -> DataSource error value3
+    -> DataSource error valueCombined
 map3 combineFn request1 request2 request3 =
     succeed combineFn
         |> map2 (|>) request1
@@ -415,11 +475,11 @@ map3 combineFn request1 request2 request3 =
 {-| -}
 map4 :
     (value1 -> value2 -> value3 -> value4 -> valueCombined)
-    -> DataSource value1
-    -> DataSource value2
-    -> DataSource value3
-    -> DataSource value4
-    -> DataSource valueCombined
+    -> DataSource error value1
+    -> DataSource error value2
+    -> DataSource error value3
+    -> DataSource error value4
+    -> DataSource error valueCombined
 map4 combineFn request1 request2 request3 request4 =
     succeed combineFn
         |> map2 (|>) request1
@@ -431,12 +491,12 @@ map4 combineFn request1 request2 request3 request4 =
 {-| -}
 map5 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> valueCombined)
-    -> DataSource value1
-    -> DataSource value2
-    -> DataSource value3
-    -> DataSource value4
-    -> DataSource value5
-    -> DataSource valueCombined
+    -> DataSource error value1
+    -> DataSource error value2
+    -> DataSource error value3
+    -> DataSource error value4
+    -> DataSource error value5
+    -> DataSource error valueCombined
 map5 combineFn request1 request2 request3 request4 request5 =
     succeed combineFn
         |> map2 (|>) request1
@@ -449,13 +509,13 @@ map5 combineFn request1 request2 request3 request4 request5 =
 {-| -}
 map6 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> valueCombined)
-    -> DataSource value1
-    -> DataSource value2
-    -> DataSource value3
-    -> DataSource value4
-    -> DataSource value5
-    -> DataSource value6
-    -> DataSource valueCombined
+    -> DataSource error value1
+    -> DataSource error value2
+    -> DataSource error value3
+    -> DataSource error value4
+    -> DataSource error value5
+    -> DataSource error value6
+    -> DataSource error valueCombined
 map6 combineFn request1 request2 request3 request4 request5 request6 =
     succeed combineFn
         |> map2 (|>) request1
@@ -469,14 +529,14 @@ map6 combineFn request1 request2 request3 request4 request5 request6 =
 {-| -}
 map7 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> valueCombined)
-    -> DataSource value1
-    -> DataSource value2
-    -> DataSource value3
-    -> DataSource value4
-    -> DataSource value5
-    -> DataSource value6
-    -> DataSource value7
-    -> DataSource valueCombined
+    -> DataSource error value1
+    -> DataSource error value2
+    -> DataSource error value3
+    -> DataSource error value4
+    -> DataSource error value5
+    -> DataSource error value6
+    -> DataSource error value7
+    -> DataSource error valueCombined
 map7 combineFn request1 request2 request3 request4 request5 request6 request7 =
     succeed combineFn
         |> map2 (|>) request1
@@ -491,15 +551,15 @@ map7 combineFn request1 request2 request3 request4 request5 request6 request7 =
 {-| -}
 map8 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> valueCombined)
-    -> DataSource value1
-    -> DataSource value2
-    -> DataSource value3
-    -> DataSource value4
-    -> DataSource value5
-    -> DataSource value6
-    -> DataSource value7
-    -> DataSource value8
-    -> DataSource valueCombined
+    -> DataSource error value1
+    -> DataSource error value2
+    -> DataSource error value3
+    -> DataSource error value4
+    -> DataSource error value5
+    -> DataSource error value6
+    -> DataSource error value7
+    -> DataSource error value8
+    -> DataSource error valueCombined
 map8 combineFn request1 request2 request3 request4 request5 request6 request7 request8 =
     succeed combineFn
         |> map2 (|>) request1
@@ -515,16 +575,16 @@ map8 combineFn request1 request2 request3 request4 request5 request6 request7 re
 {-| -}
 map9 :
     (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> value9 -> valueCombined)
-    -> DataSource value1
-    -> DataSource value2
-    -> DataSource value3
-    -> DataSource value4
-    -> DataSource value5
-    -> DataSource value6
-    -> DataSource value7
-    -> DataSource value8
-    -> DataSource value9
-    -> DataSource valueCombined
+    -> DataSource error value1
+    -> DataSource error value2
+    -> DataSource error value3
+    -> DataSource error value4
+    -> DataSource error value5
+    -> DataSource error value6
+    -> DataSource error value7
+    -> DataSource error value8
+    -> DataSource error value9
+    -> DataSource error valueCombined
 map9 combineFn request1 request2 request3 request4 request5 request6 request7 request8 request9 =
     succeed combineFn
         |> map2 (|>) request1

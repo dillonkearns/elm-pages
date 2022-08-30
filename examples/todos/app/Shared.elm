@@ -75,7 +75,7 @@ subscriptions _ _ =
     Sub.none
 
 
-data : DataSource.DataSource Data
+data : DataSource.DataSource Never Data
 data =
     DataSource.succeed ()
 

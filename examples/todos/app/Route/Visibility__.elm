@@ -156,7 +156,7 @@ update pageUrl sharedModel static msg model =
             ( { model | nextId = currentTime }, Effect.none )
 
 
-performAction : Time.Posix -> Action -> Uuid -> DataSource (Response ActionData ErrorPage)
+performAction : Time.Posix -> Action -> Uuid -> DataSource Never (Response ActionData ErrorPage)
 performAction requestTime actionInput userId =
     case actionInput of
         Add newItemDescription ->
@@ -201,7 +201,7 @@ performAction requestTime actionInput userId =
                 |> DataSource.map (\() -> Response.render {})
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (DataSource Never (Response Data ErrorPage))
 data routeParams =
     Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
@@ -234,7 +234,7 @@ data routeParams =
             )
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (DataSource Never (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
         (Request.map2 Tuple.pair
@@ -262,8 +262,8 @@ action routeParams =
 
 withUserSession :
     Result x (Maybe Session)
-    -> (Uuid -> DataSource (Response ActionData ErrorPage))
-    -> DataSource ( Session, Response ActionData ErrorPage )
+    -> (Uuid -> DataSource Never (Response ActionData ErrorPage))
+    -> DataSource Never ( Session, Response ActionData ErrorPage )
 withUserSession cookieSession continue =
     let
         okSession : Session

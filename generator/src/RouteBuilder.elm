@@ -109,9 +109,9 @@ import View exposing (View)
 
 {-| -}
 type alias StatefulRoute routeParams data action model msg =
-    { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
-    , action : routeParams -> DataSource (Server.Response.Response action ErrorPage)
-    , staticRoutes : DataSource (List routeParams)
+    { data : routeParams -> DataSource Never (Server.Response.Response data ErrorPage)
+    , action : routeParams -> DataSource Never (Server.Response.Response action ErrorPage)
+    , staticRoutes : DataSource Never (List routeParams)
     , view :
         Maybe PageUrl
         -> Shared.Model
@@ -124,7 +124,7 @@ type alias StatefulRoute routeParams data action model msg =
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
     , update : PageUrl -> StaticPayload data action routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> model -> Shared.Model -> Sub msg
-    , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
+    , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource Never (Maybe NotFoundReason)
     , kind : String
     , onAction : Maybe (action -> msg)
     }
@@ -154,9 +154,9 @@ type alias StaticPayload data action routeParams =
 {-| -}
 type Builder routeParams data action
     = WithData
-        { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
-        , action : routeParams -> DataSource (Server.Response.Response action ErrorPage)
-        , staticRoutes : DataSource (List routeParams)
+        { data : routeParams -> DataSource Never (Server.Response.Response data ErrorPage)
+        , action : routeParams -> DataSource Never (Server.Response.Response action ErrorPage)
+        , staticRoutes : DataSource Never (List routeParams)
         , head :
             StaticPayload data action routeParams
             -> List Head.Tag
@@ -165,7 +165,7 @@ type Builder routeParams data action
             { moduleName : List String, routePattern : RoutePattern }
             -> (routeParams -> List ( String, String ))
             -> routeParams
-            -> DataSource (Maybe NotFoundReason)
+            -> DataSource Never (Maybe NotFoundReason)
         , kind : String
         }
 
@@ -292,7 +292,7 @@ buildWithSharedState config builderState =
 
 {-| -}
 single :
-    { data : DataSource data
+    { data : DataSource Never data
     , head : StaticPayload data action {} -> List Head.Tag
     }
     -> Builder {} data action
@@ -310,8 +310,8 @@ single { data, head } =
 
 {-| -}
 preRender :
-    { data : routeParams -> DataSource data
-    , pages : DataSource (List routeParams)
+    { data : routeParams -> DataSource Never data
+    , pages : DataSource Never (List routeParams)
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
@@ -348,8 +348,8 @@ preRender { data, head, pages } =
 
 {-| -}
 preRenderWithFallback :
-    { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
-    , pages : DataSource (List routeParams)
+    { data : routeParams -> DataSource Never (Server.Response.Response data ErrorPage)
+    , pages : DataSource Never (List routeParams)
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
@@ -369,8 +369,8 @@ preRenderWithFallback { data, head, pages } =
 
 {-| -}
 serverRender :
-    { data : routeParams -> Server.Request.Parser (DataSource (Server.Response.Response data ErrorPage))
-    , action : routeParams -> Server.Request.Parser (DataSource (Server.Response.Response action ErrorPage))
+    { data : routeParams -> Server.Request.Parser (DataSource Never (Server.Response.Response data ErrorPage))
+    , action : routeParams -> Server.Request.Parser (DataSource Never (Server.Response.Response action ErrorPage))
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action

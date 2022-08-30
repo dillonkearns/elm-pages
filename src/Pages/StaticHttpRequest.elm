@@ -13,19 +13,23 @@ type alias MockResolver =
     -> Maybe RequestsAndPending.Response
 
 
-type RawRequest value
-    = Request (List Pages.StaticHttp.Request.Request) (Maybe MockResolver -> RequestsAndPending -> RawRequest value)
-    | RequestError Error
+type RawRequest error value
+    = Request (List Pages.StaticHttp.Request.Request) (Maybe MockResolver -> RequestsAndPending -> RawRequest error value)
+    | RequestError (Error error)
     | ApiRoute value
 
 
-type Error
+type
+    -- TODO rename Error -> InternalError
+    Error error
     = MissingHttpResponse String (List Pages.StaticHttp.Request.Request)
     | DecoderError String
+      -- TODO move UserCalledStaticHttpFail to be handled through UserError
     | UserCalledStaticHttpFail String
+    | UserError error
 
 
-toBuildError : String -> Error -> BuildError
+toBuildError : String -> Error error -> BuildError
 toBuildError path error =
     case error of
         MissingHttpResponse missingKey _ ->
@@ -55,8 +59,17 @@ toBuildError path error =
             , fatal = True
             }
 
+        UserError _ ->
+            { title = "TODO"
+            , message =
+                [ Terminal.text <| "Unexpected case"
+                ]
+            , path = path
+            , fatal = True
+            }
 
-resolve : RawRequest value -> RequestsAndPending -> Result Error value
+
+resolve : RawRequest error value -> RequestsAndPending -> Result (Error error) value
 resolve request rawResponses =
     case request of
         RequestError error ->
@@ -71,7 +84,7 @@ resolve request rawResponses =
             Ok value
 
 
-mockResolve : RawRequest value -> MockResolver -> Result Error value
+mockResolve : RawRequest error value -> MockResolver -> Result (Error error) value
 mockResolve request mockResolver =
     case request of
         RequestError error ->
@@ -86,12 +99,12 @@ mockResolve request mockResolver =
             Ok value
 
 
-resolveUrls : RawRequest value -> RequestsAndPending -> List Pages.StaticHttp.Request.Request
+resolveUrls : RawRequest error value -> RequestsAndPending -> List Pages.StaticHttp.Request.Request
 resolveUrls request rawResponses =
     resolveUrlsHelp rawResponses [] request
 
 
-resolveUrlsHelp : RequestsAndPending -> List Pages.StaticHttp.Request.Request -> RawRequest value -> List Pages.StaticHttp.Request.Request
+resolveUrlsHelp : RequestsAndPending -> List Pages.StaticHttp.Request.Request -> RawRequest error value -> List Pages.StaticHttp.Request.Request
 resolveUrlsHelp rawResponses soFar request =
     case request of
         RequestError error ->
@@ -114,24 +127,24 @@ resolveUrlsHelp rawResponses soFar request =
 
 
 cacheRequestResolution :
-    RawRequest value
+    RawRequest error value
     -> RequestsAndPending
-    -> Status value
+    -> Status error value
 cacheRequestResolution request rawResponses =
     cacheRequestResolutionHelp [] rawResponses request
 
 
-type Status value
+type Status error value
     = Incomplete (List Pages.StaticHttp.Request.Request)
-    | HasPermanentError Error
+    | HasPermanentError (Error error)
     | Complete
 
 
 cacheRequestResolutionHelp :
     List Pages.StaticHttp.Request.Request
     -> RequestsAndPending
-    -> RawRequest value
-    -> Status value
+    -> RawRequest error value
+    -> Status error value
 cacheRequestResolutionHelp foundUrls rawResponses request =
     case request of
         RequestError error ->
@@ -145,6 +158,9 @@ cacheRequestResolutionHelp foundUrls rawResponses request =
 
                 UserCalledStaticHttpFail _ ->
                     HasPermanentError error
+
+                UserError userError ->
+                    HasPermanentError (UserError userError)
 
         Request urlList lookupFn ->
             cacheRequestResolutionHelp urlList

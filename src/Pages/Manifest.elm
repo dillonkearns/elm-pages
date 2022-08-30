@@ -324,7 +324,7 @@ nonEmptyList list =
 
 {-| A generator for Api.elm to include a manifest.json.
 -}
-generator : String -> DataSource Config -> ApiRoute.ApiRoute ApiRoute.Response
+generator : String -> DataSource Never Config -> ApiRoute.ApiRoute ApiRoute.Response
 generator canonicalSiteUrl config =
     ApiRoute.succeed
         (config

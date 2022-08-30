@@ -14,7 +14,7 @@ request :
     , body : Body
     , expect : Expect a
     }
-    -> DataSource a
+    -> DataSource error a
 request { name, body, expect } =
     DataSource.Http.request
         { url = "elm-pages-internal://" ++ name
