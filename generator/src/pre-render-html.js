@@ -17,34 +17,6 @@ function wrapHtml(basePath, fromElm, contentDatPayload) {
   };
 }
 
-function devServerStyleTag() {
-  /*html*/
-  return `<style>
-@keyframes lds-default {
-    0%, 20%, 80%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.5);
-    }
-  }
-
-#not-found-reason code {
-  color: rgb(226, 0, 124);
-}
-
-#not-found-reason h1 {
-  font-size: 26px;
-  font-weight: bold;
-  padding-bottom: 15px;
-}
-
-#not-found-reason a:hover {
-  text-decoration: underline;
-}
-</style>`;
-}
-
 function templateHtml() {
   return /* html */ `<!DOCTYPE html>
 <!-- ROOT --><html lang="en">
