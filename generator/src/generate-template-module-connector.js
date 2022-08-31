@@ -162,7 +162,7 @@ type ActionData
 
 view :
     Pages.FormState.PageFormState
-    -> Dict.Dict String Pages.Transition.FetcherState
+    -> Dict.Dict String ( Pages.Transition.FetcherState ActionData )
     -> Maybe Pages.Transition.Transition
     -> { path : Path
     , route : Maybe Route
@@ -236,7 +236,20 @@ view pageFormState fetchers transition page maybePageUrl globalData pageData act
                                         name
                                       )}.w3_decode_ActionData
                                       , transition = transition
-                                      , fetchers = fetchers
+                                      , fetchers =
+                                            fetchers
+                                                |> Dict.map
+                                                    (\\_ fetcherState ->
+                                                        Pages.Transition.map
+                                                            (\\ad ->
+                                                                  case ad of
+                                                                      ActionData${routeHelpers.routeVariant(
+                                                                        name
+                                                                      )} justActionData -> Just justActionData
+                                                                      _ -> Nothing
+                                                            )
+                                                            fetcherState
+                                                    )
                                       , pageFormState = pageFormState
                                       }
                                       |> View.map (Pages.Msg.map Msg${pathNormalizedName(
@@ -373,7 +386,7 @@ init currentGlobalModel userFlags sharedData pageData actionData navigationKey m
 
 
 
-update : Pages.FormState.PageFormState  -> Dict.Dict String Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
+update : Pages.FormState.PageFormState  -> Dict.Dict String ( Pages.Transition.FetcherState ActionData ) -> Maybe Pages.Transition.Transition -> Shared.Data -> PageData -> Maybe Browser.Navigation.Key -> Msg -> Model -> ( Model, Effect Msg )
 update pageFormState fetchers transition sharedData pageData navigationKey msg model =
     case msg of
         MsgErrorPage____ msg_ ->
@@ -485,7 +498,20 @@ update pageFormState fetchers transition sharedData pageData navigationKey msg m
                                   name
                                 )}.w3_decode_ActionData
                                 , transition = transition
-                                , fetchers = fetchers
+                                , fetchers =
+                                    fetchers
+                                        |> Dict.map
+                                            (\\_ fetcherState ->
+                                                Pages.Transition.map
+                                                    (\\ad ->
+                                                          case ad of
+                                                              ActionData${routeHelpers.routeVariant(
+                                                                name
+                                                              )} justActionData -> Just justActionData
+                                                              _ -> Nothing
+                                                    )
+                                                    fetcherState
+                                            )
                                 , pageFormState = pageFormState
                                 }
                                 msg_

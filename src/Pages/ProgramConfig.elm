@@ -47,7 +47,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
                 , pageUrl : Maybe PageUrl
                 }
         -> ( userModel, effect )
-    , update : Pages.FormState.PageFormState -> Dict String Pages.Transition.FetcherState -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
+    , update : Pages.FormState.PageFormState -> Dict String (Pages.Transition.FetcherState actionData) -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource sharedData
     , data : route -> DataSource (PageServerResponse pageData errorPage)
@@ -55,7 +55,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , onActionData : actionData -> Maybe userMsg
     , view :
         Pages.FormState.PageFormState
-        -> Dict String Pages.Transition.FetcherState
+        -> Dict String (Pages.Transition.FetcherState actionData)
         -> Maybe Pages.Transition.Transition
         ->
             { path : Path

@@ -791,7 +791,7 @@ errorsForField field_ (Errors errorsDict) =
 
 
 {-| -}
-type alias AppContext app =
+type alias AppContext app actionData =
     { app
         | --, sharedData : Shared.Data
           --, routeParams : routeParams
@@ -801,7 +801,7 @@ type alias AppContext app =
           --    { fields : List ( String, String ), headers : List ( String, String ) }
           --    -> Pages.Fetcher.Fetcher (Result Http.Error action)
           transition : Maybe Transition
-        , fetchers : Dict String Pages.Transition.FetcherState
+        , fetchers : Dict String (Pages.Transition.FetcherState actionData)
         , pageFormState :
             Dict String { fields : Dict String { value : String, status : FieldStatus }, submitAttempted : Bool }
     }
@@ -840,7 +840,7 @@ mergeErrors errors1 errors2 =
 {-| -}
 parse :
     String
-    -> AppContext app
+    -> AppContext app actionData
     -> data
     -> Form error { info | combine : Validation error parsed named constraints } data
     -> ( Maybe parsed, Dict String (List error) )
@@ -982,7 +982,7 @@ renderHtml :
             { fields : List ( String, String )
             , errors : Dict String (List error)
             }
-    -> AppContext app
+    -> AppContext app actionData
     -> data
     ->
         FinalForm
@@ -1183,7 +1183,7 @@ renderStyledHtml :
             { fields : List ( String, String )
             , errors : Dict String (List error)
             }
-    -> AppContext app
+    -> AppContext app actionData
     -> data
     ->
         FinalForm
@@ -1215,7 +1215,7 @@ renderHelper :
             , errors : Dict String (List error)
             }
     -> RenderOptions msg
-    -> AppContext app
+    -> AppContext app actionData
     -> data
     -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
     -> Html (Pages.Msg.Msg msg)
@@ -1254,7 +1254,7 @@ renderStyledHelper :
             , errors : Dict String (List error)
             }
     -> RenderOptions msg
-    -> AppContext app
+    -> AppContext app actionData
     -> data
     -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
     -> Html.Styled.Html (Pages.Msg.Msg msg)
@@ -1295,7 +1295,7 @@ helperValues :
             , errors : Dict String (List error)
             }
     -> RenderOptions msg
-    -> AppContext app
+    -> AppContext app actionData
     -> data
     ---> Form error parsed data view
     -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List view)

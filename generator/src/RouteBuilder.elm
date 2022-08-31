@@ -146,7 +146,7 @@ type alias StaticPayload data action routeParams =
         { fields : List ( String, String ), headers : List ( String, String ) }
         -> Pages.Fetcher.Fetcher (Result Http.Error action)
     , transition : Maybe Pages.Transition.Transition
-    , fetchers : Dict String Pages.Transition.FetcherState
+    , fetchers : Dict String (Pages.Transition.FetcherState (Maybe action))
     , pageFormState : Pages.FormState.PageFormState
     }
 

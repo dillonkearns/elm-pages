@@ -338,7 +338,7 @@ type alias Model userModel pageData actionData sharedData =
     , userFlags : Decode.Value
     , transition : Maybe ( Int, Pages.Transition.Transition )
     , nextTransitionKey : Int
-    , inFlightFetchers : Dict String ( Int, Pages.Transition.FetcherState )
+    , inFlightFetchers : Dict String ( Int, Pages.Transition.FetcherState actionData )
     , pageFormState : Pages.FormState.PageFormState
     , pendingRedirect : Bool
     , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
@@ -735,7 +735,7 @@ update config appMsg model =
             )
 
 
-toFetcherState : Dict String ( Int, Pages.Transition.FetcherState ) -> Dict String Pages.Transition.FetcherState
+toFetcherState : Dict String ( Int, Pages.Transition.FetcherState actionData ) -> Dict String (Pages.Transition.FetcherState actionData)
 toFetcherState inFlightFetchers =
     inFlightFetchers
         |> Dict.map (\_ ( index, fetcherState ) -> fetcherState)
@@ -990,6 +990,9 @@ cancelStaleFetchers model =
                             |> Just
 
                     Pages.Transition.FetcherSubmitting ->
+                        Nothing
+
+                    Pages.Transition.FetcherComplete actionData ->
                         Nothing
             )
         |> Cmd.batch
