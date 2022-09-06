@@ -373,7 +373,7 @@ update config appMsg model =
                     let
                         navigatingToSamePage : Bool
                         navigatingToSamePage =
-                            (url.path == model.url.path) && (url /= model.url)
+                            url.path == model.url.path
                     in
                     if navigatingToSamePage then
                         -- this is a workaround for an issue with anchor fragment navigation
@@ -410,15 +410,23 @@ update config appMsg model =
                         model
 
                 Nothing ->
-                    ( { model
-                        -- update the URL in case query params or fragment changed
-                        | url = url
-                      }
-                    , NoEffect
-                    )
-                        -- TODO is it reasonable to always re-fetch route data if you re-navigate to the current route? Might be a good
-                        -- parallel to the browser behavior
-                        |> startNewGetLoad url (UpdateCacheAndUrlNew False url Nothing)
+                    if model.url.path == url.path then
+                        ( { model
+                            | -- update the URL in case query params or fragment changed
+                              url = url
+                          }
+                        , NoEffect
+                        )
+
+                    else
+                        ( { model
+                            | url = url
+                          }
+                        , NoEffect
+                        )
+                            -- TODO is it reasonable to always re-fetch route data if you re-navigate to the current route? Might be a good
+                            -- parallel to the browser behavior
+                            |> startNewGetLoad url (UpdateCacheAndUrlNew True url Nothing)
 
         FetcherComplete forPageReload fetcherKey transitionId___ userMsgResult ->
             case userMsgResult of
@@ -550,6 +558,10 @@ update config appMsg model =
                         redirectPending : Bool
                         redirectPending =
                             newUrl /= urlWithoutRedirectResolution
+
+                        stayingOnSamePath : Bool
+                        stayingOnSamePath =
+                            newUrl.path == model.url.path
                     in
                     if redirectPending then
                         ( { model
@@ -639,7 +651,11 @@ update config appMsg model =
                             | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                             , currentPath = newUrl.path
                           }
-                        , ScrollToTop
+                        , if not stayingOnSamePath && fromLinkClick then
+                            ScrollToTop
+
+                          else
+                            NoEffect
                         )
                             |> (case maybeUserMsg of
                                     Just userMsg ->
