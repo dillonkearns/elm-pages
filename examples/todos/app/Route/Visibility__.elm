@@ -514,10 +514,7 @@ view maybeUrl sharedModel model app =
                                 addItemForm
                                     |> Form.toDynamicFetcher key
                                     |> Form.withOnSubmit (\_ -> NewItemSubmitted)
-                                    |> Form.renderHtml
-                                        [ class "create-form"
-                                        , hidden (index /= 0)
-                                        ]
+                                    |> Form.renderHtml [ class "create-form", hidden (index /= 0) ]
                                         Nothing
                                         app
                                         (Just createFetcherErrors)
