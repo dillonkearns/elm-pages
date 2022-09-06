@@ -283,6 +283,7 @@ import Pages.FormState as Form exposing (FormState)
 import Pages.Internal.Form exposing (Validation(..))
 import Pages.Msg
 import Pages.Transition exposing (Transition(..))
+import Path exposing (Path)
 
 
 
@@ -795,12 +796,13 @@ type alias AppContext app actionData =
     { app
         | --, sharedData : Shared.Data
           --, routeParams : routeParams
-          --, path : Path
-          --, action : Maybe action
-          --, submit :
-          --    { fields : List ( String, String ), headers : List ( String, String ) }
-          --    -> Pages.Fetcher.Fetcher (Result Http.Error action)
-          transition : Maybe Transition
+          path : Path
+
+        --, action : Maybe action
+        --, submit :
+        --    { fields : List ( String, String ), headers : List ( String, String ) }
+        --    -> Pages.Fetcher.Fetcher (Result Http.Error action)
+        , transition : Maybe Transition
         , fetchers : Dict String (Pages.Transition.FetcherState actionData)
         , pageFormState :
             Dict String { fields : Dict String { value : String, status : FieldStatus }, submitAttempted : Bool }
@@ -1234,6 +1236,9 @@ renderHelper attrs maybe options formState data form =
         (Form.listeners formId
             ++ [ Attr.method (methodToString options.method)
                , Attr.novalidate True
+
+               -- TODO provide a way to override the action so users can submit to other Routes
+               , Attr.action (Path.toAbsolute formState.path)
                , case options.submitStrategy of
                     FetcherStrategy ->
                         Pages.Msg.fetcherOnSubmit options.onSubmit formId (\_ -> isValid)
@@ -1273,6 +1278,7 @@ renderStyledHelper attrs maybe options formState data form =
         ((Form.listeners formId |> List.map StyledAttr.fromUnstyled)
             ++ [ StyledAttr.method (methodToString options.method)
                , StyledAttr.novalidate True
+               , StyledAttr.action (Path.toAbsolute formState.path)
                , case options.submitStrategy of
                     FetcherStrategy ->
                         StyledAttr.fromUnstyled <|
