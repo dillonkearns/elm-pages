@@ -575,7 +575,6 @@ addItemForm =
                             ]
                             description
                         , formState.data |> Maybe.map (\error -> Html.div [ class "error", id "new-todo-error" ] [ text error ]) |> Maybe.withDefault (text "")
-                        , Html.button [ style "display" "none" ] [ Html.text "Create" ]
                         ]
                     ]
             }
@@ -600,7 +599,6 @@ editItemForm =
                         , id ("todo-" ++ uuidToString formState.data.id)
                         ]
                         description
-                    , Html.button [ style "display" "none" ] []
                     ]
             }
         )

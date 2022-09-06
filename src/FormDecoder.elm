@@ -27,11 +27,19 @@ formDataOnSubmit =
                                     ]
                     )
             )
-            (Decode.at [ "submitter", "form", "method" ] methodDecoder)
-            (Decode.at [ "submitter", "form", "action" ] Decode.string)
-            (Decode.at [ "submitter", "form", "id" ] (Decode.nullable Decode.string))
+            (currentForm "method" methodDecoder)
+            (currentForm "action" Decode.string)
+            (currentForm "id" (Decode.nullable Decode.string))
             |> Decode.map alwaysPreventDefault
         )
+
+
+currentForm : String -> Decode.Decoder a -> Decode.Decoder a
+currentForm field decoder_ =
+    Decode.oneOf
+        [ Decode.at [ "submitter", "form" ] decoder_
+        , Decode.at [ "currentTarget", field ] decoder_
+        ]
 
 
 methodDecoder : Decode.Decoder FormData.Method
