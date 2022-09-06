@@ -45,7 +45,7 @@ type alias FetcherState actionData =
 {-| -}
 type FetcherSubmitStatus actionData
     = FetcherSubmitting
-    | FetcherReloading
+    | FetcherReloading actionData
     | FetcherComplete actionData
 
 
@@ -63,8 +63,8 @@ mapStatus mapFn fetcherSubmitStatus =
         FetcherSubmitting ->
             FetcherSubmitting
 
-        FetcherReloading ->
-            FetcherReloading
+        FetcherReloading value ->
+            FetcherReloading (mapFn value)
 
         FetcherComplete value ->
             FetcherComplete (mapFn value)

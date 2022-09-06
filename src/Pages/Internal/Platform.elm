@@ -313,7 +313,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UserMsg (Pages.Msg.Msg userMsg)
     | SetField { formId : String, name : String, value : String }
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
-    | FetcherComplete Bool String Int (Result Http.Error (Maybe userMsg))
+    | FetcherComplete Bool String Int (Result Http.Error ( Maybe userMsg, Maybe actionData ))
     | FetcherStarted String Int FormData Time.Posix
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
@@ -422,14 +422,22 @@ update config appMsg model =
 
         FetcherComplete forPageReload fetcherKey transitionId___ userMsgResult ->
             case userMsgResult of
-                Ok userMsg ->
+                Ok ( userMsg, maybeFetcherDoneActionData ) ->
                     ( { model
                         | inFlightFetchers =
                             model.inFlightFetchers
                                 |> Dict.update fetcherKey
                                     (Maybe.map
                                         (\( transitionId, fetcherState ) ->
-                                            ( transitionId, { fetcherState | status = Pages.Transition.FetcherReloading } )
+                                            ( transitionId
+                                            , { fetcherState
+                                                | status =
+                                                    maybeFetcherDoneActionData
+                                                        |> Maybe.map Pages.Transition.FetcherReloading
+                                                        -- TODO remove this bad default, FetcherSubmitting is incorrect
+                                                        |> Maybe.withDefault Pages.Transition.FetcherSubmitting
+                                              }
+                                            )
                                         )
                                     )
                       }
@@ -818,7 +826,7 @@ perform config model effect =
                 fetchRouteData False -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
 
         SubmitFetcher fetcherKey transitionId formData ->
-            startFetcher2 False fetcherKey transitionId formData model
+            startFetcher2 config False fetcherKey transitionId formData model
 
         UserCmd cmd ->
             case model.key of
@@ -900,8 +908,10 @@ startFetcher fetcherKey transitionId options model =
                     (\bytes ->
                         case bytes of
                             Http.GoodStatus_ metadata bytesBody ->
-                                options.decoder (Ok bytesBody)
+                                ( options.decoder (Ok bytesBody)
                                     |> Just
+                                , Nothing
+                                )
                                     |> Ok
 
                             Http.BadUrl_ string ->
@@ -926,8 +936,15 @@ startFetcher fetcherKey transitionId options model =
         ]
 
 
-startFetcher2 : Bool -> String -> Int -> FormData -> Model userModel pageData actionData sharedData -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
-startFetcher2 fromPageReload fetcherKey transitionId formData model =
+startFetcher2 :
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> Bool
+    -> String
+    -> Int
+    -> FormData
+    -> Model userModel pageData actionData sharedData
+    -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
+startFetcher2 config fromPageReload fetcherKey transitionId formData model =
     let
         encodedBody : String
         encodedBody =
@@ -949,8 +966,24 @@ startFetcher2 fromPageReload fetcherKey transitionId formData model =
                     (\bytes ->
                         case bytes of
                             Http.GoodStatus_ metadata bytesBody ->
+                                let
+                                    decodedAction : Maybe actionData
+                                    decodedAction =
+                                        case Bytes.Decode.decode config.decodeResponse bytesBody of
+                                            Just (ResponseSketch.RenderPage _ maybeAction) ->
+                                                maybeAction
+
+                                            Just (ResponseSketch.HotUpdate pageData shared maybeAction) ->
+                                                maybeAction
+
+                                            Just (ResponseSketch.NotFound notFound) ->
+                                                Nothing
+
+                                            _ ->
+                                                Nothing
+                                in
                                 -- TODO maybe have an optional way to pass the bytes through?
-                                Ok Nothing
+                                Ok ( Nothing, decodedAction )
 
                             Http.BadUrl_ string ->
                                 Err <| Http.BadUrl string
@@ -985,14 +1018,14 @@ cancelStaleFetchers model =
         |> List.filterMap
             (\( fetcherKey, ( id, fetcher ) ) ->
                 case fetcher.status of
-                    Pages.Transition.FetcherReloading ->
+                    Pages.Transition.FetcherReloading _ ->
                         Http.cancel (String.fromInt id)
                             |> Just
 
                     Pages.Transition.FetcherSubmitting ->
                         Nothing
 
-                    Pages.Transition.FetcherComplete actionData ->
+                    Pages.Transition.FetcherComplete _ ->
                         Nothing
             )
         |> Cmd.batch
@@ -1296,10 +1329,18 @@ clearLoadingFetchersAfterDataLoad completedTransitionId model =
     { model
         | inFlightFetchers =
             model.inFlightFetchers
-                |> Dict.filter
+                |> Dict.map
                     (\_ ( transitionId, fetcherState ) ->
-                        (fetcherState.status /= Pages.Transition.FetcherReloading)
-                            || (transitionId > completedTransitionId)
+                        -- TODO fetchers are never removed from the list. Need to decide how and when to remove them.
+                        --(fetcherState.status /= Pages.Transition.FetcherReloading) || (transitionId > completedTransitionId)
+                        case ( transitionId > completedTransitionId, fetcherState.status ) of
+                            ( False, Pages.Transition.FetcherReloading actionData ) ->
+                                ( transitionId
+                                , { fetcherState | status = Pages.Transition.FetcherComplete actionData }
+                                )
+
+                            _ ->
+                                ( transitionId, fetcherState )
                     )
     }
 

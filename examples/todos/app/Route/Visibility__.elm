@@ -21,7 +21,7 @@ import LoadingSpinner
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Transition
+import Pages.Transition exposing (FetcherSubmitStatus(..))
 import Path
 import Request.Hasura
 import Route
@@ -86,7 +86,8 @@ type alias Data =
 
 
 type alias ActionData =
-    {}
+    { errors : Maybe String
+    }
 
 
 toOptimisticTodo : Data.Todo.Todo -> Entry
@@ -160,9 +161,13 @@ performAction : Time.Posix -> Action -> Uuid -> DataSource (Response ActionData 
 performAction requestTime actionInput userId =
     case actionInput of
         Add newItemDescription ->
-            Data.Todo.create requestTime userId newItemDescription
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\_ -> Response.render {})
+            if newItemDescription |> String.contains "error" then
+                DataSource.succeed (Response.render { errors = Just "Cannot contain the word error" })
+
+            else
+                Data.Todo.create requestTime userId newItemDescription
+                    |> Request.Hasura.mutationDataSource
+                    |> DataSource.map (\_ -> Response.render { errors = Nothing })
 
         UpdateEntry ( itemId, newDescription ) ->
             Data.Todo.update
@@ -171,7 +176,7 @@ performAction requestTime actionInput userId =
                 , newDescription = newDescription
                 }
                 |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
+                |> DataSource.map (\() -> Response.render { errors = Nothing })
 
         Delete itemId ->
             Data.Todo.delete
@@ -179,12 +184,12 @@ performAction requestTime actionInput userId =
                 , itemId = Uuid itemId
                 }
                 |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
+                |> DataSource.map (\() -> Response.render { errors = Nothing })
 
         DeleteComplete ->
             Data.Todo.clearCompletedTodos userId
                 |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
+                |> DataSource.map (\() -> Response.render { errors = Nothing })
 
         Check ( newCompleteValue, itemId ) ->
             Data.Todo.setCompleteTo
@@ -193,12 +198,12 @@ performAction requestTime actionInput userId =
                 , newCompleteValue = newCompleteValue
                 }
                 |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
+                |> DataSource.map (\() -> Response.render { errors = Nothing })
 
         CheckAll toggleTo ->
             Data.Todo.toggleAllTo userId toggleTo
                 |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render {})
+                |> DataSource.map (\() -> Response.render { errors = Nothing })
 
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
@@ -256,7 +261,7 @@ action routeParams =
                                 |> Result.withDefault Nothing
                                 |> Maybe.withDefault Session.empty
                     in
-                    DataSource.succeed ( okSession, Response.render {} )
+                    DataSource.succeed ( okSession, Response.render { errors = Nothing } )
         )
 
 
@@ -287,14 +292,14 @@ withUserSession cookieSession continue =
                     in
                     case maybeUserId of
                         Nothing ->
-                            DataSource.succeed ( okSession, Response.render {} )
+                            DataSource.succeed ( okSession, Response.render { errors = Nothing } )
 
                         Just userId ->
                             continue userId
                                 |> DataSource.map (Tuple.pair okSession)
                 )
             )
-        |> Maybe.withDefault (DataSource.succeed ( okSession, Response.render {} ))
+        |> Maybe.withDefault (DataSource.succeed ( okSession, Response.render { errors = Nothing } ))
 
 
 visibilityFromRouteParams : RouteParams -> Maybe Visibility
@@ -331,9 +336,27 @@ view maybeUrl sharedModel model app =
                 |> Dict.values
                 |> List.filterMap
                     (\{ status, payload } ->
-                        allForms
-                            |> Form.runOneOfServerSide payload.fields
-                            |> Tuple.first
+                        case status of
+                            FetcherComplete thing ->
+                                case thing of
+                                    Just thisActionData ->
+                                        case thisActionData.errors of
+                                            Just error ->
+                                                -- Items with errors will show up in `failedAddItemActions` (queued up so the user can edit failed items),
+                                                -- so we leave them out here.
+                                                Nothing
+
+                                            Nothing ->
+                                                -- This was a successfully created item. Don't add it because it's now in `app.data`
+                                                Nothing
+
+                                    Nothing ->
+                                        Nothing
+
+                            _ ->
+                                allForms
+                                    |> Form.runOneOfServerSide payload.fields
+                                    |> Tuple.first
                     )
 
         creatingItems : List Entry
@@ -442,6 +465,27 @@ view maybeUrl sharedModel model app =
 
                 _ ->
                     app.data.visibility
+
+        failedAddItemActions : List ( String, String )
+        failedAddItemActions =
+            app.fetchers
+                |> Dict.toList
+                |> List.filterMap
+                    (\( key, { status, payload } ) ->
+                        case
+                            ( allForms
+                                |> Form.runOneOfServerSide payload.fields
+                                |> Tuple.first
+                            , status
+                            )
+                        of
+                            ( Just (Add newItem), Pages.Transition.FetcherComplete (Just parsedActionData) ) ->
+                                parsedActionData.errors
+                                    |> Maybe.map (Tuple.pair key)
+
+                            _ ->
+                                Nothing
+                    )
     in
     { title = "Elm • TodoMVC"
     , body =
@@ -456,11 +500,42 @@ view maybeUrl sharedModel model app =
                             ++ (model.nextId |> Time.posixToMillis |> String.fromInt)
                         )
                     |> Form.withOnSubmit (\_ -> NewItemSubmitted)
-                    |> Form.renderHtml [ class "create-form" ] Nothing app ()
+                    |> Form.renderHtml
+                        [ class "create-form"
+                        , hidden (not (List.isEmpty failedAddItemActions))
+                        ]
+                        Nothing
+                        app
+                        Nothing
+                , div []
+                    (failedAddItemActions
+                        |> List.indexedMap
+                            (\index ( key, createFetcherErrors ) ->
+                                addItemForm
+                                    |> Form.toDynamicFetcher key
+                                    |> Form.withOnSubmit (\_ -> NewItemSubmitted)
+                                    |> Form.renderHtml
+                                        [ class "create-form"
+                                        , hidden (index /= 0)
+                                        ]
+                                        Nothing
+                                        app
+                                        (Just createFetcherErrors)
+                            )
+                    )
                 , viewEntries app optimisticVisibility optimisticEntities
                 , viewControls app optimisticVisibility optimisticEntities
                 ]
             , infoFooter
+
+            --, pre [ style "white-space" "break-spaces" ]
+            --    [ text
+            --        (app.fetchers
+            --            |> Dict.toList
+            --            |> List.map Debug.toString
+            --            |> String.join "\n"
+            --        )
+            --    ]
             ]
         ]
     }
@@ -481,7 +556,7 @@ allForms =
         |> Form.combine CheckAll toggleAllForm
 
 
-addItemForm : Form.HtmlForm String String input Msg
+addItemForm : Form.HtmlForm String String (Maybe String) Msg
 addItemForm =
     Form.init
         (\description ->
@@ -499,6 +574,7 @@ addItemForm =
                             , autofocus True
                             ]
                             description
+                        , formState.data |> Maybe.map (\error -> Html.div [ class "error", id "new-todo-error" ] [ text error ]) |> Maybe.withDefault (text "")
                         , Html.button [ style "display" "none" ] [ Html.text "Create" ]
                         ]
                     ]
