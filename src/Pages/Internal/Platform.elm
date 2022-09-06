@@ -544,7 +544,7 @@ update config appMsg model =
                     , NoEffect
                     )
 
-        UpdateCacheAndUrlNew fromLinkClick urlWithoutRedirectResolution maybeUserMsg updateResult ->
+        UpdateCacheAndUrlNew scrollToTopWhenDone urlWithoutRedirectResolution maybeUserMsg updateResult ->
             -- TODO remove all fetchers that are in the state `FetcherReloading` here -- I think that's the right logic?
             case
                 Result.map2 Tuple.pair
@@ -651,7 +651,7 @@ update config appMsg model =
                             | ariaNavigationAnnouncement = mainView config updatedModel |> .title
                             , currentPath = newUrl.path
                           }
-                        , if not stayingOnSamePath && fromLinkClick then
+                        , if not stayingOnSamePath && scrollToTopWhenDone then
                             ScrollToTop
 
                           else
