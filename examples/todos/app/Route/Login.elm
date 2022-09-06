@@ -386,7 +386,7 @@ view :
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
     -> View (Pages.Msg.Msg Msg)
-view maybeUrl sharedModel app =
+view _ sharedModel app =
     { title = "Login"
     , body =
         [ if app.action |> Maybe.map .sentLink |> Maybe.withDefault False then
