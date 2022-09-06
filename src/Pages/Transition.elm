@@ -1,12 +1,11 @@
 module Pages.Transition exposing
-    ( Transition(..), LoadingState(..)
+    ( Transition(..), LoadingState(..), map
     , FetcherState, FetcherSubmitStatus(..)
-    , map
     )
 
 {-|
 
-@docs Transition, LoadingState
+@docs Transition, LoadingState, map
 
 
 ## Fetchers
@@ -49,6 +48,7 @@ type FetcherSubmitStatus actionData
     | FetcherComplete actionData
 
 
+{-| -}
 map : (a -> b) -> FetcherState a -> FetcherState b
 map mapFn fetcherState =
     { status = mapStatus mapFn fetcherState.status
