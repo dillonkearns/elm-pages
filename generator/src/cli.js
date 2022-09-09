@@ -104,6 +104,39 @@ async function main() {
     });
 
   program
+    .command("scaffold")
+    .description("run a generator")
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .action(async (options, options2) => {
+      const elmScaffoldProgram = require(path.join(
+        process.cwd(),
+        "./codegen/elm.js"
+      )).Elm.Cli;
+      const program = elmScaffoldProgram.init({
+        flags: { argv: ["", "", ...options2.args], versionMessage: "1.2.3" },
+      });
+      // TODO compile `codegen/elm.js` file
+      // program.ports.print.subscribe((message) => {
+      //   console.log(message);
+      // });
+      program.ports.printAndExitFailure.subscribe((message) => {
+        console.log(message);
+        process.exit(1);
+      });
+      program.ports.printAndExitSuccess.subscribe((message) => {
+        console.log(message);
+        process.exit(0);
+      });
+      program.ports.writeFile.subscribe((info) => {
+        const filePath = path.join(process.cwd(), "app", info.path);
+        fs.writeFileSync(filePath, info.body);
+        console.log("Success! Created file", filePath);
+        process.exit(0);
+      });
+    });
+
+  program
     .command("docs")
     .description("open the docs for locally generated modules")
     .option("--port <number>", "serve site at localhost:<port>", "8000")

@@ -34,6 +34,7 @@
         "Form.FieldView",
         "Form.Value",
         "Pages.Transition",
+        "Pages.Generate",
         "Form.Validation"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
@@ -58,6 +59,7 @@
         "jfmengels/elm-review": "2.7.0 <= v < 3.0.0",
         "jluckyiv/elm-utc-date-strings": "1.0.0 <= v < 2.0.0",
         "justinmimbs/date": "4.0.0 <= v < 5.0.0",
+        "mdgriffith/elm-codegen": "2.0.0 <= v < 3.0.0",
         "miniBill/elm-codec": "2.0.0 <= v < 3.0.0",
         "noahzgordon/elm-color-extra": "1.0.2 <= v < 2.0.0",
         "robinheghan/fnv1a": "1.0.0 <= v < 2.0.0",

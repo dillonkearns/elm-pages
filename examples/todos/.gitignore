@@ -6,3 +6,5 @@ dist/
 functions/render/
 functions/server-render/
 gen/
+docs.json
+
