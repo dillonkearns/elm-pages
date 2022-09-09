@@ -110,6 +110,12 @@ async function main() {
     .allowUnknownOption()
     .allowExcessArguments()
     .action(async (options, options2) => {
+      const DocServer = require("elm-doc-preview");
+      const elmDocPreviewServer = new DocServer({
+        browser: false,
+        dir: ".",
+      });
+      elmDocPreviewServer.make("docs.json");
       const elmScaffoldProgram = require(path.join(
         process.cwd(),
         "./codegen/elm.js"

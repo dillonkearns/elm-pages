@@ -1,6 +1,10 @@
 module Pages.Generate exposing (Type(..), userFunction)
 
-{-| -}
+{-|
+
+@docs Type, userFunction
+
+-}
 
 import Elm
 import Elm.Annotation
@@ -8,6 +12,7 @@ import Elm.Declare
 import Pages.Internal.RoutePattern as RoutePattern
 
 
+{-| -}
 type Type
     = Alias Elm.Annotation.Annotation
     | Custom (List Elm.Variant)
@@ -23,6 +28,7 @@ typeToDeclaration name type_ =
             Elm.customType name variants
 
 
+{-| -}
 userFunction :
     List String
     ->

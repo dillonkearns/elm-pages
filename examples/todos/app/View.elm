@@ -2,7 +2,7 @@ module View exposing (View, map)
 
 {-|
 
-@docs View, map, placeholder
+@docs View, map
 
 -}
 
