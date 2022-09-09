@@ -130,7 +130,7 @@ coreModulesAndExports =
         , ( [ "ErrorPage" ], [ "ErrorPage", "notFound", "internalError", "view", "statusCode", "head" ] )
         , ( [ "Shared" ], [ "Data", "Model", "Msg", "template" ] )
         , ( [ "Site" ], [ "config" ] )
-        , ( [ "View" ], [ "View", "map", "placeholder" ] )
+        , ( [ "View" ], [ "View", "map" ] )
         ]
 
 

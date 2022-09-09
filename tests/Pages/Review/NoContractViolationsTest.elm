@@ -292,7 +292,7 @@ invalid = Debug.todo ""
                           , [ Review.Test.error
                                 { message = "A core elm-pages module needs to expose something"
                                 , details =
-                                    [ "The View module must expose `View`, `map`, `placeholder`"
+                                    [ "The View module must expose `View`, `map`"
                                     ]
                                 , under = "exposing (invalid)"
                                 }
@@ -325,7 +325,7 @@ routes = Debug.todo ""
     , """module Site exposing (config)
 routes = Debug.todo ""
 """
-    , """module View exposing (View, map, placeholder)
+    , """module View exposing (View, map)
 routes = Debug.todo ""
 """
     ]
