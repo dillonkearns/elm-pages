@@ -7,11 +7,14 @@ module Pages.Review.NoContractViolations exposing (rule)
 -}
 
 import Dict exposing (Dict)
+import Elm.Annotation
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Elm.ToString
+import Pages.Internal.RoutePattern as RoutePattern exposing (Param(..))
 import Review.Rule as Rule exposing (Direction, Error, Rule)
 import Set exposing (Set)
 
@@ -206,7 +209,7 @@ routeParamsMatchesNameOrError annotation moduleName =
 
         Ok actualStringFields ->
             let
-                expectedFields : Dict String Param
+                expectedFields : Dict String RoutePattern.Param
                 expectedFields =
                     expectedRouteParamsFromModuleName moduleName
             in
@@ -220,7 +223,7 @@ routeParamsMatchesNameOrError annotation moduleName =
                         [ """Expected
 
 """
-                            ++ expectedFieldsToRecordString expectedFields
+                            ++ expectedFieldsToRecordString moduleName
                             ++ "\n"
                         ]
                     }
@@ -228,116 +231,39 @@ routeParamsMatchesNameOrError annotation moduleName =
                 ]
 
 
-expectedFieldsToRecordString : Dict String Param -> String
-expectedFieldsToRecordString expectedFields =
-    "type alias RouteParams = { "
-        ++ (expectedFields
-                |> Dict.toList
-                |> List.map (\( name, param ) -> name ++ " : " ++ paramToTypeString param)
-                |> String.join ", "
+expectedFieldsToRecordString : List String -> String
+expectedFieldsToRecordString moduleName =
+    "type alias RouteParams = "
+        ++ (moduleName
+                |> RoutePattern.fromModuleName
+                |> Maybe.map (RoutePattern.toRouteParamsRecord >> Elm.Annotation.record >> Elm.ToString.annotation >> .signature)
+                |> Maybe.withDefault "ERROR"
            )
-        ++ " }"
 
 
-paramToTypeString : Param -> String
-paramToTypeString param =
-    case param of
-        Required ->
-            "String"
-
-        Optional ->
-            "Maybe String"
-
-        RequiredSplat ->
-            "( String, List String )"
-
-        OptionalSplat ->
-            "List String"
-
-
-expectedRouteParamsFromModuleName : List String -> Dict String Param
+expectedRouteParamsFromModuleName : List String -> Dict String RoutePattern.Param
 expectedRouteParamsFromModuleName moduleSegments =
     case moduleSegments of
         "Route" :: segments ->
             segments
-                |> List.filterMap segmentToParam
+                --|> List.filterMap segmentToParam
+                |> RoutePattern.fromModuleName
+                |> Maybe.map RoutePattern.toRouteParamTypes
+                |> Maybe.withDefault []
                 |> Dict.fromList
 
         _ ->
             Dict.empty
 
 
-type Param
-    = Required
-    | Optional
-    | RequiredSplat
-    | OptionalSplat
-
-
-segmentToParam : String -> Maybe ( String, Param )
-segmentToParam segment =
-    if segment == "SPLAT__" then
-        ( "splat"
-        , OptionalSplat
-        )
-            |> Just
-
-    else if segment == "SPLAT_" then
-        ( "splat"
-        , RequiredSplat
-        )
-            |> Just
-
-    else if segment |> String.endsWith "__" then
-        ( segment
-            |> String.dropRight 2
-            |> decapitalize
-        , Optional
-        )
-            |> Just
-
-    else if segment |> String.endsWith "_" then
-        ( segment
-            |> String.dropRight 1
-            |> decapitalize
-        , Required
-        )
-            |> Just
-
-    else
-        Nothing
-
-
-{-| Decapitalize the first letter of a string.
-decapitalize "This is a phrase" == "this is a phrase"
-decapitalize "Hello, World" == "hello, World"
--}
-decapitalize : String -> String
-decapitalize word =
-    -- Source: https://github.com/elm-community/string-extra/blob/4.0.1/src/String/Extra.elm
-    changeCase Char.toLower word
-
-
-{-| Change the case of the first letter of a string to either uppercase or
-lowercase, depending of the value of `wantedCase`. This is an internal
-function for use in `toSentenceCase` and `decapitalize`.
--}
-changeCase : (Char -> Char) -> String -> String
-changeCase mutator word =
-    -- Source: https://github.com/elm-community/string-extra/blob/4.0.1/src/String/Extra.elm
-    String.uncons word
-        |> Maybe.map (\( head, tail ) -> String.cons (mutator head) tail)
-        |> Maybe.withDefault ""
-
-
 stringFields :
     Node TypeAnnotation
-    -> Result (Error {}) (Dict String (Result (Node TypeAnnotation) Param))
+    -> Result (Error {}) (Dict String (Result (Node TypeAnnotation) RoutePattern.Param))
 stringFields typeAnnotation =
     case Node.value typeAnnotation of
         TypeAnnotation.Record recordDefinition ->
             let
-                fields : Dict String (Result (Node TypeAnnotation) Param)
+                fields : Dict String (Result (Node TypeAnnotation) RoutePattern.Param)
                 fields =
                     recordDefinition
                         |> List.map Node.value
@@ -361,7 +287,7 @@ stringFields typeAnnotation =
                 )
 
 
-paramType : Node TypeAnnotation -> Result (Node TypeAnnotation) Param
+paramType : Node TypeAnnotation -> Result (Node TypeAnnotation) RoutePattern.Param
 paramType typeAnnotation =
     case Node.value typeAnnotation of
         TypeAnnotation.Tupled [ first, second ] ->
@@ -372,7 +298,7 @@ paramType typeAnnotation =
                             && (Node.value secondType == ( [], "List" ))
                             && (Node.value listType |> isString)
                     then
-                        Ok RequiredSplat
+                        Ok RequiredSplatParam
 
                     else
                         Err typeAnnotation
@@ -384,24 +310,24 @@ paramType typeAnnotation =
             -- TODO need to use module lookup table to handle Basics or aliases?
             case ( Node.value moduleContext, innerType ) of
                 ( ( [], "String" ), [] ) ->
-                    Ok Required
+                    Ok RoutePattern.RequiredParam
 
                 ( ( [], "Maybe" ), [ maybeOf ] ) ->
                     if isString (Node.value maybeOf) then
-                        Ok Optional
+                        Ok RoutePattern.OptionalParam
 
                     else
                         Err typeAnnotation
 
                 ( ( [], "List" ), [ listOf ] ) ->
                     if isString (Node.value listOf) then
-                        Ok OptionalSplat
+                        Ok RoutePattern.OptionalSplatParam
 
                     else
                         Err typeAnnotation
 
                 _ ->
-                    Ok Optional
+                    Ok RoutePattern.OptionalParam
 
         _ ->
             Err typeAnnotation

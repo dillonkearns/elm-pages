@@ -1,6 +1,6 @@
 module Pages.Internal.RoutePattern exposing
     ( Ending(..), RoutePattern, Segment(..), view
-    , fromModuleName, toRouteParamsRecord
+    , Param(..), fromModuleName, toRouteParamTypes, toRouteParamsRecord
     )
 
 {-| Exposed for internal use only (used in generated code).
@@ -80,6 +80,43 @@ toRouteParamsRecord pattern =
                 Just (Optional name) ->
                     [ ( name
                       , Elm.Annotation.maybe Elm.Annotation.string
+                      )
+                    ]
+           )
+
+
+toRouteParamTypes : RoutePattern -> List ( String, Param )
+toRouteParamTypes pattern =
+    (pattern.segments
+        |> List.concatMap
+            (\segment ->
+                case segment of
+                    StaticSegment _ ->
+                        []
+
+                    DynamicSegment name ->
+                        [ ( name, RequiredParam ) ]
+            )
+    )
+        ++ (case pattern.ending of
+                Nothing ->
+                    []
+
+                Just OptionalSplat ->
+                    [ ( "splat"
+                      , OptionalSplatParam
+                      )
+                    ]
+
+                Just RequiredSplat ->
+                    [ ( "splat"
+                      , RequiredSplatParam
+                      )
+                    ]
+
+                Just (Optional name) ->
+                    [ ( name
+                      , OptionalParam
                       )
                     ]
            )
@@ -206,3 +243,10 @@ changeCase mutator word =
     String.uncons word
         |> Maybe.map (\( head, tail ) -> String.cons (mutator head) tail)
         |> Maybe.withDefault ""
+
+
+type Param
+    = RequiredParam
+    | OptionalParam
+    | RequiredSplatParam
+    | OptionalSplatParam
