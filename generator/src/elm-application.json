@@ -4,6 +4,8 @@
     "version": "1.0.0",
     "exposed-modules": [
         "RouteBuilder",
+        "View",
+        "Effect",
         "Route"
     ]
 }

@@ -1,4 +1,10 @@
-module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
+module Effect exposing (Effect(..), none, batch, fromCmd, map, perform)
+
+{-|
+
+@docs Effect, none, batch, fromCmd, map, perform
+
+-}
 
 import Browser.Navigation
 import Form.FormData exposing (FormData)
@@ -8,6 +14,7 @@ import Pages.Fetcher
 import Url exposing (Url)
 
 
+{-| -}
 type Effect msg
     = None
     | Cmd (Cmd msg)
@@ -31,21 +38,25 @@ type alias RequestInfo =
     }
 
 
+{-| -}
 none : Effect msg
 none =
     None
 
 
+{-| -}
 batch : List (Effect msg) -> Effect msg
 batch =
     Batch
 
 
+{-| -}
 fromCmd : Cmd msg -> Effect msg
 fromCmd =
     Cmd
 
 
+{-| -}
 map : (a -> b) -> Effect a -> Effect b
 map fn effect =
     case effect of
@@ -82,6 +93,7 @@ map fn effect =
                 |> SubmitFetcher
 
 
+{-| -}
 perform :
     { fetchRouteData :
         { data : Maybe FormData
