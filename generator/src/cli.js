@@ -10,6 +10,7 @@ const fs = require("fs");
 const path = require("path");
 
 const commander = require("commander");
+const { compileCliApp } = require("./compile-elm.js");
 const Argument = commander.Argument;
 const Option = commander.Option;
 
@@ -110,20 +111,33 @@ async function main() {
     .allowUnknownOption()
     .allowExcessArguments()
     .action(async (options, options2) => {
-      const DocServer = require("elm-doc-preview");
-      const elmDocPreviewServer = new DocServer({
-        browser: false,
-        dir: ".",
-      });
-      elmDocPreviewServer.make("docs.json");
+      // const DocServer = require("elm-doc-preview");
+      // const elmDocPreviewServer = new DocServer({
+      //   browser: false,
+      //   dir: ".",
+      // });
+      // elmDocPreviewServer.make("docs.json");
+      // elm make Cli.elm --optimize --output elm.js
+      await compileCliApp(
+        // { debug: true },
+        {},
+        "Cli.elm",
+        path.join(process.cwd(), "codegen/elm-stuff/scaffold.js"),
+        // "elm-stuff/scaffold.js",
+        "codegen",
+
+        path.join(process.cwd(), "codegen/elm-stuff/scaffold.js")
+        // "elm-stuff/scaffold.js"
+      );
+
       const elmScaffoldProgram = require(path.join(
         process.cwd(),
-        "./codegen/elm.js"
+        "./codegen/elm-stuff/scaffold.js"
       )).Elm.Cli;
       const program = elmScaffoldProgram.init({
         flags: { argv: ["", "", ...options2.args], versionMessage: "1.2.3" },
       });
-      // TODO compile `codegen/elm.js` file
+
       // program.ports.print.subscribe((message) => {
       //   console.log(message);
       // });
