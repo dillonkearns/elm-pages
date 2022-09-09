@@ -5,6 +5,7 @@ module Pages.Generate exposing (Type(..), userFunction)
 import Elm
 import Elm.Annotation
 import Elm.Declare
+import Pages.Internal.RoutePattern as RoutePattern
 
 
 type Type
@@ -125,8 +126,11 @@ userFunction moduleName definitions =
         , definitions.types.msg |> typeToDeclaration "Msg"
         , Elm.alias "RouteParams"
             (Elm.Annotation.record
-                [-- TODO generate params based on input for module name
-                ]
+                (RoutePattern.fromModuleName moduleName
+                    -- TODO give error if not parseable here
+                    |> Maybe.map RoutePattern.toRouteParamsRecord
+                    |> Maybe.withDefault []
+                )
             )
         , Elm.declaration "route"
             (serverRender

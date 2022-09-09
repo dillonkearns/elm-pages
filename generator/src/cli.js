@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const build = require("./build.js");
+const dirHelpers = require("./dir-helpers.js");
 const dev = require("./dev-server.js");
 const generate = require("./codegen-template-module.js");
 const init = require("./init.js");
@@ -128,8 +129,9 @@ async function main() {
         console.log(message);
         process.exit(0);
       });
-      program.ports.writeFile.subscribe((info) => {
+      program.ports.writeFile.subscribe(async (info) => {
         const filePath = path.join(process.cwd(), "app", info.path);
+        await dirHelpers.tryMkdir(path.dirname(filePath));
         fs.writeFileSync(filePath, info.body);
         console.log("Success! Created file", filePath);
         process.exit(0);
