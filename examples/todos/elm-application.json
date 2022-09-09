@@ -1,6 +1,6 @@
 {
-    "name": "user/elm-pages-local",
-    "summary": "elm-pages local generated module documentation",
+    "name": "elm-pages TodoMVC",
+    "summary": "Full-Stack TodoMVC demo with elm-pages.",
     "version": "1.0.0",
     "exposed-modules": [
         "RouteBuilder",
