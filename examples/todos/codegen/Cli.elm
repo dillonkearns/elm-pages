@@ -16,7 +16,7 @@ import Gen.Platform.Sub
 import Gen.Server.Request
 import Gen.Server.Response
 import Gen.View
-import Pages.Generate
+import Pages.Generate exposing (Type(..))
 
 
 type alias CliOptions =
@@ -109,13 +109,13 @@ createFile moduleName =
                 Gen.Platform.Sub.none
         , types =
             { data =
-                Elm.alias "Data" (Elm.Annotation.record [])
+                Alias (Elm.Annotation.record [])
             , actionData =
-                Elm.alias "ActionData" (Elm.Annotation.record [])
+                Alias (Elm.Annotation.record [])
             , model =
-                Elm.alias "Model" (Elm.Annotation.record [])
+                Alias (Elm.Annotation.record [])
             , msg =
-                Elm.customType "Msg" [ Elm.variant "NoOp" ]
+                Custom [ Elm.variant "NoOp" ]
             }
         }
 

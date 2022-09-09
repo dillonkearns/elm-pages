@@ -1,10 +1,25 @@
-module Pages.Generate exposing (..)
+module Pages.Generate exposing (Type(..), userFunction)
 
 {-| -}
 
 import Elm
 import Elm.Annotation
 import Elm.Declare
+
+
+type Type
+    = Alias Elm.Annotation.Annotation
+    | Custom (List Elm.Variant)
+
+
+typeToDeclaration : String -> Type -> Elm.Declaration
+typeToDeclaration name type_ =
+    case type_ of
+        Alias annotation ->
+            Elm.alias name annotation
+
+        Custom variants ->
+            Elm.customType name variants
 
 
 userFunction :
@@ -17,7 +32,7 @@ userFunction :
         , data : Elm.Expression -> Elm.Expression
         , action : Elm.Expression -> Elm.Expression
         , head : Elm.Expression -> Elm.Expression
-        , types : { model : Elm.Declaration, msg : Elm.Declaration, data : Elm.Declaration, actionData : Elm.Declaration }
+        , types : { model : Type, msg : Type, data : Type, actionData : Type }
         }
     -> Elm.File
 userFunction moduleName definitions =
@@ -106,8 +121,8 @@ userFunction moduleName definitions =
                 )
     in
     Elm.file ("Route" :: moduleName)
-        [ definitions.types.model
-        , definitions.types.msg
+        [ definitions.types.model |> typeToDeclaration "Model"
+        , definitions.types.msg |> typeToDeclaration "Msg"
         , Elm.alias "RouteParams"
             (Elm.Annotation.record
                 [-- TODO generate params based on input for module name
@@ -145,8 +160,8 @@ userFunction moduleName definitions =
         , initFn.declaration
         , updateFn.declaration
         , subscriptionsFn.declaration
-        , definitions.types.data
-        , definitions.types.actionData
+        , definitions.types.data |> typeToDeclaration "Data"
+        , definitions.types.actionData |> typeToDeclaration "ActionData"
         , dataFn.declaration
         , actionFn.declaration
         , headFn.declaration
