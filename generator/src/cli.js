@@ -111,7 +111,7 @@ async function main() {
     .allowUnknownOption()
     .allowExcessArguments()
     .action(async (moduleName, options, options2) => {
-      if (!/^[A-Z][a-zA-Z0-9]*(\.[A-Z][a-zA-Z0-9]*)*$/.test(moduleName)) {
+      if (!/^[A-Z][a-zA-Z0-9_]*(\.[A-Z][a-zA-Z0-9_]*)*$/.test(moduleName)) {
         throw `Invalid module name "${moduleName}", must be in the format of an Elm module`;
       }
       const splitModuleName = moduleName.split(".");
