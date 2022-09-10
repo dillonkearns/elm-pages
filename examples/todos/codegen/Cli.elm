@@ -70,54 +70,55 @@ init flags cliOptions =
 
 createFile : List String -> Elm.File
 createFile moduleName =
-    Pages.Generate.userFunction moduleName
-        { action =
-            \routeParams ->
+    Pages.Generate.serverRender
+        { moduleName = moduleName
+        , action =
+            ( Alias (Elm.Annotation.record [])
+            , \routeParams ->
                 Gen.Server.Request.succeed
                     (Gen.DataSource.succeed
                         (Gen.Server.Response.render
                             (Elm.record [])
                         )
                     )
+            )
         , data =
-            \routeParams ->
+            ( Alias (Elm.Annotation.record [])
+            , \routeParams ->
                 Gen.Server.Request.succeed
                     (Gen.DataSource.succeed
                         (Gen.Server.Response.render
                             (Elm.record [])
                         )
                     )
+            )
         , head = \app -> Elm.list []
-        , view =
-            \maybeUrl sharedModel model app ->
-                Gen.View.make_.view
-                    { title = moduleName |> String.join "." |> Elm.string
-                    , body = Elm.list [ Gen.Html.text "Here is your generated page!!!" ]
-                    }
-        , update =
-            \pageUrl sharedModel app msg model ->
-                Elm.Case.custom msg
-                    (Elm.Annotation.named [] "Msg")
-                    [ Elm.Case.branch0 "NoOp"
-                        (Elm.tuple model Gen.Effect.none)
-                    ]
-        , init =
-            \pageUrl sharedModel app ->
-                Elm.tuple (Elm.record []) Gen.Effect.none
-        , subscriptions =
-            \maybePageUrl routeParams path sharedModel model ->
-                Gen.Platform.Sub.none
-        , types =
-            { data =
-                Alias (Elm.Annotation.record [])
-            , actionData =
-                Alias (Elm.Annotation.record [])
+        }
+        |> Pages.Generate.withLocalState
+            { view =
+                \maybeUrl sharedModel model app ->
+                    Gen.View.make_.view
+                        { title = moduleName |> String.join "." |> Elm.string
+                        , body = Elm.list [ Gen.Html.text "Here is your generated page!!!" ]
+                        }
+            , update =
+                \pageUrl sharedModel app msg model ->
+                    Elm.Case.custom msg
+                        (Elm.Annotation.named [] "Msg")
+                        [ Elm.Case.branch0 "NoOp"
+                            (Elm.tuple model Gen.Effect.none)
+                        ]
+            , init =
+                \pageUrl sharedModel app ->
+                    Elm.tuple (Elm.record []) Gen.Effect.none
+            , subscriptions =
+                \maybePageUrl routeParams path sharedModel model ->
+                    Gen.Platform.Sub.none
             , model =
                 Alias (Elm.Annotation.record [])
             , msg =
                 Custom [ Elm.variant "NoOp" ]
             }
-        }
 
 
 port print : String -> Cmd msg

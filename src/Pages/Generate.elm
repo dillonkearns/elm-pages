@@ -1,8 +1,8 @@
-module Pages.Generate exposing (Type(..), userFunction)
+module Pages.Generate exposing (Type(..), serverRender, withLocalState)
 
 {-|
 
-@docs Type, userFunction
+@docs Type, serverRender, withLocalState
 
 -}
 
@@ -26,6 +26,59 @@ typeToDeclaration name type_ =
 
         Custom variants ->
             Elm.customType name variants
+
+
+type Builder
+    = Builder
+        { data : ( Type, Elm.Expression -> Elm.Expression )
+        , action : ( Type, Elm.Expression -> Elm.Expression )
+        , head : Elm.Expression -> Elm.Expression
+        , moduleName : List String
+        }
+
+
+serverRender :
+    { data : ( Type, Elm.Expression -> Elm.Expression )
+    , action : ( Type, Elm.Expression -> Elm.Expression )
+    , head : Elm.Expression -> Elm.Expression
+    , moduleName : List String
+    }
+    -> Builder
+serverRender =
+    Builder
+
+
+withLocalState :
+    { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    , update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    , init : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    , msg : Type
+    , model : Type
+    }
+    -> Builder
+    -> Elm.File
+withLocalState definitions (Builder builder) =
+    userFunction builder.moduleName
+        { view = definitions.view
+        , update = definitions.update
+        , init = definitions.init
+        , subscriptions = definitions.subscriptions
+        , data = builder.data |> Tuple.second
+        , action = builder.action |> Tuple.second
+        , head = builder.head
+        , types =
+            { model = definitions.model
+            , msg = definitions.msg
+            , data = builder.data |> Tuple.first
+            , actionData = builder.action |> Tuple.first
+            }
+        }
+
+
+
+-- Msg for noState must be type alias `()`
+-- Model for noState must be type alias `{}`
 
 
 {-| -}
@@ -139,7 +192,7 @@ userFunction moduleName definitions =
                 )
             )
         , Elm.declaration "route"
-            (serverRender
+            (serverRender_
                 { action =
                     \routeParams ->
                         actionFn.call routeParams
@@ -207,13 +260,13 @@ appType =
         ]
 
 
-serverRender :
+serverRender_ :
     { data : Elm.Expression -> Elm.Expression
     , action : Elm.Expression -> Elm.Expression
     , head : Elm.Expression -> Elm.Expression
     }
     -> Elm.Expression
-serverRender serverRenderArg =
+serverRender_ serverRenderArg =
     Elm.apply
         (Elm.value
             { importFrom = [ "RouteBuilder" ]
