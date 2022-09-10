@@ -34,6 +34,7 @@
             "lamdera/codecs": "1.0.0",
             "lamdera/core": "1.0.0",
             "matheus23/elm-default-tailwind-modules": "2.0.1",
+            "mdgriffith/elm-codegen": "2.0.0",
             "miniBill/elm-codec": "2.0.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "pablohirafuji/elm-syntax-highlight": "3.4.0",
@@ -49,9 +50,14 @@
             "bburdette/toop": "1.0.1",
             "elm/file": "1.0.5",
             "elm/random": "1.0.0",
+            "elm-community/basics-extra": "4.1.0",
             "fredcy/elm-parseint": "2.0.1",
             "mgold/elm-nonempty-list": "4.2.0",
-            "rtfeldman/elm-hex": "1.0.0"
+            "miniBill/elm-unicode": "1.0.2",
+            "rtfeldman/elm-hex": "1.0.0",
+            "stil4m/elm-syntax": "7.2.9",
+            "stil4m/structured-writer": "1.0.3",
+            "the-sett/elm-pretty-printer": "3.0.0"
         }
     },
     "test-dependencies": {
