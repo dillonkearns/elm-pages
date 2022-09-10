@@ -43,7 +43,7 @@ async function main() {
     });
 
   program
-    .command("codegen")
+    .command("gen")
     .option(
       "--base <basePath>",
       "build site to be served under a base path",
@@ -106,7 +106,7 @@ async function main() {
     });
 
   program
-    .command("scaffold")
+    .command("codegen")
     .description("run a generator")
     .allowUnknownOption()
     .allowExcessArguments()
