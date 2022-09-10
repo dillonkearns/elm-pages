@@ -1,8 +1,8 @@
-module Pages.Generate exposing (Type(..), serverRender, withLocalState)
+module Pages.Generate exposing (Type(..), serverRender, buildWithLocalState, buildNoState)
 
 {-|
 
-@docs Type, serverRender, withLocalState
+@docs Type, serverRender, buildWithLocalState, buildNoState
 
 -}
 
@@ -48,7 +48,28 @@ serverRender =
     Builder
 
 
-withLocalState :
+buildNoState :
+    { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    }
+    -> Builder
+    -> Elm.File
+buildNoState definitions (Builder builder) =
+    userFunction builder.moduleName
+        { view = \_ -> definitions.view
+        , localState = Nothing
+        , data = builder.data |> Tuple.second
+        , action = builder.action |> Tuple.second
+        , head = builder.head
+        , types =
+            { model = Alias (Elm.Annotation.record [])
+            , msg = Alias Elm.Annotation.unit
+            , data = builder.data |> Tuple.first
+            , actionData = builder.action |> Tuple.first
+            }
+        }
+
+
+buildWithLocalState :
     { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
     , update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
     , init : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
@@ -58,12 +79,15 @@ withLocalState :
     }
     -> Builder
     -> Elm.File
-withLocalState definitions (Builder builder) =
+buildWithLocalState definitions (Builder builder) =
     userFunction builder.moduleName
         { view = definitions.view
-        , update = definitions.update
-        , init = definitions.init
-        , subscriptions = definitions.subscriptions
+        , localState =
+            Just
+                { update = definitions.update
+                , init = definitions.init
+                , subscriptions = definitions.subscriptions
+                }
         , data = builder.data |> Tuple.second
         , action = builder.action |> Tuple.second
         , head = builder.head
@@ -76,19 +100,17 @@ withLocalState definitions (Builder builder) =
         }
 
 
-
--- Msg for noState must be type alias `()`
--- Model for noState must be type alias `{}`
-
-
 {-| -}
 userFunction :
     List String
     ->
         { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-        , update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-        , init : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-        , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+        , localState :
+            Maybe
+                { update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                , init : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                }
         , data : Elm.Expression -> Elm.Expression
         , action : Elm.Expression -> Elm.Expression
         , head : Elm.Expression -> Elm.Expression
@@ -98,59 +120,86 @@ userFunction :
 userFunction moduleName definitions =
     let
         viewFn =
-            Elm.Declare.fn4 "view"
-                ( "maybeUrl"
-                , "PageUrl"
-                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
-                    |> Elm.Annotation.maybe
-                    |> Just
-                )
-                ( "sharedModel"
-                , Nothing
-                )
-                ( "model", Just (Elm.Annotation.named [] "Model") )
-                ( "app", Just appType )
-                definitions.view
+            case definitions.localState of
+                Just _ ->
+                    Elm.Declare.fn4 "view"
+                        ( "maybeUrl"
+                        , "PageUrl"
+                            |> Elm.Annotation.named [ "Pages", "PageUrl" ]
+                            |> Elm.Annotation.maybe
+                            |> Just
+                        )
+                        ( "sharedModel"
+                        , Nothing
+                        )
+                        ( "model", Just (Elm.Annotation.named [] "Model") )
+                        ( "app", Just appType )
+                        definitions.view
 
-        updateFn =
-            Elm.Declare.fn5 "update"
-                ( "pageUrl"
-                , "PageUrl"
-                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
-                    |> Just
-                )
-                ( "sharedModel", Nothing )
-                ( "app", Just appType )
-                ( "msg", Just (Elm.Annotation.named [] "Msg") )
-                ( "model", Just (Elm.Annotation.named [] "Model") )
-                definitions.update
+                Nothing ->
+                    let
+                        thing =
+                            Elm.Declare.fn3 "view"
+                                ( "maybeUrl"
+                                , "PageUrl"
+                                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
+                                    |> Elm.Annotation.maybe
+                                    |> Just
+                                )
+                                ( "sharedModel"
+                                , Nothing
+                                )
+                                ( "app", Just appType )
+                                (definitions.view Elm.unit)
+                    in
+                    { declaration = thing.declaration
+                    , call = \_ -> thing.call
+                    , callFrom = \a b c d -> thing.callFrom a c d
+                    }
 
-        initFn =
-            Elm.Declare.fn3 "init"
-                ( "pageUrl"
-                , "PageUrl"
-                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
-                    |> Elm.Annotation.maybe
-                    |> Just
-                )
-                ( "sharedModel", Nothing )
-                ( "app", Just appType )
-                definitions.init
-
-        subscriptionsFn =
-            Elm.Declare.fn5
-                "subscriptions"
-                ( "maybePageUrl"
-                , "PageUrl"
-                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
-                    |> Elm.Annotation.maybe
-                    |> Just
-                )
-                ( "routeParams", Nothing )
-                ( "path", Nothing )
-                ( "sharedModel", Nothing )
-                ( "model", Nothing )
-                definitions.subscriptions
+        localDefinitions =
+            definitions.localState
+                |> Maybe.map
+                    (\localState ->
+                        { updateFn =
+                            Elm.Declare.fn5 "update"
+                                ( "pageUrl"
+                                , "PageUrl"
+                                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
+                                    |> Just
+                                )
+                                ( "sharedModel", Nothing )
+                                ( "app", Just appType )
+                                ( "msg", Just (Elm.Annotation.named [] "Msg") )
+                                ( "model", Just (Elm.Annotation.named [] "Model") )
+                                localState.update
+                        , initFn =
+                            Elm.Declare.fn3 "init"
+                                ( "pageUrl"
+                                , "PageUrl"
+                                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
+                                    |> Elm.Annotation.maybe
+                                    |> Just
+                                )
+                                ( "sharedModel", Nothing )
+                                ( "app", Just appType )
+                                localState.init
+                        , subscriptionsFn =
+                            Elm.Declare.fn5
+                                "subscriptions"
+                                ( "maybePageUrl"
+                                , "PageUrl"
+                                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
+                                    |> Elm.Annotation.maybe
+                                    |> Just
+                                )
+                                ( "routeParams", Nothing )
+                                ( "path", Nothing )
+                                ( "sharedModel", Nothing )
+                                ( "model", Nothing )
+                                localState.subscriptions
+                        }
+                    )
 
         dataFn =
             Elm.Declare.fn "data"
@@ -181,9 +230,9 @@ userFunction moduleName definitions =
                 )
     in
     Elm.file ("Route" :: moduleName)
-        [ definitions.types.model |> typeToDeclaration "Model"
-        , definitions.types.msg |> typeToDeclaration "Msg"
-        , Elm.alias "RouteParams"
+        ([ definitions.types.model |> typeToDeclaration "Model"
+         , definitions.types.msg |> typeToDeclaration "Msg"
+         , Elm.alias "RouteParams"
             (Elm.Annotation.record
                 (RoutePattern.fromModuleName moduleName
                     -- TODO give error if not parseable here
@@ -191,7 +240,7 @@ userFunction moduleName definitions =
                     |> Maybe.withDefault []
                 )
             )
-        , Elm.declaration "route"
+         , Elm.declaration "route"
             (serverRender_
                 { action =
                     \routeParams ->
@@ -203,33 +252,58 @@ userFunction moduleName definitions =
                             |> Elm.withType (myType "Data")
                 , head = headFn.call
                 }
-                |> buildWithLocalState
-                    { view = viewFn.call
-                    , update = updateFn.call
-                    , init = initFn.call
-                    , subscriptions = subscriptionsFn.call
-                    }
-                |> Elm.withType
-                    (Elm.Annotation.namedWith [ "RouteBuilder" ]
-                        "StatefulRoute"
-                        [ localType "RouteParams"
-                        , localType "Data"
-                        , localType "ActionData"
-                        , localType "Model"
-                        , localType "Msg"
-                        ]
-                    )
+                |> (case localDefinitions of
+                        Just local ->
+                            buildWithLocalState_
+                                { view = viewFn.call
+                                , update = local.updateFn.call
+                                , init = local.initFn.call
+                                , subscriptions = local.subscriptionsFn.call
+                                }
+                                >> Elm.withType
+                                    (Elm.Annotation.namedWith [ "RouteBuilder" ]
+                                        "StatefulRoute"
+                                        [ localType "RouteParams"
+                                        , localType "Data"
+                                        , localType "ActionData"
+                                        , localType "Model"
+                                        , localType "Msg"
+                                        ]
+                                    )
+
+                        Nothing ->
+                            buildNoState_
+                                { view = viewFn.call Elm.unit
+                                }
+                                >> Elm.withType
+                                    (Elm.Annotation.namedWith [ "RouteBuilder" ]
+                                        "StatelessRoute"
+                                        [ localType "RouteParams"
+                                        , localType "Data"
+                                        , localType "ActionData"
+                                        ]
+                                    )
+                   )
             )
-        , initFn.declaration
-        , updateFn.declaration
-        , subscriptionsFn.declaration
-        , definitions.types.data |> typeToDeclaration "Data"
-        , definitions.types.actionData |> typeToDeclaration "ActionData"
-        , dataFn.declaration
-        , actionFn.declaration
-        , headFn.declaration
-        , viewFn.declaration
-        ]
+         ]
+            ++ (case localDefinitions of
+                    Just local ->
+                        [ local.initFn.declaration
+                        , local.updateFn.declaration
+                        , local.subscriptionsFn.declaration
+                        ]
+
+                    Nothing ->
+                        []
+               )
+            ++ [ definitions.types.data |> typeToDeclaration "Data"
+               , definitions.types.actionData |> typeToDeclaration "ActionData"
+               , dataFn.declaration
+               , actionFn.declaration
+               , headFn.declaration
+               , viewFn.declaration
+               ]
+        )
 
 
 localType =
@@ -360,7 +434,7 @@ serverRender_ serverRenderArg =
         ]
 
 
-buildWithLocalState :
+buildWithLocalState_ :
     { view :
         Elm.Expression
         -> Elm.Expression
@@ -386,7 +460,7 @@ buildWithLocalState :
     }
     -> Elm.Expression
     -> Elm.Expression
-buildWithLocalState buildWithLocalStateArg buildWithLocalStateArg0 =
+buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
     Elm.apply
         (Elm.value
             { importFrom = [ "RouteBuilder" ]
@@ -608,4 +682,90 @@ buildWithLocalState buildWithLocalStateArg buildWithLocalStateArg0 =
                 )
             ]
         , buildWithLocalStateArg0
+        ]
+
+
+buildNoState_ :
+    { view :
+        Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    }
+    -> Elm.Expression
+    -> Elm.Expression
+buildNoState_ buildNoStateArg buildNoStateArg0 =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "RouteBuilder" ]
+            , name = "buildNoState"
+            , annotation =
+                Just
+                    (Elm.Annotation.function
+                        [ Elm.Annotation.record
+                            [ ( "view"
+                              , Elm.Annotation.function
+                                    [ Elm.Annotation.maybe
+                                        (Elm.Annotation.namedWith
+                                            [ "Pages", "PageUrl" ]
+                                            "PageUrl"
+                                            []
+                                        )
+                                    , Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                    , Elm.Annotation.namedWith
+                                        [ "RouteBuilder" ]
+                                        "StaticPayload"
+                                        [ Elm.Annotation.var "data"
+                                        , Elm.Annotation.var "action"
+                                        , Elm.Annotation.var "routeParams"
+                                        ]
+                                    ]
+                                    (Elm.Annotation.namedWith
+                                        [ "View" ]
+                                        "View"
+                                        [ Elm.Annotation.namedWith
+                                            [ "Pages", "Msg" ]
+                                            "Msg"
+                                            [ Elm.Annotation.unit ]
+                                        ]
+                                    )
+                              )
+                            ]
+                        , Elm.Annotation.namedWith
+                            [ "RouteBuilder" ]
+                            "Builder"
+                            [ Elm.Annotation.var "routeParams"
+                            , Elm.Annotation.var "data"
+                            , Elm.Annotation.var "action"
+                            ]
+                        ]
+                        (Elm.Annotation.namedWith
+                            [ "RouteBuilder" ]
+                            "StatefulRoute"
+                            [ Elm.Annotation.var "routeParams"
+                            , Elm.Annotation.var "data"
+                            , Elm.Annotation.var "action"
+                            , Elm.Annotation.record []
+                            , Elm.Annotation.unit
+                            ]
+                        )
+                    )
+            }
+        )
+        [ Elm.record
+            [ Tuple.pair
+                "view"
+                (Elm.functionReduced
+                    "buildNoStateUnpack"
+                    (\functionReducedUnpack ->
+                        Elm.functionReduced
+                            "unpack"
+                            (\functionReducedUnpack0 ->
+                                Elm.functionReduced
+                                    "unpack"
+                                    (buildNoStateArg.view functionReducedUnpack
+                                        functionReducedUnpack0
+                                    )
+                            )
+                    )
+                )
+            ]
+        , buildNoStateArg0
         ]

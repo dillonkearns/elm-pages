@@ -94,7 +94,15 @@ createFile moduleName =
             )
         , head = \app -> Elm.list []
         }
-        |> Pages.Generate.withLocalState
+        --|> Pages.Generate.buildNoState
+        --    { view =
+        --        \_ _ _ ->
+        --            Gen.View.make_.view
+        --                { title = moduleName |> String.join "." |> Elm.string
+        --                , body = Elm.list [ Gen.Html.text "Here is your generated page!!!" ]
+        --                }
+        --    }
+        |> Pages.Generate.buildWithLocalState
             { view =
                 \maybeUrl sharedModel model app ->
                     Gen.View.make_.view
