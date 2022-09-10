@@ -106,11 +106,12 @@ async function main() {
     });
 
   program
-    .command("codegen")
+    .command("codegen <moduleName>")
     .description("run a generator")
     .allowUnknownOption()
     .allowExcessArguments()
-    .action(async (options, options2) => {
+    .action(async (moduleName, options, options2) => {
+      const splitModuleName = moduleName.split(".");
       // const DocServer = require("elm-doc-preview");
       // const elmDocPreviewServer = new DocServer({
       //   browser: false,
@@ -121,7 +122,7 @@ async function main() {
       await compileCliApp(
         // { debug: true },
         {},
-        "Cli.elm",
+        `${splitModuleName.join("/")}.elm`,
         path.join(process.cwd(), "codegen/elm-stuff/scaffold.js"),
         // "elm-stuff/scaffold.js",
         "codegen",
@@ -130,12 +131,12 @@ async function main() {
         // "elm-stuff/scaffold.js"
       );
 
-      const elmScaffoldProgram = require(path.join(
-        process.cwd(),
-        "./codegen/elm-stuff/scaffold.js"
-      )).Elm.Cli;
+      const elmScaffoldProgram = getAt(
+        splitModuleName,
+        require(path.join(process.cwd(), "./codegen/elm-stuff/scaffold.js")).Elm
+      );
       const program = elmScaffoldProgram.init({
-        flags: { argv: ["", "", ...options2.args], versionMessage: "1.2.3" },
+        flags: { argv: ["", ...options2.args], versionMessage: "1.2.3" },
       });
 
       // program.ports.print.subscribe((message) => {
@@ -175,6 +176,20 @@ async function main() {
     });
 
   program.parse(process.argv);
+}
+
+/**
+ * @param {string[]} properties
+ * @param {Object} object
+ * @returns unknown
+ */
+function getAt(properties, object) {
+  if (properties.length === 0) {
+    return object;
+  } else {
+    const [next, ...rest] = properties;
+    return getAt(rest, object[next]);
+  }
 }
 
 function clearHttpAndPortCache() {
