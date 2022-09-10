@@ -37,6 +37,7 @@ type Builder
         }
 
 
+{-| -}
 serverRender :
     { data : ( Type, Elm.Expression -> Elm.Expression )
     , action : ( Type, Elm.Expression -> Elm.Expression )
@@ -48,6 +49,7 @@ serverRender =
     Builder
 
 
+{-| -}
 buildNoState :
     { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
     }
@@ -69,6 +71,7 @@ buildNoState definitions (Builder builder) =
         }
 
 
+{-| -}
 buildWithLocalState :
     { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
     , update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
