@@ -111,7 +111,18 @@ async function main() {
     .allowUnknownOption()
     .allowExcessArguments()
     .action(async (moduleName, options, options2) => {
+      if (!/^[A-Z][a-zA-Z0-9]*(\.[A-Z][a-zA-Z0-9]*)*$/.test(moduleName)) {
+        throw `Invalid module name "${moduleName}", must be in the format of an Elm module`;
+      }
       const splitModuleName = moduleName.split(".");
+      const expectedFilePath = path.join(
+        process.cwd(),
+        "codegen",
+        `${splitModuleName.join("/")}.elm`
+      );
+      if (!fs.existsSync(expectedFilePath)) {
+        throw `I couldn't find a module named ${expectedFilePath}`;
+      }
       // const DocServer = require("elm-doc-preview");
       // const elmDocPreviewServer = new DocServer({
       //   browser: false,
