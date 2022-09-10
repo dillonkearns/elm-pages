@@ -139,18 +139,18 @@ async function main() {
         flags: { argv: ["", ...options2.args], versionMessage: "1.2.3" },
       });
 
-      // program.ports.print.subscribe((message) => {
-      //   console.log(message);
-      // });
-      program.ports.printAndExitFailure.subscribe((message) => {
+      safeSubscribe(program, "print", (message) => {
+        console.log(message);
+      });
+      safeSubscribe(program, "printAndExitFailure", (message) => {
         console.log(message);
         process.exit(1);
       });
-      program.ports.printAndExitSuccess.subscribe((message) => {
+      safeSubscribe(program, "printAndExitSuccess", (message) => {
         console.log(message);
         process.exit(0);
       });
-      program.ports.writeFile.subscribe(async (info) => {
+      safeSubscribe(program, "writeFile", async (info) => {
         const filePath = path.join(process.cwd(), "app", info.path);
         await dirHelpers.tryMkdir(path.dirname(filePath));
         fs.writeFileSync(filePath, info.body);
@@ -190,6 +190,11 @@ function getAt(properties, object) {
     const [next, ...rest] = properties;
     return getAt(rest, object[next]);
   }
+}
+
+function safeSubscribe(program, portName, subscribeFunction) {
+  program.ports[portName] &&
+    program.ports[portName].subscribe(subscribeFunction);
 }
 
 function clearHttpAndPortCache() {
