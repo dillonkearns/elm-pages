@@ -6,7 +6,9 @@
             "elm/html": "1.0.0"
         },
         "local": [
-            "docs.json"
+            "../../src/",
+            ".elm-pages/",
+            "app/"
         ]
     }
 }
