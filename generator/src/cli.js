@@ -11,6 +11,7 @@ const path = require("path");
 
 const commander = require("commander");
 const { compileCliApp } = require("./compile-elm.js");
+const { runElmCodegenInstall } = require("./elm-codegen.js");
 const Argument = commander.Argument;
 const Option = commander.Option;
 
@@ -123,13 +124,8 @@ async function main() {
       if (!fs.existsSync(expectedFilePath)) {
         throw `I couldn't find a module named ${expectedFilePath}`;
       }
-      // const DocServer = require("elm-doc-preview");
-      // const elmDocPreviewServer = new DocServer({
-      //   browser: false,
-      //   dir: ".",
-      // });
-      // elmDocPreviewServer.make("docs.json");
-      // elm make Cli.elm --optimize --output elm.js
+      await codegen.generate("");
+      await runElmCodegenInstall();
       await compileCliApp(
         // { debug: true },
         {},
