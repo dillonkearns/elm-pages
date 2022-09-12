@@ -38,7 +38,7 @@ async function generateTemplateModuleConnector(basePath, phase) {
       ],
     };
   }
-  const routesModuleNew = await runElmCodegenCli(templates);
+  const routesModuleNew = await runElmCodegenCli(sortTemplates(templates));
 
   return {
     mainModule: `port module Main exposing (..)
