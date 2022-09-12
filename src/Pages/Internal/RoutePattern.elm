@@ -56,7 +56,7 @@ toRouteParamsRecord pattern =
                         []
 
                     DynamicSegment name ->
-                        [ ( name, Elm.Annotation.string ) ]
+                        [ ( name |> decapitalize, Elm.Annotation.string ) ]
             )
     )
         ++ (case pattern.ending of
@@ -78,7 +78,7 @@ toRouteParamsRecord pattern =
                     ]
 
                 Just (Optional name) ->
-                    [ ( name
+                    [ ( name |> decapitalize
                       , Elm.Annotation.maybe Elm.Annotation.string
                       )
                     ]
@@ -95,7 +95,7 @@ toRouteParamTypes pattern =
                         []
 
                     DynamicSegment name ->
-                        [ ( name, RequiredParam ) ]
+                        [ ( name |> decapitalize, RequiredParam ) ]
             )
     )
         ++ (case pattern.ending of
@@ -115,7 +115,7 @@ toRouteParamTypes pattern =
                     ]
 
                 Just (Optional name) ->
-                    [ ( name
+                    [ ( name |> decapitalize
                       , OptionalParam
                       )
                     ]
@@ -199,7 +199,6 @@ tryAsEnding segment =
     else if segment |> String.endsWith "__" then
         (segment
             |> String.dropRight 2
-            |> decapitalize
             |> Optional
         )
             |> Just
@@ -213,13 +212,10 @@ segmentToParam segment =
     if segment |> String.endsWith "_" then
         segment
             |> String.dropRight 1
-            |> decapitalize
             |> DynamicSegment
 
     else
         segment
-            |> String.dropRight 1
-            |> decapitalize
             |> StaticSegment
 
 
