@@ -1,16 +1,17 @@
 module Pages.Internal.RoutePattern exposing
-    ( Ending(..), RoutePattern, Segment(..), view, toVariant
+    ( Ending(..), RoutePattern, Segment(..), view, toVariant, routeToBranch
     , Param(..), fromModuleName, toRouteParamTypes, toRouteParamsRecord
     )
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs Ending, RoutePattern, Segment, view, toVariant
+@docs Ending, RoutePattern, Segment, view, toVariant, routeToBranch
 
 -}
 
 import Elm
 import Elm.Annotation exposing (Annotation)
+import Elm.Case
 import Html exposing (Html)
 
 
@@ -121,6 +122,15 @@ toRouteParamTypes pattern =
                       )
                     ]
            )
+
+
+routeToBranch : RoutePattern -> Elm.Case.Branch
+routeToBranch route =
+    Elm.Case.branchList 0
+        (\_ ->
+            Elm.val "Index"
+                |> Elm.just
+        )
 
 
 {-| -}

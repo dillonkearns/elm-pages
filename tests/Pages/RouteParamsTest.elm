@@ -2,6 +2,7 @@ module Pages.RouteParamsTest exposing (..)
 
 import Elm
 import Elm.Annotation
+import Elm.Case
 import Elm.ToString
 import Expect exposing (Expectation)
 import Pages.Internal.RoutePattern as RoutePattern
@@ -132,7 +133,36 @@ suite =
                                 ]
                             )
             ]
+        , describe "toCase"
+            [ test "root route" <|
+                \() ->
+                    []
+                        |> testCaseGenerator
+                            (Elm.Case.branchList 0
+                                (\_ ->
+                                    Elm.val "Index"
+                                        |> Elm.just
+                                )
+                            )
+            ]
         ]
+
+
+testCaseGenerator : Elm.Case.Branch -> List String -> Expectation
+testCaseGenerator expected moduleName =
+    RoutePattern.fromModuleName moduleName
+        |> Maybe.map (RoutePattern.routeToBranch >> toStringCase)
+        |> Maybe.withDefault "<ERROR>"
+        |> Expect.equal (expected |> toStringCase)
+
+
+toStringCase : Elm.Case.Branch -> String
+toStringCase branch =
+    Elm.Case.custom (Elm.val "segments")
+        (Elm.Annotation.list Elm.Annotation.string)
+        [ branch ]
+        |> Elm.ToString.expression
+        |> .body
 
 
 expectRouteDefinition : Elm.Variant -> List String -> Expectation
