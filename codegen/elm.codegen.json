@@ -6,7 +6,6 @@
             "elm/html": "1.0.0"
         },
         "local": [
-            "codegen/helpers/",
             "src/"
         ]
     }

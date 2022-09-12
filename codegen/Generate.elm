@@ -5,7 +5,9 @@ port module Generate exposing (main)
 import Elm exposing (File)
 import Elm.Annotation
 import Elm.Case
+import Elm.CodeGen
 import Elm.Op
+import Elm.Pretty
 import Gen.Basics
 import Gen.CodeGen.Generate exposing (Error)
 import Gen.List
@@ -13,6 +15,7 @@ import Gen.Path
 import Gen.Server.Response
 import Gen.String
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
+import Pretty
 
 
 type alias Flags =
@@ -54,11 +57,13 @@ file templates =
                 , Elm.Annotation.list Elm.Annotation.string |> Just
                 )
                 (\segments ->
-                    Elm.Case.custom segments
-                        (Elm.Annotation.list Elm.Annotation.string)
-                        ((routes |> List.map routeToBranch)
-                            ++ [ Elm.Case.otherwise (\_ -> Elm.nothing) ]
-                        )
+                    (routes
+                        |> List.map RoutePattern.routeToBranch
+                        |> Elm.CodeGen.caseExpr (Elm.CodeGen.val "segments")
+                    )
+                        |> Elm.Pretty.prettyExpression
+                        |> Pretty.pretty 120
+                        |> Elm.val
                         |> Elm.withType
                             (Elm.Annotation.named [] "Route"
                                 |> Elm.Annotation.maybe

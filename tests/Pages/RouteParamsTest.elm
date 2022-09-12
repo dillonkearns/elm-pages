@@ -3,9 +3,13 @@ module Pages.RouteParamsTest exposing (..)
 import Elm
 import Elm.Annotation
 import Elm.Case
+import Elm.CodeGen
+import Elm.Pretty
 import Elm.ToString
 import Expect exposing (Expectation)
 import Pages.Internal.RoutePattern as RoutePattern
+import Pretty
+import Pretty.Renderer
 import Test exposing (Test, describe, test)
 
 
@@ -138,31 +142,41 @@ suite =
                 \() ->
                     []
                         |> testCaseGenerator
-                            (Elm.Case.branchList 0
-                                (\_ ->
-                                    Elm.val "Index"
-                                        |> Elm.just
-                                )
+                            ( Elm.CodeGen.listPattern []
+                            , Elm.CodeGen.val "TODO"
+                            )
+            , test "dynamic segment" <|
+                \() ->
+                    [ "User", "Id_" ]
+                        |> testCaseGenerator
+                            ( Elm.CodeGen.listPattern
+                                [ Elm.CodeGen.stringPattern "user"
+                                , Elm.CodeGen.varPattern "id"
+                                ]
+                            , Elm.CodeGen.val "TODO"
                             )
             ]
         ]
 
 
-testCaseGenerator : Elm.Case.Branch -> List String -> Expectation
+testCaseGenerator : ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression ) -> List String -> Expectation
 testCaseGenerator expected moduleName =
     RoutePattern.fromModuleName moduleName
         |> Maybe.map (RoutePattern.routeToBranch >> toStringCase)
-        |> Maybe.withDefault "<ERROR>"
+        |> Maybe.withDefault ( "<ERROR>", "<ERROR>" )
         |> Expect.equal (expected |> toStringCase)
 
 
-toStringCase : Elm.Case.Branch -> String
+toStringCase : ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression ) -> ( String, String )
 toStringCase branch =
-    Elm.Case.custom (Elm.val "segments")
-        (Elm.Annotation.list Elm.Annotation.string)
-        [ branch ]
-        |> Elm.ToString.expression
-        |> .body
+    branch
+        |> Tuple.mapBoth
+            (Elm.Pretty.prettyPattern
+                >> Pretty.pretty 120
+            )
+            (Elm.Pretty.prettyExpression
+                >> Pretty.pretty 120
+            )
 
 
 expectRouteDefinition : Elm.Variant -> List String -> Expectation

@@ -12,6 +12,7 @@ module Pages.Internal.RoutePattern exposing
 import Elm
 import Elm.Annotation exposing (Annotation)
 import Elm.Case
+import Elm.CodeGen
 import Html exposing (Html)
 
 
@@ -124,13 +125,19 @@ toRouteParamTypes pattern =
            )
 
 
-routeToBranch : RoutePattern -> Elm.Case.Branch
+routeToBranch : RoutePattern -> ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression )
 routeToBranch route =
-    Elm.Case.branchList 0
-        (\_ ->
-            Elm.val "Index"
-                |> Elm.just
-        )
+    case route.segments of
+        [] ->
+            ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "TODO" )
+
+        _ ->
+            ( Elm.CodeGen.listPattern
+                [ Elm.CodeGen.stringPattern "user"
+                , Elm.CodeGen.varPattern "id"
+                ]
+            , Elm.CodeGen.val "TODO"
+            )
 
 
 {-| -}
