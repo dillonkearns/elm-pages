@@ -38,7 +38,19 @@ file templates =
     Elm.file [ "Route" ]
         [ Elm.customType "Route"
             (routes |> List.map RoutePattern.toVariant)
+            |> expose
+        , Elm.declaration "baseUrl" (Elm.string "/")
+            |> expose
         ]
+
+
+expose : Elm.Declaration -> Elm.Declaration
+expose declaration =
+    declaration
+        |> Elm.exposeWith
+            { exposeConstructor = True
+            , group = Nothing
+            }
 
 
 port onSuccessSend : List File -> Cmd msg
