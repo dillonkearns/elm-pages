@@ -119,6 +119,18 @@ suite =
                                     ]
                                 ]
                             )
+            , test "optional param" <|
+                \() ->
+                    [ "Docs", "Section__" ]
+                        |> expectRouteDefinition
+                            (Elm.variantWith "Docs__Section__"
+                                [ Elm.Annotation.record
+                                    [ ( "section"
+                                      , Elm.Annotation.maybe Elm.Annotation.string
+                                      )
+                                    ]
+                                ]
+                            )
             ]
         ]
 
