@@ -2,12 +2,14 @@ const globby = require("globby");
 const path = require("path");
 const mm = require("micromatch");
 const routeHelpers = require("./route-codegen-helpers");
+const { runElmCodegenInstall } = require("./elm-codegen");
+const { compileCliApp } = require("./compile-elm");
 
 /**
  * @param {string} basePath
  * @param {'browser' | 'cli'} phase
  */
-function generateTemplateModuleConnector(basePath, phase) {
+async function generateTemplateModuleConnector(basePath, phase) {
   const templates = globby.sync(["app/Route/**/*.elm"], {}).map((file) => {
     const captures = mm.capture("app/Route/**/*.elm", file);
     if (captures) {
@@ -36,6 +38,7 @@ function generateTemplateModuleConnector(basePath, phase) {
       ],
     };
   }
+  const routesModuleNew = await runElmCodegenCli(templates);
 
   return {
     mainModule: `port module Main exposing (..)
@@ -997,6 +1000,7 @@ decodeBytes bytesDecoder items =
     -- Lamdera.Wire3.bytesDecodeStrict bytesDecoder items
         |> Result.fromMaybe "Decoding error"
 `,
+    routesModuleNew,
     routesModule: `module Route exposing (baseUrlAsPath, Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath, redirectTo, toString)
 
 {-|
@@ -1140,6 +1144,42 @@ redirectTo route =
       return [name, fetcherModule(name)];
     }),
   };
+}
+
+async function runElmCodegenCli(templates) {
+  // await runElmCodegenInstall();
+  await compileCliApp(
+    // { debug: true },
+    {},
+    `Generate.elm`,
+    path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js"),
+    path.join(__dirname, "../../codegen"),
+
+    path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js")
+  );
+
+  // TODO use uncached require here to prevent stale code from running
+
+  const promise = new Promise((resolve, reject) => {
+    const elmPagesCodegen = require(path.join(
+      process.cwd(),
+      "./elm-stuff/elm-pages-codegen.js"
+    )).Elm.Generate;
+
+    const app = elmPagesCodegen.init({ flags: {} });
+    if (app.ports.onSuccessSend) {
+      app.ports.onSuccessSend.subscribe(resolve);
+    }
+    if (app.ports.onInfoSend) {
+      app.ports.onInfoSend.subscribe((info) => console.log(info));
+    }
+    if (app.ports.onFailureSend) {
+      app.ports.onFailureSend.subscribe(reject);
+    }
+  });
+  const filesToGenerate = await promise;
+
+  return filesToGenerate[0].contents;
 }
 
 function emptyRouteParams(name) {
