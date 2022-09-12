@@ -1166,7 +1166,7 @@ async function runElmCodegenCli(templates) {
       "./elm-stuff/elm-pages-codegen.js"
     )).Elm.Generate;
 
-    const app = elmPagesCodegen.init({ flags: {} });
+    const app = elmPagesCodegen.init({ flags: { templates: templates } });
     if (app.ports.onSuccessSend) {
       app.ports.onSuccessSend.subscribe(resolve);
     }
