@@ -107,6 +107,18 @@ suite =
                                     ]
                                 ]
                             )
+            , test "optional splat" <|
+                \() ->
+                    [ "SPLAT__" ]
+                        |> expectRouteDefinition
+                            (Elm.variantWith "SPLAT__"
+                                [ Elm.Annotation.record
+                                    [ ( "splat"
+                                      , Elm.Annotation.list Elm.Annotation.string
+                                      )
+                                    ]
+                                ]
+                            )
             ]
         ]
 

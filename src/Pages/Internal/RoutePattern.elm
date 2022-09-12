@@ -186,7 +186,12 @@ endingToVariantName ending =
             )
 
         OptionalSplat ->
-            ( "SPLAT__", Just ( "splat", Elm.Annotation.string ) )
+            ( "SPLAT__"
+            , Just
+                ( "splat"
+                , Elm.Annotation.list Elm.Annotation.string
+                )
+            )
 
 
 {-| -}
