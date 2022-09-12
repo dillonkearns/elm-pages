@@ -130,37 +130,56 @@ toVariant pattern =
         Elm.variant "Index"
 
     else
-        ((pattern.segments
-            |> List.map
-                (\segment ->
-                    case segment of
-                        DynamicSegment name ->
-                            name ++ "_"
+        let
+            something =
+                (pattern.segments
+                    |> List.map
+                        (\segment ->
+                            case segment of
+                                DynamicSegment name ->
+                                    ( name ++ "_", Just ( decapitalize name, Elm.Annotation.string ) )
 
-                        StaticSegment name ->
-                            name
+                                StaticSegment name ->
+                                    ( name, Nothing )
+                        )
                 )
-         )
-            ++ ([ Maybe.map endingToVariantName pattern.ending
-                ]
-                    |> List.filterMap identity
-               )
-        )
-            |> String.join "__"
-            |> Elm.variant
+                    ++ ([ Maybe.map endingToVariantName pattern.ending
+                        ]
+                            |> List.filterMap identity
+                       )
+
+            fieldThings : List ( String, Annotation )
+            fieldThings =
+                something
+                    |> List.filterMap Tuple.second
+
+            innerType =
+                case fieldThings of
+                    [] ->
+                        []
+
+                    nonEmpty ->
+                        nonEmpty |> Elm.Annotation.record |> List.singleton
+        in
+        Elm.variantWith
+            (something
+                |> List.map Tuple.first
+                |> String.join "__"
+            )
+            innerType
 
 
-endingToVariantName : Ending -> String
+endingToVariantName : Ending -> ( String, Maybe ( String, Annotation ) )
 endingToVariantName ending =
     case ending of
         Optional name ->
-            name ++ "__"
+            ( name ++ "__", Just ( decapitalize name, Elm.Annotation.maybe Elm.Annotation.string ) )
 
         RequiredSplat ->
-            "SPLAT_"
+            ( "SPLAT_", Just ( "splat", Elm.Annotation.string ) )
 
         OptionalSplat ->
-            "SPLAT__"
+            ( "SPLAT__", Just ( "splat", Elm.Annotation.string ) )
 
 
 {-| -}

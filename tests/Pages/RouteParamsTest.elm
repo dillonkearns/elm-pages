@@ -81,5 +81,18 @@ suite =
                         |> Maybe.map RoutePattern.toVariant
                         |> Expect.equal
                             (Just (Elm.variant "About"))
+            , test "dynamic param" <|
+                \() ->
+                    RoutePattern.fromModuleName [ "User", "Id_" ]
+                        |> Maybe.map RoutePattern.toVariant
+                        |> Expect.equal
+                            (Just
+                                (Elm.variantWith "User__Id_"
+                                    [ Elm.Annotation.record
+                                        [ ( "id", Elm.Annotation.string )
+                                        ]
+                                    ]
+                                )
+                            )
             ]
         ]

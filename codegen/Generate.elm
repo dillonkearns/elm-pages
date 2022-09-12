@@ -3,9 +3,7 @@ port module Generate exposing (main)
 {-| -}
 
 import Elm exposing (File)
-import Elm.Annotation as Type
-import Gen.CodeGen.Generate as Generate exposing (Error)
-import Gen.Helper
+import Gen.CodeGen.Generate exposing (Error)
 import Pages.Internal.RoutePattern as RoutePattern
 
 
@@ -39,46 +37,8 @@ file templates =
     in
     Elm.file [ "Route" ]
         [ Elm.customType "Route"
-            (routes
-                |> List.map
-                    (\route ->
-                        route.segments
-                            |> List.map
-                                (\segment ->
-                                    case segment of
-                                        RoutePattern.DynamicSegment name ->
-                                            name ++ "_"
-
-                                        RoutePattern.StaticSegment name ->
-                                            name
-                                )
-                            |> String.join "__"
-                            |> addEnding route.ending
-                            |> Elm.variant
-                    )
-            )
+            (routes |> List.map RoutePattern.toVariant)
         ]
-
-
-addEnding : Maybe RoutePattern.Ending -> String -> String
-addEnding maybeEnding string =
-    case maybeEnding of
-        Nothing ->
-            string
-
-        Just ending ->
-            string
-                ++ "__"
-                ++ (case ending of
-                        RoutePattern.Optional name ->
-                            name ++ "__"
-
-                        RoutePattern.RequiredSplat ->
-                            "SPLAT_"
-
-                        RoutePattern.OptionalSplat ->
-                            "SPLAT__"
-                   )
 
 
 port onSuccessSend : List File -> Cmd msg
