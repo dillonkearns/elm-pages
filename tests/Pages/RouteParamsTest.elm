@@ -2,7 +2,8 @@ module Pages.RouteParamsTest exposing (..)
 
 import Elm
 import Elm.Annotation
-import Expect
+import Elm.ToString
+import Expect exposing (Expectation)
 import Pages.Internal.RoutePattern as RoutePattern
 import Test exposing (Test, describe, test)
 
@@ -71,10 +72,9 @@ suite =
         , describe "toRouteVariant"
             [ test "root route" <|
                 \() ->
-                    RoutePattern.fromModuleName []
-                        |> Maybe.map RoutePattern.toVariant
-                        |> Expect.equal
-                            (Just (Elm.variant "Index"))
+                    []
+                        |> expectRouteDefinition
+                            (Elm.variant "Index")
             , test "static-only route" <|
                 \() ->
                     RoutePattern.fromModuleName [ "About" ]
@@ -83,16 +83,44 @@ suite =
                             (Just (Elm.variant "About"))
             , test "dynamic param" <|
                 \() ->
-                    RoutePattern.fromModuleName [ "User", "Id_" ]
-                        |> Maybe.map RoutePattern.toVariant
-                        |> Expect.equal
-                            (Just
-                                (Elm.variantWith "User__Id_"
-                                    [ Elm.Annotation.record
-                                        [ ( "id", Elm.Annotation.string )
-                                        ]
+                    [ "User", "Id_" ]
+                        |> expectRouteDefinition
+                            (Elm.variantWith "User__Id_"
+                                [ Elm.Annotation.record
+                                    [ ( "id", Elm.Annotation.string )
                                     ]
-                                )
+                                ]
+                            )
+            , test "required splat" <|
+                \() ->
+                    [ "Username_", "Repo_", "Blob", "SPLAT_" ]
+                        |> expectRouteDefinition
+                            (Elm.variantWith "Username___Repo___Blob__SPLAT_"
+                                [ Elm.Annotation.record
+                                    [ ( "username", Elm.Annotation.string )
+                                    , ( "repo", Elm.Annotation.string )
+                                    , ( "splat"
+                                      , Elm.Annotation.tuple
+                                            Elm.Annotation.string
+                                            (Elm.Annotation.list Elm.Annotation.string)
+                                      )
+                                    ]
+                                ]
                             )
             ]
         ]
+
+
+expectRouteDefinition : Elm.Variant -> List String -> Expectation
+expectRouteDefinition expected moduleName =
+    RoutePattern.fromModuleName moduleName
+        |> Maybe.map (RoutePattern.toVariant >> toString)
+        |> Maybe.withDefault "<ERROR>"
+        |> Expect.equal (expected |> toString)
+
+
+toString : Elm.Variant -> String
+toString variants =
+    Elm.customType "Route" [ variants ]
+        |> Elm.ToString.declaration
+        |> .body

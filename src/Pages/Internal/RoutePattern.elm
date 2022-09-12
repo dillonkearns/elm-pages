@@ -176,7 +176,14 @@ endingToVariantName ending =
             ( name ++ "__", Just ( decapitalize name, Elm.Annotation.maybe Elm.Annotation.string ) )
 
         RequiredSplat ->
-            ( "SPLAT_", Just ( "splat", Elm.Annotation.string ) )
+            ( "SPLAT_"
+            , Just
+                ( "splat"
+                , Elm.Annotation.tuple
+                    Elm.Annotation.string
+                    (Elm.Annotation.list Elm.Annotation.string)
+                )
+            )
 
         OptionalSplat ->
             ( "SPLAT__", Just ( "splat", Elm.Annotation.string ) )
