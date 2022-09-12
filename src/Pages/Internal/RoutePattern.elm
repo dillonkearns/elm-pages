@@ -1,14 +1,15 @@
 module Pages.Internal.RoutePattern exposing
-    ( Ending(..), RoutePattern, Segment(..), view
+    ( Ending(..), RoutePattern, Segment(..), view, toVariant
     , Param(..), fromModuleName, toRouteParamTypes, toRouteParamsRecord
     )
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs Ending, RoutePattern, Segment, view
+@docs Ending, RoutePattern, Segment, view, toVariant
 
 -}
 
+import Elm
 import Elm.Annotation exposing (Annotation)
 import Html exposing (Html)
 
@@ -43,7 +44,7 @@ fromModuleName moduleNameSegments =
                         |> Just
 
         [] ->
-            Nothing
+            Just { segments = [], ending = Nothing }
 
 
 toRouteParamsRecord : RoutePattern -> List ( String, Annotation )
@@ -122,8 +123,44 @@ toRouteParamTypes pattern =
            )
 
 
+{-| -}
+toVariant : RoutePattern -> Elm.Variant
+toVariant pattern =
+    if List.isEmpty pattern.segments && pattern.ending == Nothing then
+        Elm.variant "Index"
 
---[]
+    else
+        ((pattern.segments
+            |> List.map
+                (\segment ->
+                    case segment of
+                        DynamicSegment name ->
+                            name ++ "_"
+
+                        StaticSegment name ->
+                            name
+                )
+         )
+            ++ ([ Maybe.map endingToVariantName pattern.ending
+                ]
+                    |> List.filterMap identity
+               )
+        )
+            |> String.join "__"
+            |> Elm.variant
+
+
+endingToVariantName : Ending -> String
+endingToVariantName ending =
+    case ending of
+        Optional name ->
+            name ++ "__"
+
+        RequiredSplat ->
+            "SPLAT_"
+
+        OptionalSplat ->
+            "SPLAT__"
 
 
 {-| -}

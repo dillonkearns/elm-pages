@@ -1,5 +1,6 @@
 module Pages.RouteParamsTest exposing (..)
 
+import Elm
 import Elm.Annotation
 import Expect
 import Pages.Internal.RoutePattern as RoutePattern
@@ -67,4 +68,18 @@ suite =
                             [ ( "section", Elm.Annotation.maybe Elm.Annotation.string )
                             ]
                         )
+        , describe "toRouteVariant"
+            [ test "root route" <|
+                \() ->
+                    RoutePattern.fromModuleName []
+                        |> Maybe.map RoutePattern.toVariant
+                        |> Expect.equal
+                            (Just (Elm.variant "Index"))
+            , test "static-only route" <|
+                \() ->
+                    RoutePattern.fromModuleName [ "About" ]
+                        |> Maybe.map RoutePattern.toVariant
+                        |> Expect.equal
+                            (Just (Elm.variant "About"))
+            ]
         ]
