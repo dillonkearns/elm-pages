@@ -59,6 +59,7 @@ file templates =
                 (\segments ->
                     (routes
                         |> List.concatMap RoutePattern.routeToBranch
+                        |> List.map (Tuple.mapSecond (\constructRoute -> Elm.CodeGen.apply [ Elm.CodeGen.val "Just", constructRoute ]))
                         |> Elm.CodeGen.caseExpr (Elm.CodeGen.val "segments")
                     )
                         |> Elm.Pretty.prettyExpression
