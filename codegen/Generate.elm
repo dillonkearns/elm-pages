@@ -4,8 +4,8 @@ port module Generate exposing (main)
 
 import Elm exposing (File)
 import Elm.Annotation
-import Elm.Case
 import Elm.CodeGen
+import Elm.Declare
 import Elm.Op
 import Elm.Pretty
 import Gen.Basics
@@ -38,6 +38,43 @@ main =
         }
 
 
+splitPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+splitPath =
+    Elm.Declare.fn "splitPath"
+        ( "path", Just Gen.Path.annotation_.path )
+        (\path ->
+            Gen.List.call_.filter
+                (Elm.fn ( "item", Just Elm.Annotation.string )
+                    (\item -> Elm.Op.notEqual item (Elm.string ""))
+                )
+                (Gen.String.call_.split (Elm.string "/") path)
+        )
+
+
+segmentsToRoute :
+    List RoutePattern
+    -> { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+segmentsToRoute routes =
+    Elm.Declare.fn "segmentsToRoute"
+        ( "segments"
+        , Elm.Annotation.list Elm.Annotation.string |> Just
+        )
+        (\segments ->
+            (routes
+                |> List.concatMap RoutePattern.routeToBranch
+                |> List.map (Tuple.mapSecond (\constructRoute -> Elm.CodeGen.apply [ Elm.CodeGen.val "Just", constructRoute ]))
+                |> Elm.CodeGen.caseExpr (Elm.CodeGen.val "segments")
+            )
+                |> Elm.Pretty.prettyExpression
+                |> Pretty.pretty 120
+                |> Elm.val
+                |> Elm.withType
+                    (Elm.Annotation.named [] "Route"
+                        |> Elm.Annotation.maybe
+                    )
+        )
+
+
 file : List (List String) -> Elm.File
 file templates =
     let
@@ -45,33 +82,18 @@ file templates =
         routes =
             templates
                 |> List.filterMap RoutePattern.fromModuleName
+
+        segmentsToRouteFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+        segmentsToRouteFn =
+            segmentsToRoute routes
     in
     Elm.file
         [ "Route" ]
         [ Elm.customType "Route"
             (routes |> List.map RoutePattern.toVariant)
             |> expose
-        , Elm.declaration "segmentsToRoute"
-            (Elm.fn
-                ( "segments"
-                , Elm.Annotation.list Elm.Annotation.string |> Just
-                )
-                (\segments ->
-                    (routes
-                        |> List.concatMap RoutePattern.routeToBranch
-                        |> List.map (Tuple.mapSecond (\constructRoute -> Elm.CodeGen.apply [ Elm.CodeGen.val "Just", constructRoute ]))
-                        |> Elm.CodeGen.caseExpr (Elm.CodeGen.val "segments")
-                    )
-                        |> Elm.Pretty.prettyExpression
-                        |> Pretty.pretty 120
-                        |> Elm.val
-                        |> Elm.withType
-                            (Elm.Annotation.named [] "Route"
-                                |> Elm.Annotation.maybe
-                            )
-                )
-            )
-            |> expose
+        , segmentsToRouteFn.declaration |> expose
+        , splitPath.declaration
         , Elm.declaration "urlToRoute"
             (Elm.fn
                 ( "url"
@@ -79,8 +101,11 @@ file templates =
                     |> Just
                 )
                 (\url ->
-                    url
-                        |> Elm.get "path"
+                    segmentsToRouteFn.call
+                        (splitPath.call
+                            (url |> Elm.get "path")
+                        )
+                        |> Elm.withType (Elm.Annotation.maybe (Elm.Annotation.named [] "Route"))
                 )
             )
             |> expose
@@ -132,15 +157,6 @@ file templates =
             )
             |> expose
         ]
-
-
-routeToBranch : RoutePattern -> Elm.Case.Branch
-routeToBranch route =
-    Elm.Case.branchList 0
-        (\_ ->
-            Elm.val "Index"
-                |> Elm.just
-        )
 
 
 expose : Elm.Declaration -> Elm.Declaration
