@@ -188,7 +188,13 @@ routeToBranch route =
                                 nonEmpty ->
                                     nonEmpty |> Elm.CodeGen.record |> Just
                     in
-                    [ ( Elm.CodeGen.listPattern
+                    [ ( (case ending of
+                            Optional _ ->
+                                Elm.CodeGen.listPattern
+
+                            _ ->
+                                unconsPattern
+                        )
                             ((route.segments
                                 |> List.map
                                     (\segment ->
@@ -200,17 +206,18 @@ routeToBranch route =
                                                 Elm.CodeGen.varPattern (decapitalize name)
                                     )
                              )
-                                ++ [ case ending of
+                                ++ (case ending of
                                         Optional name ->
-                                            Elm.CodeGen.varPattern (decapitalize name)
+                                            [ Elm.CodeGen.varPattern (decapitalize name) ]
 
                                         RequiredSplat ->
-                                            -- TODO splatRest
-                                            Elm.CodeGen.varPattern "splatFirst"
+                                            [ Elm.CodeGen.varPattern "splatFirst"
+                                            , Elm.CodeGen.varPattern "splatRest"
+                                            ]
 
                                         OptionalSplat ->
-                                            Elm.CodeGen.varPattern "splat"
-                                   ]
+                                            [ Elm.CodeGen.varPattern "splat" ]
+                                   )
                             )
                       , toRecordVariant innerType somethingNew
                       )
@@ -369,7 +376,10 @@ endingToVariantNameFields ending =
             ( "SPLAT_"
             , Just
                 ( "splat"
-                , Elm.CodeGen.val "( requiredSplat, splat )"
+                , Elm.CodeGen.tuple
+                    [ Elm.CodeGen.val "splatFirst"
+                    , Elm.CodeGen.val "splatRest"
+                    ]
                 )
             )
 
@@ -524,3 +534,19 @@ type Param
     | OptionalParam
     | RequiredSplatParam
     | OptionalSplatParam
+
+
+unconsPattern : List Elm.CodeGen.Pattern -> Elm.CodeGen.Pattern
+unconsPattern list =
+    case list of
+        [] ->
+            Debug.todo ""
+
+        listFirst :: listRest ->
+            List.foldl
+                (\soFar item ->
+                    soFar
+                        |> Elm.CodeGen.unConsPattern item
+                )
+                listFirst
+                listRest

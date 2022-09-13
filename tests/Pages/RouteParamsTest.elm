@@ -173,19 +173,41 @@ suite =
                               , Elm.CodeGen.val "Docs__Section__ { section = Nothing }"
                               )
                             ]
-
-            --, test "splat" <|
-            --    \() ->
-            --        [ "Docs", "Section__" ]
-            --            |> testCaseGenerator
-            --                ( Elm.CodeGen.listPattern
-            --                    [ Elm.CodeGen.stringPattern "docs"
-            --                    , Elm.CodeGen.varPattern "section"
-            --                    ]
-            --                , Elm.CodeGen.val "Docs__Section__ { section = section }"
-            --                )
+            , test "required splat" <|
+                \() ->
+                    [ "Username_", "Repo_", "Blob", "SPLAT_" ]
+                        |> testCaseGenerator
+                            [ ( --Elm. """username :: repo :: "blob" :: splatFirst :: splatRest"""
+                                --( Elm.CodeGen.unConsPattern
+                                unconsPattern
+                                    [ Elm.CodeGen.varPattern "username"
+                                    , Elm.CodeGen.varPattern "repo"
+                                    , Elm.CodeGen.stringPattern "blob"
+                                    , Elm.CodeGen.varPattern "splatFirst"
+                                    , Elm.CodeGen.varPattern "splatRest"
+                                    ]
+                              , Elm.CodeGen.val
+                                    "Username___Repo___Blob__SPLAT_ { username = username, repo = repo, splat = ( splatFirst, splatRest ) }"
+                              )
+                            ]
             ]
         ]
+
+
+unconsPattern : List Elm.CodeGen.Pattern -> Elm.CodeGen.Pattern
+unconsPattern list =
+    case list of
+        [] ->
+            Debug.todo ""
+
+        listFirst :: listRest ->
+            List.foldl
+                (\soFar item ->
+                    soFar
+                        |> Elm.CodeGen.unConsPattern item
+                )
+                listFirst
+                listRest
 
 
 testCaseGenerator : List ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression ) -> List String -> Expectation
