@@ -225,6 +225,7 @@ file templates =
                                 )
                             )
                         )
+                        |> Elm.withType (Elm.Annotation.named [ "Path" ] "Path")
                 )
             )
             |> expose
@@ -235,6 +236,13 @@ file templates =
                 (\route ->
                     Gen.Server.Response.call_.temporaryRedirect
                         (toString.call route)
+                        |> Elm.withType
+                            (Elm.Annotation.namedWith [ "Server", "Response" ]
+                                "Response"
+                                [ Elm.Annotation.var "data"
+                                , Elm.Annotation.var "error"
+                                ]
+                            )
                 )
             )
             |> expose
