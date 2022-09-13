@@ -155,6 +155,16 @@ suite =
                                 ]
                             , Elm.CodeGen.val "User__Id_ { id = id }"
                             )
+            , test "optional ending" <|
+                \() ->
+                    [ "Docs", "Section__" ]
+                        |> testCaseGenerator
+                            ( Elm.CodeGen.listPattern
+                                [ Elm.CodeGen.stringPattern "docs"
+                                , Elm.CodeGen.varPattern "section"
+                                ]
+                            , Elm.CodeGen.val "Docs__Section__ { section = section }"
+                            )
             ]
         ]
 

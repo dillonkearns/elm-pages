@@ -132,11 +132,83 @@ routeToBranch route =
             ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "Index" )
 
         segments ->
+            let
+                somethingNew =
+                    (route.segments
+                        |> List.map
+                            (\segment ->
+                                case segment of
+                                    DynamicSegment name ->
+                                        ( name ++ "_"
+                                        , ( decapitalize name, Elm.CodeGen.val (decapitalize name) )
+                                            |> Just
+                                        )
+
+                                    StaticSegment name ->
+                                        ( name, Nothing )
+                            )
+                    )
+                        ++ ([ Maybe.map endingToVariantNameFields route.ending
+                            ]
+                                |> List.filterMap identity
+                           )
+            in
             case route.ending of
                 Just ending ->
-                    ( Elm.CodeGen.listPattern []
-                    , Elm.CodeGen.val
-                        "TODO unhandled"
+                    let
+                        fieldThings : List ( String, Elm.CodeGen.Expression )
+                        fieldThings =
+                            somethingNew
+                                |> List.filterMap Tuple.second
+
+                        innerType : Maybe Elm.CodeGen.Expression
+                        innerType =
+                            case fieldThings of
+                                [] ->
+                                    Nothing
+
+                                nonEmpty ->
+                                    nonEmpty |> Elm.CodeGen.record |> Just
+                    in
+                    ( Elm.CodeGen.listPattern
+                        ((route.segments
+                            |> List.map
+                                (\segment ->
+                                    case segment of
+                                        StaticSegment name ->
+                                            Elm.CodeGen.stringPattern (decapitalize name)
+
+                                        DynamicSegment name ->
+                                            Elm.CodeGen.varPattern (decapitalize name)
+                                )
+                         )
+                            ++ [ case ending of
+                                    Optional name ->
+                                        Elm.CodeGen.varPattern (decapitalize name)
+
+                                    RequiredSplat ->
+                                        -- TODO splatRest
+                                        Elm.CodeGen.varPattern "splatFirst"
+
+                                    OptionalSplat ->
+                                        Elm.CodeGen.varPattern "splat"
+                               ]
+                        )
+                    , case innerType of
+                        Just innerRecord ->
+                            Elm.CodeGen.apply
+                                [ somethingNew
+                                    |> List.map Tuple.first
+                                    |> String.join "__"
+                                    |> Elm.CodeGen.val
+                                , innerRecord
+                                ]
+
+                        Nothing ->
+                            somethingNew
+                                |> List.map Tuple.first
+                                |> String.join "__"
+                                |> Elm.CodeGen.val
                     )
 
                 Nothing ->
@@ -247,6 +319,28 @@ toVariant pattern =
                 |> String.join "__"
             )
             innerType
+
+
+endingToVariantNameFields : Ending -> ( String, Maybe ( String, Elm.CodeGen.Expression ) )
+endingToVariantNameFields ending =
+    case ending of
+        Optional name ->
+            ( name ++ "__"
+            , Just ( decapitalize name, Elm.CodeGen.val (decapitalize name) )
+            )
+
+        RequiredSplat ->
+            ( "SPLAT_"
+            , Just
+                ( "splat"
+                , Elm.CodeGen.val "( requiredSplat, splat )"
+                )
+            )
+
+        OptionalSplat ->
+            ( "SPLAT__"
+            , Just ( "splat", Elm.CodeGen.val "splat" )
+            )
 
 
 endingToVariantName : Ending -> ( String, Maybe ( String, Annotation ) )
