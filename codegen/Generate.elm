@@ -4,6 +4,7 @@ port module Generate exposing (main)
 
 import Elm exposing (File)
 import Elm.Annotation
+import Elm.Case
 import Elm.CodeGen
 import Elm.Declare
 import Elm.Op
@@ -51,6 +52,19 @@ splitPath =
         )
 
 
+maybeToList : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+maybeToList =
+    Elm.Declare.fn "maybeToList"
+        ( "maybeString", Just (Elm.Annotation.maybe Elm.Annotation.string) )
+        (\maybeString ->
+            Elm.Case.maybe maybeString
+                { nothing = Elm.list []
+                , just = ( "string", \string -> Elm.list [ string ] )
+                }
+                |> Elm.withType (Elm.Annotation.list Elm.Annotation.string)
+        )
+
+
 segmentsToRoute :
     List RoutePattern
     -> { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
@@ -72,6 +86,78 @@ segmentsToRoute routes =
                     (Elm.Annotation.named [] "Route"
                         |> Elm.Annotation.maybe
                     )
+        )
+
+
+routeToPath : List RoutePattern -> { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+routeToPath routes =
+    Elm.Declare.fn "routeToPath"
+        ( "route", Just (Elm.Annotation.named [] "Route") )
+        (\route_ ->
+            Elm.Case.custom route_
+                (Elm.Annotation.list Elm.Annotation.string)
+                (routes
+                    |> List.map
+                        (\route ->
+                            case
+                                RoutePattern.toVariantName route
+                                    |> .params
+                                    |> List.filter
+                                        (\param ->
+                                            case param of
+                                                RoutePattern.StaticParam _ ->
+                                                    False
+
+                                                _ ->
+                                                    True
+                                        )
+                            of
+                                [] ->
+                                    Elm.Case.branch0 (RoutePattern.toVariantName route |> .variantName)
+                                        (RoutePattern.toVariantName route
+                                            |> .params
+                                            |> List.map
+                                                (\param ->
+                                                    case param of
+                                                        RoutePattern.StaticParam name ->
+                                                            [ Elm.string name ]
+                                                                |> Elm.list
+
+                                                        RoutePattern.DynamicParam name ->
+                                                            Elm.list []
+
+                                                        RoutePattern.OptionalParam2 name ->
+                                                            Elm.list []
+                                                )
+                                            |> Elm.list
+                                        )
+
+                                nonEmptyDynamicParams ->
+                                    Elm.Case.branch1 (RoutePattern.toVariantName route |> .variantName)
+                                        ( "params", Elm.Annotation.record [] )
+                                        (\params ->
+                                            RoutePattern.toVariantName route
+                                                |> .params
+                                                |> List.map
+                                                    (\param ->
+                                                        case param of
+                                                            RoutePattern.StaticParam name ->
+                                                                [ Elm.string name ]
+                                                                    |> Elm.list
+
+                                                            RoutePattern.DynamicParam name ->
+                                                                [ Elm.get name params ]
+                                                                    |> Elm.list
+
+                                                            RoutePattern.OptionalParam2 name ->
+                                                                maybeToList.call (Elm.get name params)
+                                                    )
+                                                |> Elm.list
+                                        )
+                        )
+                )
+                |> Gen.List.call_.concat
+                |> Elm.withType (Elm.Annotation.list Elm.Annotation.string)
         )
 
 
@@ -111,6 +197,8 @@ file templates =
             |> expose
         , Elm.declaration "baseUrl" (Elm.string "/")
             |> expose
+        , maybeToList.declaration
+        , routeToPath routes |> .declaration |> expose
         , Elm.declaration "baseUrlAsPath"
             (Gen.List.call_.filter
                 (Elm.fn ( "item", Nothing )

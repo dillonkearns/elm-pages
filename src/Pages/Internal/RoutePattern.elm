@@ -1,6 +1,6 @@
 module Pages.Internal.RoutePattern exposing
     ( Ending(..), RoutePattern, Segment(..), view, toVariant, routeToBranch
-    , Param(..), fromModuleName, toRouteParamTypes, toRouteParamsRecord
+    , Param(..), RouteParam(..), fromModuleName, toRouteParamTypes, toRouteParamsRecord, toVariantName
     )
 
 {-| Exposed for internal use only (used in generated code).
@@ -297,6 +297,74 @@ routeToBranch route =
                       , toRecordVariant innerType something
                       )
                     ]
+
+
+type RouteParam
+    = StaticParam String
+    | DynamicParam String
+    | OptionalParam2 String
+
+
+toVariantName : RoutePattern -> { variantName : String, params : List RouteParam }
+toVariantName route =
+    let
+        something : List ( String, Maybe RouteParam )
+        something =
+            route.segments
+                |> List.map
+                    (\segment ->
+                        case segment of
+                            DynamicSegment name ->
+                                ( name ++ "_"
+                                , DynamicParam (decapitalize name)
+                                    |> Just
+                                )
+
+                            StaticSegment name ->
+                                ( name
+                                , if name == "Index" then
+                                    Nothing
+
+                                  else
+                                    Just (StaticParam (decapitalize name))
+                                )
+                    )
+
+        something2 =
+            something
+                ++ ([ Maybe.map
+                        (\ending ->
+                            case ending of
+                                Optional name ->
+                                    ( name ++ "__"
+                                    , Just (OptionalParam2 (decapitalize name))
+                                    )
+
+                                RequiredSplat ->
+                                    ( "SPLAT_"
+                                    , DynamicParam "TODO"
+                                        |> Just
+                                    )
+
+                                OptionalSplat ->
+                                    ( "SPLAT__"
+                                    , DynamicParam "TODO"
+                                        |> Just
+                                    )
+                        )
+                        route.ending
+                    ]
+                        |> List.filterMap identity
+                   )
+    in
+    something2
+        |> List.map Tuple.first
+        |> String.join "__"
+        |> (\name ->
+                { variantName = name
+                , params = something2 |> List.filterMap Tuple.second
+                }
+           )
 
 
 toRecordVariant : Maybe Elm.CodeGen.Expression -> List ( String, b ) -> Elm.CodeGen.Expression
