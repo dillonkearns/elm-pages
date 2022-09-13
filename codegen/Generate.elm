@@ -11,6 +11,7 @@ import Elm.Op
 import Elm.Pretty
 import Gen.Basics
 import Gen.CodeGen.Generate exposing (Error)
+import Gen.Html
 import Gen.Html.Attributes
 import Gen.List
 import Gen.Path
@@ -266,7 +267,42 @@ file templates =
                 )
             )
             |> expose
+        , Elm.declaration "link"
+            (Elm.fn3
+                ( "attributes", Nothing )
+                ( "children", Nothing )
+                ( "route", Just (Elm.Annotation.named [] "Route") )
+                (\attributes children route ->
+                    toLink.call
+                        (Elm.fn
+                            ( "anchorAttrs", Nothing )
+                            (\anchorAttrs ->
+                                Gen.Html.call_.a
+                                    (Elm.Op.append anchorAttrs attributes)
+                                    children
+                            )
+                        )
+                        route
+                )
+            )
+            |> expose
         ]
+
+
+toLink : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression }
+toLink =
+    Elm.Declare.fn2 "toLink"
+        ( "toAnchorTag", Nothing )
+        ( "route", Just (Elm.Annotation.named [] "Route") )
+        (\toAnchorTag route ->
+            Elm.apply
+                toAnchorTag
+                [ Elm.list
+                    [ route |> toString.call |> Gen.Html.Attributes.call_.href
+                    , Gen.Html.Attributes.attribute "elm-pages:prefetch" ""
+                    ]
+                ]
+        )
 
 
 toString : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
