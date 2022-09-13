@@ -23,6 +23,7 @@ import Pretty
 
 type alias Flags =
     { templates : List (List String)
+    , basePath : String
     }
 
 
@@ -30,9 +31,9 @@ main : Program Flags () ()
 main =
     Platform.worker
         { init =
-            \{ templates } ->
+            \{ templates, basePath } ->
                 ( ()
-                , onSuccessSend [ file templates ]
+                , onSuccessSend [ file templates basePath ]
                 )
         , update =
             \_ model ->
@@ -167,8 +168,8 @@ routeToPath routes =
         )
 
 
-file : List (List String) -> Elm.File
-file templates =
+file : List (List String) -> String -> Elm.File
+file templates basePath =
     let
         routes : List RoutePattern.RoutePattern
         routes =
@@ -201,7 +202,7 @@ file templates =
                 )
             )
             |> expose
-        , Elm.declaration "baseUrl" (Elm.string "/")
+        , Elm.declaration "baseUrl" (Elm.string basePath)
             |> expose
         , maybeToList.declaration
         , routeToPath routes |> .declaration |> expose

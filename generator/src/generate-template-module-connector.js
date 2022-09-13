@@ -38,7 +38,10 @@ async function generateTemplateModuleConnector(basePath, phase) {
       ],
     };
   }
-  const routesModuleNew = await runElmCodegenCli(sortTemplates(templates));
+  const routesModuleNew = await runElmCodegenCli(
+    sortTemplates(templates),
+    basePath
+  );
 
   return {
     mainModule: `port module Main exposing (..)
@@ -1146,7 +1149,7 @@ redirectTo route =
   };
 }
 
-async function runElmCodegenCli(templates) {
+async function runElmCodegenCli(templates, basePath) {
   // await runElmCodegenInstall();
   await compileCliApp(
     // { debug: true },
@@ -1166,7 +1169,9 @@ async function runElmCodegenCli(templates) {
       "./elm-stuff/elm-pages-codegen.js"
     )).Elm.Generate;
 
-    const app = elmPagesCodegen.init({ flags: { templates: templates } });
+    const app = elmPagesCodegen.init({
+      flags: { templates: templates, basePath },
+    });
     if (app.ports.onSuccessSend) {
       app.ports.onSuccessSend.subscribe(resolve);
     }
