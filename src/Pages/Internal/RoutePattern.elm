@@ -129,7 +129,7 @@ routeToBranch : RoutePattern -> ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression )
 routeToBranch route =
     case route.segments of
         [] ->
-            ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "TODO" )
+            ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "Index" )
 
         _ ->
             ( Elm.CodeGen.listPattern

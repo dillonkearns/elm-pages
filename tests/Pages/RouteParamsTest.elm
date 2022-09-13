@@ -143,7 +143,7 @@ suite =
                     []
                         |> testCaseGenerator
                             ( Elm.CodeGen.listPattern []
-                            , Elm.CodeGen.val "TODO"
+                            , Elm.CodeGen.val "Index"
                             )
             , test "dynamic segment" <|
                 \() ->
