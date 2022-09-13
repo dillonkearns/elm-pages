@@ -303,6 +303,8 @@ type RouteParam
     = StaticParam String
     | DynamicParam String
     | OptionalParam2 String
+    | RequiredSplatParam2
+    | OptionalSplatParam2
 
 
 toVariantName : RoutePattern -> { variantName : String, params : List RouteParam }
@@ -342,13 +344,13 @@ toVariantName route =
 
                                 RequiredSplat ->
                                     ( "SPLAT_"
-                                    , DynamicParam "TODO"
+                                    , RequiredSplatParam2
                                         |> Just
                                     )
 
                                 OptionalSplat ->
                                     ( "SPLAT__"
-                                    , DynamicParam "TODO"
+                                    , OptionalSplatParam2
                                         |> Just
                                     )
                         )

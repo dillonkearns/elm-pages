@@ -135,6 +135,12 @@ routeToPath routes =
 
                                                         RoutePattern.OptionalParam2 name ->
                                                             Elm.list []
+
+                                                        RoutePattern.RequiredSplatParam2 ->
+                                                            Elm.val "TODO"
+
+                                                        RoutePattern.OptionalSplatParam2 ->
+                                                            Elm.val "TODO"
                                                 )
                                             |> Elm.list
                                         )
@@ -158,6 +164,12 @@ routeToPath routes =
 
                                                             RoutePattern.OptionalParam2 name ->
                                                                 maybeToList.call (Elm.get name params)
+
+                                                            RoutePattern.RequiredSplatParam2 ->
+                                                                Elm.val "Debug.todo \"\""
+
+                                                            RoutePattern.OptionalSplatParam2 ->
+                                                                Elm.val "Debug.todo \"\""
                                                     )
                                                 |> Elm.list
                                         )
