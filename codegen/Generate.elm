@@ -286,6 +286,19 @@ file templates =
                 )
             )
             |> expose
+        , Elm.declaration "withoutBaseUrl"
+            (Elm.fn ( "path", Just Elm.Annotation.string )
+                (\path ->
+                    Elm.ifThen
+                        (path |> Gen.String.call_.startsWith (Elm.val "baseUrl"))
+                        (Gen.String.call_.dropLeft
+                            (Gen.String.call_.length (Elm.val "baseUrl"))
+                            path
+                        )
+                        path
+                )
+            )
+            |> expose
         ]
 
 
