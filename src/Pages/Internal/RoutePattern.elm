@@ -131,21 +131,76 @@ routeToBranch route =
         [] ->
             ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "Index" )
 
-        _ ->
-            ( Elm.CodeGen.listPattern
-                (route.segments
-                    |> List.map
-                        (\segment ->
-                            case segment of
-                                StaticSegment name ->
-                                    Elm.CodeGen.stringPattern (decapitalize name)
+        segments ->
+            case route.ending of
+                Just ending ->
+                    ( Elm.CodeGen.listPattern []
+                    , Elm.CodeGen.val
+                        "TODO unhandled"
+                    )
 
-                                DynamicSegment name ->
-                                    Elm.CodeGen.varPattern (decapitalize name)
+                Nothing ->
+                    let
+                        something : List ( String, Maybe ( String, Elm.CodeGen.Expression ) )
+                        something =
+                            (segments
+                                |> List.map
+                                    (\segment ->
+                                        case segment of
+                                            DynamicSegment name ->
+                                                ( name ++ "_"
+                                                , ( decapitalize name, Elm.CodeGen.val (decapitalize name) )
+                                                    |> Just
+                                                )
+
+                                            StaticSegment name ->
+                                                ( name, Nothing )
+                                    )
+                            )
+                                |> List.map identity
+
+                        fieldThings : List ( String, Elm.CodeGen.Expression )
+                        fieldThings =
+                            something
+                                |> List.filterMap Tuple.second
+
+                        innerType : Maybe Elm.CodeGen.Expression
+                        innerType =
+                            case fieldThings of
+                                [] ->
+                                    Nothing
+
+                                nonEmpty ->
+                                    nonEmpty |> Elm.CodeGen.record |> Just
+                    in
+                    ( Elm.CodeGen.listPattern
+                        (route.segments
+                            |> List.map
+                                (\segment ->
+                                    case segment of
+                                        StaticSegment name ->
+                                            Elm.CodeGen.stringPattern (decapitalize name)
+
+                                        DynamicSegment name ->
+                                            Elm.CodeGen.varPattern (decapitalize name)
+                                )
                         )
-                )
-            , Elm.CodeGen.val "TODO"
-            )
+                    , case innerType of
+                        Just innerRecord ->
+                            Elm.CodeGen.apply
+                                [ something
+                                    |> List.map Tuple.first
+                                    |> String.join "__"
+                                    |> Elm.CodeGen.val
+                                , innerRecord
+                                ]
+
+                        Nothing ->
+                            something
+                                |> List.map Tuple.first
+                                |> String.join "__"
+                                |> Elm.CodeGen.val
+                    )
 
 
 {-| -}

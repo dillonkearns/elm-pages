@@ -153,7 +153,7 @@ suite =
                                 [ Elm.CodeGen.stringPattern "user"
                                 , Elm.CodeGen.varPattern "id"
                                 ]
-                            , Elm.CodeGen.val "TODO"
+                            , Elm.CodeGen.val "User__Id_ { id = id }"
                             )
             ]
         ]
