@@ -228,23 +228,27 @@ file templates =
                 )
             )
             |> expose
-        , Elm.declaration "toString"
-            (Elm.fn ( "route", Elm.Annotation.named [] "Route" |> Just )
-                (\route ->
-                    Gen.Path.toAbsolute
-                        (Elm.apply (Elm.val "toPath") [ route ])
-                )
-            )
+        , toString.declaration
             |> expose
         , Elm.declaration "redirectTo"
             (Elm.fn ( "route", Elm.Annotation.named [] "Route" |> Just )
                 (\route ->
                     Gen.Server.Response.call_.temporaryRedirect
-                        route
+                        (toString.call route)
                 )
             )
             |> expose
         ]
+
+
+toString : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+toString =
+    Elm.Declare.fn "toString"
+        ( "route", Elm.Annotation.named [] "Route" |> Just )
+        (\route ->
+            Gen.Path.toAbsolute
+                (Elm.apply (Elm.val "toPath") [ route ])
+        )
 
 
 expose : Elm.Declaration -> Elm.Declaration
