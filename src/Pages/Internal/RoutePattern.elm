@@ -126,67 +126,13 @@ toRouteParamTypes pattern =
 
 routeToBranch : RoutePattern -> List ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression )
 routeToBranch route =
-    let
-        something : List ( String, Maybe ( String, Elm.CodeGen.Expression ) )
-        something =
-            route.segments
-                |> List.map
-                    (\segment ->
-                        case segment of
-                            DynamicSegment name ->
-                                ( name ++ "_"
-                                , ( decapitalize name, Elm.CodeGen.val (decapitalize name) )
-                                    |> Just
-                                )
-
-                            StaticSegment name ->
-                                ( name, Nothing )
-                    )
-    in
     case route.segments of
         [ StaticSegment "Index" ] ->
             [ ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "Index" ) ]
 
         segments ->
-            let
-                somethingNew : List ( String, Maybe ( String, Elm.CodeGen.Expression ) )
-                somethingNew =
-                    (route.segments
-                        |> List.map
-                            (\segment ->
-                                case segment of
-                                    DynamicSegment name ->
-                                        ( name ++ "_"
-                                        , ( decapitalize name, Elm.CodeGen.val (decapitalize name) )
-                                            |> Just
-                                        )
-
-                                    StaticSegment name ->
-                                        ( name, Nothing )
-                            )
-                    )
-                        ++ ([ Maybe.map endingToVariantNameFields route.ending
-                            ]
-                                |> List.filterMap identity
-                           )
-            in
             case route.ending of
                 Just ending ->
-                    let
-                        fieldThings : List ( String, Elm.CodeGen.Expression )
-                        fieldThings =
-                            somethingNew
-                                |> List.filterMap Tuple.second
-
-                        innerType : Maybe Elm.CodeGen.Expression
-                        innerType =
-                            case fieldThings of
-                                [] ->
-                                    Nothing
-
-                                nonEmpty ->
-                                    nonEmpty |> Elm.CodeGen.record |> Just
-                    in
                     [ ( (case ending of
                             Optional _ ->
                                 Elm.CodeGen.listPattern
@@ -218,7 +164,7 @@ routeToBranch route =
                                             [ Elm.CodeGen.varPattern "splat" ]
                                    )
                             )
-                      , toRecordVariant innerType route
+                      , toRecordVariant False route
                       )
                     ]
                         ++ (case ending of
@@ -235,21 +181,7 @@ routeToBranch route =
                                                                 Elm.CodeGen.varPattern (decapitalize name)
                                                     )
                                             )
-                                      , toRecordVariant
-                                            ((something
-                                                ++ [ ( optionalName ++ "__"
-                                                     , ( decapitalize optionalName
-                                                       , Elm.CodeGen.val "Nothing"
-                                                       )
-                                                        |> Just
-                                                     )
-                                                   ]
-                                             )
-                                                |> List.filterMap Tuple.second
-                                                |> Elm.CodeGen.record
-                                                |> Just
-                                            )
-                                            route
+                                      , toRecordVariant True route
                                       )
                                     ]
 
@@ -258,21 +190,6 @@ routeToBranch route =
                            )
 
                 Nothing ->
-                    let
-                        fieldThings : List ( String, Elm.CodeGen.Expression )
-                        fieldThings =
-                            something
-                                |> List.filterMap Tuple.second
-
-                        innerType : Maybe Elm.CodeGen.Expression
-                        innerType =
-                            case fieldThings of
-                                [] ->
-                                    Nothing
-
-                                nonEmpty ->
-                                    nonEmpty |> Elm.CodeGen.record |> Just
-                    in
                     [ ( Elm.CodeGen.listPattern
                             (route.segments
                                 |> List.map
@@ -285,8 +202,7 @@ routeToBranch route =
                                                 Elm.CodeGen.varPattern (decapitalize name)
                                     )
                             )
-                      , toRecordVariant innerType
-                            route
+                      , toRecordVariant False route
                       )
                     ]
 
@@ -361,12 +277,59 @@ toVariantName route =
            )
 
 
-toRecordVariant : Maybe Elm.CodeGen.Expression -> RoutePattern -> Elm.CodeGen.Expression
-toRecordVariant innerType route =
+toRecordVariant : Bool -> RoutePattern -> Elm.CodeGen.Expression
+toRecordVariant nothingCase route =
     let
         constructorName : String
         constructorName =
             route |> toVariantName |> .variantName
+
+        innerType : Maybe Elm.CodeGen.Expression
+        innerType =
+            case fieldThings of
+                [] ->
+                    Nothing
+
+                nonEmpty ->
+                    nonEmpty |> Elm.CodeGen.record |> Just
+
+        fieldThings : List ( String, Elm.CodeGen.Expression )
+        fieldThings =
+            route
+                |> toVariantName
+                |> .params
+                |> List.filterMap
+                    (\param ->
+                        case param of
+                            OptionalParam2 name ->
+                                Just
+                                    ( decapitalize name
+                                      --, Elm.CodeGen.apply [ Elm.CodeGen.val "Just", Elm.CodeGen.val (decapitalize name) ]
+                                    , if nothingCase then
+                                        Elm.CodeGen.val "Nothing"
+
+                                      else
+                                        [ Elm.CodeGen.val "Just", Elm.CodeGen.val (decapitalize name) ] |> Elm.CodeGen.apply
+                                    )
+
+                            StaticParam name ->
+                                Nothing
+
+                            DynamicParam name ->
+                                Just
+                                    ( decapitalize name
+                                    , Elm.CodeGen.val (decapitalize name)
+                                    )
+
+                            RequiredSplatParam2 ->
+                                Just
+                                    ( "splat"
+                                    , Elm.CodeGen.tuple [ Elm.CodeGen.val "splatFirst", Elm.CodeGen.val "splatRest" ]
+                                    )
+
+                            OptionalSplatParam2 ->
+                                Just ( "splat", Elm.CodeGen.val "splat" )
+                    )
     in
     case innerType of
         Just innerRecord ->
