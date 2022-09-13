@@ -239,7 +239,7 @@ routeToBranch route =
                                       , toRecordVariant
                                             ((something
                                                 ++ [ ( optionalName ++ "__"
-                                                     , ( "section"
+                                                     , ( decapitalize optionalName
                                                        , Elm.CodeGen.val "Nothing"
                                                        )
                                                         |> Just
@@ -252,7 +252,7 @@ routeToBranch route =
                                             )
                                             (something
                                                 ++ [ ( optionalName ++ "__"
-                                                     , ( "section"
+                                                     , ( decapitalize optionalName
                                                        , Elm.CodeGen.val "Nothing"
                                                        )
                                                         |> Just
