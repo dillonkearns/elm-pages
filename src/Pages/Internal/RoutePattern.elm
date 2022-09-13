@@ -218,11 +218,7 @@ routeToBranch route =
                                             [ Elm.CodeGen.varPattern "splat" ]
                                    )
                             )
-                      , toRecordVariant innerType
-                            (somethingNew
-                                |> List.map Tuple.first
-                                |> String.join "__"
-                            )
+                      , toRecordVariant innerType route
                       )
                     ]
                         ++ (case ending of
@@ -253,17 +249,7 @@ routeToBranch route =
                                                 |> Elm.CodeGen.record
                                                 |> Just
                                             )
-                                            (something
-                                                ++ [ ( optionalName ++ "__"
-                                                     , ( decapitalize optionalName
-                                                       , Elm.CodeGen.val "Nothing"
-                                                       )
-                                                        |> Just
-                                                     )
-                                                   ]
-                                                |> List.map Tuple.first
-                                                |> String.join "__"
-                                            )
+                                            route
                                       )
                                     ]
 
@@ -300,10 +286,7 @@ routeToBranch route =
                                     )
                             )
                       , toRecordVariant innerType
-                            (something
-                                |> List.map Tuple.first
-                                |> String.join "__"
-                            )
+                            route
                       )
                     ]
 
@@ -378,8 +361,13 @@ toVariantName route =
            )
 
 
-toRecordVariant : Maybe Elm.CodeGen.Expression -> String -> Elm.CodeGen.Expression
-toRecordVariant innerType constructorName =
+toRecordVariant : Maybe Elm.CodeGen.Expression -> RoutePattern -> Elm.CodeGen.Expression
+toRecordVariant innerType route =
+    let
+        constructorName : String
+        constructorName =
+            route |> toVariantName |> .variantName
+    in
     case innerType of
         Just innerRecord ->
             Elm.CodeGen.apply
