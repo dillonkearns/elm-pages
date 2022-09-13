@@ -74,9 +74,13 @@ segmentsToRoute routes =
         , Elm.Annotation.list Elm.Annotation.string |> Just
         )
         (\segments ->
-            (routes
+            (((routes
                 |> List.concatMap RoutePattern.routeToBranch
                 |> List.map (Tuple.mapSecond (\constructRoute -> Elm.CodeGen.apply [ Elm.CodeGen.val "Just", constructRoute ]))
+              )
+                ++ [ ( Elm.CodeGen.allPattern, Elm.CodeGen.val "Nothing" )
+                   ]
+             )
                 |> Elm.CodeGen.caseExpr (Elm.CodeGen.val "segments")
             )
                 |> Elm.Pretty.prettyExpression
