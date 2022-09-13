@@ -138,10 +138,10 @@ routeToBranch route =
                         (\segment ->
                             case segment of
                                 StaticSegment name ->
-                                    Elm.CodeGen.stringPattern "user"
+                                    Elm.CodeGen.stringPattern (decapitalize name)
 
-                                DynamicSegment string ->
-                                    Elm.CodeGen.varPattern "id"
+                                DynamicSegment name ->
+                                    Elm.CodeGen.varPattern (decapitalize name)
                         )
                 )
             , Elm.CodeGen.val "TODO"
