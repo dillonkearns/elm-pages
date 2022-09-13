@@ -194,21 +194,7 @@ routeToBranch route =
                                         Elm.CodeGen.varPattern "splat"
                                ]
                         )
-                    , case innerType of
-                        Just innerRecord ->
-                            Elm.CodeGen.apply
-                                [ somethingNew
-                                    |> List.map Tuple.first
-                                    |> String.join "__"
-                                    |> Elm.CodeGen.val
-                                , innerRecord
-                                ]
-
-                        Nothing ->
-                            somethingNew
-                                |> List.map Tuple.first
-                                |> String.join "__"
-                                |> Elm.CodeGen.val
+                    , toRecordVariant innerType somethingNew
                     )
 
                 Nothing ->
@@ -257,22 +243,27 @@ routeToBranch route =
                                             Elm.CodeGen.varPattern (decapitalize name)
                                 )
                         )
-                    , case innerType of
-                        Just innerRecord ->
-                            Elm.CodeGen.apply
-                                [ something
-                                    |> List.map Tuple.first
-                                    |> String.join "__"
-                                    |> Elm.CodeGen.val
-                                , innerRecord
-                                ]
-
-                        Nothing ->
-                            something
-                                |> List.map Tuple.first
-                                |> String.join "__"
-                                |> Elm.CodeGen.val
+                    , toRecordVariant innerType something
                     )
+
+
+toRecordVariant : Maybe Elm.CodeGen.Expression -> List ( String, b ) -> Elm.CodeGen.Expression
+toRecordVariant innerType something =
+    case innerType of
+        Just innerRecord ->
+            Elm.CodeGen.apply
+                [ something
+                    |> List.map Tuple.first
+                    |> String.join "__"
+                    |> Elm.CodeGen.val
+                , innerRecord
+                ]
+
+        Nothing ->
+            something
+                |> List.map Tuple.first
+                |> String.join "__"
+                |> Elm.CodeGen.val
 
 
 {-| -}
