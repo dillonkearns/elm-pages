@@ -11,7 +11,6 @@ module Pages.Internal.RoutePattern exposing
 
 import Elm
 import Elm.Annotation exposing (Annotation)
-import Elm.Case
 import Elm.CodeGen
 import Html exposing (Html)
 
@@ -219,7 +218,11 @@ routeToBranch route =
                                             [ Elm.CodeGen.varPattern "splat" ]
                                    )
                             )
-                      , toRecordVariant innerType somethingNew
+                      , toRecordVariant innerType
+                            (somethingNew
+                                |> List.map Tuple.first
+                                |> String.join "__"
+                            )
                       )
                     ]
                         ++ (case ending of
@@ -258,6 +261,8 @@ routeToBranch route =
                                                         |> Just
                                                      )
                                                    ]
+                                                |> List.map Tuple.first
+                                                |> String.join "__"
                                             )
                                       )
                                     ]
@@ -294,7 +299,11 @@ routeToBranch route =
                                                 Elm.CodeGen.varPattern (decapitalize name)
                                     )
                             )
-                      , toRecordVariant innerType something
+                      , toRecordVariant innerType
+                            (something
+                                |> List.map Tuple.first
+                                |> String.join "__"
+                            )
                       )
                     ]
 
@@ -369,23 +378,17 @@ toVariantName route =
            )
 
 
-toRecordVariant : Maybe Elm.CodeGen.Expression -> List ( String, b ) -> Elm.CodeGen.Expression
-toRecordVariant innerType something =
+toRecordVariant : Maybe Elm.CodeGen.Expression -> String -> Elm.CodeGen.Expression
+toRecordVariant innerType constructorName =
     case innerType of
         Just innerRecord ->
             Elm.CodeGen.apply
-                [ something
-                    |> List.map Tuple.first
-                    |> String.join "__"
-                    |> Elm.CodeGen.val
+                [ constructorName |> Elm.CodeGen.val
                 , innerRecord
                 ]
 
         Nothing ->
-            something
-                |> List.map Tuple.first
-                |> String.join "__"
-                |> Elm.CodeGen.val
+            constructorName |> Elm.CodeGen.val
 
 
 {-| -}
