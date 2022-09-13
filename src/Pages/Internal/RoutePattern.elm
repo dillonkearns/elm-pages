@@ -125,11 +125,11 @@ toRouteParamTypes pattern =
            )
 
 
-routeToBranch : RoutePattern -> ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression )
+routeToBranch : RoutePattern -> List ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression )
 routeToBranch route =
     case route.segments of
         [] ->
-            ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "Index" )
+            [ ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "Index" ) ]
 
         segments ->
             let
@@ -171,32 +171,33 @@ routeToBranch route =
                                 nonEmpty ->
                                     nonEmpty |> Elm.CodeGen.record |> Just
                     in
-                    ( Elm.CodeGen.listPattern
-                        ((route.segments
-                            |> List.map
-                                (\segment ->
-                                    case segment of
-                                        StaticSegment name ->
-                                            Elm.CodeGen.stringPattern (decapitalize name)
+                    [ ( Elm.CodeGen.listPattern
+                            ((route.segments
+                                |> List.map
+                                    (\segment ->
+                                        case segment of
+                                            StaticSegment name ->
+                                                Elm.CodeGen.stringPattern (decapitalize name)
 
-                                        DynamicSegment name ->
+                                            DynamicSegment name ->
+                                                Elm.CodeGen.varPattern (decapitalize name)
+                                    )
+                             )
+                                ++ [ case ending of
+                                        Optional name ->
                                             Elm.CodeGen.varPattern (decapitalize name)
-                                )
-                         )
-                            ++ [ case ending of
-                                    Optional name ->
-                                        Elm.CodeGen.varPattern (decapitalize name)
 
-                                    RequiredSplat ->
-                                        -- TODO splatRest
-                                        Elm.CodeGen.varPattern "splatFirst"
+                                        RequiredSplat ->
+                                            -- TODO splatRest
+                                            Elm.CodeGen.varPattern "splatFirst"
 
-                                    OptionalSplat ->
-                                        Elm.CodeGen.varPattern "splat"
-                               ]
-                        )
-                    , toRecordVariant innerType somethingNew
-                    )
+                                        OptionalSplat ->
+                                            Elm.CodeGen.varPattern "splat"
+                                   ]
+                            )
+                      , toRecordVariant innerType somethingNew
+                      )
+                    ]
 
                 Nothing ->
                     let
@@ -232,20 +233,21 @@ routeToBranch route =
                                 nonEmpty ->
                                     nonEmpty |> Elm.CodeGen.record |> Just
                     in
-                    ( Elm.CodeGen.listPattern
-                        (route.segments
-                            |> List.map
-                                (\segment ->
-                                    case segment of
-                                        StaticSegment name ->
-                                            Elm.CodeGen.stringPattern (decapitalize name)
+                    [ ( Elm.CodeGen.listPattern
+                            (route.segments
+                                |> List.map
+                                    (\segment ->
+                                        case segment of
+                                            StaticSegment name ->
+                                                Elm.CodeGen.stringPattern (decapitalize name)
 
-                                        DynamicSegment name ->
-                                            Elm.CodeGen.varPattern (decapitalize name)
-                                )
-                        )
-                    , toRecordVariant innerType something
-                    )
+                                            DynamicSegment name ->
+                                                Elm.CodeGen.varPattern (decapitalize name)
+                                    )
+                            )
+                      , toRecordVariant innerType something
+                      )
+                    ]
 
 
 toRecordVariant : Maybe Elm.CodeGen.Expression -> List ( String, b ) -> Elm.CodeGen.Expression

@@ -142,39 +142,53 @@ suite =
                 \() ->
                     []
                         |> testCaseGenerator
-                            ( Elm.CodeGen.listPattern []
-                            , Elm.CodeGen.val "Index"
-                            )
+                            [ ( Elm.CodeGen.listPattern []
+                              , Elm.CodeGen.val "Index"
+                              )
+                            ]
             , test "dynamic segment" <|
                 \() ->
                     [ "User", "Id_" ]
                         |> testCaseGenerator
-                            ( Elm.CodeGen.listPattern
-                                [ Elm.CodeGen.stringPattern "user"
-                                , Elm.CodeGen.varPattern "id"
-                                ]
-                            , Elm.CodeGen.val "User__Id_ { id = id }"
-                            )
+                            [ ( Elm.CodeGen.listPattern
+                                    [ Elm.CodeGen.stringPattern "user"
+                                    , Elm.CodeGen.varPattern "id"
+                                    ]
+                              , Elm.CodeGen.val "User__Id_ { id = id }"
+                              )
+                            ]
             , test "optional ending" <|
                 \() ->
                     [ "Docs", "Section__" ]
                         |> testCaseGenerator
-                            ( Elm.CodeGen.listPattern
-                                [ Elm.CodeGen.stringPattern "docs"
-                                , Elm.CodeGen.varPattern "section"
-                                ]
-                            , Elm.CodeGen.val "Docs__Section__ { section = section }"
-                            )
+                            [ ( Elm.CodeGen.listPattern
+                                    [ Elm.CodeGen.stringPattern "docs"
+                                    , Elm.CodeGen.varPattern "section"
+                                    ]
+                              , Elm.CodeGen.val "Docs__Section__ { section = section }"
+                              )
+                            ]
+
+            --, test "splat" <|
+            --    \() ->
+            --        [ "Docs", "Section__" ]
+            --            |> testCaseGenerator
+            --                ( Elm.CodeGen.listPattern
+            --                    [ Elm.CodeGen.stringPattern "docs"
+            --                    , Elm.CodeGen.varPattern "section"
+            --                    ]
+            --                , Elm.CodeGen.val "Docs__Section__ { section = section }"
+            --                )
             ]
         ]
 
 
-testCaseGenerator : ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression ) -> List String -> Expectation
+testCaseGenerator : List ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression ) -> List String -> Expectation
 testCaseGenerator expected moduleName =
     RoutePattern.fromModuleName moduleName
-        |> Maybe.map (RoutePattern.routeToBranch >> toStringCase)
-        |> Maybe.withDefault ( "<ERROR>", "<ERROR>" )
-        |> Expect.equal (expected |> toStringCase)
+        |> Maybe.map (RoutePattern.routeToBranch >> List.map toStringCase)
+        |> Maybe.withDefault [ ( "<ERROR>", "<ERROR>" ) ]
+        |> Expect.equal (expected |> List.map toStringCase)
 
 
 toStringCase : ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression ) -> ( String, String )
