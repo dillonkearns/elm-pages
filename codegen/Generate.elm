@@ -11,6 +11,7 @@ import Elm.Op
 import Elm.Pretty
 import Gen.Basics
 import Gen.CodeGen.Generate exposing (Error)
+import Gen.Html.Attributes
 import Gen.List
 import Gen.Path
 import Gen.Server.Response
@@ -247,6 +248,21 @@ file templates =
                                 , Elm.Annotation.var "error"
                                 ]
                             )
+                )
+            )
+            |> expose
+        , Elm.declaration "toLink"
+            (Elm.fn2
+                ( "toAnchorTag", Nothing )
+                ( "route", Just (Elm.Annotation.named [] "Route") )
+                (\toAnchorTag route ->
+                    Elm.apply
+                        toAnchorTag
+                        [ Elm.list
+                            [ route |> toString.call |> Gen.Html.Attributes.call_.href
+                            , Gen.Html.Attributes.attribute "elm-pages:prefetch" ""
+                            ]
+                        ]
                 )
             )
             |> expose
