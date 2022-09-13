@@ -127,6 +127,23 @@ toRouteParamTypes pattern =
 
 routeToBranch : RoutePattern -> List ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression )
 routeToBranch route =
+    let
+        something : List ( String, Maybe ( String, Elm.CodeGen.Expression ) )
+        something =
+            route.segments
+                |> List.map
+                    (\segment ->
+                        case segment of
+                            DynamicSegment name ->
+                                ( name ++ "_"
+                                , ( decapitalize name, Elm.CodeGen.val (decapitalize name) )
+                                    |> Just
+                                )
+
+                            StaticSegment name ->
+                                ( name, Nothing )
+                    )
+    in
     case route.segments of
         [] ->
             [ ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "Index" ) ]
@@ -198,27 +215,52 @@ routeToBranch route =
                       , toRecordVariant innerType somethingNew
                       )
                     ]
+                        ++ (case ending of
+                                Optional optionalName ->
+                                    [ ( Elm.CodeGen.listPattern
+                                            (route.segments
+                                                |> List.map
+                                                    (\segment ->
+                                                        case segment of
+                                                            StaticSegment name ->
+                                                                Elm.CodeGen.stringPattern (decapitalize name)
+
+                                                            DynamicSegment name ->
+                                                                Elm.CodeGen.varPattern (decapitalize name)
+                                                    )
+                                            )
+                                      , toRecordVariant
+                                            ((something
+                                                ++ [ ( optionalName ++ "__"
+                                                     , ( "section"
+                                                       , Elm.CodeGen.val "Nothing"
+                                                       )
+                                                        |> Just
+                                                     )
+                                                   ]
+                                             )
+                                                |> List.filterMap Tuple.second
+                                                |> Elm.CodeGen.record
+                                                |> Just
+                                            )
+                                            (something
+                                                ++ [ ( optionalName ++ "__"
+                                                     , ( "section"
+                                                       , Elm.CodeGen.val "Nothing"
+                                                       )
+                                                        |> Just
+                                                     )
+                                                   ]
+                                            )
+                                      )
+                                    ]
+
+                                _ ->
+                                    []
+                           )
 
                 Nothing ->
                     let
-                        something : List ( String, Maybe ( String, Elm.CodeGen.Expression ) )
-                        something =
-                            (segments
-                                |> List.map
-                                    (\segment ->
-                                        case segment of
-                                            DynamicSegment name ->
-                                                ( name ++ "_"
-                                                , ( decapitalize name, Elm.CodeGen.val (decapitalize name) )
-                                                    |> Just
-                                                )
-
-                                            StaticSegment name ->
-                                                ( name, Nothing )
-                                    )
-                            )
-                                |> List.map identity
-
                         fieldThings : List ( String, Elm.CodeGen.Expression )
                         fieldThings =
                             something
@@ -320,7 +362,7 @@ endingToVariantNameFields ending =
     case ending of
         Optional name ->
             ( name ++ "__"
-            , Just ( decapitalize name, Elm.CodeGen.val (decapitalize name) )
+            , Just ( decapitalize name, [ Elm.CodeGen.val "Just", Elm.CodeGen.val (decapitalize name) ] |> Elm.CodeGen.apply )
             )
 
         RequiredSplat ->

@@ -165,7 +165,12 @@ suite =
                                     [ Elm.CodeGen.stringPattern "docs"
                                     , Elm.CodeGen.varPattern "section"
                                     ]
-                              , Elm.CodeGen.val "Docs__Section__ { section = section }"
+                              , Elm.CodeGen.val "Docs__Section__ { section = Just section }"
+                              )
+                            , ( Elm.CodeGen.listPattern
+                                    [ Elm.CodeGen.stringPattern "docs"
+                                    ]
+                              , Elm.CodeGen.val "Docs__Section__ { section = Nothing }"
                               )
                             ]
 
