@@ -2,14 +2,12 @@ module Pages.RouteParamsTest exposing (..)
 
 import Elm
 import Elm.Annotation
-import Elm.Case
 import Elm.CodeGen
 import Elm.Pretty
 import Elm.ToString
 import Expect exposing (Expectation)
 import Pages.Internal.RoutePattern as RoutePattern
 import Pretty
-import Pretty.Renderer
 import Test exposing (Test, describe, test)
 
 
@@ -198,7 +196,7 @@ unconsPattern : List Elm.CodeGen.Pattern -> Elm.CodeGen.Pattern
 unconsPattern list =
     case list of
         [] ->
-            Debug.todo ""
+            Elm.CodeGen.listPattern []
 
         listFirst :: listRest ->
             List.foldl

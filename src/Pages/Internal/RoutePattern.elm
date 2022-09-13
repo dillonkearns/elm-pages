@@ -608,7 +608,7 @@ unconsPattern : List Elm.CodeGen.Pattern -> Elm.CodeGen.Pattern
 unconsPattern list =
     case list of
         [] ->
-            Debug.todo ""
+            Elm.CodeGen.listPattern []
 
         listFirst :: listRest ->
             List.foldl
