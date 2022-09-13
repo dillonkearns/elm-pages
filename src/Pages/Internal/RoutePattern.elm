@@ -145,7 +145,7 @@ routeToBranch route =
                     )
     in
     case route.segments of
-        [] ->
+        [ StaticSegment "Index" ] ->
             [ ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "Index" ) ]
 
         segments ->

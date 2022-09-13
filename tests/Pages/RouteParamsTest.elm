@@ -138,7 +138,7 @@ suite =
         , describe "toCase"
             [ test "root route" <|
                 \() ->
-                    []
+                    [ "Index" ]
                         |> testCaseGenerator
                             [ ( Elm.CodeGen.listPattern []
                               , Elm.CodeGen.val "Index"
