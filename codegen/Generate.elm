@@ -20,6 +20,7 @@ import Gen.String
 import Gen.Tuple
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import Pretty
+import Regex exposing (Regex)
 
 
 type alias Flags =
@@ -314,7 +315,7 @@ routeToPath routes =
                                                 (\param ->
                                                     case param of
                                                         RoutePattern.StaticParam name ->
-                                                            [ Elm.string name ]
+                                                            [ Elm.string (toKebab name) ]
                                                                 |> Elm.list
 
                                                         RoutePattern.DynamicParam name ->
@@ -342,7 +343,7 @@ routeToPath routes =
                                                     (\param ->
                                                         case param of
                                                             RoutePattern.StaticParam name ->
-                                                                [ Elm.string name ]
+                                                                [ Elm.string (toKebab name) ]
                                                                     |> Elm.list
 
                                                             RoutePattern.DynamicParam name ->
@@ -400,6 +401,43 @@ expose declaration =
             { exposeConstructor = True
             , group = Nothing
             }
+
+
+{-| Decapitalize the first letter of a string.
+decapitalize "This is a phrase" == "this is a phrase"
+decapitalize "Hello, World" == "hello, World"
+-}
+decapitalize : String -> String
+decapitalize word =
+    -- Source: https://github.com/elm-community/string-extra/blob/4.0.1/src/String/Extra.elm
+    changeCase Char.toLower word
+
+
+{-| Change the case of the first letter of a string to either uppercase or
+lowercase, depending of the value of `wantedCase`. This is an internal
+function for use in `toSentenceCase` and `decapitalize`.
+-}
+changeCase : (Char -> Char) -> String -> String
+changeCase mutator word =
+    -- Source: https://github.com/elm-community/string-extra/blob/4.0.1/src/String/Extra.elm
+    String.uncons word
+        |> Maybe.map (\( head, tail ) -> String.cons (mutator head) tail)
+        |> Maybe.withDefault ""
+
+
+toKebab : String -> String
+toKebab string =
+    string
+        |> decapitalize
+        |> String.trim
+        |> Regex.replace (regexFromString "([A-Z])") (.match >> String.append "-")
+        |> Regex.replace (regexFromString "[_-\\s]+") (always "-")
+        |> String.toLower
+
+
+regexFromString : String -> Regex
+regexFromString =
+    Regex.fromString >> Maybe.withDefault Regex.never
 
 
 port onSuccessSend : List File -> Cmd msg

@@ -13,6 +13,7 @@ import Elm
 import Elm.Annotation exposing (Annotation)
 import Elm.CodeGen
 import Html exposing (Html)
+import Regex exposing (Regex)
 
 
 {-| -}
@@ -145,7 +146,7 @@ routeToBranch route =
                                     (\segment ->
                                         case segment of
                                             StaticSegment name ->
-                                                Elm.CodeGen.stringPattern (decapitalize name)
+                                                Elm.CodeGen.stringPattern (toKebab name)
 
                                             DynamicSegment name ->
                                                 Elm.CodeGen.varPattern (decapitalize name)
@@ -175,7 +176,7 @@ routeToBranch route =
                                                     (\segment ->
                                                         case segment of
                                                             StaticSegment name ->
-                                                                Elm.CodeGen.stringPattern (decapitalize name)
+                                                                Elm.CodeGen.stringPattern (toKebab name)
 
                                                             DynamicSegment name ->
                                                                 Elm.CodeGen.varPattern (decapitalize name)
@@ -196,7 +197,7 @@ routeToBranch route =
                                     (\segment ->
                                         case segment of
                                             StaticSegment name ->
-                                                Elm.CodeGen.stringPattern (decapitalize name)
+                                                Elm.CodeGen.stringPattern (toKebab name)
 
                                             DynamicSegment name ->
                                                 Elm.CodeGen.varPattern (decapitalize name)
@@ -573,3 +574,18 @@ unconsPattern list =
                 )
                 listFirst
                 listRest
+
+
+toKebab : String -> String
+toKebab string =
+    string
+        |> decapitalize
+        |> String.trim
+        |> Regex.replace (regexFromString "([A-Z])") (.match >> String.append "-")
+        |> Regex.replace (regexFromString "[_-\\s]+") (always "-")
+        |> String.toLower
+
+
+regexFromString : String -> Regex
+regexFromString =
+    Regex.fromString >> Maybe.withDefault Regex.never
