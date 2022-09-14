@@ -304,7 +304,6 @@ toRecordVariant nothingCase route =
                             OptionalParam2 name ->
                                 Just
                                     ( decapitalize name
-                                      --, Elm.CodeGen.apply [ Elm.CodeGen.val "Just", Elm.CodeGen.val (decapitalize name) ]
                                     , if nothingCase then
                                         Elm.CodeGen.val "Nothing"
 
