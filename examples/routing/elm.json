@@ -37,18 +37,21 @@
             "noahzgordon/elm-color-extra": "1.0.2",
             "robinheghan/fnv1a": "1.0.0",
             "rtfeldman/elm-css": "16.1.1",
+            "the-sett/elm-pretty-printer": "3.0.0",
+            "the-sett/elm-syntax-dsl": "6.0.2",
             "turboMaCk/non-empty-list-alias": "1.2.0",
             "vito/elm-ansi": "10.0.1"
         },
         "indirect": {
+            "Chadtech/elm-bool-extra": "2.4.2",
             "elm/file": "1.0.5",
             "elm-community/basics-extra": "4.1.0",
+            "elm-community/maybe-extra": "5.3.0",
             "fredcy/elm-parseint": "2.0.1",
             "miniBill/elm-unicode": "1.0.2",
             "rtfeldman/elm-hex": "1.0.0",
             "stil4m/elm-syntax": "7.2.9",
-            "stil4m/structured-writer": "1.0.3",
-            "the-sett/elm-pretty-printer": "3.0.0"
+            "stil4m/structured-writer": "1.0.3"
         }
     },
     "test-dependencies": {
