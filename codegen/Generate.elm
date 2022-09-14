@@ -187,34 +187,26 @@ file templates basePath =
     in
     Elm.file
         [ "Route" ]
-        [ Elm.customType "Route"
-            (routes |> List.map RoutePattern.toVariant)
-            |> expose
-        , segmentsToRouteFn.declaration
-            |> expose
-        , urlToRoute
-            |> expose
-        , baseUrl.declaration
-            |> expose
-        , routeToPathFn.declaration
-            |> expose
-        , baseUrlAsPath.declaration
-            |> expose
-        , toPath.declaration
-            |> expose
-        , toString.declaration
-            |> expose
-        , redirectTo
-            |> expose
-        , toLink.declaration
-            |> expose
-        , link
-            |> expose
-        , withoutBaseUrl
-            |> expose
-        , splitPath.declaration
-        , maybeToList.declaration
-        ]
+        ([ [ Elm.customType "Route" (routes |> List.map RoutePattern.toVariant)
+           , segmentsToRouteFn.declaration
+           , urlToRoute
+           , baseUrl.declaration
+           , routeToPathFn.declaration
+           , baseUrlAsPath.declaration
+           , toPath.declaration
+           , toString.declaration
+           , redirectTo
+           , toLink.declaration
+           , link
+           , withoutBaseUrl
+           ]
+            |> List.map expose
+         , [ splitPath.declaration
+           , maybeToList.declaration
+           ]
+         ]
+            |> List.concat
+        )
 
 
 splitPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
