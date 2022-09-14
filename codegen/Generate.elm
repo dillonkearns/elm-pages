@@ -205,12 +205,32 @@ file templates basePath =
                         (Gen.String.call_.join
                             (Elm.string "/")
                             (Elm.Op.append
-                                (Elm.val "baseUrlAsPath")
+                                baseUrlAsPath.reference
                                 (routeToPathFn.call route)
                             )
                         )
                         |> Elm.withType (Elm.Annotation.named [ "Path" ] "Path")
                 )
+
+        baseUrlAsPath : { declaration : Elm.Declaration, reference : Elm.Expression, referenceFrom : List String -> Elm.Expression }
+        baseUrlAsPath =
+            topLevelValue
+                "baseUrlAsPath"
+                (Gen.List.call_.filter
+                    (Elm.fn ( "item", Nothing )
+                        (\item ->
+                            Gen.Basics.call_.not
+                                (Gen.String.call_.isEmpty item)
+                        )
+                    )
+                    (Gen.String.call_.split (Elm.string "/")
+                        baseUrl.reference
+                    )
+                )
+
+        baseUrl : { declaration : Elm.Declaration, reference : Elm.Expression, referenceFrom : List String -> Elm.Expression }
+        baseUrl =
+            topLevelValue "baseUrl" (Elm.string basePath)
     in
     Elm.file
         [ "Route" ]
@@ -234,22 +254,11 @@ file templates basePath =
                 )
             )
             |> expose
-        , Elm.declaration "baseUrl" (Elm.string basePath)
+        , baseUrl.declaration
             |> expose
         , maybeToList.declaration
         , routeToPathFn.declaration |> expose
-        , Elm.declaration "baseUrlAsPath"
-            (Gen.List.call_.filter
-                (Elm.fn ( "item", Nothing )
-                    (\item ->
-                        Gen.Basics.call_.not
-                            (Gen.String.call_.isEmpty item)
-                    )
-                )
-                (Gen.String.call_.split (Elm.string "/")
-                    (Elm.val "baseUrl")
-                )
-            )
+        , baseUrlAsPath.declaration
             |> expose
         , toPath.declaration
             |> expose
@@ -295,9 +304,9 @@ file templates basePath =
             (Elm.fn ( "path", Just Elm.Annotation.string )
                 (\path ->
                     Elm.ifThen
-                        (path |> Gen.String.call_.startsWith (Elm.val "baseUrl"))
+                        (path |> Gen.String.call_.startsWith baseUrl.reference)
                         (Gen.String.call_.dropLeft
-                            (Gen.String.call_.length (Elm.val "baseUrl"))
+                            (Gen.String.call_.length baseUrl.reference)
                             path
                         )
                         path
@@ -305,6 +314,32 @@ file templates basePath =
             )
             |> expose
         ]
+
+
+topLevelValue :
+    String
+    -> Elm.Expression
+    ->
+        { declaration : Elm.Declaration
+        , reference : Elm.Expression
+        , referenceFrom : List String -> Elm.Expression
+        }
+topLevelValue name expression =
+    let
+        declaration_ :
+            { declaration : Elm.Declaration
+            , call : List Elm.Expression -> Elm.Expression
+            , callFrom : List String -> List Elm.Expression -> Elm.Expression
+            }
+        declaration_ =
+            Elm.Declare.function name
+                []
+                (\_ -> expression)
+    in
+    { declaration = declaration_.declaration
+    , reference = declaration_.call []
+    , referenceFrom = \from -> declaration_.callFrom from []
+    }
 
 
 toLink : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression }
