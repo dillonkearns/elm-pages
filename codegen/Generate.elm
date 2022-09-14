@@ -265,20 +265,7 @@ file templates basePath =
                 )
             )
             |> expose
-        , Elm.declaration "toLink"
-            (Elm.fn2
-                ( "toAnchorTag", Nothing )
-                ( "route", Just (Elm.Annotation.named [] "Route") )
-                (\toAnchorTag route ->
-                    Elm.apply
-                        toAnchorTag
-                        [ Elm.list
-                            [ route |> toString.call |> Gen.Html.Attributes.call_.href
-                            , Gen.Html.Attributes.attribute "elm-pages:prefetch" ""
-                            ]
-                        ]
-                )
-            )
+        , toLink.declaration
             |> expose
         , Elm.declaration "link"
             (Elm.fn3
