@@ -17,6 +17,7 @@ import Gen.List
 import Gen.Path
 import Gen.Server.Response
 import Gen.String
+import Gen.Tuple
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import Pretty
 
@@ -333,10 +334,10 @@ routeToPath routes =
                                                                 maybeToList.call (Elm.get name params)
 
                                                             RoutePattern.RequiredSplatParam2 ->
-                                                                Elm.val "Debug.todo \"\""
+                                                                Elm.Op.cons (Gen.Tuple.first (Elm.get "splat" params)) (Gen.Tuple.second (Elm.get "splat" params))
 
                                                             RoutePattern.OptionalSplatParam2 ->
-                                                                Elm.val "Debug.todo \"\""
+                                                                Elm.get "splat" params
                                                     )
                                                 |> Elm.list
                                         )
