@@ -245,12 +245,31 @@ segmentsToRoute routes =
         , Elm.Annotation.list Elm.Annotation.string |> Just
         )
         (\segments ->
+            let
+                alreadyHasCatchallBranch : Bool
+                alreadyHasCatchallBranch =
+                    routes
+                        |> List.map RoutePattern.toVariantName
+                        |> List.any
+                            (\{ params } ->
+                                case params of
+                                    [ RoutePattern.OptionalSplatParam2 ] ->
+                                        True
+
+                                    _ ->
+                                        False
+                            )
+            in
             (((routes
                 |> List.concatMap RoutePattern.routeToBranch
                 |> List.map (Tuple.mapSecond (\constructRoute -> Elm.CodeGen.apply [ Elm.CodeGen.val "Just", constructRoute ]))
               )
-                ++ [ ( Elm.CodeGen.allPattern, Elm.CodeGen.val "Nothing" )
-                   ]
+                ++ (if alreadyHasCatchallBranch then
+                        []
+
+                    else
+                        [ ( Elm.CodeGen.allPattern, Elm.CodeGen.val "Nothing" ) ]
+                   )
              )
                 |> Elm.CodeGen.caseExpr (Elm.CodeGen.val "segments")
             )
