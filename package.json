@@ -10,6 +10,7 @@
     "test": "./test.sh",
     "test:snapshot": "(cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)",
     "cypress": "npm start & cypress run",
+    "prepare": "elm-codegen install",
     "review": "elm-review"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
