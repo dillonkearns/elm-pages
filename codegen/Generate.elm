@@ -231,22 +231,7 @@ file templates basePath =
                 )
             )
             |> expose
-        , Elm.declaration "toPath"
-            (Elm.fn ( "route", Elm.Annotation.named [] "Route" |> Just )
-                (\route ->
-                    Gen.Path.call_.fromString
-                        (Gen.String.call_.join
-                            (Elm.string "/")
-                            (Elm.Op.append
-                                (Elm.val "baseUrlAsPath")
-                                (Elm.apply (Elm.val "routeToPath")
-                                    [ route ]
-                                )
-                            )
-                        )
-                        |> Elm.withType (Elm.Annotation.named [ "Path" ] "Path")
-                )
-            )
+        , toPath.declaration
             |> expose
         , toString.declaration
             |> expose
@@ -302,6 +287,25 @@ file templates basePath =
         ]
 
 
+toPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+toPath =
+    Elm.Declare.fn "toPath"
+        ( "route", Elm.Annotation.named [] "Route" |> Just )
+        (\route ->
+            Gen.Path.call_.fromString
+                (Gen.String.call_.join
+                    (Elm.string "/")
+                    (Elm.Op.append
+                        (Elm.val "baseUrlAsPath")
+                        (Elm.apply (Elm.val "routeToPath")
+                            [ route ]
+                        )
+                    )
+                )
+                |> Elm.withType (Elm.Annotation.named [ "Path" ] "Path")
+        )
+
+
 toLink : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression }
 toLink =
     Elm.Declare.fn2 "toLink"
@@ -322,10 +326,7 @@ toString : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Express
 toString =
     Elm.Declare.fn "toString"
         ( "route", Elm.Annotation.named [] "Route" |> Just )
-        (\route ->
-            Gen.Path.toAbsolute
-                (Elm.apply (Elm.val "toPath") [ route ])
-        )
+        (\route -> Gen.Path.toAbsolute (toPath.call route))
 
 
 expose : Elm.Declaration -> Elm.Declaration
