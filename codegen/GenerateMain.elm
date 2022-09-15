@@ -53,7 +53,9 @@ otherFile routes =
             , toJsPort = todo
             , fromJsPort = todo
             , gotBatchSub = todo
-            , hotReloadData = todo
+            , hotReloadData =
+                Elm.apply (Elm.val "hotReloadData")
+                    [ Elm.fn ( "x", Nothing ) identity ]
             , onPageChange = todo
             , apiRoutes = todo
             , pathPatterns = todo
@@ -71,12 +73,32 @@ otherFile routes =
                     , name = "fromCmd"
                     , importFrom = [ "Effect" ]
                     }
-            , perform = todo
-            , errorStatusCode = todo
-            , notFoundPage = todo
-            , internalError = todo
-            , errorPageToData = todo
-            , notFoundRoute = todo
+            , perform =
+                Elm.value
+                    { annotation = Nothing
+                    , name = "perform"
+                    , importFrom = [ "Effect" ]
+                    }
+            , errorStatusCode =
+                Elm.value
+                    { annotation = Nothing
+                    , name = "statusCode"
+                    , importFrom = [ "ErrorPage" ]
+                    }
+            , notFoundPage =
+                Elm.value
+                    { annotation = Nothing
+                    , name = "notFound"
+                    , importFrom = [ "ErrorPage" ]
+                    }
+            , internalError =
+                Elm.value
+                    { annotation = Nothing
+                    , name = "internalError"
+                    , importFrom = [ "ErrorPage" ]
+                    }
+            , errorPageToData = Elm.val "DataErrorPage____"
+            , notFoundRoute = Elm.nothing
             }
                 |> Gen.Pages.ProgramConfig.make_.programConfig
                 |> Elm.withType
