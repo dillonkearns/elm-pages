@@ -18,6 +18,7 @@ import Gen.Path
 import Gen.Server.Response
 import Gen.String
 import Gen.Tuple
+import GenerateMain
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import Pretty
 import Regex exposing (Regex)
@@ -34,8 +35,17 @@ main =
     Platform.worker
         { init =
             \{ templates, basePath } ->
+                let
+                    routes : List RoutePattern.RoutePattern
+                    routes =
+                        templates
+                            |> List.filterMap RoutePattern.fromModuleName
+                in
                 ( ()
-                , onSuccessSend [ file templates basePath ]
+                , onSuccessSend
+                    [ file templates basePath
+                    , GenerateMain.otherFile routes
+                    ]
                 )
         , update =
             \_ model ->

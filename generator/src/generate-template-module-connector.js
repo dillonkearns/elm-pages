@@ -38,12 +38,15 @@ async function generateTemplateModuleConnector(basePath, phase) {
       ],
     };
   }
-  const routesModule = await runElmCodegenCli(
+  const elmCodegenFiles = await runElmCodegenCli(
     sortTemplates(templates),
     basePath
   );
+  const routesModule = elmCodegenFiles[0].contents;
+  const newMain = elmCodegenFiles[1].contents;
 
   return {
+    // mainModule: newMain,
     mainModule: `port module Main exposing (..)
 
 import Api
@@ -1044,8 +1047,9 @@ async function runElmCodegenCli(templates, basePath) {
     }
   });
   const filesToGenerate = await promise;
+  console.dir(filesToGenerate.map((file) => file.path));
 
-  return filesToGenerate[0].contents;
+  return filesToGenerate;
 }
 
 function emptyRouteParams(name) {
