@@ -114,11 +114,18 @@ createFile moduleName =
                     Elm.Case.custom msg
                         (Elm.Annotation.named [] "Msg")
                         [ Elm.Case.branch0 "NoOp"
-                            (Elm.tuple model Gen.Effect.none)
+                            (Elm.tuple model
+                                (Gen.Effect.none
+                                    |> Elm.withType effectType
+                                )
+                            )
                         ]
             , init =
                 \pageUrl sharedModel app ->
-                    Elm.tuple (Elm.record []) Gen.Effect.none
+                    Elm.tuple (Elm.record [])
+                        (Gen.Effect.none
+                            |> Elm.withType effectType
+                        )
             , subscriptions =
                 \maybePageUrl routeParams path sharedModel model ->
                     Gen.Platform.Sub.none
@@ -127,6 +134,11 @@ createFile moduleName =
             , msg =
                 Custom [ Elm.variant "NoOp" ]
             }
+
+
+effectType : Elm.Annotation.Annotation
+effectType =
+    Elm.Annotation.namedWith [ "Effect" ] "Effect" [ Elm.Annotation.var "msg" ]
 
 
 port print : String -> Cmd msg

@@ -2,12 +2,14 @@ const globby = require("globby");
 const path = require("path");
 const mm = require("micromatch");
 const routeHelpers = require("./route-codegen-helpers");
+const { runElmCodegenInstall } = require("./elm-codegen");
+const { compileCliApp } = require("./compile-elm");
 
 /**
  * @param {string} basePath
  * @param {'browser' | 'cli'} phase
  */
-function generateTemplateModuleConnector(basePath, phase) {
+async function generateTemplateModuleConnector(basePath, phase) {
   const templates = globby.sync(["app/Route/**/*.elm"], {}).map((file) => {
     const captures = mm.capture("app/Route/**/*.elm", file);
     if (captures) {
@@ -36,6 +38,10 @@ function generateTemplateModuleConnector(basePath, phase) {
       ],
     };
   }
+  const routesModule = await runElmCodegenCli(
+    sortTemplates(templates),
+    basePath
+  );
 
   return {
     mainModule: `port module Main exposing (..)
@@ -997,149 +1003,49 @@ decodeBytes bytesDecoder items =
     -- Lamdera.Wire3.bytesDecodeStrict bytesDecoder items
         |> Result.fromMaybe "Decoding error"
 `,
-    routesModule: `module Route exposing (baseUrlAsPath, Route(..), link, matchers, routeToPath, toLink, urlToRoute, toPath, redirectTo, toString)
-
-{-|
-
-@docs Route, link, matchers, routeToPath, toLink, urlToRoute, toPath, redirectTo, toString, baseUrlAsPath
-
--}
-
-
-import Server.Response
-import Html exposing (Attribute, Html)
-import Html.Attributes as Attr
-import Path exposing (Path)
-import Pages.Internal.Router
-import Pattern
-
-
-{-| -}
-type Route
-    = ${templates.map(routeHelpers.routeVariantDefinition).join("\n    | ")}
-
-
-{-| -}
-urlToRoute : { url | path : String } -> Maybe Route
-urlToRoute url =
-    url.path
-    |> withoutBaseUrl 
-    |> Pages.Internal.Router.firstMatch matchers
-
-
-baseUrl : String
-baseUrl =
-    "${basePath}"
-
-
-{-| -}
-baseUrlAsPath : List String
-baseUrlAsPath =
-    baseUrl
-    |> String.split "/"
-    |> List.filter (not << String.isEmpty)
-
-
-withoutBaseUrl path =
-    if (path |> String.startsWith baseUrl) then
-      String.dropLeft (String.length baseUrl) path
-    else
-      path
-
-{-| -}
-matchers : List (Pages.Internal.Router.Matcher Route)
-matchers =
-    [ ${sortTemplates(templates)
-      .map(
-        (name) => `{ pattern = "^${routeRegex(name).pattern}$"
-      , toRoute = ${routeRegex(name).toRoute}
-     }\n`
-      )
-      .join("    , ")}
-    ]
-
-
-{-| -}
-routeToPath : Route -> List String
-routeToPath route =
-    case route of
-        ${templates
-          .map(
-            (name) =>
-              `${routeHelpers.routeVariant(name)}${
-                routeHelpers.parseRouteParams(name).length === 0
-                  ? ""
-                  : ` params`
-              } ->\n           List.concat [ ${routeHelpers
-                .parseRouteParamsWithStatic(name)
-                .map((param) => {
-                  switch (param.kind) {
-                    case "static": {
-                      return param.name === "Index"
-                        ? `[]`
-                        : `[ "${camelToKebab(param.name)}" ]`;
-                    }
-                    case "optional": {
-                      return `Pages.Internal.Router.maybeToList params.${param.name}`;
-                    }
-                    case "required-splat": {
-                      return `Pages.Internal.Router.nonEmptyToList params.${param.name}`;
-                    }
-                    case "dynamic": {
-                      return `[ params.${param.name} ]`;
-                    }
-                    case "optional-splat": {
-                      return `params.${param.name}`;
-                    }
-                  }
-                })} ]`
-          )
-          .join("\n        ")}
-
-{-| -}
-toPath : Route -> Path
-toPath route =
-    (baseUrlAsPath ++ (route |> routeToPath)) |> String.join "/" |> Path.fromString
-
-
-{-| -}
-toString : Route -> String
-toString route =
-    route |> toPath |> Path.toAbsolute
-
-
-{-| -}
-toLink : (List (Attribute msg) -> tag) -> Route -> tag
-toLink toAnchorTag route =
-    toAnchorTag
-        [ route |> toString |> Attr.href
-        , Attr.attribute "elm-pages:prefetch" ""
-        ]
-
-
-{-| -}
-link : List (Attribute msg) -> List (Html msg) -> Route -> Html msg
-link attributes children route =
-    toLink
-        (\\anchorAttrs ->
-            Html.a
-                (anchorAttrs ++ attributes)
-                children
-        )
-        route
-
-
-{-| -}
-redirectTo : Route -> Server.Response.Response data error
-redirectTo route =
-    route
-        |> toString
-        |> Server.Response.temporaryRedirect
-`,
+    routesModule,
     fetcherModules: templates.map((name) => {
       return [name, fetcherModule(name)];
     }),
   };
+}
+
+async function runElmCodegenCli(templates, basePath) {
+  // await runElmCodegenInstall();
+  await compileCliApp(
+    // { debug: true },
+    {},
+    `Generate.elm`,
+    path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js"),
+    path.join(__dirname, "../../codegen"),
+
+    path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js")
+  );
+
+  // TODO use uncached require here to prevent stale code from running
+
+  const promise = new Promise((resolve, reject) => {
+    const elmPagesCodegen = require(path.join(
+      process.cwd(),
+      "./elm-stuff/elm-pages-codegen.js"
+    )).Elm.Generate;
+
+    const app = elmPagesCodegen.init({
+      flags: { templates: templates, basePath },
+    });
+    if (app.ports.onSuccessSend) {
+      app.ports.onSuccessSend.subscribe(resolve);
+    }
+    if (app.ports.onInfoSend) {
+      app.ports.onInfoSend.subscribe((info) => console.log(info));
+    }
+    if (app.ports.onFailureSend) {
+      app.ports.onFailureSend.subscribe(reject);
+    }
+  });
+  const filesToGenerate = await promise;
+
+  return filesToGenerate[0].contents;
 }
 
 function emptyRouteParams(name) {

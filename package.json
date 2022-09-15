@@ -10,6 +10,7 @@
     "test": "./test.sh",
     "test:snapshot": "(cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)",
     "cypress": "npm start & cypress run",
+    "prepare": "elm-codegen install",
     "review": "elm-review"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
@@ -54,6 +55,7 @@
     "@types/node": "12.20.12",
     "@types/serve-static": "^1.15.0",
     "cypress": "^10.6.0",
+    "elm-codegen": "^0.2.0",
     "elm-optimize-level-2": "^0.1.5",
     "elm-review": "^2.7.4",
     "elm-test": "^0.19.1-revision9",

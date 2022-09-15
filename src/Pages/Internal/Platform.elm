@@ -558,10 +558,6 @@ update config appMsg model =
                         redirectPending : Bool
                         redirectPending =
                             newUrl /= urlWithoutRedirectResolution
-
-                        stayingOnSamePath : Bool
-                        stayingOnSamePath =
-                            newUrl.path == model.url.path
                     in
                     if redirectPending then
                         ( { model
@@ -582,6 +578,10 @@ update config appMsg model =
 
                     else
                         let
+                            stayingOnSamePath : Bool
+                            stayingOnSamePath =
+                                newUrl.path == model.url.path
+
                             ( newPageData, newSharedData, newActionData ) =
                                 case newData of
                                     ResponseSketch.RenderPage pageData actionData ->

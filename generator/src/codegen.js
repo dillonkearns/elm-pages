@@ -16,8 +16,11 @@ global.builtAt = new Date();
  * @param {string} basePath
  */
 async function generate(basePath) {
-  const cliCode = generateTemplateModuleConnector(basePath, "cli");
-  const browserCode = generateTemplateModuleConnector(basePath, "browser");
+  const cliCode = await generateTemplateModuleConnector(basePath, "cli");
+  const browserCode = await generateTemplateModuleConnector(
+    basePath,
+    "browser"
+  );
   ensureDirSync("./elm-stuff");
   ensureDirSync("./.elm-pages");
   ensureDirSync("./gen");
@@ -83,7 +86,10 @@ async function newCopyBoth(modulePath) {
 }
 
 async function generateClientFolder(basePath) {
-  const browserCode = generateTemplateModuleConnector(basePath, "browser");
+  const browserCode = await generateTemplateModuleConnector(
+    basePath,
+    "browser"
+  );
   const uiFileContent = elmPagesUiFile();
   ensureDirSync("./elm-stuff/elm-pages/client/app");
   ensureDirSync("./elm-stuff/elm-pages/client/.elm-pages");
