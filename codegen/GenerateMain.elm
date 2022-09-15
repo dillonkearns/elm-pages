@@ -214,7 +214,15 @@ otherFile routes phaseString =
             , referenceFrom : List String -> Elm.Expression
             }
         getStaticRoutes =
-            topLevelValue "getStaticRoutes" todo
+            topLevelValue "getStaticRoutes"
+                (Gen.DataSource.combine
+                    []
+                    |> Gen.DataSource.call_.map Gen.List.values_.concat
+                    |> Elm.withType
+                        (Gen.DataSource.annotation_.dataSource
+                            (Type.list (Type.named [ "Route" ] "Route"))
+                        )
+                )
     in
     Elm.file [ "Main" ]
         [ Elm.alias "Model"
@@ -324,6 +332,7 @@ otherFile routes phaseString =
             |> Elm.declaration "main"
             |> expose
         , config.declaration
+        , getStaticRoutes.declaration
         , Elm.portOutgoing "sendPageData"
             (Type.record
                 [ ( "oldThing", Gen.Json.Encode.annotation_.value )
