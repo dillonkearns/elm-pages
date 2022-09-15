@@ -1,4 +1,4 @@
-module Elm.Extra exposing (expose, topLevelValue)
+module Elm.Extra exposing (expose, fnIgnore, topLevelValue)
 
 import Elm
 import Elm.Declare
@@ -37,3 +37,11 @@ expose declaration =
             { exposeConstructor = True
             , group = Nothing
             }
+
+
+fnIgnore : Elm.Expression -> Elm.Expression
+fnIgnore expression =
+    Elm.fn ( "_", Nothing )
+        (\_ ->
+            expression
+        )

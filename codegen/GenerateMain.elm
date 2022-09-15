@@ -5,7 +5,7 @@ import Elm.Annotation as Type
 import Elm.Case
 import Elm.CodeGen
 import Elm.Declare
-import Elm.Extra exposing (expose, topLevelValue)
+import Elm.Extra exposing (expose, fnIgnore, topLevelValue)
 import Elm.Op
 import Elm.Pretty
 import Gen.ApiRoute
@@ -237,7 +237,15 @@ otherFile routes phaseString =
                                                     }
 
                                              else
-                                                todo
+                                                fnIgnore
+                                                    (Elm.value
+                                                        { annotation = Nothing
+                                                        , name =
+                                                            (route |> RoutePattern.toModuleName)
+                                                                |> String.join "__"
+                                                        , importFrom = [ "Route" ]
+                                                        }
+                                                    )
                                             )
                                         )
                             )
