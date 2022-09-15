@@ -8,6 +8,7 @@ const init = require("./init.js");
 const codegen = require("./codegen.js");
 const fs = require("fs");
 const path = require("path");
+const { restoreColorSafe } = require("./error-formatter");
 
 const commander = require("commander");
 const { compileCliApp } = require("./compile-elm.js");
@@ -124,19 +125,22 @@ async function main() {
       if (!fs.existsSync(expectedFilePath)) {
         throw `I couldn't find a module named ${expectedFilePath}`;
       }
-      await codegen.generate("");
-      await runElmCodegenInstall();
-      await compileCliApp(
-        // { debug: true },
-        {},
-        `${splitModuleName.join("/")}.elm`,
-        path.join(process.cwd(), "codegen/elm-stuff/scaffold.js"),
-        // "elm-stuff/scaffold.js",
-        "codegen",
+      try {
+        await codegen.generate("");
+        await runElmCodegenInstall();
+        await compileCliApp(
+          // { debug: true },
+          {},
+          `${splitModuleName.join("/")}.elm`,
+          path.join(process.cwd(), "codegen/elm-stuff/scaffold.js"),
+          "codegen",
 
-        path.join(process.cwd(), "codegen/elm-stuff/scaffold.js")
-        // "elm-stuff/scaffold.js"
-      );
+          path.join(process.cwd(), "codegen/elm-stuff/scaffold.js")
+        );
+      } catch (error) {
+        console.log(restoreColorSafe(error));
+        process.exit(1);
+      }
 
       const elmScaffoldProgram = getAt(
         splitModuleName,
