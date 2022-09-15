@@ -8,11 +8,15 @@ import Elm.Declare
 import Elm.Extra exposing (expose, topLevelValue)
 import Elm.Op
 import Elm.Pretty
+import Gen.ApiRoute
 import Gen.Basics
 import Gen.Bytes
 import Gen.CodeGen.Generate exposing (Error)
+import Gen.DataSource
+import Gen.Head
 import Gen.Html
 import Gen.Html.Attributes
+import Gen.HtmlPrinter
 import Gen.Json.Decode
 import Gen.Json.Encode
 import Gen.List
@@ -114,7 +118,13 @@ otherFile routes phaseString =
             , encodeResponse = todo
             , encodeAction = todo
             , decodeResponse = todo
-            , globalHeadTags = todo
+            , globalHeadTags =
+                case phase of
+                    Browser ->
+                        Elm.nothing
+
+                    Cli ->
+                        Elm.just globalHeadTags.reference
             , cmdToEffect =
                 Elm.value
                     { annotation = Nothing
@@ -277,6 +287,7 @@ otherFile routes phaseString =
                 , ( "binaryPageData", Gen.Bytes.annotation_.bytes )
                 ]
             )
+        , globalHeadTags.declaration
         , Elm.portIncoming "hotReloadData"
             [ Gen.Bytes.annotation_.bytes ]
         , Elm.portIncoming "toJsPort"
@@ -286,6 +297,42 @@ otherFile routes phaseString =
         , Elm.portIncoming "gotBatchSub"
             [ Gen.Json.Decode.annotation_.value ]
         ]
+
+
+globalHeadTags =
+    topLevelValue "globalHeadTags"
+        (Elm.Op.cons
+            (Elm.value
+                { importFrom = [ "Site" ]
+                , annotation = Nothing
+                , name = "config"
+                }
+                |> Elm.get "head"
+            )
+            (Elm.apply
+                (Elm.value
+                    { importFrom = [ "Api" ]
+                    , annotation = Nothing
+                    , name = "routes"
+                    }
+                )
+                [ getStaticRoutes.reference
+                , Gen.HtmlPrinter.values_.htmlToString
+                ]
+                |> Gen.List.call_.filterMap Gen.ApiRoute.values_.getGlobalHeadTagsDataSource
+            )
+            |> Gen.DataSource.call_.combine
+            |> Gen.DataSource.call_.map Gen.List.values_.concat
+            |> Elm.withType
+                (Gen.DataSource.annotation_.dataSource
+                    (Type.list Gen.Head.annotation_.tag)
+                )
+        )
+
+
+getStaticRoutes : { declaration : Elm.Declaration, reference : Elm.Expression, referenceFrom : List String -> Elm.Expression }
+getStaticRoutes =
+    topLevelValue "getStaticRoutes" todo
 
 
 todo : Elm.Expression
