@@ -9,9 +9,12 @@ import Elm.Extra exposing (expose, topLevelValue)
 import Elm.Op
 import Elm.Pretty
 import Gen.Basics
+import Gen.Bytes
 import Gen.CodeGen.Generate exposing (Error)
 import Gen.Html
 import Gen.Html.Attributes
+import Gen.Json.Decode
+import Gen.Json.Encode
 import Gen.List
 import Gen.Pages.Internal.Platform
 import Gen.Pages.ProgramConfig
@@ -181,6 +184,20 @@ otherFile routes =
             |> Elm.declaration "main"
             |> expose
         , config.declaration
+        , Elm.portOutgoing "sendPageData"
+            (Type.record
+                [ ( "oldThing", Gen.Json.Encode.annotation_.value )
+                , ( "binaryPageData", Gen.Bytes.annotation_.bytes )
+                ]
+            )
+        , Elm.portIncoming "hotReloadData"
+            [ Gen.Bytes.annotation_.bytes ]
+        , Elm.portIncoming "toJsPort"
+            [ Gen.Json.Encode.annotation_.value ]
+        , Elm.portIncoming "fromJsPort"
+            [ Gen.Json.Decode.annotation_.value ]
+        , Elm.portIncoming "gotBatchSub"
+            [ Gen.Json.Decode.annotation_.value ]
         ]
 
 
