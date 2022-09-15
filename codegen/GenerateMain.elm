@@ -37,44 +37,61 @@ otherFile routes =
             , referenceFrom : List String -> Elm.Expression
             }
         config =
-            topLevelValue "config" <|
-                Gen.Pages.ProgramConfig.make_.programConfig
-                    { init = todo
-                    , update = todo
-                    , subscriptions = todo
-                    , sharedData = todo
-                    , data = todo
-                    , action = todo
-                    , onActionData = todo
-                    , view = todo
-                    , handleRoute = todo
-                    , getStaticRoutes = todo
-                    , urlToRoute = todo
-                    , routeToPath = todo
-                    , site = todo
-                    , toJsPort = todo
-                    , fromJsPort = todo
-                    , gotBatchSub = todo
-                    , hotReloadData = todo
-                    , onPageChange = todo
-                    , apiRoutes = todo
-                    , pathPatterns = todo
-                    , basePath = todo
-                    , sendPageData = todo
-                    , byteEncodePageData = todo
-                    , byteDecodePageData = todo
-                    , encodeResponse = todo
-                    , encodeAction = todo
-                    , decodeResponse = todo
-                    , globalHeadTags = todo
-                    , cmdToEffect = todo
-                    , perform = todo
-                    , errorStatusCode = todo
-                    , notFoundPage = todo
-                    , internalError = todo
-                    , errorPageToData = todo
-                    , notFoundRoute = todo
+            { init = todo
+            , update = todo
+            , subscriptions = todo
+            , sharedData = todo
+            , data = todo
+            , action = todo
+            , onActionData = todo
+            , view = todo
+            , handleRoute = todo
+            , getStaticRoutes = todo
+            , urlToRoute = todo
+            , routeToPath = todo
+            , site = todo
+            , toJsPort = todo
+            , fromJsPort = todo
+            , gotBatchSub = todo
+            , hotReloadData = todo
+            , onPageChange = todo
+            , apiRoutes = todo
+            , pathPatterns = todo
+            , basePath = todo
+            , sendPageData = todo
+            , byteEncodePageData = todo
+            , byteDecodePageData = todo
+            , encodeResponse = todo
+            , encodeAction = todo
+            , decodeResponse = todo
+            , globalHeadTags = todo
+            , cmdToEffect =
+                Elm.value
+                    { annotation = Nothing
+                    , name = "fromCmd"
+                    , importFrom = [ "Effect" ]
                     }
+            , perform = todo
+            , errorStatusCode = todo
+            , notFoundPage = todo
+            , internalError = todo
+            , errorPageToData = todo
+            , notFoundRoute = todo
+            }
+                |> Gen.Pages.ProgramConfig.make_.programConfig
+                |> Elm.withType
+                    (Gen.Pages.ProgramConfig.annotation_.programConfig
+                        (Type.named [] "Msg")
+                        (Type.named [] "Model")
+                        (Type.maybe (Type.named [ "Route" ] "Route"))
+                        (Type.named [] "PageData")
+                        (Type.named [] "ActionData")
+                        (Type.named [ "Shared" ] "Data")
+                        (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ])
+                        (Type.var "mappedMsg")
+                        (Type.named [ "ErrorPage" ] "ErrorPage")
+                    )
+                |> topLevelValue "config"
     in
     Elm.file [ "Main" ]
         [ Elm.alias "Model"
