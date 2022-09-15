@@ -7,6 +7,7 @@ import Elm.Annotation
 import Elm.Case
 import Elm.CodeGen
 import Elm.Declare
+import Elm.Extra exposing (topLevelValue)
 import Elm.Op
 import Elm.Pretty
 import Gen.Basics
@@ -364,32 +365,6 @@ routeToPath routes =
                 |> Gen.List.call_.concat
                 |> Elm.withType (Elm.Annotation.list Elm.Annotation.string)
         )
-
-
-topLevelValue :
-    String
-    -> Elm.Expression
-    ->
-        { declaration : Elm.Declaration
-        , reference : Elm.Expression
-        , referenceFrom : List String -> Elm.Expression
-        }
-topLevelValue name expression =
-    let
-        declaration_ :
-            { declaration : Elm.Declaration
-            , call : List Elm.Expression -> Elm.Expression
-            , callFrom : List String -> List Elm.Expression -> Elm.Expression
-            }
-        declaration_ =
-            Elm.Declare.function name
-                []
-                (\_ -> expression)
-    in
-    { declaration = declaration_.declaration
-    , reference = declaration_.call []
-    , referenceFrom = \from -> declaration_.callFrom from []
-    }
 
 
 expose : Elm.Declaration -> Elm.Declaration
