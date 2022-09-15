@@ -71,7 +71,14 @@ otherFile routes phaseString =
             , onActionData = todo
             , view = todo
             , handleRoute = todo
-            , getStaticRoutes = todo
+            , getStaticRoutes =
+                case phase of
+                    Browser ->
+                        Gen.DataSource.succeed (Elm.list [])
+
+                    Cli ->
+                        getStaticRoutes.reference
+                            |> Gen.DataSource.map (Gen.List.call_.map (Elm.val "Just"))
             , urlToRoute =
                 Elm.value
                     { annotation = Nothing
