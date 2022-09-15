@@ -62,7 +62,9 @@ otherFile routes phaseString =
             { init = todo
             , update = todo
             , subscriptions = todo
-            , sharedData = todo
+            , sharedData =
+                Elm.value { name = "template", importFrom = [ "Shared" ], annotation = Nothing }
+                    |> Elm.get "data"
             , data = todo
             , action = todo
             , onActionData = todo
