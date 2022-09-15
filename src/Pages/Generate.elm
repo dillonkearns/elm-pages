@@ -1,4 +1,7 @@
-module Pages.Generate exposing (Type(..), serverRender, buildWithLocalState, buildNoState)
+module Pages.Generate exposing
+    ( Type(..), serverRender, buildWithLocalState, buildNoState
+    , Builder
+    )
 
 {-|
 
@@ -157,7 +160,7 @@ userFunction moduleName definitions =
                     in
                     { declaration = thing.declaration
                     , call = \_ -> thing.call
-                    , callFrom = \a b c d -> thing.callFrom a c d
+                    , callFrom = \a _ c d -> thing.callFrom a c d
                     }
 
         localDefinitions =

@@ -209,7 +209,7 @@ routeParamsMatchesNameOrError annotation moduleName =
 
         Ok actualStringFields ->
             let
-                expectedFields : Dict String RoutePattern.Param
+                expectedFields : Dict String Param
                 expectedFields =
                     expectedRouteParamsFromModuleName moduleName
             in
@@ -241,7 +241,7 @@ expectedFieldsToRecordString moduleName =
            )
 
 
-expectedRouteParamsFromModuleName : List String -> Dict String RoutePattern.Param
+expectedRouteParamsFromModuleName : List String -> Dict String Param
 expectedRouteParamsFromModuleName moduleSegments =
     case moduleSegments of
         "Route" :: segments ->
@@ -258,12 +258,12 @@ expectedRouteParamsFromModuleName moduleSegments =
 
 stringFields :
     Node TypeAnnotation
-    -> Result (Error {}) (Dict String (Result (Node TypeAnnotation) RoutePattern.Param))
+    -> Result (Error {}) (Dict String (Result (Node TypeAnnotation) Param))
 stringFields typeAnnotation =
     case Node.value typeAnnotation of
         TypeAnnotation.Record recordDefinition ->
             let
-                fields : Dict String (Result (Node TypeAnnotation) RoutePattern.Param)
+                fields : Dict String (Result (Node TypeAnnotation) Param)
                 fields =
                     recordDefinition
                         |> List.map Node.value
@@ -287,7 +287,7 @@ stringFields typeAnnotation =
                 )
 
 
-paramType : Node TypeAnnotation -> Result (Node TypeAnnotation) RoutePattern.Param
+paramType : Node TypeAnnotation -> Result (Node TypeAnnotation) Param
 paramType typeAnnotation =
     case Node.value typeAnnotation of
         TypeAnnotation.Tupled [ first, second ] ->

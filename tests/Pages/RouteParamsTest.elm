@@ -1,4 +1,4 @@
-module Pages.RouteParamsTest exposing (..)
+module Pages.RouteParamsTest exposing (suite)
 
 import Elm
 import Elm.Annotation
