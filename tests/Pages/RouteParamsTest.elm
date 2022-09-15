@@ -6,9 +6,10 @@ import Elm.CodeGen
 import Elm.Pretty
 import Elm.ToString
 import Expect exposing (Expectation)
+import Fuzz exposing (Fuzzer)
 import Pages.Internal.RoutePattern as RoutePattern
 import Pretty
-import Test exposing (Test, describe, test)
+import Test exposing (Test, describe, fuzz, test)
 
 
 suite : Test
@@ -189,6 +190,20 @@ suite =
                               )
                             ]
             ]
+        , fuzz routeModuleNameFuzzer "to/from module name" <|
+            \moduleName ->
+                moduleName
+                    |> RoutePattern.fromModuleName
+                    |> Maybe.map RoutePattern.toModuleName
+                    |> Expect.equal (Just moduleName)
+        ]
+
+
+routeModuleNameFuzzer : Fuzzer (List String)
+routeModuleNameFuzzer =
+    Fuzz.oneOf
+        [ Fuzz.constant [ "Index" ]
+        , Fuzz.constant [ "User", "Id_" ]
         ]
 
 

@@ -1,6 +1,6 @@
 module Pages.Internal.RoutePattern exposing
     ( Ending(..), RoutePattern, Segment(..), view, toVariant, routeToBranch
-    , Param(..), RouteParam(..), fromModuleName, toRouteParamTypes, toRouteParamsRecord, toVariantName
+    , Param(..), RouteParam(..), fromModuleName, toModuleName, toRouteParamTypes, toRouteParamsRecord, toVariantName
     )
 
 {-| Exposed for internal use only (used in generated code).
@@ -21,6 +21,26 @@ type alias RoutePattern =
     { segments : List Segment
     , ending : Maybe Ending
     }
+
+
+toModuleName : RoutePattern -> List String
+toModuleName route =
+    case route.ending of
+        Nothing ->
+            route.segments
+                |> List.foldl
+                    (\segment soFar ->
+                        case segment of
+                            StaticSegment name ->
+                                soFar ++ [ name ]
+
+                            DynamicSegment name ->
+                                soFar ++ [ name ++ "_" ]
+                    )
+                    []
+
+        _ ->
+            [ "Unhandled2" ]
 
 
 fromModuleName : List String -> Maybe RoutePattern
