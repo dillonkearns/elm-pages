@@ -127,9 +127,32 @@ otherFile routes phaseString =
             , hotReloadData =
                 applyIdentityTo (Elm.val "hotReloadData")
             , onPageChange = Elm.val "OnPageChange"
-            , apiRoutes = todo
+            , apiRoutes =
+                Elm.fn ( "htmlToString", Nothing )
+                    (\htmlToString ->
+                        case phase of
+                            Browser ->
+                                Elm.list []
+
+                            Cli ->
+                                Elm.Op.cons pathsToGenerateHandler.reference
+                                    (Elm.Op.cons routePatterns.reference
+                                        (Elm.Op.cons apiPatterns.reference
+                                            (Elm.apply (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
+                                                [ getStaticRoutes.reference
+                                                , htmlToString
+                                                ]
+                                            )
+                                        )
+                                    )
+                    )
             , pathPatterns = pathPatterns.reference
-            , basePath = todo
+            , basePath =
+                Elm.value
+                    { name = "baseUrlAsPath"
+                    , importFrom = [ "Route" ]
+                    , annotation = Nothing
+                    }
             , sendPageData = Elm.val "sendPageData"
             , byteEncodePageData = todo
             , byteDecodePageData = todo
@@ -202,6 +225,107 @@ otherFile routes phaseString =
                     |> List.map routePatternToSyntax
                     |> Elm.list
                 )
+
+        pathsToGenerateHandler :
+            { declaration : Elm.Declaration
+            , reference : Elm.Expression
+            , referenceFrom : List String -> Elm.Expression
+            }
+        pathsToGenerateHandler =
+            topLevelValue "pathsToGenerateHandler"
+                (Gen.ApiRoute.succeed
+                    (Gen.DataSource.map2
+                        (\pageRoutes apiRoutes ->
+                            Elm.Op.append pageRoutes
+                                (apiRoutes
+                                    |> Gen.List.call_.map (Elm.fn ( "api", Nothing ) (\api -> Elm.Op.append (Elm.string "/") api))
+                                )
+                                |> Gen.Json.Encode.call_.list Gen.Json.Encode.values_.string
+                                |> Gen.Json.Encode.encode 0
+                        )
+                        (Gen.DataSource.map
+                            (Gen.List.call_.map
+                                (Elm.fn ( "route", Nothing )
+                                    (\route_ ->
+                                        Elm.apply
+                                            (Elm.value
+                                                { name = "toPath"
+                                                , importFrom = [ "Route" ]
+                                                , annotation = Nothing
+                                                }
+                                            )
+                                            [ route_ ]
+                                            |> Gen.Path.toAbsolute
+                                    )
+                                )
+                            )
+                            getStaticRoutes.reference
+                        )
+                        (Elm.Op.cons routePatterns.reference
+                            (Elm.Op.cons apiPatterns.reference
+                                (Elm.apply (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
+                                    [ getStaticRoutes.reference
+                                    , fnIgnore (Elm.string "")
+                                    ]
+                                )
+                            )
+                            |> Gen.List.call_.map Gen.ApiRoute.values_.getBuildTimeRoutes
+                            |> Gen.DataSource.call_.combine
+                            |> Gen.DataSource.call_.map Gen.List.values_.concat
+                        )
+                    )
+                    |> Gen.ApiRoute.literal "all-paths.json"
+                    |> Gen.ApiRoute.single
+                )
+
+        apiPatterns :
+            { declaration : Elm.Declaration
+            , reference : Elm.Expression
+            , referenceFrom : List String -> Elm.Expression
+            }
+        apiPatterns =
+            {-
+               apiPatterns : ApiRoute.ApiRoute ApiRoute.Response
+               apiPatterns =
+                   let
+                       apiPatternsString =
+                           Api.routes getStaticRoutes (\\_ -> "")
+                               |> List.map ApiRoute.toJson
+
+                   in
+                   ApiRoute.succeed
+                       (Json.Encode.list identity apiPatternsString
+                           |> (\\json -> DataSource.succeed ( Json.Encode.encode 0 json ))
+                       )
+                       |> ApiRoute.literal "api-patterns.json"
+                       |> ApiRoute.single
+            -}
+            topLevelValue "apiPatterns"
+                (Gen.ApiRoute.succeed
+                    (Gen.Json.Encode.call_.list
+                        Gen.Basics.values_.identity
+                        (Elm.apply
+                            (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
+                            [ getStaticRoutes.reference
+                            , fnIgnore (Elm.string "")
+                            ]
+                            |> Gen.List.call_.map Gen.ApiRoute.values_.toJson
+                        )
+                        |> Gen.Json.Encode.encode 0
+                        |> Gen.DataSource.succeed
+                    )
+                    |> Gen.ApiRoute.literal "api-patterns.json"
+                    |> Gen.ApiRoute.single
+                )
+
+        routePatterns :
+            { declaration : Elm.Declaration
+            , reference : Elm.Expression
+            , referenceFrom : List String -> Elm.Expression
+            }
+        routePatterns =
+            topLevelValue "routePatterns"
+                todo
 
         globalHeadTags :
             { declaration : Elm.Declaration
@@ -467,6 +591,9 @@ otherFile routes phaseString =
             |> Elm.declaration "main"
             |> expose
         , config.declaration
+        , apiPatterns.declaration
+        , routePatterns.declaration
+        , pathsToGenerateHandler.declaration
         , getStaticRoutes.declaration
         , Elm.portOutgoing "sendPageData"
             (Type.record
