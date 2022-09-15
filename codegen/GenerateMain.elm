@@ -216,7 +216,32 @@ otherFile routes phaseString =
         getStaticRoutes =
             topLevelValue "getStaticRoutes"
                 (Gen.DataSource.combine
-                    []
+                    (routes
+                        |> List.map
+                            (\route ->
+                                Elm.value
+                                    { name = "route"
+                                    , annotation = Nothing
+                                    , importFrom = "Route" :: (route |> RoutePattern.toModuleName)
+                                    }
+                                    |> Elm.get "staticRoutes"
+                                    |> Gen.DataSource.map
+                                        (Gen.List.call_.map
+                                            (if RoutePattern.hasRouteParams route then
+                                                Elm.value
+                                                    { annotation = Nothing
+                                                    , name =
+                                                        (route |> RoutePattern.toModuleName)
+                                                            |> String.join "__"
+                                                    , importFrom = [ "Route" ]
+                                                    }
+
+                                             else
+                                                todo
+                                            )
+                                        )
+                            )
+                    )
                     |> Gen.DataSource.call_.map Gen.List.values_.concat
                     |> Elm.withType
                         (Gen.DataSource.annotation_.dataSource
