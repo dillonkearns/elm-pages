@@ -172,6 +172,49 @@ otherFile routes phaseString =
                         (Type.named [ "ErrorPage" ] "ErrorPage")
                     )
                 |> topLevelValue "config"
+
+        globalHeadTags :
+            { declaration : Elm.Declaration
+            , reference : Elm.Expression
+            , referenceFrom : List String -> Elm.Expression
+            }
+        globalHeadTags =
+            topLevelValue "globalHeadTags"
+                (Elm.Op.cons
+                    (Elm.value
+                        { importFrom = [ "Site" ]
+                        , annotation = Nothing
+                        , name = "config"
+                        }
+                        |> Elm.get "head"
+                    )
+                    (Elm.apply
+                        (Elm.value
+                            { importFrom = [ "Api" ]
+                            , annotation = Nothing
+                            , name = "routes"
+                            }
+                        )
+                        [ getStaticRoutes.reference
+                        , Gen.HtmlPrinter.values_.htmlToString
+                        ]
+                        |> Gen.List.call_.filterMap Gen.ApiRoute.values_.getGlobalHeadTagsDataSource
+                    )
+                    |> Gen.DataSource.call_.combine
+                    |> Gen.DataSource.call_.map Gen.List.values_.concat
+                    |> Elm.withType
+                        (Gen.DataSource.annotation_.dataSource
+                            (Type.list Gen.Head.annotation_.tag)
+                        )
+                )
+
+        getStaticRoutes :
+            { declaration : Elm.Declaration
+            , reference : Elm.Expression
+            , referenceFrom : List String -> Elm.Expression
+            }
+        getStaticRoutes =
+            topLevelValue "getStaticRoutes" todo
     in
     Elm.file [ "Main" ]
         [ Elm.alias "Model"
@@ -297,42 +340,6 @@ otherFile routes phaseString =
         , Elm.portIncoming "gotBatchSub"
             [ Gen.Json.Decode.annotation_.value ]
         ]
-
-
-globalHeadTags =
-    topLevelValue "globalHeadTags"
-        (Elm.Op.cons
-            (Elm.value
-                { importFrom = [ "Site" ]
-                , annotation = Nothing
-                , name = "config"
-                }
-                |> Elm.get "head"
-            )
-            (Elm.apply
-                (Elm.value
-                    { importFrom = [ "Api" ]
-                    , annotation = Nothing
-                    , name = "routes"
-                    }
-                )
-                [ getStaticRoutes.reference
-                , Gen.HtmlPrinter.values_.htmlToString
-                ]
-                |> Gen.List.call_.filterMap Gen.ApiRoute.values_.getGlobalHeadTagsDataSource
-            )
-            |> Gen.DataSource.call_.combine
-            |> Gen.DataSource.call_.map Gen.List.values_.concat
-            |> Elm.withType
-                (Gen.DataSource.annotation_.dataSource
-                    (Type.list Gen.Head.annotation_.tag)
-                )
-        )
-
-
-getStaticRoutes : { declaration : Elm.Declaration, reference : Elm.Expression, referenceFrom : List String -> Elm.Expression }
-getStaticRoutes =
-    topLevelValue "getStaticRoutes" todo
 
 
 todo : Elm.Expression
