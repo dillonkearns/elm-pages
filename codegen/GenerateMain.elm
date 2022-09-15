@@ -12,6 +12,7 @@ import Gen.CodeGen.Generate exposing (Error)
 import Gen.Html
 import Gen.Html.Attributes
 import Gen.List
+import Gen.Pages.ProgramConfig
 import Gen.Path
 import Gen.Server.Response
 import Gen.String
@@ -128,7 +129,50 @@ otherFile routes =
                             ]
                     )
             )
+        , Elm.declaration "config" <|
+            Gen.Pages.ProgramConfig.make_.programConfig
+                { init = todo
+                , update = todo
+                , subscriptions = todo
+                , sharedData = todo
+                , data = todo
+                , action = todo
+                , onActionData = todo
+                , view = todo
+                , handleRoute = todo
+                , getStaticRoutes = todo
+                , urlToRoute = todo
+                , routeToPath = todo
+                , site = todo
+                , toJsPort = todo
+                , fromJsPort = todo
+                , gotBatchSub = todo
+                , hotReloadData = todo
+                , onPageChange = todo
+                , apiRoutes = todo
+                , pathPatterns = todo
+                , basePath = todo
+                , sendPageData = todo
+                , byteEncodePageData = todo
+                , byteDecodePageData = todo
+                , encodeResponse = todo
+                , encodeAction = todo
+                , decodeResponse = todo
+                , globalHeadTags = todo
+                , cmdToEffect = todo
+                , perform = todo
+                , errorStatusCode = todo
+                , notFoundPage = todo
+                , internalError = todo
+                , errorPageToData = todo
+                , notFoundRoute = todo
+                }
         ]
+
+
+todo : Elm.Expression
+todo =
+    Elm.apply (Elm.val "Debug.todo") [ Elm.string "" ]
 
 
 pathType : Type.Annotation
