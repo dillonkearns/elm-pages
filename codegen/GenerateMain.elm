@@ -24,6 +24,7 @@ import Gen.Maybe
 import Gen.Pages.Internal.Platform
 import Gen.Pages.ProgramConfig
 import Gen.Path
+import Gen.Platform.Sub
 import Gen.Server.Response
 import Gen.String
 import Gen.Tuple
@@ -102,17 +103,22 @@ otherFile routes phaseString =
                                 , importFrom = [ "Site" ]
                                 }
                             )
-            , toJsPort = todo
-            , fromJsPort = todo
-            , gotBatchSub = todo
+            , toJsPort = Elm.val "toJsPort"
+            , fromJsPort = applyIdentityTo (Elm.val "fromJsPort")
+            , gotBatchSub =
+                case phase of
+                    Browser ->
+                        Gen.Platform.Sub.none
+
+                    Cli ->
+                        applyIdentityTo (Elm.val "gotBatchSub")
             , hotReloadData =
-                Elm.apply (Elm.val "hotReloadData")
-                    [ Gen.Basics.values_.identity ]
+                applyIdentityTo (Elm.val "hotReloadData")
             , onPageChange = todo
             , apiRoutes = todo
             , pathPatterns = todo
             , basePath = todo
-            , sendPageData = todo
+            , sendPageData = Elm.val "sendPageData"
             , byteEncodePageData = todo
             , byteDecodePageData = todo
             , encodeResponse = todo
@@ -375,13 +381,18 @@ otherFile routes phaseString =
         , globalHeadTags.declaration
         , Elm.portIncoming "hotReloadData"
             [ Gen.Bytes.annotation_.bytes ]
-        , Elm.portIncoming "toJsPort"
-            [ Gen.Json.Encode.annotation_.value ]
+        , Elm.portOutgoing "toJsPort"
+            Gen.Json.Encode.annotation_.value
         , Elm.portIncoming "fromJsPort"
             [ Gen.Json.Decode.annotation_.value ]
         , Elm.portIncoming "gotBatchSub"
             [ Gen.Json.Decode.annotation_.value ]
         ]
+
+
+applyIdentityTo : Elm.Expression -> Elm.Expression
+applyIdentityTo to =
+    Elm.apply to [ Gen.Basics.values_.identity ]
 
 
 todo : Elm.Expression
