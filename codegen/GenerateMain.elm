@@ -24,6 +24,7 @@ import Gen.Json.Encode
 import Gen.List
 import Gen.Maybe
 import Gen.Pages.Internal.Platform
+import Gen.Pages.Internal.RoutePattern
 import Gen.Pages.ProgramConfig
 import Gen.Path
 import Gen.Platform.Sub
@@ -118,9 +119,9 @@ otherFile routes phaseString =
                         applyIdentityTo (Elm.val "gotBatchSub")
             , hotReloadData =
                 applyIdentityTo (Elm.val "hotReloadData")
-            , onPageChange = todo
+            , onPageChange = Elm.val "OnPageChange"
             , apiRoutes = todo
-            , pathPatterns = todo
+            , pathPatterns = pathPatterns.reference
             , basePath = todo
             , sendPageData = Elm.val "sendPageData"
             , byteEncodePageData = todo
@@ -182,6 +183,18 @@ otherFile routes phaseString =
                         (Type.named [ "ErrorPage" ] "ErrorPage")
                     )
                 |> topLevelValue "config"
+
+        pathPatterns :
+            { declaration : Elm.Declaration
+            , reference : Elm.Expression
+            , referenceFrom : List String -> Elm.Expression
+            }
+        pathPatterns =
+            topLevelValue "routePatterns3"
+                (routes
+                    |> List.map routePatternToSyntax
+                    |> Elm.list
+                )
 
         globalHeadTags :
             { declaration : Elm.Declaration
@@ -456,6 +469,7 @@ otherFile routes phaseString =
             )
         , globalHeadTags.declaration
         , encodeResponse.declaration
+        , pathPatterns.declaration
         , decodeResponse.declaration
         , Elm.portIncoming "hotReloadData"
             [ Gen.Bytes.annotation_.bytes ]
@@ -481,3 +495,36 @@ todo =
 pathType : Type.Annotation
 pathType =
     Type.named [ "Path" ] "Path"
+
+
+routePatternToSyntax : RoutePattern -> Elm.Expression
+routePatternToSyntax route =
+    Gen.Pages.Internal.RoutePattern.make_.routePattern
+        { segments =
+            route.segments
+                |> List.map
+                    (\segment ->
+                        case segment of
+                            RoutePattern.StaticSegment name ->
+                                Gen.Pages.Internal.RoutePattern.make_.staticSegment (Elm.string name)
+
+                            RoutePattern.DynamicSegment name ->
+                                Gen.Pages.Internal.RoutePattern.make_.dynamicSegment (Elm.string name)
+                    )
+                |> Elm.list
+        , ending =
+            route.ending
+                |> Maybe.map
+                    (\ending ->
+                        case ending of
+                            RoutePattern.Optional name ->
+                                Gen.Pages.Internal.RoutePattern.make_.optional (Elm.string name)
+
+                            RoutePattern.RequiredSplat ->
+                                Gen.Pages.Internal.RoutePattern.make_.requiredSplat
+
+                            RoutePattern.OptionalSplat ->
+                                Gen.Pages.Internal.RoutePattern.make_.optionalSplat
+                    )
+                |> Elm.maybe
+        }
