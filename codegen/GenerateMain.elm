@@ -85,7 +85,19 @@ otherFile routes phaseString =
                                 )
                             |> Gen.Maybe.withDefault (Elm.list [])
                     )
-            , site = todo
+            , site =
+                case phase of
+                    Browser ->
+                        Elm.nothing
+
+                    Cli ->
+                        Elm.just
+                            (Elm.value
+                                { name = "config"
+                                , annotation = Nothing
+                                , importFrom = [ "Site" ]
+                                }
+                            )
             , toJsPort = todo
             , fromJsPort = todo
             , gotBatchSub = todo
