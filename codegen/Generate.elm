@@ -28,6 +28,7 @@ import Regex exposing (Regex)
 type alias Flags =
     { templates : List (List String)
     , basePath : String
+    , phase : String
     }
 
 
@@ -35,7 +36,7 @@ main : Program Flags () ()
 main =
     Platform.worker
         { init =
-            \{ templates, basePath } ->
+            \{ templates, basePath, phase } ->
                 let
                     routes : List RoutePattern.RoutePattern
                     routes =
@@ -45,7 +46,7 @@ main =
                 ( ()
                 , onSuccessSend
                     [ file templates basePath
-                    , GenerateMain.otherFile routes
+                    , GenerateMain.otherFile routes phase
                     ]
                 )
         , update =

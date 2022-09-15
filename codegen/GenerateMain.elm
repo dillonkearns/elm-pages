@@ -29,9 +29,23 @@ import Pretty
 import Regex exposing (Regex)
 
 
-otherFile : List RoutePattern.RoutePattern -> File
-otherFile routes =
+type Phase
+    = Browser
+    | Cli
+
+
+otherFile : List RoutePattern.RoutePattern -> String -> File
+otherFile routes phaseString =
     let
+        phase : Phase
+        phase =
+            case phaseString of
+                "browser" ->
+                    Browser
+
+                _ ->
+                    Cli
+
         config :
             { declaration : Elm.Declaration
             , reference : Elm.Expression

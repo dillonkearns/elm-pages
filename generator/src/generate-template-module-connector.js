@@ -40,14 +40,15 @@ async function generateTemplateModuleConnector(basePath, phase) {
   }
   const elmCodegenFiles = await runElmCodegenCli(
     sortTemplates(templates),
-    basePath
+    basePath,
+    phase
   );
   const routesModule = elmCodegenFiles[0].contents;
   const newMain = elmCodegenFiles[1].contents;
 
   return {
-    // mainModule: newMain,
-    mainModule: `port module Main exposing (..)
+    mainModule: newMain,
+    mainModuleOld: `port module Main exposing (..)
 
 import Api
 import Bytes exposing (Bytes)
@@ -1013,7 +1014,7 @@ decodeBytes bytesDecoder items =
   };
 }
 
-async function runElmCodegenCli(templates, basePath) {
+async function runElmCodegenCli(templates, basePath, phase) {
   // await runElmCodegenInstall();
   await compileCliApp(
     // { debug: true },
@@ -1034,7 +1035,7 @@ async function runElmCodegenCli(templates, basePath) {
     )).Elm.Generate;
 
     const app = elmPagesCodegen.init({
-      flags: { templates: templates, basePath },
+      flags: { templates: templates, basePath, phase },
     });
     if (app.ports.onSuccessSend) {
       app.ports.onSuccessSend.subscribe(resolve);
