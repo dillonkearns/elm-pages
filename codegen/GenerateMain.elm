@@ -11,6 +11,8 @@ import Elm.Pretty
 import Gen.ApiRoute
 import Gen.Basics
 import Gen.Bytes
+import Gen.Bytes.Decode
+import Gen.Bytes.Encode
 import Gen.CodeGen.Generate exposing (Error)
 import Gen.DataSource
 import Gen.Head
@@ -121,9 +123,9 @@ otherFile routes phaseString =
             , sendPageData = Elm.val "sendPageData"
             , byteEncodePageData = todo
             , byteDecodePageData = todo
-            , encodeResponse = todo
+            , encodeResponse = encodeResponse.reference
             , encodeAction = todo
-            , decodeResponse = todo
+            , decodeResponse = decodeResponse.reference
             , globalHeadTags =
                 case phase of
                     Browser ->
@@ -211,6 +213,78 @@ otherFile routes phaseString =
                     |> Elm.withType
                         (Gen.DataSource.annotation_.dataSource
                             (Type.list Gen.Head.annotation_.tag)
+                        )
+                )
+
+        encodeResponse :
+            { declaration : Elm.Declaration
+            , reference : Elm.Expression
+            , referenceFrom : List String -> Elm.Expression
+            }
+        encodeResponse =
+            topLevelValue "encodeResponse"
+                (Elm.apply
+                    (Elm.value
+                        { annotation = Nothing
+                        , name = "w3_encode_ResponseSketch"
+                        , importFrom =
+                            [ "Pages", "Internal", "ResponseSketch" ]
+                        }
+                    )
+                    [ Elm.val "w3_encode_PageData"
+                    , Elm.val "w3_encode_ActionData"
+                    , Elm.value
+                        { annotation = Nothing
+                        , name = "w3_encode_Data"
+                        , importFrom =
+                            [ "Shared" ]
+                        }
+                    ]
+                    |> Elm.withType
+                        (Type.function
+                            [ Type.namedWith [ "Pages", "Internal", "ResponseSketch" ]
+                                "ResponseSketch"
+                                [ Type.named [] "PageData"
+                                , Type.named [] "ActionData"
+                                , Type.named [ "Shared" ] "Data"
+                                ]
+                            ]
+                            Gen.Bytes.Encode.annotation_.encoder
+                        )
+                )
+
+        decodeResponse :
+            { declaration : Elm.Declaration
+            , reference : Elm.Expression
+            , referenceFrom : List String -> Elm.Expression
+            }
+        decodeResponse =
+            topLevelValue "decodeResponse"
+                (Elm.apply
+                    (Elm.value
+                        { annotation = Nothing
+                        , name = "w3_decode_ResponseSketch"
+                        , importFrom =
+                            [ "Pages", "Internal", "ResponseSketch" ]
+                        }
+                    )
+                    [ Elm.val "w3_decode_PageData"
+                    , Elm.val "w3_decode_ActionData"
+                    , Elm.value
+                        { annotation = Nothing
+                        , name = "w3_decode_Data"
+                        , importFrom =
+                            [ "Shared" ]
+                        }
+                    ]
+                    |> Elm.withType
+                        (Type.namedWith [ "Pages", "Internal", "ResponseSketch" ]
+                            "ResponseSketch"
+                            [ Type.named [] "PageData"
+                            , Type.named [] "ActionData"
+                            , Type.named [ "Shared" ] "Data"
+                            ]
+                            |> Gen.Bytes.Decode.annotation_.decoder
                         )
                 )
 
@@ -379,6 +453,8 @@ otherFile routes phaseString =
                 ]
             )
         , globalHeadTags.declaration
+        , encodeResponse.declaration
+        , decodeResponse.declaration
         , Elm.portIncoming "hotReloadData"
             [ Gen.Bytes.annotation_.bytes ]
         , Elm.portOutgoing "toJsPort"
