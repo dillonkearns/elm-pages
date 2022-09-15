@@ -16,6 +16,7 @@ import Gen.Html.Attributes
 import Gen.Json.Decode
 import Gen.Json.Encode
 import Gen.List
+import Gen.Maybe
 import Gen.Pages.Internal.Platform
 import Gen.Pages.ProgramConfig
 import Gen.Path
@@ -47,15 +48,36 @@ otherFile routes =
             , view = todo
             , handleRoute = todo
             , getStaticRoutes = todo
-            , urlToRoute = todo
-            , routeToPath = todo
+            , urlToRoute =
+                Elm.value
+                    { annotation = Nothing
+                    , name = "urlToRoute"
+                    , importFrom = [ "Route" ]
+                    }
+            , routeToPath =
+                Elm.fn ( "route", Nothing )
+                    (\route ->
+                        route
+                            |> Gen.Maybe.map
+                                (\value ->
+                                    Elm.apply
+                                        (Elm.value
+                                            { annotation = Nothing
+                                            , name = "routeToPath"
+                                            , importFrom = [ "Route" ]
+                                            }
+                                        )
+                                        [ value ]
+                                )
+                            |> Gen.Maybe.withDefault (Elm.list [])
+                    )
             , site = todo
             , toJsPort = todo
             , fromJsPort = todo
             , gotBatchSub = todo
             , hotReloadData =
                 Elm.apply (Elm.val "hotReloadData")
-                    [ Elm.fn ( "x", Nothing ) identity ]
+                    [ Gen.Basics.values_.identity ]
             , onPageChange = todo
             , apiRoutes = todo
             , pathPatterns = todo
