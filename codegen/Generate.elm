@@ -297,43 +297,31 @@ routeToPath routes =
                             case
                                 RoutePattern.toVariantName route
                                     |> .params
-                                    |> List.filter
-                                        (\param ->
-                                            case param of
-                                                RoutePattern.StaticParam _ ->
-                                                    False
+                                    |> List.foldl
+                                        (\param soFar ->
+                                            soFar
+                                                |> Maybe.andThen
+                                                    (\staticOnlySoFar ->
+                                                        case param of
+                                                            RoutePattern.StaticParam staticName ->
+                                                                Just (staticOnlySoFar ++ [ toKebab staticName ])
 
-                                                _ ->
-                                                    True
+                                                            _ ->
+                                                                Nothing
+                                                    )
                                         )
+                                        (Just [])
                             of
-                                [] ->
+                                Just staticOnlyName ->
                                     Elm.Case.branch0 (RoutePattern.toVariantName route |> .variantName)
-                                        (RoutePattern.toVariantName route
-                                            |> .params
-                                            |> List.map
-                                                (\param ->
-                                                    case param of
-                                                        RoutePattern.StaticParam name ->
-                                                            [ Elm.string (toKebab name) ]
-                                                                |> Elm.list
-
-                                                        RoutePattern.DynamicParam name ->
-                                                            Elm.list []
-
-                                                        RoutePattern.OptionalParam2 name ->
-                                                            Elm.list []
-
-                                                        RoutePattern.RequiredSplatParam2 ->
-                                                            Elm.val "TODO"
-
-                                                        RoutePattern.OptionalSplatParam2 ->
-                                                            Elm.val "TODO"
-                                                )
+                                        (staticOnlyName
+                                            |> List.map (\kebabName -> Elm.string kebabName)
+                                            |> Elm.list
+                                            |> List.singleton
                                             |> Elm.list
                                         )
 
-                                nonEmptyDynamicParams ->
+                                Nothing ->
                                     Elm.Case.branch1 (RoutePattern.toVariantName route |> .variantName)
                                         ( "params", Elm.Annotation.record [] )
                                         (\params ->
