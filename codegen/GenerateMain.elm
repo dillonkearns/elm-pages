@@ -5,6 +5,7 @@ import Elm.Annotation as Type
 import Elm.Case
 import Elm.CodeGen
 import Elm.Declare
+import Elm.Extra exposing (expose, topLevelValue)
 import Elm.Op
 import Elm.Pretty
 import Gen.Basics
@@ -12,6 +13,7 @@ import Gen.CodeGen.Generate exposing (Error)
 import Gen.Html
 import Gen.Html.Attributes
 import Gen.List
+import Gen.Pages.Internal.Platform
 import Gen.Pages.ProgramConfig
 import Gen.Path
 import Gen.Server.Response
@@ -25,6 +27,52 @@ import Regex exposing (Regex)
 
 otherFile : List RoutePattern.RoutePattern -> File
 otherFile routes =
+    let
+        config :
+            { declaration : Elm.Declaration
+            , reference : Elm.Expression
+            , referenceFrom : List String -> Elm.Expression
+            }
+        config =
+            topLevelValue "config" <|
+                Gen.Pages.ProgramConfig.make_.programConfig
+                    { init = todo
+                    , update = todo
+                    , subscriptions = todo
+                    , sharedData = todo
+                    , data = todo
+                    , action = todo
+                    , onActionData = todo
+                    , view = todo
+                    , handleRoute = todo
+                    , getStaticRoutes = todo
+                    , urlToRoute = todo
+                    , routeToPath = todo
+                    , site = todo
+                    , toJsPort = todo
+                    , fromJsPort = todo
+                    , gotBatchSub = todo
+                    , hotReloadData = todo
+                    , onPageChange = todo
+                    , apiRoutes = todo
+                    , pathPatterns = todo
+                    , basePath = todo
+                    , sendPageData = todo
+                    , byteEncodePageData = todo
+                    , byteDecodePageData = todo
+                    , encodeResponse = todo
+                    , encodeAction = todo
+                    , decodeResponse = todo
+                    , globalHeadTags = todo
+                    , cmdToEffect = todo
+                    , perform = todo
+                    , errorStatusCode = todo
+                    , notFoundPage = todo
+                    , internalError = todo
+                    , errorPageToData = todo
+                    , notFoundRoute = todo
+                    }
+    in
     Elm.file [ "Main" ]
         [ Elm.alias "Model"
             (Type.record
@@ -129,44 +177,10 @@ otherFile routes =
                             ]
                     )
             )
-        , Elm.declaration "config" <|
-            Gen.Pages.ProgramConfig.make_.programConfig
-                { init = todo
-                , update = todo
-                , subscriptions = todo
-                , sharedData = todo
-                , data = todo
-                , action = todo
-                , onActionData = todo
-                , view = todo
-                , handleRoute = todo
-                , getStaticRoutes = todo
-                , urlToRoute = todo
-                , routeToPath = todo
-                , site = todo
-                , toJsPort = todo
-                , fromJsPort = todo
-                , gotBatchSub = todo
-                , hotReloadData = todo
-                , onPageChange = todo
-                , apiRoutes = todo
-                , pathPatterns = todo
-                , basePath = todo
-                , sendPageData = todo
-                , byteEncodePageData = todo
-                , byteDecodePageData = todo
-                , encodeResponse = todo
-                , encodeAction = todo
-                , decodeResponse = todo
-                , globalHeadTags = todo
-                , cmdToEffect = todo
-                , perform = todo
-                , errorStatusCode = todo
-                , notFoundPage = todo
-                , internalError = todo
-                , errorPageToData = todo
-                , notFoundRoute = todo
-                }
+        , Gen.Pages.Internal.Platform.application config.reference
+            |> Elm.declaration "main"
+            |> expose
+        , config.declaration
         ]
 
 

@@ -1,4 +1,4 @@
-module Elm.Extra exposing (topLevelValue)
+module Elm.Extra exposing (expose, topLevelValue)
 
 import Elm
 import Elm.Declare
@@ -28,3 +28,12 @@ topLevelValue name expression =
     , reference = declaration_.call []
     , referenceFrom = \from -> declaration_.callFrom from []
     }
+
+
+expose : Elm.Declaration -> Elm.Declaration
+expose declaration =
+    declaration
+        |> Elm.exposeWith
+            { exposeConstructor = True
+            , group = Nothing
+            }
