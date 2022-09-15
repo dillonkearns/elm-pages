@@ -4,6 +4,7 @@ const mm = require("micromatch");
 const routeHelpers = require("./route-codegen-helpers");
 const { runElmCodegenInstall } = require("./elm-codegen");
 const { compileCliApp } = require("./compile-elm");
+const { restoreColorSafe } = require("./error-formatter");
 
 /**
  * @param {string} basePath
@@ -38,11 +39,17 @@ async function generateTemplateModuleConnector(basePath, phase) {
       ],
     };
   }
-  const elmCodegenFiles = await runElmCodegenCli(
-    sortTemplates(templates),
-    basePath,
-    phase
-  );
+  let elmCodegenFiles = null;
+  try {
+    elmCodegenFiles = await runElmCodegenCli(
+      sortTemplates(templates),
+      basePath,
+      phase
+    );
+  } catch (error) {
+    console.log(restoreColorSafe(error));
+    throw error;
+  }
   const routesModule = elmCodegenFiles[0].contents;
   const newMain = elmCodegenFiles[1].contents;
 
