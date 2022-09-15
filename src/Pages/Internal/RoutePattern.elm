@@ -241,6 +241,7 @@ toVariantName route =
                                 )
                     )
 
+        something2 : List ( String, Maybe RouteParam )
         something2 =
             something
                 ++ ([ Maybe.map
@@ -350,7 +351,8 @@ toVariant pattern =
 
     else
         let
-            something =
+            allSegments : List ( String, Maybe ( String, Annotation ) )
+            allSegments =
                 (pattern.segments
                     |> List.map
                         (\segment ->
@@ -369,10 +371,11 @@ toVariant pattern =
 
             fieldThings : List ( String, Annotation )
             fieldThings =
-                something
+                allSegments
                     |> List.filterMap Tuple.second
 
-            innerType =
+            noArgsOrNonEmptyRecordArg : List Annotation
+            noArgsOrNonEmptyRecordArg =
                 case fieldThings of
                     [] ->
                         []
@@ -381,11 +384,11 @@ toVariant pattern =
                         nonEmpty |> Elm.Annotation.record |> List.singleton
         in
         Elm.variantWith
-            (something
+            (allSegments
                 |> List.map Tuple.first
                 |> String.join "__"
             )
-            innerType
+            noArgsOrNonEmptyRecordArg
 
 
 endingToVariantNameFields : Ending -> ( String, Maybe ( String, Elm.CodeGen.Expression ) )

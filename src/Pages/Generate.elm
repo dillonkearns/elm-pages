@@ -125,6 +125,11 @@ userFunction :
     -> Elm.File
 userFunction moduleName definitions =
     let
+        viewFn :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            }
         viewFn =
             case definitions.localState of
                 Just _ ->
@@ -144,7 +149,12 @@ userFunction moduleName definitions =
 
                 Nothing ->
                     let
-                        thing =
+                        viewDeclaration :
+                            { declaration : Elm.Declaration
+                            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                            }
+                        viewDeclaration =
                             Elm.Declare.fn3 "view"
                                 ( "maybeUrl"
                                 , "PageUrl"
@@ -158,11 +168,21 @@ userFunction moduleName definitions =
                                 ( "app", Just appType )
                                 (definitions.view Elm.unit)
                     in
-                    { declaration = thing.declaration
-                    , call = \_ -> thing.call
-                    , callFrom = \a _ c d -> thing.callFrom a c d
+                    { declaration = viewDeclaration.declaration
+                    , call = \_ -> viewDeclaration.call
+                    , callFrom = \a _ c d -> viewDeclaration.callFrom a c d
                     }
 
+        localDefinitions :
+            Maybe
+                { updateFn :
+                    { declaration : Elm.Declaration
+                    , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                    }
+                , initFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression }
+                , subscriptionsFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression }
+                }
         localDefinitions =
             definitions.localState
                 |> Maybe.map
@@ -207,6 +227,7 @@ userFunction moduleName definitions =
                         }
                     )
 
+        dataFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
         dataFn =
             Elm.Declare.fn "data"
                 ( "routeParams"
@@ -216,6 +237,7 @@ userFunction moduleName definitions =
                 )
                 (definitions.data >> Elm.withType (myType "Data"))
 
+        actionFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
         actionFn =
             Elm.Declare.fn "action"
                 ( "routeParams"
@@ -225,6 +247,7 @@ userFunction moduleName definitions =
                 )
                 (definitions.action >> Elm.withType (myType "ActionData"))
 
+        headFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
         headFn =
             Elm.Declare.fn "head"
                 ( "app", Just appType )
@@ -312,10 +335,12 @@ userFunction moduleName definitions =
         )
 
 
+localType : String -> Elm.Annotation.Annotation
 localType =
     Elm.Annotation.named []
 
 
+myType : String -> Elm.Annotation.Annotation
 myType dataType =
     Elm.Annotation.namedWith [ "Server", "Request" ]
         "Parser"
