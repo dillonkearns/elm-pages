@@ -1,11 +1,8 @@
-module Pages.Generate exposing
-    ( Type(..), serverRender, buildWithLocalState, buildNoState
-    , Builder
-    )
+module Pages.Generate exposing (Type(..), serverRender, buildWithLocalState, buildNoState, Builder)
 
 {-|
 
-@docs Type, serverRender, buildWithLocalState, buildNoState
+@docs Type, serverRender, buildWithLocalState, buildNoState, Builder
 
 -}
 
@@ -31,6 +28,7 @@ typeToDeclaration name type_ =
             Elm.customType name variants
 
 
+{-| -}
 type Builder
     = Builder
         { data : ( Type, Elm.Expression -> Elm.Expression )
