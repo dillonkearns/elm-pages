@@ -25,8 +25,9 @@ type alias RoutePattern =
 
 toModuleName : RoutePattern -> List String
 toModuleName route =
-    case route.ending of
-        Nothing ->
+    let
+        segmentsAsModuleParts : List String
+        segmentsAsModuleParts =
             route.segments
                 |> List.foldl
                     (\segment soFar ->
@@ -38,9 +39,13 @@ toModuleName route =
                                 soFar ++ [ name ++ "_" ]
                     )
                     []
+    in
+    case route.ending of
+        Nothing ->
+            segmentsAsModuleParts
 
-        _ ->
-            [ "Unhandled2" ]
+        Just ending ->
+            segmentsAsModuleParts ++ [ endingToVariantName ending |> Tuple.first ]
 
 
 fromModuleName : List String -> Maybe RoutePattern

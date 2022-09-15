@@ -204,6 +204,7 @@ routeModuleNameFuzzer =
     Fuzz.oneOf
         [ Fuzz.constant [ "Index" ]
         , Fuzz.constant [ "User", "Id_" ]
+        , Fuzz.constant [ "Docs", "Section__" ]
         ]
 
 
