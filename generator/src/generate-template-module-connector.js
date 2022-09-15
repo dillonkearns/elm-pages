@@ -38,7 +38,7 @@ async function generateTemplateModuleConnector(basePath, phase) {
       ],
     };
   }
-  const routesModuleNew = await runElmCodegenCli(
+  const routesModule = await runElmCodegenCli(
     sortTemplates(templates),
     basePath
   );
@@ -1003,7 +1003,7 @@ decodeBytes bytesDecoder items =
     -- Lamdera.Wire3.bytesDecodeStrict bytesDecoder items
         |> Result.fromMaybe "Decoding error"
 `,
-    routesModuleNew,
+    routesModule,
     fetcherModules: templates.map((name) => {
       return [name, fetcherModule(name)];
     }),

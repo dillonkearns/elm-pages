@@ -49,13 +49,10 @@ async function generate(basePath) {
     ),
     fs.promises.writeFile(
       "./elm-stuff/elm-pages/.elm-pages/Route.elm",
-      cliCode.routesModuleNew
+      cliCode.routesModule
     ),
     fs.promises.writeFile("./.elm-pages/Main.elm", browserCode.mainModule),
-    fs.promises.writeFile(
-      "./.elm-pages/Route.elm",
-      browserCode.routesModuleNew
-    ),
+    fs.promises.writeFile("./.elm-pages/Route.elm", browserCode.routesModule),
     writeFetcherModules("./.elm-pages", browserCode.fetcherModules),
     writeFetcherModules(
       "./elm-stuff/elm-pages/client/.elm-pages",
@@ -111,7 +108,7 @@ async function generateClientFolder(basePath) {
   );
   await fs.promises.writeFile(
     "./elm-stuff/elm-pages/client/.elm-pages/Route.elm",
-    browserCode.routesModuleNew
+    browserCode.routesModule
   );
   await fs.promises.writeFile(
     "./elm-stuff/elm-pages/client/.elm-pages/Pages.elm",
