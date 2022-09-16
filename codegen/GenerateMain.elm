@@ -368,58 +368,63 @@ otherFile routes phaseString =
                         , just =
                             ( "route"
                             , \justRoute ->
-                                Elm.Case.custom justRoute
-                                    Type.unit
-                                    (routes
-                                        |> List.map
-                                            (\route ->
-                                                let
-                                                    moduleName =
-                                                        "Route." ++ (RoutePattern.toModuleName route |> String.join "__")
-
-                                                    expression : Elm.Expression -> Elm.Expression
-                                                    expression innerRecord =
-                                                        Elm.apply
-                                                            (Elm.value
-                                                                { annotation = Nothing
-                                                                , importFrom = "Route" :: RoutePattern.toModuleName route
-                                                                , name = "route"
-                                                                }
-                                                                |> Elm.get "handleRoute"
-                                                            )
-                                                            [ Elm.record
-                                                                [ ( "moduleName"
-                                                                  , RoutePattern.toModuleName route
-                                                                        |> List.map Elm.string
-                                                                        |> Elm.list
-                                                                  )
-                                                                , ( "routePattern"
-                                                                  , routePatternToSyntax route
-                                                                  )
-                                                                ]
-                                                            , Elm.fn ( "param", Nothing )
-                                                                (\param ->
-                                                                    Elm.list []
-                                                                )
-                                                            , innerRecord
-                                                            ]
-                                                in
-                                                if RoutePattern.hasRouteParams route then
-                                                    Elm.Case.branch1 moduleName
-                                                        ( "routeParams", Type.unit )
-                                                        (\routeParams ->
-                                                            expression routeParams
-                                                        )
-
-                                                else
-                                                    Elm.Case.branch0 moduleName
-                                                        (expression (Elm.record []))
+                                branchHelper justRoute
+                                    (\route innerRecord ->
+                                        Elm.apply
+                                            (Elm.value
+                                                { annotation = Nothing
+                                                , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                , name = "route"
+                                                }
+                                                |> Elm.get "handleRoute"
                                             )
+                                            [ Elm.record
+                                                [ ( "moduleName"
+                                                  , RoutePattern.toModuleName route
+                                                        |> List.map Elm.string
+                                                        |> Elm.list
+                                                  )
+                                                , ( "routePattern"
+                                                  , routePatternToSyntax route
+                                                  )
+                                                ]
+                                            , Elm.fn ( "param", Nothing )
+                                                (\param ->
+                                                    -- TODO not implemented
+                                                    todo
+                                                )
+                                            , innerRecord |> Maybe.withDefault (Elm.record [])
+                                            ]
                                     )
                             )
                         }
                         |> Elm.withType
                             (Gen.DataSource.annotation_.dataSource (Type.maybe Gen.Pages.Internal.NotFoundReason.annotation_.notFoundReason))
+                )
+
+        branchHelper : Elm.Expression -> (RoutePattern -> Maybe Elm.Expression -> Elm.Expression) -> Elm.Expression
+        branchHelper routeExpression toInnerExpression =
+            Elm.Case.custom routeExpression
+                Type.unit
+                (routes
+                    |> List.map
+                        (\route ->
+                            let
+                                moduleName : String
+                                moduleName =
+                                    "Route." ++ (RoutePattern.toModuleName route |> String.join "__")
+                            in
+                            if RoutePattern.hasRouteParams route then
+                                Elm.Case.branch1 moduleName
+                                    ( "routeParams", Type.unit )
+                                    (\routeParams ->
+                                        toInnerExpression route (Just routeParams)
+                                    )
+
+                            else
+                                Elm.Case.branch0 moduleName
+                                    (toInnerExpression route Nothing)
+                        )
                 )
 
         encodeActionData :
