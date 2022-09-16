@@ -23,6 +23,7 @@ import Gen.Json.Decode
 import Gen.Json.Encode
 import Gen.List
 import Gen.Maybe
+import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.RoutePattern
 import Gen.Pages.ProgramConfig
@@ -70,7 +71,7 @@ otherFile routes phaseString =
             , action = todo
             , onActionData = todo
             , view = todo
-            , handleRoute = todo
+            , handleRoute = Elm.val "handleRoute"
             , getStaticRoutes =
                 case phase of
                     Browser ->
@@ -224,6 +225,81 @@ otherFile routes phaseString =
                 (routes
                     |> List.map routePatternToSyntax
                     |> Elm.list
+                )
+
+        handleRoute :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            }
+        handleRoute =
+            Elm.Declare.fn "handleRoute"
+                ( "maybeRoute", Type.maybe (Type.named [ "Route" ] "Route") |> Just )
+                (\maybeRoute ->
+                    Elm.Case.maybe maybeRoute
+                        { nothing = Gen.DataSource.succeed Elm.nothing
+                        , just =
+                            ( "route"
+                            , \justRoute ->
+                                Elm.Case.custom justRoute
+                                    Type.unit
+                                    (routes
+                                        |> List.map
+                                            (\route ->
+                                                let
+                                                    params : List RoutePattern.RouteParam
+                                                    params =
+                                                        route |> RoutePattern.toVariantName |> .params
+
+                                                    moduleName =
+                                                        "Route." ++ (RoutePattern.toModuleName route |> String.join "__")
+
+                                                    moduleThing2 =
+                                                        ("Route" :: RoutePattern.toModuleName route) |> String.join "."
+
+                                                    expression : Elm.Expression -> Elm.Expression
+                                                    expression innerRecord =
+                                                        Elm.apply
+                                                            (Elm.value
+                                                                { annotation = Nothing
+                                                                , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                                , name = "route"
+                                                                }
+                                                                |> Elm.get "handleRoute"
+                                                            )
+                                                            [ Elm.record
+                                                                [ ( "moduleName"
+                                                                  , RoutePattern.toModuleName route
+                                                                        |> List.map Elm.string
+                                                                        |> Elm.list
+                                                                  )
+                                                                , ( "routePattern"
+                                                                  , routePatternToSyntax route
+                                                                  )
+                                                                ]
+                                                            , Elm.fn ( "param", Nothing )
+                                                                (\param ->
+                                                                    Elm.list []
+                                                                )
+                                                            , innerRecord
+                                                            ]
+                                                in
+                                                if RoutePattern.hasRouteParams route then
+                                                    Elm.Case.branch1 moduleName
+                                                        ( "routeParams", Type.unit )
+                                                        (\routeParams ->
+                                                            expression routeParams
+                                                        )
+
+                                                else
+                                                    Elm.Case.branch0 moduleName
+                                                        (expression (Elm.record []))
+                                            )
+                                    )
+                            )
+                        }
+                        |> Elm.withType
+                            (Gen.DataSource.annotation_.dataSource (Type.maybe Gen.Pages.Internal.NotFoundReason.annotation_.notFoundReason))
                 )
 
         pathsToGenerateHandler :
@@ -660,6 +736,7 @@ otherFile routes phaseString =
         , routePatterns.declaration
         , pathsToGenerateHandler.declaration
         , getStaticRoutes.declaration
+        , handleRoute.declaration
         , Elm.portOutgoing "sendPageData"
             (Type.record
                 [ ( "oldThing", Gen.Json.Encode.annotation_.value )
