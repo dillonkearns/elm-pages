@@ -155,7 +155,7 @@ otherFile routes phaseString =
                     , annotation = Nothing
                     }
             , sendPageData = Elm.val "sendPageData"
-            , byteEncodePageData = todo
+            , byteEncodePageData = Elm.val "byteEncodePageData"
             , byteDecodePageData = todo
             , encodeResponse = encodeResponse.reference
             , encodeAction = Elm.val "encodeActionData"
@@ -330,6 +330,54 @@ otherFile routes phaseString =
                                                 [ thisActionData ]
                                         )
                                 )
+                        )
+                        |> Elm.withType Gen.Bytes.Encode.annotation_.encoder
+                )
+
+        byteEncodePageData :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            }
+        byteEncodePageData =
+            Elm.Declare.fn "byteEncodePageData"
+                ( "pageData", Type.named [] "PageData" |> Just )
+                (\actionData ->
+                    Elm.Case.custom actionData
+                        Type.unit
+                        ([ Elm.Case.branch1
+                            "DataErrorPage____"
+                            ( "thisPageData", Type.unit )
+                            (\thisPageData ->
+                                Elm.apply
+                                    (Elm.value
+                                        { annotation = Nothing
+                                        , importFrom = [ "ErrorPage" ]
+                                        , name = "w3_encode_Data"
+                                        }
+                                    )
+                                    [ thisPageData ]
+                            )
+                         , Elm.Case.branch0 "Data404NotFoundPage____" (Gen.Bytes.Encode.unsignedInt8 0)
+                         ]
+                            ++ (routes
+                                    |> List.map
+                                        (\route ->
+                                            Elm.Case.branch1
+                                                ("Data" ++ (RoutePattern.toModuleName route |> String.join "__"))
+                                                ( "thisPageData", Type.unit )
+                                                (\thisPageData ->
+                                                    Elm.apply
+                                                        (Elm.value
+                                                            { annotation = Nothing
+                                                            , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                            , name = "w3_encode_Data"
+                                                            }
+                                                        )
+                                                        [ thisPageData ]
+                                                )
+                                        )
+                               )
                         )
                         |> Elm.withType Gen.Bytes.Encode.annotation_.encoder
                 )
@@ -764,6 +812,7 @@ otherFile routes phaseString =
             |> Elm.declaration "main"
             |> expose
         , config.declaration
+        , byteEncodePageData.declaration
         , apiPatterns.declaration
         , routePatterns.declaration
         , pathsToGenerateHandler.declaration
