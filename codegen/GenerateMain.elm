@@ -65,7 +65,7 @@ otherFile routes phaseString =
         config =
             { init = todo
             , update = todo
-            , subscriptions = todo
+            , subscriptions = Elm.val "subscriptions"
             , sharedData =
                 Elm.value { name = "template", importFrom = [ "Shared" ], annotation = Nothing }
                     |> Elm.get "data"
@@ -227,6 +227,86 @@ otherFile routes phaseString =
                 (routes
                     |> List.map routePatternToSyntax
                     |> Elm.list
+                )
+
+        subscriptions :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            }
+        subscriptions =
+            Elm.Declare.fn3 "subscriptions"
+                ( "route", Nothing )
+                ( "path", Nothing )
+                ( "model", Nothing )
+                (\route path model ->
+                    Gen.Platform.Sub.batch
+                        [ Elm.apply
+                            (Elm.value
+                                { importFrom = [ "Shared" ]
+                                , name = "template"
+                                , annotation = Nothing
+                                }
+                                |> Elm.get "subscriptions"
+                            )
+                            [ path
+                            , model
+                                |> Elm.get "global"
+                            ]
+                            |> Gen.Platform.Sub.call_.map (Elm.val "MsgGlobal")
+                        , templateSubscriptions.call route path model
+                        ]
+                )
+
+        templateSubscriptions :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            }
+        templateSubscriptions =
+            Elm.Declare.fn3 "templateSubscriptions"
+                ( "route", Type.maybe (Type.named [ "Route" ] "Route") |> Just )
+                ( "path", Type.named [ "Path" ] "Path" |> Just )
+                ( "model", Type.named [] "Model" |> Just )
+                (\maybeRoute path model ->
+                    Elm.Case.maybe maybeRoute
+                        { nothing =
+                            Gen.Platform.Sub.none
+                        , just =
+                            ( "justRoute"
+                            , \justRoute ->
+                                branchHelper justRoute
+                                    (\route maybeRouteParams ->
+                                        Elm.Case.custom (model |> Elm.get "page")
+                                            Type.unit
+                                            [ Elm.Case.branch1
+                                                ("Model" ++ (RoutePattern.toModuleName route |> String.join "__"))
+                                                ( "templateModel", Type.unit )
+                                                (\templateModel ->
+                                                    Elm.apply
+                                                        (Elm.value
+                                                            { importFrom = "Route" :: RoutePattern.toModuleName route
+                                                            , name = "route"
+                                                            , annotation = Nothing
+                                                            }
+                                                            |> Elm.get "subscriptions"
+                                                        )
+                                                        [ Elm.nothing -- TODO wire through value
+                                                        , maybeRouteParams |> Maybe.withDefault (Elm.record [])
+                                                        , path
+                                                        , templateModel
+                                                        , model |> Elm.get "global"
+                                                        ]
+                                                        |> Gen.Platform.Sub.call_.map
+                                                            (Elm.val
+                                                                ("Msg" ++ (RoutePattern.toModuleName route |> String.join "__"))
+                                                            )
+                                                )
+                                            , Elm.Case.otherwise (\_ -> Gen.Platform.Sub.none)
+                                            ]
+                                    )
+                            )
+                        }
                 )
 
         init :
@@ -1053,6 +1133,7 @@ otherFile routes phaseString =
             |> Elm.declaration "main"
             |> expose
         , config.declaration
+        , templateSubscriptions.declaration
         , byteEncodePageData.declaration
         , byteDecodePageData.declaration
         , apiPatterns.declaration
@@ -1063,6 +1144,7 @@ otherFile routes phaseString =
         , getStaticRoutes.declaration
         , handleRoute.declaration
         , encodeActionData.declaration
+        , subscriptions.declaration
         , Elm.portOutgoing "sendPageData"
             (Type.record
                 [ ( "oldThing", Gen.Json.Encode.annotation_.value )
