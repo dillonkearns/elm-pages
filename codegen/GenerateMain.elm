@@ -296,8 +296,62 @@ otherFile routes phaseString =
                             )
                         |> Elm.Let.tuple "templateModel"
                             "templateCmd"
-                            todo
+                            (Elm.Case.maybe (Gen.Maybe.map2 Gen.Tuple.pair (maybePagePath |> Gen.Maybe.andThen (Elm.get "metadata")) (maybePagePath |> Gen.Maybe.map (Elm.get "path")))
+                                { nothing = initErrorPage.call pageData
+                                , just =
+                                    ( "justRouteAndPath"
+                                    , \justRouteAndPath ->
+                                        Elm.Case.custom (Gen.Tuple.first justRouteAndPath)
+                                            Type.unit
+                                            [ Elm.Case.branch1 "Route.Blog__Slug_"
+                                                ( "routeParams", Type.unit )
+                                                (\routeParams ->
+                                                    Elm.Case.custom pageData
+                                                        Type.unit
+                                                        [ Elm.Case.branch1 "DataBlog__Slug_"
+                                                            ( "thisPageData", Type.unit )
+                                                            (\thisPageData ->
+                                                                todo
+                                                            )
+                                                        , Elm.Case.otherwise
+                                                            (\_ ->
+                                                                initErrorPage.call pageData
+                                                            )
+                                                        ]
+                                                )
+                                            ]
+                                    )
+                                }
+                            )
                         |> Elm.Let.toExpression
+                )
+
+        initErrorPage :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            }
+        initErrorPage =
+            Elm.Declare.fn "initErrorPage"
+                ( "pageData", Type.named [] "PageData" |> Just )
+                (\pageData ->
+                    Elm.apply
+                        (Elm.value
+                            { importFrom = [ "ErrorPage" ]
+                            , name = "init"
+                            , annotation = Nothing
+                            }
+                        )
+                        [ Elm.Case.custom pageData
+                            Type.unit
+                            [ Elm.Case.branch1 "DataErrorPage____"
+                                ( "errorPage", Type.unit )
+                                (\errorPage -> errorPage)
+                            , Elm.Case.otherwise (\_ -> Elm.value { importFrom = [ "ErrorPage" ], name = "notFound", annotation = Nothing })
+                            ]
+                        ]
+                        |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____") (Elm.apply (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing }) [ Elm.val "MsgErrorPage____" ])
+                        |> Elm.withType (Type.tuple (Type.named [] "PageModel") (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ]))
                 )
 
         handleRoute :
@@ -934,6 +988,7 @@ otherFile routes phaseString =
         , byteDecodePageData.declaration
         , apiPatterns.declaration
         , init.declaration
+        , initErrorPage.declaration
         , routePatterns.declaration
         , pathsToGenerateHandler.declaration
         , getStaticRoutes.declaration
