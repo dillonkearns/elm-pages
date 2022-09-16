@@ -6,6 +6,7 @@ import Elm.Case
 import Elm.CodeGen
 import Elm.Declare
 import Elm.Extra exposing (expose, fnIgnore, topLevelValue)
+import Elm.Let
 import Elm.Op
 import Elm.Pretty
 import Gen.ApiRoute
@@ -225,6 +226,78 @@ otherFile routes phaseString =
                 (routes
                     |> List.map routePatternToSyntax
                     |> Elm.list
+                )
+
+        init :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            }
+        init =
+            Elm.Declare.fn6 "init"
+                ( "currentGlobalModel", Nothing )
+                ( "userFlags", Nothing )
+                ( "sharedData", Nothing )
+                ( "pageData", Nothing )
+                ( "actionData", Nothing )
+                --( "navigationKey", Nothing )
+                ( "maybePagePath ", Nothing )
+                (\currentGlobalModel userFlags sharedData pageData actionData maybePagePath ->
+                    Elm.Let.letIn
+                        (\( sharedModel, globalCmd ) ( templateModel, templateCmd ) ->
+                            Elm.tuple
+                                (Elm.record
+                                    [ ( "global", sharedModel )
+                                    , ( "page", templateModel )
+                                    , ( "current", maybePagePath )
+                                    ]
+                                )
+                                (Elm.apply
+                                    (Elm.value
+                                        { annotation = Nothing
+                                        , name = "batch"
+                                        , importFrom = [ "Effect" ]
+                                        }
+                                    )
+                                    [ Elm.list
+                                        [ templateCmd
+                                        , Elm.apply
+                                            (Elm.value
+                                                { annotation = Nothing
+                                                , importFrom = [ "Effect" ]
+                                                , name = "map"
+                                                }
+                                            )
+                                            [ Elm.val "MsgGlobal"
+                                            , globalCmd
+                                            ]
+                                        ]
+                                    ]
+                                )
+                        )
+                        |> Elm.Let.tuple "sharedModel"
+                            "globalCmd"
+                            (currentGlobalModel
+                                |> Gen.Maybe.map
+                                    (\m ->
+                                        Elm.tuple m (Elm.value { annotation = Nothing, importFrom = [ "Effect" ], name = "none" })
+                                    )
+                                |> Gen.Maybe.withDefault
+                                    (Elm.apply
+                                        (Elm.value
+                                            { importFrom = [ "Shared" ]
+                                            , name = "template"
+                                            , annotation = Nothing
+                                            }
+                                            |> Elm.get "init"
+                                        )
+                                        [ userFlags, maybePagePath ]
+                                    )
+                            )
+                        |> Elm.Let.tuple "templateModel"
+                            "templateCmd"
+                            todo
+                        |> Elm.Let.toExpression
                 )
 
         handleRoute :
@@ -860,6 +933,7 @@ otherFile routes phaseString =
         , byteEncodePageData.declaration
         , byteDecodePageData.declaration
         , apiPatterns.declaration
+        , init.declaration
         , routePatterns.declaration
         , pathsToGenerateHandler.declaration
         , getStaticRoutes.declaration
