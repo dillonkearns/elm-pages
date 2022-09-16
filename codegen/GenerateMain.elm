@@ -158,7 +158,7 @@ otherFile routes phaseString =
             , byteEncodePageData = todo
             , byteDecodePageData = todo
             , encodeResponse = encodeResponse.reference
-            , encodeAction = todo
+            , encodeAction = Elm.val "encodeActionData"
             , decodeResponse = decodeResponse.reference
             , globalHeadTags =
                 case phase of
@@ -300,6 +300,38 @@ otherFile routes phaseString =
                         }
                         |> Elm.withType
                             (Gen.DataSource.annotation_.dataSource (Type.maybe Gen.Pages.Internal.NotFoundReason.annotation_.notFoundReason))
+                )
+
+        encodeActionData :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            }
+        encodeActionData =
+            Elm.Declare.fn "encodeActionData"
+                ( "actionData", Type.named [] "ActionData" |> Just )
+                (\actionData ->
+                    Elm.Case.custom actionData
+                        Type.unit
+                        (routes
+                            |> List.map
+                                (\route ->
+                                    Elm.Case.branch1
+                                        ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))
+                                        ( "thisActionData", Type.unit )
+                                        (\thisActionData ->
+                                            Elm.apply
+                                                (Elm.value
+                                                    { annotation = Nothing
+                                                    , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                    , name = "w3_encode_ActionData"
+                                                    }
+                                                )
+                                                [ thisActionData ]
+                                        )
+                                )
+                        )
+                        |> Elm.withType Gen.Bytes.Encode.annotation_.encoder
                 )
 
         pathsToGenerateHandler :
@@ -737,6 +769,7 @@ otherFile routes phaseString =
         , pathsToGenerateHandler.declaration
         , getStaticRoutes.declaration
         , handleRoute.declaration
+        , encodeActionData.declaration
         , Elm.portOutgoing "sendPageData"
             (Type.record
                 [ ( "oldThing", Gen.Json.Encode.annotation_.value )
