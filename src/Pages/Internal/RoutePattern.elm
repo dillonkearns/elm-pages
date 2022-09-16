@@ -1,6 +1,6 @@
 module Pages.Internal.RoutePattern exposing
     ( Ending(..), RoutePattern, Segment(..), view, toVariant, routeToBranch
-    , Param(..), RouteParam(..), fromModuleName, hasRouteParams, toModuleName, toRouteParamTypes, toRouteParamsRecord, toVariantName
+    , Param(..), RouteParam(..), fromModuleName, hasRouteParams, repeatWithoutOptionalEnding, toModuleName, toRouteParamTypes, toRouteParamsRecord, toVariantName
     )
 
 {-| Exposed for internal use only (used in generated code).
@@ -257,6 +257,19 @@ isStatic routeParam =
 
         _ ->
             False
+
+
+repeatWithoutOptionalEnding : List RouteParam -> Maybe (List RouteParam)
+repeatWithoutOptionalEnding routeParams =
+    case routeParams |> List.reverse of
+        (OptionalParam2 name) :: reverseRest ->
+            List.reverse reverseRest |> Just
+
+        OptionalSplatParam2 :: reverseRest ->
+            List.reverse reverseRest |> Just
+
+        _ ->
+            Nothing
 
 
 toVariantName : RoutePattern -> { variantName : String, params : List RouteParam }

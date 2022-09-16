@@ -284,22 +284,6 @@ otherFile routes phaseString =
             , referenceFrom : List String -> Elm.Expression
             }
         apiPatterns =
-            {-
-               apiPatterns : ApiRoute.ApiRoute ApiRoute.Response
-               apiPatterns =
-                   let
-                       apiPatternsString =
-                           Api.routes getStaticRoutes (\\_ -> "")
-                               |> List.map ApiRoute.toJson
-
-                   in
-                   ApiRoute.succeed
-                       (Json.Encode.list identity apiPatternsString
-                           |> (\\json -> DataSource.succeed ( Json.Encode.encode 0 json ))
-                       )
-                       |> ApiRoute.literal "api-patterns.json"
-                       |> ApiRoute.single
-            -}
             topLevelValue "apiPatterns"
                 (Gen.ApiRoute.succeed
                     (Gen.Json.Encode.call_.list
@@ -316,6 +300,10 @@ otherFile routes phaseString =
                     )
                     |> Gen.ApiRoute.literal "api-patterns.json"
                     |> Gen.ApiRoute.single
+                    |> Elm.withType
+                        (Gen.ApiRoute.annotation_.apiRoute
+                            Gen.ApiRoute.annotation_.response
+                        )
                 )
 
         routePatterns :
@@ -325,7 +313,84 @@ otherFile routes phaseString =
             }
         routePatterns =
             topLevelValue "routePatterns"
-                todo
+                (Gen.ApiRoute.succeed
+                    (Gen.Json.Encode.call_.list
+                        (Elm.fn ( "info", Nothing )
+                            (\info ->
+                                Gen.Json.Encode.object
+                                    [ Elm.tuple (Elm.string "kind") (Gen.Json.Encode.call_.string (info |> Elm.get "kind"))
+                                    , Elm.tuple (Elm.string "pathPattern") (Gen.Json.Encode.call_.string (info |> Elm.get "pathPattern"))
+                                    ]
+                            )
+                        )
+                        (routes
+                            |> List.concatMap
+                                (\route ->
+                                    let
+                                        params =
+                                            route
+                                                |> RoutePattern.toVariantName
+                                                |> .params
+                                    in
+                                    case params |> RoutePattern.repeatWithoutOptionalEnding of
+                                        Just repeated ->
+                                            [ ( route, repeated ), ( route, params ) ]
+
+                                        Nothing ->
+                                            [ ( route, params ) ]
+                                )
+                            |> List.map
+                                (\( route, params ) ->
+                                    let
+                                        pattern : String
+                                        pattern =
+                                            "/"
+                                                ++ (params
+                                                        |> List.map
+                                                            (\param ->
+                                                                case param of
+                                                                    RoutePattern.StaticParam name ->
+                                                                        name
+
+                                                                    RoutePattern.DynamicParam name ->
+                                                                        ":" ++ name
+
+                                                                    RoutePattern.OptionalParam2 name ->
+                                                                        ":" ++ name
+
+                                                                    RoutePattern.OptionalSplatParam2 ->
+                                                                        "*"
+
+                                                                    RoutePattern.RequiredSplatParam2 ->
+                                                                        "*"
+                                                            )
+                                                        |> String.join "/"
+                                                   )
+                                    in
+                                    Elm.record
+                                        [ ( "pathPattern", Elm.string pattern )
+                                        , ( "kind"
+                                          , Elm.value
+                                                { name = "route"
+                                                , importFrom = "Route" :: (route |> RoutePattern.toModuleName)
+                                                , annotation = Nothing
+                                                }
+                                                |> Elm.get "kind"
+                                          )
+                                        ]
+                                )
+                            |> Elm.list
+                        )
+                        |> Gen.Json.Encode.encode 0
+                        |> Gen.DataSource.succeed
+                    )
+                    |> Gen.ApiRoute.literal "route-patterns.json"
+                    |> Gen.ApiRoute.single
+                    |> Elm.withType
+                        (Gen.ApiRoute.annotation_.apiRoute
+                            Gen.ApiRoute.annotation_.response
+                        )
+                )
 
         globalHeadTags :
             { declaration : Elm.Declaration
