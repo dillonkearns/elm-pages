@@ -156,7 +156,7 @@ otherFile routes phaseString =
                     }
             , sendPageData = Elm.val "sendPageData"
             , byteEncodePageData = Elm.val "byteEncodePageData"
-            , byteDecodePageData = todo
+            , byteDecodePageData = Elm.val "byteDecodePageData"
             , encodeResponse = encodeResponse.reference
             , encodeAction = Elm.val "encodeActionData"
             , decodeResponse = decodeResponse.reference
@@ -247,15 +247,8 @@ otherFile routes phaseString =
                                         |> List.map
                                             (\route ->
                                                 let
-                                                    params : List RoutePattern.RouteParam
-                                                    params =
-                                                        route |> RoutePattern.toVariantName |> .params
-
                                                     moduleName =
                                                         "Route." ++ (RoutePattern.toModuleName route |> String.join "__")
-
-                                                    moduleThing2 =
-                                                        ("Route" :: RoutePattern.toModuleName route) |> String.join "."
 
                                                     expression : Elm.Expression -> Elm.Expression
                                                     expression innerRecord =
@@ -380,6 +373,58 @@ otherFile routes phaseString =
                                )
                         )
                         |> Elm.withType Gen.Bytes.Encode.annotation_.encoder
+                )
+
+        byteDecodePageData :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            }
+        byteDecodePageData =
+            Elm.Declare.fn "byteDecodePageData"
+                ( "route", Type.named [ "Route" ] "Route" |> Type.maybe |> Just )
+                (\maybeRoute ->
+                    Elm.Case.maybe maybeRoute
+                        { nothing = Gen.Bytes.Decode.values_.fail
+                        , just =
+                            ( "route"
+                            , \route_ ->
+                                Elm.Case.custom route_
+                                    Type.unit
+                                    (routes
+                                        |> List.map
+                                            (\route ->
+                                                let
+                                                    mappedDecoder : Elm.Expression
+                                                    mappedDecoder =
+                                                        Gen.Bytes.Decode.call_.map
+                                                            (Elm.val ("Data" ++ (RoutePattern.toModuleName route |> String.join "__")))
+                                                            (Elm.value
+                                                                { annotation = Nothing
+                                                                , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                                , name = "w3_decode_Data"
+                                                                }
+                                                            )
+
+                                                    routeVariant : String
+                                                    routeVariant =
+                                                        "Route." ++ (RoutePattern.toModuleName route |> String.join "__")
+                                                in
+                                                if RoutePattern.hasRouteParams route then
+                                                    Elm.Case.branch1
+                                                        routeVariant
+                                                        ( "_", Type.unit )
+                                                        (\_ ->
+                                                            mappedDecoder
+                                                        )
+
+                                                else
+                                                    Elm.Case.branch0 routeVariant mappedDecoder
+                                            )
+                                    )
+                            )
+                        }
+                        |> Elm.withType (Gen.Bytes.Decode.annotation_.decoder (Type.named [] "PageData"))
                 )
 
         pathsToGenerateHandler :
@@ -813,6 +858,7 @@ otherFile routes phaseString =
             |> expose
         , config.declaration
         , byteEncodePageData.declaration
+        , byteDecodePageData.declaration
         , apiPatterns.declaration
         , routePatterns.declaration
         , pathsToGenerateHandler.declaration
