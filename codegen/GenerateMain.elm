@@ -70,7 +70,7 @@ otherFile routes phaseString =
                 Elm.value { name = "template", importFrom = [ "Shared" ], annotation = Nothing }
                     |> Elm.get "data"
             , data = Elm.val "dataForRoute"
-            , action = todo
+            , action = Elm.val "action"
             , onActionData = todo
             , view = todo
             , handleRoute = Elm.val "handleRoute"
@@ -352,6 +352,50 @@ otherFile routes phaseString =
                             (Gen.DataSource.annotation_.dataSource
                                 (Gen.Server.Response.annotation_.response
                                     (Type.named [] "PageData")
+                                    (Type.named [ "ErrorPage" ] "ErrorPage")
+                                )
+                            )
+                )
+
+        action :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            }
+        action =
+            Elm.Declare.fn
+                "action"
+                ( "maybeRoute", Type.maybe (Type.named [ "Route" ] "Route") |> Just )
+                (\maybeRoute ->
+                    Elm.Case.maybe maybeRoute
+                        { nothing =
+                            Gen.DataSource.succeed
+                                (Gen.Server.Response.plainText "TODO")
+                        , just =
+                            ( "justRoute"
+                            , \justRoute ->
+                                branchHelper justRoute
+                                    (\route maybeRouteParams ->
+                                        Elm.apply
+                                            (Elm.value
+                                                { name = "route"
+                                                , importFrom = "Route" :: (route |> RoutePattern.toModuleName)
+                                                , annotation = Nothing
+                                                }
+                                                |> Elm.get "action"
+                                            )
+                                            [ maybeRouteParams
+                                                |> Maybe.withDefault (Elm.record [])
+                                            ]
+                                            |> Gen.DataSource.map
+                                                (Gen.Server.Response.call_.map (Elm.val ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))))
+                                    )
+                            )
+                        }
+                        |> Elm.withType
+                            (Gen.DataSource.annotation_.dataSource
+                                (Gen.Server.Response.annotation_.response
+                                    (Type.named [] "ActionData")
                                     (Type.named [ "ErrorPage" ] "ErrorPage")
                                 )
                             )
@@ -1182,6 +1226,7 @@ otherFile routes phaseString =
             |> expose
         , config.declaration
         , dataForRoute.declaration
+        , action.declaration
         , templateSubscriptions.declaration
         , byteEncodePageData.declaration
         , byteDecodePageData.declaration
