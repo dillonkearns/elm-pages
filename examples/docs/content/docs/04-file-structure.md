@@ -35,7 +35,7 @@ Defines the types for your application's `View msg` type.
 Must expose
 
 - A type called `View msg` (must have exactly one type variable)
-- `map : (msg1 -> msg2) -> Document msg1 -> Document msg2`
+- `map : (msg1 -> msg2) -> View msg1 -> View msg2`
 - `placeholder : String -> View msg` - used in when you scaffold a new Page module with `elm-pages add MyRoute`
 
 The `View msg` type is what individual `Page/` modules must return in their `view` functions.
