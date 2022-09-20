@@ -30,6 +30,7 @@ import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.RoutePattern
 import Gen.Pages.ProgramConfig
+import Gen.Pages.Transition
 import Gen.Path
 import Gen.Platform.Sub
 import Gen.Server.Response
@@ -65,7 +66,7 @@ otherFile routes phaseString =
             }
         config =
             { init = Elm.apply (Elm.val "init") [ Elm.nothing ]
-            , update = todo
+            , update = Elm.val "update"
             , subscriptions = Elm.val "subscriptions"
             , sharedData =
                 Elm.value { name = "template", importFrom = [ "Shared" ], annotation = Nothing }
@@ -614,6 +615,52 @@ otherFile routes phaseString =
                                 (Type.named [] "Model")
                                 (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ])
                             )
+                )
+
+        update :
+            { declaration : Elm.Declaration
+            , call : List Elm.Expression -> Elm.Expression
+            , callFrom : List String -> List Elm.Expression -> Elm.Expression
+            }
+        update =
+            Elm.Declare.function "update"
+                [ ( "pageFormState", Type.named [ "Pages", "FormState" ] "PageFormState" |> Just )
+                , ( "fetchers"
+                  , Gen.Dict.annotation_.dict
+                        Type.string
+                        (Gen.Pages.Transition.annotation_.fetcherState (Type.named [] "ActionData"))
+                        |> Just
+                  )
+                , ( "transition", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
+                , ( "sharedData", Type.named [ "Shared" ] "Data" |> Just )
+                , ( "pageData", Type.named [] "PageData" |> Just )
+                , ( "navigationKey", Type.named [ "Browser", "Navigation" ] "Key" |> Type.maybe |> Just )
+                , ( "msg", Type.named [] "Msg" |> Type.maybe |> Just )
+                , ( "model", Type.named [] "Model" |> Just )
+                ]
+                (\args ->
+                    case args of
+                        [ pageFormState, fetchers, transition, sharedData, pageData, navigationKey, msg, model ] ->
+                            let
+                                defaultValue =
+                                    --( model.page, Effect.none, ( model.global, Effect.none ) )
+                                    Elm.triple
+                                        (model |> Elm.get "page")
+                                        (Elm.value { annotation = Nothing, importFrom = [ "Effect" ], name = "none" })
+                                        (Elm.tuple
+                                            (model |> Elm.get "global")
+                                            (Elm.value { annotation = Nothing, importFrom = [ "Effect" ], name = "none" })
+                                        )
+                            in
+                            todo
+                                |> Elm.withType
+                                    (Type.tuple
+                                        (Type.named [] "Model")
+                                        (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ])
+                                    )
+
+                        _ ->
+                            todo
                 )
 
         initErrorPage :
@@ -1287,6 +1334,7 @@ otherFile routes phaseString =
         , byteDecodePageData.declaration
         , apiPatterns.declaration
         , init.declaration
+        , update.declaration
         , initErrorPage.declaration
         , routePatterns.declaration
         , pathsToGenerateHandler.declaration
