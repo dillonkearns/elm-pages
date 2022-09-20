@@ -1022,15 +1022,21 @@ decodeBytes bytesDecoder items =
 
 async function runElmCodegenCli(templates, basePath, phase) {
   // await runElmCodegenInstall();
-  await compileCliApp(
-    // { debug: true },
-    {},
-    `Generate.elm`,
-    path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js"),
-    path.join(__dirname, "../../codegen"),
+  try {
+    await compileCliApp(
+      // { debug: true },
+      {},
+      `Generate.elm`,
+      path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js"),
+      path.join(__dirname, "../../codegen"),
 
-    path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js")
-  );
+      path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js")
+    );
+  } catch (error) {
+    console.log(restoreColorSafe(error));
+    process.exit(1);
+    // throw error;
+  }
 
   // TODO use uncached require here to prevent stale code from running
 
