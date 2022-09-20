@@ -11,6 +11,7 @@ import Elm.Op
 import Elm.Pretty
 import Gen.ApiRoute
 import Gen.Basics
+import Gen.Browser.Navigation
 import Gen.Bytes
 import Gen.Bytes.Decode
 import Gen.Bytes.Encode
@@ -63,7 +64,7 @@ otherFile routes phaseString =
             , referenceFrom : List String -> Elm.Expression
             }
         config =
-            { init = todo
+            { init = Elm.apply (Elm.val "init") [ Elm.nothing ]
             , update = todo
             , subscriptions = Elm.val "subscriptions"
             , sharedData =
@@ -440,20 +441,29 @@ otherFile routes phaseString =
                             )
                 )
 
-        init :
-            { declaration : Elm.Declaration
-            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-            }
+        init : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression }
         init =
             Elm.Declare.fn6 "init"
-                ( "currentGlobalModel", Nothing )
-                ( "userFlags", Nothing )
-                ( "sharedData", Nothing )
-                ( "pageData", Nothing )
-                ( "actionData", Nothing )
-                --( "navigationKey", Nothing )
-                ( "maybePagePath ", Nothing )
+                ( "currentGlobalModel", Type.maybe (Type.named [ "Shared" ] "Model") |> Just )
+                ( "userFlags", Type.named [ "Pages", "Flags" ] "Flags" |> Just )
+                ( "sharedData", Type.named [ "Shared" ] "Data" |> Just )
+                ( "pageData", Type.named [] "PageData" |> Just )
+                ( "actionData", Type.named [] "ActionData" |> Type.maybe |> Just )
+                ( "maybePagePath"
+                , Type.record
+                    [ ( "path"
+                      , Type.record
+                            [ ( "path", Type.named [ "Path" ] "Path" )
+                            , ( "query", Type.string |> Type.maybe )
+                            , ( "fragment", Type.string |> Type.maybe )
+                            ]
+                      )
+                    , ( "metadata", Type.maybe (Type.named [ "Route" ] "Route") )
+                    , ( "pageUrl", Type.maybe (Type.named [ "Pages", "PageUrl" ] "PageUrl") )
+                    ]
+                    |> Type.maybe
+                    |> Just
+                )
                 (\currentGlobalModel userFlags sharedData pageData actionData maybePagePath ->
                     Elm.Let.letIn
                         (\( sharedModel, globalCmd ) ->
@@ -599,6 +609,11 @@ otherFile routes phaseString =
                                     )
                             )
                         |> Elm.Let.toExpression
+                        |> Elm.withType
+                            (Type.tuple
+                                (Type.named [] "Model")
+                                (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ])
+                            )
                 )
 
         initErrorPage :
@@ -1165,7 +1180,7 @@ otherFile routes phaseString =
                   , Type.maybe
                         (Type.record
                             [ ( "path", Type.named [ "Path" ] "Path" )
-                            , ( "query", Type.named [ "Path" ] "Path" |> Type.maybe )
+                            , ( "query", Type.string |> Type.maybe )
                             , ( "fragment", Type.string |> Type.maybe )
                             ]
                         )

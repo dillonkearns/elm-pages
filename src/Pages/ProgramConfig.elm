@@ -35,7 +35,6 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> sharedData
         -> pageData
         -> Maybe actionData
-        -> Maybe Browser.Navigation.Key
         ->
             Maybe
                 { path :

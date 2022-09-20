@@ -319,7 +319,6 @@ init :
     -> Shared.Data
     -> PageData
     -> Maybe ActionData
-    -> Maybe Browser.Navigation.Key
     ->
         Maybe
             { path :
@@ -331,7 +330,7 @@ init :
             , pageUrl : Maybe PageUrl
             }
     -> ( Model, Effect Msg )
-init currentGlobalModel userFlags sharedData pageData actionData navigationKey maybePagePath =
+init currentGlobalModel userFlags sharedData pageData actionData maybePagePath =
     let
         ( sharedModel, globalCmd ) =
             currentGlobalModel |> Maybe.map (\\m -> ( m, Effect.none )) |> Maybe.withDefault (Shared.template.init userFlags maybePagePath)
