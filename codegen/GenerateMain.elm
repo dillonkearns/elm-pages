@@ -71,7 +71,7 @@ otherFile routes phaseString =
                     |> Elm.get "data"
             , data = Elm.val "dataForRoute"
             , action = Elm.val "action"
-            , onActionData = todo
+            , onActionData = Elm.val "onActionData"
             , view = todo
             , handleRoute = Elm.val "handleRoute"
             , getStaticRoutes =
@@ -256,6 +256,45 @@ otherFile routes phaseString =
                             |> Gen.Platform.Sub.call_.map (Elm.val "MsgGlobal")
                         , templateSubscriptions.call route path model
                         ]
+                )
+
+        onActionData :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            }
+        onActionData =
+            Elm.Declare.fn "onActionData"
+                ( "actionData", Type.named [] "ActionData" |> Just )
+                (\actionData ->
+                    Elm.Case.custom actionData
+                        Type.unit
+                        (routes
+                            |> List.map
+                                (\route ->
+                                    Elm.Case.branch1
+                                        ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))
+                                        ( "thisActionData", Type.unit )
+                                        (\thisActionData ->
+                                            (Elm.value
+                                                { annotation = Nothing
+                                                , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                , name = "route"
+                                                }
+                                                |> Elm.get "onAction"
+                                            )
+                                                |> Gen.Maybe.map
+                                                    (\onAction ->
+                                                        Elm.apply
+                                                            (Elm.val
+                                                                ("Msg" ++ (RoutePattern.toModuleName route |> String.join "__"))
+                                                            )
+                                                            [ Elm.apply onAction [ thisActionData ] ]
+                                                    )
+                                        )
+                                )
+                        )
+                        |> Elm.withType (Type.maybe (Type.named [] "Msg"))
                 )
 
         templateSubscriptions :
@@ -1228,6 +1267,7 @@ otherFile routes phaseString =
         , dataForRoute.declaration
         , action.declaration
         , templateSubscriptions.declaration
+        , onActionData.declaration
         , byteEncodePageData.declaration
         , byteDecodePageData.declaration
         , apiPatterns.declaration
