@@ -678,15 +678,7 @@ otherFile routes phaseString =
                                                                         , pageModel
                                                                         ]
                                                                         |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____")
-                                                                            (Elm.apply
-                                                                                (Elm.value
-                                                                                    { name = "map"
-                                                                                    , importFrom = [ "Effect" ]
-                                                                                    , annotation = Nothing
-                                                                                    }
-                                                                                )
-                                                                                [ Elm.val "MsgErrorPage____" ]
-                                                                            )
+                                                                            (effectMap_ (Elm.val "MsgErrorPage____"))
                                                                 )
                                                         , Elm.Pattern.ignore
                                                             |> Elm.Case.patternToBranch
@@ -700,7 +692,24 @@ otherFile routes phaseString =
                                  , Elm.Pattern.variant1 "MsgGlobal" (Elm.Pattern.var "msg_")
                                     |> Elm.Case.patternToBranch
                                         (\msg_ ->
-                                            todo
+                                            Elm.Let.letIn
+                                                (\( sharedModel, globalCmd ) ->
+                                                    Elm.tuple
+                                                        (Elm.updateRecord [ ( "global", sharedModel ) ] model)
+                                                        (effectMap (Elm.val "MsgGlobal") globalCmd)
+                                                )
+                                                |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "sharedModel") (Elm.Pattern.var "globalCmd"))
+                                                    (Elm.apply
+                                                        (Elm.value
+                                                            { importFrom = [ "Shared" ]
+                                                            , name = "template"
+                                                            , annotation = Nothing
+                                                            }
+                                                            |> Elm.get "update"
+                                                        )
+                                                        [ msg_, model |> Elm.get "global" ]
+                                                    )
+                                                |> Elm.Let.toExpression
                                         )
                                  , Elm.Pattern.variant1 "OnPageChange" (Elm.Pattern.var "record")
                                     |> Elm.Case.patternToBranch
@@ -806,7 +815,6 @@ otherFile routes phaseString =
                                                                                             )
                                                                                         )
                                                                                         (fooFn.call
-                                                                                            --todo
                                                                                             (Elm.val ("Model" ++ (RoutePattern.toModuleName route |> String.join "__")))
                                                                                             (Elm.val ("Msg" ++ (RoutePattern.toModuleName route |> String.join "__")))
                                                                                             model
@@ -1714,3 +1722,27 @@ routePatternToSyntax route =
 
 effectNone =
     Elm.value { annotation = Nothing, importFrom = [ "Effect" ], name = "none" }
+
+
+effectMap : Elm.Expression -> Elm.Expression -> Elm.Expression
+effectMap mapTo value =
+    Elm.apply
+        (Elm.value
+            { name = "map"
+            , importFrom = [ "Effect" ]
+            , annotation = Nothing
+            }
+        )
+        [ mapTo, value ]
+
+
+effectMap_ : Elm.Expression -> Elm.Expression
+effectMap_ mapTo =
+    Elm.apply
+        (Elm.value
+            { name = "map"
+            , importFrom = [ "Effect" ]
+            , annotation = Nothing
+            }
+        )
+        [ mapTo ]
