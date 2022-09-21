@@ -59,15 +59,15 @@ otherFile routes phaseString =
         config =
             { init = Elm.apply (Elm.val "init") [ Elm.nothing ]
             , update = update.value []
-            , subscriptions = Elm.val "subscriptions"
+            , subscriptions = subscriptions.value []
             , sharedData =
                 Elm.value { name = "template", importFrom = [ "Shared" ], annotation = Nothing }
                     |> Elm.get "data"
-            , data = Elm.val "dataForRoute"
-            , action = Elm.val "action"
-            , onActionData = Elm.val "onActionData"
+            , data = dataForRoute.value []
+            , action = action.value []
+            , onActionData = onActionData.value []
             , view = todo
-            , handleRoute = Elm.val "handleRoute"
+            , handleRoute = handleRoute.value []
             , getStaticRoutes =
                 case phase of
                     Browser ->
@@ -151,10 +151,10 @@ otherFile routes phaseString =
                     , annotation = Nothing
                     }
             , sendPageData = Elm.val "sendPageData"
-            , byteEncodePageData = Elm.val "byteEncodePageData"
-            , byteDecodePageData = Elm.val "byteDecodePageData"
+            , byteEncodePageData = byteEncodePageData.value []
+            , byteDecodePageData = byteDecodePageData.value []
             , encodeResponse = encodeResponse.reference
-            , encodeAction = Elm.val "encodeActionData"
+            , encodeAction = encodeActionData.value []
             , decodeResponse = decodeResponse.reference
             , globalHeadTags =
                 case phase of
