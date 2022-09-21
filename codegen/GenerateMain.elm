@@ -21,6 +21,7 @@ import Gen.Json.Decode
 import Gen.Json.Encode
 import Gen.List
 import Gen.Maybe
+import Gen.Pages.Fetcher
 import Gen.Pages.Flags
 import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
@@ -907,7 +908,7 @@ otherFile routes phaseString =
                                                                                                     , ( "action", Elm.nothing )
                                                                                                     , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                                     , ( "path", justPage |> Elm.get "path" )
-                                                                                                    , ( "submit", todo )
+                                                                                                    , ( "submit", Elm.fn ( "options", Type.unit ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType "ActionData" route)) )
                                                                                                     , ( "transition", transition )
                                                                                                     , ( "fetchers", todo )
                                                                                                     , ( "pageFormState", pageFormState )
@@ -1227,12 +1228,7 @@ otherFile routes phaseString =
                                                     mappedDecoder =
                                                         Gen.Bytes.Decode.call_.map
                                                             (Elm.val ("Data" ++ (RoutePattern.toModuleName route |> String.join "__")))
-                                                            (Elm.value
-                                                                { annotation = Nothing
-                                                                , importFrom = "Route" :: RoutePattern.toModuleName route
-                                                                , name = "w3_decode_Data"
-                                                                }
-                                                            )
+                                                            (decodeRouteType "Data" route)
 
                                                     routeVariant : String
                                                     routeVariant =
@@ -1820,3 +1816,12 @@ effectMap_ mapTo =
             }
         )
         [ mapTo ]
+
+
+decodeRouteType : String -> RoutePattern -> Elm.Expression
+decodeRouteType typeName route =
+    Elm.value
+        { annotation = Nothing
+        , importFrom = "Route" :: RoutePattern.toModuleName route
+        , name = "w3_decode_" ++ typeName
+        }
