@@ -18,6 +18,7 @@ topLevelValue name expression =
             { declaration : Elm.Declaration
             , call : List Elm.Expression -> Elm.Expression
             , callFrom : List String -> List Elm.Expression -> Elm.Expression
+            , value : List String -> Elm.Expression
             }
         declaration_ =
             Elm.Declare.function name
