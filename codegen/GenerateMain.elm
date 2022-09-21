@@ -32,6 +32,7 @@ import Gen.Path
 import Gen.Platform.Sub
 import Gen.QueryParams
 import Gen.Server.Response
+import Gen.String
 import Gen.Tuple
 import Gen.Url
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
@@ -908,7 +909,7 @@ otherFile routes phaseString =
                                                                                                     , ( "action", Elm.nothing )
                                                                                                     , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                                     , ( "path", justPage |> Elm.get "path" )
-                                                                                                    , ( "submit", Elm.fn ( "options", Type.unit ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType "ActionData" route)) )
+                                                                                                    , ( "submit", Elm.fn ( "options", Nothing ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType "ActionData" route)) )
                                                                                                     , ( "transition", transition )
                                                                                                     , ( "fetchers", todo )
                                                                                                     , ( "pageFormState", pageFormState )
@@ -1083,9 +1084,41 @@ otherFile routes phaseString =
                                                   )
                                                 ]
                                             , Elm.fn ( "param", Nothing )
-                                                (\param ->
-                                                    -- TODO not implemented
-                                                    todo
+                                                (\routeParam ->
+                                                    RoutePattern.toVariantName route
+                                                        |> .params
+                                                        |> List.filterMap
+                                                            (\param ->
+                                                                case param of
+                                                                    RoutePattern.OptionalParam2 name ->
+                                                                        ( name
+                                                                        , maybeToString.call (routeParam |> Elm.get name)
+                                                                        )
+                                                                            |> Just
+
+                                                                    RoutePattern.DynamicParam name ->
+                                                                        ( name
+                                                                        , stringToString.call (routeParam |> Elm.get name)
+                                                                        )
+                                                                            |> Just
+
+                                                                    RoutePattern.RequiredSplatParam2 ->
+                                                                        ( "splat"
+                                                                        , nonEmptyToString.call (routeParam |> Elm.get "splat")
+                                                                        )
+                                                                            |> Just
+
+                                                                    RoutePattern.OptionalSplatParam2 ->
+                                                                        ( "splat"
+                                                                        , listToString.call (routeParam |> Elm.get "splat")
+                                                                        )
+                                                                            |> Just
+
+                                                                    RoutePattern.StaticParam name ->
+                                                                        Nothing
+                                                            )
+                                                        |> List.map (\( key, value ) -> Elm.tuple (Elm.string key) value)
+                                                        |> Elm.list
                                                 )
                                             , innerRecord |> Maybe.withDefault (Elm.record [])
                                             ]
@@ -1094,6 +1127,84 @@ otherFile routes phaseString =
                         }
                         |> Elm.withType
                             (Gen.DataSource.annotation_.dataSource (Type.maybe Gen.Pages.Internal.NotFoundReason.annotation_.notFoundReason))
+                )
+
+        maybeToString : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        maybeToString =
+            Elm.Declare.fn "maybeToString"
+                ( "maybeString", Type.maybe Type.string |> Just )
+                (\maybeString ->
+                    Elm.Case.maybe maybeString
+                        { nothing = Elm.string "Nothing"
+                        , just =
+                            ( "string"
+                            , \string ->
+                                Elm.Op.append
+                                    (Elm.string "Just ")
+                                    (stringToString.call string)
+                            )
+                        }
+                )
+
+        stringToString : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        stringToString =
+            Elm.Declare.fn "stringToString"
+                ( "string", Type.string |> Just )
+                (\string ->
+                    Elm.Op.append
+                        (Elm.string "\"")
+                        (Elm.Op.append
+                            string
+                            (Elm.string "\"")
+                        )
+                )
+
+        nonEmptyToString :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            , value : List String -> Elm.Expression
+            }
+        nonEmptyToString =
+            Elm.Declare.fn "nonEmptyToString"
+                ( "nonEmpty", Type.tuple Type.string (Type.list Type.string) |> Just )
+                (\nonEmpty ->
+                    Elm.Case.custom
+                        nonEmpty
+                        Type.unit
+                        [ Elm.Pattern.tuple (Elm.Pattern.var "first") (Elm.Pattern.var "rest")
+                            |> Elm.Case.patternToBranch
+                                (\( first, rest ) ->
+                                    append
+                                        [ Elm.string "( "
+                                        , stringToString.call first
+                                        , Elm.string ", [ "
+                                        , rest
+                                            |> Gen.List.call_.map (stringToString.value [])
+                                            |> Gen.String.call_.join (Elm.string ", ")
+                                        , Elm.string " ] )"
+                                        ]
+                                )
+                        ]
+                )
+
+        listToString :
+            { declaration : Elm.Declaration
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            , value : List String -> Elm.Expression
+            }
+        listToString =
+            Elm.Declare.fn "listToString"
+                ( "strings", Type.list Type.string |> Just )
+                (\strings ->
+                    append
+                        [ Elm.string "[ "
+                        , strings
+                            |> Gen.List.call_.map (stringToString.value [])
+                            |> Gen.String.call_.join (Elm.string ", ")
+                        , Elm.string " ]"
+                        ]
                 )
 
         branchHelper : Elm.Expression -> (RoutePattern -> Maybe Elm.Expression -> Elm.Expression) -> Elm.Expression
@@ -1698,6 +1809,10 @@ otherFile routes phaseString =
         , apiPatterns.declaration
         , init.declaration
         , update.declaration
+        , maybeToString.declaration
+        , stringToString.declaration
+        , nonEmptyToString.declaration
+        , listToString.declaration
         , initErrorPage.declaration
         , routePatterns.declaration
         , pathsToGenerateHandler.declaration
@@ -1816,6 +1931,18 @@ effectMap_ mapTo =
             }
         )
         [ mapTo ]
+
+
+append : List Elm.Expression -> Elm.Expression
+append expressions =
+    case expressions |> List.reverse of
+        first :: rest ->
+            List.foldl Elm.Op.append
+                first
+                rest
+
+        [] ->
+            Elm.string ""
 
 
 decodeRouteType : String -> RoutePattern -> Elm.Expression
