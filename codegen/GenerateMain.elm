@@ -21,6 +21,7 @@ import Gen.Json.Decode
 import Gen.Json.Encode
 import Gen.List
 import Gen.Maybe
+import Gen.Pages.Flags
 import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.RoutePattern
@@ -28,6 +29,7 @@ import Gen.Pages.ProgramConfig
 import Gen.Pages.Transition
 import Gen.Path
 import Gen.Platform.Sub
+import Gen.QueryParams
 import Gen.Server.Response
 import Gen.Tuple
 import Gen.Url
@@ -714,7 +716,79 @@ otherFile routes phaseString =
                                  , Elm.Pattern.variant1 "OnPageChange" (Elm.Pattern.var "record")
                                     |> Elm.Case.patternToBranch
                                         (\record ->
-                                            todo
+                                            Elm.Let.letIn
+                                                (\( updatedModel, cmd ) ->
+                                                    Elm.Case.maybe
+                                                        (Elm.value { importFrom = [ "Shared" ], name = "template", annotation = Nothing }
+                                                            |> Elm.get "onPageChange"
+                                                        )
+                                                        { nothing = Elm.tuple updatedModel cmd
+                                                        , just =
+                                                            ( "thingy"
+                                                            , \thingy ->
+                                                                Elm.Let.letIn
+                                                                    (\( updatedGlobalModel, globalCmd ) ->
+                                                                        Elm.tuple (Elm.updateRecord [ ( "global", updatedGlobalModel ) ] updatedModel)
+                                                                            (Elm.apply (Elm.value { importFrom = [ "Effect" ], name = "batch", annotation = Nothing })
+                                                                                [ Elm.list
+                                                                                    [ cmd
+                                                                                    , effectMap (Elm.val "MsgGlobal") globalCmd
+                                                                                    ]
+                                                                                ]
+                                                                            )
+                                                                    )
+                                                                    |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "updatedGlobalModel") (Elm.Pattern.var "globalCmd"))
+                                                                        (Elm.apply
+                                                                            (Elm.value { importFrom = [ "Shared" ], name = "template", annotation = Nothing }
+                                                                                |> Elm.get "update"
+                                                                            )
+                                                                            [ Elm.apply thingy
+                                                                                [ Elm.record
+                                                                                    [ ( "path", record |> Elm.get "path" )
+                                                                                    , ( "query", record |> Elm.get "query" )
+                                                                                    , ( "fragment", record |> Elm.get "fragment" )
+                                                                                    ]
+                                                                                ]
+                                                                            , model |> Elm.get "global"
+                                                                            ]
+                                                                        )
+                                                                    |> Elm.Let.toExpression
+                                                            )
+                                                        }
+                                                )
+                                                |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "updatedModel") (Elm.Pattern.var "cmd"))
+                                                    (init.call
+                                                        (Elm.just (model |> Elm.get "global"))
+                                                        (Elm.value { importFrom = [ "Pages", "Flags" ], name = "PreRenderFlags", annotation = Nothing })
+                                                        sharedData
+                                                        pageData
+                                                        Elm.nothing
+                                                        (Elm.just
+                                                            (Elm.record
+                                                                [ ( "path"
+                                                                  , Elm.record
+                                                                        [ ( "path", record |> Elm.get "path" )
+                                                                        , ( "query", record |> Elm.get "query" )
+                                                                        , ( "fragment", record |> Elm.get "fragment" )
+                                                                        ]
+                                                                  )
+                                                                , ( "metadata", record |> Elm.get "metadata" )
+                                                                , ( "pageUrl"
+                                                                  , Elm.record
+                                                                        [ ( "protocol", record |> Elm.get "protocol" )
+                                                                        , ( "host", record |> Elm.get "host" )
+                                                                        , ( "port_", record |> Elm.get "port_" )
+                                                                        , ( "path", record |> Elm.get "path" )
+                                                                        , ( "query", record |> Elm.get "query" |> Gen.Maybe.map Gen.QueryParams.call_.fromString )
+                                                                        , ( "fragment", record |> Elm.get "fragment" )
+                                                                        ]
+                                                                        |> Elm.just
+                                                                  )
+                                                                ]
+                                                            )
+                                                        )
+                                                    )
+                                                |> Elm.Let.toExpression
                                         )
                                  ]
                                     ++ (routes
