@@ -649,7 +649,53 @@ otherFile routes phaseString =
                                 ([ Elm.Pattern.variant1 "MsgErrorPage____" (Elm.Pattern.var "msg_")
                                     |> Elm.Case.patternToBranch
                                         (\msg_ ->
-                                            todo
+                                            Elm.Let.letIn
+                                                (\( updatedPageModel, pageCmd ) ->
+                                                    Elm.tuple
+                                                        (Elm.updateRecord
+                                                            [ ( "page", updatedPageModel )
+                                                            ]
+                                                            model
+                                                        )
+                                                        pageCmd
+                                                )
+                                                |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "updatedPageModel") (Elm.Pattern.var "pageCmd"))
+                                                    (Elm.Case.custom (Elm.tuple (model |> Elm.get "page") pageData)
+                                                        Type.unit
+                                                        [ Elm.Pattern.tuple (Elm.Pattern.variant1 "ModelErrorPage____" (Elm.Pattern.var "pageModel"))
+                                                            (Elm.Pattern.variant1 "DataErrorPage____" (Elm.Pattern.var "thisPageData"))
+                                                            |> Elm.Case.patternToBranch
+                                                                (\( pageModel, thisPageData ) ->
+                                                                    Elm.apply
+                                                                        (Elm.value
+                                                                            { importFrom = [ "ErrorPage" ]
+                                                                            , name = "update"
+                                                                            , annotation = Nothing
+                                                                            }
+                                                                        )
+                                                                        [ thisPageData
+                                                                        , msg_
+                                                                        , pageModel
+                                                                        ]
+                                                                        |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____")
+                                                                            (Elm.apply
+                                                                                (Elm.value
+                                                                                    { name = "map"
+                                                                                    , importFrom = [ "Effect" ]
+                                                                                    , annotation = Nothing
+                                                                                    }
+                                                                                )
+                                                                                [ Elm.val "MsgErrorPage____" ]
+                                                                            )
+                                                                )
+                                                        , Elm.Pattern.ignore
+                                                            |> Elm.Case.patternToBranch
+                                                                (\() ->
+                                                                    Elm.tuple (model |> Elm.get "page") effectNone
+                                                                )
+                                                        ]
+                                                    )
+                                                |> Elm.Let.toExpression
                                         )
                                  , Elm.Pattern.variant1 "MsgGlobal" (Elm.Pattern.var "msg_")
                                     |> Elm.Case.patternToBranch
