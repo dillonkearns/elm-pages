@@ -911,7 +911,29 @@ otherFile routes phaseString =
                                                                                                     , ( "path", justPage |> Elm.get "path" )
                                                                                                     , ( "submit", Elm.fn ( "options", Nothing ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType "ActionData" route)) )
                                                                                                     , ( "transition", transition )
-                                                                                                    , ( "fetchers", todo )
+                                                                                                    , ( "fetchers"
+                                                                                                      , fetchers
+                                                                                                            |> Gen.Dict.map
+                                                                                                                (\_ fetcherState ->
+                                                                                                                    fetcherState
+                                                                                                                        |> Gen.Pages.Transition.map
+                                                                                                                            (\ad ->
+                                                                                                                                Elm.Case.custom ad
+                                                                                                                                    Type.unit
+                                                                                                                                    [ Elm.Pattern.variant1 ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))
+                                                                                                                                        (Elm.Pattern.var "justActionData")
+                                                                                                                                        |> Elm.Case.patternToBranch
+                                                                                                                                            (\justActionData ->
+                                                                                                                                                Elm.just justActionData
+                                                                                                                                            )
+                                                                                                                                    , Elm.Case.otherwise
+                                                                                                                                        (\_ ->
+                                                                                                                                            Elm.nothing
+                                                                                                                                        )
+                                                                                                                                    ]
+                                                                                                                            )
+                                                                                                                )
+                                                                                                      )
                                                                                                     , ( "pageFormState", pageFormState )
                                                                                                     ]
                                                                                                 , msg_
