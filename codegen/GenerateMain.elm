@@ -16,6 +16,7 @@ import Gen.Bytes.Encode
 import Gen.DataSource
 import Gen.Dict
 import Gen.Head
+import Gen.Html
 import Gen.HtmlPrinter
 import Gen.Json.Decode
 import Gen.Json.Encode
@@ -26,6 +27,7 @@ import Gen.Pages.Flags
 import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.RoutePattern
+import Gen.Pages.Msg
 import Gen.Pages.ProgramConfig
 import Gen.Pages.Transition
 import Gen.Path
@@ -70,7 +72,7 @@ otherFile routes phaseString =
             , data = dataForRoute.value []
             , action = action.value []
             , onActionData = onActionData.value []
-            , view = todo
+            , view = view.value []
             , handleRoute = handleRoute.value []
             , getStaticRoutes =
                 case phase of
@@ -225,6 +227,65 @@ otherFile routes phaseString =
                 (routes
                     |> List.map routePatternToSyntax
                     |> Elm.list
+                )
+
+        view :
+            { declaration : Elm.Declaration
+            , call : List Elm.Expression -> Elm.Expression
+            , callFrom : List String -> List Elm.Expression -> Elm.Expression
+            , value : List String -> Elm.Expression
+            }
+        view =
+            Elm.Declare.function "view"
+                [ ( "pageFormState", Nothing )
+                , ( "fetchers", Nothing )
+                , ( "transition", Nothing )
+                , ( "page"
+                  , Type.record
+                        [ ( "path", Type.named [ "Path" ] "Path" )
+                        , ( "route", Type.maybe (Type.named [ "Route" ] "Route") )
+                        ]
+                        |> Just
+                  )
+                , ( "maybePageUrl", Nothing )
+                , ( "globalData", Nothing )
+                , ( "pageData", Type.named [] "PageData" |> Just )
+                , ( "actionData", Type.maybe (Type.named [] "ActionData") |> Just )
+                ]
+                (\args ->
+                    case args of
+                        [ pageFormState, fetchers, transition, page, maybePageUrl, globalData, pageData, actionData ] ->
+                            Elm.Case.custom (Elm.tuple (page |> Elm.get "route") pageData)
+                                Type.unit
+                                [ Elm.Pattern.tuple Elm.Pattern.ignore (Elm.Pattern.variant1 "DataErrorPage____" (Elm.Pattern.var "data"))
+                                    |> Elm.Case.patternToBranch
+                                        (\( (), data ) ->
+                                            Elm.record
+                                                [ ( "view", todo )
+                                                , ( "head", Elm.list [] )
+                                                ]
+                                        )
+                                , Elm.Case.otherwise (\_ -> todo)
+                                ]
+                                |> Elm.withType
+                                    (Type.record
+                                        [ ( "view"
+                                          , Type.function [ Type.named [] "Model" ]
+                                                (Type.record
+                                                    [ ( "title", Type.string )
+                                                    , ( "body"
+                                                      , Gen.Html.annotation_.html
+                                                            (Gen.Pages.Msg.annotation_.msg (Type.named [] "Msg"))
+                                                      )
+                                                    ]
+                                                )
+                                          )
+                                        , ( "head", Type.list Gen.Head.annotation_.tag )
+                                        ]
+                                    )
+
+                        _ ->
+                            todo
                 )
 
         subscriptions :
@@ -1831,6 +1892,7 @@ otherFile routes phaseString =
         , apiPatterns.declaration
         , init.declaration
         , update.declaration
+        , view.declaration
         , maybeToString.declaration
         , stringToString.declaration
         , nonEmptyToString.declaration
