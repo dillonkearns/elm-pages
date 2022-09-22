@@ -225,7 +225,7 @@ otherFile routes phaseString =
         pathPatterns =
             topLevelValue "routePatterns3"
                 (routes
-                    |> List.map routePatternToSyntax
+                    |> List.map routePatternToExpression
                     |> Elm.list
                 )
 
@@ -1198,7 +1198,7 @@ otherFile routes phaseString =
                                                         |> Elm.list
                                                   )
                                                 , ( "routePattern"
-                                                  , routePatternToSyntax route
+                                                  , routePatternToExpression route
                                                   )
                                                 ]
                                             , Elm.fn ( "param", Nothing )
@@ -1991,8 +1991,8 @@ pathType =
     Type.named [ "Path" ] "Path"
 
 
-routePatternToSyntax : RoutePattern -> Elm.Expression
-routePatternToSyntax route =
+routePatternToExpression : RoutePattern -> Elm.Expression
+routePatternToExpression route =
     Gen.Pages.Internal.RoutePattern.make_.routePattern
         { segments =
             route.segments
