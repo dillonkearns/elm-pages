@@ -239,7 +239,11 @@ otherFile routes phaseString =
         view =
             Elm.Declare.function "view"
                 [ ( "pageFormState", Gen.Pages.FormState.annotation_.pageFormState |> Just )
-                , ( "fetchers", Nothing )
+                , ( "fetchers"
+                  , Gen.Dict.annotation_.dict Type.string
+                        (Gen.Pages.Transition.annotation_.fetcherState (Type.named [] "ActionData"))
+                        |> Just
+                  )
                 , ( "transition", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
                 , ( "page"
                   , Type.record
@@ -262,7 +266,59 @@ otherFile routes phaseString =
                                     |> Elm.Case.patternToBranch
                                         (\( (), data ) ->
                                             Elm.record
-                                                [ ( "view", todo )
+                                                [ ( "view"
+                                                  , Elm.fn ( "model", Nothing )
+                                                        (\model ->
+                                                            Elm.Case.custom (model |> Elm.get "page")
+                                                                Type.unit
+                                                                [ Elm.Pattern.variant1 "ModelErrorPage____"
+                                                                    (Elm.Pattern.var "subModel")
+                                                                    |> Elm.Case.patternToBranch
+                                                                        (\subModel ->
+                                                                            Elm.apply
+                                                                                (Elm.value
+                                                                                    { importFrom = [ "Shared" ]
+                                                                                    , name = "template"
+                                                                                    , annotation = Nothing
+                                                                                    }
+                                                                                    |> Elm.get "view"
+                                                                                )
+                                                                                [ globalData
+                                                                                , page
+                                                                                , model |> Elm.get "global"
+                                                                                , Elm.fn ( "myMsg", Nothing )
+                                                                                    (\myMsg ->
+                                                                                        Gen.Pages.Msg.make_.userMsg
+                                                                                            (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
+                                                                                    )
+                                                                                , Elm.apply
+                                                                                    (Elm.value { importFrom = [ "View" ], name = "map", annotation = Nothing })
+                                                                                    [ Elm.functionReduced "myMsg"
+                                                                                        (\myMsg ->
+                                                                                            Gen.Pages.Msg.make_.userMsg
+                                                                                                (Elm.apply (Elm.val "MsgErrorPage____") [ myMsg ])
+                                                                                        )
+                                                                                    , Elm.apply
+                                                                                        (Elm.value
+                                                                                            { importFrom = [ "ErrorPage" ]
+                                                                                            , name = "view"
+                                                                                            , annotation = Nothing
+                                                                                            }
+                                                                                        )
+                                                                                        [ data
+                                                                                        , subModel
+                                                                                        ]
+                                                                                    ]
+                                                                                ]
+                                                                        )
+                                                                , Elm.Pattern.ignore
+                                                                    |> Elm.Case.patternToBranch
+                                                                        (\() ->
+                                                                            modelMismatchView.value
+                                                                        )
+                                                                ]
+                                                        )
+                                                  )
                                                 , ( "head", Elm.list [] )
                                                 ]
                                         )
@@ -336,13 +392,11 @@ otherFile routes phaseString =
                                                                                                                 ]
                                                                                                             ]
                                                                                                     )
-                                                                                            , Elm.Case.otherwise
-                                                                                                (\_ ->
-                                                                                                    Elm.record
-                                                                                                        [ ( "title", Elm.string "Model mismatch" )
-                                                                                                        , ( "body", Gen.Html.text "Model mismatch" )
-                                                                                                        ]
-                                                                                                )
+                                                                                            , Elm.Pattern.ignore
+                                                                                                |> Elm.Case.patternToBranch
+                                                                                                    (\() ->
+                                                                                                        modelMismatchView.value
+                                                                                                    )
                                                                                             ]
                                                                                     )
                                                                               )
@@ -417,6 +471,19 @@ otherFile routes phaseString =
 
                         _ ->
                             todo
+                )
+
+        modelMismatchView :
+            { declaration : Elm.Declaration
+            , value : Elm.Expression
+            , valueFrom : List String -> Elm.Expression
+            }
+        modelMismatchView =
+            Elm.Declare.topLevelValue "modelMismatchView"
+                (Elm.record
+                    [ ( "title", Elm.string "Model mismatch" )
+                    , ( "body", Gen.Html.text "Model mismatch" )
+                    ]
                 )
 
         subscriptions :
@@ -2035,6 +2102,7 @@ otherFile routes phaseString =
         , handleRoute.declaration
         , encodeActionData.declaration
         , subscriptions.declaration
+        , modelMismatchView.declaration
         , Elm.portOutgoing "sendPageData"
             (Type.record
                 [ ( "oldThing", Gen.Json.Encode.annotation_.value )
