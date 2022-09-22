@@ -24,6 +24,7 @@ import Gen.List
 import Gen.Maybe
 import Gen.Pages.Fetcher
 import Gen.Pages.Flags
+import Gen.Pages.FormState
 import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.RoutePattern
@@ -237,9 +238,9 @@ otherFile routes phaseString =
             }
         view =
             Elm.Declare.function "view"
-                [ ( "pageFormState", Nothing )
+                [ ( "pageFormState", Gen.Pages.FormState.annotation_.pageFormState |> Just )
                 , ( "fetchers", Nothing )
-                , ( "transition", Nothing )
+                , ( "transition", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
                 , ( "page"
                   , Type.record
                         [ ( "path", Type.named [ "Path" ] "Path" )
@@ -247,8 +248,8 @@ otherFile routes phaseString =
                         ]
                         |> Just
                   )
-                , ( "maybePageUrl", Nothing )
-                , ( "globalData", Nothing )
+                , ( "maybePageUrl", Type.maybe (Type.named [ "Pages", "PageUrl" ] "PageUrl") |> Just )
+                , ( "globalData", Type.named [ "Shared" ] "Data" |> Just )
                 , ( "pageData", Type.named [] "PageData" |> Just )
                 , ( "actionData", Type.maybe (Type.named [] "ActionData") |> Just )
                 ]
@@ -273,7 +274,74 @@ otherFile routes phaseString =
                                                         (Elm.Pattern.variant1 (prefixedRouteType "Data" route) (Elm.Pattern.var "data"))
                                                         |> Elm.Case.patternToBranch
                                                             (\( maybeRouteParams, data ) ->
-                                                                todo
+                                                                Elm.record
+                                                                    [ ( "view"
+                                                                      , Elm.fn ( "model", Nothing )
+                                                                            (\model ->
+                                                                                Elm.Case.custom (model |> Elm.get "page")
+                                                                                    Type.unit
+                                                                                    [ destructureRouteVariant Model "subModel" route
+                                                                                        |> Elm.Case.patternToBranch
+                                                                                            (\subModel ->
+                                                                                                Elm.apply
+                                                                                                    (Elm.value
+                                                                                                        { importFrom = [ "Shared" ]
+                                                                                                        , name = "template"
+                                                                                                        , annotation = Nothing
+                                                                                                        }
+                                                                                                        |> Elm.get "view"
+                                                                                                    )
+                                                                                                    [ globalData
+                                                                                                    , page
+                                                                                                    , model |> Elm.get "global"
+                                                                                                    , Elm.fn ( "myMsg", Nothing )
+                                                                                                        (\myMsg ->
+                                                                                                            Gen.Pages.Msg.make_.userMsg
+                                                                                                                (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
+                                                                                                        )
+                                                                                                    , Elm.apply
+                                                                                                        (Elm.value { importFrom = [ "View" ], name = "map", annotation = Nothing })
+                                                                                                        [ Elm.functionReduced
+                                                                                                            "innerPageMsg"
+                                                                                                            (Gen.Pages.Msg.call_.map (route |> routeVariantExpression Msg))
+                                                                                                        , Elm.apply (route |> routeTemplateFunction "view")
+                                                                                                            [ maybePageUrl
+                                                                                                            , model |> Elm.get "global"
+                                                                                                            , subModel
+                                                                                                            , Elm.record
+                                                                                                                [ ( "data", data )
+                                                                                                                , ( "sharedData", globalData )
+                                                                                                                , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
+                                                                                                                , ( "action", todo )
+                                                                                                                , ( "path", page |> Elm.get "path" )
+                                                                                                                , ( "submit", todo )
+                                                                                                                , ( "transition", transition )
+                                                                                                                , ( "fetchers", todo )
+                                                                                                                , ( "pageFormState", pageFormState )
+                                                                                                                ]
+                                                                                                            ]
+                                                                                                        ]
+                                                                                                    ]
+                                                                                            )
+                                                                                    , Elm.Case.otherwise
+                                                                                        (\_ ->
+                                                                                            Elm.record
+                                                                                                [ ( "title", Elm.string "Model mismatch" )
+                                                                                                , ( "body", Gen.Html.text "Model mismatch" )
+                                                                                                ]
+                                                                                        )
+                                                                                    ]
+                                                                            )
+                                                                      )
+                                                                    , ( "head"
+                                                                      , case phase of
+                                                                            Browser ->
+                                                                                Elm.list []
+
+                                                                            Cli ->
+                                                                                todo
+                                                                      )
+                                                                    ]
                                                             )
                                                 )
                                        )
@@ -1976,6 +2044,50 @@ routeToSyntaxPattern route =
             |> Elm.Pattern.map (\() -> Nothing)
 
 
+type RouteVariant
+    = Data
+    | ActionData
+    | Model
+    | Msg
+
+
+routeVariantToString : RouteVariant -> String
+routeVariantToString variant =
+    case variant of
+        Data ->
+            "Data"
+
+        ActionData ->
+            "ActionData"
+
+        Model ->
+            "Model"
+
+        Msg ->
+            "Msg"
+
+
+destructureRouteVariant : RouteVariant -> String -> RoutePattern -> Elm.Pattern.Pattern Elm.Expression
+destructureRouteVariant variant varName route =
+    let
+        moduleName : String
+        moduleName =
+            routeVariantToString variant ++ (RoutePattern.toModuleName route |> String.join "__")
+    in
+    Elm.Pattern.variant1 moduleName
+        (Elm.Pattern.var varName)
+
+
+routeVariantExpression : RouteVariant -> RoutePattern -> Elm.Expression
+routeVariantExpression variant route =
+    let
+        moduleName : String
+        moduleName =
+            routeVariantToString variant ++ (RoutePattern.toModuleName route |> String.join "__")
+    in
+    Elm.val moduleName
+
+
 applyIdentityTo : Elm.Expression -> Elm.Expression
 applyIdentityTo to =
     Elm.apply to [ Gen.Basics.values_.identity ]
@@ -2076,3 +2188,13 @@ decodeRouteType typeName route =
 prefixedRouteType : String -> RoutePattern -> String
 prefixedRouteType prefix route =
     prefix ++ (RoutePattern.toModuleName route |> String.join "__")
+
+
+routeTemplateFunction : String -> RoutePattern -> Elm.Expression
+routeTemplateFunction functionName route =
+    Elm.value
+        { annotation = Nothing
+        , importFrom = "Route" :: RoutePattern.toModuleName route
+        , name = "route"
+        }
+        |> Elm.get functionName
