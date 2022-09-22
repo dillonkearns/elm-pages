@@ -257,7 +257,7 @@ otherFile routes phaseString =
                         [ pageFormState, fetchers, transition, page, maybePageUrl, globalData, pageData, actionData ] ->
                             Elm.Case.custom (Elm.tuple (page |> Elm.get "route") pageData)
                                 Type.unit
-                                [ Elm.Pattern.tuple Elm.Pattern.ignore (Elm.Pattern.variant1 "DataErrorPage____" (Elm.Pattern.var "data"))
+                                ([ Elm.Pattern.tuple Elm.Pattern.ignore (Elm.Pattern.variant1 "DataErrorPage____" (Elm.Pattern.var "data"))
                                     |> Elm.Case.patternToBranch
                                         (\( (), data ) ->
                                             Elm.record
@@ -265,8 +265,43 @@ otherFile routes phaseString =
                                                 , ( "head", Elm.list [] )
                                                 ]
                                         )
-                                , Elm.Case.otherwise (\_ -> todo)
-                                ]
+                                 ]
+                                    ++ (routes
+                                            |> List.map
+                                                (\route ->
+                                                    Elm.Pattern.tuple (Elm.Pattern.variant1 "Just" (routeToSyntaxPattern route))
+                                                        (Elm.Pattern.variant1 (prefixedRouteType "Data" route) (Elm.Pattern.var "data"))
+                                                        |> Elm.Case.patternToBranch
+                                                            (\( maybeRouteParams, data ) ->
+                                                                todo
+                                                            )
+                                                )
+                                       )
+                                    ++ [ Elm.Case.otherwise
+                                            (\_ ->
+                                                Elm.record
+                                                    [ ( "view"
+                                                      , Elm.fn ( "_", Nothing )
+                                                            (\_ ->
+                                                                Elm.record
+                                                                    [ ( "title", Elm.string "Page not found" )
+                                                                    , ( "body", Gen.Html.div [] [ Gen.Html.text "This page could not be found." ] )
+                                                                    ]
+                                                            )
+                                                      )
+                                                    , ( "head"
+                                                      , case phase of
+                                                            Browser ->
+                                                                Elm.list []
+
+                                                            Cli ->
+                                                                todo
+                                                        -- TODO check for browser/cli flag in JS code for other TODOs
+                                                      )
+                                                    ]
+                                            )
+                                       ]
+                                )
                                 |> Elm.withType
                                     (Type.record
                                         [ ( "view"
@@ -2036,3 +2071,8 @@ decodeRouteType typeName route =
         , importFrom = "Route" :: RoutePattern.toModuleName route
         , name = "w3_decode_" ++ typeName
         }
+
+
+prefixedRouteType : String -> RoutePattern -> String
+prefixedRouteType prefix route =
+    prefix ++ (RoutePattern.toModuleName route |> String.join "__")
