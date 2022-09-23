@@ -27,6 +27,7 @@ import Gen.Pages.Flags
 import Gen.Pages.FormState
 import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
+import Gen.Pages.Internal.Platform.Cli
 import Gen.Pages.Internal.RoutePattern
 import Gen.Pages.Msg
 import Gen.Pages.ProgramConfig
@@ -406,7 +407,22 @@ otherFile routes phaseString =
                                                                                         Elm.list []
 
                                                                                     Cli ->
-                                                                                        todo
+                                                                                        Elm.apply
+                                                                                            (route
+                                                                                                |> routeTemplateFunction "head"
+                                                                                            )
+                                                                                            [ Elm.record
+                                                                                                [ ( "data", data )
+                                                                                                , ( "sharedData", globalData )
+                                                                                                , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
+                                                                                                , ( "action", Elm.nothing )
+                                                                                                , ( "path", page |> Elm.get "path" )
+                                                                                                , ( "submit", Elm.functionReduced "value" (Gen.Pages.Fetcher.call_.submit (decodeRouteType "ActionData" route)) )
+                                                                                                , ( "transition", Elm.nothing )
+                                                                                                , ( "fetchers", Gen.Dict.empty )
+                                                                                                , ( "pageFormState", Gen.Dict.empty )
+                                                                                                ]
+                                                                                            ]
                                                                               )
                                                                             ]
                                                                     )
@@ -440,13 +456,7 @@ otherFile routes phaseString =
                                                             )
                                                       )
                                                     , ( "head"
-                                                      , case phase of
-                                                            Browser ->
-                                                                Elm.list []
-
-                                                            Cli ->
-                                                                todo
-                                                        -- TODO check for browser/cli flag in JS code for other TODOs
+                                                      , Elm.list []
                                                       )
                                                     ]
                                             )
@@ -1571,7 +1581,7 @@ otherFile routes phaseString =
                                     (Elm.value
                                         { annotation = Nothing
                                         , importFrom = [ "ErrorPage" ]
-                                        , name = "w3_encode_Data"
+                                        , name = "w3_encode_ErrorPage"
                                         }
                                     )
                                     [ thisPageData ]
@@ -2080,9 +2090,16 @@ otherFile routes phaseString =
                             ]
                     )
             )
-        , Gen.Pages.Internal.Platform.application config.reference
-            |> Elm.declaration "main"
-            |> expose
+        , case phase of
+            Browser ->
+                Gen.Pages.Internal.Platform.application config.reference
+                    |> Elm.declaration "main"
+                    |> expose
+
+            Cli ->
+                Gen.Pages.Internal.Platform.Cli.cliApplication config.reference
+                    |> Elm.declaration "main"
+                    |> expose
         , config.declaration
         , dataForRoute.declaration
         , toTriple.declaration
