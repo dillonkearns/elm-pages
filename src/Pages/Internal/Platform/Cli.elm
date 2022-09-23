@@ -812,7 +812,6 @@ sendSinglePageProgress site contentJson config model info =
                                                             sharedData
                                                             pageData
                                                             maybeActionData
-                                                            Nothing
                                                             (Just
                                                                 { path =
                                                                     { path = currentPage.path
@@ -850,7 +849,6 @@ sendSinglePageProgress site contentJson config model info =
                                                             Pages.Flags.PreRenderFlags
                                                             sharedData
                                                             pageData
-                                                            Nothing
                                                             Nothing
                                                             (Just
                                                                 { path =
@@ -1124,7 +1122,6 @@ render404Page config sharedData model path notFoundReason =
                         Pages.Flags.PreRenderFlags
                         justSharedData
                         pageData
-                        Nothing
                         Nothing
                         Nothing
                         |> Tuple.first
