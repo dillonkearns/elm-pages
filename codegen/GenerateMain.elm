@@ -781,76 +781,77 @@ otherFile routes phaseString =
                                         , just =
                                             ( "justRouteAndPath"
                                             , \justRouteAndPath ->
-                                                branchHelper (Gen.Tuple.first justRouteAndPath)
-                                                    (\route routeParams ->
-                                                        Elm.Case.custom pageData
-                                                            Type.unit
-                                                            [ Elm.Case.branch1
-                                                                ("Data" ++ (RoutePattern.toModuleName route |> String.join "__"))
-                                                                ( "thisPageData", Type.unit )
-                                                                (\thisPageData ->
-                                                                    Elm.apply
-                                                                        (Elm.value
-                                                                            { name = "route"
-                                                                            , importFrom = "Route" :: RoutePattern.toModuleName route
-                                                                            , annotation = Nothing
-                                                                            }
-                                                                            |> Elm.get "init"
-                                                                        )
-                                                                        [ Gen.Maybe.andThen (Elm.get "pageUrl") maybePagePath
-                                                                        , sharedModel
-                                                                        , Elm.record
-                                                                            [ ( "data", thisPageData )
-                                                                            , ( "sharedData", sharedData )
-                                                                            , ( "action"
-                                                                              , actionData
-                                                                                    |> Gen.Maybe.andThen
-                                                                                        (\justActionData ->
-                                                                                            Elm.Case.custom justActionData
-                                                                                                Type.unit
-                                                                                                [ Elm.Case.branch1
-                                                                                                    ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))
-                                                                                                    ( "thisActionData", Type.unit )
-                                                                                                    (\_ ->
-                                                                                                        Elm.just (Elm.val "thisActionData")
-                                                                                                    )
-                                                                                                , Elm.Case.otherwise (\_ -> Elm.nothing)
-                                                                                                ]
-                                                                                        )
-                                                                              )
-                                                                            , ( "routeParams", routeParams |> Maybe.withDefault (Elm.record []) )
-                                                                            , ( "path"
-                                                                              , Elm.apply (Elm.val ".path") [ justRouteAndPath |> Gen.Tuple.second ]
-                                                                              )
-                                                                            , ( "submit"
-                                                                              , Elm.apply
-                                                                                    (Elm.value
-                                                                                        { importFrom = [ "Pages", "Fetcher" ]
-                                                                                        , name = "submit"
-                                                                                        , annotation = Nothing
-                                                                                        }
-                                                                                    )
-                                                                                    [ route |> decodeRouteType ActionData
+                                                Elm.Case.custom (Elm.tuple (Gen.Tuple.first justRouteAndPath) pageData)
+                                                    Type.unit
+                                                    ((routes
+                                                        |> List.map
+                                                            (\route ->
+                                                                Elm.Pattern.tuple
+                                                                    (routeToSyntaxPattern route)
+                                                                    (route |> destructureRouteVariant Data "thisPageData")
+                                                                    |> Elm.Case.patternToBranch
+                                                                        (\( maybeRouteParams, thisPageData ) ->
+                                                                            Elm.apply
+                                                                                (Elm.value
+                                                                                    { name = "route"
+                                                                                    , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                                                    , annotation = Nothing
+                                                                                    }
+                                                                                    |> Elm.get "init"
+                                                                                )
+                                                                                [ Gen.Maybe.andThen (Elm.get "pageUrl") maybePagePath
+                                                                                , sharedModel
+                                                                                , Elm.record
+                                                                                    [ ( "data", thisPageData )
+                                                                                    , ( "sharedData", sharedData )
+                                                                                    , ( "action"
+                                                                                      , actionData
+                                                                                            |> Gen.Maybe.andThen
+                                                                                                (\justActionData ->
+                                                                                                    Elm.Case.custom justActionData
+                                                                                                        Type.unit
+                                                                                                        [ Elm.Case.branch1
+                                                                                                            ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))
+                                                                                                            ( "thisActionData", Type.unit )
+                                                                                                            (\_ ->
+                                                                                                                Elm.just (Elm.val "thisActionData")
+                                                                                                            )
+                                                                                                        , Elm.Case.otherwise (\_ -> Elm.nothing)
+                                                                                                        ]
+                                                                                                )
+                                                                                      )
+                                                                                    , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
+                                                                                    , ( "path"
+                                                                                      , Elm.apply (Elm.val ".path") [ justRouteAndPath |> Gen.Tuple.second ]
+                                                                                      )
+                                                                                    , ( "submit"
+                                                                                      , Elm.apply
+                                                                                            (Elm.value
+                                                                                                { importFrom = [ "Pages", "Fetcher" ]
+                                                                                                , name = "submit"
+                                                                                                , annotation = Nothing
+                                                                                                }
+                                                                                            )
+                                                                                            [ route |> decodeRouteType ActionData
+                                                                                            ]
+                                                                                      )
+                                                                                    , ( "transition", Elm.nothing )
+                                                                                    , ( "fetchers", Gen.Dict.empty )
+                                                                                    , ( "pageFormState", Gen.Dict.empty )
                                                                                     ]
-                                                                              )
-                                                                            , ( "transition", Elm.nothing )
-                                                                            , ( "fetchers", Gen.Dict.empty )
-                                                                            , ( "pageFormState", Gen.Dict.empty )
-                                                                            ]
-                                                                        ]
-                                                                        |> Gen.Tuple.call_.mapBoth
-                                                                            (route |> routeVariantExpression Model)
-                                                                            (Elm.apply
-                                                                                (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing })
-                                                                                [ route |> routeVariantExpression Msg
                                                                                 ]
-                                                                            )
-                                                                )
-                                                            , Elm.Case.otherwise
-                                                                (\_ ->
-                                                                    initErrorPage.call pageData
-                                                                )
-                                                            ]
+                                                                                |> Gen.Tuple.call_.mapBoth
+                                                                                    (route |> routeVariantExpression Model)
+                                                                                    (Elm.apply
+                                                                                        (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing })
+                                                                                        [ route |> routeVariantExpression Msg
+                                                                                        ]
+                                                                                    )
+                                                                        )
+                                                            )
+                                                     )
+                                                        ++ [ Elm.Pattern.ignore |> Elm.Case.patternToBranch (\() -> initErrorPage.call pageData)
+                                                           ]
                                                     )
                                             )
                                         }
