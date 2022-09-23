@@ -810,12 +810,12 @@ otherFile routes phaseString =
                                                                                                 (\justActionData ->
                                                                                                     Elm.Case.custom justActionData
                                                                                                         Type.unit
-                                                                                                        [ Elm.Case.branch1
-                                                                                                            ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))
-                                                                                                            ( "thisActionData", Type.unit )
-                                                                                                            (\_ ->
-                                                                                                                Elm.just (Elm.val "thisActionData")
-                                                                                                            )
+                                                                                                        [ route
+                                                                                                            |> destructureRouteVariant ActionData "thisActionData"
+                                                                                                            |> Elm.Case.patternToBranch
+                                                                                                                (\thisActionData ->
+                                                                                                                    Elm.just thisActionData
+                                                                                                                )
                                                                                                         , Elm.Case.otherwise (\_ -> Elm.nothing)
                                                                                                         ]
                                                                                                 )
