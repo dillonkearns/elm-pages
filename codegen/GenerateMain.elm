@@ -978,7 +978,7 @@ otherFile routes phaseString =
                                     |> Elm.Case.patternToBranch
                                         (\record ->
                                             Elm.Let.letIn
-                                                (\( updatedModel, cmd ) ->
+                                                (\() ( updatedModel, cmd ) ->
                                                     Elm.Case.maybe
                                                         (Elm.value { importFrom = [ "Shared" ], name = "template", annotation = Nothing }
                                                             |> Elm.get "onPageChange"
@@ -1017,6 +1017,11 @@ otherFile routes phaseString =
                                                             )
                                                         }
                                                 )
+                                                |> Elm.Let.destructure
+                                                    -- TODO there is a bug where the Browser.Navigation.Key type wasn't imported because the argument wasn't referenced.
+                                                    -- Remove this hack when that bug is fixed
+                                                    Elm.Pattern.ignore
+                                                    navigationKey
                                                 |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "updatedModel") (Elm.Pattern.var "cmd"))
                                                     (init.call
                                                         (Elm.just (model |> Elm.get "global"))
