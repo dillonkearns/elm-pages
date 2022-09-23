@@ -376,7 +376,7 @@ otherFile routes phaseString =
                                                                                                                         , ( "submit"
                                                                                                                           , Elm.functionReduced
                                                                                                                                 "fetcherArg"
-                                                                                                                                (Gen.Pages.Fetcher.call_.submit (decodeRouteType "ActionData" route))
+                                                                                                                                (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route))
                                                                                                                           )
                                                                                                                         , ( "transition", transition )
                                                                                                                         , ( "fetchers"
@@ -417,7 +417,7 @@ otherFile routes phaseString =
                                                                                                 , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                                 , ( "action", Elm.nothing )
                                                                                                 , ( "path", page |> Elm.get "path" )
-                                                                                                , ( "submit", Elm.functionReduced "value" (Gen.Pages.Fetcher.call_.submit (decodeRouteType "ActionData" route)) )
+                                                                                                , ( "submit", Elm.functionReduced "value" (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
                                                                                                 , ( "transition", Elm.nothing )
                                                                                                 , ( "fetchers", Gen.Dict.empty )
                                                                                                 , ( "pageFormState", Gen.Dict.empty )
@@ -830,11 +830,7 @@ otherFile routes phaseString =
                                                                                         , annotation = Nothing
                                                                                         }
                                                                                     )
-                                                                                    [ Elm.value
-                                                                                        { importFrom = "Route" :: RoutePattern.toModuleName route
-                                                                                        , name = "w3_decode_ActionData"
-                                                                                        , annotation = Nothing
-                                                                                        }
+                                                                                    [ route |> decodeRouteType ActionData
                                                                                     ]
                                                                               )
                                                                             , ( "transition", Elm.nothing )
@@ -1179,7 +1175,7 @@ otherFile routes phaseString =
                                                                                                     , ( "action", Elm.nothing )
                                                                                                     , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                                     , ( "path", justPage |> Elm.get "path" )
-                                                                                                    , ( "submit", Elm.fn ( "options", Nothing ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType "ActionData" route)) )
+                                                                                                    , ( "submit", Elm.fn ( "options", Nothing ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
                                                                                                     , ( "transition", transition )
                                                                                                     , ( "fetchers"
                                                                                                       , fetchers
@@ -1539,19 +1535,14 @@ otherFile routes phaseString =
                         (routes
                             |> List.map
                                 (\route ->
-                                    Elm.Case.branch1
-                                        ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))
-                                        ( "thisActionData", Type.unit )
-                                        (\thisActionData ->
-                                            Elm.apply
-                                                (Elm.value
-                                                    { annotation = Nothing
-                                                    , importFrom = "Route" :: RoutePattern.toModuleName route
-                                                    , name = "w3_encode_ActionData"
-                                                    }
-                                                )
-                                                [ thisActionData ]
-                                        )
+                                    route
+                                        |> destructureRouteVariant ActionData "thisActionData"
+                                        |> Elm.Case.patternToBranch
+                                            (\thisActionData ->
+                                                Elm.apply
+                                                    (route |> encodeRouteType ActionData)
+                                                    [ thisActionData ]
+                                            )
                                 )
                         )
                         |> Elm.withType Gen.Bytes.Encode.annotation_.encoder
@@ -1592,12 +1583,7 @@ otherFile routes phaseString =
                                                 ( "thisPageData", Type.unit )
                                                 (\thisPageData ->
                                                     Elm.apply
-                                                        (Elm.value
-                                                            { annotation = Nothing
-                                                            , importFrom = "Route" :: RoutePattern.toModuleName route
-                                                            , name = "w3_encode_Data"
-                                                            }
-                                                        )
+                                                        (route |> encodeRouteType Data)
                                                         [ thisPageData ]
                                                 )
                                         )
@@ -1631,7 +1617,7 @@ otherFile routes phaseString =
                                                     mappedDecoder =
                                                         Gen.Bytes.Decode.call_.map
                                                             (Elm.val ("Data" ++ (RoutePattern.toModuleName route |> String.join "__")))
-                                                            (decodeRouteType "Data" route)
+                                                            (decodeRouteType Data route)
 
                                                     routeVariant : String
                                                     routeVariant =
@@ -2290,12 +2276,21 @@ append expressions =
             Elm.string ""
 
 
-decodeRouteType : String -> RoutePattern -> Elm.Expression
-decodeRouteType typeName route =
+decodeRouteType : RouteVariant -> RoutePattern -> Elm.Expression
+decodeRouteType variant route =
     Elm.value
         { annotation = Nothing
         , importFrom = "Route" :: RoutePattern.toModuleName route
-        , name = "w3_decode_" ++ typeName
+        , name = "w3_decode_" ++ routeVariantToString variant
+        }
+
+
+encodeRouteType : RouteVariant -> RoutePattern -> Elm.Expression
+encodeRouteType variant route =
+    Elm.value
+        { annotation = Nothing
+        , importFrom = "Route" :: RoutePattern.toModuleName route
+        , name = "w3_encode_" ++ routeVariantToString variant
         }
 
 
