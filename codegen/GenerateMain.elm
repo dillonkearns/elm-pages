@@ -586,26 +586,26 @@ otherFile routes phaseString =
                                     (\route maybeRouteParams ->
                                         Elm.Case.custom (model |> Elm.get "page")
                                             Type.unit
-                                            [ Elm.Case.branch1
-                                                ("Model" ++ (RoutePattern.toModuleName route |> String.join "__"))
-                                                ( "templateModel", Type.unit )
-                                                (\templateModel ->
-                                                    Elm.apply
-                                                        (Elm.value
-                                                            { importFrom = "Route" :: RoutePattern.toModuleName route
-                                                            , name = "route"
-                                                            , annotation = Nothing
-                                                            }
-                                                            |> Elm.get "subscriptions"
-                                                        )
-                                                        [ Elm.nothing -- TODO wire through value
-                                                        , maybeRouteParams |> Maybe.withDefault (Elm.record [])
-                                                        , path
-                                                        , templateModel
-                                                        , model |> Elm.get "global"
-                                                        ]
-                                                        |> Gen.Platform.Sub.call_.map (route |> routeVariantExpression Msg)
-                                                )
+                                            [ route
+                                                |> destructureRouteVariant Model "templateModel"
+                                                |> Elm.Case.patternToBranch
+                                                    (\templateModel ->
+                                                        Elm.apply
+                                                            (Elm.value
+                                                                { importFrom = "Route" :: RoutePattern.toModuleName route
+                                                                , name = "route"
+                                                                , annotation = Nothing
+                                                                }
+                                                                |> Elm.get "subscriptions"
+                                                            )
+                                                            [ Elm.nothing -- TODO wire through value
+                                                            , maybeRouteParams |> Maybe.withDefault (Elm.record [])
+                                                            , path
+                                                            , templateModel
+                                                            , model |> Elm.get "global"
+                                                            ]
+                                                            |> Gen.Platform.Sub.call_.map (route |> routeVariantExpression Msg)
+                                                    )
                                             , Elm.Case.otherwise (\_ -> Gen.Platform.Sub.none)
                                             ]
                                     )
@@ -843,10 +843,11 @@ otherFile routes phaseString =
                                                                             ]
                                                                         ]
                                                                         |> Gen.Tuple.call_.mapBoth
-                                                                            (Elm.val ("Model" ++ (RoutePattern.toModuleName route |> String.join "__")))
+                                                                            (route |> routeVariantExpression Model)
                                                                             (Elm.apply
                                                                                 (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing })
-                                                                                [ Elm.val ("Msg" ++ (RoutePattern.toModuleName route |> String.join "__")) ]
+                                                                                [ route |> routeVariantExpression Msg
+                                                                                ]
                                                                             )
                                                                 )
                                                             , Elm.Case.otherwise
@@ -1160,8 +1161,8 @@ otherFile routes phaseString =
                                                                                             )
                                                                                         )
                                                                                         (fooFn.call
-                                                                                            (Elm.val ("Model" ++ (RoutePattern.toModuleName route |> String.join "__")))
-                                                                                            (Elm.val ("Msg" ++ (RoutePattern.toModuleName route |> String.join "__")))
+                                                                                            (route |> routeVariantExpression Model)
+                                                                                            (route |> routeVariantExpression Msg)
                                                                                             model
                                                                                             (Elm.apply
                                                                                                 (Elm.value
@@ -1189,8 +1190,8 @@ otherFile routes phaseString =
                                                                                                                             (\ad ->
                                                                                                                                 Elm.Case.custom ad
                                                                                                                                     Type.unit
-                                                                                                                                    [ Elm.Pattern.variant1 ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))
-                                                                                                                                        (Elm.Pattern.var "justActionData")
+                                                                                                                                    [ route
+                                                                                                                                        |> destructureRouteVariant ActionData "justActionData"
                                                                                                                                         |> Elm.Case.patternToBranch
                                                                                                                                             (\justActionData ->
                                                                                                                                                 Elm.just justActionData
