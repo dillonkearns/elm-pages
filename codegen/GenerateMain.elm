@@ -694,7 +694,9 @@ otherFile routes phaseString =
                                                 |> Maybe.withDefault (Elm.record [])
                                             ]
                                             |> Gen.DataSource.map
-                                                (Gen.Server.Response.call_.map (Elm.val ("ActionData" ++ (RoutePattern.toModuleName route |> String.join "__"))))
+                                                (Gen.Server.Response.call_.map
+                                                    (route |> routeVariantExpression ActionData)
+                                                )
                                     )
                             )
                         }
@@ -1063,11 +1065,7 @@ otherFile routes phaseString =
                                     ++ (routes
                                             |> List.map
                                                 (\route ->
-                                                    Elm.Pattern.variant1
-                                                        ("Msg"
-                                                            ++ (RoutePattern.toModuleName route |> String.join "__")
-                                                        )
-                                                        (Elm.Pattern.var "msg_")
+                                                    (route |> destructureRouteVariant Msg "msg_")
                                                         |> Elm.Case.patternToBranch
                                                             (\msg_ ->
                                                                 Elm.Case.custom
@@ -1095,18 +1093,8 @@ otherFile routes phaseString =
                                                                     )
                                                                     Type.unit
                                                                     [ Elm.Pattern.triple
-                                                                        (Elm.Pattern.variant1
-                                                                            ("Model"
-                                                                                ++ (RoutePattern.toModuleName route |> String.join "__")
-                                                                            )
-                                                                            (Elm.Pattern.var "pageModel")
-                                                                        )
-                                                                        (Elm.Pattern.variant1
-                                                                            ("Data"
-                                                                                ++ (RoutePattern.toModuleName route |> String.join "__")
-                                                                            )
-                                                                            (Elm.Pattern.var "thisPageData")
-                                                                        )
+                                                                        (route |> destructureRouteVariant Model "pageModel")
+                                                                        (route |> destructureRouteVariant Data "thisPageData")
                                                                         (Elm.Pattern.variant1
                                                                             "Just"
                                                                             (Elm.Pattern.triple
