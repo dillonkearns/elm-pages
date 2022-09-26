@@ -175,11 +175,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                                     )
                                 |> Set.isEmpty
                     in
-                    if hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls) then
-                        False
-
-                    else
-                        True
+                    not (hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls))
     in
     if pendingRequests then
         let
@@ -317,12 +313,11 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                         ( model.staticResponses
                         , Finish
                             (Errors <|
-                                ([ StaticHttpRequest.toBuildError
+                                (StaticHttpRequest.toBuildError
                                     -- TODO give more fine-grained error reference
                                     "get static routes"
                                     error_
-                                 ]
-                                    ++ failedRequests
+                                    :: failedRequests
                                     ++ errors
                                 )
                             )
