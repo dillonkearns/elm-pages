@@ -1,6 +1,6 @@
 module Pages.Internal.RoutePattern exposing
     ( Ending(..), RoutePattern, Segment(..), view, toVariant, routeToBranch
-    , Param(..), RouteParam(..), fromModuleName, toRouteParamTypes, toRouteParamsRecord, toVariantName
+    , Param(..), RouteParam(..), fromModuleName, hasRouteParams, repeatWithoutOptionalEnding, toModuleName, toRouteParamTypes, toRouteParamsRecord, toVariantName
     )
 
 {-| Exposed for internal use only (used in generated code).
@@ -21,6 +21,31 @@ type alias RoutePattern =
     { segments : List Segment
     , ending : Maybe Ending
     }
+
+
+toModuleName : RoutePattern -> List String
+toModuleName route =
+    let
+        segmentsAsModuleParts : List String
+        segmentsAsModuleParts =
+            route.segments
+                |> List.foldl
+                    (\segment soFar ->
+                        case segment of
+                            StaticSegment name ->
+                                soFar ++ [ name ]
+
+                            DynamicSegment name ->
+                                soFar ++ [ name ++ "_" ]
+                    )
+                    []
+    in
+    case route.ending of
+        Nothing ->
+            segmentsAsModuleParts
+
+        Just ending ->
+            segmentsAsModuleParts ++ [ endingToVariantName ending |> Tuple.first ]
 
 
 fromModuleName : List String -> Maybe RoutePattern
@@ -214,6 +239,37 @@ type RouteParam
     | OptionalParam2 String
     | RequiredSplatParam2
     | OptionalSplatParam2
+
+
+hasRouteParams : RoutePattern -> Bool
+hasRouteParams route =
+    route
+        |> toVariantName
+        |> .params
+        |> List.any (not << isStatic)
+
+
+isStatic : RouteParam -> Bool
+isStatic routeParam =
+    case routeParam of
+        StaticParam _ ->
+            True
+
+        _ ->
+            False
+
+
+repeatWithoutOptionalEnding : List RouteParam -> Maybe (List RouteParam)
+repeatWithoutOptionalEnding routeParams =
+    case routeParams |> List.reverse of
+        (OptionalParam2 name) :: reverseRest ->
+            List.reverse reverseRest |> Just
+
+        OptionalSplatParam2 :: reverseRest ->
+            List.reverse reverseRest |> Just
+
+        _ ->
+            Nothing
 
 
 toVariantName : RoutePattern -> { variantName : String, params : List RouteParam }

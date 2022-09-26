@@ -7,6 +7,7 @@ import Elm.Annotation
 import Elm.Case
 import Elm.CodeGen
 import Elm.Declare
+import Elm.Extra exposing (topLevelValue)
 import Elm.Op
 import Elm.Pretty
 import Gen.Basics
@@ -18,6 +19,7 @@ import Gen.Path
 import Gen.Server.Response
 import Gen.String
 import Gen.Tuple
+import GenerateMain
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import Pretty
 import Regex exposing (Regex)
@@ -26,6 +28,7 @@ import Regex exposing (Regex)
 type alias Flags =
     { templates : List (List String)
     , basePath : String
+    , phase : String
     }
 
 
@@ -33,9 +36,18 @@ main : Program Flags () ()
 main =
     Platform.worker
         { init =
-            \{ templates, basePath } ->
+            \{ templates, basePath, phase } ->
+                let
+                    routes : List RoutePattern.RoutePattern
+                    routes =
+                        templates
+                            |> List.filterMap RoutePattern.fromModuleName
+                in
                 ( ()
-                , onSuccessSend [ file templates basePath ]
+                , onSuccessSend
+                    [ file templates basePath
+                    , GenerateMain.otherFile routes phase
+                    ]
                 )
         , update =
             \_ model ->
@@ -52,15 +64,15 @@ file templates basePath =
             templates
                 |> List.filterMap RoutePattern.fromModuleName
 
-        segmentsToRouteFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+        segmentsToRouteFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         segmentsToRouteFn =
             segmentsToRoute routes
 
-        routeToPathFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+        routeToPathFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         routeToPathFn =
             routeToPath routes
 
-        toPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+        toPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         toPath =
             Elm.Declare.fn "toPath"
                 ( "route", Elm.Annotation.named [] "Route" |> Just )
@@ -124,7 +136,7 @@ file templates basePath =
                     )
                 )
 
-        toString : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+        toString : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         toString =
             Elm.Declare.fn "toString"
                 ( "route", Elm.Annotation.named [] "Route" |> Just )
@@ -147,7 +159,7 @@ file templates basePath =
                     )
                 )
 
-        toLink : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression }
+        toLink : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         toLink =
             Elm.Declare.fn2 "toLink"
                 ( "toAnchorTag", Nothing )
@@ -211,7 +223,7 @@ file templates basePath =
         )
 
 
-splitPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+splitPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
 splitPath =
     Elm.Declare.fn "splitPath"
         ( "path", Just Gen.Path.annotation_.path )
@@ -224,7 +236,7 @@ splitPath =
         )
 
 
-maybeToList : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+maybeToList : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
 maybeToList =
     Elm.Declare.fn "maybeToList"
         ( "maybeString", Just (Elm.Annotation.maybe Elm.Annotation.string) )
@@ -239,7 +251,7 @@ maybeToList =
 
 segmentsToRoute :
     List RoutePattern
-    -> { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+    -> { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
 segmentsToRoute routes =
     Elm.Declare.fn "segmentsToRoute"
         ( "segments"
@@ -284,7 +296,9 @@ segmentsToRoute routes =
         )
 
 
-routeToPath : List RoutePattern -> { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+routeToPath :
+    List RoutePattern
+    -> { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
 routeToPath routes =
     Elm.Declare.fn "routeToPath"
         ( "route", Just (Elm.Annotation.named [] "Route") )
@@ -354,32 +368,6 @@ routeToPath routes =
                 |> Gen.List.call_.concat
                 |> Elm.withType (Elm.Annotation.list Elm.Annotation.string)
         )
-
-
-topLevelValue :
-    String
-    -> Elm.Expression
-    ->
-        { declaration : Elm.Declaration
-        , reference : Elm.Expression
-        , referenceFrom : List String -> Elm.Expression
-        }
-topLevelValue name expression =
-    let
-        declaration_ :
-            { declaration : Elm.Declaration
-            , call : List Elm.Expression -> Elm.Expression
-            , callFrom : List String -> List Elm.Expression -> Elm.Expression
-            }
-        declaration_ =
-            Elm.Declare.function name
-                []
-                (\_ -> expression)
-    in
-    { declaration = declaration_.declaration
-    , reference = declaration_.call []
-    , referenceFrom = \from -> declaration_.callFrom from []
-    }
 
 
 expose : Elm.Declaration -> Elm.Declaration

@@ -231,7 +231,7 @@ init config flags url key =
                                 , fragment = url.fragment
                                 }
                         }
-                        |> config.init userFlags sharedData pageData actionData key
+                        |> config.init userFlags sharedData pageData actionData
 
                 cmd : Effect userMsg pageData actionData sharedData userEffect errorPage
                 cmd =

@@ -491,7 +491,7 @@ config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, DataS
 config apiRoutes pages =
     { toJsPort = toJsPort
     , fromJsPort = fromJsPort
-    , init = \_ _ _ _ _ _ -> ( (), Effect.NoEffect )
+    , init = \_ _ _ _ _ -> ( (), Effect.NoEffect )
     , getStaticRoutes =
         --StaticHttp.get (Secrets.succeed "https://my-cms.com/posts")
         --    (Decode.field "posts" (Decode.list (Decode.string |> Decode.map Route)))
