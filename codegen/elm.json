@@ -16,6 +16,7 @@
             "rtfeldman/elm-hex": "1.0.0",
             "stil4m/elm-syntax": "7.2.9",
             "the-sett/elm-pretty-printer": "3.0.0",
+            "the-sett/elm-string-case": "1.0.2",
             "the-sett/elm-syntax-dsl": "6.0.2"
         },
         "indirect": {

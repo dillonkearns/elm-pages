@@ -40,6 +40,7 @@ import Gen.String
 import Gen.Tuple
 import Gen.Url
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
+import String.Case
 
 
 type Phase
@@ -1753,13 +1754,13 @@ otherFile routes phaseString =
                                                             (\param ->
                                                                 case param of
                                                                     RoutePattern.StaticParam name ->
-                                                                        name
+                                                                        String.Case.toKebabCaseLower name
 
                                                                     RoutePattern.DynamicParam name ->
-                                                                        ":" ++ name
+                                                                        ":" ++ String.Case.toCamelCaseLower name
 
                                                                     RoutePattern.OptionalParam2 name ->
-                                                                        ":" ++ name
+                                                                        ":" ++ String.Case.toCamelCaseLower name
 
                                                                     RoutePattern.OptionalSplatParam2 ->
                                                                         "*"
@@ -2201,10 +2202,10 @@ routePatternToExpression route =
                     (\segment ->
                         case segment of
                             RoutePattern.StaticSegment name ->
-                                Gen.Pages.Internal.RoutePattern.make_.staticSegment (Elm.string name)
+                                Gen.Pages.Internal.RoutePattern.make_.staticSegment (Elm.string (String.Case.toKebabCaseLower name))
 
                             RoutePattern.DynamicSegment name ->
-                                Gen.Pages.Internal.RoutePattern.make_.dynamicSegment (Elm.string name)
+                                Gen.Pages.Internal.RoutePattern.make_.dynamicSegment (Elm.string (String.Case.toCamelCaseLower name))
                     )
                 |> Elm.list
         , ending =
@@ -2213,7 +2214,7 @@ routePatternToExpression route =
                     (\ending ->
                         case ending of
                             RoutePattern.Optional name ->
-                                Gen.Pages.Internal.RoutePattern.make_.optional (Elm.string name)
+                                Gen.Pages.Internal.RoutePattern.make_.optional (Elm.string (String.Case.toCamelCaseLower name))
 
                             RoutePattern.RequiredSplat ->
                                 Gen.Pages.Internal.RoutePattern.make_.requiredSplat
