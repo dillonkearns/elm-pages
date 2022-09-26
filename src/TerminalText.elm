@@ -97,7 +97,7 @@ toString : List Text -> String
 toString list =
     list
         |> List.map toString_
-        |> String.join ""
+        |> String.concat
 
 
 toString_ : Text -> String

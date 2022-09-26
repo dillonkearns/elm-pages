@@ -197,26 +197,24 @@ oneOfInternal previousErrors optimizedDecoders =
                     )
 
         first :: rest ->
-            Json.Decode.oneOf
-                [ first
-                    |> Json.Decode.andThen
-                        (\( firstResult, firstErrors ) ->
-                            case ( firstResult, firstErrors ) of
-                                ( Ok okFirstResult, [] ) ->
-                                    Json.Decode.succeed ( Ok okFirstResult, [] )
+            first
+                |> Json.Decode.andThen
+                    (\( firstResult, firstErrors ) ->
+                        case ( firstResult, firstErrors ) of
+                            ( Ok okFirstResult, [] ) ->
+                                Json.Decode.succeed ( Ok okFirstResult, [] )
 
-                                ( Ok _, otherErrors ) ->
-                                    oneOfInternal (previousErrors ++ otherErrors) rest
+                            ( Ok _, otherErrors ) ->
+                                oneOfInternal (previousErrors ++ otherErrors) rest
 
-                                ( Err error, _ ) ->
-                                    case error of
-                                        OneOf errors ->
-                                            oneOfInternal (previousErrors ++ errors) rest
+                            ( Err error, _ ) ->
+                                case error of
+                                    OneOf errors ->
+                                        oneOfInternal (previousErrors ++ errors) rest
 
-                                        _ ->
-                                            oneOfInternal (previousErrors ++ [ error ]) rest
-                        )
-                ]
+                                    _ ->
+                                        oneOfInternal (previousErrors ++ [ error ]) rest
+                    )
 
 
 {-| -}
@@ -864,12 +862,10 @@ type alias File =
 fileField_ : String -> Parser File
 fileField_ name =
     optionalField name
-        (Json.Decode.oneOf
-            [ Json.Decode.map3 File
-                (Json.Decode.field "filename" Json.Decode.string)
-                (Json.Decode.field "mimeType" Json.Decode.string)
-                (Json.Decode.field "body" Json.Decode.string)
-            ]
+        (Json.Decode.map3 File
+            (Json.Decode.field "filename" Json.Decode.string)
+            (Json.Decode.field "mimeType" Json.Decode.string)
+            (Json.Decode.field "body" Json.Decode.string)
         )
         |> Json.Decode.map
             (\value ->

@@ -76,10 +76,7 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                         (\toDataSource ->
                             DataSource.Http.get
                                 "$$elm-pages$$headers"
-                                (Decode.oneOf
-                                    [ toDataSource |> Server.Request.getDecoder |> Decode.map Just
-                                    ]
-                                )
+                                (toDataSource |> Server.Request.getDecoder |> Decode.map Just)
                                 |> DataSource.andThen
                                     (\rendered ->
                                         case rendered of
