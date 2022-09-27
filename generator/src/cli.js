@@ -3,7 +3,6 @@
 const build = require("./build.js");
 const dirHelpers = require("./dir-helpers.js");
 const dev = require("./dev-server.js");
-const generate = require("./codegen-template-module.js");
 const init = require("./init.js");
 const codegen = require("./codegen.js");
 const fs = require("fs");
@@ -75,29 +74,6 @@ async function main() {
       }
       options.base = normalizeUrl(options.base);
       await dev.start(options);
-    });
-
-  program
-    .command("add <moduleName>")
-    .addOption(
-      new Option("--state <state>", "Generate Page Module with state").choices([
-        "local",
-        "shared",
-      ])
-    )
-    .option("--server-render", "Generate a Page.serverRender Page Module")
-    .option(
-      "--with-fallback",
-      "Generate a Page.preRenderWithFallback Page Module"
-    )
-    .description("create a new Page module")
-    .action(async (moduleName, options, b, c) => {
-      await generate.run({
-        moduleName,
-        withState: options.state,
-        serverRender: options.serverRender,
-        withFallback: options.withFallback,
-      });
     });
 
   program
