@@ -107,31 +107,6 @@ async function runElmCodegenCli(templates, basePath, phase) {
   return filesToGenerate;
 }
 
-function emptyRouteParams(name) {
-  return routeHelpers.parseRouteParams(name).length === 0;
-}
-
-/**
- * @param {string} segment
- * @returns {'static' | 'dynamic' | 'optional' | 'index' | 'required-splat' | 'optional-splat'}
- */
-function segmentKind(segment) {
-  if (segment === "Index") {
-    return "index";
-  }
-  const routeParamMatch = segment.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
-  const segmentKind = (routeParamMatch && routeParamMatch[2]) || "";
-  const isSplat = routeParamMatch && routeParamMatch[1] === "SPLAT";
-  if (segmentKind === "") {
-    return "static";
-  } else if (segmentKind === "_") {
-    return isSplat ? "required-splat" : "dynamic";
-  } else if (segmentKind === "__") {
-    return isSplat ? "optional-splat" : "optional";
-  } else {
-    throw "Unhandled segmentKind";
-  }
-}
 
 /**
  *
