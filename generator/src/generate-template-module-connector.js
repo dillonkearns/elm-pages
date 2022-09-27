@@ -198,94 +198,7 @@ function sortScore(name) {
   );
 }
 
-/**
- * @param {string[]} name
- */
-function routeRegex(name) {
-  const parsedParams = routeHelpers.parseRouteParams(name);
-  const includesOptional = parsedParams.some(
-    (param) => param.kind === "optional"
-  );
-  const params = routeHelpers.routeParams(name);
-  const parserCode = name
-    .flatMap((section) => {
-      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
-      const maybeParam = routeParamMatch && routeParamMatch[1];
-      switch (segmentKind(section)) {
-        case "static": {
-          return [`\\\\/` + camelToKebab(section)];
-        }
-        case "index": {
-          return [`\\\\/`];
-        }
-        case "dynamic": {
-          return [`\\\\/(?:([^/]+))`];
-        }
-        case "required-splat": {
-          return [`\\\\/(.*)`];
-        }
-        case "optional-splat": {
-          return [`(.*)`];
-        }
-        case "optional": {
-          return [`\\\\/(?:([^/]+))?`];
-        }
-      }
-    })
-    .join("");
 
-  const toRoute = `\\matches ->
-      case matches of
-          [ ${parsedParams
-            .flatMap((parsedParam) => {
-              switch (parsedParam.kind) {
-                case "optional": {
-                  return parsedParam.name;
-                }
-                case "dynamic": {
-                  return `Just ${parsedParam.name}`;
-                }
-                case "required-splat": {
-                  return `Just splat`;
-                }
-                case "optional-splat": {
-                  return `splat`;
-                }
-              }
-            })
-            .join(", ")} ] ->
-              Just ${
-                parsedParams.length === 0
-                  ? pathNormalizedName(name)
-                  : `( ${pathNormalizedName(name)} { ${parsedParams.map(
-                      (param) => {
-                        return `${param.name} = ${prefixThing(param)}${
-                          param.name
-                        }`;
-                      }
-                    )} } )`
-              }
-          _ ->
-              Nothing
-
-  `;
-
-  return { pattern: parserCode, toRoute };
-}
-
-function prefixThing(param) {
-  switch (param.kind) {
-    case "optional-splat": {
-      return "Pages.Internal.Router.fromOptionalSplat ";
-    }
-    case "required-splat": {
-      return "Pages.Internal.Router.toNonEmpty ";
-    }
-    default: {
-      return "";
-    }
-  }
-}
 
 function fetcherModule(name) {
   let moduleName = name.join(".");
@@ -358,33 +271,7 @@ submit toMsg options =
 `;
 }
 
-/**
- * @param {string[]} name
- */
-function routePathList(name) {
-  return withoutTrailingIndex(name)
-    .map((section) => {
-      const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)_$/);
-      const maybeParam = routeParamMatch && routeParamMatch[1];
-      if (maybeParam) {
-        return `params.${maybeParam.toLowerCase()}`;
-      } else {
-        return `"${camelToKebab(section)}"`;
-      }
-    })
-    .join(", ");
-}
 
-/**
- * @param {string[]} name
- */
-function withoutTrailingIndex(name) {
-  if (name[name.length - 1] === "Index") {
-    return name.slice(0, -1);
-  } else {
-    return name;
-  }
-}
 /**
  * Convert Strings from camelCase to kebab-case
  * @param {string} input
@@ -393,42 +280,6 @@ function withoutTrailingIndex(name) {
 function camelToKebab(input) {
   return input.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
-/**
- * @param {string[]} name
- */
-function isParameterizedRoute(name) {
-  return name.some((section) => section.includes("_"));
-}
 
-/**
- * @param {string[]} name
- */
-function pathNormalizedName(name) {
-  return name.join("__");
-}
-
-/**
- * @param {string[]} name
- */
-function moduleName(name) {
-  return name.join(".");
-}
-
-function paramAsElmString(param) {
-  switch (param.kind) {
-    case "dynamic": {
-      return "stringToString";
-    }
-    case "optional": {
-      return "maybeToString";
-    }
-    case "required-splat": {
-      return "nonEmptyToString";
-    }
-    case "optional-splat": {
-      return "listToString";
-    }
-  }
-}
 
 module.exports = { generateTemplateModuleConnector, sortTemplates };
