@@ -5,7 +5,7 @@ import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
-import Page exposing (Page, PageWithState, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
 import Shared
 import View exposing (View)
 
@@ -22,14 +22,14 @@ type alias RouteParams =
     { name : Maybe String }
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data ActionData
 page =
-    Page.prerender
+    RouteBuilder.preRender
         { head = head
         , pages = pages
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
 pages : DataSource.DataSource (List RouteParams)
@@ -48,7 +48,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -72,7 +72,7 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> View Msg
 view static =
     { body =

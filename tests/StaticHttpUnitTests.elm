@@ -4,17 +4,17 @@ import DataSource
 import DataSource.Http
 import Dict
 import Expect
-import OptimizedDecoder as Decode
-import Pages.Internal.ApplicationType as ApplicationType
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Pages.StaticHttp.Request as Request
 import Pages.StaticHttpRequest as StaticHttpRequest
-import Secrets
+import RequestsAndPending
 import Test exposing (Test, describe, test)
 
 
 getWithoutSecrets : String -> Decode.Decoder a -> DataSource.DataSource a
 getWithoutSecrets url =
-    DataSource.Http.get (Secrets.succeed url)
+    DataSource.Http.get url
 
 
 requestsDict : List ( Request.Request, b ) -> Dict.Dict String (Maybe b)
@@ -33,8 +33,11 @@ get : String -> Request.Request
 get url =
     { method = "GET"
     , url = url
-    , headers = []
+
+    -- TODO try to abstract away hardcoding of elm-pages-internal in test code
+    , headers = [ ( "elm-pages-internal", "ExpectJson" ) ]
     , body = DataSource.Http.emptyBody
+    , useCache = False
     }
 
 
@@ -43,20 +46,19 @@ all =
     describe "Static Http Requests unit tests"
         [ test "andThen" <|
             \() ->
-                DataSource.Http.get (Secrets.succeed "first") (Decode.succeed "NEXT")
+                DataSource.Http.get "first" (Decode.succeed "NEXT")
                     |> DataSource.andThen
                         (\_ ->
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "first", "null" )
-                                    , ( get "NEXT", "null" )
+                                    [ ( get "first", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
+                                    , ( get "NEXT", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen staring with done" <|
@@ -67,13 +69,12 @@ all =
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "NEXT", "null" )
+                                    [ ( get "NEXT", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "NEXT" ]
                        )
         , test "map" <|
@@ -86,14 +87,13 @@ all =
                         )
                     |> DataSource.map (\_ -> ())
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "first", "null" )
-                                    , ( get "NEXT", "null" )
+                                    [ ( get "first", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
+                                    , ( get "NEXT", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen chain with 1 response available and 1 pending" <|
@@ -104,13 +104,12 @@ all =
                             getWithoutSecrets "NEXT" (Decode.succeed ())
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "first", "null" )
+                                    [ ( get "first", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody Encode.null) )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         , test "andThen chain with 1 response available and 2 pending" <|
@@ -126,22 +125,24 @@ all =
                                     )
                         )
                     |> (\request ->
-                            StaticHttpRequest.resolveUrls ApplicationType.Cli
+                            StaticHttpRequest.resolveUrls
                                 request
                                 (requestsDict
-                                    [ ( get "first", "1" )
+                                    [ ( get "first", RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody (Encode.int 1)) )
                                     ]
                                 )
-                                |> List.map Secrets.maskedLookup
                                 |> Expect.equal [ getReq "first", getReq "NEXT" ]
                        )
         ]
 
 
-getReq : String -> DataSource.Http.RequestDetails
+getReq : String -> Request.Request
 getReq url =
     { url = url
     , method = "GET"
-    , headers = []
+
+    -- TODO try to abstract away hardcoding of elm-pages-internal in test code
+    , headers = [ ( "elm-pages-internal", "ExpectJson" ) ]
     , body = DataSource.Http.emptyBody
+    , useCache = False
     }

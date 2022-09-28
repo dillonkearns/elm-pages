@@ -8,9 +8,9 @@ module DataSource.Port exposing (get)
 
 import DataSource
 import DataSource.Http
-import Json.Encode
-import OptimizedDecoder exposing (Decoder)
-import Secrets
+import DataSource.Internal.Request
+import Json.Decode exposing (Decoder)
+import Json.Encode as Encode
 
 
 {-| In a vanilla Elm application, ports let you either send or receive JSON data between your Elm application and the JavaScript context in the user's browser at runtime.
@@ -64,7 +64,7 @@ module.exports =
 
 `port-data-source.js`
 
-Any time you throw an exception from a DataaSource.Port definition, it will result in a build error in your `elm-pages build` or dev server. In the example above, if the environment variable
+Any time you throw an exception from a DataSource.Port definition, it will result in a build error in your `elm-pages build` or dev server. In the example above, if the environment variable
 is not found it will result in a build failure. Notice that the NPM package `kleur` is being used in this example to add color to the output for that build error. You can use any tool you
 prefer to add ANSI color codes within the error string in an exception and it will show up with color output in the build output and dev server.
 
@@ -74,14 +74,17 @@ prefer to add ANSI color codes within the error string in an exception and it wi
 As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For example, avoid using `fs.readFileSync`, because blocking IO can slow down your elm-pages builds and dev server.
 
 -}
-get : String -> Json.Encode.Value -> Decoder b -> DataSource.DataSource b
+get : String -> Encode.Value -> Decoder b -> DataSource.DataSource b
 get portName input decoder =
-    DataSource.Http.request
-        (Secrets.succeed
-            { url = "port://" ++ portName
-            , method = "GET"
-            , headers = []
-            , body = DataSource.Http.jsonBody input
-            }
-        )
-        decoder
+    DataSource.Internal.Request.request
+        { name = "port"
+        , body =
+            Encode.object
+                [ ( "input", input )
+                , ( "portName", Encode.string portName )
+                ]
+                |> DataSource.Http.jsonBody
+        , expect =
+            decoder
+                |> DataSource.Http.expectJson
+        }

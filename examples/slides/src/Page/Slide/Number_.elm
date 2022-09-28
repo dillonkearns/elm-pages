@@ -14,7 +14,7 @@ import Markdown.Parser
 import Markdown.Renderer
 import MarkdownRenderer
 import OptimizedDecoder
-import Page exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, StaticPayload)
 import Shared
 import Tailwind.Utilities as Tw
 import View exposing (View)
@@ -34,7 +34,7 @@ type alias RouteParams =
 
 page : Page.PageWithState RouteParams Data Model Msg
 page =
-    Page.prerender
+    RouteBuilder.preRender
         { head = head
         , pages =
             slideCount
@@ -46,7 +46,7 @@ page =
                     )
         , data = data
         }
-        |> Page.buildWithLocalState
+        |> RouteBuilder.buildWithLocalState
             { view = view
             , init = \staticPayload -> ( (), Cmd.none )
             , update =
@@ -207,7 +207,7 @@ markdownIndexedByHeading index markdownBlocks =
 
 
 head :
-    StaticPayload Data RouteParams
+    StaticPayload Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -235,7 +235,7 @@ type alias Data =
 view :
     Model
     -> Shared.Model
-    -> StaticPayload Data RouteParams
+    -> StaticPayload Data ActionData RouteParams
     -> View Msg
 view model sharedModel static =
     { title = "TODO title"

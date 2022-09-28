@@ -1,4 +1,4 @@
-module BuildError exposing (BuildError, encode, errorToString, errorsToString)
+module BuildError exposing (BuildError, encode, errorToString, errorsToString, internal)
 
 import Json.Encode as Encode
 import TerminalText as Terminal
@@ -9,6 +9,15 @@ type alias BuildError =
     , path : String
     , message : List Terminal.Text
     , fatal : Bool
+    }
+
+
+internal : String -> { title : String, path : String, message : List Terminal.Text, fatal : Bool }
+internal string =
+    { title = "Internal Error"
+    , path = ""
+    , message = [ Terminal.text string ]
+    , fatal = True
     }
 
 

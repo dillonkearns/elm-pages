@@ -20,6 +20,7 @@ import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
 import NoMissingTypeExpose
 import NoModuleOnExposedNames
+import NoPrematureLetComputation
 import NoUnmatchedUnit
 import NoUnoptimizedRecursion
 import NoUnused.CustomTypeConstructorArgs
@@ -36,8 +37,9 @@ import Review.Rule as Rule exposing (Rule)
 config : List Rule
 config =
     ([ NoExposingEverything.rule
-
-     --NoImportingEverything.rule []
+     , NoPrematureLetComputation.rule
+     , NoImportingEverything.rule []
+        |> ignoreInTest
      , NoInconsistentAliases.config
         [ ( "Html.Attributes", "Attr" )
 
@@ -54,11 +56,13 @@ config =
      , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
         |> ignoreInTest
      , NoDebug.Log.rule
-        |> ignoreInTest
      , NoDebug.TodoOrToString.rule
         |> ignoreInTest
      , NoMissingTypeAnnotation.rule
      , NoMissingTypeAnnotationInLetIn.rule
+        |> Rule.ignoreErrorsForFiles
+            [ "tests/FormTests.elm"
+            ]
      , NoMissingTypeExpose.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Seo.elm"
@@ -83,9 +87,19 @@ config =
                                 , "src/SecretsDict.elm"
                                 , "src/StructuredData.elm"
                                 , "src/Router.elm" -- used in generated code
-                                , "src/RoutePattern.elm" -- used in generated code
+                                , "src/Pages/Internal/RoutePattern.elm" -- used in generated code
                                 , "src/Pages/Http.elm" -- reports incorrect unused custom type constructor
                                 , "src/DataSource/ServerRequest.elm" -- temporarily removed from exposed modules for alpha serverless
+                                , "src/BuildError.elm"
+                                , "src/Internal/ApiRoute.elm"
+                                , "src/Pages/StaticHttpRequest.elm"
+                                , "src/RenderRequest.elm"
+                                , "tests/Pages/Internal/Platform.elm"
+                                , "tests/Pages/Internal/Router.elm"
+                                , "src/Pages/Internal/NotFoundReason.elm"
+                                , "src/Pages/Internal/Platform/ToJsPayload.elm"
+                                , "src/Pages/Internal/Router.elm"
+                                , "src/Pages/Internal/ResponseSketch.elm"
                                 ]
                     )
            )
@@ -96,6 +110,7 @@ config =
                     |> Rule.ignoreErrorsForDirectories
                         [ "src/ElmHtml"
                         , "src/Test"
+                        , ".elm-pages"
                         ]
             )
 
@@ -106,7 +121,6 @@ noUnusedRules =
         |> ignoreInTest
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Twitter.elm" -- keeping unused for future use for spec API
-            , "src/RoutePattern.elm"
             ]
     , NoUnused.CustomTypeConstructorArgs.rule
         |> ignoreInTest
@@ -127,6 +141,7 @@ noUnusedRules =
     , NoUnused.Parameters.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/HtmlPrinter.elm" -- magic argument in the HtmlPrinter
+            , "src/FormDecoder.elm" -- magic argument that is tweaked in the JS output
             ]
     , NoUnused.Patterns.rule
     , NoUnused.Variables.rule

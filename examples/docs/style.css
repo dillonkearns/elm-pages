@@ -1,0 +1,10 @@
+@import url("styles/elm-syntax.css");
+@import url("styles/normalize.css");
+code {
+  font-family: "IBM Plex Mono", monospace !important;
+}
+
+code::before,
+code::after {
+  content: "" !important;
+}

@@ -7,16 +7,21 @@ on:
   pull_request:
     branches:
       - master
+      - serverless-latest
+env:
+  SESSION_SECRET: hello
 
 jobs:
   main:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Use Node.js 16
+        with: 
+          submodules: recursive
+      - name: Use Node.js 18
         uses: actions/setup-node@v1
         with:
-          node-version: 16
+          node-version: 18
       # Re-use node_modules between runs until package-lock.json changes.
       - name: Cache node_modules
         id: cache-node_modules
@@ -34,7 +39,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.elm
-          key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json') }}
+          key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
 
       # Install npm packages, unless we restored them from cache.
       # Since `npm ci` removes the node_modules folder before running it’s
@@ -51,22 +56,27 @@ jobs:
         run: npm ci
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
-      - name: Tests
-        run: npm test
+      - name: Global elm-format install
+        run: npm i -g elm-format@0.8.5
       - name: Add elm-review, elm and elm-format to path
         run: npm bin >> $GITHUB_PATH
-      # - uses: sparksp/elm-review-action@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download lamdera
+        run: curl https://static.lamdera.com/bin/linux/lamdera-next-alpine-musl -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
+      - name: Tests
+        run: npm test
+      - uses: sparksp/elm-review-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: elm-format
         run: npx --no-install elm-format --validate src/ generator/src
       - name: Build elm docs
         id: docs
-        run: npx --no-install elm make --docs docs.json
+        run: lamdera make --docs docs.json
+
       - name: Setup for cypress
-        run: (cd examples/end-to-end && npm install && npx elm-tooling install)
+        run: (cd examples/end-to-end && npm install && npx elm-tooling install && rm -rf elm-stuff && npx elm-pages gen && lamdera make app/Route/Index.elm)
       - name: Cypress tests
-        uses: cypress-io/github-action@v2
+        uses: cypress-io/github-action@v4
         with:
           start: npm start
           wait-on: "http://localhost:1234"
@@ -84,7 +94,7 @@ jobs:
           path: cypress/videos
       - run: npx elm-tooling install
       - name: Build base path example site
-        run: (cd examples/base-path && npm install && npx elm-pages build --base elm-pages)
+        run: cd examples/base-path && npm install && npx elm-pages build --base elm-pages && cd ../..
       - name: GitHub Pages Example Deploy
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.ref == 'refs/heads/master' }}
@@ -105,6 +115,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Download lamdera
+        shell: bash
+        run: mkdir bin && curl https://static.lamdera.com/bin/win/lamdera.exe -o ./bin/lamdera && chmod a+x ./bin/lamdera
+      - name: Add Lamdera to path
+        shell: bash
+        run: echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+      - name: Confirm that lamdera is on path
+        shell: bash
+        run: lamdera --version && which lamdera
       - name: Use Node.js 16
         uses: actions/setup-node@v1
         with:
@@ -118,7 +137,6 @@ jobs:
             ~/.cache/Cypress
             node_modules
           key: node_modules-node-windows-v${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
-
       - run: git config core.autocrlf true
       # Re-use ~/.elm between runs until elm.json, elm-tooling.json or
       # review/elm.json changes. The Elm compiler saves downloaded Elm packages
@@ -133,6 +151,7 @@ jobs:
       # Since `npm ci` removes the node_modules folder before running it’s
       # important to skip this step if cache was restored.
       - name: npm ci
+        shell: bash
         if: steps.cache-node_modules.outputs.cache-hit != 'true'
         env:
           # If you have a `"postinstall": "elm-tooling install"` script in your
@@ -143,6 +162,8 @@ jobs:
           NO_ELM_TOOLING_INSTALL: 1
         run: npm ci
       - name: elm-tooling install
+        shell: bash
         run: npx --no-install elm-tooling install
-      - name: Snapshot Tests
-        run: npm run test:snapshot
+      # - name: Snapshot Tests
+      #   shell: bash
+      #   run: (cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)

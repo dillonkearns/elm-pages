@@ -5,7 +5,6 @@ module DataSource exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , distill, validate, distillCodec, distillSerializeCodec
     )
 
 {-| In an `elm-pages` app, each page can define a value `data` which is a `DataSource` that will be resolved **before** `init` is called. That means it is also available
@@ -56,7 +55,7 @@ If we define a `DataSource` that hits that endpoint:
 
     data =
         DataSource.Http.get
-            (Secrets.succeed "https://my-api.example.com/increment-counter")
+            "https://my-api.example.com/increment-counter"
             Decode.int
 
 No matter how many places we use that `DataSource`, its response will be "locked in" (let's say the response was `3`, then every page would have the same value of `3` for that request).
@@ -82,37 +81,12 @@ So it's best to use that mental model to avoid confusion.
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
 
-
-## Optimizing Page Data
-
-Distilling data lets you reduce the amount of data loaded on the client. You can also use it to perform computations at
-build-time or server-request-time, store the result of the computation and then simply load that result on the client
-without needing redo the computation again on the client.
-
-@docs distill, validate, distillCodec, distillSerializeCodec
-
-
-### Ensuring Unique Distill Keys
-
-If you use the same string key for two different distilled values that have differing encoded JSON, then you
-will get a build error (and an error in the dev server for that page). That means you can safely distill values
-and let the build command tell you about these issues if they arise.
-
 -}
 
-import Codec
-import Dict exposing (Dict)
-import Dict.Extra
-import Json.Decode as Decode
-import Json.Encode as Encode
-import KeepOrDiscard exposing (KeepOrDiscard)
-import Pages.Internal.ApplicationType as ApplicationType exposing (ApplicationType)
 import Pages.Internal.StaticHttpBody as Body
-import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
-import Pages.StaticHttpRequest exposing (RawRequest(..), WhatToDo)
+import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending exposing (RequestsAndPending)
-import Serialize
 
 
 {-| A DataSource represents data that will be gathered at build time. Multiple `DataSource`s can be combined together using the `mapN` functions,
@@ -148,219 +122,22 @@ A common use for this is to map your data into your elm-pages view:
 -}
 map : (a -> b) -> DataSource a -> DataSource b
 map fn requestInfo =
-    -- elm-review: known-unoptimized-recursion
     case requestInfo of
         RequestError error ->
             RequestError error
 
-        Request partiallyStripped ( urls, lookupFn ) ->
-            Request partiallyStripped
-                ( urls
-                , \keepOrDiscard appType rawResponses ->
-                    map fn (lookupFn keepOrDiscard appType rawResponses)
-                )
-
-        ApiRoute stripped value ->
-            ApiRoute stripped (fn value)
-
-
-dontSaveData : DataSource a -> DataSource a
-dontSaveData requestInfo =
-    case requestInfo of
-        RequestError _ ->
-            requestInfo
-
-        Request partiallyStripped ( urls, lookupFn ) ->
-            Request partiallyStripped
-                ( urls
-                , \_ appType rawResponses ->
-                    lookupFn KeepOrDiscard.Discard appType rawResponses
-                )
-
-        ApiRoute _ _ ->
-            requestInfo
-
-
-{-| This is the low-level `distill` function. In most cases, you'll want to use `distill` with a `Codec` from either
-[`miniBill/elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest/) or
-[`MartinSStewart/elm-serialize`](https://package.elm-lang.org/packages/MartinSStewart/elm-serialize/latest/)
--}
-distill :
-    String
-    -> (raw -> Encode.Value)
-    -> (Decode.Value -> Result String distilled)
-    -> DataSource raw
-    -> DataSource distilled
-distill uniqueKey encode decode dataSource =
-    -- elm-review: known-unoptimized-recursion
-    case dataSource of
-        RequestError error ->
-            RequestError error
-
-        Request partiallyStripped ( urls, lookupFn ) ->
-            Request partiallyStripped
-                ( urls
-                , \_ appType rawResponses ->
-                    case appType of
-                        ApplicationType.Browser ->
-                            rawResponses
-                                |> RequestsAndPending.get uniqueKey
-                                |> (\maybeResponse ->
-                                        case maybeResponse of
-                                            Just rawResponse ->
-                                                rawResponse
-                                                    |> Decode.decodeString Decode.value
-                                                    |> Result.mapError Decode.errorToString
-                                                    |> Result.andThen decode
-                                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                                                    |> Result.map (Tuple.pair Dict.empty)
-
-                                            Nothing ->
-                                                Err (Pages.StaticHttpRequest.MissingHttpResponse ("distill://" ++ uniqueKey) [])
-                                   )
-                                |> toResult
-
-                        ApplicationType.Cli ->
-                            lookupFn KeepOrDiscard.Discard appType rawResponses
-                                |> distill uniqueKey encode decode
-                )
-
-        ApiRoute strippedResponses value ->
+        Request urls lookupFn ->
             Request
-                (strippedResponses
-                    |> Dict.insert
-                        -- TODO should this include a prefix? Probably.
-                        uniqueKey
-                        (Pages.StaticHttpRequest.DistilledResponse (encode value))
-                )
-                ( []
-                , \_ _ _ ->
-                    value
-                        |> encode
-                        |> decode
-                        |> fromResult
-                )
+                urls
+                (mapLookupFn fn lookupFn)
+
+        ApiRoute value ->
+            ApiRoute (fn value)
 
 
-{-| [`distill`](#distill) with a `Serialize.Codec` from [`MartinSStewart/elm-serialize`](https://package.elm-lang.org/packages/MartinSStewart/elm-serialize/latest).
-
-    import DataSource
-    import DataSource.Http
-    import Secrets
-    import Serialize
-
-    millionRandomSum : DataSource Int
-    millionRandomSum =
-        DataSource.Http.get
-            (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
-            (Decode.list Decode.int)
-            |> DataSource.map List.sum
-            -- all of this expensive computation and data will happen before it hits the client!
-            -- the user's browser simply loads up a single Int and runs an Int decoder to get it
-            |> DataSource.distillSerializeCodec "million-random-sum" Serialize.int
-
-If we didn't distill the data here, then all million Ints would have to be loaded in order to load the page.
-The reason the data for these `DataSource`s needs to be loaded is that `elm-pages` hydrates into an Elm app. If it
-output only HTML then we could build the HTML and throw away the data. But we need to ensure that the hydrated Elm app
-has all the data that a page depends on, even if it the HTML for the page is also pre-rendered.
-
-Using a `Codec` makes it safer to distill data because you know it is reversible.
-
--}
-distillSerializeCodec :
-    String
-    -> Serialize.Codec error value
-    -> DataSource value
-    -> DataSource value
-distillSerializeCodec uniqueKey serializeCodec =
-    distill uniqueKey
-        (Serialize.encodeToJson serializeCodec)
-        (Serialize.decodeFromJson serializeCodec
-            >> Result.mapError
-                (\error ->
-                    case error of
-                        Serialize.DataCorrupted ->
-                            "DataCorrupted"
-
-                        Serialize.CustomError _ ->
-                            "CustomError"
-
-                        Serialize.SerializerOutOfDate ->
-                            "SerializerOutOfDate"
-                )
-        )
-
-
-{-| [`distill`](#distill) with a `Codec` from [`miniBill/elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest/).
-
-    import Codec
-    import DataSource
-    import DataSource.Http
-    import Secrets
-
-    millionRandomSum : DataSource Int
-    millionRandomSum =
-        DataSource.Http.get
-            (Secrets.succeed "https://example.com/api/one-million-random-numbers.json")
-            (Decode.list Decode.int)
-            |> DataSource.map List.sum
-            -- all of this expensive computation and data will happen before it hits the client!
-            -- the user's browser simply loads up a single Int and runs an Int decoder to get it
-            |> DataSource.distillCodec "million-random-sum" Codec.int
-
-If we didn't distill the data here, then all million Ints would have to be loaded in order to load the page.
-The reason the data for these `DataSource`s needs to be loaded is that `elm-pages` hydrates into an Elm app. If it
-output only HTML then we could build the HTML and throw away the data. But we need to ensure that the hydrated Elm app
-has all the data that a page depends on, even if it the HTML for the page is also pre-rendered.
-
-Using a `Codec` makes it safer to distill data because you know it is reversible.
-
--}
-distillCodec :
-    String
-    -> Codec.Codec value
-    -> DataSource value
-    -> DataSource value
-distillCodec uniqueKey codec =
-    distill uniqueKey
-        (Codec.encodeToValue codec)
-        (Codec.decodeValue codec >> Result.mapError Decode.errorToString)
-
-
-toResult : Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, b ) -> RawRequest b
-toResult result =
-    case result of
-        Err error ->
-            RequestError error
-
-        Ok ( stripped, okValue ) ->
-            ApiRoute stripped okValue
-
-
-{-| -}
-validate :
-    (unvalidated -> validated)
-    -> (unvalidated -> DataSource (Result String ()))
-    -> DataSource unvalidated
-    -> DataSource validated
-validate markValidated validateDataSource unvalidatedDataSource =
-    unvalidatedDataSource
-        |> andThen
-            (\unvalidated ->
-                unvalidated
-                    |> validateDataSource
-                    |> andThen
-                        (\result ->
-                            case result of
-                                Ok () ->
-                                    succeed <| markValidated unvalidated
-
-                                Err error ->
-                                    fail error
-                        )
-                    |> dontSaveData
-            )
-        |> dontSaveData
+mapLookupFn : (a -> b) -> (d -> c -> DataSource a) -> d -> c -> DataSource b
+mapLookupFn fn lookupFn maybeMock requests =
+    map fn (lookupFn maybeMock requests)
 
 
 {-| Helper to remove an inner layer of Request wrapping.
@@ -434,7 +211,6 @@ combine =
 -}
 map2 : (a -> b -> c) -> DataSource a -> DataSource b -> DataSource c
 map2 fn request1 request2 =
-    -- elm-review: known-unoptimized-recursion
     case ( request1, request2 ) of
         ( RequestError error, _ ) ->
             RequestError error
@@ -442,93 +218,58 @@ map2 fn request1 request2 =
         ( _, RequestError error ) ->
             RequestError error
 
-        ( Request newDict1 ( urls1, lookupFn1 ), Request newDict2 ( urls2, lookupFn2 ) ) ->
-            Request (combineReducedDicts newDict1 newDict2)
-                ( urls1 ++ urls2
-                , \keepOrDiscard appType rawResponses ->
-                    map2 fn
-                        (lookupFn1 keepOrDiscard appType rawResponses)
-                        (lookupFn2 keepOrDiscard appType rawResponses)
-                )
+        ( Request urls1 lookupFn1, Request urls2 lookupFn2 ) ->
+            Request
+                (urls1 ++ urls2)
+                (mapReq fn lookupFn1 lookupFn2)
 
-        ( Request dict1 ( urls1, lookupFn1 ), ApiRoute stripped2 value2 ) ->
-            Request dict1
-                ( urls1
-                , \keepOrDiscard appType rawResponses ->
-                    map2 fn
-                        (lookupFn1 keepOrDiscard appType rawResponses)
-                        (ApiRoute stripped2 value2)
-                )
+        ( Request urls1 lookupFn1, ApiRoute value2 ) ->
+            Request
+                urls1
+                (mapReq fn lookupFn1 (\_ _ -> ApiRoute value2))
 
-        ( ApiRoute stripped2 value2, Request dict1 ( urls1, lookupFn1 ) ) ->
-            Request dict1
-                ( urls1
-                , \keepOrDiscard appType rawResponses ->
-                    map2 fn
-                        (ApiRoute stripped2 value2)
-                        (lookupFn1 keepOrDiscard appType rawResponses)
-                )
+        ( ApiRoute value2, Request urls1 lookupFn1 ) ->
+            Request
+                urls1
+                (mapReq fn (\_ _ -> ApiRoute value2) lookupFn1)
 
-        ( ApiRoute stripped1 value1, ApiRoute stripped2 value2 ) ->
-            ApiRoute
-                (combineReducedDicts stripped1 stripped2)
-                (fn value1 value2)
+        ( ApiRoute value1, ApiRoute value2 ) ->
+            ApiRoute (fn value1 value2)
 
 
-{-| Takes two dicts representing responses, some of which have been reduced, and picks the shorter of the two.
-This is assuming that there are no duplicate URLs, so it can safely choose between either a raw or a reduced response.
-It would not work correctly if it chose between two responses that were reduced with different `Json.Decode.Exploration.Decoder`s.
--}
-combineReducedDicts : Dict String WhatToDo -> Dict String WhatToDo -> Dict String WhatToDo
-combineReducedDicts dict1 dict2 =
-    if Dict.size dict1 > Dict.size dict2 then
-        uniqueInsertAll dict2 dict1
-
-    else
-        uniqueInsertAll dict1 dict2
+mapReq : (a -> b -> c) -> (e -> d -> DataSource a) -> (e -> d -> DataSource b) -> e -> d -> DataSource c
+mapReq fn lookupFn1 lookupFn2 maybeMock rawResponses =
+    map2 fn
+        (lookupFn1 maybeMock rawResponses)
+        (lookupFn2 maybeMock rawResponses)
 
 
-uniqueInsertAll : Dict String WhatToDo -> Dict String WhatToDo -> Dict String WhatToDo
-uniqueInsertAll dictToDedupeMerge startingDict =
-    Dict.foldl
-        (\key value acc -> Dict.Extra.insertDedupe (Pages.StaticHttpRequest.merge key) key value acc)
-        startingDict
-        dictToDedupeMerge
-
-
-lookup : KeepOrDiscard -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
-lookup =
-    lookupHelp Dict.empty
-
-
-lookupHelp : Dict String WhatToDo -> KeepOrDiscard -> ApplicationType -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error ( Dict String WhatToDo, value )
-lookupHelp strippedSoFar keepOrDiscard appType requestInfo rawResponses =
+lookup : Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
+lookup maybeMockResolver requestInfo rawResponses =
     case requestInfo of
         RequestError error ->
             Err error
 
-        Request strippedResponses ( urls, lookupFn ) ->
-            lookupHelp (combineReducedDicts strippedResponses strippedSoFar)
-                keepOrDiscard
-                appType
-                (addUrls urls (lookupFn keepOrDiscard appType rawResponses))
+        Request urls lookupFn ->
+            lookup maybeMockResolver
+                (addUrls urls (lookupFn maybeMockResolver rawResponses))
                 rawResponses
 
-        ApiRoute stripped value ->
-            Ok ( combineReducedDicts stripped strippedSoFar, value )
+        ApiRoute value ->
+            Ok value
 
 
-addUrls : List (Pages.Secrets.Value HashRequest.Request) -> DataSource value -> DataSource value
+addUrls : List HashRequest.Request -> DataSource value -> DataSource value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
         RequestError error ->
             RequestError error
 
-        Request stripped ( initialUrls, function ) ->
-            Request stripped ( initialUrls ++ urlsToAdd, function )
+        Request initialUrls function ->
+            Request (initialUrls ++ urlsToAdd) function
 
-        ApiRoute stripped value ->
-            ApiRoute stripped value
+        ApiRoute value ->
+            ApiRoute value
 
 
 {-| The full details to perform a StaticHttp request.
@@ -538,20 +279,21 @@ type alias RequestDetails =
     , method : String
     , headers : List ( String, String )
     , body : Body.Body
+    , useCache : Bool
     }
 
 
-lookupUrls : DataSource value -> List (Pages.Secrets.Value RequestDetails)
+lookupUrls : DataSource value -> List RequestDetails
 lookupUrls requestInfo =
     case requestInfo of
         RequestError _ ->
             -- TODO should this have URLs passed through?
             []
 
-        Request _ ( urls, _ ) ->
+        Request urls _ ->
             urls
 
-        ApiRoute _ _ ->
+        ApiRoute _ ->
             []
 
 
@@ -574,32 +316,27 @@ from the previous response to build up the URL, headers, etc. that you send to t
 -}
 andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
-    -- TODO should this be non-empty Dict? Or should it be passed down some other way?
-    Request Dict.empty
-        ( lookupUrls requestInfo
-        , \keepOrDiscard appType rawResponses ->
-            lookup
-                keepOrDiscard
-                appType
+    Request
+        (lookupUrls requestInfo)
+        (\maybeMockResolver rawResponses ->
+            lookup maybeMockResolver
                 requestInfo
                 rawResponses
                 |> (\result ->
                         case result of
                             Err error ->
-                                -- TODO should I pass through strippedResponses here?
-                                --( strippedResponses, fn value )
                                 RequestError error
 
-                            Ok ( strippedResponses, value ) ->
+                            Ok value ->
                                 case fn value of
-                                    Request dict ( values, function ) ->
-                                        Request (combineReducedDicts strippedResponses dict) ( values, function )
+                                    Request values function ->
+                                        Request values function
 
                                     RequestError error ->
                                         RequestError error
 
-                                    ApiRoute dict finalValue ->
-                                        ApiRoute (combineReducedDicts strippedResponses dict) finalValue
+                                    ApiRoute finalValue ->
+                                        ApiRoute finalValue
                    )
         )
 
@@ -637,7 +374,7 @@ andMap =
 -}
 succeed : a -> DataSource a
 succeed value =
-    ApiRoute Dict.empty value
+    ApiRoute value
 
 
 {-| Stop the StaticHttp chain with the given error message. If you reach a `fail` in your request,

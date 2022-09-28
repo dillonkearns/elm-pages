@@ -11,7 +11,7 @@ module Test.Html.Internal.ElmHtml.ToString exposing
 
 -}
 
-import Dict exposing (Dict)
+import Dict
 import String
 import Test.Html.Internal.ElmHtml.InternalTypes exposing (..)
 

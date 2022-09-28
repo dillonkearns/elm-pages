@@ -1,9 +1,10 @@
 module Showcase exposing (..)
 
 import DataSource
+import DataSource.Env as Env
 import DataSource.Http
-import OptimizedDecoder as Decode
-import Pages.Secrets as Secrets
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Extra
 
 
 type alias Entry =
@@ -17,7 +18,7 @@ type alias Entry =
     }
 
 
-decoder : Decode.Decoder (List Entry)
+decoder : Decoder (List Entry)
 decoder =
     Decode.field "records" <|
         Decode.list entryDecoder
@@ -32,24 +33,23 @@ entryDecoder =
             (Decode.field "Live URL" Decode.string)
             (Decode.field "Author" Decode.string)
             (Decode.field "Author URL" Decode.string)
-            (Decode.optionalField "Categories" (Decode.list Decode.string) |> Decode.map (Maybe.withDefault []))
+            (Json.Decode.Extra.optionalField "Categories" (Decode.list Decode.string) |> Decode.map (Maybe.withDefault []))
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
 staticRequest : DataSource.DataSource (List Entry)
 staticRequest =
-    DataSource.Http.request
-        (Secrets.succeed
+    Env.expect "AIRTABLE_TOKEN"
+        |> DataSource.andThen
             (\airtableToken ->
-                { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
-                , method = "GET"
-                , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
-                , body = DataSource.Http.emptyBody
-                }
+                DataSource.Http.request
+                    { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
+                    , method = "GET"
+                    , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
+                    , body = DataSource.Http.emptyBody
+                    }
+                    (DataSource.Http.expectJson decoder)
             )
-            |> Secrets.with "AIRTABLE_TOKEN"
-        )
-        decoder
 
 
 allCategroies : List String

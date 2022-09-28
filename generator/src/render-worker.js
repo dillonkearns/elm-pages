@@ -7,21 +7,22 @@ let Elm;
 
 global.staticHttpCache = {};
 
-async function run({ mode, pathname }) {
+async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
   try {
-    const req = null;
     const renderResult = await renderer(
+      portsFilePath,
       workerData.basePath,
       requireElm(mode),
       mode,
       pathname,
-      req,
+      serverRequest,
       function (patterns) {
         if (mode === "dev-server" && patterns.size > 0) {
           parentPort.postMessage({ tag: "watch", data: [...patterns] });
         }
-      }
+      },
+      true
     );
 
     if (mode === "dev-server") {
@@ -66,21 +67,21 @@ async function outputString(
       const args = fromElm;
       const normalizedRoute = args.route.replace(/index$/, "");
       await fs.tryMkdir(`./dist/${normalizedRoute}`);
-      const contentJsonString = JSON.stringify({
-        is404: args.is404,
-        staticData: args.contentJson,
-        path: args.route,
-      });
-      fs.writeFileSync(`dist/${normalizedRoute}/index.html`, args.htmlString);
+      const template = await fs.readFileSync("./dist/template.html", "utf8");
       fs.writeFileSync(
-        `dist/${normalizedRoute}/content.json`,
-        contentJsonString
+        `dist/${normalizedRoute}/index.html`,
+        renderTemplate(template, fromElm)
       );
+      args.contentDatPayload &&
+        fs.writeFileSync(
+          `dist/${normalizedRoute}/content.dat`,
+          Buffer.from(args.contentDatPayload.buffer)
+        );
       parentPort.postMessage({ tag: "done" });
       break;
     }
     case "api-response": {
-      const body = fromElm.body;
+      const body = fromElm.body.body;
       console.log(`Generated ${pathname}`);
       fs.writeFileSyncSafe(path.join("dist", pathname), body);
       if (pathname === "/all-paths.json") {
@@ -92,6 +93,19 @@ async function outputString(
       break;
     }
   }
+}
+
+function renderTemplate(template, renderResult) {
+  const info = renderResult.htmlString;
+  return template
+    .replace(
+      /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
+      `${info.headTags}
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
+    )
+    .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
+    .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
+    .replace(/<!-- ROOT -->\S*<html lang="en">/m, info.rootElement);
 }
 
 parentPort.on("message", run);

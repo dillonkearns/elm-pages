@@ -3,6 +3,7 @@ module Pages.Manifest exposing
     , init
     , withBackgroundColor, withCategories, withDisplayMode, withIarcRatingId, withLang, withOrientation, withShortName, withThemeColor
     , DisplayMode(..), Orientation(..), IconPurpose(..)
+    , generator
     , toJson
     )
 
@@ -45,14 +46,22 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 @docs DisplayMode, Orientation, IconPurpose
 
 
+## Generating a Manifest.json
+
+@docs generator
+
+
 ## Functions for use by the generated code (`Pages.elm`)
 
 @docs toJson
 
 -}
 
+import ApiRoute
 import Color exposing (Color)
 import Color.Convert
+import DataSource exposing (DataSource)
+import Head
 import Json.Encode as Encode
 import LanguageTag exposing (LanguageTag, emptySubtags)
 import LanguageTag.Country as Country
@@ -311,6 +320,23 @@ nonEmptyList list =
 
     else
         Just list
+
+
+{-| A generator for Api.elm to include a manifest.json.
+-}
+generator : String -> DataSource Config -> ApiRoute.ApiRoute ApiRoute.Response
+generator canonicalSiteUrl config =
+    ApiRoute.succeed
+        (config
+            |> DataSource.map (toJson canonicalSiteUrl >> Encode.encode 0)
+        )
+        |> ApiRoute.literal "manifest.json"
+        |> ApiRoute.single
+        |> ApiRoute.withGlobalHeadTags
+            (DataSource.succeed
+                [ Head.manifestLink "/manifest.json"
+                ]
+            )
 
 
 {-| Feel free to use this, but in 99% of cases you won't need it. The generated

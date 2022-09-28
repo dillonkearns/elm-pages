@@ -9,7 +9,7 @@ function connect(sendContentJsonPort, initialErrorPage) {
   eventSource = new EventSource("/stream");
   window.reloadOnOk = initialErrorPage;
   if (initialErrorPage) {
-    handleEvent(sendContentJsonPort, { data: "content.json" });
+    handleEvent(sendContentJsonPort, { data: "content.dat" });
   }
   eventSource.onmessage = async function (evt) {
     handleEvent(sendContentJsonPort, evt);
@@ -17,7 +17,7 @@ function connect(sendContentJsonPort, initialErrorPage) {
 }
 
 async function handleEvent(sendContentJsonPort, evt) {
-  if (evt.data === "content.json") {
+  if (evt.data === "content.dat") {
     showCompiling("");
     const elmJsRequest = elmJsFetch();
     const fetchContentJson = fetchContentJsonForCurrentPage();
@@ -32,7 +32,7 @@ async function handleEvent(sendContentJsonPort, evt) {
       thenApplyHmr(elmJsResponse);
     } catch (errorJson) {
       if (typeof errorJson === "string") {
-        errorJson = JSON.parse(errorJson)
+        errorJson = JSON.parse(errorJson);
       }
       if (errorJson.type) {
         showError(errorJson);
@@ -42,21 +42,12 @@ async function handleEvent(sendContentJsonPort, evt) {
           errors: errorJson,
         });
       } else {
-          showError(JSON.parse(errorJson.errorsJson.errors));
+        showError(JSON.parse(errorJson.errorsJson.errors));
       }
     }
   } else if (evt.data === "elm.js") {
     showCompiling("");
     elmJsFetch().then(thenApplyHmr);
-  } else if (evt.data === "style.css") {
-    // https://stackoverflow.com/a/43161591
-    const links = document.getElementsByTagName("link");
-    for (var i = 0; i < links.length; i++) {
-      const link = links[i];
-      if (link.rel === "stylesheet") {
-        link.href += "";
-      }
-    }
   } else {
     console.log("Unhandled", evt.data);
   }
@@ -84,7 +75,7 @@ async function updateContentJsonWith(
     } catch (errorJson) {
       if (errorJson.type) {
         showError(errorJson);
-      } else if (typeof errorJson === 'string') {
+      } else if (typeof errorJson === "string") {
         showError(JSON.parse(errorJson));
       } else {
         showError(errorJson);
@@ -98,10 +89,12 @@ function fetchContentJsonForCurrentPage() {
     let currentPath = window.location.pathname.replace(/(\w)$/, "$1/");
 
     const contentJsonForPage = await fetch(
-      `${window.location.origin}${currentPath}content.json`
+      `${window.location.origin}${currentPath}content.dat`
     );
     if (contentJsonForPage.ok || contentJsonForPage.status === 404) {
-      resolve(await contentJsonForPage.json());
+      resolve(
+        new DataView(await (await contentJsonForPage.blob()).arrayBuffer())
+      );
     } else {
       try {
         reject(await contentJsonForPage.json());
@@ -146,11 +139,13 @@ var module = {
 // Thanks to the elm-live maintainers and contributors for this code for rendering errors as an HTML overlay
 // https://github.com/wking-io/elm-live/blob/e317b4914c471addea7243c47f28dcebe27a5d36/lib/src/websocket.js
 
-const pipe = (...fns) => (x) => fns.reduce((y, f) => f(y), x);
+const pipe =
+  (...fns) =>
+  (x) =>
+    fns.reduce((y, f) => f(y), x);
 
 function elmJsFetch() {
-  var elmJsRequest = new Request("/elm.js");
-  elmJsRequest.cache = "no-cache";
+  var elmJsRequest = new Request("/elm.js", { cache: "no-cache" });
   return fetch(elmJsRequest);
 }
 
@@ -167,7 +162,7 @@ async function thenApplyHmr(response) {
     } else {
       response.text().then(function (value) {
         module.hot.apply();
-        delete Elm;
+        delete window.Elm;
         eval(value);
       });
     }
@@ -251,51 +246,51 @@ const consoleMsg = ({ error, style }, msg) => ({
 
 const joinMessage = ({ error, style }) => [error.join("")].concat(style);
 
-const parseConsoleErrors = (path) => 
-/**
- * @param {{ title: string; message: Message[]}} info
- * */
-(info) => {
-  if (info.rule) {
-  return joinMessage(
-    info.formatted.reduce(consoleMsg, {
-      error: [consoleHeader(info.rule, path)],
-      style: [styleColor("blue")],
-    })
-  );
-  } else {
-  return joinMessage(
-    info.message.reduce(consoleMsg, {
-      error: [consoleHeader(info.title, path)],
-      style: [styleColor("blue")],
-    })
-  );
-  }
-}
-
+const parseConsoleErrors =
+  (path) =>
   /**
-   * @param {RootObject} error
+   * @param {{ title: string; message: Message[]}} info
    * */
-const restoreColorConsole = (error) => {
+  (info) => {
+    if (info.rule) {
+      return joinMessage(
+        info.formatted.reduce(consoleMsg, {
+          error: [consoleHeader(info.rule, path)],
+          style: [styleColor("blue")],
+        })
+      );
+    } else {
+      return joinMessage(
+        info.message.reduce(consoleMsg, {
+          error: [consoleHeader(info.title, path)],
+          style: [styleColor("blue")],
+        })
+      );
+    }
+  };
 
-  if (error.type === 'compile-errors' && error.errors) {
+/**
+ * @param {RootObject} error
+ * */
+const restoreColorConsole = (error) => {
+  if (error.type === "compile-errors" && error.errors) {
     return error.errors.reduce(
       (acc, { problems, path }) =>
         acc.concat(problems.map(parseConsoleErrors(path))),
       []
     );
-  } else if (error.type === 'review-errors' && error.errors) {
+  } else if (error.type === "review-errors" && error.errors) {
     return error.errors.reduce(
       (acc, { errors, path }) =>
         acc.concat(errors.map(parseConsoleErrors(path))),
       []
     );
-  } else if (error.type === 'error') {
-      return parseConsoleErrors(error.path)(error)
+  } else if (error.type === "error") {
+    return parseConsoleErrors(error.path)(error);
   } else {
     console.error(`Unknown error type ${error}`);
   }
-}
+};
 
 /*
   |-------------------------------------------------------------------------------
@@ -316,36 +311,35 @@ const htmlMsg = (acc, msg) =>
 
 const parseHtmlErrors = (path) => (info) => {
   if (info.rule) {
-   return info.formatted.reduce(htmlMsg, htmlHeader(info.rule, path)); 
+    return info.formatted.reduce(htmlMsg, htmlHeader(info.rule, path));
   } else {
-
-   return info.message.reduce(htmlMsg, htmlHeader(info.title, path)); 
+    return info.message.reduce(htmlMsg, htmlHeader(info.title, path));
   }
-}
+};
 
-const restoreColorHtml = 
-/** 
- *  @param {RootObject} error
- * */
-(error) => {
-  if (error.type === 'compile-errors') {
-    return error.errors.reduce(
-      (acc, { problems, path }) =>
-        acc.concat(problems.map(parseHtmlErrors(path))),
-      []
-    );
-    } else if (error.type === 'review-errors') {
-    return error.errors.reduce(
-      (acc, { errors, path }) =>
-        acc.concat(errors.map(parseHtmlErrors(path))),
-      []
-    );
-  } else if (error.type === 'error') {
-    return parseHtmlErrors(error.path)(error);
-  } else {
-    throw new Error(`Unknown error type ${error}`);
-  }
-}
+const restoreColorHtml =
+  /**
+   *  @param {RootObject} error
+   * */
+  (error) => {
+    if (error.type === "compile-errors") {
+      return error.errors.reduce(
+        (acc, { problems, path }) =>
+          acc.concat(problems.map(parseHtmlErrors(path))),
+        []
+      );
+    } else if (error.type === "review-errors") {
+      return error.errors.reduce(
+        (acc, { errors, path }) =>
+          acc.concat(errors.map(parseHtmlErrors(path))),
+        []
+      );
+    } else if (error.type === "error") {
+      return parseHtmlErrors(error.path)(error);
+    } else {
+      throw new Error(`Unknown error type ${error}`);
+    }
+  };
 
 /*
   |-------------------------------------------------------------------------------
@@ -360,9 +354,13 @@ var delay = 20;
  * @param {RootObject} error
  */
 function showError(error) {
-  restoreColorConsole(error).forEach((error) => {
-    console.log.apply(this, error);
-  });
+  try {
+    restoreColorConsole(error).forEach((error) => {
+      console.log.apply(this, error);
+    });
+  } catch (e) {
+    console.log("Error", error);
+  }
   hideCompiling("fast");
   setTimeout(function () {
     showError_(restoreColorHtml(error));
@@ -429,9 +427,11 @@ function showError_(error) {
 `;
 
   setTimeout(function () {
-    document.getElementById("elm-live:elmErrorBackground").style.opacity = 1;
-    document.getElementById("elm-live:elmError").style.transform =
-      "rotateX(0deg)";
+    try {
+      document.getElementById("elm-live:elmErrorBackground").style.opacity = 1;
+      document.getElementById("elm-live:elmError").style.transform =
+        "rotateX(0deg)";
+    } catch (error) {}
   }, delay);
 }
 
@@ -439,13 +439,21 @@ function hideError(velocity) {
   var node = document.getElementById("elm-live:elmErrorContainer");
   if (node) {
     if (velocity === "fast") {
-      document.getElementById("elm-live:elmErrorContainer").remove();
-    } else {
-      document.getElementById("elm-live:elmErrorBackground").style.opacity = 0;
-      document.getElementById("elm-live:elmError").style.transform =
-        "rotateX(90deg)";
-      setTimeout(function () {
+      try {
         document.getElementById("elm-live:elmErrorContainer").remove();
+      } catch (error) {}
+    } else {
+      try {
+        document.getElementById(
+          "elm-live:elmErrorBackground"
+        ).style.opacity = 0;
+        document.getElementById("elm-live:elmError").style.transform =
+          "rotateX(90deg)";
+      } catch (error) {}
+      setTimeout(function () {
+        try {
+          document.getElementById("elm-live:elmErrorContainer").remove();
+        } catch (error) {}
       }, speed);
     }
   }
@@ -626,7 +634,7 @@ function showCompiling_(message) {
   ></div>
 `;
   setTimeout(function () {
-    document.getElementById("__elm-pages-loading").style.opacity = 1;
+    nodeContainer && (nodeContainer.style.opacity = "1");
   }, delay);
 }
 
@@ -665,3 +673,5 @@ function hideCompiling(velocity) {
 
 /** @typedef  {  { start: IPosition; end: IPosition; } } IRegion */
 /** @typedef  {   { line: number; column: number; } } IPosition */
+
+window.connect = connect;

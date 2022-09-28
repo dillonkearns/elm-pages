@@ -6,9 +6,12 @@ module DataSource.Glob exposing
     , int, digits
     , expectUniqueMatch, expectUniqueMatchFromList
     , literal
-    , map, succeed, toDataSource
+    , map, succeed
     , oneOf
     , zeroOrMore, atLeastOne
+    , toDataSource
+    , toDataSourceWithOptions
+    , defaultOptions, Options, Include(..)
     )
 
 {-|
@@ -152,7 +155,7 @@ This is my first post!
 Then we could read that title for our blog post list page using our `blogPosts` `DataSource` that we defined above.
 
     import DataSource.File
-    import OptimizedDecoder as Decode exposing (Decoder)
+    import Json.Decode as Decode exposing (Decoder)
 
     titles : DataSource (List BlogPost)
     titles =
@@ -202,21 +205,33 @@ That will give us
 
 @docs literal
 
-@docs map, succeed, toDataSource
+@docs map, succeed
 
 @docs oneOf
 
 @docs zeroOrMore, atLeastOne
+
+
+## Getting Glob Data from a DataSource
+
+@docs toDataSource
+
+
+### With Custom Options
+
+@docs toDataSourceWithOptions
+
+@docs defaultOptions, Options, Include
 
 -}
 
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Glob exposing (Glob(..))
+import DataSource.Internal.Request
+import Json.Decode as Decode
+import Json.Encode as Encode
 import List.Extra
-import OptimizedDecoder
-import Regex
-import Secrets
 
 
 {-| A pattern to match local files and capture parts of the path into a nice Elm data type.
@@ -276,9 +291,8 @@ For example, you could take a date and parse it.
 
 -}
 map : (a -> b) -> Glob a -> Glob b
-map mapFn (Glob pattern regex applyCapture) =
+map mapFn (Glob pattern applyCapture) =
     Glob pattern
-        regex
         (\fullPath captures ->
             captures
                 |> applyCapture fullPath
@@ -290,13 +304,12 @@ map mapFn (Glob pattern regex applyCapture) =
 -}
 succeed : constructor -> Glob constructor
 succeed constructor =
-    Glob "" "" (\_ captures -> ( constructor, captures ))
+    Glob "" (\_ captures -> ( constructor, captures ))
 
 
 fullFilePath : Glob String
 fullFilePath =
     Glob ""
-        ""
         (\fullPath captures ->
             ( fullPath, captures )
         )
@@ -394,7 +407,6 @@ will match _within_ a path part (think between the slashes of a file path). `rec
 wildcard : Glob String
 wildcard =
     Glob "*"
-        wildcardRegex
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -405,11 +417,6 @@ wildcard =
         )
 
 
-wildcardRegex : String
-wildcardRegex =
-    "([^/]*?)"
-
-
 {-| This is similar to [`wildcard`](#wildcard), but it will only match 1 or more digits (i.e. `[0-9]+`).
 
 See [`int`](#int) for a convenience function to get an Int value instead of a String of digits.
@@ -417,8 +424,7 @@ See [`int`](#int) for a convenience function to get an Int value instead of a St
 -}
 digits : Glob String
 digits =
-    Glob "[0-9]+"
-        "([0-9]+?)"
+    Glob "([0-9]+)"
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -564,7 +570,6 @@ This is usually not what is intended. Using `recursiveWildcard` is usually follo
 recursiveWildcard : Glob (List String)
 recursiveWildcard =
     Glob "**"
-        recursiveWildcardRegex
         (\_ captures ->
             case captures of
                 first :: rest ->
@@ -577,11 +582,6 @@ recursiveWildcard =
         |> map (List.filter (not << String.isEmpty))
 
 
-recursiveWildcardRegex : String
-recursiveWildcardRegex =
-    "(.*?)"
-
-
 {-| -}
 zeroOrMore : List String -> Glob (Maybe String)
 zeroOrMore matchers =
@@ -589,10 +589,6 @@ zeroOrMore matchers =
         ("*("
             ++ (matchers |> String.join "|")
             ++ ")"
-        )
-        ("((?:"
-            ++ (matchers |> List.map regexEscaped |> String.join "|")
-            ++ ")*)"
         )
         (\_ captures ->
             case captures of
@@ -637,21 +633,7 @@ blogPosts =
 -}
 literal : String -> Glob String
 literal string =
-    Glob string (regexEscaped string) (\_ captures -> ( string, captures ))
-
-
-regexEscaped : String -> String
-regexEscaped stringLiteral =
-    --https://stackoverflow.com/a/6969486
-    stringLiteral
-        |> Regex.replace regexEscapePattern (\match_ -> "\\" ++ match_.match)
-
-
-regexEscapePattern : Regex.Regex
-regexEscapePattern =
-    "[.*+?^${}()|[\\]\\\\]"
-        |> Regex.fromString
-        |> Maybe.withDefault Regex.never
+    Glob string (\_ captures -> ( string, captures ))
 
 
 {-| Adds on to the glob pattern, but does not capture it in the resulting Elm match value. That means this changes which
@@ -661,10 +643,9 @@ Exactly the same as `capture` except it doesn't capture the matched sub-pattern.
 
 -}
 match : Glob a -> Glob value -> Glob value
-match (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
+match (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
         (pattern ++ matcherPattern)
-        (combineRegexes regex1 regex2)
         (\fullPath captures ->
             let
                 ( _, captured1 ) =
@@ -730,10 +711,9 @@ you can pick apart structured data as you build up your glob pattern. This follo
 
 -}
 capture : Glob a -> Glob (a -> value) -> Glob value
-capture (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
+capture (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
         (pattern ++ matcherPattern)
-        (combineRegexes regex1 regex2)
         (\fullPath captures ->
             let
                 ( applied1, captured1 ) =
@@ -748,21 +728,6 @@ capture (Glob matcherPattern regex1 apply1) (Glob pattern regex2 apply2) =
             , captured2
             )
         )
-
-
-combineRegexes : String -> String -> String
-combineRegexes regex1 regex2 =
-    if isRecursiveWildcardSlashWildcard regex1 regex2 then
-        (regex2 |> String.dropRight 1) ++ regex1
-
-    else
-        regex2 ++ regex1
-
-
-isRecursiveWildcardSlashWildcard : String -> String -> Bool
-isRecursiveWildcardSlashWildcard regex1 regex2 =
-    (regex2 |> String.endsWith (recursiveWildcardRegex ++ "/"))
-        && (regex1 |> String.startsWith wildcardRegex)
 
 
 {-|
@@ -860,13 +825,6 @@ oneOf ( defaultMatch, otherMatchers ) =
             ++ (allMatchers |> List.map Tuple.first |> String.join ",")
             ++ "}"
         )
-        ("("
-            ++ String.join "|"
-                ((allMatchers |> List.map Tuple.first |> List.map regexEscaped)
-                    |> List.map regexEscaped
-                )
-            ++ ")"
-        )
         (\_ captures ->
             case captures of
                 match_ :: rest ->
@@ -900,10 +858,6 @@ atLeastOne ( defaultMatch, otherMatchers ) =
         ("+("
             ++ (allMatchers |> List.map Tuple.first |> String.join "|")
             ++ ")"
-        )
-        ("((?:"
-            ++ (allMatchers |> List.map Tuple.first |> List.map regexEscaped |> String.join "|")
-            ++ ")+)"
         )
         (\_ captures ->
             case captures of
@@ -944,12 +898,104 @@ toNonEmptyWithDefault default list =
 -}
 toDataSource : Glob a -> DataSource (List a)
 toDataSource glob =
-    DataSource.Http.get (Secrets.succeed <| "glob://" ++ DataSource.Internal.Glob.toPattern glob)
-        (OptimizedDecoder.string
-            |> OptimizedDecoder.list
-            |> OptimizedDecoder.map
-                (\rawGlob -> rawGlob |> List.map (\matchedPath -> DataSource.Internal.Glob.run matchedPath glob |> .match))
-        )
+    toDataSourceWithOptions defaultOptions glob
+
+
+{-| <https://github.com/mrmlnc/fast-glob#onlyfiles>
+
+<https://github.com/mrmlnc/fast-glob#onlydirectories>
+
+-}
+type Include
+    = OnlyFiles
+    | OnlyFolders
+    | FilesAndFolders
+
+
+{-| Custom options you can pass in to run the glob with [`toDataSourceWithOptions`](#toDataSourceWithOptions).
+
+    { includeDotFiles = Bool -- https://github.com/mrmlnc/fast-glob#dot
+    , include = Include -- return results that are `OnlyFiles`, `OnlyFolders`, or both `FilesAndFolders` (default is `OnlyFiles`)
+    , followSymbolicLinks = Bool -- https://github.com/mrmlnc/fast-glob#followsymboliclinks
+    , caseSensitiveMatch = Bool -- https://github.com/mrmlnc/fast-glob#casesensitivematch
+    , gitignore = Bool -- https://www.npmjs.com/package/globby#gitignore
+    , maxDepth = Maybe Int -- https://github.com/mrmlnc/fast-glob#deep
+    }
+
+-}
+type alias Options =
+    { includeDotFiles : Bool -- https://github.com/mrmlnc/fast-glob#dot
+    , include : Include
+    , followSymbolicLinks : Bool -- https://github.com/mrmlnc/fast-glob#followsymboliclinks
+    , caseSensitiveMatch : Bool -- https://github.com/mrmlnc/fast-glob#casesensitivematch
+    , gitignore : Bool -- https://www.npmjs.com/package/globby#gitignore
+    , maxDepth : Maybe Int -- https://github.com/mrmlnc/fast-glob#deep
+    }
+
+
+{-| The default options used in [`toDataSource`](#toDataSource). To use a custom set of options, use [`toDataSourceWithOptions`](#toDataSourceWithOptions).
+-}
+defaultOptions : Options
+defaultOptions =
+    { includeDotFiles = False
+    , followSymbolicLinks = True
+    , caseSensitiveMatch = True
+    , gitignore = False
+    , maxDepth = Nothing
+    , include = OnlyFiles
+    }
+
+
+encodeOptions : Options -> Encode.Value
+encodeOptions options =
+    [ ( "dot", Encode.bool options.includeDotFiles ) |> Just
+    , ( "followSymbolicLinks", Encode.bool options.followSymbolicLinks ) |> Just
+    , ( "caseSensitiveMatch", Encode.bool options.caseSensitiveMatch ) |> Just
+    , ( "gitignore", Encode.bool options.gitignore ) |> Just
+    , options.maxDepth |> Maybe.map (\depth -> ( "deep", Encode.int depth ))
+    , ( "onlyFiles", options.include == OnlyFiles || options.include == FilesAndFolders |> Encode.bool ) |> Just
+    , ( "onlyDirectories", options.include == OnlyFolders || options.include == FilesAndFolders |> Encode.bool ) |> Just
+    ]
+        |> List.filterMap identity
+        |> Encode.object
+
+
+{-| Same as toDataSource, but lets you set custom glob options. For example, to list folders instead of files,
+
+    import DataSource.Glob as Glob exposing (OnlyFolders, defaultOptions)
+
+    matchingFiles : Glob a -> DataSource (List a)
+    matchingFiles glob =
+        glob
+            |> Glob.toDataSourceWithOptions { defaultOptions | include = OnlyFolders }
+
+-}
+toDataSourceWithOptions : Options -> Glob a -> DataSource (List a)
+toDataSourceWithOptions options glob =
+    DataSource.Internal.Request.request
+        { name = "glob"
+        , body =
+            Encode.object
+                [ ( "pattern", Encode.string <| DataSource.Internal.Glob.toPattern glob )
+                , ( "options", encodeOptions options )
+                ]
+                |> DataSource.Http.jsonBody
+        , expect =
+            Decode.map2 (\fullPath captures -> { fullPath = fullPath, captures = captures })
+                (Decode.field "fullPath" Decode.string)
+                (Decode.field "captures" (Decode.list Decode.string))
+                |> Decode.list
+                |> Decode.map
+                    (\rawGlob ->
+                        rawGlob
+                            |> List.map
+                                (\{ fullPath, captures } ->
+                                    DataSource.Internal.Glob.run fullPath captures glob
+                                        |> .match
+                                )
+                    )
+                |> DataSource.Http.expectJson
+        }
 
 
 {-| Sometimes you want to make sure there is a unique file matching a particular pattern.
@@ -1046,5 +1092,5 @@ expectUniqueMatchFromList globs =
 toPatternString : Glob a -> String
 toPatternString glob =
     case glob of
-        Glob pattern_ _ _ ->
+        Glob pattern_ _ ->
             pattern_

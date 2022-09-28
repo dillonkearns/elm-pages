@@ -3,11 +3,14 @@ module Internal.ApiRoute exposing
     , ApiRouteBuilder(..)
     , firstMatch
     , pathToMatches
+    , toPattern
     , tryMatch
     , withRoutes
     )
 
 import DataSource exposing (DataSource)
+import Head
+import Pattern exposing (Pattern)
 import Regex exposing (Regex)
 
 
@@ -44,12 +47,20 @@ type ApiRoute response
         , matchesToResponse : String -> DataSource (Maybe response)
         , buildTimeRoutes : DataSource (List String)
         , handleRoute : String -> DataSource Bool
+        , pattern : Pattern
+        , kind : String
+        , globalHeadTags : Maybe (DataSource (List Head.Tag))
         }
+
+
+toPattern : ApiRoute response -> Pattern
+toPattern (ApiRoute { pattern }) =
+    pattern
 
 
 {-| -}
 pathToMatches : String -> ApiRouteBuilder a constructor -> List String
-pathToMatches path (ApiRouteBuilder pattern _ _ _) =
+pathToMatches path (ApiRouteBuilder _ pattern _ _ _) =
     Regex.find
         (Regex.fromString pattern
             |> Maybe.withDefault Regex.never
@@ -57,18 +68,19 @@ pathToMatches path (ApiRouteBuilder pattern _ _ _) =
         path
         |> List.concatMap .submatches
         |> List.filterMap identity
+        |> List.reverse
 
 
 {-| -}
 withRoutes : (constructor -> List (List String)) -> ApiRouteBuilder a constructor -> List String
-withRoutes buildUrls (ApiRouteBuilder _ _ toString constructor) =
+withRoutes buildUrls (ApiRouteBuilder _ _ _ toString constructor) =
     buildUrls (constructor [])
         |> List.map toString
 
 
 {-| -}
 tryMatch : String -> ApiRouteBuilder response constructor -> Maybe response
-tryMatch path (ApiRouteBuilder pattern handler _ _) =
+tryMatch path (ApiRouteBuilder _ pattern handler _ _) =
     let
         matches : List String
         matches =
@@ -79,6 +91,7 @@ tryMatch path (ApiRouteBuilder pattern handler _ _) =
                 path
                 |> List.concatMap .submatches
                 |> List.filterMap identity
+                |> List.reverse
     in
     handler matches
         |> Just
@@ -86,4 +99,4 @@ tryMatch path (ApiRouteBuilder pattern handler _ _) =
 
 {-| -}
 type ApiRouteBuilder a constructor
-    = ApiRouteBuilder String (List String -> a) (List String -> String) (List String -> constructor)
+    = ApiRouteBuilder Pattern String (List String -> a) (List String -> String) (List String -> constructor)

@@ -1,6 +1,6 @@
 module Head exposing
     ( Tag, metaName, metaProperty, metaRedirect
-    , rssLink, sitemapLink, rootLanguage
+    , rssLink, sitemapLink, rootLanguage, manifestLink
     , structuredData
     , AttributeValue
     , currentPageFullUrl, urlAttribute, raw
@@ -18,7 +18,7 @@ But this module might be useful if you have a special use case, or if you are
 writing a plugin package to extend `elm-pages`.
 
 @docs Tag, metaName, metaProperty, metaRedirect
-@docs rssLink, sitemapLink, rootLanguage
+@docs rssLink, sitemapLink, rootLanguage, manifestLink
 
 
 ## Structured Data
@@ -208,6 +208,16 @@ canonicalLink maybePath =
         , ( "href"
           , maybePath |> Maybe.map raw |> Maybe.withDefault currentPageFullUrl
           )
+        ]
+
+
+{-| Let's you link to your manifest.json file, see <https://developer.mozilla.org/en-US/docs/Web/Manifest#deploying_a_manifest>.
+-}
+manifestLink : String -> Tag
+manifestLink path =
+    node "link"
+        [ ( "rel", raw "manifest" )
+        , ( "href", raw path )
         ]
 
 

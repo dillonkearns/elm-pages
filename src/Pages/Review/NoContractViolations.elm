@@ -7,11 +7,14 @@ module Pages.Review.NoContractViolations exposing (rule)
 -}
 
 import Dict exposing (Dict)
+import Elm.Annotation
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Elm.ToString
+import Pages.Internal.RoutePattern as RoutePattern exposing (Param(..))
 import Review.Rule as Rule exposing (Direction, Error, Rule)
 import Set exposing (Set)
 
@@ -52,76 +55,150 @@ elm-review --template dillonkearns/elm-review-elm-pages/example --rules Pages.Re
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "Pages.Review.NoContractViolations"
-        { moduleName = []
-        , isPageModule = False
+    Rule.newProjectRuleSchema "Pages.Review.NoContractViolations"
+        { visitedCoreModules = Set.empty
         }
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.fromModuleRuleSchema
+        |> Rule.withModuleVisitor
+            (Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+                >> Rule.withDeclarationVisitor declarationVisitor
+            )
+        |> Rule.withModuleContext
+            { foldProjectContexts = \a b -> { visitedCoreModules = Set.union a.visitedCoreModules b.visitedCoreModules }
+            , fromModuleToProject = \_ moduleName _ -> { visitedCoreModules = Set.singleton (Node.value moduleName) }
+            , fromProjectToModule =
+                \_ moduleName _ ->
+                    { moduleName = Node.value moduleName
+                    , isRouteModule =
+                        if (Node.value moduleName |> List.take 1) == [ "Route" ] && ((Node.value moduleName |> List.length) > 1) then
+                            Just RouteModule
+
+                        else
+                            coreModulesAndExports
+                                |> Dict.get (Node.value moduleName)
+                                |> Maybe.map
+                                    (\requiredExposes ->
+                                        CoreModule { requiredExposes = requiredExposes }
+                                    )
+                    }
+            }
+        |> Rule.withFinalProjectEvaluation
+            (\context ->
+                let
+                    missingCoreModules : Set (List String)
+                    missingCoreModules =
+                        context.visitedCoreModules
+                            |> Set.diff coreModules
+                in
+                if missingCoreModules |> Set.isEmpty then
+                    []
+
+                else
+                    [ Rule.globalError
+                        { message = "Missing core modules"
+                        , details =
+                            missingCoreModules
+                                |> Set.toList
+                                |> List.map (String.join ".")
+                        }
+                    ]
+            )
+        |> Rule.fromProjectRuleSchema
+
+
+type SpecialModule
+    = RouteModule
+    | CoreModule { requiredExposes : List String }
+
+
+coreModules : Set (List String)
+coreModules =
+    Set.fromList
+        [ [ "Api" ]
+        , [ "Effect" ]
+        , [ "ErrorPage" ]
+        , [ "Shared" ]
+        , [ "Site" ]
+        , [ "View" ]
+        ]
+
+
+coreModulesAndExports : Dict (List String) (List String)
+coreModulesAndExports =
+    Dict.fromList
+        [ ( [ "Api" ], [ "routes" ] )
+        , ( [ "Effect" ], [ "Effect", "batch", "fromCmd", "map", "none", "perform" ] )
+        , ( [ "ErrorPage" ], [ "ErrorPage", "notFound", "internalError", "view", "statusCode", "head" ] )
+        , ( [ "Shared" ], [ "Data", "Model", "Msg", "template" ] )
+        , ( [ "Site" ], [ "config" ] )
+        , ( [ "View" ], [ "View", "map" ] )
+        ]
 
 
 type alias Context =
     { moduleName : List String
-    , isPageModule : Bool
+    , isRouteModule : Maybe SpecialModule
     }
 
 
 moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
-moduleDefinitionVisitor node _ =
-    let
-        isPageModule : Bool
-        isPageModule =
-            (Node.value node |> Module.moduleName |> List.take 1)
-                == [ "Page" ]
-                && ((Node.value node |> Module.moduleName |> List.length) > 1)
-    in
+moduleDefinitionVisitor node context =
     case Node.value node |> Module.exposingList of
         Exposing.All _ ->
-            ( []
-            , { moduleName = Node.value node |> Module.moduleName
-              , isPageModule = isPageModule
-              }
-            )
+            ( [], context )
 
         Exposing.Explicit exposedValues ->
-            if isPageModule then
-                case Set.diff (Set.fromList [ "Data", "Msg", "Model", "page" ]) (exposedNames exposedValues) |> Set.toList of
-                    [] ->
-                        ( []
-                        , { moduleName = Node.value node |> Module.moduleName
-                          , isPageModule = isPageModule
-                          }
-                        )
+            case context.isRouteModule of
+                Just RouteModule ->
+                    case Set.diff (Set.fromList [ "ActionData", "Data", "Msg", "Model", "route" ]) (exposedNames exposedValues) |> Set.toList of
+                        [] ->
+                            ( [], context )
 
-                    nonEmpty ->
-                        ( [ Rule.error
-                                { message = "Unexposed Declaration in Page Module"
-                                , details =
-                                    [ """Page Modules need to expose the following values:
+                        nonEmpty ->
+                            ( [ Rule.error
+                                    { message = "Unexposed Declaration in Route Module"
+                                    , details =
+                                        [ """Route Modules need to expose the following values:
 
-- page
+- route
 - Data
+- ActionData
 - Model
 - Msg
 
 But it is not exposing: """
-                                        ++ (nonEmpty |> String.join ", ")
-                                    ]
-                                }
-                                (Node.range (exposingListNode (Node.value node)))
-                          ]
-                        , { moduleName = Node.value node |> Module.moduleName
-                          , isPageModule = isPageModule
-                          }
-                        )
+                                            ++ (nonEmpty |> String.join ", ")
+                                        ]
+                                    }
+                                    (Node.range (exposingListNode (Node.value node)))
+                              ]
+                            , context
+                            )
 
-            else
-                ( []
-                , { moduleName = Node.value node |> Module.moduleName
-                  , isPageModule = isPageModule
-                  }
-                )
+                Just (CoreModule { requiredExposes }) ->
+                    case Set.diff (Set.fromList requiredExposes) (exposedNames exposedValues) |> Set.toList of
+                        [] ->
+                            ( [], context )
+
+                        nonEmpty ->
+                            ( [ Rule.error
+                                    { message = "A core elm-pages module needs to expose something"
+                                    , details =
+                                        [ "The "
+                                            ++ (context.moduleName |> String.join ".")
+                                            ++ " module must expose "
+                                            ++ (nonEmpty
+                                                    |> List.map (\value -> "`" ++ value ++ "`")
+                                                    |> String.join ", "
+                                               )
+                                        ]
+                                    }
+                                    (Node.range (exposingListNode (Node.value node)))
+                              ]
+                            , context
+                            )
+
+                _ ->
+                    ( [], context )
 
 
 routeParamsMatchesNameOrError : Node TypeAnnotation -> List String -> List (Error {})
@@ -141,12 +218,12 @@ routeParamsMatchesNameOrError annotation moduleName =
 
             else
                 [ Rule.error
-                    { message = "RouteParams don't match Page Module name"
+                    { message = "RouteParams don't match Route Module name"
                     , details =
                         [ """Expected
 
 """
-                            ++ expectedFieldsToRecordString expectedFields
+                            ++ expectedFieldsToRecordString moduleName
                             ++ "\n"
                         ]
                     }
@@ -154,106 +231,29 @@ routeParamsMatchesNameOrError annotation moduleName =
                 ]
 
 
-expectedFieldsToRecordString : Dict String Param -> String
-expectedFieldsToRecordString expectedFields =
-    "type alias RouteParams = { "
-        ++ (expectedFields
-                |> Dict.toList
-                |> List.map (\( name, param ) -> name ++ " : " ++ paramToTypeString param)
-                |> String.join ", "
+expectedFieldsToRecordString : List String -> String
+expectedFieldsToRecordString moduleName =
+    "type alias RouteParams = "
+        ++ (moduleName
+                |> RoutePattern.fromModuleName
+                |> Maybe.map (RoutePattern.toRouteParamsRecord >> Elm.Annotation.record >> Elm.ToString.annotation >> .signature)
+                |> Maybe.withDefault "ERROR"
            )
-        ++ " }"
-
-
-paramToTypeString : Param -> String
-paramToTypeString param =
-    case param of
-        Required ->
-            "String"
-
-        Optional ->
-            "Maybe String"
-
-        RequiredSplat ->
-            "( String, List String )"
-
-        OptionalSplat ->
-            "List String"
 
 
 expectedRouteParamsFromModuleName : List String -> Dict String Param
 expectedRouteParamsFromModuleName moduleSegments =
     case moduleSegments of
-        "Page" :: segments ->
+        "Route" :: segments ->
             segments
-                |> List.filterMap segmentToParam
+                --|> List.filterMap segmentToParam
+                |> RoutePattern.fromModuleName
+                |> Maybe.map RoutePattern.toRouteParamTypes
+                |> Maybe.withDefault []
                 |> Dict.fromList
 
         _ ->
             Dict.empty
-
-
-type Param
-    = Required
-    | Optional
-    | RequiredSplat
-    | OptionalSplat
-
-
-segmentToParam : String -> Maybe ( String, Param )
-segmentToParam segment =
-    if segment == "SPLAT__" then
-        ( "splat"
-        , OptionalSplat
-        )
-            |> Just
-
-    else if segment == "SPLAT_" then
-        ( "splat"
-        , RequiredSplat
-        )
-            |> Just
-
-    else if segment |> String.endsWith "__" then
-        ( segment
-            |> String.dropRight 2
-            |> decapitalize
-        , Optional
-        )
-            |> Just
-
-    else if segment |> String.endsWith "_" then
-        ( segment
-            |> String.dropRight 1
-            |> decapitalize
-        , Required
-        )
-            |> Just
-
-    else
-        Nothing
-
-
-{-| Decapitalize the first letter of a string.
-decapitalize "This is a phrase" == "this is a phrase"
-decapitalize "Hello, World" == "hello, World"
--}
-decapitalize : String -> String
-decapitalize word =
-    -- Source: https://github.com/elm-community/string-extra/blob/4.0.1/src/String/Extra.elm
-    changeCase Char.toLower word
-
-
-{-| Change the case of the first letter of a string to either uppercase or
-lowercase, depending of the value of `wantedCase`. This is an internal
-function for use in `toSentenceCase` and `decapitalize`.
--}
-changeCase : (Char -> Char) -> String -> String
-changeCase mutator word =
-    -- Source: https://github.com/elm-community/string-extra/blob/4.0.1/src/String/Extra.elm
-    String.uncons word
-        |> Maybe.map (\( head, tail ) -> String.cons (mutator head) tail)
-        |> Maybe.withDefault ""
 
 
 stringFields :
@@ -298,7 +298,7 @@ paramType typeAnnotation =
                             && (Node.value secondType == ( [], "List" ))
                             && (Node.value listType |> isString)
                     then
-                        Ok RequiredSplat
+                        Ok RequiredSplatParam
 
                     else
                         Err typeAnnotation
@@ -310,24 +310,24 @@ paramType typeAnnotation =
             -- TODO need to use module lookup table to handle Basics or aliases?
             case ( Node.value moduleContext, innerType ) of
                 ( ( [], "String" ), [] ) ->
-                    Ok Required
+                    Ok RoutePattern.RequiredParam
 
                 ( ( [], "Maybe" ), [ maybeOf ] ) ->
                     if isString (Node.value maybeOf) then
-                        Ok Optional
+                        Ok RoutePattern.OptionalParam
 
                     else
                         Err typeAnnotation
 
                 ( ( [], "List" ), [ listOf ] ) ->
                     if isString (Node.value listOf) then
-                        Ok OptionalSplat
+                        Ok RoutePattern.OptionalSplatParam
 
                     else
                         Err typeAnnotation
 
                 _ ->
-                    Ok Optional
+                    Ok RoutePattern.OptionalParam
 
         _ ->
             Err typeAnnotation
@@ -349,7 +349,7 @@ declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.AliasDeclaration { name, typeAnnotation } ) ->
             -- TODO check that generics is empty
-            if context.isPageModule && Node.value name == "RouteParams" then
+            if context.isRouteModule == Just RouteModule && Node.value name == "RouteParams" then
                 ( routeParamsMatchesNameOrError typeAnnotation context.moduleName
                 , context
                 )

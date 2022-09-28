@@ -1,9 +1,11 @@
 module DataSource.Http exposing
     ( RequestDetails
     , get, request
+    , Expect, expectString, expectJson, expectBytes, expectWhatever
+    , Response(..), Metadata, Error(..)
+    , expectStringResponse, expectBytesResponse
     , Body, emptyBody, stringBody, jsonBody
-    , unoptimizedRequest
-    , Expect, expectString, expectUnoptimizedJson
+    , uncachedRequest
     )
 
 {-| `DataSource.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -11,8 +13,6 @@ module DataSource.Http exposing
 The key differences are:
 
   - `DataSource.Http.Request`s are performed once at build time (`Http.Request`s are performed at runtime, at whenever point you perform them)
-  - `DataSource.Http.Request`s strip out unused JSON data from the data your decoder doesn't touch to minimize the JSON payload
-  - `DataSource.Http.Request`s can use [`Pages.Secrets`](Pages.Secrets) to securely use credentials from your environment variables which are completely masked in the production assets.
   - `DataSource.Http.Request`s have a built-in `DataSource.andThen` that allows you to perform follow-up requests without using tasks
 
 
@@ -39,6 +39,18 @@ in [this article introducing DataSource.Http requests and some concepts around i
 @docs get, request
 
 
+## Decoding Request Body
+
+@docs Expect, expectString, expectJson, expectBytes, expectWhatever
+
+
+## Expecting Responses
+
+@docs Response, Metadata, Error
+
+@docs expectStringResponse, expectBytesResponse
+
+
 ## Building a DataSource.Http Request Body
 
 The way you build a body is analogous to the `elm/http` package. Currently, only `emptyBody` and
@@ -48,36 +60,22 @@ and describe your use case!
 @docs Body, emptyBody, stringBody, jsonBody
 
 
-## Unoptimized Requests
+## Uncached Requests
 
-Warning - use these at your own risk! It's highly recommended that you use the other request functions that make use of
-`zwilias/json-decode-exploration` in order to allow you to reduce down your JSON to only the values that are used by
-your decoders. This can significantly reduce download sizes for your DataSource.Http requests.
-
-@docs unoptimizedRequest
-
-
-### Expect for unoptimized requests
-
-@docs Expect, expectString, expectUnoptimizedJson
+@docs uncachedRequest
 
 -}
 
+import Bytes exposing (Bytes)
+import Bytes.Decode
 import DataSource exposing (DataSource)
-import Dict
-import Internal.OptimizedDecoder
+import Dict exposing (Dict)
 import Json.Decode
-import Json.Decode.Exploration
 import Json.Encode as Encode
-import KeepOrDiscard
-import OptimizedDecoder as Decode exposing (Decoder)
-import Pages.Internal.ApplicationType as ApplicationType
 import Pages.Internal.StaticHttpBody as Body
-import Pages.Secrets
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending
-import Secrets
 
 
 {-| Build an empty body for a DataSource.Http request. See [elm/http's `Http.emptyBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#emptyBody).
@@ -121,28 +119,27 @@ type alias Body =
     getRequest : DataSource Int
     getRequest =
         DataSource.Http.get
-            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+            "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.field "stargazers_count" Decode.int)
 
 -}
 get :
-    Pages.Secrets.Value String
-    -> Decoder a
+    String
+    -> Json.Decode.Decoder a
     -> DataSource a
 get url decoder =
     request
-        (Secrets.map
-            (\okUrl ->
-                -- wrap in new variant
-                { url = okUrl
-                , method = "GET"
-                , headers = []
-                , body = emptyBody
-                }
-            )
+        ((\okUrl ->
+            -- wrap in new variant
+            { url = okUrl
+            , method = "GET"
+            , headers = []
+            , body = emptyBody
+            }
+         )
             url
         )
-        decoder
+        (expectJson decoder)
 
 
 {-| The full details to perform a DataSource.Http request.
@@ -155,66 +152,41 @@ type alias RequestDetails =
     }
 
 
-requestToString : RequestDetails -> String
-requestToString requestDetails =
-    requestDetails.url
-
-
-{-| Build a `DataSource.Http` request (analagous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
-This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
-with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
--}
-request :
-    Pages.Secrets.Value RequestDetails
-    -> Decoder a
-    -> DataSource a
-request urlWithSecrets decoder =
-    unoptimizedRequest urlWithSecrets (ExpectJson decoder)
-
-
-{-| Analgous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
+{-| Analogous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
 back in your DataSource.Http request.
 
-You can derive `ExpectUnoptimizedJson` from `ExpectString`. Or you could build your own helper to process the String
+You can derive `ExpectJson` from `ExpectString`. Or you could build your own helper to process the String
 as XML, for example, or give an `elm-pages` build error if the response can't be parsed as XML.
 
 -}
 type Expect value
-    = ExpectUnoptimizedJson (Json.Decode.Decoder value)
-    | ExpectJson (Decoder value)
-    | ExpectString (String -> Result String value)
+    = ExpectJson (Json.Decode.Decoder value)
+    | ExpectString (String -> value)
+    | ExpectResponse (Response String -> value)
+    | ExpectBytesResponse (Response Bytes -> value)
+    | ExpectBytes (Bytes.Decode.Decoder value)
+    | ExpectWhatever value
 
 
-{-| Request a raw String. You can validate the String if you need to check the formatting, or try to parse it
-in something besides JSON. Be sure to use the `DataSource.Http.request` function if you want an optimized request that
-strips out unused JSON to optimize your asset size.
+{-| Gives the HTTP response body as a raw String.
 
-If the function you pass to `expectString` yields an `Err`, then you will get a build error that will
-fail your `elm-pages` build and print out the String from the `Err`.
+    import DataSource exposing (DataSource)
+    import DataSource.Http
 
+    request : DataSource String
     request =
-        DataSource.Http.unoptimizedRequest
-            (Secrets.succeed
-                { url = "https://example.com/file.txt"
-                , method = "GET"
-                , headers = []
-                , body = DataSource.Http.emptyBody
-                }
-            )
-            (DataSource.Http.expectString
-                (\string ->
-                    if String.toUpper string == string then
-                        Ok string
-
-                    else
-                        Err "String was not uppercased"
-                )
-            )
+        DataSource.Http.request
+            { url = "https://example.com/file.txt"
+            , method = "GET"
+            , headers = []
+            , body = DataSource.Http.emptyBody
+            }
+            DataSource.Http.expectString
 
 -}
-expectString : (String -> Result String value) -> Expect value
+expectString : Expect String
 expectString =
-    ExpectString
+    ExpectString identity
 
 
 {-| Handle the incoming response as JSON and don't optimize the asset and strip out unused values.
@@ -226,242 +198,249 @@ If the function you pass to `expectString` yields an `Err`, then you will get a 
 fail your `elm-pages` build and print out the String from the `Err`.
 
 -}
-expectUnoptimizedJson : Json.Decode.Decoder value -> Expect value
-expectUnoptimizedJson =
-    ExpectUnoptimizedJson
+expectJson : Json.Decode.Decoder value -> Expect value
+expectJson =
+    ExpectJson
 
 
-{-| This is an alternative to the other request functions in this module that doesn't perform any optimizations on the
-asset. Be sure to use the optimized versions, like `DataSource.Http.request`, if you can. Using those can significantly reduce
-your asset sizes by removing all unused fields from your JSON.
+{-| -}
+expectBytes : Bytes.Decode.Decoder value -> Expect value
+expectBytes =
+    ExpectBytes
 
-You may want to use this function instead if you need XML data or plaintext. Or maybe you're hitting a GraphQL API,
-so you don't need any additional optimization as the payload is already reduced down to exactly what you requested.
 
--}
-unoptimizedRequest :
-    Pages.Secrets.Value RequestDetails
+{-| -}
+expectWhatever : value -> Expect value
+expectWhatever =
+    ExpectWhatever
+
+
+{-| -}
+expectStringResponse : Expect (Response String)
+expectStringResponse =
+    ExpectResponse identity
+
+
+{-| -}
+expectBytesResponse : Expect (Response Bytes)
+expectBytesResponse =
+    ExpectBytesResponse identity
+
+
+expectToString : Expect a -> String
+expectToString expect =
+    case expect of
+        ExpectJson _ ->
+            "ExpectJson"
+
+        ExpectString _ ->
+            "ExpectString"
+
+        ExpectResponse _ ->
+            "ExpectResponse"
+
+        ExpectBytes _ ->
+            "ExpectBytes"
+
+        ExpectWhatever _ ->
+            "ExpectWhatever"
+
+        ExpectBytesResponse _ ->
+            "ExpectBytesResponse"
+
+
+{-| -}
+request :
+    RequestDetails
     -> Expect a
     -> DataSource a
-unoptimizedRequest requestWithSecrets expect =
-    case expect of
-        ExpectJson decoder ->
-            Request Dict.empty
-                ( [ requestWithSecrets ]
-                , \keepOrDiscard appType rawResponseDict ->
-                    case appType of
-                        ApplicationType.Cli ->
-                            rawResponseDict
-                                |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                |> (\maybeResponse ->
-                                        case maybeResponse of
-                                            Just rawResponse ->
-                                                Ok
-                                                    ( Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                        (case keepOrDiscard of
-                                                            KeepOrDiscard.Keep ->
-                                                                Pages.StaticHttpRequest.StripResponse
-                                                                    (Decode.map (\_ -> ()) decoder)
+request request__ expect =
+    let
+        request_ : HashRequest.Request
+        request_ =
+            { url = request__.url
+            , headers = request__.headers
+            , method = request__.method
+            , body = request__.body
+            , useCache = True
+            }
+    in
+    requestRaw request_ expect
 
-                                                            KeepOrDiscard.Discard ->
-                                                                Pages.StaticHttpRequest.CliOnly
-                                                        )
-                                                    , rawResponse
-                                                    )
 
-                                            Nothing ->
-                                                Err
-                                                    (Pages.StaticHttpRequest.MissingHttpResponse
-                                                        (requestToString (Secrets.maskedLookup requestWithSecrets))
-                                                        [ requestWithSecrets ]
-                                                    )
-                                   )
-                                |> Result.andThen
-                                    (\( strippedResponses, rawResponse ) ->
-                                        rawResponse
-                                            |> Json.Decode.Exploration.decodeString (decoder |> Internal.OptimizedDecoder.jde)
-                                            |> (\decodeResult ->
-                                                    case decodeResult of
-                                                        Json.Decode.Exploration.BadJson ->
-                                                            Pages.StaticHttpRequest.DecoderError ("Payload sent back invalid JSON\n" ++ rawResponse) |> Err
+{-| -}
+uncachedRequest :
+    RequestDetails
+    -> Expect a
+    -> DataSource a
+uncachedRequest request__ expect =
+    let
+        request_ : HashRequest.Request
+        request_ =
+            { url = request__.url
+            , headers = request__.headers
+            , method = request__.method
+            , body = request__.body
+            , useCache = False
+            }
+    in
+    requestRaw request_ expect
 
-                                                        Json.Decode.Exploration.Errors errors ->
-                                                            errors
-                                                                |> Json.Decode.Exploration.errorsToString
-                                                                |> Pages.StaticHttpRequest.DecoderError
-                                                                |> Err
 
-                                                        Json.Decode.Exploration.WithWarnings _ a ->
-                                                            Ok a
+{-| Build a `DataSource.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
+This function takes in all the details to build a `DataSource.Http` request, but you can build your own simplified helper functions
+with this as a low-level detail, or you can use functions like [DataSource.Http.get](#get).
+-}
+requestRaw :
+    HashRequest.Request
+    -> Expect a
+    -> DataSource a
+requestRaw request__ expect =
+    let
+        request_ : HashRequest.Request
+        request_ =
+            { url = request__.url
+            , headers =
+                ( "elm-pages-internal", expectToString expect )
+                    :: request__.headers
+            , method = request__.method
+            , body = request__.body
+            , useCache = False
+            }
+    in
+    Request
+        [ request_ ]
+        (\maybeMockResolver rawResponseDict ->
+            (case maybeMockResolver of
+                Just mockResolver ->
+                    mockResolver request_
 
-                                                        Json.Decode.Exploration.Success a ->
-                                                            Ok a
-                                               )
-                                            |> Result.map
-                                                (\finalRequest ->
-                                                    ( case keepOrDiscard of
-                                                        KeepOrDiscard.Keep ->
-                                                            strippedResponses
-                                                                |> Dict.insert
-                                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                                    (Pages.StaticHttpRequest.StripResponse
-                                                                        (Decode.map (\_ -> ()) decoder)
-                                                                    )
+                Nothing ->
+                    rawResponseDict |> RequestsAndPending.get (request_ |> HashRequest.hash)
+            )
+                |> (\maybeResponse ->
+                        case maybeResponse of
+                            Just rawResponse ->
+                                Ok rawResponse
 
-                                                        KeepOrDiscard.Discard ->
-                                                            strippedResponses
-                                                                |> Dict.insert
-                                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                                    Pages.StaticHttpRequest.CliOnly
-                                                    , finalRequest
-                                                    )
-                                                )
-                                    )
-                                |> toResult
-
-                        ApplicationType.Browser ->
-                            rawResponseDict
-                                |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                |> (\maybeResponse ->
-                                        case maybeResponse of
-                                            Just rawResponse ->
-                                                Ok
-                                                    ( -- TODO should this be an empty Dict? Shouldn't matter in the browser.
-                                                      Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                        Pages.StaticHttpRequest.UseRawResponse
-                                                    , rawResponse
-                                                    )
-
-                                            Nothing ->
-                                                Err
-                                                    (Pages.StaticHttpRequest.MissingHttpResponse (requestToString (Secrets.maskedLookup requestWithSecrets))
-                                                        [ requestWithSecrets ]
-                                                    )
-                                   )
-                                |> Result.andThen
-                                    (\( strippedResponses, rawResponse ) ->
-                                        rawResponse
-                                            |> Json.Decode.decodeString (decoder |> Internal.OptimizedDecoder.jd)
-                                            |> (\decodeResult ->
-                                                    case decodeResult of
-                                                        Err error ->
-                                                            Pages.StaticHttpRequest.DecoderError
-                                                                ("Payload sent back invalid JSON\n"
-                                                                    ++ rawResponse
-                                                                    ++ "\n KEYS"
-                                                                    ++ (Dict.keys strippedResponses |> String.join " - ")
-                                                                    ++ Json.Decode.errorToString error
-                                                                )
-                                                                |> Err
-
-                                                        Ok a ->
-                                                            Ok a
-                                               )
-                                            |> Result.map
-                                                (\finalRequest ->
-                                                    ( strippedResponses
-                                                    , finalRequest
-                                                    )
-                                                )
-                                    )
-                                |> toResult
-                )
-
-        ExpectUnoptimizedJson decoder ->
-            Request Dict.empty
-                ( [ requestWithSecrets ]
-                , \_ _ rawResponseDict ->
-                    rawResponseDict
-                        |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                        |> (\maybeResponse ->
-                                case maybeResponse of
-                                    Just rawResponse ->
-                                        Ok
-                                            ( -- TODO check keepOrDiscard
-                                              Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                Pages.StaticHttpRequest.UseRawResponse
-                                            , rawResponse
-                                            )
-
-                                    Nothing ->
-                                        Err
-                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString (Secrets.maskedLookup requestWithSecrets))
-                                                [ requestWithSecrets ]
-                                            )
-                           )
-                        |> Result.andThen
-                            (\( strippedResponses, rawResponse ) ->
-                                rawResponse
-                                    |> Json.Decode.decodeString decoder
-                                    |> (\decodeResult ->
-                                            case decodeResult of
-                                                Err error ->
-                                                    error
-                                                        |> Decode.errorToString
-                                                        |> Pages.StaticHttpRequest.DecoderError
-                                                        |> Err
-
-                                                Ok a ->
-                                                    Ok a
-                                       )
-                                    |> Result.map
-                                        (\finalRequest ->
-                                            ( -- TODO check keepOrDiscard
-                                              strippedResponses
-                                                |> Dict.insert
-                                                    (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                                                    Pages.StaticHttpRequest.UseRawResponse
-                                            , finalRequest
-                                            )
+                            Nothing ->
+                                Err (Pages.StaticHttpRequest.MissingHttpResponse request_.url [ request_ ])
+                   )
+                |> Result.andThen
+                    (\(RequestsAndPending.Response maybeResponse body) ->
+                        case ( expect, body, maybeResponse ) of
+                            ( ExpectJson decoder, RequestsAndPending.JsonBody json, _ ) ->
+                                json
+                                    |> Json.Decode.decodeValue decoder
+                                    |> Result.mapError
+                                        (\error ->
+                                            error
+                                                |> Json.Decode.errorToString
+                                                |> Pages.StaticHttpRequest.DecoderError
                                         )
-                            )
-                        |> toResult
-                )
 
-        ExpectString mapStringFn ->
-            Request Dict.empty
-                ( [ requestWithSecrets ]
-                , \_ _ rawResponseDict ->
-                    rawResponseDict
-                        |> RequestsAndPending.get (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash)
-                        |> (\maybeResponse ->
-                                case maybeResponse of
-                                    Just rawResponse ->
-                                        Ok
-                                            ( -- TODO check keepOrDiscard
-                                              Dict.singleton (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
-                                            , rawResponse
-                                            )
-
-                                    Nothing ->
-                                        Err
-                                            (Pages.StaticHttpRequest.MissingHttpResponse (requestToString (Secrets.maskedLookup requestWithSecrets))
-                                                [ requestWithSecrets ]
-                                            )
-                           )
-                        |> Result.andThen
-                            (\( strippedResponses, rawResponse ) ->
-                                rawResponse
+                            ( ExpectString mapStringFn, RequestsAndPending.StringBody string, _ ) ->
+                                string
                                     |> mapStringFn
-                                    |> Result.mapError Pages.StaticHttpRequest.DecoderError
-                                    |> Result.map
-                                        (\finalRequest ->
-                                            ( -- TODO check keepOrDiscard
-                                              strippedResponses
-                                                |> Dict.insert (Secrets.maskedLookup requestWithSecrets |> HashRequest.hash) Pages.StaticHttpRequest.UseRawResponse
-                                            , finalRequest
-                                            )
+                                    |> Ok
+
+                            ( ExpectResponse mapResponse, RequestsAndPending.StringBody asStringBody, Just rawResponse ) ->
+                                let
+                                    asMetadata : Metadata
+                                    asMetadata =
+                                        { url = rawResponse.url
+                                        , statusCode = rawResponse.statusCode
+                                        , statusText = rawResponse.statusText
+                                        , headers = rawResponse.headers
+                                        }
+
+                                    rawResponseToResponse : Response String
+                                    rawResponseToResponse =
+                                        if 200 <= rawResponse.statusCode && rawResponse.statusCode < 300 then
+                                            GoodStatus_ asMetadata asStringBody
+
+                                        else
+                                            BadStatus_ asMetadata asStringBody
+                                in
+                                rawResponseToResponse
+                                    |> mapResponse
+                                    |> Ok
+
+                            ( ExpectBytesResponse mapResponse, RequestsAndPending.BytesBody rawBytesBody, Just rawResponse ) ->
+                                let
+                                    asMetadata : Metadata
+                                    asMetadata =
+                                        { url = rawResponse.url
+                                        , statusCode = rawResponse.statusCode
+                                        , statusText = rawResponse.statusText
+                                        , headers = rawResponse.headers
+                                        }
+
+                                    rawResponseToResponse : Response Bytes
+                                    rawResponseToResponse =
+                                        if 200 <= rawResponse.statusCode && rawResponse.statusCode < 300 then
+                                            GoodStatus_ asMetadata rawBytesBody
+
+                                        else
+                                            BadStatus_ asMetadata rawBytesBody
+                                in
+                                rawResponseToResponse
+                                    |> mapResponse
+                                    |> Ok
+
+                            ( ExpectBytes bytesDecoder, RequestsAndPending.BytesBody rawBytes, _ ) ->
+                                rawBytes
+                                    |> Bytes.Decode.decode bytesDecoder
+                                    |> Result.fromMaybe
+                                        (Pages.StaticHttpRequest.DecoderError
+                                            "Bytes decoding failed."
                                         )
-                            )
-                        |> toResult
-                )
+
+                            ( ExpectWhatever whateverValue, RequestsAndPending.WhateverBody, _ ) ->
+                                Ok whateverValue
+
+                            _ ->
+                                Err
+                                    (Pages.StaticHttpRequest.DecoderError
+                                        "Internal error - unexpected body, expect, and raw response combination."
+                                    )
+                    )
+                |> toResult
+        )
 
 
-toResult : Result Pages.StaticHttpRequest.Error ( Dict.Dict String Pages.StaticHttpRequest.WhatToDo, b ) -> RawRequest b
+{-| -}
+type alias Metadata =
+    { url : String
+    , statusCode : Int
+    , statusText : String
+    , headers : Dict String String
+    }
+
+
+{-| -}
+type Response body
+    = BadUrl_ String
+    | Timeout_
+    | NetworkError_
+    | BadStatus_ Metadata body
+    | GoodStatus_ Metadata body
+
+
+{-| -}
+type Error
+    = BadUrl String
+    | Timeout
+    | NetworkError
+    | BadStatus Metadata String
+    | BadBody String
+
+
+toResult : Result Pages.StaticHttpRequest.Error b -> RawRequest b
 toResult result =
     case result of
         Err error ->
             RequestError error
 
-        Ok ( stripped, okValue ) ->
-            ApiRoute stripped okValue
+        Ok okValue ->
+            ApiRoute okValue

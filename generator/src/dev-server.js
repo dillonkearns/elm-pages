@@ -2,10 +2,11 @@ const path = require("path");
 const fs = require("fs");
 const which = require("which");
 const chokidar = require("chokidar");
+const { URL } = require("url");
 const {
-  spawnElmMake,
   compileElmForBrowser,
   runElmReview,
+  compileCliApp,
 } = require("./compile-elm.js");
 const http = require("http");
 const https = require("https");
@@ -13,12 +14,16 @@ const codegen = require("./codegen.js");
 const kleur = require("kleur");
 const serveStatic = require("serve-static");
 const connect = require("connect");
-const { restoreColor } = require("./error-formatter");
+const { restoreColorSafe } = require("./error-formatter");
 const { Worker, SHARE_ENV } = require("worker_threads");
 const os = require("os");
 const { ensureDirSync } = require("./file-helpers.js");
 const baseMiddleware = require("./basepath-middleware.js");
 const devcert = require("devcert");
+const busboy = require("busboy");
+const { createServer: createViteServer } = require("vite");
+const cliVersion = require("../../package.json").version;
+const esbuild = require("esbuild");
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
@@ -33,7 +38,6 @@ async function start(options) {
   const useHttps = options.https;
   let elmMakeRunning = true;
 
-  const serve = serveStatic("public/", { index: false });
   fs.mkdirSync(".elm-pages/cache", { recursive: true });
   const serveCachedFiles = serveStatic(".elm-pages/cache", { index: false });
   const generatedFilesDirectory = "elm-stuff/elm-pages/generated-files";
@@ -60,7 +64,17 @@ async function start(options) {
     process.exit(1);
   }
   let clientElmMakeProcess = compileElmForBrowser(options);
-  let pendingCliCompile = compileCliApp(options);
+  let pendingCliCompile = compileCliApp(
+    options,
+    ".elm-pages/Main.elm",
+
+    path.join(process.cwd(), "elm-stuff/elm-pages/", "elm.js"),
+
+    // "elm.js",
+    "elm-stuff/elm-pages/",
+    path.join("elm-stuff/elm-pages/", "elm.js")
+  );
+
   watchElmSourceDirs(true);
 
   async function setup() {
@@ -101,27 +115,75 @@ async function start(options) {
     );
 
     watcher.add(sourceDirs);
-    watcher.add("./public/*.css");
-    watcher.add("./port-data-source.js");
   }
 
-  async function compileCliApp(options) {
-    await spawnElmMake(
-      options,
-      ".elm-pages/TemplateModulesBeta.elm",
-      "elm.js",
-      "elm-stuff/elm-pages/"
-    );
-  }
+  const viteConfig = await import(
+    path.join(process.cwd(), "elm-pages.config.mjs")
+  )
+    .then(async (elmPagesConfig) => {
+      return elmPagesConfig.default.vite || {};
+    })
+    .catch((error) => {
+      console.warn(
+        kleur.yellow(
+          "No `elm-pages.config.mjs` file found. Using default config."
+        )
+      );
+      return {};
+    });
+  const vite = await createViteServer({
+    server: { middlewareMode: "ssr", base: options.base, port: options.port },
+    configFile: false,
+    root: process.cwd(),
+    base: options.base,
+    ...viteConfig,
+  });
+  esbuild
+    .build({
+      entryPoints: ["./port-data-source"],
+      platform: "node",
+      assetNames: "[name]-[hash]",
+      chunkNames: "chunks/[name]-[hash]",
+      outExtension: { ".js": ".js" },
+      metafile: true,
+      bundle: true,
+      watch: true,
+      logLevel: "error",
+
+      outdir: ".elm-pages/compiled-ports",
+      entryNames: "[dir]/[name]-[hash]",
+
+      plugins: [
+        {
+          name: "example",
+          setup(build) {
+            build.onEnd((result) => {
+              global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+
+              clients.forEach((client) => {
+                client.response.write(`data: content.dat\n\n`);
+              });
+            });
+          },
+        },
+      ],
+    })
+    .then((result) => {
+      console.log("Watching port-data-source...");
+    })
+    .catch((error) => {
+      console.error("Failed to start port-data-source watcher", error);
+    });
 
   const app = connect()
     .use(timeMiddleware())
-    .use(baseMiddleware(options.base))
-    .use(awaitElmMiddleware)
-    .use(serveCachedFiles)
     .use(serveStaticCode)
-    .use(serve)
+    .use(awaitElmMiddleware)
+    .use(baseMiddleware(options.base))
+    .use(serveCachedFiles)
+    .use(vite.middlewares)
     .use(processRequest);
+
   if (useHttps) {
     const ssl = await devcert.certificateFor("localhost");
     https.createServer(ssl, app).listen(port);
@@ -144,10 +206,6 @@ async function start(options) {
   watcher.on("all", async function (eventName, pathThatChanged) {
     if (pathThatChanged === "elm.json") {
       watchElmSourceDirs(false);
-    } else if (pathThatChanged.endsWith(".css")) {
-      clients.forEach((client) => {
-        client.response.write(`data: style.css\n\n`);
-      });
     } else if (pathThatChanged.endsWith(".elm")) {
       if (elmMakeRunning) {
       } else {
@@ -156,7 +214,14 @@ async function start(options) {
           try {
             await codegen.generate(options.base);
             clientElmMakeProcess = compileElmForBrowser(options);
-            pendingCliCompile = compileCliApp(options);
+            pendingCliCompile = compileCliApp(
+              options,
+              ".elm-pages/Main.elm",
+              path.join(process.cwd(), "elm-stuff/elm-pages/", "elm.js"),
+              // "elm.js",
+              "elm-stuff/elm-pages/",
+              path.join("elm-stuff/elm-pages/", "elm.js")
+            );
 
             Promise.all([clientElmMakeProcess, pendingCliCompile])
               .then(() => {
@@ -182,7 +247,16 @@ async function start(options) {
           pendingCliCompile = Promise.reject(errorJson);
         } else {
           clientElmMakeProcess = compileElmForBrowser(options);
-          pendingCliCompile = compileCliApp(options);
+          pendingCliCompile = compileCliApp(
+            options,
+            ".elm-pages/Main.elm",
+
+            path.join(process.cwd(), "elm-stuff/elm-pages/", "elm.js"),
+
+            // "elm.js",
+            "elm-stuff/elm-pages/",
+            path.join("elm-stuff/elm-pages/", "elm.js")
+          );
         }
 
         Promise.all([clientElmMakeProcess, pendingCliCompile])
@@ -193,7 +267,7 @@ async function start(options) {
             elmMakeRunning = false;
           });
         clients.forEach((client) => {
-          client.response.write(`data: content.json\n\n`);
+          client.response.write(`data: content.dat\n\n`);
         });
       }
     } else {
@@ -215,7 +289,7 @@ async function start(options) {
       //   }
       // });
       clients.forEach((client) => {
-        client.response.write(`data: content.json\n\n`);
+        client.response.write(`data: content.dat\n\n`);
       });
     }
   });
@@ -243,7 +317,7 @@ async function start(options) {
   function needToRerunCodegen(eventName, pathThatChanged) {
     return (
       (eventName === "add" || eventName === "unlink") &&
-      pathThatChanged.match(/src\/Page\/.*\.elm/)
+      pathThatChanged.match(/app\/Route\/.*\.elm/)
     );
   }
 
@@ -251,12 +325,12 @@ async function start(options) {
    * @param {string} pathname
    * @param {((value: any) => any) | null | undefined} onOk
    * @param {((reason: any) => PromiseLike<never>) | null | undefined} onErr
+   * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} serverRequest
    */
-  function runRenderThread(pathname, onOk, onErr) {
+  function runRenderThread(serverRequest, pathname, onOk, onErr) {
     let cleanUpThread = () => {};
     return new Promise(async (resolve, reject) => {
       const readyThread = await waitForThread();
-      console.log(`Rendering ${pathname}`, readyThread.worker.threadId);
       cleanUpThread = () => {
         cleanUp(readyThread);
       };
@@ -265,6 +339,8 @@ async function start(options) {
       readyThread.worker.postMessage({
         mode: "dev-server",
         pathname,
+        serverRequest,
+        portsFilePath: global.portsFilePath,
       });
       readyThread.worker.on("message", (message) => {
         if (message.tag === "done") {
@@ -309,17 +385,18 @@ async function start(options) {
     } catch (error) {
       let isImplicitContractError = false;
       try {
-        isImplicitContractError = JSON.parse(error).errors.some(
-          (errorItem) => errorItem.name === "TemplateModulesBeta"
-        );
+        let jsonParsed = JSON.parse(error);
+        isImplicitContractError =
+          jsonParsed.errors &&
+          jsonParsed.errors.some((errorItem) => errorItem.name === "Main");
       } catch (unexpectedError) {
         console.log("Unexpected error", unexpectedError);
       }
       if (isImplicitContractError) {
         const reviewOutput = await runElmReview();
-        console.log(restoreColor(JSON.parse(reviewOutput)));
+        console.log(restoreColorSafe(reviewOutput));
 
-        if (req.url.includes("content.json")) {
+        if (req.url.includes("content.dat")) {
           res.writeHead(500, { "Content-Type": "application/json" });
           if (emptyReviewError(reviewOutput)) {
             res.end(error);
@@ -331,8 +408,8 @@ async function start(options) {
           res.end(errorHtml());
         }
       } else {
-        console.log(restoreColor(JSON.parse(error)));
-        if (req.url.includes("content.json")) {
+        console.log(restoreColorSafe(error));
+        if (req.url.includes("content.dat")) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(error);
         } else {
@@ -343,51 +420,149 @@ async function start(options) {
       return;
     }
 
-    await runRenderThread(
-      pathname,
-      function (renderResult) {
-        const is404 = renderResult.is404;
-        switch (renderResult.kind) {
-          case "json": {
-            res.writeHead(is404 ? 404 : 200, {
-              "Content-Type": "application/json",
-            });
-            res.end(renderResult.contentJson);
-            break;
-          }
-          case "html": {
-            res.writeHead(is404 ? 404 : 200, {
-              "Content-Type": "text/html",
-            });
-            res.end(renderResult.htmlString);
-            break;
-          }
-          case "api-response": {
-            let mimeType = serveStatic.mime.lookup(pathname || "text/html");
-            mimeType =
-              mimeType === "application/octet-stream" ? "text/html" : mimeType;
-            res.writeHead(renderResult.statusCode, {
-              "Content-Type": mimeType,
-            });
-            res.end(renderResult.body);
-            // TODO - if route is static, write file to api-route-cache/ directory
-            // TODO - get 404 or other status code from elm-pages renderer
-            break;
-          }
-        }
-      },
+    const requestTime = new Date();
+    /** @type {string | null} */
+    let body = null;
 
-      function (error) {
-        console.log(restoreColor(error));
-        if (req.url.includes("content.json")) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(error));
-        } else {
-          res.writeHead(500, { "Content-Type": "text/html" });
-          res.end(errorHtml());
-        }
+    req.on("data", function (data) {
+      if (!body) {
+        body = "";
       }
-    );
+      body += data;
+    });
+
+    req.on("end", async function () {
+      // TODO run render directly instead of in worker thread
+      await runRenderThread(
+        await reqToJson(req, body, requestTime),
+        pathname,
+        async function (renderResult) {
+          const is404 = renderResult.is404;
+          switch (renderResult.kind) {
+            case "bytes": {
+              res.writeHead(is404 ? 404 : renderResult.statusCode, {
+                "Content-Type": "application/octet-stream",
+                ...renderResult.headers,
+              });
+              res.end(Buffer.from(renderResult.contentDatPayload.buffer));
+              break;
+            }
+            case "json": {
+              // TODO is this used anymore? I Think it's a dead code path and can be deleted
+              res.writeHead(is404 ? 404 : renderResult.statusCode, {
+                "Content-Type": "application/json",
+                ...renderResult.headers,
+              });
+              // is contentJson used any more? I think it can safely be deleted
+              res.end(renderResult.contentJson);
+              break;
+            }
+            case "html": {
+              try {
+                const template =
+                  /*html*/
+                  `<!DOCTYPE html>
+<!-- ROOT --><html lang="en">
+  <head>
+    <script src="/hmr.js" type="text/javascript"></script>
+    <script src="/elm.js" type="text/javascript"></script>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/dev-style.css">
+    <script src="/elm-pages.js" type="module"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title><!-- PLACEHOLDER_TITLE --></title>
+    <meta name="generator" content="elm-pages v${cliVersion}" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <!-- PLACEHOLDER_HEAD_AND_DATA -->
+  </head>
+  <body>
+    <div data-url="" display="none"></div>
+    <!-- PLACEHOLDER_HTML -->
+  </body>
+</html>
+                `;
+                const processedTemplate = await vite.transformIndexHtml(
+                  req.originalUrl,
+                  template
+                );
+                const info = renderResult.htmlString;
+                const renderedHtml = processedTemplate
+                  .replace(
+                    /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
+                    `${info.headTags}
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
+                  )
+                  .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
+                  .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
+                  .replace(
+                    /<!-- ROOT -->\S*<html lang="en">/m,
+                    info.rootElement
+                  );
+                res.writeHead(renderResult.statusCode, {
+                  "Content-Type": "text/html",
+                  ...renderResult.headers,
+                });
+                res.end(renderedHtml);
+              } catch (e) {
+                vite.ssrFixStacktrace(e);
+                next(e);
+              }
+              break;
+            }
+            case "api-response": {
+              if (renderResult.body.kind === "server-response") {
+                const serverResponse = renderResult.body;
+                res.writeHead(
+                  serverResponse.statusCode,
+                  serverResponse.headers
+                );
+                res.end(serverResponse.body);
+              } else if (renderResult.body.kind === "static-file") {
+                let mimeType = serveStatic.mime.lookup(pathname || "text/html");
+                mimeType =
+                  mimeType === "application/octet-stream"
+                    ? "text/html"
+                    : mimeType;
+                res.writeHead(renderResult.statusCode, {
+                  "Content-Type": mimeType,
+                });
+                res.end(renderResult.body.body);
+                // TODO - if route is static, write file to api-route-cache/ directory
+                // TODO - get 404 or other status code from elm-pages renderer
+              } else {
+                throw (
+                  "Unexpected api-response renderResult: " +
+                  JSON.stringify(renderResult, null, 2)
+                );
+              }
+              break;
+            }
+            default: {
+              console.dir(renderResult);
+              throw "Unexpected renderResult kind: " + renderResult.kind;
+            }
+          }
+        },
+
+        function (error) {
+          console.log(restoreColorSafe(error));
+          if (req.url.includes("content.dat")) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(error));
+          } else {
+            res.writeHead(500, { "Content-Type": "text/html" });
+            res.end(errorHtml());
+          }
+        }
+      );
+    });
   }
 
   /**
@@ -512,21 +687,12 @@ function errorHtml() {
   return `<!DOCTYPE html>
   <html lang="en">
   <head>
-    <link rel="stylesheet" href="/style.css"></link>
-    <style>
-@keyframes lds-default {
-    0%, 20%, 80%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.5);
-    }
-  }
-    </style>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/dev-style.css">
     <link rel="preload" href="/index.js" as="script">
     <!--<link rel="preload" href="/elm.js" as="script">-->
     <script src="/hmr.js" type="text/javascript"></script>
-    <!--<script defer="defer" src="/elm.js" type="text/javascript"></script>-->
+    <script src="/elm.js" type="text/javascript"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script>
@@ -551,9 +717,9 @@ function errorHtml() {
 
 async function ensureRequiredExecutables() {
   try {
-    await which("elm");
+    await which("lamdera");
   } catch (error) {
-    throw "I couldn't find elm on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
+    throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
   try {
     await which("elm-review");
@@ -562,4 +728,80 @@ async function ensureRequiredExecutables() {
   }
 }
 
+/**
+ * @param {http.IncomingMessage} req
+ * @param {string | null} body
+ * @param {Date} requestTime
+ */
+function reqToJson(req, body, requestTime) {
+  return new Promise((resolve, reject) => {
+    if (
+      req.method === "POST" &&
+      req.headers["content-type"] &&
+      req.headers["content-type"].includes("multipart/form-data") &&
+      body
+    ) {
+      try {
+        const bb = busboy({
+          headers: req.headers,
+        });
+        let fields = {};
+
+        bb.on("file", (fieldname, file, info) => {
+          const { filename, encoding, mimeType } = info;
+
+          file.on("data", (data) => {
+            fields[fieldname] = {
+              filename,
+              mimeType,
+              body: data.toString(),
+            };
+          });
+        });
+
+        bb.on("field", (fieldName, value) => {
+          fields[fieldName] = value;
+        });
+
+        // TODO skip parsing JSON and form data body if busboy doesn't run
+        bb.on("close", () => {
+          resolve(toJsonHelper(req, body, requestTime, fields));
+        });
+        bb.write(body);
+      } catch (error) {
+        resolve(toJsonHelper(req, body, requestTime, null));
+      }
+    } else {
+      resolve(toJsonHelper(req, body, requestTime, null));
+    }
+  });
+}
+
+/**
+ * @param {http.IncomingMessage} req
+ * @param {string | null} body
+ * @param {Date} requestTime
+ * @param {Object | null} multiPartFormData
+ * @returns {{method: string; rawUrl: string; body: string?; }}
+ */
+function toJsonHelper(req, body, requestTime, multiPartFormData) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  return {
+    method: req.method,
+    headers: req.headers || {},
+    rawUrl: url.toString(),
+    body: body,
+    requestTime: Math.round(requestTime.getTime()),
+    multiPartFormData: multiPartFormData,
+  };
+}
+// TODO capture repeat entries into a list of values
+// TODO have expect functions in Elm to handle expecting exactly one value, or getting first value only without failing if more
+function paramsToObject(entries) {
+  const result = {};
+  for (const [key, value] of entries) {
+    result[key] = value;
+  }
+  return result;
+}
 module.exports = { start };

@@ -107,6 +107,25 @@ const restoreColor = (error) => {
 };
 
 /**
+ * @param {string} error
+ * @returns {string}
+ */
+function restoreColorSafe(error) {
+  try {
+    if (typeof error === "string") {
+      const asJson = JSON.parse(error);
+      return restoreColor(asJson);
+    } else if (Array.isArray(error)) {
+      return error.map(restoreColor).join("\n\n\n");
+    } else {
+      return restoreColor(error);
+    }
+  } catch (e) {
+    return error;
+  }
+}
+
+/**
  * parseMsg :: { errors: Array } -> String
  *
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
@@ -126,7 +145,7 @@ const restoreProblem =
     }
   };
 
-module.exports = { restoreColor };
+module.exports = { restoreColor, restoreColorSafe };
 
 /** @typedef { CompilerError | ReportError | IElmReviewError } RootObject */
 

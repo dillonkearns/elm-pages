@@ -50,6 +50,7 @@ multi-part path part, like `blog/post-1`.
 join : List String -> Path
 join parts =
     parts
+        |> List.filter (\segment -> segment /= "/")
         |> List.map normalize
         |> String.join "/"
         |> Path

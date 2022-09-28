@@ -1,15 +1,19 @@
 #!/usr/bin/env node
 
 const build = require("./build.js");
+const dirHelpers = require("./dir-helpers.js");
 const dev = require("./dev-server.js");
-const generate = require("./codegen-template-module.js");
 const init = require("./init.js");
 const codegen = require("./codegen.js");
 const fs = require("fs");
 const path = require("path");
+const { restoreColorSafe } = require("./error-formatter");
 
 const commander = require("commander");
+const { compileCliApp } = require("./compile-elm.js");
+const { runElmCodegenInstall } = require("./elm-codegen.js");
 const Argument = commander.Argument;
+const Option = commander.Option;
 
 const packageVersion = require("../../package.json").version;
 
@@ -40,6 +44,20 @@ async function main() {
     });
 
   program
+    .command("gen")
+    .option(
+      "--base <basePath>",
+      "build site to be served under a base path",
+      "/"
+    )
+    .description(
+      "generate code, useful for CI where you don't want to run a full build"
+    )
+    .action(async (options) => {
+      await codegen.generate(options.base);
+    });
+
+  program
     .command("dev")
     .description("start a dev server")
     .option("--port <number>", "serve site at localhost:<port>", "1234")
@@ -59,22 +77,73 @@ async function main() {
     });
 
   program
-    .command("add <moduleName>")
-    .addArgument(
-      new Argument("<state>", "Generate Page Module with state")
-        .choices(["local", "shared"])
-        .argOptional()
-    )
-    .description("create a new Page module")
-    .action(async (moduleName, state) => {
-      await generate.run({ moduleName, withState: state });
-    });
-
-  program
     .command("init <projectName>")
     .description("scaffold a new elm-pages project boilerplate")
     .action(async (projectName) => {
       await init.run(projectName);
+    });
+
+  program
+    .command("codegen <moduleName>")
+    .description("run a generator")
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .action(async (moduleName, options, options2) => {
+      if (!/^[A-Z][a-zA-Z0-9_]*(\.[A-Z][a-zA-Z0-9_]*)*$/.test(moduleName)) {
+        throw `Invalid module name "${moduleName}", must be in the format of an Elm module`;
+      }
+      const splitModuleName = moduleName.split(".");
+      const expectedFilePath = path.join(
+        process.cwd(),
+        "codegen",
+        `${splitModuleName.join("/")}.elm`
+      );
+      if (!fs.existsSync(expectedFilePath)) {
+        throw `I couldn't find a module named ${expectedFilePath}`;
+      }
+      try {
+        await codegen.generate("");
+        await runElmCodegenInstall();
+        await compileCliApp(
+          // { debug: true },
+          {},
+          `${splitModuleName.join("/")}.elm`,
+          path.join(process.cwd(), "codegen/elm-stuff/scaffold.js"),
+          "codegen",
+
+          path.join(process.cwd(), "codegen/elm-stuff/scaffold.js")
+        );
+      } catch (error) {
+        console.log(restoreColorSafe(error));
+        process.exit(1);
+      }
+
+      const elmScaffoldProgram = getAt(
+        splitModuleName,
+        require(path.join(process.cwd(), "./codegen/elm-stuff/scaffold.js")).Elm
+      );
+      const program = elmScaffoldProgram.init({
+        flags: { argv: ["", ...options2.args], versionMessage: "1.2.3" },
+      });
+
+      safeSubscribe(program, "print", (message) => {
+        console.log(message);
+      });
+      safeSubscribe(program, "printAndExitFailure", (message) => {
+        console.log(message);
+        process.exit(1);
+      });
+      safeSubscribe(program, "printAndExitSuccess", (message) => {
+        console.log(message);
+        process.exit(0);
+      });
+      safeSubscribe(program, "writeFile", async (info) => {
+        const filePath = path.join(process.cwd(), "app", info.path);
+        await dirHelpers.tryMkdir(path.dirname(filePath));
+        fs.writeFileSync(filePath, info.body);
+        console.log("Success! Created file", filePath);
+        process.exit(0);
+      });
     });
 
   program
@@ -94,6 +163,25 @@ async function main() {
     });
 
   program.parse(process.argv);
+}
+
+/**
+ * @param {string[]} properties
+ * @param {Object} object
+ * @returns unknown
+ */
+function getAt(properties, object) {
+  if (properties.length === 0) {
+    return object;
+  } else {
+    const [next, ...rest] = properties;
+    return getAt(rest, object[next]);
+  }
+}
+
+function safeSubscribe(program, portName, subscribeFunction) {
+  program.ports[portName] &&
+    program.ports[portName].subscribe(subscribeFunction);
 }
 
 function clearHttpAndPortCache() {

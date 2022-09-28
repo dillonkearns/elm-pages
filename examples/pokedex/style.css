@@ -1,0 +1,80 @@
+@import url("https://rsms.me/inter/inter.css");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap");
+
+body {
+  font-family: "Inter var" !important;
+}
+
+/*
+
+input:invalid {
+  border: 2px dashed red;
+}
+
+input:valid {
+  border: 2px solid black;
+}
+
+*/
+
+
+input[type=password], input[type=text], input[type=date], input[type=email] {
+  border-radius: 10px !important;
+  border-color: #ccc !important;
+}
+
+input[type=checkbox] {
+  border-radius: 4px !important;
+  border-color: #ccc !important;
+}
+
+main.color-app {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 18px;
+  margin: 0;
+  padding: 0;
+}
+
+main.color-app {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 0.8em;
+  padding: 0.8em;
+}
+
+main.color-app .content {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 0.5em;
+  max-width: 90vw;
+  padding: 2rem 3rem;
+  width: 475px;
+  color: var(--selected-color);
+}
+
+main.color-app .content h1 {
+  margin: 0;
+}
+
+main.color-app .content ul {
+  list-style: none;
+  padding: 0;
+}
+
+main.color-app .content li {
+  margin-left: -1rem;
+  margin-right: -1rem;
+  padding: 1rem;
+}
+
+main.color-app .content li:nth-child(odd) {
+  background: rgb(100 10 80 / 0.1);
+}
+
+.timestamp {
+  font-size: 0.75rem;
+}
