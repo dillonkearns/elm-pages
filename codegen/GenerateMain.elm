@@ -39,7 +39,7 @@ import Gen.Server.Response
 import Gen.String
 import Gen.Tuple
 import Gen.Url
-import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
+import RoutePattern exposing (RoutePattern)
 import String.Case
 
 

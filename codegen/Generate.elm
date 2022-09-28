@@ -20,9 +20,9 @@ import Gen.Server.Response
 import Gen.String
 import Gen.Tuple
 import GenerateMain
-import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import Pretty
 import Regex exposing (Regex)
+import RoutePattern exposing (RoutePattern)
 
 
 type alias Flags =

@@ -10,7 +10,8 @@
             "elm/browser": "1.0.2"
         },
         "local": [
-            "src/"
+            "src/",
+            "codegen/helpers/"
         ]
     }
 }

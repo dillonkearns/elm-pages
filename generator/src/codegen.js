@@ -25,6 +25,21 @@ async function generate(basePath) {
   ensureDirSync("./.elm-pages");
   ensureDirSync("./gen");
   ensureDirSync("./elm-stuff/elm-pages/.elm-pages");
+  console.log('Copying... ', path.join(__dirname, "../code-to-copy"));
+  await fsExtra.copy(path.join(__dirname, "../code-to-copy"), "./elm-stuff/elm-pages/.elm-pages/", {
+    recursive: true
+  });
+  await fsExtra.copy(path.join(__dirname, "../code-to-copy"), ".elm-pages/", {
+    recursive: true,
+  });
+  await fsExtra.copy(path.join(__dirname, "../code-to-copy"), "./elm-stuff/elm-pages/client/.elm-pages/", {
+    recursive: true
+  });
+
+  //   await copyDirFlat(path.join(__dirname, "../code-to-copy/"), "./elm-stuff/elm-pages/client/.elm-pages/");
+  // await copyDirFlat(path.join(__dirname, "../code-to-copy"), ".elm-pages/");
+  // process.exit(1)
+
 
   const uiFileContent = elmPagesUiFile();
 
@@ -96,6 +111,7 @@ async function generateClientFolder(basePath) {
   await newCopyBoth("RouteBuilder.elm");
   await newCopyBoth("SharedTemplate.elm");
   await newCopyBoth("SiteConfig.elm");
+
 
   await copyModifiedElmJsonClient();
   await fsExtra.copy("./app", "./elm-stuff/elm-pages/client/app", {
