@@ -7,6 +7,8 @@ module Pages.Internal.Platform exposing
 
 @docs Flags, Model, Msg, Program, application, init, update
 
+@docs Effect, RequestInfo, view
+
 -}
 
 import AriaLiveAnnouncer
@@ -109,6 +111,7 @@ urlsToPagePath urls =
         |> Path.join
 
 
+{-| -}
 view :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Model userModel pageData actionData sharedData
@@ -345,6 +348,7 @@ type alias Model userModel pageData actionData sharedData =
     }
 
 
+{-| -}
 type Effect userMsg pageData actionData sharedData userEffect errorPage
     = ScrollToTop
     | NoEffect
@@ -1113,6 +1117,7 @@ application config =
         }
 
 
+{-| -}
 type alias RequestInfo =
     { contentType : String
     , body : String

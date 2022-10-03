@@ -7,6 +7,8 @@ module Pages.Internal.RoutePattern exposing
 
 @docs Ending, RoutePattern, Segment, view, toVariant, routeToBranch
 
+@docs Param, RouteParam, fromModuleName, hasRouteParams, repeatWithoutOptionalEnding, toModuleName, toRouteParamTypes, toRouteParamsRecord, toVariantName
+
 -}
 
 import Elm
@@ -23,6 +25,7 @@ type alias RoutePattern =
     }
 
 
+{-| -}
 toModuleName : RoutePattern -> List String
 toModuleName route =
     let
@@ -48,6 +51,7 @@ toModuleName route =
             segmentsAsModuleParts ++ [ endingToVariantName ending |> Tuple.first ]
 
 
+{-| -}
 fromModuleName : List String -> Maybe RoutePattern
 fromModuleName moduleNameSegments =
     case moduleNameSegments |> List.reverse of
@@ -74,6 +78,7 @@ fromModuleName moduleNameSegments =
             Just { segments = [], ending = Nothing }
 
 
+{-| -}
 toRouteParamsRecord : RoutePattern -> List ( String, Annotation )
 toRouteParamsRecord pattern =
     (pattern.segments
@@ -113,6 +118,7 @@ toRouteParamsRecord pattern =
            )
 
 
+{-| -}
 toRouteParamTypes : RoutePattern -> List ( String, Param )
 toRouteParamTypes pattern =
     (pattern.segments
@@ -150,6 +156,7 @@ toRouteParamTypes pattern =
            )
 
 
+{-| -}
 routeToBranch : RoutePattern -> List ( Elm.CodeGen.Pattern, Elm.CodeGen.Expression )
 routeToBranch route =
     case route.segments of
@@ -233,6 +240,7 @@ routeToBranch route =
                     ]
 
 
+{-| -}
 type RouteParam
     = StaticParam String
     | DynamicParam String
@@ -241,6 +249,7 @@ type RouteParam
     | OptionalSplatParam2
 
 
+{-| -}
 hasRouteParams : RoutePattern -> Bool
 hasRouteParams route =
     route
@@ -249,6 +258,7 @@ hasRouteParams route =
         |> List.any (not << isStatic)
 
 
+{-| -}
 isStatic : RouteParam -> Bool
 isStatic routeParam =
     case routeParam of
@@ -259,6 +269,7 @@ isStatic routeParam =
             False
 
 
+{-| -}
 repeatWithoutOptionalEnding : List RouteParam -> Maybe (List RouteParam)
 repeatWithoutOptionalEnding routeParams =
     case routeParams |> List.reverse of
@@ -272,6 +283,7 @@ repeatWithoutOptionalEnding routeParams =
             Nothing
 
 
+{-| -}
 toVariantName : RoutePattern -> { variantName : String, params : List RouteParam }
 toVariantName route =
     let
@@ -335,6 +347,7 @@ toVariantName route =
            )
 
 
+{-| -}
 toRecordVariant : Bool -> RoutePattern -> Elm.CodeGen.Expression
 toRecordVariant nothingCase route =
     let
@@ -447,6 +460,7 @@ toVariant pattern =
             noArgsOrNonEmptyRecordArg
 
 
+{-| -}
 endingToVariantNameFields : Ending -> ( String, Maybe ( String, Elm.CodeGen.Expression ) )
 endingToVariantNameFields ending =
     case ending of
@@ -472,6 +486,7 @@ endingToVariantNameFields ending =
             )
 
 
+{-| -}
 endingToVariantName : Ending -> ( String, Maybe ( String, Annotation ) )
 endingToVariantName ending =
     case ending of
@@ -510,6 +525,7 @@ type Segment
     | DynamicSegment String
 
 
+{-| -}
 segmentToString : Segment -> String
 segmentToString segment =
     case segment of
@@ -548,6 +564,7 @@ view routePattern =
         )
 
 
+{-| -}
 toString_ : List Segment -> String
 toString_ segments =
     "/"
@@ -557,6 +574,7 @@ toString_ segments =
            )
 
 
+{-| -}
 tryAsEnding : String -> Maybe Ending
 tryAsEnding segment =
     if segment == "SPLAT__" then
@@ -578,6 +596,7 @@ tryAsEnding segment =
         Nothing
 
 
+{-| -}
 segmentToParam : String -> Segment
 segmentToParam segment =
     if segment |> String.endsWith "_" then
@@ -612,6 +631,7 @@ changeCase mutator word =
         |> Maybe.withDefault ""
 
 
+{-| -}
 type Param
     = RequiredParam
     | OptionalParam
@@ -619,6 +639,7 @@ type Param
     | OptionalSplatParam
 
 
+{-| -}
 unconsPattern : List Elm.CodeGen.Pattern -> Elm.CodeGen.Pattern
 unconsPattern list =
     case list of
@@ -635,6 +656,7 @@ unconsPattern list =
                 listRest
 
 
+{-| -}
 toKebab : String -> String
 toKebab string =
     string
@@ -645,6 +667,7 @@ toKebab string =
         |> String.toLower
 
 
+{-| -}
 regexFromString : String -> Regex
 regexFromString =
     Regex.fromString >> Maybe.withDefault Regex.never
