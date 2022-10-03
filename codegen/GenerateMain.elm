@@ -1805,7 +1805,7 @@ otherFile routes phaseString =
             }
         globalHeadTags =
             Elm.Declare.fn "globalHeadTags"
-                ( "htmlToString", Nothing )
+                ( "htmlToString", Type.function [ Gen.Html.annotation_.html Gen.Basics.annotation_.never ] Type.string |> Just )
                 (\htmlToString ->
                     Elm.Op.cons
                         (Elm.value
