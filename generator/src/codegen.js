@@ -29,6 +29,10 @@ async function generate(basePath) {
   const uiFileContent = elmPagesUiFile();
 
   await Promise.all([
+    copyToBoth("Pages/ProgramConfig.elm"),
+    copyToBoth("HtmlPrinter.elm"),
+    copyToBoth("Pages/Internal/ResponseSketch.elm"),
+    copyToBoth("Pages/FormState.elm"),
     copyToBoth("RouteBuilder.elm"),
     copyToBoth("SharedTemplate.elm"),
     copyToBoth("SiteConfig.elm"),
@@ -64,7 +68,8 @@ async function generate(basePath) {
     ),
     // write modified elm.json to elm-stuff/elm-pages/
     copyModifiedElmJson(),
-    ...(await listFiles("./Pages/Internal")).map(copyToBoth),
+    ...(await listFiles("./Test")).map(copyToBoth),
+    // ...(await listFiles("./Pages/Internal")).map(copyToBoth),
   ]);
 }
 
@@ -171,26 +176,29 @@ async function runElmReviewCodemod(cwd) {
  */
 async function copyToBoth(moduleToCopy) {
   await Promise.all([
-    fs.promises.mkdir(path.dirname(path.join(`./.elm-pages/`, moduleToCopy)), {
-      recursive: true,
-    }),
-    fs.promises.mkdir(
-      path.dirname(
-        path.join(`./elm-stuff/elm-pages/.elm-pages/`, moduleToCopy)
-      ),
-      { recursive: true }
-    ),
-  ]);
-  await Promise.all([
-    fs.promises.copyFile(
+    copyFileEnsureDir(
       path.join(__dirname, moduleToCopy),
       path.join(`./.elm-pages/`, moduleToCopy)
-    ),
-    fs.promises.copyFile(
+   ),
+   copyFileEnsureDir(
+      path.join(__dirname, moduleToCopy),
+      path.join(`./elm-stuff/elm-pages/client/.elm-pages`, moduleToCopy)
+   ),
+  copyFileEnsureDir(
       path.join(__dirname, moduleToCopy),
       path.join(`./elm-stuff/elm-pages/.elm-pages/`, moduleToCopy)
-    ),
-  ]);
+   )]);
+}
+
+/**
+ * @param {string} from
+ * @param {string} to
+ */
+async function copyFileEnsureDir(from, to) {
+    await fs.promises.mkdir(path.dirname(to), {
+      recursive: true,
+    })
+    await fs.promises.copyFile(from, to)
 }
 
 /**
