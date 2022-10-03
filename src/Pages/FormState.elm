@@ -1,5 +1,11 @@
 module Pages.FormState exposing (Event(..), FieldEvent, FieldState, FormState, PageFormState, init, listeners, setField, setSubmitAttempted, update)
 
+{-|
+
+@docs Event, FieldEvent, FieldState, FormState, PageFormState, init, listeners, setField, setSubmitAttempted, update
+
+-}
+
 import Dict exposing (Dict)
 import Form.FieldStatus as FieldStatus exposing (FieldStatus)
 import Html exposing (Attribute)
@@ -9,6 +15,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Pages.Msg
 
 
+{-| -}
 listeners : String -> List (Attribute (Pages.Msg.Msg userMsg))
 listeners formId =
     [ Html.Events.on "focusin" (Decode.value |> Decode.map Pages.Msg.FormFieldEvent)
@@ -18,6 +25,7 @@ listeners formId =
     ]
 
 
+{-| -}
 type Event
     = InputEvent String
     | FocusEvent
@@ -25,6 +33,7 @@ type Event
     | BlurEvent
 
 
+{-| -}
 type alias FieldEvent =
     { value : String
     , formId : String
@@ -33,6 +42,7 @@ type alias FieldEvent =
     }
 
 
+{-| -}
 fieldEventDecoder : Decoder FieldEvent
 fieldEventDecoder =
     Decode.map4 FieldEvent
@@ -42,6 +52,7 @@ fieldEventDecoder =
         fieldDecoder
 
 
+{-| -}
 inputValueDecoder : Decoder String
 inputValueDecoder =
     Decode.at [ "target", "type" ] Decode.string
@@ -65,6 +76,7 @@ inputValueDecoder =
             )
 
 
+{-| -}
 fieldDecoder : Decoder Event
 fieldDecoder =
     Decode.field "type" Decode.string
@@ -87,6 +99,7 @@ fieldDecoder =
             )
 
 
+{-| -}
 update : Decode.Value -> PageFormState -> PageFormState
 update eventObject pageFormState =
     --if Dict.isEmpty pageFormState then
@@ -114,6 +127,7 @@ update eventObject pageFormState =
             pageFormState
 
 
+{-| -}
 setField : { formId : String, name : String, value : String } -> PageFormState -> PageFormState
 setField info pageFormState =
     pageFormState
@@ -144,6 +158,7 @@ setField info pageFormState =
             )
 
 
+{-| -}
 updateForm : FieldEvent -> FormState -> FormState
 updateForm fieldEvent formState =
     { formState
@@ -172,6 +187,7 @@ updateForm fieldEvent formState =
     }
 
 
+{-| -}
 setSubmitAttempted : String -> PageFormState -> PageFormState
 setSubmitAttempted fieldId pageFormState =
     pageFormState
@@ -186,6 +202,7 @@ setSubmitAttempted fieldId pageFormState =
             )
 
 
+{-| -}
 init : FormState
 init =
     { fields = Dict.empty
@@ -193,22 +210,26 @@ init =
     }
 
 
+{-| -}
 type alias PageFormState =
     Dict String FormState
 
 
+{-| -}
 type alias FormState =
     { fields : Dict String FieldState
     , submitAttempted : Bool
     }
 
 
+{-| -}
 type alias FieldState =
     { value : String
     , status : FieldStatus
     }
 
 
+{-| -}
 increaseStatusTo : FieldStatus -> FieldStatus -> FieldStatus
 increaseStatusTo increaseTo currentStatus =
     if statusRank increaseTo > statusRank currentStatus then
@@ -218,6 +239,7 @@ increaseStatusTo increaseTo currentStatus =
         currentStatus
 
 
+{-| -}
 statusRank : FieldStatus -> Int
 statusRank status =
     case status of

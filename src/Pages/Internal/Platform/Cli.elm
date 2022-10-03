@@ -435,6 +435,10 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site renderRequest { staticHttpCache, isDevServer } config =
     let
+        globalHeadTags : DataSource (List Head.Tag)
+        globalHeadTags =
+            (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
+
         staticResponses : StaticResponses
         staticResponses =
             case renderRequest of
@@ -463,7 +467,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                                                             DataSource.map3 (\_ _ _ -> ())
                                                                 (config.data serverRequestPayload.frontmatter)
                                                                 config.sharedData
-                                                                (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
+                                                                globalHeadTags
 
                                                         PageServerResponse.ServerResponse _ ->
                                                             DataSource.succeed something
@@ -474,7 +478,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                                         DataSource.map3 (\_ _ _ -> ())
                                             (config.data serverRequestPayload.frontmatter)
                                             config.sharedData
-                                            (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
+                                            globalHeadTags
                                 )
                                 (if isDevServer then
                                     config.handleRoute serverRequestPayload.frontmatter
@@ -487,14 +491,14 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                             StaticResponses.renderApiRequest
                                 (DataSource.map2 (\_ _ -> ())
                                     (apiRequest.matchesToResponse path)
-                                    (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
+                                    globalHeadTags
                                 )
 
                         RenderRequest.NotFound _ ->
                             StaticResponses.renderApiRequest
                                 (DataSource.map2 (\_ _ -> ())
                                     (DataSource.succeed [])
-                                    (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
+                                    globalHeadTags
                                 )
 
         unprocessedPages : List ( Path, route )
@@ -936,10 +940,14 @@ sendSinglePageProgress site contentJson config model info =
                         contentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
+                globalHeadTags : DataSource (List Head.Tag)
+                globalHeadTags =
+                    (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
+
                 siteDataResult : Result BuildError (List Head.Tag)
                 siteDataResult =
                     StaticHttpRequest.resolve
-                        (config.globalHeadTags |> Maybe.withDefault (DataSource.succeed []))
+                        globalHeadTags
                         model.allRawResponses
                         |> Result.mapError (StaticHttpRequest.toBuildError "Site.elm")
             in

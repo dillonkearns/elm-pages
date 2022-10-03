@@ -98,7 +98,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , encodeResponse : ResponseSketch pageData actionData sharedData -> Bytes.Encode.Encoder
     , encodeAction : actionData -> Bytes.Encode.Encoder
     , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData actionData sharedData)
-    , globalHeadTags : Maybe (DataSource (List Head.Tag))
+    , globalHeadTags : Maybe ((Html Never -> String) -> DataSource (List Head.Tag))
     , cmdToEffect : Cmd userMsg -> effect
     , perform :
         { fetchRouteData :

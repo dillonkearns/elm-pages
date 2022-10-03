@@ -33,11 +33,13 @@
         "Form",
         "Form.FieldView",
         "Form.Value",
+        "Pages.FormState",
         "Pages.Transition",
         "Pages.Generate",
         "Form.Validation",
         "Pages.Internal.Platform",
         "Pages.Internal.Platform.Cli",
+        "Pages.Internal.ResponseSketch",
         "Pages.Internal.Router",
         "Pages.Internal.RoutePattern",
         "Pages.Internal.NotFoundReason"

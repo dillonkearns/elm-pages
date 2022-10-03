@@ -60,11 +60,11 @@ otherFile routes phaseString =
                 _ ->
                     Cli
 
-        config :
-            { declaration : Elm.Declaration
-            , reference : Elm.Expression
-            , referenceFrom : List String -> Elm.Expression
-            }
+        --config :
+        --    { declaration : Elm.Declaration
+        --    , reference : Elm.Expression
+        --    , referenceFrom : List String -> Elm.Expression
+        --    }
         config =
             { init = Elm.apply (Elm.val "init") [ Elm.nothing ]
             , update = update.value []
@@ -171,7 +171,7 @@ otherFile routes phaseString =
                         Elm.nothing
 
                     Cli ->
-                        Elm.just globalHeadTags.reference
+                        Elm.just (globalHeadTags.value [])
             , cmdToEffect =
                 Elm.value
                     { annotation = Nothing
@@ -205,21 +205,22 @@ otherFile routes phaseString =
             , errorPageToData = Elm.val "DataErrorPage____"
             , notFoundRoute = Elm.nothing
             }
-                |> Gen.Pages.ProgramConfig.make_.programConfig
-                |> Elm.withType
-                    (Gen.Pages.ProgramConfig.annotation_.programConfig
-                        (Type.named [] "Msg")
-                        (Type.named [] "Model")
-                        (Type.maybe (Type.named [ "Route" ] "Route"))
-                        (Type.named [] "PageData")
-                        (Type.named [] "ActionData")
-                        (Type.named [ "Shared" ] "Data")
-                        (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ])
-                        (Type.var "mappedMsg")
-                        (Type.named [ "ErrorPage" ] "ErrorPage")
-                    )
-                |> topLevelValue "config"
+                |> make_
+                |> Elm.withType Type.unit
 
+        --|> Elm.withType
+        --    (Gen.Pages.ProgramConfig.annotation_.programConfig
+        --        (Type.named [] "Msg")
+        --        (Type.named [] "Model")
+        --        (Type.maybe (Type.named [ "Route" ] "Route"))
+        --        (Type.named [] "PageData")
+        --        (Type.named [] "ActionData")
+        --        (Type.named [ "Shared" ] "Data")
+        --        (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ])
+        --        (Type.var "mappedMsg")
+        --        (Type.named [ "ErrorPage" ] "ErrorPage")
+        --    )
+        --|> topLevelValue "config"
         pathPatterns :
             { declaration : Elm.Declaration
             , reference : Elm.Expression
@@ -1798,37 +1799,40 @@ otherFile routes phaseString =
 
         globalHeadTags :
             { declaration : Elm.Declaration
-            , reference : Elm.Expression
-            , referenceFrom : List String -> Elm.Expression
+            , call : Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            , value : List String -> Elm.Expression
             }
         globalHeadTags =
-            topLevelValue "globalHeadTags"
-                (Elm.Op.cons
-                    (Elm.value
-                        { importFrom = [ "Site" ]
-                        , annotation = Nothing
-                        , name = "config"
-                        }
-                        |> Elm.get "head"
-                    )
-                    (Elm.apply
+            Elm.Declare.fn "globalHeadTags"
+                ( "htmlToString", Nothing )
+                (\htmlToString ->
+                    Elm.Op.cons
                         (Elm.value
-                            { importFrom = [ "Api" ]
+                            { importFrom = [ "Site" ]
                             , annotation = Nothing
-                            , name = "routes"
+                            , name = "config"
                             }
+                            |> Elm.get "head"
                         )
-                        [ getStaticRoutes.reference
-                        , Gen.HtmlPrinter.values_.htmlToString
-                        ]
-                        |> Gen.List.call_.filterMap Gen.ApiRoute.values_.getGlobalHeadTagsDataSource
-                    )
-                    |> Gen.DataSource.call_.combine
-                    |> Gen.DataSource.call_.map Gen.List.values_.concat
-                    |> Elm.withType
-                        (Gen.DataSource.annotation_.dataSource
-                            (Type.list Gen.Head.annotation_.tag)
+                        (Elm.apply
+                            (Elm.value
+                                { importFrom = [ "Api" ]
+                                , annotation = Nothing
+                                , name = "routes"
+                                }
+                            )
+                            [ getStaticRoutes.reference
+                            , htmlToString
+                            ]
+                            |> Gen.List.call_.filterMap Gen.ApiRoute.values_.getGlobalHeadTagsDataSource
                         )
+                        |> Gen.DataSource.call_.combine
+                        |> Gen.DataSource.call_.map Gen.List.values_.concat
+                        |> Elm.withType
+                            (Gen.DataSource.annotation_.dataSource
+                                (Type.list Gen.Head.annotation_.tag)
+                            )
                 )
 
         encodeResponse :
@@ -2064,15 +2068,14 @@ otherFile routes phaseString =
             )
         , case phase of
             Browser ->
-                Gen.Pages.Internal.Platform.application config.reference
+                Gen.Pages.Internal.Platform.application config
                     |> Elm.declaration "main"
                     |> expose
 
             Cli ->
-                Gen.Pages.Internal.Platform.Cli.cliApplication config.reference
+                Gen.Pages.Internal.Platform.Cli.cliApplication config
                     |> Elm.declaration "main"
                     |> expose
-        , config.declaration
         , dataForRoute.declaration
         , toTriple.declaration
         , action.declaration
@@ -2297,3 +2300,105 @@ routeTemplateFunction functionName route =
         , name = "route"
         }
         |> Elm.get functionName
+
+
+make_ :
+    { init : Elm.Expression
+    , update : Elm.Expression
+    , subscriptions : Elm.Expression
+    , sharedData : Elm.Expression
+    , data : Elm.Expression
+    , action : Elm.Expression
+    , onActionData : Elm.Expression
+    , view : Elm.Expression
+    , handleRoute : Elm.Expression
+    , getStaticRoutes : Elm.Expression
+    , urlToRoute : Elm.Expression
+    , routeToPath : Elm.Expression
+    , site : Elm.Expression
+    , toJsPort : Elm.Expression
+    , fromJsPort : Elm.Expression
+    , gotBatchSub : Elm.Expression
+    , hotReloadData : Elm.Expression
+    , onPageChange : Elm.Expression
+    , apiRoutes : Elm.Expression
+    , pathPatterns : Elm.Expression
+    , basePath : Elm.Expression
+    , sendPageData : Elm.Expression
+    , byteEncodePageData : Elm.Expression
+    , byteDecodePageData : Elm.Expression
+    , encodeResponse : Elm.Expression
+    , encodeAction : Elm.Expression
+    , decodeResponse : Elm.Expression
+    , globalHeadTags : Elm.Expression
+    , cmdToEffect : Elm.Expression
+    , perform : Elm.Expression
+    , errorStatusCode : Elm.Expression
+    , notFoundPage : Elm.Expression
+    , internalError : Elm.Expression
+    , errorPageToData : Elm.Expression
+    , notFoundRoute : Elm.Expression
+    }
+    -> Elm.Expression
+make_ programConfig_args =
+    Elm.record
+        [ Tuple.pair "init" programConfig_args.init
+        , Tuple.pair "update" programConfig_args.update
+        , Tuple.pair
+            "subscriptions"
+            programConfig_args.subscriptions
+        , Tuple.pair "sharedData" programConfig_args.sharedData
+        , Tuple.pair "data" programConfig_args.data
+        , Tuple.pair "action" programConfig_args.action
+        , Tuple.pair "onActionData" programConfig_args.onActionData
+        , Tuple.pair "view" programConfig_args.view
+        , Tuple.pair "handleRoute" programConfig_args.handleRoute
+        , Tuple.pair
+            "getStaticRoutes"
+            programConfig_args.getStaticRoutes
+        , Tuple.pair "urlToRoute" programConfig_args.urlToRoute
+        , Tuple.pair "routeToPath" programConfig_args.routeToPath
+        , Tuple.pair "site" programConfig_args.site
+        , Tuple.pair "toJsPort" programConfig_args.toJsPort
+        , Tuple.pair "fromJsPort" programConfig_args.fromJsPort
+        , Tuple.pair "gotBatchSub" programConfig_args.gotBatchSub
+        , Tuple.pair
+            "hotReloadData"
+            programConfig_args.hotReloadData
+        , Tuple.pair "onPageChange" programConfig_args.onPageChange
+        , Tuple.pair "apiRoutes" programConfig_args.apiRoutes
+        , Tuple.pair "pathPatterns" programConfig_args.pathPatterns
+        , Tuple.pair "basePath" programConfig_args.basePath
+        , Tuple.pair "sendPageData" programConfig_args.sendPageData
+        , Tuple.pair
+            "byteEncodePageData"
+            programConfig_args.byteEncodePageData
+        , Tuple.pair
+            "byteDecodePageData"
+            programConfig_args.byteDecodePageData
+        , Tuple.pair
+            "encodeResponse"
+            programConfig_args.encodeResponse
+        , Tuple.pair "encodeAction" programConfig_args.encodeAction
+        , Tuple.pair
+            "decodeResponse"
+            programConfig_args.decodeResponse
+        , Tuple.pair
+            "globalHeadTags"
+            programConfig_args.globalHeadTags
+        , Tuple.pair "cmdToEffect" programConfig_args.cmdToEffect
+        , Tuple.pair "perform" programConfig_args.perform
+        , Tuple.pair
+            "errorStatusCode"
+            programConfig_args.errorStatusCode
+        , Tuple.pair "notFoundPage" programConfig_args.notFoundPage
+        , Tuple.pair
+            "internalError"
+            programConfig_args.internalError
+        , Tuple.pair
+            "errorPageToData"
+            programConfig_args.errorPageToData
+        , Tuple.pair
+            "notFoundRoute"
+            programConfig_args.notFoundRoute
+        ]

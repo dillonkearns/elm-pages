@@ -29,10 +29,6 @@ async function generate(basePath) {
   const uiFileContent = elmPagesUiFile();
 
   await Promise.all([
-    copyToBoth("Pages/ProgramConfig.elm"),
-    copyToBoth("HtmlPrinter.elm"),
-    copyToBoth("Pages/Internal/ResponseSketch.elm"),
-    copyToBoth("Pages/FormState.elm"),
     copyToBoth("RouteBuilder.elm"),
     copyToBoth("SharedTemplate.elm"),
     copyToBoth("SiteConfig.elm"),
@@ -68,7 +64,6 @@ async function generate(basePath) {
     ),
     // write modified elm.json to elm-stuff/elm-pages/
     copyModifiedElmJson(),
-    ...(await listFiles("./Test")).map(copyToBoth),
     // ...(await listFiles("./Pages/Internal")).map(copyToBoth),
   ]);
 }
