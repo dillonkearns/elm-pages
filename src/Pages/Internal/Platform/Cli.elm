@@ -435,14 +435,15 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site renderRequest { staticHttpCache, isDevServer } config =
     let
-        globalHeadTags : DataSource (List Head.Tag)
-        globalHeadTags =
-            (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
-
         staticResponses : StaticResponses
         staticResponses =
             case renderRequest of
                 RenderRequest.SinglePage _ singleRequest _ ->
+                    let
+                        globalHeadTags : DataSource (List Head.Tag)
+                        globalHeadTags =
+                            (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
+                    in
                     case singleRequest of
                         RenderRequest.Page serverRequestPayload ->
                             let
