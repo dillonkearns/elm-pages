@@ -69,6 +69,7 @@
     "generator/src/",
     "generator/review/",
     "src/",
+    "codegen/",
     "generator/template/",
     "generator/static-code/"
   ],
