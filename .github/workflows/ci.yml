@@ -40,6 +40,8 @@ jobs:
         with:
           path: ~/.elm
           key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
+      - name: Download lamdera
+        run: curl https://static.lamdera.com/bin/linux/lamdera-next-alpine-musl -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
 
       # Install npm packages, unless we restored them from cache.
       # Since `npm ci` removes the node_modules folder before running it’s
@@ -60,8 +62,6 @@ jobs:
         run: npm i -g elm-format@0.8.5
       - name: Add elm-review, elm and elm-format to path
         run: npm bin >> $GITHUB_PATH
-      - name: Download lamdera
-        run: curl https://static.lamdera.com/bin/linux/lamdera-next-alpine-musl -o /usr/local/bin/lamdera && chmod a+x /usr/local/bin/lamdera
       - name: Tests
         run: npm test
       - uses: sparksp/elm-review-action@v1
