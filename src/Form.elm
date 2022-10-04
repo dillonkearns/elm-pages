@@ -575,7 +575,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
 
 {-| Declare a hidden field for the form.
 
-Unlike [`field`](#field) declarations which are rendered using [`Form.ViewField`](Form-ViewField)
+Unlike [`field`](#field) declarations which are rendered using [`Form.FieldView`](Form-FieldView)
 functions, `hiddenField` inputs are automatically inserted into the form when you render it.
 
 You define the field's validations the same way as for `field`, with the

@@ -11,6 +11,10 @@ when inside the directory containing this file.
 
 -}
 
+import Docs.NoMissing exposing (exposedModules, onlyExposed)
+import Docs.ReviewAtDocs
+import Docs.ReviewLinksAndSections
+import Docs.UpToDateReadmeLinks
 import NoDebug.Log
 import NoDebug.TodoOrToString
 import NoExposingEverything
@@ -37,7 +41,14 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    ([ NoPrimitiveTypeAlias.rule
+    ([ --Docs.NoMissing.rule
+       --    { document = onlyExposed
+       --    , from = exposedModules
+       --    }
+       Docs.ReviewLinksAndSections.rule
+     , Docs.ReviewAtDocs.rule
+     , Docs.UpToDateReadmeLinks.rule
+     , NoPrimitiveTypeAlias.rule
      , NoExposingEverything.rule
      , NoPrematureLetComputation.rule
      , NoImportingEverything.rule []

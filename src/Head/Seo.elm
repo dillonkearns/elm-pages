@@ -1,6 +1,7 @@
 module Head.Seo exposing
     ( Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website
-    , DateOrDateTime(..), dateOrDateTimeToString
+    , dateOrDateTimeToString
+    , DateOrDateTime(..)
     )
 
 {-| <https://ogp.me/#>
@@ -49,6 +50,11 @@ with the `head` function that you pass to your Pages config (`Pages.application`
                 }
 
 @docs Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website
+
+
+## DateOrDateTime
+
+@docs DateOrDateTime, dateOrDateTimeToString
 
 -}
 

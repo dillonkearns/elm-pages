@@ -171,7 +171,7 @@ just the metadata.
             (Decode.field "tags" (Decode.list Decode.string))
 
 If you wanted to use this to get this metadata for all blog posts in a folder, you could use
-the [`DataSource`](DataSource) API along with [`DataSource.Glob`](DataSource.Glob).
+the [`DataSource`](DataSource) API along with [`DataSource.Glob`](DataSource-Glob).
 
     import DataSource exposing (DataSource)
     import DataSource.File as File
