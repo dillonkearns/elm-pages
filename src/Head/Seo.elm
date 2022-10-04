@@ -1,4 +1,7 @@
-module Head.Seo exposing (Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website)
+module Head.Seo exposing
+    ( Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website
+    , DateOrDateTime(..), dateOrDateTimeToString
+    )
 
 {-| <https://ogp.me/#>
 <https://developers.facebook.com/docs/sharing/opengraph>
@@ -49,12 +52,20 @@ with the `head` function that you pass to your Pages config (`Pages.application`
 
 -}
 
+import Date
 import Head
 import Head.Twitter as Twitter
+import Iso8601
 import LanguageTag.Country
 import LanguageTag.Language
 import MimeType exposing (MimeType)
 import Pages.Url
+import Time
+
+
+type DateOrDateTime
+    = Date Date.Date
+    | DateTime Time.Posix
 
 
 {-| Will be displayed as a large card in twitter
@@ -236,9 +247,9 @@ website common =
 article :
     { tags : List String
     , section : Maybe String
-    , publishedTime : Maybe Iso8601DateTime
-    , modifiedTime : Maybe Iso8601DateTime
-    , expirationTime : Maybe Iso8601DateTime
+    , publishedTime : Maybe DateOrDateTime
+    , modifiedTime : Maybe DateOrDateTime
+    , expirationTime : Maybe DateOrDateTime
     }
     -> Common
     -> List Head.Tag
@@ -253,7 +264,7 @@ book :
     ->
         { tags : List String
         , isbn : Maybe String
-        , releaseDate : Maybe Iso8601DateTime
+        , releaseDate : Maybe DateOrDateTime
         }
     -> List Head.Tag
 book common details =
@@ -372,14 +383,14 @@ type ContentDetails
     | Article
         { tags : List String
         , section : Maybe String
-        , publishedTime : Maybe Iso8601DateTime
-        , modifiedTime : Maybe Iso8601DateTime
-        , expirationTime : Maybe Iso8601DateTime
+        , publishedTime : Maybe DateOrDateTime
+        , modifiedTime : Maybe DateOrDateTime
+        , expirationTime : Maybe DateOrDateTime
         }
     | Book
         { tags : List String
         , isbn : Maybe String
-        , releaseDate : Maybe Iso8601DateTime
+        , releaseDate : Maybe DateOrDateTime
         }
     | Song
         {-
@@ -398,13 +409,6 @@ type ContentDetails
         , lastName : String
         , username : Maybe String
         }
-
-
-{-| <https://en.wikipedia.org/wiki/ISO_8601>
--}
-type alias Iso8601DateTime =
-    -- TODO should be more type-safe here
-    String
 
 
 {-| See <https://ogp.me/#structured>
@@ -461,9 +465,9 @@ tags (Content common details) =
                     -}
                     [ ( "og:type", "article" |> Head.raw |> Just )
                     , ( "article:section", articleDetails.section |> Maybe.map Head.raw )
-                    , ( "article:published_time", articleDetails.publishedTime |> Maybe.map Head.raw )
-                    , ( "article:modified_time", articleDetails.modifiedTime |> Maybe.map Head.raw )
-                    , ( "article:expiration_time", articleDetails.expirationTime |> Maybe.map Head.raw )
+                    , ( "article:published_time", articleDetails.publishedTime |> Maybe.map (dateOrDateTimeToString >> Head.raw) )
+                    , ( "article:modified_time", articleDetails.modifiedTime |> Maybe.map (dateOrDateTimeToString >> Head.raw) )
+                    , ( "article:expiration_time", articleDetails.expirationTime |> Maybe.map (dateOrDateTimeToString >> Head.raw) )
                     ]
                         ++ List.map
                             (\tag -> ( "article:tag", tag |> Head.raw |> Just ))
@@ -472,7 +476,7 @@ tags (Content common details) =
                 Book bookDetails ->
                     [ ( "og:type", "book" |> Head.raw |> Just )
                     , ( "og:isbn", bookDetails.isbn |> Maybe.map Head.raw )
-                    , ( "og:release_date", bookDetails.releaseDate |> Maybe.map Head.raw )
+                    , ( "og:release_date", bookDetails.releaseDate |> Maybe.map (dateOrDateTimeToString >> Head.raw) )
                     ]
                         ++ List.map
                             (\tag -> ( "book:tag", tag |> Head.raw |> Just ))
@@ -501,6 +505,16 @@ tags (Content common details) =
             [ Head.canonicalLink common.canonicalUrlOverride
             , Head.metaName "description" (Head.raw common.description)
             ]
+
+
+dateOrDateTimeToString : DateOrDateTime -> String
+dateOrDateTimeToString dateOrTime =
+    case dateOrTime of
+        Date date ->
+            Date.toIsoString date
+
+        DateTime posix ->
+            Iso8601.fromTime posix
 
 
 

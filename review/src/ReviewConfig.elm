@@ -21,6 +21,7 @@ import NoMissingTypeAnnotationInLetIn
 import NoMissingTypeExpose
 import NoModuleOnExposedNames
 import NoPrematureLetComputation
+import NoPrimitiveTypeAlias
 import NoUnmatchedUnit
 import NoUnoptimizedRecursion
 import NoUnused.CustomTypeConstructorArgs
@@ -36,7 +37,8 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    ([ NoExposingEverything.rule
+    ([ NoPrimitiveTypeAlias.rule
+     , NoExposingEverything.rule
      , NoPrematureLetComputation.rule
      , NoImportingEverything.rule []
         |> ignoreInTest
