@@ -163,7 +163,7 @@ routeToBranch route =
         [ StaticSegment "Index" ] ->
             [ ( Elm.CodeGen.listPattern [], Elm.CodeGen.val "Index" ) ]
 
-        segments ->
+        _ ->
             case route.ending of
                 Just ending ->
                     [ ( (case ending of
@@ -201,7 +201,7 @@ routeToBranch route =
                       )
                     ]
                         ++ (case ending of
-                                Optional optionalName ->
+                                Optional _ ->
                                     [ ( Elm.CodeGen.listPattern
                                             (route.segments
                                                 |> List.map
@@ -273,7 +273,7 @@ isStatic routeParam =
 repeatWithoutOptionalEnding : List RouteParam -> Maybe (List RouteParam)
 repeatWithoutOptionalEnding routeParams =
     case routeParams |> List.reverse of
-        (OptionalParam2 name) :: reverseRest ->
+        (OptionalParam2 _) :: reverseRest ->
             List.reverse reverseRest |> Just
 
         OptionalSplatParam2 :: reverseRest ->
@@ -382,7 +382,7 @@ toRecordVariant nothingCase route =
                                         [ Elm.CodeGen.val "Just", Elm.CodeGen.val (decapitalize name) ] |> Elm.CodeGen.apply
                                     )
 
-                            StaticParam name ->
+                            StaticParam _ ->
                                 Nothing
 
                             DynamicParam name ->

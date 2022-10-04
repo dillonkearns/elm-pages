@@ -6,7 +6,6 @@ module Pages.Internal.ResponseSketch exposing (ResponseSketch(..))
 
 -}
 
-import Bytes exposing (Bytes)
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Path exposing (Path)
 

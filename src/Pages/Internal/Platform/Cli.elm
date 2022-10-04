@@ -464,7 +464,7 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                                                             DataSource.succeed something
                                                                 |> DataSource.map (\_ -> ())
 
-                                                        PageServerResponse.RenderPage _ actionData ->
+                                                        PageServerResponse.RenderPage _ _ ->
                                                             DataSource.map3 (\_ _ _ -> ())
                                                                 (config.data serverRequestPayload.frontmatter)
                                                                 config.sharedData
@@ -768,7 +768,7 @@ sendSinglePageProgress site contentJson config model info =
                                 |> Result.map
                                     (\okPageData ->
                                         case okPageData of
-                                            PageServerResponse.RenderPage responseInfo pageData ->
+                                            PageServerResponse.RenderPage responseInfo _ ->
                                                 PageServerResponse.RenderPage
                                                     { statusCode = responseInfo.statusCode
                                                     , headers = responseInfo.headers
@@ -909,7 +909,7 @@ sendSinglePageProgress site contentJson config model info =
                                                     PageServerResponse.ErrorPage a b
                                                         |> DataSource.succeed
 
-                                                PageServerResponse.RenderPage responseDetails actionData ->
+                                                PageServerResponse.RenderPage _ _ ->
                                                     -- TODO the headers/response codes are ignored from the action here
                                                     -- is that okay? Should you always do a redirect or another kind of
                                                     -- server response if you want to control the headers/response code for an action (like logout & redirect, for example)?
@@ -1012,7 +1012,7 @@ sendSinglePageProgress site contentJson config model info =
                                                         |> Maybe.withDefault (Bytes.Encode.unsignedInt8 0)
                                                         |> Bytes.Encode.encode
 
-                                                PageServerResponse.ErrorPage error record ->
+                                                PageServerResponse.ErrorPage error _ ->
                                                     -- TODO this case should never happen
                                                     sharedDataResult
                                                         |> Result.map
@@ -1048,7 +1048,7 @@ sendSinglePageProgress site contentJson config model info =
                                 PageServerResponse.ServerResponse serverResponse ->
                                     PageServerResponse.toRedirect serverResponse
                                         |> Maybe.map
-                                            (\{ location } ->
+                                            (\_ ->
                                                 { route = page |> Path.toRelative
                                                 , contentJson = Dict.empty
                                                 , html = "This is intentionally blank HTML"
