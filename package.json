@@ -10,7 +10,8 @@
     "test": "./test.sh",
     "test:snapshot": "(cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)",
     "cypress": "npm start & cypress run",
-    "prepare": "elm-codegen install",
+    "prepare": "npm run build:generator",
+    "build:generator": "elm-codegen install && elm make Generate.elm --output elm-pages-codegen.js",
     "review": "elm-review"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
@@ -68,8 +69,9 @@
   "files": [
     "generator/src/",
     "generator/review/",
+    "generator/dead-code-review/",
     "src/",
-    "codegen/",
+    "codegen/elm-pages-codegen.js",
     "generator/template/",
     "generator/static-code/"
   ],
