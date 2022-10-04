@@ -53,6 +53,7 @@ import Head
 import Head.Twitter as Twitter
 import LanguageTag.Country
 import LanguageTag.Language
+import MimeType exposing (MimeType)
 import Pages.Url
 
 
@@ -354,7 +355,7 @@ tagsForAudio : Audio -> List ( String, Maybe Head.AttributeValue )
 tagsForAudio audio =
     [ ( "og:audio", audio.url |> Head.raw |> Just )
     , ( "og:audio:secure_url", audio.url |> Head.raw |> Just )
-    , ( "og:audio:type", audio.mimeType |> Maybe.map Head.raw )
+    , ( "og:audio:type", audio.mimeType |> Maybe.map (MimeType.toString >> Head.raw) )
     ]
 
 
@@ -406,13 +407,6 @@ type alias Iso8601DateTime =
     String
 
 
-{-| <https://en.wikipedia.org/wiki/Media_type>
--}
-type alias MimeType =
-    -- TODO should be more type-safe here
-    String
-
-
 {-| See <https://ogp.me/#structured>
 -}
 type alias Image =
@@ -448,6 +442,7 @@ tagsForVideo video =
     , ( "og:video:secure_url", video.url |> Head.raw |> Just )
     , ( "og:video:width", video.dimensions |> Maybe.map .width |> Maybe.map String.fromInt |> Maybe.map Head.raw )
     , ( "og:video:height", video.dimensions |> Maybe.map .height |> Maybe.map String.fromInt |> Maybe.map Head.raw )
+    , ( "og:video:type", video.mimeType |> Maybe.map (MimeType.toString >> Head.raw) )
     ]
 
 
