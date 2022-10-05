@@ -5,6 +5,7 @@ import Cloudinary
 import Data.Author as Author exposing (Author)
 import DataSource exposing (DataSource)
 import Date exposing (Date)
+import DateOrDateTime
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -221,7 +222,7 @@ head static =
                 |> Seo.article
                     { tags = []
                     , section = Nothing
-                    , publishedTime = Just (Seo.Date metadata.published)
+                    , publishedTime = Just (DateOrDateTime.Date metadata.published)
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
                     }
