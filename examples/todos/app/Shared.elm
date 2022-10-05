@@ -89,10 +89,10 @@ view :
     -> Model
     -> (Msg -> msg)
     -> View msg
-    -> { body : Html msg, title : String }
+    -> { body : List (Html msg), title : String }
 view sharedData page model toMsg pageView =
     { body =
-        Html.div
+        [ Html.div
             []
             [ Html.nav
                 [ Attr.style "display" "flex"
@@ -104,5 +104,6 @@ view sharedData page model toMsg pageView =
                 ]
                 pageView.body
             ]
+        ]
     , title = pageView.title
     }
