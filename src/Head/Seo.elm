@@ -1,6 +1,6 @@
 module Head.Seo exposing
     ( Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website
-    , DateOrDateTime(..), dateOrDateTimeToString
+    , DateOrDateTime(..)
     )
 
 {-| <https://ogp.me/#>
@@ -53,7 +53,7 @@ with the `head` function that you pass to your Pages config (`Pages.application`
 
 ## DateOrDateTime
 
-@docs DateOrDateTime, dateOrDateTimeToString
+@docs DateOrDateTime
 
 -}
 
@@ -68,6 +68,21 @@ import Pages.Url
 import Time
 
 
+{-| Represents a Date with an optional time.
+
+    import Date
+    import Head.Seo
+    import Time
+
+    justADate : Head.Seo.DateOrDateTime
+    justADate =
+        Head.Seo.Date (Date.fromRataDie 1000)
+
+    aDateWithATime : Head.Seo.DateOrDateTime
+    aDateWithATime =
+        Head.Seo.DateTime (Time.millisToPosix 0)
+
+-}
 type DateOrDateTime
     = Date Date.Date
     | DateTime Time.Posix
