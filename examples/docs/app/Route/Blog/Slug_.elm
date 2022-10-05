@@ -221,7 +221,7 @@ head static =
                 |> Seo.article
                     { tags = []
                     , section = Nothing
-                    , publishedTime = Just (Date.toIsoString metadata.published)
+                    , publishedTime = Just (Seo.Date metadata.published)
                     , modifiedTime = Nothing
                     , expirationTime = Nothing
                     }
