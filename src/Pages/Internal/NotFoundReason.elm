@@ -44,11 +44,11 @@ type NotFoundReason
 document :
     List RoutePattern
     -> Payload
-    -> { title : String, body : Html msg }
+    -> { title : String, body : List (Html msg) }
 document pathPatterns payload =
     { title = "Page not found"
     , body =
-        Html.div
+        [ Html.div
             [ Attr.id "not-found-reason"
             , Attr.style "padding" "30px"
             ]
@@ -110,6 +110,7 @@ document pathPatterns payload =
                     , Html.text <| "TODO"
                     ]
             )
+        ]
     }
 
 

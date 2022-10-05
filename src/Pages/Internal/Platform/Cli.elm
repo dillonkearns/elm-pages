@@ -829,13 +829,13 @@ sendSinglePageProgress site contentJson config model info =
                                                             )
                                                             |> Tuple.first
 
-                                                    viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
+                                                    viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
                                                     viewValue =
                                                         (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData maybeActionData |> .view) pageModel
                                                 in
                                                 PageServerResponse.RenderPage responseInfo
                                                     { head = config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData maybeActionData |> .head
-                                                    , view = viewValue.body |> HtmlPrinter.htmlToString
+                                                    , view = viewValue.body |> bodyToString
                                                     , title = viewValue.title
                                                     }
 
@@ -871,7 +871,7 @@ sendSinglePageProgress site contentJson config model info =
                                                     pageData =
                                                         config.errorPageToData error
 
-                                                    viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
+                                                    viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
                                                     viewValue =
                                                         (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData Nothing |> .view) pageModel
                                                 in
@@ -880,7 +880,7 @@ sendSinglePageProgress site contentJson config model info =
                                                     , headers = record.headers
                                                     }
                                                     { head = config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData Nothing |> .head
-                                                    , view = viewValue.body |> HtmlPrinter.htmlToString
+                                                    , view = viewValue.body |> List.map HtmlPrinter.htmlToString |> String.join "\n"
                                                     , title = viewValue.title
                                                     }
                                     )
@@ -1143,7 +1143,7 @@ render404Page config sharedData model path notFoundReason =
                 pathAndRoute =
                     { path = path, route = config.notFoundRoute }
 
-                viewValue : { title : String, body : Html (Pages.Msg.Msg userMsg) }
+                viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
                 viewValue =
                     (config.view Dict.empty
                         Dict.empty
@@ -1159,7 +1159,7 @@ render404Page config sharedData model path notFoundReason =
             in
             { route = Path.toAbsolute path
             , contentJson = Dict.empty
-            , html = viewValue.body |> HtmlPrinter.htmlToString
+            , html = viewValue.body |> bodyToString
             , errors = []
             , head = config.view Dict.empty Dict.empty Nothing pathAndRoute Nothing justSharedData pageData Nothing |> .head
             , title = viewValue.title
@@ -1179,7 +1179,7 @@ render404Page config sharedData model path notFoundReason =
                         |> config.encodeResponse
                         |> Bytes.Encode.encode
 
-                notFoundDocument : { title : String, body : Html msg }
+                notFoundDocument : { title : String, body : List (Html msg) }
                 notFoundDocument =
                     { path = path
                     , reason = notFoundReason
@@ -1188,7 +1188,7 @@ render404Page config sharedData model path notFoundReason =
             in
             { route = Path.toAbsolute path
             , contentJson = Dict.empty
-            , html = HtmlPrinter.htmlToString notFoundDocument.body
+            , html = bodyToString notFoundDocument.body
             , errors = []
             , head = []
             , title = notFoundDocument.title
@@ -1202,6 +1202,11 @@ render404Page config sharedData model path notFoundReason =
             }
                 |> ToJsPayload.PageProgress
                 |> Effect.SendSinglePageNew byteEncodedPageData
+
+
+bodyToString : List (Html msg) -> String
+bodyToString body =
+    body |> List.map HtmlPrinter.htmlToString |> String.join "\n"
 
 
 urlToRoute : ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage -> Url -> route

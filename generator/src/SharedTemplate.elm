@@ -34,7 +34,7 @@ type alias SharedTemplate msg sharedModel sharedData mappedMsg =
         -> sharedModel
         -> (msg -> mappedMsg)
         -> View mappedMsg
-        -> { body : Html mappedMsg, title : String }
+        -> { body : List (Html mappedMsg), title : String }
     , data : DataSource.DataSource sharedData
     , subscriptions : Path -> sharedModel -> Sub msg
     , onPageChange :

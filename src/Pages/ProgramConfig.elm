@@ -65,7 +65,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> pageData
         -> Maybe actionData
         ->
-            { view : userModel -> { title : String, body : Html (Pages.Msg.Msg userMsg) }
+            { view : userModel -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
             , head : List Head.Tag
             }
     , handleRoute : route -> DataSource (Maybe NotFoundReason)

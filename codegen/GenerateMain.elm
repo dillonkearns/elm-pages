@@ -453,7 +453,10 @@ otherFile routes phaseString =
                                                             (\_ ->
                                                                 Elm.record
                                                                     [ ( "title", Elm.string "Page not found" )
-                                                                    , ( "body", Gen.Html.div [] [ Gen.Html.text "This page could not be found." ] )
+                                                                    , ( "body"
+                                                                      , [ Gen.Html.div [] [ Gen.Html.text "This page could not be found." ] ]
+                                                                            |> Elm.list
+                                                                      )
                                                                     ]
                                                             )
                                                       )
@@ -473,6 +476,7 @@ otherFile routes phaseString =
                                                     , ( "body"
                                                       , Gen.Html.annotation_.html
                                                             (Gen.Pages.Msg.annotation_.msg (Type.named [] "Msg"))
+                                                            |> Type.list
                                                       )
                                                     ]
                                                 )
@@ -494,7 +498,7 @@ otherFile routes phaseString =
             Elm.Declare.topLevelValue "modelMismatchView"
                 (Elm.record
                     [ ( "title", Elm.string "Model mismatch" )
-                    , ( "body", Gen.Html.text "Model mismatch" )
+                    , ( "body", [ Gen.Html.text "Model mismatch" ] |> Elm.list )
                     ]
                 )
 

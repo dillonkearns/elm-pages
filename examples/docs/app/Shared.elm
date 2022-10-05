@@ -99,16 +99,17 @@ view :
     -> Model
     -> (Msg -> msg)
     -> View msg
-    -> { body : Html msg, title : String }
+    -> { body : List (Html msg), title : String }
 view tableOfContents page model toMsg pageView =
     { body =
-        ((View.Header.view ToggleMobileMenu 123 page.path
-            |> Html.Styled.map toMsg
-         )
+        [ ((View.Header.view ToggleMobileMenu 123 page.path
+                |> Html.Styled.map toMsg
+           )
             :: TableOfContents.view model.showMobileMenu False Nothing tableOfContents
             :: pageView.body
-        )
+          )
             |> Html.Styled.div []
             |> Html.Styled.toUnstyled
+        ]
     , title = pageView.title
     }

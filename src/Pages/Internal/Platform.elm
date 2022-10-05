@@ -58,7 +58,7 @@ type alias Program userModel userMsg pageData actionData sharedData errorPage =
 mainView :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Model userModel pageData actionData sharedData
-    -> { title : String, body : Html (Pages.Msg.Msg userMsg) }
+    -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
 mainView config model =
     case model.notFound of
         Just info ->
@@ -95,7 +95,7 @@ mainView config model =
                 Err error ->
                     { title = "Page Data Error"
                     , body =
-                        Html.div [] [ Html.text error ]
+                        [ Html.div [] [ Html.text error ] ]
                     }
 
 
@@ -124,9 +124,9 @@ view config model =
     { title = title
     , body =
         [ onViewChangeElement model.url
-        , body |> Html.map UserMsg
         , AriaLiveAnnouncer.view model.ariaNavigationAnnouncement
         ]
+            ++ List.map (Html.map UserMsg) body
     }
 
 
