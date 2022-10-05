@@ -96,11 +96,12 @@ view :
     -> Model
     -> (Msg -> msg)
     -> View msg
-    -> { body : Html msg, title : String }
+    -> { body : List (Html msg), title : String }
 view stars page model toMsg pageView =
     { body =
-        Html.Styled.div []
+        [ Html.Styled.div []
             pageView.body
             |> Html.Styled.toUnstyled
+        ]
     , title = pageView.title
     }
