@@ -165,7 +165,7 @@ clearFlashCookies dict =
 expectSession :
     { name : String
     , secrets : DataSource (List String)
-    , sameSite : String
+    , options : SetCookie.Options
     }
     -> Parser request
     -> (request -> Result () Session -> DataSource ( Session, Response data errorPage ))
@@ -186,7 +186,7 @@ expectSession config userRequest toRequest =
 withSession :
     { name : String
     , secrets : DataSource (List String)
-    , sameSite : String
+    , options : SetCookie.Options
     }
     -> Parser request
     -> (request -> Result () (Maybe Session) -> DataSource ( Session, Response data errorPage ))
@@ -215,7 +215,15 @@ withSession config userRequest toRequest =
         userRequest
 
 
-encodeSessionUpdate : { a | name : String, secrets : DataSource (List String) } -> (c -> d -> DataSource ( Session, Response data errorPage )) -> c -> d -> DataSource (Response data errorPage)
+encodeSessionUpdate :
+    { name : String
+    , secrets : DataSource (List String)
+    , options : SetCookie.Options
+    }
+    -> (c -> d -> DataSource ( Session, Response data errorPage ))
+    -> c
+    -> d
+    -> DataSource (Response data errorPage)
 encodeSessionUpdate config toRequest userRequestData sessionResult =
     sessionResult
         |> toRequest userRequestData
@@ -225,14 +233,7 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
                     (\encoded ->
                         response
                             |> Server.Response.withSetCookieHeader
-                                (SetCookie.setCookie config.name encoded
-                                    |> SetCookie.httpOnly
-                                    |> SetCookie.withPath "/"
-                                 -- TODO set expiration time
-                                 -- TODO do I need to sign the session expiration as part of it
-                                 -- TODO should I update the expiration time every time?
-                                 --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
-                                )
+                                (SetCookie.setCookie config.name encoded config.options)
                     )
                     (sign config.secrets
                         (setValues sessionUpdate)

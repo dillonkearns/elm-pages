@@ -1,5 +1,7 @@
 module Server.SetCookie exposing
-    ( SetCookie, SameSite(..)
+    ( SetCookie
+    , SameSite(..)
+    , Options, initOptions
     , withImmediateExpiration, httpOnly, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
     , toString
     )
@@ -8,7 +10,15 @@ module Server.SetCookie exposing
 
 <https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies>
 
-@docs SetCookie, SameSite
+@docs SetCookie
+
+@docs SameSite
+
+
+## Options
+
+@docs Options, initOptions
+
 @docs withImmediateExpiration, httpOnly, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
 
 @docs toString
@@ -24,7 +34,13 @@ import Utc
 type alias SetCookie =
     { name : String
     , value : String
-    , expiration : Maybe Time.Posix
+    , options : Options
+    }
+
+
+{-| -}
+type alias Options =
+    { expiration : Maybe Time.Posix
     , httpOnly : Bool
     , maxAge : Maybe Int
     , path : Maybe String
@@ -61,17 +77,21 @@ toString builder =
 
             else
                 ""
+
+        options : Options
+        options =
+            builder.options
     in
     builder.name
         ++ "="
         ++ Url.percentEncode builder.value
-        ++ option "Expires" (builder.expiration |> Maybe.map Utc.fromTime)
-        ++ option "Max-Age" (builder.maxAge |> Maybe.map String.fromInt)
-        ++ option "Path" builder.path
-        ++ option "Domain" builder.domain
-        ++ option "SameSite" (builder.sameSite |> Maybe.map sameSiteToString)
-        ++ boolOption "HttpOnly" builder.httpOnly
-        ++ boolOption "Secure" builder.secure
+        ++ option "Expires" (options.expiration |> Maybe.map Utc.fromTime)
+        ++ option "Max-Age" (options.maxAge |> Maybe.map String.fromInt)
+        ++ option "Path" options.path
+        ++ option "Domain" options.domain
+        ++ option "SameSite" (options.sameSite |> Maybe.map sameSiteToString)
+        ++ boolOption "HttpOnly" options.httpOnly
+        ++ boolOption "Secure" options.secure
 
 
 sameSiteToString : SameSite -> String
@@ -88,11 +108,18 @@ sameSiteToString sameSite =
 
 
 {-| -}
-setCookie : String -> String -> SetCookie
-setCookie name value =
+setCookie : String -> String -> Options -> SetCookie
+setCookie name value options =
     { name = name
     , value = value
-    , expiration = Nothing
+    , options = options
+    }
+
+
+{-| -}
+initOptions : Options
+initOptions =
+    { expiration = Nothing
     , httpOnly = False
     , maxAge = Nothing
     , path = Nothing
@@ -103,7 +130,7 @@ setCookie name value =
 
 
 {-| -}
-withExpiration : Time.Posix -> SetCookie -> SetCookie
+withExpiration : Time.Posix -> Options -> Options
 withExpiration time builder =
     { builder
         | expiration = Just time
@@ -111,7 +138,7 @@ withExpiration time builder =
 
 
 {-| -}
-withImmediateExpiration : SetCookie -> SetCookie
+withImmediateExpiration : Options -> Options
 withImmediateExpiration builder =
     { builder
         | expiration = Just (Time.millisToPosix 0)
@@ -119,7 +146,7 @@ withImmediateExpiration builder =
 
 
 {-| -}
-httpOnly : SetCookie -> SetCookie
+httpOnly : Options -> Options
 httpOnly builder =
     { builder
         | httpOnly = True
@@ -127,7 +154,7 @@ httpOnly builder =
 
 
 {-| -}
-withMaxAge : Int -> SetCookie -> SetCookie
+withMaxAge : Int -> Options -> Options
 withMaxAge maxAge builder =
     { builder
         | maxAge = Just maxAge
@@ -135,7 +162,7 @@ withMaxAge maxAge builder =
 
 
 {-| -}
-withPath : String -> SetCookie -> SetCookie
+withPath : String -> Options -> Options
 withPath path builder =
     { builder
         | path = Just path
@@ -143,7 +170,7 @@ withPath path builder =
 
 
 {-| -}
-withDomain : String -> SetCookie -> SetCookie
+withDomain : String -> Options -> Options
 withDomain domain builder =
     { builder
         | domain = Just domain
@@ -153,7 +180,7 @@ withDomain domain builder =
 {-| Secure (only sent over https, or localhost on http) is the default. This overrides that and
 removes the `Secure` attribute from the cookie.
 -}
-nonSecure : SetCookie -> SetCookie
+nonSecure : Options -> Options
 nonSecure builder =
     { builder
         | secure = False
@@ -162,7 +189,7 @@ nonSecure builder =
 
 {-| The default SameSite policy is Lax if one is not explicitly set. See the SameSite section in <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes>.
 -}
-withSameSite : SameSite -> SetCookie -> SetCookie
+withSameSite : SameSite -> Options -> Options
 withSameSite sameSite builder =
     { builder
         | sameSite = Just sameSite

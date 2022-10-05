@@ -5,8 +5,17 @@ import DataSource exposing (DataSource)
 import DataSource.Env as Env
 import Route
 import Server.Request exposing (Parser)
-import Server.Response as Response exposing (Response)
+import Server.Response exposing (Response)
 import Server.Session as Session
+import Server.SetCookie as SetCookie
+
+
+cookieOptions : SetCookie.Options
+cookieOptions =
+    SetCookie.initOptions
+        |> SetCookie.httpOnly
+        |> SetCookie.withPath "/"
+        |> SetCookie.withSameSite SetCookie.Lax
 
 
 withSession :
@@ -17,7 +26,7 @@ withSession =
     Session.withSession
         { name = "mysession"
         , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
-        , sameSite = "lax"
+        , options = cookieOptions
         }
 
 
@@ -29,7 +38,7 @@ withSessionOrRedirect handler toRequest =
     Session.withSession
         { name = "mysession"
         , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
-        , sameSite = "lax"
+        , options = cookieOptions
         }
         handler
         (\request sessionResult ->
@@ -52,7 +61,7 @@ expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
         , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
-        , sameSite = "lax"
+        , options = cookieOptions
         }
         handler
         (\request sessionResult ->
