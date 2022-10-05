@@ -174,7 +174,7 @@ expectSession config userRequest toRequest =
     Request.map2
         (\sessionCookie userRequestData ->
             sessionCookie
-                |> decryptCookie config
+                |> unsignCookie config
                 |> DataSource.andThen
                     (encodeSessionUpdate config toRequest userRequestData)
         )
@@ -195,19 +195,19 @@ withSession config userRequest toRequest =
     Request.map2
         (\maybeSessionCookie userRequestData ->
             let
-                decrypted : DataSource (Result () (Maybe Session))
-                decrypted =
+                unsigned : DataSource (Result () (Maybe Session))
+                unsigned =
                     case maybeSessionCookie of
                         Just sessionCookie ->
                             sessionCookie
-                                |> decryptCookie config
+                                |> unsignCookie config
                                 |> DataSource.map (Result.map Just)
 
                         Nothing ->
                             Ok Nothing
                                 |> DataSource.succeed
             in
-            decrypted
+            unsigned
                 |> DataSource.andThen
                     (encodeSessionUpdate config toRequest userRequestData)
         )
@@ -229,21 +229,21 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
                                     |> SetCookie.httpOnly
                                     |> SetCookie.withPath "/"
                                  -- TODO set expiration time
-                                 -- TODO do I need to encrypt the session expiration as part of it
+                                 -- TODO do I need to sign the session expiration as part of it
                                  -- TODO should I update the expiration time every time?
                                  --|> SetCookie.withExpiration (Time.millisToPosix 100000000000)
                                 )
                     )
-                    (encrypt config.secrets
+                    (sign config.secrets
                         (setValues sessionUpdate)
                     )
             )
 
 
-decryptCookie : { a | secrets : DataSource (List String) } -> String -> DataSource (Result () Session)
-decryptCookie config sessionCookie =
+unsignCookie : { a | secrets : DataSource (List String) } -> String -> DataSource (Result () Session)
+unsignCookie config sessionCookie =
     sessionCookie
-        |> decrypt config.secrets (Json.Decode.dict Json.Decode.string)
+        |> unsign config.secrets (Json.Decode.dict Json.Decode.string)
         |> DataSource.map
             (Result.map
                 (\dict ->
@@ -265,8 +265,8 @@ decryptCookie config sessionCookie =
             )
 
 
-encrypt : DataSource (List String) -> Json.Encode.Value -> DataSource String
-encrypt getSecrets input =
+sign : DataSource (List String) -> Json.Encode.Value -> DataSource String
+sign getSecrets input =
     getSecrets
         |> DataSource.andThen
             (\secrets ->
@@ -293,8 +293,8 @@ encrypt getSecrets input =
             )
 
 
-decrypt : DataSource (List String) -> Json.Decode.Decoder a -> String -> DataSource (Result () a)
-decrypt getSecrets decoder input =
+unsign : DataSource (List String) -> Json.Decode.Decoder a -> String -> DataSource (Result () a)
+unsign getSecrets decoder input =
     getSecrets
         |> DataSource.andThen
             (\secrets ->
