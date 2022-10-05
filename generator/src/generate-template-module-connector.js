@@ -63,32 +63,10 @@ async function generateTemplateModuleConnector(basePath, phase) {
 }
 
 async function runElmCodegenCli(templates, basePath, phase) {
-  // await runElmCodegenInstall();
-  // try {
-  //   await compileCliApp(
-  //     // { debug: true },
-  //     {},
-  //     `Generate.elm`,
-  //     path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js"),
-  //     path.join(__dirname, "../../codegen"),
-
-  //     path.join(process.cwd(), "elm-stuff/elm-pages-codegen.js")
-  //   );
-  // } catch (error) {
-  //   console.log(restoreColorSafe(error));
-  //   process.exit(1);
-  //   // throw error;
-  // }
-
   const filePath = path.join(__dirname, `../../codegen/elm-pages-codegen.js`);
-
-  // TODO use uncached require here to prevent stale code from running
 
   const promise = new Promise((resolve, reject) => {
     const elmPagesCodegen = require(filePath).Elm.Generate;
-      // path.join(
-      // process.cwd(),
-      // "./elm-stuff/elm-pages-codegen.js")
 
     const app = elmPagesCodegen.init({
       flags: { templates: templates, basePath, phase },
