@@ -1,7 +1,4 @@
-module Head.Seo exposing
-    ( Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website
-    , DateOrDateTime(..)
-    )
+module Head.Seo exposing (Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website)
 
 {-| <https://ogp.me/#>
 <https://developers.facebook.com/docs/sharing/opengraph>
@@ -50,42 +47,15 @@ with the `head` function that you pass to your Pages config (`Pages.application`
 
 @docs Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website
 
-
-## DateOrDateTime
-
-@docs DateOrDateTime
-
 -}
 
-import Date
+import DateOrDateTime exposing (DateOrDateTime)
 import Head
 import Head.Twitter as Twitter
-import Iso8601
 import LanguageTag.Country
 import LanguageTag.Language
 import MimeType exposing (MimeType)
 import Pages.Url
-import Time
-
-
-{-| Represents a Date with an optional time.
-
-    import Date
-    import Head.Seo
-    import Time
-
-    justADate : Head.Seo.DateOrDateTime
-    justADate =
-        Head.Seo.Date (Date.fromRataDie 1000)
-
-    aDateWithATime : Head.Seo.DateOrDateTime
-    aDateWithATime =
-        Head.Seo.DateTime (Time.millisToPosix 0)
-
--}
-type DateOrDateTime
-    = Date Date.Date
-    | DateTime Time.Posix
 
 
 {-| Will be displayed as a large card in twitter
@@ -485,9 +455,9 @@ tags (Content common details) =
                     -}
                     [ ( "og:type", "article" |> Head.raw |> Just )
                     , ( "article:section", articleDetails.section |> Maybe.map Head.raw )
-                    , ( "article:published_time", articleDetails.publishedTime |> Maybe.map (dateOrDateTimeToString >> Head.raw) )
-                    , ( "article:modified_time", articleDetails.modifiedTime |> Maybe.map (dateOrDateTimeToString >> Head.raw) )
-                    , ( "article:expiration_time", articleDetails.expirationTime |> Maybe.map (dateOrDateTimeToString >> Head.raw) )
+                    , ( "article:published_time", articleDetails.publishedTime |> Maybe.map (DateOrDateTime.dateOrDateTimeToIso8601String >> Head.raw) )
+                    , ( "article:modified_time", articleDetails.modifiedTime |> Maybe.map (DateOrDateTime.dateOrDateTimeToIso8601String >> Head.raw) )
+                    , ( "article:expiration_time", articleDetails.expirationTime |> Maybe.map (DateOrDateTime.dateOrDateTimeToIso8601String >> Head.raw) )
                     ]
                         ++ List.map
                             (\tag -> ( "article:tag", tag |> Head.raw |> Just ))
@@ -496,7 +466,7 @@ tags (Content common details) =
                 Book bookDetails ->
                     [ ( "og:type", "book" |> Head.raw |> Just )
                     , ( "og:isbn", bookDetails.isbn |> Maybe.map Head.raw )
-                    , ( "og:release_date", bookDetails.releaseDate |> Maybe.map (dateOrDateTimeToString >> Head.raw) )
+                    , ( "og:release_date", bookDetails.releaseDate |> Maybe.map (DateOrDateTime.dateOrDateTimeToIso8601String >> Head.raw) )
                     ]
                         ++ List.map
                             (\tag -> ( "book:tag", tag |> Head.raw |> Just ))
@@ -525,16 +495,6 @@ tags (Content common details) =
             [ Head.canonicalLink common.canonicalUrlOverride
             , Head.metaName "description" (Head.raw common.description)
             ]
-
-
-dateOrDateTimeToString : DateOrDateTime -> String
-dateOrDateTimeToString dateOrTime =
-    case dateOrTime of
-        Date date ->
-            Date.toIsoString date
-
-        DateTime posix ->
-            Iso8601.fromTime posix
 
 
 
