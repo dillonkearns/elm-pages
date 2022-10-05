@@ -43,6 +43,7 @@
             "robinheghan/fnv1a": "1.0.0",
             "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-css": "16.1.1",
+            "rtfeldman/elm-iso8601-date-strings": "1.1.4",
             "tripokey/elm-fuzzy": "5.2.1",
             "turboMaCk/non-empty-list-alias": "1.2.0",
             "vito/elm-ansi": "10.0.1",
