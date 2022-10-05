@@ -1,7 +1,6 @@
 module Head.Seo exposing
     ( Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website
-    , dateOrDateTimeToString
-    , DateOrDateTime(..)
+    , DateOrDateTime(..), dateOrDateTimeToString
     )
 
 {-| <https://ogp.me/#>
