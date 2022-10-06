@@ -2,7 +2,7 @@ module Server.SetCookie exposing
     ( SetCookie
     , SameSite(..)
     , Options, initOptions
-    , withImmediateExpiration, httpOnly, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
+    , withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
     , toString
     )
 
@@ -19,7 +19,7 @@ module Server.SetCookie exposing
 
 @docs Options, initOptions
 
-@docs withImmediateExpiration, httpOnly, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
+@docs withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
 
 @docs toString
 
@@ -41,7 +41,7 @@ type alias SetCookie =
 {-| -}
 type alias Options =
     { expiration : Maybe Time.Posix
-    , httpOnly : Bool
+    , visibleToJavaScript : Bool
     , maxAge : Maybe Int
     , path : Maybe String
     , domain : Maybe String
@@ -81,6 +81,10 @@ toString builder =
         options : Options
         options =
             builder.options
+
+        httpOnly : Bool
+        httpOnly =
+            not options.visibleToJavaScript
     in
     builder.name
         ++ "="
@@ -90,7 +94,7 @@ toString builder =
         ++ option "Path" options.path
         ++ option "Domain" options.domain
         ++ option "SameSite" (options.sameSite |> Maybe.map sameSiteToString)
-        ++ boolOption "HttpOnly" options.httpOnly
+        ++ boolOption "HttpOnly" httpOnly
         ++ boolOption "Secure" options.secure
 
 
@@ -120,7 +124,7 @@ setCookie name value options =
 initOptions : Options
 initOptions =
     { expiration = Nothing
-    , httpOnly = False
+    , visibleToJavaScript = False
     , maxAge = Nothing
     , path = Nothing
     , domain = Nothing
@@ -145,11 +149,21 @@ withImmediateExpiration builder =
     }
 
 
-{-| -}
-httpOnly : Options -> Options
-httpOnly builder =
+{-| The default option in this API is for HttpOnly cookies <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#httponly>.
+
+Cookies can be exposed so you can read them from JavaScript using `Document.cookie`. When this is intended and understood
+then there's nothing unsafe about that (for example, if you are setting a `darkMode` cookie and what to access that
+dynamically). In this API you opt into exposing a cookie you set to JavaScript to ensure cookies aren't exposed to JS unintentionally.
+
+In general if you can accomplish your goal using HttpOnly cookies (i.e. not using `makeVisibleToJavaScript`) then
+it's a good practice. With server-rendered `elm-pages` applications you can often manage your session state by pulling
+in session data from cookies in a `DataSource` (which is resolved server-side before it ever reaches the browser).
+
+-}
+makeVisibleToJavaScript : Options -> Options
+makeVisibleToJavaScript builder =
     { builder
-        | httpOnly = True
+        | visibleToJavaScript = True
     }
 
 

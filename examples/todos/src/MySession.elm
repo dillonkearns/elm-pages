@@ -13,7 +13,6 @@ import Server.SetCookie as SetCookie
 cookieOptions : SetCookie.Options
 cookieOptions =
     SetCookie.initOptions
-        |> SetCookie.httpOnly
         |> SetCookie.withPath "/"
         |> SetCookie.withSameSite SetCookie.Lax
 
