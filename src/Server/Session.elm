@@ -266,10 +266,10 @@ withSession :
     , secrets : DataSource (List String)
     , options : SetCookie.Options
     }
-    -> Server.Request.Parser request
     -> (request -> Result () (Maybe Session) -> DataSource ( Session, Response data errorPage ))
+    -> Server.Request.Parser request
     -> Server.Request.Parser (DataSource (Response data errorPage))
-withSession config userRequest toRequest =
+withSession config toRequest userRequest =
     Server.Request.map2
         (\maybeSessionCookie userRequestData ->
             let

@@ -52,32 +52,32 @@ route =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    MySession.withSession
-        (Request.formDataWithServerValidation (form |> Form.initCombinedServer identity))
-        (\nameResultData session ->
-            nameResultData
-                |> DataSource.map
-                    (\nameResult ->
-                        case nameResult of
-                            Err errors ->
-                                ( session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
-                                , Response.render
-                                    { errors = errors
-                                    }
-                                )
+    Request.formDataWithServerValidation (form |> Form.initCombinedServer identity)
+        |> MySession.withSession
+            (\nameResultData session ->
+                nameResultData
+                    |> DataSource.map
+                        (\nameResult ->
+                            case nameResult of
+                                Err errors ->
+                                    ( session
+                                        |> Result.withDefault Nothing
+                                        |> Maybe.withDefault Session.empty
+                                    , Response.render
+                                        { errors = errors
+                                        }
+                                    )
 
-                            Ok ( _, name ) ->
-                                ( session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
-                                    |> Session.insert "name" name
-                                    |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                                , Route.redirectTo Route.Greet
-                                )
-                    )
-        )
+                                Ok ( _, name ) ->
+                                    ( session
+                                        |> Result.withDefault Nothing
+                                        |> Maybe.withDefault Session.empty
+                                        |> Session.insert "name" name
+                                        |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
+                                    , Route.redirectTo Route.Greet
+                                    )
+                        )
+            )
 
 
 type alias Data =
@@ -165,32 +165,32 @@ form =
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ MySession.withSession
-            (Request.succeed ())
-            (\() session ->
-                case session of
-                    Ok (Just okSession) ->
-                        let
-                            flashMessage : Maybe String
-                            flashMessage =
-                                okSession
-                                    |> Session.get "message"
-                        in
-                        ( okSession
-                        , Data
-                            (okSession |> Session.get "name")
-                            flashMessage
-                            |> Response.render
-                        )
-                            |> DataSource.succeed
+        [ Request.succeed ()
+            |> MySession.withSession
+                (\() session ->
+                    case session of
+                        Ok (Just okSession) ->
+                            let
+                                flashMessage : Maybe String
+                                flashMessage =
+                                    okSession
+                                        |> Session.get "message"
+                            in
+                            ( okSession
+                            , Data
+                                (okSession |> Session.get "name")
+                                flashMessage
+                                |> Response.render
+                            )
+                                |> DataSource.succeed
 
-                    _ ->
-                        ( Session.empty
-                        , { username = Nothing, flashMessage = Nothing }
-                            |> Response.render
-                        )
-                            |> DataSource.succeed
-            )
+                        _ ->
+                            ( Session.empty
+                            , { username = Nothing, flashMessage = Nothing }
+                                |> Response.render
+                            )
+                                |> DataSource.succeed
+                )
         ]
 
 

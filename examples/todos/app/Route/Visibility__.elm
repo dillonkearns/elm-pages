@@ -241,28 +241,27 @@ data routeParams =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    MySession.withSession
-        (Request.map2 Tuple.pair
-            Request.requestTime
-            (Request.formData allForms)
-        )
-        (\( requestTime, formResult ) session ->
-            case formResult of
-                Ok actionInput ->
-                    actionInput
-                        |> performAction requestTime
-                        |> withUserSession session
+    Request.map2 Tuple.pair
+        Request.requestTime
+        (Request.formData allForms)
+        |> MySession.withSession
+            (\( requestTime, formResult ) session ->
+                case formResult of
+                    Ok actionInput ->
+                        actionInput
+                            |> performAction requestTime
+                            |> withUserSession session
 
-                Err _ ->
-                    let
-                        okSession : Session
-                        okSession =
-                            session
-                                |> Result.withDefault Nothing
-                                |> Maybe.withDefault Session.empty
-                    in
-                    DataSource.succeed ( okSession, Response.render { errors = Nothing } )
-        )
+                    Err _ ->
+                        let
+                            okSession : Session
+                            okSession =
+                                session
+                                    |> Result.withDefault Nothing
+                                    |> Maybe.withDefault Session.empty
+                        in
+                        DataSource.succeed ( okSession, Response.render { errors = Nothing } )
+            )
 
 
 withUserSession :

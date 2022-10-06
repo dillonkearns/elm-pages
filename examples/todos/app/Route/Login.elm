@@ -197,92 +197,92 @@ globalErrors formState =
 
 data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
 data routeParams =
-    MySession.withSession
-        (Request.queryParam "magic")
-        (\magicLinkHash session ->
-            let
-                okSessionThing : Session
-                okSessionThing =
-                    session
-                        |> Result.withDefault Nothing
-                        |> Maybe.withDefault Session.empty
+    Request.queryParam "magic"
+        |> MySession.withSession
+            (\magicLinkHash session ->
+                let
+                    okSessionThing : Session
+                    okSessionThing =
+                        session
+                            |> Result.withDefault Nothing
+                            |> Maybe.withDefault Session.empty
 
-                maybeSessionId : Maybe String
-                maybeSessionId =
-                    okSessionThing
-                        |> Session.get "sessionId"
-            in
-            case magicLinkHash of
-                Just magicHash ->
-                    parseMagicHashIfNotExpired magicHash
-                        |> DataSource.andThen
-                            (\emailIfValid ->
-                                case maybeSessionId of
-                                    Just sessionId ->
-                                        Data.Session.get sessionId
-                                            |> Request.Hasura.dataSource
-                                            |> DataSource.map
-                                                (\maybeUserSession ->
-                                                    ( okSessionThing
-                                                    , maybeUserSession
-                                                        |> Maybe.map .emailAddress
-                                                        |> Data
-                                                        |> Server.Response.render
-                                                    )
-                                                )
-
-                                    Nothing ->
-                                        case emailIfValid of
-                                            Just confirmedEmail ->
-                                                Data.Session.findOrCreateUser confirmedEmail
-                                                    |> Request.Hasura.mutationDataSource
-                                                    |> DataSource.andThen
-                                                        (\userId ->
-                                                            now
-                                                                |> DataSource.andThen
-                                                                    (\now_ ->
-                                                                        let
-                                                                            expirationTime : Time.Posix
-                                                                            expirationTime =
-                                                                                Time.millisToPosix (Time.posixToMillis now_ + (1000 * 60 * 30))
-                                                                        in
-                                                                        Data.Session.create expirationTime userId
-                                                                            |> Request.Hasura.mutationDataSource
-                                                                    )
+                    maybeSessionId : Maybe String
+                    maybeSessionId =
+                        okSessionThing
+                            |> Session.get "sessionId"
+                in
+                case magicLinkHash of
+                    Just magicHash ->
+                        parseMagicHashIfNotExpired magicHash
+                            |> DataSource.andThen
+                                (\emailIfValid ->
+                                    case maybeSessionId of
+                                        Just sessionId ->
+                                            Data.Session.get sessionId
+                                                |> Request.Hasura.dataSource
+                                                |> DataSource.map
+                                                    (\maybeUserSession ->
+                                                        ( okSessionThing
+                                                        , maybeUserSession
+                                                            |> Maybe.map .emailAddress
+                                                            |> Data
+                                                            |> Server.Response.render
                                                         )
-                                                    |> DataSource.map
-                                                        (\(Uuid sessionId) ->
-                                                            ( okSessionThing
-                                                                |> Session.insert "sessionId" sessionId
-                                                            , Route.Visibility__ { visibility = Nothing }
-                                                                |> Route.redirectTo
+                                                    )
+
+                                        Nothing ->
+                                            case emailIfValid of
+                                                Just confirmedEmail ->
+                                                    Data.Session.findOrCreateUser confirmedEmail
+                                                        |> Request.Hasura.mutationDataSource
+                                                        |> DataSource.andThen
+                                                            (\userId ->
+                                                                now
+                                                                    |> DataSource.andThen
+                                                                        (\now_ ->
+                                                                            let
+                                                                                expirationTime : Time.Posix
+                                                                                expirationTime =
+                                                                                    Time.millisToPosix (Time.posixToMillis now_ + (1000 * 60 * 30))
+                                                                            in
+                                                                            Data.Session.create expirationTime userId
+                                                                                |> Request.Hasura.mutationDataSource
+                                                                        )
                                                             )
+                                                        |> DataSource.map
+                                                            (\(Uuid sessionId) ->
+                                                                ( okSessionThing
+                                                                    |> Session.insert "sessionId" sessionId
+                                                                , Route.Visibility__ { visibility = Nothing }
+                                                                    |> Route.redirectTo
+                                                                )
+                                                            )
+
+                                                Nothing ->
+                                                    DataSource.succeed
+                                                        ( okSessionThing
+                                                          -- TODO give flash message saying it was an invalid magic link
+                                                        , Nothing
+                                                            |> Data
+                                                            |> Server.Response.render
                                                         )
-
-                                            Nothing ->
-                                                DataSource.succeed
-                                                    ( okSessionThing
-                                                      -- TODO give flash message saying it was an invalid magic link
-                                                    , Nothing
-                                                        |> Data
-                                                        |> Server.Response.render
-                                                    )
-                            )
-
-                Nothing ->
-                    maybeSessionId
-                        |> Maybe.map (Data.Session.get >> Request.Hasura.dataSource)
-                        |> Maybe.withDefault (DataSource.succeed Nothing)
-                        |> DataSource.map
-                            (\maybeUserSession ->
-                                ( okSessionThing
-                                , maybeUserSession
-                                    |> Maybe.map .emailAddress
-                                    |> Data
-                                    |> Server.Response.render
                                 )
-                            )
-        )
+
+                    Nothing ->
+                        maybeSessionId
+                            |> Maybe.map (Data.Session.get >> Request.Hasura.dataSource)
+                            |> Maybe.withDefault (DataSource.succeed Nothing)
+                            |> DataSource.map
+                                (\maybeUserSession ->
+                                    ( okSessionThing
+                                    , maybeUserSession
+                                        |> Maybe.map .emailAddress
+                                        |> Data
+                                        |> Server.Response.render
+                                    )
+                                )
+            )
 
 
 allForms : Form.ServerForms String (DataSource (Combined String Action))
@@ -295,50 +295,49 @@ allForms =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action routeParams =
-    MySession.withSession
-        (Request.map2 Tuple.pair
-            (Request.oneOf
-                [ Request.formDataWithServerValidation allForms
-                ]
+    Request.map2 Tuple.pair
+        (Request.oneOf
+            [ Request.formDataWithServerValidation allForms
+            ]
+        )
+        Request.requestTime
+        |> MySession.withSession
+            (\( resolveFormDataSource, requestTime ) session ->
+                resolveFormDataSource
+                    |> DataSource.andThen
+                        (\usernameResult ->
+                            let
+                                okSession =
+                                    session
+                                        |> Result.withDefault Nothing
+                                        |> Maybe.withDefault Session.empty
+                            in
+                            case usernameResult of
+                                Err (Form.Response error) ->
+                                    ( okSession
+                                    , Server.Response.render
+                                        { maybeError = Just error
+                                        , sentLink = False
+                                        }
+                                    )
+                                        |> DataSource.succeed
+
+                                Ok ( _, Logout ) ->
+                                    ( Session.empty
+                                    , Route.redirectTo Route.Login
+                                    )
+                                        |> DataSource.succeed
+
+                                Ok ( _, LogIn emailAddress ) ->
+                                    ( okSession
+                                    , { maybeError = Nothing
+                                      , sentLink = True
+                                      }
+                                        |> Server.Response.render
+                                    )
+                                        |> DataSource.succeed
+                        )
             )
-            Request.requestTime
-        )
-        (\( resolveFormDataSource, requestTime ) session ->
-            resolveFormDataSource
-                |> DataSource.andThen
-                    (\usernameResult ->
-                        let
-                            okSession =
-                                session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
-                        in
-                        case usernameResult of
-                            Err (Form.Response error) ->
-                                ( okSession
-                                , Server.Response.render
-                                    { maybeError = Just error
-                                    , sentLink = False
-                                    }
-                                )
-                                    |> DataSource.succeed
-
-                            Ok ( _, Logout ) ->
-                                ( Session.empty
-                                , Route.redirectTo Route.Login
-                                )
-                                    |> DataSource.succeed
-
-                            Ok ( _, LogIn emailAddress ) ->
-                                ( okSession
-                                , { maybeError = Nothing
-                                  , sentLink = True
-                                  }
-                                    |> Server.Response.render
-                                )
-                                    |> DataSource.succeed
-                    )
-        )
 
 
 type Action

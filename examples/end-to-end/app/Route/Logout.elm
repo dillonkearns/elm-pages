@@ -45,15 +45,15 @@ route =
 
 action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
 action _ =
-    MySession.withSession
-        (Request.succeed ())
-        (\_ _ ->
-            ( Session.empty
-                |> Session.withFlash "message" "You have been successfully logged out."
-            , Route.redirectTo Route.Login
+    Request.succeed ()
+        |> MySession.withSession
+            (\_ _ ->
+                ( Session.empty
+                    |> Session.withFlash "message" "You have been successfully logged out."
+                , Route.redirectTo Route.Login
+                )
+                    |> DataSource.succeed
             )
-                |> DataSource.succeed
-        )
 
 
 type alias Data =

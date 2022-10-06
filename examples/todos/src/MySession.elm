@@ -18,8 +18,8 @@ cookieOptions =
 
 
 withSession :
-    Parser request
-    -> (request -> Result () (Maybe Session.Session) -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Result () (Maybe Session.Session) -> DataSource ( Session.Session, Response data errorPage ))
+    -> Parser request
     -> Parser (DataSource (Response data errorPage))
 withSession =
     Session.withSession
@@ -30,16 +30,15 @@ withSession =
 
 
 withSessionOrRedirect :
-    Parser request
-    -> (request -> Maybe Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Maybe Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    -> Parser request
     -> Parser (DataSource (Response data errorPage))
-withSessionOrRedirect handler toRequest =
+withSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
         , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
         , options = cookieOptions
         }
-        handler
         (\request sessionResult ->
             sessionResult
                 |> Result.map (toRequest request)
@@ -50,6 +49,7 @@ withSessionOrRedirect handler toRequest =
                         )
                     )
         )
+        handler
 
 
 expectSessionOrRedirect :
@@ -62,7 +62,6 @@ expectSessionOrRedirect toRequest handler =
         , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
         , options = cookieOptions
         }
-        handler
         (\request sessionResult ->
             sessionResult
                 |> Result.map (Maybe.map (toRequest request))
@@ -74,6 +73,7 @@ expectSessionOrRedirect toRequest handler =
                         )
                     )
         )
+        handler
 
 
 expectSessionDataOrRedirect :
