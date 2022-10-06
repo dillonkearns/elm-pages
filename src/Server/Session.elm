@@ -1,8 +1,8 @@
-module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), Value(..), clearFlashCookies, empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash, withSession)
+module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), Value(..), empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash, withSession)
 
 {-|
 
-@docs Decoder, NotLoadedReason, Session, Value, clearFlashCookies, empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash, withSession
+@docs Decoder, NotLoadedReason, Session, Value, empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash, withSession
 
 -}
 
@@ -10,7 +10,6 @@ import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Request
 import Dict exposing (Dict)
-import Dict.Extra
 import Json.Decode
 import Json.Encode
 import Server.Request as Request exposing (Parser)
@@ -149,16 +148,6 @@ setValues (Session session) =
 flashPrefix : String
 flashPrefix =
     "__flash__"
-
-
-{-| -}
-clearFlashCookies : Dict String String -> Dict String String
-clearFlashCookies dict =
-    Dict.Extra.removeWhen
-        (\key _ ->
-            key |> String.startsWith flashPrefix
-        )
-        dict
 
 
 {-| -}
