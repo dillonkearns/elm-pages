@@ -18,7 +18,7 @@ cookieOptions =
 
 
 withSession :
-    (request -> Result () (Maybe Session.Session) -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Result Session.NotLoadedReason Session.Session -> DataSource ( Session.Session, Response data errorPage ))
     -> Parser request
     -> Parser (DataSource (Response data errorPage))
 withSession =
@@ -30,7 +30,7 @@ withSession =
 
 
 withSessionOrRedirect :
-    (request -> Maybe Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
     -> Parser request
     -> Parser (DataSource (Response data errorPage))
 withSessionOrRedirect toRequest handler =
@@ -64,9 +64,8 @@ expectSessionOrRedirect toRequest handler =
         }
         (\request sessionResult ->
             sessionResult
-                |> Result.map (Maybe.map (toRequest request))
-                |> Result.withDefault Nothing
-                |> Maybe.withDefault
+                |> Result.map (toRequest request)
+                |> Result.withDefault
                     (DataSource.succeed
                         ( Session.empty
                         , Route.redirectTo Route.Login

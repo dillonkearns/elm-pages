@@ -257,15 +257,14 @@ action routeParams =
                             okSession : Session
                             okSession =
                                 session
-                                    |> Result.withDefault Nothing
-                                    |> Maybe.withDefault Session.empty
+                                    |> Result.withDefault Session.empty
                         in
                         DataSource.succeed ( okSession, Response.render { errors = Nothing } )
             )
 
 
 withUserSession :
-    Result x (Maybe Session)
+    Result x Session
     -> (Uuid -> DataSource (Response ActionData ErrorPage))
     -> DataSource ( Session, Response ActionData ErrorPage )
 withUserSession cookieSession continue =
@@ -273,8 +272,7 @@ withUserSession cookieSession continue =
         okSession : Session
         okSession =
             cookieSession
-                |> Result.withDefault Nothing
-                |> Maybe.withDefault Session.empty
+                |> Result.withDefault Session.empty
     in
     okSession
         |> Session.get "sessionId"

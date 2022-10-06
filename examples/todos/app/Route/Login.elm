@@ -204,8 +204,7 @@ data routeParams =
                     okSessionThing : Session
                     okSessionThing =
                         session
-                            |> Result.withDefault Nothing
-                            |> Maybe.withDefault Session.empty
+                            |> Result.withDefault Session.empty
 
                     maybeSessionId : Maybe String
                     maybeSessionId =
@@ -309,8 +308,7 @@ action routeParams =
                             let
                                 okSession =
                                     session
-                                        |> Result.withDefault Nothing
-                                        |> Maybe.withDefault Session.empty
+                                        |> Result.withDefault Session.empty
                             in
                             case usernameResult of
                                 Err (Form.Response error) ->

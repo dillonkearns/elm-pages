@@ -1,5 +1,5 @@
 module Server.Session exposing
-    ( withSession, expectSession
+    ( withSession
     , NotLoadedReason(..)
     , Session, empty, get, insert, remove, update, withFlash
     )
@@ -96,7 +96,7 @@ And then a user makes a request but had a session signed with our old secret (`2
 (so `withSession` would parse the session for that request as `Nothing`). It's standard for cookies to have an expiration date,
 so there's nothing wrong with an old session expiring (and the browser will eventually delete old cookies), just be aware of that when rotating secrets.
 
-@docs withSession, expectSession
+@docs withSession
 
 @docs NotLoadedReason
 
@@ -208,8 +208,8 @@ empty =
 
 {-| -}
 type NotLoadedReason
-    = NoCookies
-    | MissingHeaders
+    = NoSessionCookie
+    | InvalidSessionCookie
 
 
 {-| -}
@@ -240,49 +240,36 @@ flashPrefix =
 
 
 {-| -}
-expectSession :
-    { name : String
-    , secrets : DataSource (List String)
-    , options : SetCookie.Options
-    }
-    -> Server.Request.Parser request
-    -> (request -> Result () Session -> DataSource ( Session, Response data errorPage ))
-    -> Server.Request.Parser (DataSource (Response data errorPage))
-expectSession config userRequest toRequest =
-    Server.Request.map2
-        (\sessionCookie userRequestData ->
-            sessionCookie
-                |> unsignCookie config
-                |> DataSource.andThen
-                    (encodeSessionUpdate config toRequest userRequestData)
-        )
-        (Server.Request.expectCookie config.name)
-        userRequest
-
-
-{-| -}
 withSession :
     { name : String
     , secrets : DataSource (List String)
     , options : SetCookie.Options
     }
-    -> (request -> Result () (Maybe Session) -> DataSource ( Session, Response data errorPage ))
+    -> (request -> Result NotLoadedReason Session -> DataSource ( Session, Response data errorPage ))
     -> Server.Request.Parser request
     -> Server.Request.Parser (DataSource (Response data errorPage))
 withSession config toRequest userRequest =
     Server.Request.map2
         (\maybeSessionCookie userRequestData ->
             let
-                unsigned : DataSource (Result () (Maybe Session))
+                unsigned : DataSource (Result NotLoadedReason Session)
                 unsigned =
                     case maybeSessionCookie of
                         Just sessionCookie ->
                             sessionCookie
                                 |> unsignCookie config
-                                |> DataSource.map (Result.map Just)
+                                |> DataSource.map
+                                    (\unsignResult ->
+                                        case unsignResult of
+                                            Ok decoded ->
+                                                Ok decoded
+
+                                            Err () ->
+                                                Err InvalidSessionCookie
+                                    )
 
                         Nothing ->
-                            Ok Nothing
+                            Err NoSessionCookie
                                 |> DataSource.succeed
             in
             unsigned

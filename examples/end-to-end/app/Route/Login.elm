@@ -61,8 +61,7 @@ action routeParams =
                             case nameResult of
                                 Err errors ->
                                     ( session
-                                        |> Result.withDefault Nothing
-                                        |> Maybe.withDefault Session.empty
+                                        |> Result.withDefault Session.empty
                                     , Response.render
                                         { errors = errors
                                         }
@@ -70,8 +69,7 @@ action routeParams =
 
                                 Ok ( _, name ) ->
                                     ( session
-                                        |> Result.withDefault Nothing
-                                        |> Maybe.withDefault Session.empty
+                                        |> Result.withDefault Session.empty
                                         |> Session.insert "name" name
                                         |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
                                     , Route.redirectTo Route.Greet
@@ -169,7 +167,7 @@ data routeParams =
             |> MySession.withSession
                 (\() session ->
                     case session of
-                        Ok (Just okSession) ->
+                        Ok okSession ->
                             let
                                 flashMessage : Maybe String
                                 flashMessage =
