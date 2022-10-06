@@ -1,8 +1,109 @@
-module Server.Session exposing (Decoder, NotLoadedReason(..), Session(..), Value(..), empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash, withSession)
+module Server.Session exposing
+    ( withSession, expectSession
+    , NotLoadedReason(..)
+    , Session, empty, get, insert, remove, update, withFlash
+    )
 
-{-|
+{-| You can manage server state with HTTP cookies using this Server.Session API. Server-rendered pages define a `Server.Request.Parser`
+to choose which requests to respond to and how to extract structured data from the incoming request.
 
-@docs Decoder, NotLoadedReason, Session, Value, empty, expectSession, flashPrefix, get, insert, remove, setValues, succeed, unwrap, update, withFlash, withSession
+
+## Using Sessions in a Request.Parser
+
+Using these functions, you can store and read session data in cookies to maintain state between requests.
+For example, TODO:
+
+    action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+    action routeParams =
+        MySession.withSession
+            (Request.formDataWithServerValidation (form |> Form.initCombinedServer identity))
+            (\nameResultData session ->
+                nameResultData
+                    |> DataSource.map
+                        (\nameResult ->
+                            case nameResult of
+                                Err errors ->
+                                    ( session
+                                        |> Result.withDefault Nothing
+                                        |> Maybe.withDefault Session.empty
+                                    , Response.render
+                                        { errors = errors
+                                        }
+                                    )
+
+                                Ok ( _, name ) ->
+                                    ( session
+                                        |> Result.withDefault Nothing
+                                        |> Maybe.withDefault Session.empty
+                                        |> Session.insert "name" name
+                                        |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
+                                    , Route.redirectTo Route.Greet
+                                    )
+                        )
+            )
+
+The elm-pages framework will manage signing these cookies using the `secrets : DataSource (List String)` you pass in.
+That means that the values you set in your session will be directly visible to anyone who has access to the cookie
+(so don't directly store sensitive data in your session). Since the session cookie is signed using the secret you provide,
+the cookie will be invalidated if it is tampered with because it won't match when elm-pages verifies that it has been
+signed with your secrets. Of course you need to provide secure secrets and treat your secrets with care.
+
+
+### Rotating Secrets
+
+The first String in `secrets : DataSource (List String)` will be used to sign sessions, while the remaining String's will
+still be used to attempt to "unsign" the cookies. So if you have a single secret:
+
+    Session.withSession
+        { name = "mysession"
+        , secrets =
+            DataSource.map List.singleton
+                (Env.expect "SESSION_SECRET2022-09-01")
+        , options = cookieOptions
+        }
+
+Then you add a second secret
+
+    Session.withSession
+        { name = "mysession"
+        , secrets =
+            DataSource.map2
+                (\newSecret oldSecret -> [ newSecret, oldSecret ])
+                (Env.expect "SESSION_SECRET2022-12-01")
+                (Env.expect "SESSION_SECRET2022-09-01")
+        , options = cookieOptions
+        }
+
+The new secret (`2022-12-01`) will be used to sign all requests. This API always re-signs using the newest secret in the list
+whenever a new request comes in (even if the Session key-value pairs are unchanged), so these cookies get "refreshed" with the latest
+signing secret when a new request comes in.
+
+However, incoming requests with a cookie signed using the old secret (`2022-09-01`) will still successfully be unsigned
+because they are still in the rotation (and then subsequently "refreshed" and signed using the new secret).
+
+This allows you to rotate your session secrets (for security purposes). When a secret goes out of the rotation,
+it will invalidate all cookies signed with that. For example, if we remove our old secret from the rotation:
+
+    Session.withSession
+        { name = "mysession"
+        , secrets =
+            DataSource.map List.singleton
+                (Env.expect "SESSION_SECRET2022-12-01")
+        , options = cookieOptions
+        }
+
+And then a user makes a request but had a session signed with our old secret (`2022-09-01`), the session will be invalid
+(so `withSession` would parse the session for that request as `Nothing`). It's standard for cookies to have an expiration date,
+so there's nothing wrong with an old session expiring (and the browser will eventually delete old cookies), just be aware of that when rotating secrets.
+
+@docs withSession, expectSession
+
+@docs NotLoadedReason
+
+
+## Creating and Updating Sessions
+
+@docs Session, empty, get, insert, remove, update, withFlash
 
 -}
 
@@ -12,7 +113,7 @@ import DataSource.Internal.Request
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
-import Server.Request as Request exposing (Parser)
+import Server.Request
 import Server.Response exposing (Response)
 import Server.SetCookie as SetCookie
 
@@ -20,11 +121,6 @@ import Server.SetCookie as SetCookie
 {-| -}
 type Session
     = Session (Dict String Value)
-
-
-{-| -}
-type alias Decoder decoded =
-    Json.Decode.Decoder decoded
 
 
 {-| -}
@@ -117,15 +213,8 @@ type NotLoadedReason
 
 
 {-| -}
-succeed : constructor -> Decoder constructor
-succeed constructor =
-    constructor
-        |> Json.Decode.succeed
-
-
-{-| -}
-setValues : Session -> Json.Encode.Value
-setValues (Session session) =
+encodeNonExpiringPairs : Session -> Json.Encode.Value
+encodeNonExpiringPairs (Session session) =
     session
         |> Dict.toList
         |> List.filterMap
@@ -156,18 +245,18 @@ expectSession :
     , secrets : DataSource (List String)
     , options : SetCookie.Options
     }
-    -> Parser request
+    -> Server.Request.Parser request
     -> (request -> Result () Session -> DataSource ( Session, Response data errorPage ))
-    -> Parser (DataSource (Response data errorPage))
+    -> Server.Request.Parser (DataSource (Response data errorPage))
 expectSession config userRequest toRequest =
-    Request.map2
+    Server.Request.map2
         (\sessionCookie userRequestData ->
             sessionCookie
                 |> unsignCookie config
                 |> DataSource.andThen
                     (encodeSessionUpdate config toRequest userRequestData)
         )
-        (Request.expectCookie config.name)
+        (Server.Request.expectCookie config.name)
         userRequest
 
 
@@ -177,11 +266,11 @@ withSession :
     , secrets : DataSource (List String)
     , options : SetCookie.Options
     }
-    -> Parser request
+    -> Server.Request.Parser request
     -> (request -> Result () (Maybe Session) -> DataSource ( Session, Response data errorPage ))
-    -> Parser (DataSource (Response data errorPage))
+    -> Server.Request.Parser (DataSource (Response data errorPage))
 withSession config userRequest toRequest =
-    Request.map2
+    Server.Request.map2
         (\maybeSessionCookie userRequestData ->
             let
                 unsigned : DataSource (Result () (Maybe Session))
@@ -200,7 +289,7 @@ withSession config userRequest toRequest =
                 |> DataSource.andThen
                     (encodeSessionUpdate config toRequest userRequestData)
         )
-        (Request.cookie config.name)
+        (Server.Request.cookie config.name)
         userRequest
 
 
@@ -225,7 +314,7 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
                                 (SetCookie.setCookie config.name encoded config.options)
                     )
                     (sign config.secrets
-                        (setValues sessionUpdate)
+                        (encodeNonExpiringPairs sessionUpdate)
                     )
             )
 
