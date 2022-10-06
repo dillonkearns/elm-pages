@@ -45,36 +45,39 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action =
-            \_ ->
-                MySession.withSession
-                    (Request.formDataWithServerValidation (form |> Form.initCombinedServer identity))
-                    (\nameResultData session ->
-                        nameResultData
-                            |> DataSource.map
-                                (\nameResult ->
-                                    case nameResult of
-                                        Err errors ->
-                                            ( session
-                                                |> Result.withDefault Nothing
-                                                |> Maybe.withDefault Session.empty
-                                            , Response.render
-                                                { errors = errors
-                                                }
-                                            )
-
-                                        Ok ( _, name ) ->
-                                            ( session
-                                                |> Result.withDefault Nothing
-                                                |> Maybe.withDefault Session.empty
-                                                |> Session.insert "name" name
-                                                |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                                            , Route.redirectTo Route.Greet
-                                            )
-                                )
-                    )
+        , action = action
         }
         |> RouteBuilder.buildNoState { view = view }
+
+
+action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action routeParams =
+    MySession.withSession
+        (Request.formDataWithServerValidation (form |> Form.initCombinedServer identity))
+        (\nameResultData session ->
+            nameResultData
+                |> DataSource.map
+                    (\nameResult ->
+                        case nameResult of
+                            Err errors ->
+                                ( session
+                                    |> Result.withDefault Nothing
+                                    |> Maybe.withDefault Session.empty
+                                , Response.render
+                                    { errors = errors
+                                    }
+                                )
+
+                            Ok ( _, name ) ->
+                                ( session
+                                    |> Result.withDefault Nothing
+                                    |> Maybe.withDefault Session.empty
+                                    |> Session.insert "name" name
+                                    |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
+                                , Route.redirectTo Route.Greet
+                                )
+                    )
+        )
 
 
 type alias Data =
