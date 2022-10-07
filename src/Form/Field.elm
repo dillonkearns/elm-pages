@@ -6,7 +6,7 @@ module Form.Field exposing
     , required, withClientValidation, withInitialValue, map
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep, withMinLength, withMaxLength
-    , No(..), Yes(..)
+    , No, Yes
     )
 
 {-|
