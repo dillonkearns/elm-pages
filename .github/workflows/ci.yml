@@ -112,59 +112,59 @@ jobs:
         with:
           token: ${{ secrets.NPM_TOKEN }}
           tag: beta
-  windows-snapshots:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Download lamdera
-        shell: bash
-        run: mkdir bin && curl https://static.lamdera.com/bin/win/lamdera.exe -o ./bin/lamdera && chmod a+x ./bin/lamdera
-      - name: Add Lamdera to path
-        shell: bash
-        run: echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
-      - name: Confirm that lamdera is on path
-        shell: bash
-        run: lamdera --version && which lamdera
-      - name: Use Node.js 16
-        uses: actions/setup-node@v1
-        with:
-          node-version: 16
-      # Re-use node_modules between runs until package-lock.json changes.
-      - name: Cache node_modules
-        id: cache-node_modules
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cache/Cypress
-            node_modules
-          key: node_modules-node-windows-v${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
-      - run: git config core.autocrlf true
-      # Re-use ~/.elm between runs until elm.json, elm-tooling.json or
-      # review/elm.json changes. The Elm compiler saves downloaded Elm packages
-      # to ~/.elm, and elm-tooling saves downloaded tool executables there.
-      - name: Cache ~/.elm
-        uses: actions/cache@v2
-        with:
-          path: ~/.elm
-          key: elm-windows-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json') }}
+  # windows-snapshots:
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: Download lamdera
+  #       shell: bash
+  #       run: mkdir bin && curl https://static.lamdera.com/bin/win/lamdera.exe -o ./bin/lamdera && chmod a+x ./bin/lamdera
+  #     - name: Add Lamdera to path
+  #       shell: bash
+  #       run: echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+  #     - name: Confirm that lamdera is on path
+  #       shell: bash
+  #       run: lamdera --version && which lamdera
+  #     - name: Use Node.js 16
+  #       uses: actions/setup-node@v1
+  #       with:
+  #         node-version: 16
+  #     # Re-use node_modules between runs until package-lock.json changes.
+  #     - name: Cache node_modules
+  #       id: cache-node_modules
+  #       uses: actions/cache@v2
+  #       with:
+  #         path: |
+  #           ~/.cache/Cypress
+  #           node_modules
+  #         key: node_modules-node-windows-v${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
+  #     - run: git config core.autocrlf true
+  #     # Re-use ~/.elm between runs until elm.json, elm-tooling.json or
+  #     # review/elm.json changes. The Elm compiler saves downloaded Elm packages
+  #     # to ~/.elm, and elm-tooling saves downloaded tool executables there.
+  #     - name: Cache ~/.elm
+  #       uses: actions/cache@v2
+  #       with:
+  #         path: ~/.elm
+  #         key: elm-windows-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json') }}
 
-      # Install npm packages, unless we restored them from cache.
-      # Since `npm ci` removes the node_modules folder before running it’s
-      # important to skip this step if cache was restored.
-      - name: npm ci
-        shell: bash
-        if: steps.cache-node_modules.outputs.cache-hit != 'true'
-        env:
-          # If you have a `"postinstall": "elm-tooling install"` script in your
-          # package.json, this turns it into a no-op. We’ll run it in the next
-          # step because of the caching. If elm-tooling.json changes but
-          # package-lock.json does not, the postinstall script needs running
-          # but this step won’t.
-          NO_ELM_TOOLING_INSTALL: 1
-        run: npm ci
-      - name: elm-tooling install
-        shell: bash
-        run: npx --no-install elm-tooling install
-      # - name: Snapshot Tests
-      #   shell: bash
-      #   run: (cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)
+  #     # Install npm packages, unless we restored them from cache.
+  #     # Since `npm ci` removes the node_modules folder before running it’s
+  #     # important to skip this step if cache was restored.
+  #     - name: npm ci
+  #       shell: bash
+  #       if: steps.cache-node_modules.outputs.cache-hit != 'true'
+  #       env:
+  #         # If you have a `"postinstall": "elm-tooling install"` script in your
+  #         # package.json, this turns it into a no-op. We’ll run it in the next
+  #         # step because of the caching. If elm-tooling.json changes but
+  #         # package-lock.json does not, the postinstall script needs running
+  #         # but this step won’t.
+  #         NO_ELM_TOOLING_INSTALL: 1
+  #       run: npm ci
+  #     - name: elm-tooling install
+  #       shell: bash
+  #       run: npx --no-install elm-tooling install
+  #     # - name: Snapshot Tests
+  #     #   shell: bash
+  #     #   run: (cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)
