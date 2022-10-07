@@ -6,9 +6,19 @@ module Server.SetCookie exposing
     , toString
     )
 
-{-| <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie>
+{-| Server-rendered pages in your `elm-pages` can set cookies. `elm-pages` provides two high-level ways to work with cookies:
 
-<https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies>
+  - [`Server.Session.withSession`](Server.Session#withSession)
+  - [`Server.Response.withSetCookieHeader`](Server-Response#withSetCookieHeader)
+
+[`Server.Session.withSession`](Server.Session#withSession) provides a high-level way to manage key-value pairs of data using cookie storage,
+whereas `Server.Response.withSetCookieHeader` gives a more low-level tool for setting cookies. It's often best to use the
+most high-level tool that will fit your use case.
+
+You can learn more about the basics of cookies in the Web Platform in these helpful MDN documentation pages:
+
+  - <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie>
+  - <https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies>
 
 @docs SetCookie
 
@@ -20,6 +30,9 @@ module Server.SetCookie exposing
 @docs Options, initOptions
 
 @docs withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
+
+
+## Internal
 
 @docs toString
 
@@ -57,7 +70,11 @@ type SameSite
     | None
 
 
-{-| -}
+{-| Usually you'll want to use [`Server.Response.withSetCookieHeader`](Server-Response#withSetCookieHeader) instead.
+
+This is a low-level helper that's there in case you want it but most users will never need this.
+
+-}
 toString : SetCookie -> String
 toString builder =
     let
