@@ -10,4 +10,12 @@ context("cookies", () => {
     cy.visit("/cookie-test");
     cy.contains("Dark mode: true");
   });
+
+  it("gives error when route doesn't match", () => {
+    cy.clearCookies();
+    cy.visit("http://localhost:1234/dark-mode");
+    cy.contains("Current mode: Light Mode");
+    cy.get('button').click()
+    cy.contains("Current mode: Dark Mode");
+  });
 });
