@@ -957,42 +957,49 @@ sendSinglePageProgress site contentJson config model info =
                     case maybeNotFoundReason of
                         Nothing ->
                             let
-                                byteEncodedPageData : Bytes
-                                byteEncodedPageData =
+                                ( actionHeaders, byteEncodedPageData ) =
                                     case pageDataResult of
                                         Ok pageServerResponse ->
                                             case pageServerResponse of
-                                                PageServerResponse.RenderPage _ pageData ->
+                                                PageServerResponse.RenderPage ignored1 pageData ->
                                                     -- TODO want to encode both shared and page data in dev server and HTML-embedded data
                                                     -- but not for writing out the content.dat files - would be good to optimize this redundant data out
                                                     --if model.isDevServer then
                                                     case isAction of
                                                         Just actionRequestKind ->
                                                             case actionDataResult of
-                                                                Ok (PageServerResponse.RenderPage _ actionData) ->
+                                                                Ok (PageServerResponse.RenderPage ignored2 actionData) ->
                                                                     case actionRequestKind of
                                                                         ActionResponseRequest ->
-                                                                            sharedDataResult
+                                                                            ( ignored2.headers
+                                                                            , sharedDataResult
                                                                                 |> Result.map (\sharedData -> ResponseSketch.HotUpdate pageData sharedData (Just actionData))
                                                                                 |> Result.withDefault (ResponseSketch.RenderPage pageData (Just actionData))
                                                                                 |> config.encodeResponse
                                                                                 |> Bytes.Encode.encode
+                                                                            )
 
                                                                         ActionOnlyRequest ->
                                                                             ---- TODO need to encode action data when only that is requested (not ResponseSketch?)
-                                                                            actionData
+                                                                            ( ignored2.headers
+                                                                            , actionData
                                                                                 |> config.encodeAction
                                                                                 |> Bytes.Encode.encode
+                                                                            )
 
                                                                 _ ->
-                                                                    Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+                                                                    ( ignored1.headers
+                                                                    , Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+                                                                    )
 
                                                         Nothing ->
-                                                            sharedDataResult
+                                                            ( ignored1.headers
+                                                            , sharedDataResult
                                                                 |> Result.map (\something -> ResponseSketch.HotUpdate pageData something Nothing)
                                                                 |> Result.withDefault (ResponseSketch.RenderPage pageData Nothing)
                                                                 |> config.encodeResponse
                                                                 |> Bytes.Encode.encode
+                                                            )
 
                                                 --else
                                                 --    pageData
@@ -1001,7 +1008,8 @@ sendSinglePageProgress site contentJson config model info =
                                                 --        |> Bytes.Encode.encode
                                                 PageServerResponse.ServerResponse serverResponse ->
                                                     -- TODO handle error?
-                                                    PageServerResponse.toRedirect serverResponse
+                                                    ( serverResponse.headers
+                                                    , PageServerResponse.toRedirect serverResponse
                                                         |> Maybe.map
                                                             (\{ location } ->
                                                                 location
@@ -1011,10 +1019,12 @@ sendSinglePageProgress site contentJson config model info =
                                                         -- TODO handle other cases besides redirects?
                                                         |> Maybe.withDefault (Bytes.Encode.unsignedInt8 0)
                                                         |> Bytes.Encode.encode
+                                                    )
 
-                                                PageServerResponse.ErrorPage error _ ->
+                                                PageServerResponse.ErrorPage error { headers } ->
                                                     -- TODO this case should never happen
-                                                    sharedDataResult
+                                                    ( headers
+                                                    , sharedDataResult
                                                         |> Result.map
                                                             (\sharedData ->
                                                                 ResponseSketch.HotUpdate (config.errorPageToData error)
@@ -1024,10 +1034,13 @@ sendSinglePageProgress site contentJson config model info =
                                                         |> Result.map config.encodeResponse
                                                         |> Result.map Bytes.Encode.encode
                                                         |> Result.withDefault (Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0))
+                                                    )
 
                                         _ ->
                                             -- TODO handle error?
-                                            Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+                                            ( []
+                                            , Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+                                            )
                             in
                             case renderedOrApiResponse of
                                 PageServerResponse.RenderPage responseInfo rendered ->
@@ -1040,7 +1053,9 @@ sendSinglePageProgress site contentJson config model info =
                                     , staticHttpCache = Dict.empty
                                     , is404 = False
                                     , statusCode = responseInfo.statusCode
-                                    , headers = responseInfo.headers
+                                    , headers =
+                                        -- TODO should `responseInfo.headers` be used? Is there a problem in the case where there is both an action and data response in one? Do we need to make sure it is performed as two separate HTTP requests to ensure that the cookies are set correctly in that case?
+                                        actionHeaders
                                     }
                                         |> ToJsPayload.PageProgress
                                         |> Effect.SendSinglePageNew byteEncodedPageData
