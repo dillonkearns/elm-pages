@@ -8,7 +8,7 @@
   "devDependencies": {
     "elm-optimize-level-2": "^0.3.4",
     "elm-pages": "file:../..",
-    "elm-review": "^2.7.0",
+    "elm-review": "^2.7.5",
     "elm-tooling": "^1.7.0"
   }
 }
