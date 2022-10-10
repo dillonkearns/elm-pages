@@ -455,9 +455,9 @@ tags (Content common details) =
                     -}
                     [ ( "og:type", "article" |> Head.raw |> Just )
                     , ( "article:section", articleDetails.section |> Maybe.map Head.raw )
-                    , ( "article:published_time", articleDetails.publishedTime |> Maybe.map (DateOrDateTime.dateOrDateTimeToIso8601String >> Head.raw) )
-                    , ( "article:modified_time", articleDetails.modifiedTime |> Maybe.map (DateOrDateTime.dateOrDateTimeToIso8601String >> Head.raw) )
-                    , ( "article:expiration_time", articleDetails.expirationTime |> Maybe.map (DateOrDateTime.dateOrDateTimeToIso8601String >> Head.raw) )
+                    , ( "article:published_time", articleDetails.publishedTime |> Maybe.map (DateOrDateTime.toIso8601 >> Head.raw) )
+                    , ( "article:modified_time", articleDetails.modifiedTime |> Maybe.map (DateOrDateTime.toIso8601 >> Head.raw) )
+                    , ( "article:expiration_time", articleDetails.expirationTime |> Maybe.map (DateOrDateTime.toIso8601 >> Head.raw) )
                     ]
                         ++ List.map
                             (\tag -> ( "article:tag", tag |> Head.raw |> Just ))
@@ -466,7 +466,7 @@ tags (Content common details) =
                 Book bookDetails ->
                     [ ( "og:type", "book" |> Head.raw |> Just )
                     , ( "og:isbn", bookDetails.isbn |> Maybe.map Head.raw )
-                    , ( "og:release_date", bookDetails.releaseDate |> Maybe.map (DateOrDateTime.dateOrDateTimeToIso8601String >> Head.raw) )
+                    , ( "og:release_date", bookDetails.releaseDate |> Maybe.map (DateOrDateTime.toIso8601 >> Head.raw) )
                     ]
                         ++ List.map
                             (\tag -> ( "book:tag", tag |> Head.raw |> Just ))
