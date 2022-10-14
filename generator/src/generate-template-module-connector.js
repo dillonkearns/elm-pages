@@ -82,11 +82,9 @@ async function runElmCodegenCli(templates, basePath, phase) {
     }
   });
   const filesToGenerate = await promise;
-  console.dir(filesToGenerate.map((file) => file.path));
 
   return filesToGenerate;
 }
-
 
 /**
  *
@@ -152,8 +150,6 @@ function sortScore(name) {
     { staticSegments: 0, dynamicSegments: 0, splatScore: 0 }
   );
 }
-
-
 
 function fetcherModule(name) {
   let moduleName = name.join(".");
@@ -226,7 +222,6 @@ submit toMsg options =
 `;
 }
 
-
 /**
  * Convert Strings from camelCase to kebab-case
  * @param {string} input
@@ -235,6 +230,5 @@ submit toMsg options =
 function camelToKebab(input) {
   return input.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
-
 
 module.exports = { generateTemplateModuleConnector, sortTemplates };
