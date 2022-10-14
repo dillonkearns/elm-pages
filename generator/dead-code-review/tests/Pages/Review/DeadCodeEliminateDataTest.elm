@@ -307,9 +307,109 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 """
                         ]
+        , test "uses appropriate import alias for Server.Request module" <|
+            \() ->
+                """module Route.Login exposing (Data, Model, Msg, route)
+
+import Server.Request
+
+type alias Model =
+    {}
+
+
+type alias Msg =
+    ()
+
+
+type alias RouteParams =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.serverRender
+        { head = head
+        , data = data
+        , action = action
+        }
+        |> RouteBuilder.buildNoState { view = view }
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Codemod"
+                            , details =
+                                [ "" ]
+                            , under =
+                                """data = data
+        ,"""
+                            }
+                            |> Review.Test.whenFixed
+                                """module Route.Login exposing (Data, Model, Msg, route)
+
+import Server.Request
+
+type alias Model =
+    {}
+
+
+type alias Msg =
+    ()
+
+
+type alias RouteParams =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.serverRender
+        { head = head
+        , data = \\_ -> Server.Request.oneOf []
+        , action = action
+        }
+        |> RouteBuilder.buildNoState { view = view }
+"""
+                        , Review.Test.error
+                            { message = "Codemod"
+                            , details =
+                                [ "" ]
+                            , under =
+                                """action = action
+        }"""
+                            }
+                            |> Review.Test.whenFixed
+                                """module Route.Login exposing (Data, Model, Msg, route)
+
+import Server.Request
+
+type alias Model =
+    {}
+
+
+type alias Msg =
+    ()
+
+
+type alias RouteParams =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.serverRender
+        { head = head
+        , data = data
+        , action = \\_ -> Server.Request.oneOf []
+        }
+        |> RouteBuilder.buildNoState { view = view }
+"""
+                        ]
         , test "no Request.oneOf fix after replacement is made" <|
             \() ->
                 """module Route.Login exposing (Data, Model, Msg, route)
+
+import Server.Request as Request
 
 type alias Model =
     {}
