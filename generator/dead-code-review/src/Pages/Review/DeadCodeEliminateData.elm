@@ -130,9 +130,12 @@ declarationVisitor node context =
                                                 , details = [ "" ]
                                                 }
                                                 (Node.range dataValue)
-                                                -- TODO need to check the right way to refer to `DataSource.fail` based on imports
                                                 -- TODO need to replace `action` as well
-                                                [ Review.Fix.replaceRangeBy (Node.range dataValue) "data = DataSource.fail \"\"\n    "
+                                                [ ("data = "
+                                                    ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
+                                                    ++ " \"\"\n    "
+                                                  )
+                                                    |> Review.Fix.replaceRangeBy (Node.range dataValue)
                                                 ]
                                           ]
                                         , context
@@ -186,10 +189,14 @@ expressionVisitor node context =
                                             ++ " = "
                                             ++ (case pageBuilderName of
                                                     "preRender" ->
-                                                        "\\_ -> DataSource.fail \"\""
+                                                        "\\_ -> "
+                                                            ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
+                                                            ++ " \"\""
 
                                                     "preRenderWithFallback" ->
-                                                        "\\_ -> DataSource.fail \"\""
+                                                        "\\_ -> "
+                                                            ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
+                                                            ++ " \"\""
 
                                                     "serverRender" ->
                                                         "\\_ -> "
@@ -197,7 +204,8 @@ expressionVisitor node context =
                                                             ++ " []\n        "
 
                                                     "single" ->
-                                                        "DataSource.fail \"\"\n       "
+                                                        referenceFunction context.importContext ( [ "DataSource" ], "fail" )
+                                                            ++ " \"\"\n       "
 
                                                     _ ->
                                                         "data"

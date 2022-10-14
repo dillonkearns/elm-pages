@@ -108,6 +108,104 @@ data =
     DataSource.succeed ()
 """
                         ]
+        , test "supports aliased DataSource module import" <|
+            \() ->
+                """module Route.Index exposing (Data, Model, Msg, route)
+
+import Server.Request as Request
+import DataSource as DS
+import RouteBuilder exposing (Page, StaticPayload, single)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
+import Path
+import Route exposing (Route)
+import Shared
+import View exposing (View)
+
+
+type alias Model =
+   {}
+
+
+type alias Msg =
+   ()
+
+
+type alias RouteParams =
+   {}
+
+
+type alias Data =
+   ()
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+   single
+       { head = head
+       , data = data
+       }
+       |> RouteBuilder.buildNoState { view = view }
+
+
+data : DataSource Data
+data =
+    DataSource.succeed ()
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Codemod"
+                            , details =
+                                [ "" ]
+                            , under =
+                                """data = data
+       }"""
+                            }
+                            |> Review.Test.whenFixed
+                                """module Route.Index exposing (Data, Model, Msg, route)
+
+import Server.Request as Request
+import DataSource as DS
+import RouteBuilder exposing (Page, StaticPayload, single)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
+import Path
+import Route exposing (Route)
+import Shared
+import View exposing (View)
+
+
+type alias Model =
+   {}
+
+
+type alias Msg =
+   ()
+
+
+type alias RouteParams =
+   {}
+
+
+type alias Data =
+   ()
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+   single
+       { head = head
+       , data = DS.fail ""
+       }
+       |> RouteBuilder.buildNoState { view = view }
+
+
+data : DataSource Data
+data =
+    DataSource.succeed ()
+"""
+                        ]
         , test "replaces data record setter with non-empty RouteParams" <|
             \() ->
                 """module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
