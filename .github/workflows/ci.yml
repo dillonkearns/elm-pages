@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with: 
+        with:
           submodules: recursive
       - name: Use Node.js 18
         uses: actions/setup-node@v1
@@ -58,8 +58,6 @@ jobs:
         run: npm ci
       - name: elm-tooling install
         run: npx --no-install elm-tooling install
-      - name: Global elm-format install
-        run: npm i -g elm-format@0.8.5
       - name: Add elm-review, elm and elm-format to path
         run: npm bin >> $GITHUB_PATH
       - name: Tests
