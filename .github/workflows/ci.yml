@@ -60,6 +60,8 @@ jobs:
         run: npx --no-install elm-tooling install
       - name: Add elm-review, elm and elm-format to path
         run: npm bin >> $GITHUB_PATH
+      - name: Build Generator
+        run: npm run build:generator
       - name: Tests
         run: npm test
       - uses: sparksp/elm-review-action@v1
