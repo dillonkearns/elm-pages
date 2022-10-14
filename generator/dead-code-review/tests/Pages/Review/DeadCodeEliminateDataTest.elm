@@ -12,6 +12,8 @@ all =
             \() ->
                 """module Route.Index exposing (Data, Model, Msg, route)
 
+import Server.Request as Request
+
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
@@ -64,6 +66,8 @@ data =
                             |> Review.Test.whenFixed
                                 """module Route.Index exposing (Data, Model, Msg, route)
 
+import Server.Request as Request
+
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
@@ -107,6 +111,8 @@ data =
         , test "replaces data record setter with non-empty RouteParams" <|
             \() ->
                 """module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
+
+import Server.Request as Request
 
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload)
@@ -160,6 +166,8 @@ data =
                             |> Review.Test.whenFixed
                                 """module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
 
+import Server.Request as Request
+
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
@@ -205,6 +213,8 @@ data =
             \() ->
                 """module Route.Login exposing (Data, Model, Msg, route)
 
+import Server.Request as Request
+
 type alias Model =
     {}
 
@@ -239,6 +249,8 @@ route =
                             |> Review.Test.whenFixed
                                 """module Route.Login exposing (Data, Model, Msg, route)
 
+import Server.Request as Request
+
 type alias Model =
     {}
 
@@ -270,6 +282,8 @@ route =
                             }
                             |> Review.Test.whenFixed
                                 """module Route.Login exposing (Data, Model, Msg, route)
+
+import Server.Request as Request
 
 type alias Model =
     {}
@@ -323,6 +337,8 @@ route =
             \() ->
                 """module Route.Index exposing (Data, Model, Msg, route)
 
+import Server.Request as Request
+
 import DataSource exposing (DataSource)
 import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
@@ -367,6 +383,8 @@ data =
         , test "replaces data record setter in Shared module" <|
             \() ->
                 """module Shared exposing (Data, Model, Msg, template)
+
+import Server.Request as Request
 
 import Browser.Navigation
 import DataSource
@@ -415,6 +433,8 @@ type alias Model =
                             }
                             |> Review.Test.whenFixed
                                 """module Shared exposing (Data, Model, Msg, template)
+
+import Server.Request as Request
 
 import Browser.Navigation
 import DataSource
