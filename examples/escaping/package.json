@@ -5,7 +5,7 @@
   "scripts": {
     "start": "elm-pages dev",
     "test": "elm-pages build --debug && npm run clean-diff && elm-pages build && npm run clean-diff",
-    "clean-diff": "sed -i.bak 's/src=\".elm.*\\.js\"/src=\"\\/elm.js\"/gi' ./dist/escaping/index.html && git diff --exit-code ./dist",
+    "clean-diff": "sed -i.bak 's/src=\".elm.*\\.js\"/src=\"\\/elm.js\"/gi' ./dist/escaping/index.html && sed -i.bak 's/<meta name=\"generator\".*$//gi' ./dist/escaping/index.html  && git diff --exit-code ./dist",
     "build": "elm-pages build"
   },
   "author": "Dillon Kearns",
