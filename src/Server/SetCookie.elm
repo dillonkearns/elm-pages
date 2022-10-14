@@ -8,10 +8,10 @@ module Server.SetCookie exposing
 
 {-| Server-rendered pages in your `elm-pages` can set cookies. `elm-pages` provides two high-level ways to work with cookies:
 
-  - [`Server.Session.withSession`](Server.Session#withSession)
+  - [`Server.Session.withSession`](Server-Session#withSession)
   - [`Server.Response.withSetCookieHeader`](Server-Response#withSetCookieHeader)
 
-[`Server.Session.withSession`](Server.Session#withSession) provides a high-level way to manage key-value pairs of data using cookie storage,
+[`Server.Session.withSession`](Server-Session#withSession) provides a high-level way to manage key-value pairs of data using cookie storage,
 whereas `Server.Response.withSetCookieHeader` gives a more low-level tool for setting cookies. It's often best to use the
 most high-level tool that will fit your use case.
 
