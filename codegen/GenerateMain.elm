@@ -2073,11 +2073,31 @@ otherFile routes phaseString =
         , case phase of
             Browser ->
                 Gen.Pages.Internal.Platform.application config
+                    |> Elm.withType
+                        (Type.namedWith [ "Platform" ]
+                            "Program"
+                            [ Gen.Pages.Internal.Platform.annotation_.flags
+                            , Gen.Pages.Internal.Platform.annotation_.model (Type.named [] "Model")
+                                (Type.named [] "PageData")
+                                (Type.named [] "ActionData")
+                                (Type.named [ "Shared" ] "Data")
+                            , Gen.Pages.Internal.Platform.annotation_.msg
+                                (Type.named [] "Msg")
+                                (Type.named [] "PageData")
+                                (Type.named [] "ActionData")
+                                (Type.named [ "Shared" ] "Data")
+                                (Type.named [ "ErrorPage" ] "ErrorPage")
+                            ]
+                        )
                     |> Elm.declaration "main"
                     |> expose
 
             Cli ->
                 Gen.Pages.Internal.Platform.Cli.cliApplication config
+                    |> Elm.withType
+                        (Gen.Pages.Internal.Platform.Cli.annotation_.program
+                            (Type.named [ "Route" ] "Route" |> Type.maybe)
+                        )
                     |> Elm.declaration "main"
                     |> expose
         , dataForRoute.declaration
