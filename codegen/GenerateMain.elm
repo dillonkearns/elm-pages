@@ -510,9 +510,9 @@ otherFile routes phaseString =
             }
         subscriptions =
             Elm.Declare.fn3 "subscriptions"
-                ( "route", Nothing )
-                ( "path", Nothing )
-                ( "model", Nothing )
+                ( "route", Type.named [ "Route" ] "Route" |> Type.maybe |> Just )
+                ( "path", Type.named [ "Path" ] "Path" |> Just )
+                ( "model", Type.named [] "Model" |> Just )
                 (\route path model ->
                     Gen.Platform.Sub.batch
                         [ Elm.apply
@@ -530,6 +530,7 @@ otherFile routes phaseString =
                             |> Gen.Platform.Sub.call_.map (Elm.val "MsgGlobal")
                         , templateSubscriptions.call route path model
                         ]
+                        |> Elm.withType (Gen.Platform.Sub.annotation_.sub (Type.named [] "Msg"))
                 )
 
         onActionData :
@@ -617,6 +618,7 @@ otherFile routes phaseString =
                                     )
                             )
                         }
+                        |> Elm.withType (Gen.Platform.Sub.annotation_.sub (Type.named [] "Msg"))
                 )
 
         dataForRoute :
@@ -1232,22 +1234,25 @@ otherFile routes phaseString =
             , value : List String -> Elm.Expression
             }
         fooFn =
-            {-
-               fooFn :
-                   (a -> PageModel)
-                   -> (b -> Msg)
-                   -> Model
-                   -> ( a, Effect.Effect b, Maybe Shared.Msg )
-                   -> ( PageModel, Effect.Effect Msg, ( Shared.Model, Effect.Effect Msg ) )
-               fooFn wrapModel wrapMsg model triple =
-                   Debug.todo ""
-
-            -}
             Elm.Declare.fn4 "fooFn"
-                ( "wrapModel", Nothing )
-                ( "wrapMsg", Nothing )
+                ( "wrapModel"
+                , Type.function [ Type.var "a" ]
+                    (Type.named [] "PageModel")
+                    |> Just
+                )
+                ( "wrapMsg"
+                , Type.function [ Type.var "b" ]
+                    (Type.named [] "Msg")
+                    |> Just
+                )
                 ( "model", Type.named [] "Model" |> Just )
-                ( "triple", Nothing )
+                ( "triple"
+                , Type.triple
+                    (Type.var "a")
+                    (Type.namedWith [ "Effect" ] "Effect" [ Type.var "b" ])
+                    (Type.maybe (Type.named [ "Shared" ] "Msg"))
+                    |> Just
+                )
                 (\wrapModel wrapMsg model triple ->
                     Elm.Case.custom triple
                         Type.unit
@@ -1287,6 +1292,14 @@ otherFile routes phaseString =
                                         )
                                 )
                         ]
+                        |> Elm.withType
+                            (Type.triple
+                                (Type.named [] "PageModel")
+                                (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ])
+                                (Type.tuple (Type.named [ "Shared" ] "Model")
+                                    (Type.namedWith [ "Effect" ] "Effect" [ Type.named [ "Shared" ] "Msg" ])
+                                )
+                            )
                 )
 
         toTriple :
