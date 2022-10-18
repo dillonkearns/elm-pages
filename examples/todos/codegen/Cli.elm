@@ -17,6 +17,7 @@ import Gen.Server.Request
 import Gen.Server.Response
 import Gen.View
 import Pages.Generate exposing (Type(..))
+import Pages.Internal.RoutePattern as RoutePattern
 
 
 type alias CliOptions =
@@ -74,18 +75,36 @@ init flags cliOptions =
 createFile : Bool -> List String -> Elm.File
 createFile preRender moduleName =
     (if preRender then
-        Pages.Generate.preRender
-            { moduleName = moduleName
-            , pages =
-                Gen.DataSource.succeed
-                    (Elm.list [])
-            , data =
-                ( Alias (Elm.Annotation.record [])
-                , \routeParams ->
-                    Gen.DataSource.succeed (Elm.record [])
-                )
-            , head = \app -> Elm.list []
-            }
+        let
+            hasDynamicRouteSegments : Bool
+            hasDynamicRouteSegments =
+                RoutePattern.fromModuleName moduleName
+                    |> Maybe.map RoutePattern.hasRouteParams
+                    |> Maybe.withDefault False
+        in
+        if hasDynamicRouteSegments then
+            Pages.Generate.preRender
+                { moduleName = moduleName
+                , pages =
+                    Gen.DataSource.succeed
+                        (Elm.list [])
+                , data =
+                    ( Alias (Elm.Annotation.record [])
+                    , \routeParams ->
+                        Gen.DataSource.succeed (Elm.record [])
+                    )
+                , head = \app -> Elm.list []
+                }
+
+        else
+            Pages.Generate.single
+                { moduleName = moduleName
+                , data =
+                    ( Alias (Elm.Annotation.record [])
+                    , Gen.DataSource.succeed (Elm.record [])
+                    )
+                , head = \app -> Elm.list []
+                }
 
      else
         Pages.Generate.serverRender
