@@ -30,7 +30,7 @@ typeToDeclaration name type_ =
 
 {-| -}
 type Builder
-    = Builder
+    = ServerRender
         { data : ( Type, Elm.Expression -> Elm.Expression )
         , action : ( Type, Elm.Expression -> Elm.Expression )
         , head : Elm.Expression -> Elm.Expression
@@ -47,7 +47,7 @@ serverRender :
     }
     -> Builder
 serverRender =
-    Builder
+    ServerRender
 
 
 {-| -}
@@ -56,7 +56,7 @@ buildNoState :
     }
     -> Builder
     -> Elm.File
-buildNoState definitions (Builder builder) =
+buildNoState definitions (ServerRender builder) =
     userFunction builder.moduleName
         { view = \_ -> definitions.view
         , localState = Nothing
@@ -83,7 +83,7 @@ buildWithLocalState :
     }
     -> Builder
     -> Elm.File
-buildWithLocalState definitions (Builder builder) =
+buildWithLocalState definitions (ServerRender builder) =
     userFunction builder.moduleName
         { view = definitions.view
         , localState =
