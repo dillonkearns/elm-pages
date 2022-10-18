@@ -1,8 +1,8 @@
-module Pages.Generate exposing (Type(..), serverRender, buildWithLocalState, buildNoState, Builder)
+module Pages.Generate exposing (Type(..), serverRender, buildWithLocalState, buildNoState, Builder, preRender)
 
 {-|
 
-@docs Type, serverRender, buildWithLocalState, buildNoState, Builder
+@docs Type, serverRender, buildWithLocalState, buildNoState, Builder, preRender
 
 -}
 
@@ -36,6 +36,12 @@ type Builder
         , head : Elm.Expression -> Elm.Expression
         , moduleName : List String
         }
+    | PreRender
+        { data : ( Type, Elm.Expression -> Elm.Expression )
+        , pages : Elm.Expression
+        , head : Elm.Expression -> Elm.Expression
+        , moduleName : List String
+        }
 
 
 {-| -}
@@ -51,25 +57,71 @@ serverRender =
 
 
 {-| -}
+preRender :
+    { data : ( Type, Elm.Expression -> Elm.Expression )
+    , pages : Elm.Expression
+    , head : Elm.Expression -> Elm.Expression
+    , moduleName : List String
+    }
+    -> Builder
+preRender input =
+    PreRender
+        { data = input.data
+        , pages =
+            input.pages
+                |> Elm.withType
+                    (Elm.Annotation.namedWith [ "DataSource" ]
+                        "DataSource"
+                        [ Elm.Annotation.list <| Elm.Annotation.named [] "RouteParams"
+                        ]
+                    )
+        , head = input.head
+        , moduleName = input.moduleName
+        }
+
+
+{-| -}
 buildNoState :
     { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
     }
     -> Builder
     -> Elm.File
-buildNoState definitions (ServerRender builder) =
-    userFunction builder.moduleName
-        { view = \_ -> definitions.view
-        , localState = Nothing
-        , data = builder.data |> Tuple.second
-        , action = builder.action |> Tuple.second
-        , head = builder.head
-        , types =
-            { model = Alias (Elm.Annotation.record [])
-            , msg = Alias Elm.Annotation.unit
-            , data = builder.data |> Tuple.first
-            , actionData = builder.action |> Tuple.first
-            }
-        }
+buildNoState definitions builder_ =
+    case builder_ of
+        ServerRender builder ->
+            userFunction builder.moduleName
+                { view = \_ -> definitions.view
+                , localState = Nothing
+                , data = builder.data |> Tuple.second
+                , action = builder.action |> Tuple.second |> Action
+                , head = builder.head
+                , types =
+                    { model = Alias (Elm.Annotation.record [])
+                    , msg = Alias Elm.Annotation.unit
+                    , data = builder.data |> Tuple.first
+                    , actionData = builder.action |> Tuple.first
+                    }
+                }
+
+        PreRender builder ->
+            userFunction builder.moduleName
+                { view = \_ -> definitions.view
+                , localState = Nothing
+                , data = builder.data |> Tuple.second
+                , action = builder.pages |> Pages
+                , head = builder.head
+                , types =
+                    { model = Alias (Elm.Annotation.record [])
+                    , msg = Alias Elm.Annotation.unit
+                    , data = builder.data |> Tuple.first
+                    , actionData =
+                        Elm.Annotation.namedWith [ "DataSource" ]
+                            "DataSource"
+                            [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
+                            ]
+                            |> Alias
+                    }
+                }
 
 
 {-| -}
@@ -83,25 +135,57 @@ buildWithLocalState :
     }
     -> Builder
     -> Elm.File
-buildWithLocalState definitions (ServerRender builder) =
-    userFunction builder.moduleName
-        { view = definitions.view
-        , localState =
-            Just
-                { update = definitions.update
-                , init = definitions.init
-                , subscriptions = definitions.subscriptions
+buildWithLocalState definitions builder_ =
+    case builder_ of
+        ServerRender builder ->
+            userFunction builder.moduleName
+                { view = definitions.view
+                , localState =
+                    Just
+                        { update = definitions.update
+                        , init = definitions.init
+                        , subscriptions = definitions.subscriptions
+                        }
+                , data = builder.data |> Tuple.second
+                , action = builder.action |> Tuple.second |> Action
+                , head = builder.head
+                , types =
+                    { model = definitions.model
+                    , msg = definitions.msg
+                    , data = builder.data |> Tuple.first
+                    , actionData = builder.action |> Tuple.first
+                    }
                 }
-        , data = builder.data |> Tuple.second
-        , action = builder.action |> Tuple.second
-        , head = builder.head
-        , types =
-            { model = definitions.model
-            , msg = definitions.msg
-            , data = builder.data |> Tuple.first
-            , actionData = builder.action |> Tuple.first
-            }
-        }
+
+        PreRender builder ->
+            userFunction builder.moduleName
+                { view = definitions.view
+                , localState =
+                    Just
+                        { update = definitions.update
+                        , init = definitions.init
+                        , subscriptions = definitions.subscriptions
+                        }
+                , data = builder.data |> Tuple.second
+                , action = builder.pages |> Pages
+                , head = builder.head
+                , types =
+                    { model = definitions.model
+                    , msg = definitions.msg
+                    , data = builder.data |> Tuple.first
+                    , actionData =
+                        Elm.Annotation.namedWith [ "DataSource" ]
+                            "DataSource"
+                            [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
+                            ]
+                            |> Alias
+                    }
+                }
+
+
+type ActionOrPages
+    = Action (Elm.Expression -> Elm.Expression)
+    | Pages Elm.Expression
 
 
 {-| -}
@@ -116,7 +200,7 @@ userFunction :
                 , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
                 }
         , data : Elm.Expression -> Elm.Expression
-        , action : Elm.Expression -> Elm.Expression
+        , action : ActionOrPages
         , head : Elm.Expression -> Elm.Expression
         , types : { model : Type, msg : Type, data : Type, actionData : Type }
         }
@@ -233,17 +317,44 @@ userFunction moduleName definitions =
                     |> Elm.Annotation.named []
                     |> Just
                 )
-                (definitions.data >> Elm.withType (myType "Data"))
+                (definitions.data
+                    >> Elm.withType
+                        (case definitions.action of
+                            Pages _ ->
+                                Elm.Annotation.namedWith [ "DataSource" ]
+                                    "DataSource"
+                                    [ Elm.Annotation.named [] "Data"
+                                    ]
 
-        actionFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
-        actionFn =
-            Elm.Declare.fn "action"
-                ( "routeParams"
-                , "RouteParams"
-                    |> Elm.Annotation.named []
-                    |> Just
+                            Action _ ->
+                                myType "Data"
+                        )
                 )
-                (definitions.action >> Elm.withType (myType "ActionData"))
+
+        actionFn : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
+        actionFn =
+            case definitions.action of
+                Action action_ ->
+                    Elm.Declare.function "action"
+                        [ ( "routeParams"
+                          , "RouteParams"
+                                |> Elm.Annotation.named []
+                                |> Just
+                          )
+                        ]
+                        (\args ->
+                            case args of
+                                [ arg ] ->
+                                    action_ arg |> Elm.withType (myType "ActionData")
+
+                                _ ->
+                                    Elm.unit
+                        )
+
+                Pages pages_ ->
+                    Elm.Declare.function "pages"
+                        []
+                        (\_ -> pages_)
 
         headFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
         headFn =
@@ -268,49 +379,66 @@ userFunction moduleName definitions =
                 )
             )
          , Elm.declaration "route"
-            (serverRender_
-                { action =
-                    \routeParams ->
-                        actionFn.call routeParams
-                            |> Elm.withType (myType "ActionData")
-                , data =
-                    \routeParams ->
-                        dataFn.call routeParams
-                            |> Elm.withType (myType "Data")
-                , head = headFn.call
-                }
-                |> (case localDefinitions of
-                        Just local ->
-                            buildWithLocalState_
-                                { view = viewFn.call
-                                , update = local.updateFn.call
-                                , init = local.initFn.call
-                                , subscriptions = local.subscriptionsFn.call
-                                }
-                                >> Elm.withType
-                                    (Elm.Annotation.namedWith [ "RouteBuilder" ]
-                                        "StatefulRoute"
-                                        [ localType "RouteParams"
-                                        , localType "Data"
-                                        , localType "ActionData"
-                                        , localType "Model"
-                                        , localType "Msg"
-                                        ]
-                                    )
+            (case definitions.action of
+                Action _ ->
+                    serverRender_
+                        { action =
+                            \routeParams ->
+                                actionFn.call [ routeParams ]
+                                    |> Elm.withType (myType "ActionData")
+                        , data =
+                            \routeParams ->
+                                dataFn.call routeParams
+                                    |> Elm.withType (myType "Data")
+                        , head = headFn.call
+                        }
 
-                        Nothing ->
-                            buildNoState_
-                                { view = viewFn.call Elm.unit
-                                }
-                                >> Elm.withType
-                                    (Elm.Annotation.namedWith [ "RouteBuilder" ]
-                                        "StatelessRoute"
-                                        [ localType "RouteParams"
-                                        , localType "Data"
-                                        , localType "ActionData"
-                                        ]
-                                    )
-                   )
+                Pages _ ->
+                    preRender_
+                        { pages = actionFn.call []
+                        , data =
+                            \routeParams ->
+                                dataFn.call routeParams
+                                    |> Elm.withType
+                                        (Elm.Annotation.namedWith [ "DataSource" ]
+                                            "DataSource"
+                                            [ Elm.Annotation.named [] "Data"
+                                            ]
+                                        )
+                        , head = headFn.call
+                        }
+                        |> (case localDefinitions of
+                                Just local ->
+                                    buildWithLocalState_
+                                        { view = viewFn.call
+                                        , update = local.updateFn.call
+                                        , init = local.initFn.call
+                                        , subscriptions = local.subscriptionsFn.call
+                                        }
+                                        >> Elm.withType
+                                            (Elm.Annotation.namedWith [ "RouteBuilder" ]
+                                                "StatefulRoute"
+                                                [ localType "RouteParams"
+                                                , localType "Data"
+                                                , localType "ActionData"
+                                                , localType "Model"
+                                                , localType "Msg"
+                                                ]
+                                            )
+
+                                Nothing ->
+                                    buildNoState_
+                                        { view = viewFn.call Elm.unit
+                                        }
+                                        >> Elm.withType
+                                            (Elm.Annotation.namedWith [ "RouteBuilder" ]
+                                                "StatelessRoute"
+                                                [ localType "RouteParams"
+                                                , localType "Data"
+                                                , localType "ActionData"
+                                                ]
+                                            )
+                           )
             )
          ]
             ++ (case localDefinitions of
@@ -459,6 +587,73 @@ serverRender_ serverRenderArg =
             , Tuple.pair
                 "head"
                 (Elm.functionReduced "serverRenderUnpack" serverRenderArg.head)
+            ]
+        ]
+
+
+preRender_ :
+    { data : Elm.Expression -> Elm.Expression
+    , pages : Elm.Expression
+    , head : Elm.Expression -> Elm.Expression
+    }
+    -> Elm.Expression
+preRender_ serverRenderArg =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "RouteBuilder" ]
+            , name = "preRender"
+            , annotation =
+                Just
+                    (Elm.Annotation.function
+                        [ Elm.Annotation.record
+                            [ ( "data"
+                              , Elm.Annotation.function
+                                    [ Elm.Annotation.var "routeParams" ]
+                                    (Elm.Annotation.namedWith
+                                        [ "DataSource" ]
+                                        "DataSource"
+                                        [ Elm.Annotation.var "data"
+                                        ]
+                                    )
+                              )
+                            , ( "pages"
+                              , Elm.Annotation.namedWith
+                                    [ "DataSource" ]
+                                    "DataSource"
+                                    [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
+                                    ]
+                              )
+                            , ( "head"
+                              , Elm.Annotation.function
+                                    [ Elm.Annotation.namedWith
+                                        [ "RouteBuilder" ]
+                                        "StaticPayload"
+                                        [ Elm.Annotation.var "data"
+                                        , Elm.Annotation.var "action"
+                                        , Elm.Annotation.var "routeParams"
+                                        ]
+                                    ]
+                                    (Elm.Annotation.list
+                                        (Elm.Annotation.namedWith [ "Head" ] "Tag" [])
+                                    )
+                              )
+                            ]
+                        ]
+                        (Elm.Annotation.namedWith
+                            [ "RouteBuilder" ]
+                            "Builder"
+                            [ Elm.Annotation.named [] "RouteParams"
+                            , Elm.Annotation.named [] "Data"
+                            , Elm.Annotation.named [] "Action"
+                            ]
+                        )
+                    )
+            }
+        )
+        [ Elm.record
+            [ Tuple.pair "data" (Elm.functionReduced "serverRenderUnpack" serverRenderArg.data)
+            , Tuple.pair "pages" serverRenderArg.pages
+            , Tuple.pair "head" (Elm.functionReduced "serverRenderUnpack" serverRenderArg.head)
             ]
         ]
 

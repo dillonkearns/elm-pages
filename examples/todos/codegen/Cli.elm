@@ -21,6 +21,7 @@ import Pages.Generate exposing (Type(..))
 
 type alias CliOptions =
     { moduleName : String
+    , preRender : Bool
     }
 
 
@@ -33,6 +34,8 @@ program =
                     (Option.requiredPositionalArg "module"
                         |> Option.validate (Cli.Validate.regex moduleNameRegex)
                     )
+                |> OptionsParser.with
+                    (Option.flag "preRender")
             )
 
 
@@ -60,7 +63,7 @@ init flags cliOptions =
     let
         file : Elm.File
         file =
-            createFile (cliOptions.moduleName |> String.split ".")
+            createFile cliOptions.preRender (cliOptions.moduleName |> String.split ".")
     in
     writeFile
         { path = file.path
@@ -68,32 +71,48 @@ init flags cliOptions =
         }
 
 
-createFile : List String -> Elm.File
-createFile moduleName =
-    Pages.Generate.serverRender
-        { moduleName = moduleName
-        , action =
-            ( Alias (Elm.Annotation.record [])
-            , \routeParams ->
-                Gen.Server.Request.succeed
-                    (Gen.DataSource.succeed
-                        (Gen.Server.Response.render
-                            (Elm.record [])
+createFile : Bool -> List String -> Elm.File
+createFile preRender moduleName =
+    (if preRender then
+        Pages.Generate.preRender
+            { moduleName = moduleName
+            , pages =
+                Gen.DataSource.succeed
+                    (Elm.list [])
+            , data =
+                ( Alias (Elm.Annotation.record [])
+                , \routeParams ->
+                    Gen.DataSource.succeed (Elm.record [])
+                )
+            , head = \app -> Elm.list []
+            }
+
+     else
+        Pages.Generate.serverRender
+            { moduleName = moduleName
+            , action =
+                ( Alias (Elm.Annotation.record [])
+                , \routeParams ->
+                    Gen.Server.Request.succeed
+                        (Gen.DataSource.succeed
+                            (Gen.Server.Response.render
+                                (Elm.record [])
+                            )
                         )
-                    )
-            )
-        , data =
-            ( Alias (Elm.Annotation.record [])
-            , \routeParams ->
-                Gen.Server.Request.succeed
-                    (Gen.DataSource.succeed
-                        (Gen.Server.Response.render
-                            (Elm.record [])
+                )
+            , data =
+                ( Alias (Elm.Annotation.record [])
+                , \routeParams ->
+                    Gen.Server.Request.succeed
+                        (Gen.DataSource.succeed
+                            (Gen.Server.Response.render
+                                (Elm.record [])
+                            )
                         )
-                    )
-            )
-        , head = \app -> Elm.list []
-        }
+                )
+            , head = \app -> Elm.list []
+            }
+    )
         --|> Pages.Generate.buildNoState
         --    { view =
         --        \_ _ _ ->
