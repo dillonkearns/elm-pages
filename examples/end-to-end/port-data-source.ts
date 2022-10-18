@@ -1,6 +1,8 @@
 import kleur from "kleur";
 kleur.enabled = true;
 
+global.list = ["Initial Item"];
+
 export async function environmentVariable(name) {
   const result = process.env[name];
   if (result) {
@@ -21,4 +23,18 @@ export async function hello(name) {
 
 function waitFor(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function addItem(name) {
+  global.list.push(name);
+  return global.list;
+}
+
+export async function getItems() {
+  return global.list;
+}
+
+export async function deleteAllItems(name) {
+  global.list = [];
+  return global.list;
 }
