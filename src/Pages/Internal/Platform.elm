@@ -423,9 +423,7 @@ update config appMsg model =
                         )
 
                     else
-                        ( { model
-                            | url = url
-                          }
+                        ( model
                         , NoEffect
                         )
                             -- TODO is it reasonable to always re-fetch route data if you re-navigate to the current route? Might be a good
@@ -605,27 +603,32 @@ update config appMsg model =
                                 , actionData = newActionData
                                 }
 
-                            ( userModel, _ ) =
+                            ( userModel, userEffect ) =
                                 -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
                                 -- instead of calling update, call pushUrl (I think?)
                                 -- TODO include user Cmd
-                                config.update model.pageFormState
-                                    (model.inFlightFetchers |> toFetcherState)
-                                    (model.transition |> Maybe.map Tuple.second)
-                                    newSharedData
-                                    newPageData
-                                    model.key
-                                    (config.onPageChange
-                                        { protocol = model.url.protocol
-                                        , host = model.url.host
-                                        , port_ = model.url.port_
-                                        , path = urlPathToPath urlWithoutRedirectResolution
-                                        , query = urlWithoutRedirectResolution.query
-                                        , fragment = urlWithoutRedirectResolution.fragment
-                                        , metadata = config.urlToRoute urlWithoutRedirectResolution
-                                        }
-                                    )
-                                    previousPageData.userModel
+                                if stayingOnSamePath then
+                                    ( previousPageData.userModel, NoEffect )
+
+                                else
+                                    config.update model.pageFormState
+                                        (model.inFlightFetchers |> toFetcherState)
+                                        (model.transition |> Maybe.map Tuple.second)
+                                        newSharedData
+                                        newPageData
+                                        model.key
+                                        (config.onPageChange
+                                            { protocol = model.url.protocol
+                                            , host = model.url.host
+                                            , port_ = model.url.port_
+                                            , path = urlPathToPath urlWithoutRedirectResolution
+                                            , query = urlWithoutRedirectResolution.query
+                                            , fragment = urlWithoutRedirectResolution.fragment
+                                            , metadata = config.urlToRoute urlWithoutRedirectResolution
+                                            }
+                                        )
+                                        previousPageData.userModel
+                                        |> Tuple.mapSecond UserCmd
 
                             updatedModel : Model userModel pageData actionData sharedData
                             updatedModel =
@@ -656,10 +659,13 @@ update config appMsg model =
                             , currentPath = newUrl.path
                           }
                         , if not stayingOnSamePath && scrollToTopWhenDone then
-                            ScrollToTop
+                            Batch
+                                [ ScrollToTop
+                                , userEffect
+                                ]
 
                           else
-                            NoEffect
+                            userEffect
                         )
                             |> (case maybeUserMsg of
                                     Just userMsg ->
@@ -1392,7 +1398,8 @@ loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg 
                     , actionData = newActionData
                     }
 
-                ( userModel, _ ) =
+                -- TODO use userEffect here?
+                ( userModel, userEffect ) =
                     -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
                     -- instead of calling update, call pushUrl (I think?)
                     -- TODO include user Cmd
