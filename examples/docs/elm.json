@@ -44,7 +44,7 @@
             "pablohirafuji/elm-syntax-highlight": "3.4.1",
             "robinheghan/fnv1a": "1.0.0",
             "robinheghan/murmur3": "1.0.0",
-            "rtfeldman/elm-css": "18.0.0",
+            "rtfeldman/elm-css": "17.1.1",
             "rtfeldman/elm-iso8601-date-strings": "1.1.4",
             "the-sett/elm-pretty-printer": "3.0.0",
             "the-sett/elm-syntax-dsl": "6.0.2",
@@ -53,7 +53,7 @@
         },
         "indirect": {
             "Chadtech/elm-bool-extra": "2.4.2",
-            "billstclair/elm-xml-eeue56": "2.0.0",
+            "billstclair/elm-xml-eeue56": "2.1.0",
             "dmy/elm-imf-date-time": "1.0.1",
             "elm/file": "1.0.5",
             "elm-community/basics-extra": "4.1.0",
