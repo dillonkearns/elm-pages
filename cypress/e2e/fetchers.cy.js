@@ -1,3 +1,5 @@
+/// <reference types="Cypress" />
+
 context("fetchers", () => {
   it("add items to list", () => {
     cy.visit("/fetcher");
