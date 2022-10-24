@@ -24,6 +24,7 @@ const busboy = require("busboy");
 const { createServer: createViteServer } = require("vite");
 const cliVersion = require("../../package.json").version;
 const esbuild = require("esbuild");
+const { merge_vite_configs } = require("./vite-utils.js");
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
@@ -131,13 +132,22 @@ async function start(options) {
       );
       return {};
     });
-  const vite = await createViteServer({
-    server: { middlewareMode: "ssr", base: options.base, port: options.port },
-    configFile: false,
-    root: process.cwd(),
-    base: options.base,
-    ...viteConfig,
-  });
+  const vite = await createViteServer(
+    merge_vite_configs(
+      {
+        server: {
+          middlewareMode: "ssr",
+          base: options.base,
+          port: options.port,
+        },
+        configFile: false,
+        root: process.cwd(),
+        base: options.base,
+      },
+
+      viteConfig
+    )
+  );
   esbuild
     .build({
       entryPoints: ["./port-data-source"],

@@ -16,6 +16,7 @@ const { build } = require("vite");
 const preRenderHtml = require("./pre-render-html.js");
 const esbuild = require("esbuild");
 const { createHash } = require("crypto");
+const { merge_vite_configs } = require("./vite-utils.js");
 
 let pool = [];
 let pagesReady;
@@ -92,23 +93,25 @@ async function run(options) {
         );
         return {};
       });
-    const viteConfig = config.vite || {};
+    const viteConfig = merge_vite_configs(
+      {
+        configFile: false,
+        root: process.cwd(),
+        base: options.base,
+        ssr: false,
 
-    const buildComplete = build({
-      configFile: false,
-      root: process.cwd(),
-      base: options.base,
-      ssr: false,
-
-      build: {
-        manifest: true,
-        outDir: "dist",
-        rollupOptions: {
-          input: "elm-stuff/elm-pages/index.html",
+        build: {
+          manifest: true,
+          outDir: "dist",
+          rollupOptions: {
+            input: "elm-stuff/elm-pages/index.html",
+          },
         },
       },
-      ...viteConfig,
-    });
+      config.vite || {}
+    );
+
+    const buildComplete = build(viteConfig);
     const compileClientDone = compileElm(options);
     await buildComplete;
     await compileClientDone;
