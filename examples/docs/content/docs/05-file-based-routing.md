@@ -6,8 +6,6 @@ description: TODO
 
 `elm-pages` gives you a router based on the Elm modules in your `src/Page` folder.
 
-There
-
 ## Example routes
 
 | File                               | Matching Routes                              | RouteParams                                                         |
