@@ -123,16 +123,16 @@ A common use for this is to map your data into your elm-pages view:
 map : (a -> b) -> DataSource a -> DataSource b
 map fn requestInfo =
     case requestInfo of
-        RequestError error ->
-            RequestError error
+        ApiRoute value ->
+            ApiRoute (fn value)
 
         Request urls lookupFn ->
             Request
                 urls
                 (mapLookupFn fn lookupFn)
 
-        ApiRoute value ->
-            ApiRoute (fn value)
+        RequestError error ->
+            RequestError error
 
 
 mapLookupFn : (a -> b) -> (d -> c -> DataSource a) -> d -> c -> DataSource b
@@ -182,8 +182,8 @@ resolve =
 
 -}
 combine : List (DataSource value) -> DataSource (List value)
-combine =
-    List.foldr (map2 (::)) (succeed [])
+combine items =
+    List.foldl (map2 (::)) (succeed []) items |> map List.reverse
 
 
 {-| Like map, but it takes in two `Request`s.
@@ -212,11 +212,8 @@ combine =
 map2 : (a -> b -> c) -> DataSource a -> DataSource b -> DataSource c
 map2 fn request1 request2 =
     case ( request1, request2 ) of
-        ( RequestError error, _ ) ->
-            RequestError error
-
-        ( _, RequestError error ) ->
-            RequestError error
+        ( ApiRoute value1, ApiRoute value2 ) ->
+            ApiRoute (fn value1 value2)
 
         ( Request urls1 lookupFn1, Request urls2 lookupFn2 ) ->
             Request
@@ -233,8 +230,11 @@ map2 fn request1 request2 =
                 urls1
                 (mapReq fn (\_ _ -> ApiRoute value2) lookupFn1)
 
-        ( ApiRoute value1, ApiRoute value2 ) ->
-            ApiRoute (fn value1 value2)
+        ( RequestError error, _ ) ->
+            RequestError error
+
+        ( _, RequestError error ) ->
+            RequestError error
 
 
 mapReq : (a -> b -> c) -> (e -> d -> DataSource a) -> (e -> d -> DataSource b) -> e -> d -> DataSource c
@@ -247,9 +247,6 @@ mapReq fn lookupFn1 lookupFn2 maybeMock rawResponses =
 lookup : Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
 lookup maybeMockResolver requestInfo rawResponses =
     case requestInfo of
-        RequestError error ->
-            Err error
-
         Request urls lookupFn ->
             lookup maybeMockResolver
                 (addUrls urls (lookupFn maybeMockResolver rawResponses))
@@ -258,18 +255,21 @@ lookup maybeMockResolver requestInfo rawResponses =
         ApiRoute value ->
             Ok value
 
+        RequestError error ->
+            Err error
+
 
 addUrls : List HashRequest.Request -> DataSource value -> DataSource value
 addUrls urlsToAdd requestInfo =
     case requestInfo of
-        RequestError error ->
-            RequestError error
+        ApiRoute value ->
+            ApiRoute value
 
         Request initialUrls function ->
             Request (initialUrls ++ urlsToAdd) function
 
-        ApiRoute value ->
-            ApiRoute value
+        RequestError error ->
+            RequestError error
 
 
 {-| The full details to perform a StaticHttp request.
@@ -286,14 +286,14 @@ type alias RequestDetails =
 lookupUrls : DataSource value -> List RequestDetails
 lookupUrls requestInfo =
     case requestInfo of
-        RequestError _ ->
-            -- TODO should this have URLs passed through?
+        ApiRoute _ ->
             []
 
         Request urls _ ->
             urls
 
-        ApiRoute _ ->
+        RequestError _ ->
+            -- TODO should this have URLs passed through?
             []
 
 
@@ -324,19 +324,19 @@ andThen fn requestInfo =
                 rawResponses
                 |> (\result ->
                         case result of
-                            Err error ->
-                                RequestError error
-
                             Ok value ->
                                 case fn value of
+                                    ApiRoute finalValue ->
+                                        ApiRoute finalValue
+
                                     Request values function ->
                                         Request values function
 
                                     RequestError error ->
                                         RequestError error
 
-                                    ApiRoute finalValue ->
-                                        ApiRoute finalValue
+                            Err error ->
+                                RequestError error
                    )
         )
 
