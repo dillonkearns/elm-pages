@@ -25,6 +25,7 @@ const { createServer: createViteServer } = require("vite");
 const cliVersion = require("../../package.json").version;
 const esbuild = require("esbuild");
 const { merge_vite_configs } = require("./vite-utils.js");
+const { templateHtml } = require("./pre-render-html.js");
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
@@ -118,11 +119,26 @@ async function start(options) {
     watcher.add(sourceDirs);
   }
 
-  const viteConfig = await import(
-    path.join(process.cwd(), "elm-pages.config.mjs")
-  )
+  const config = await import(path.join(process.cwd(), "elm-pages.config.mjs"))
     .then(async (elmPagesConfig) => {
-      return elmPagesConfig.default.vite || {};
+      return (
+        elmPagesConfig.default || {
+          vite: {},
+          headTagsTemplate: (context) => `
+<link rel="stylesheet" href="/style.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="generator" content="elm-pages v${context.cliVersion}" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#ffffff" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta
+  name="apple-mobile-web-app-status-bar-style"
+  content="black-translucent"
+/>
+`,
+        }
+      );
     })
     .catch((error) => {
       console.warn(
@@ -145,7 +161,7 @@ async function start(options) {
         base: options.base,
       },
 
-      viteConfig
+      config.vite
     )
   );
   esbuild
@@ -469,35 +485,7 @@ async function start(options) {
             }
             case "html": {
               try {
-                const template =
-                  /*html*/
-                  `<!DOCTYPE html>
-<!-- ROOT --><html lang="en">
-  <head>
-    <script src="/hmr.js" type="text/javascript"></script>
-    <script src="/elm.js" type="text/javascript"></script>
-    <link rel="stylesheet" href="/style.css">
-    <link rel="stylesheet" href="/dev-style.css">
-    <script src="/elm-pages.js" type="module"></script>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title><!-- PLACEHOLDER_TITLE --></title>
-    <meta name="generator" content="elm-pages v${cliVersion}" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#ffffff" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta
-      name="apple-mobile-web-app-status-bar-style"
-      content="black-translucent"
-    />
-    <!-- PLACEHOLDER_HEAD_AND_DATA -->
-  </head>
-  <body>
-    <div data-url="" display="none"></div>
-    <!-- PLACEHOLDER_HTML -->
-  </body>
-</html>
-                `;
+                const template = templateHtml(true, config.headTagsTemplate);
                 const processedTemplate = await vite.transformIndexHtml(
                   req.originalUrl,
                   template

@@ -17,28 +17,29 @@ function wrapHtml(basePath, fromElm, contentDatPayload) {
   };
 }
 
-function templateHtml() {
+/**
+ * @param {boolean} devMode
+ * @param {(context: {cliVersion: string;}) => string} userHeadTagsTemplate
+ */
+function templateHtml(devMode, userHeadTagsTemplate) {
   return /* html */ `<!DOCTYPE html>
 <!-- ROOT --><html lang="en">
   <head>
-    <!-- PLACEHOLDER_PRELOADS -->
+    <title><!-- PLACEHOLDER_TITLE --></title>
+    ${
+      devMode
+        ? `
+    <script src="/hmr.js" type="text/javascript"></script>
+    <link rel="stylesheet" href="/dev-style.css">`
+        : `
+    <!-- PLACEHOLDER_PRELOADS -->`
+    }
     <script defer src="/elm.js" type="text/javascript"></script>
     <script defer src="${path.join(
       __dirname,
       "../static-code/elm-pages.js"
     )}" type="module"></script>
-    <link rel="stylesheet" href="/style.css" />
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title><!-- PLACEHOLDER_TITLE --></title>
-    <meta name="generator" content="elm-pages v${cliVersion}" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#ffffff" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta
-      name="apple-mobile-web-app-status-bar-style"
-      content="black-translucent"
-    />
+    ${userHeadTagsTemplate({ cliVersion })}
     <!-- PLACEHOLDER_HEAD_AND_DATA -->
   </head>
   <body>

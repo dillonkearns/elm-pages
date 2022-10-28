@@ -76,16 +76,28 @@ async function run(options) {
     const generateCode = codegen.generate(options.base);
 
     await generateCode;
-    await fsPromises.writeFile(
-      "elm-stuff/elm-pages/index.html",
-      preRenderHtml.templateHtml()
-    );
 
     const config = await import(
       path.join(process.cwd(), "elm-pages.config.mjs")
     )
       .then(async (elmPagesConfig) => {
-        return elmPagesConfig.default || {};
+        return (
+          elmPagesConfig.default || {
+            headTagsTemplate: (context) => `
+<link rel="stylesheet" href="/style.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="generator" content="elm-pages v${context.cliVersion}" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#ffffff" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta
+  name="apple-mobile-web-app-status-bar-style"
+  content="black-translucent"
+/>
+`,
+          }
+        );
       })
       .catch((error) => {
         console.warn(
@@ -93,6 +105,11 @@ async function run(options) {
         );
         return {};
       });
+
+    await fsPromises.writeFile(
+      "elm-stuff/elm-pages/index.html",
+      preRenderHtml.templateHtml(false, config.headTagsTemplate)
+    );
     const viteConfig = merge_vite_configs(
       {
         configFile: false,
