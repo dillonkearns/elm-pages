@@ -35,10 +35,15 @@ function templateHtml(devMode, userHeadTagsTemplate) {
     <!-- PLACEHOLDER_PRELOADS -->`
     }
     <script defer src="/elm.js" type="text/javascript"></script>
-    <script defer src="${path.join(
-      __dirname,
-      "../static-code/elm-pages.js"
-    )}" type="module"></script>
+    ${
+      devMode
+        ? `<script src="/elm-pages.js" type="module"></script>
+`
+        : `<script defer src="${path.join(
+            __dirname,
+            "../static-code/elm-pages.js"
+          )}" type="module"></script>`
+    }
     ${indent(userHeadTagsTemplate({ cliVersion }))}
     <!-- PLACEHOLDER_HEAD_AND_DATA -->
   </head>
