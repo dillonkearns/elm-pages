@@ -26,6 +26,7 @@ const cliVersion = require("../../package.json").version;
 const esbuild = require("esbuild");
 const { merge_vite_configs } = require("./vite-utils.js");
 const { templateHtml } = require("./pre-render-html.js");
+const { resolveConfig } = require("./config.js");
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
@@ -119,35 +120,7 @@ async function start(options) {
     watcher.add(sourceDirs);
   }
 
-  const config = await import(path.join(process.cwd(), "elm-pages.config.mjs"))
-    .then(async (elmPagesConfig) => {
-      return (
-        elmPagesConfig.default || {
-          vite: {},
-          headTagsTemplate: (context) => `
-<link rel="stylesheet" href="/style.css" />
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<meta name="generator" content="elm-pages v${context.cliVersion}" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="theme-color" content="#ffffff" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta
-  name="apple-mobile-web-app-status-bar-style"
-  content="black-translucent"
-/>
-`,
-        }
-      );
-    })
-    .catch((error) => {
-      console.warn(
-        kleur.yellow(
-          "No `elm-pages.config.mjs` file found. Using default config."
-        )
-      );
-      return {};
-    });
+  const config = await resolveConfig();
   const vite = await createViteServer(
     merge_vite_configs(
       {

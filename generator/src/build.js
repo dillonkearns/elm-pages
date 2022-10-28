@@ -17,6 +17,7 @@ const preRenderHtml = require("./pre-render-html.js");
 const esbuild = require("esbuild");
 const { createHash } = require("crypto");
 const { merge_vite_configs } = require("./vite-utils.js");
+const { resolveConfig } = require("./config.js");
 
 let pool = [];
 let pagesReady;
@@ -77,35 +78,7 @@ async function run(options) {
 
     await generateCode;
 
-    const config = await import(
-      path.join(process.cwd(), "elm-pages.config.mjs")
-    )
-      .then(async (elmPagesConfig) => {
-        return (
-          elmPagesConfig.default || {
-            headTagsTemplate: (context) => `
-<link rel="stylesheet" href="/style.css" />
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<meta name="generator" content="elm-pages v${context.cliVersion}" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="theme-color" content="#ffffff" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta
-  name="apple-mobile-web-app-status-bar-style"
-  content="black-translucent"
-/>
-`,
-          }
-        );
-      })
-      .catch((error) => {
-        console.warn(
-          "No `elm-pages.config.mjs` file found. Using default config."
-        );
-        return {};
-      });
-
+    const config = await resolveConfig();
     await fsPromises.writeFile(
       "elm-stuff/elm-pages/index.html",
       preRenderHtml.templateHtml(false, config.headTagsTemplate)

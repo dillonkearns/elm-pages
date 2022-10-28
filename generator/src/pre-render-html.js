@@ -39,7 +39,7 @@ function templateHtml(devMode, userHeadTagsTemplate) {
       __dirname,
       "../static-code/elm-pages.js"
     )}" type="module"></script>
-    ${userHeadTagsTemplate({ cliVersion })}
+    ${indent(userHeadTagsTemplate({ cliVersion }))}
     <!-- PLACEHOLDER_HEAD_AND_DATA -->
   </head>
   <body>
@@ -47,6 +47,16 @@ function templateHtml(devMode, userHeadTagsTemplate) {
     <!-- PLACEHOLDER_HTML -->
   </body>
 </html>`;
+}
+
+/**
+ * @param {string} snippet
+ */
+function indent(snippet) {
+  return snippet
+    .split("\n")
+    .map((line) => `    ${line}`)
+    .join("\n");
 }
 
 /**
