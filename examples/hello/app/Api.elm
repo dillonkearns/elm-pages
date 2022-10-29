@@ -9,7 +9,7 @@ import Route exposing (Route)
 
 routes :
     DataSource (List Route)
-    -> (Html Never -> String)
+    -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
     []

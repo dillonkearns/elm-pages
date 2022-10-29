@@ -1687,7 +1687,7 @@ otherFile routes phaseString =
                             (Elm.Op.cons apiPatterns.reference
                                 (Elm.apply (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
                                     [ getStaticRoutes.reference
-                                    , fnIgnore (Elm.string "")
+                                    , Elm.fn2 ( "a", Nothing ) ( "b", Nothing ) (\_ _ -> Elm.string "")
                                     ]
                                 )
                             )
@@ -1713,7 +1713,7 @@ otherFile routes phaseString =
                         (Elm.apply
                             (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
                             [ getStaticRoutes.reference
-                            , fnIgnore (Elm.string "")
+                            , Elm.fn2 ( "a", Nothing ) ( "b", Nothing ) (\_ _ -> Elm.string "")
                             ]
                             |> Gen.List.call_.map Gen.ApiRoute.values_.toJson
                         )
@@ -1822,7 +1822,19 @@ otherFile routes phaseString =
             }
         globalHeadTags =
             Elm.Declare.fn "globalHeadTags"
-                ( "htmlToString", Type.function [ Gen.Html.annotation_.html Gen.Basics.annotation_.never ] Type.string |> Just )
+                ( "htmlToString"
+                , Type.function
+                    [ Type.maybe
+                        (Type.record
+                            [ ( "indent", Type.int )
+                            , ( "newLines", Type.bool )
+                            ]
+                        )
+                    , Gen.Html.annotation_.html Gen.Basics.annotation_.never
+                    ]
+                    Type.string
+                    |> Just
+                )
                 (\htmlToString ->
                     Elm.Op.cons
                         (Elm.value

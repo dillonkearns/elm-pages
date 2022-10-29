@@ -88,7 +88,10 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         }
         -> userMsg
     , apiRoutes :
-        (Html Never -> String)
+        (Maybe { indent : Int, newLines : Bool }
+         -> Html Never
+         -> String
+        )
         -> List (ApiRoute.ApiRoute ApiRoute.Response)
     , pathPatterns : List RoutePattern
     , basePath : List String
@@ -98,7 +101,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , encodeResponse : ResponseSketch pageData actionData sharedData -> Bytes.Encode.Encoder
     , encodeAction : actionData -> Bytes.Encode.Encoder
     , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData actionData sharedData)
-    , globalHeadTags : Maybe ((Html Never -> String) -> DataSource (List Head.Tag))
+    , globalHeadTags : Maybe ((Maybe { indent : Int, newLines : Bool } -> Html Never -> String) -> DataSource (List Head.Tag))
     , cmdToEffect : Cmd userMsg -> effect
     , perform :
         { fetchRouteData :

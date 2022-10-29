@@ -21,7 +21,7 @@ import Time
 
 routes :
     DataSource (List Route)
-    -> (Html Never -> String)
+    -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
     [ ApiRoute.succeed

@@ -880,7 +880,7 @@ sendSinglePageProgress site contentJson config model info =
                                                     , headers = record.headers
                                                     }
                                                     { head = config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData Nothing |> .head
-                                                    , view = viewValue.body |> List.map HtmlPrinter.htmlToString |> String.join "\n"
+                                                    , view = viewValue.body |> List.map (HtmlPrinter.htmlToString Nothing) |> String.join "\n"
                                                     , title = viewValue.title
                                                     }
                                     )
@@ -1221,7 +1221,7 @@ render404Page config sharedData model path notFoundReason =
 
 bodyToString : List (Html msg) -> String
 bodyToString body =
-    body |> List.map HtmlPrinter.htmlToString |> String.join "\n"
+    body |> List.map (HtmlPrinter.htmlToString Nothing) |> String.join "\n"
 
 
 urlToRoute : ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage -> Url -> route
