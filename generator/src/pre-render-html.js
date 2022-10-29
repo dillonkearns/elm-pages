@@ -25,6 +25,7 @@ function templateHtml(devMode, userHeadTagsTemplate) {
   return /* html */ `<!DOCTYPE html>
 <!-- ROOT --><html lang="en">
   <head>
+    <meta charset="UTF-8" />
     <title><!-- PLACEHOLDER_TITLE --></title>
     ${
       devMode
