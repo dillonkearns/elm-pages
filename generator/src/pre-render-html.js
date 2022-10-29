@@ -29,17 +29,14 @@ function templateHtml(devMode, userHeadTagsTemplate) {
     <title><!-- PLACEHOLDER_TITLE --></title>
     ${
       devMode
-        ? `
-    <script src="/hmr.js" type="text/javascript"></script>
+        ? `<script src="/hmr.js" type="text/javascript"></script>
     <link rel="stylesheet" href="/dev-style.css">`
-        : `
-    <!-- PLACEHOLDER_PRELOADS -->`
+        : `<!-- PLACEHOLDER_PRELOADS -->`
     }
     <script defer src="/elm.js" type="text/javascript"></script>
     ${
       devMode
-        ? `<script src="/elm-pages.js" type="module"></script>
-`
+        ? `<script src="/elm-pages.js" type="module"></script>`
         : `<script defer src="${path.join(
             __dirname,
             "../static-code/elm-pages.js"
