@@ -9,8 +9,13 @@ export default {
       ]),
     ],
   }),
-  headTagsTemplate: (context) => `
+  headTagsTemplate(context) {
+    return `
 <link rel="stylesheet" href="/style.css" />
 <meta name="generator" content="elm-pages v${context.cliVersion}" />
-`,
+`;
+  },
+  preloadTagForFile(file) {
+    return !file.endsWith(".css");
+  },
 };

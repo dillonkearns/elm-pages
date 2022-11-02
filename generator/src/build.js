@@ -117,10 +117,25 @@ async function run(options) {
       "dist/elm-stuff/elm-pages/index.html",
       "utf-8"
     );
-    const preloads = `<link rel="modulepreload" href="/${manifest["elm-stuff/elm-pages/index.html"]["file"]}" />`;
+    const preloadFiles = [
+      `elm.${browserElmHash}.js`,
+      ...Object.entries(manifest).map((entry) => entry[1].file),
+    ].map((file) => path.join(options.base, file));
+    const userProcessedPreloads = preloadFiles.flatMap((file) => {
+      const userPreloadForFile = config.preloadTagForFile(file);
+      if (userPreloadForFile === true) {
+        return [defaultPreloadForFile(file)];
+      } else if (userPreloadForFile === false) {
+        return [];
+      } else if (typeof userPreloadForFile === "string") {
+        return [userPreloadForFile];
+      } else {
+        throw `I expected preloadTagForFile in elm-pages.config.mjs to return a string or boolean, but instead it returned: ${userPreloadForFile}`;
+      }
+    });
 
     const processedIndexTemplate = indexTemplate
-      .replace("<!-- PLACEHOLDER_PRELOADS -->", preloads)
+      .replace("<!-- PLACEHOLDER_PRELOADS -->", userProcessedPreloads.join(""))
       .replace(
         '<script defer src="/elm.js" type="text/javascript"></script>',
         `<script defer src="/elm.${browserElmHash}.js" type="text/javascript"></script>`
@@ -617,6 +632,31 @@ async function runAdapter(adaptFn, processedIndexTemplate) {
       console.error(error);
     }
     process.exit(1);
+  }
+}
+
+// Source: https://github.com/vitejs/vite/blob/c53ffec3465d2d28d08d29ca61313469e03f5dd6/playground/ssr-vue/src/entry-server.js#L50-L68
+/**
+ * @param {string} file
+ */
+function defaultPreloadForFile(file) {
+  if (file.endsWith(".js")) {
+    return `<link rel="modulepreload" crossorigin href="${file}">`;
+  } else if (file.endsWith(".css")) {
+    return `<link rel="preload" href="${file}" as="style">`;
+  } else if (file.endsWith(".woff")) {
+    return ` <link rel="preload" href="${file}" as="font" type="font/woff" crossorigin>`;
+  } else if (file.endsWith(".woff2")) {
+    return ` <link rel="preload" href="${file}" as="font" type="font/woff2" crossorigin>`;
+  } else if (file.endsWith(".gif")) {
+    return ` <link rel="preload" href="${file}" as="image" type="image/gif">`;
+  } else if (file.endsWith(".jpg") || file.endsWith(".jpeg")) {
+    return ` <link rel="preload" href="${file}" as="image" type="image/jpeg">`;
+  } else if (file.endsWith(".png")) {
+    return ` <link rel="preload" href="${file}" as="image" type="image/png">`;
+  } else {
+    // TODO
+    return "";
   }
 }
 
