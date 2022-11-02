@@ -31,7 +31,7 @@ routes getStaticRoutes htmlToString =
                     [ ( "id", Json.Encode.string userId )
                     , ( "name"
                       , Html.p [] [ Html.text <| "Data for user " ++ userId ]
-                            |> htmlToString
+                            |> htmlToString Nothing
                             |> Json.Encode.string
                       )
                     ]
