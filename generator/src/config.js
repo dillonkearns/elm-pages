@@ -1,7 +1,9 @@
 const path = require("path");
 
 async function resolveConfig() {
-  return await import(path.join(process.cwd(), "elm-pages.config.mjs"))
+  const initialConfig = await await import(
+    path.join(process.cwd(), "elm-pages.config.mjs")
+  )
     .then(async (elmPagesConfig) => {
       return (
         elmPagesConfig.default || {
@@ -18,6 +20,15 @@ async function resolveConfig() {
         vite: {},
       };
     });
+
+  return {
+    preloadTagForFile: function () {
+      return true;
+    },
+    headTagsTemplate: defaultHeadTagsTemplate,
+    vite: {},
+    ...initialConfig,
+  };
 }
 
 function defaultHeadTagsTemplate(context) {
