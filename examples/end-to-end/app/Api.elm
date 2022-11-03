@@ -28,7 +28,7 @@ routes getStaticRoutes htmlToString =
     let
         html : Html Never -> Response data Never
         html htmlValue =
-            htmlToString htmlValue
+            htmlToString Nothing htmlValue
                 |> Response.body
                 |> Response.withHeader "Content-Type" "text/html; charset=UTF-8"
     in
