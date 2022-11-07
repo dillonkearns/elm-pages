@@ -1,8 +1,8 @@
-module Pages.Internal.Platform.Cli exposing (Flags, Model, Msg(..), Program, cliApplication, init, requestDecoder, update)
+module Pages.Internal.Platform.Cli exposing (Flags, Model, Msg(..), Program, cliApplication, init, requestDecoder, update, currentCompatibilityKey)
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs Flags, Model, Msg, Program, cliApplication, init, requestDecoder, update
+@docs Flags, Model, Msg, Program, cliApplication, init, requestDecoder, update, currentCompatibilityKey
 
 -}
 

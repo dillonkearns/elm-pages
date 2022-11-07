@@ -435,6 +435,7 @@ startLowLevel apiRoutes staticHttpCache pages =
                   )
                 , ( "mode", Encode.string "prod" )
                 , ( "staticHttpCache", encodedStaticHttpCache )
+                , ( "compatibilityKey", Encode.int Pages.Internal.Platform.Cli.currentCompatibilityKey )
                 ]
 
         encodedStaticHttpCache : Encode.Value
@@ -590,6 +591,7 @@ startWithRoutes pageToLoad _ staticHttpCache pages =
                   )
                 , ( "staticHttpCache", encodedStaticHttpCache )
                 , ( "mode", Encode.string "dev-server" )
+                , ( "compatibilityKey", Encode.int Pages.Internal.Platform.Cli.currentCompatibilityKey )
                 ]
 
         encodedStaticHttpCache : Encode.Value
