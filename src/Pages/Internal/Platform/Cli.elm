@@ -47,6 +47,12 @@ type alias Flags =
 
 
 {-| -}
+currentCompatibilityKey : Int
+currentCompatibilityKey =
+    1
+
+
+{-| -}
 type alias Model route =
     { staticResponses : StaticResponses
     , errors : List BuildError
@@ -338,22 +344,30 @@ flagsDecoder :
         , isDevServer : Bool
         }
 flagsDecoder =
-    Decode.map2
-        (\staticHttpCache isDevServer ->
-            { staticHttpCache = staticHttpCache
-            , isDevServer = isDevServer
-            }
-        )
-        --(Decode.field "staticHttpCache"
-        --    (Decode.dict
-        --        (Decode.string
-        --            |> Decode.map Just
-        --        )
-        --    )
-        --)
-        -- TODO remove hardcoding and decode staticHttpCache here
-        (Decode.succeed Dict.empty)
-        (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
+    Decode.field "compatibilityKey" Decode.int
+        |> Decode.andThen
+            (\compatibilityKey ->
+                if compatibilityKey == currentCompatibilityKey then
+                    Decode.map2
+                        (\staticHttpCache isDevServer ->
+                            { staticHttpCache = staticHttpCache
+                            , isDevServer = isDevServer
+                            }
+                        )
+                        --(Decode.field "staticHttpCache"
+                        --    (Decode.dict
+                        --        (Decode.string
+                        --            |> Decode.map Just
+                        --        )
+                        --    )
+                        --)
+                        -- TODO remove hardcoding and decode staticHttpCache here
+                        (Decode.succeed Dict.empty)
+                        (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
+
+                else
+                    Decode.fail "The NPM package and Elm package you have installed are incompatible. If you are updating versions, be sure to update both the elm-pages Elm and NPM package."
+            )
 
 
 {-| -}

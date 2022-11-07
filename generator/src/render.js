@@ -17,6 +17,7 @@ process.on("unhandledRejection", (error) => {
 let foundErrors;
 let pendingDataSourceResponses;
 let pendingDataSourceCount;
+const compatibilityKey = 1;
 
 module.exports =
   /**
@@ -98,6 +99,7 @@ function runElmApp(
     app = elmModule.Elm.Main.init({
       flags: {
         mode,
+        compatibilityKey,
         request: {
           payload: modifiedRequest,
           kind: "single-page",
