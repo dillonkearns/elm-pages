@@ -18,6 +18,7 @@ const esbuild = require("esbuild");
 const { createHash } = require("crypto");
 const { merge_vite_configs } = require("./vite-utils.js");
 const { resolveConfig } = require("./config.js");
+const globby = require("globby");
 
 let pool = [];
 let pagesReady;
@@ -154,21 +155,20 @@ async function run(options) {
         metafile: true,
         bundle: true,
         watch: false,
-        logLevel: "error",
+        logLevel: "silent",
       })
       .then((result) => {
-        global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+        try {
+          global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+        } catch (e) {}
       })
       .catch((error) => {
-        if (
-          error.errors.length === 1 &&
-          error.errors[0].text.includes(
-            `Could not resolve "./port-data-source"`
-          )
-        ) {
-          console.warn("No port-data-source file found.");
-        } else {
-          console.error("Failed to load port-data-source file", error);
+        const portDataSourceFileFound =
+          globby.sync("./port-data-source.*").length > 0;
+        if (portDataSourceFileFound) {
+          // don't present error if there are no files matching port-data-source
+          // if there are files matching port-data-source, warn the user in case something went wrong loading it
+          console.error("Failed to start port-data-source watcher", error);
         }
       });
     // TODO extract common code for compiling ports file?

@@ -27,6 +27,7 @@ const esbuild = require("esbuild");
 const { merge_vite_configs } = require("./vite-utils.js");
 const { templateHtml } = require("./pre-render-html.js");
 const { resolveConfig } = require("./config.js");
+const globby = require("globby");
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
@@ -147,7 +148,7 @@ async function start(options) {
       metafile: true,
       bundle: true,
       watch: true,
-      logLevel: "error",
+      logLevel: "silent",
 
       outdir: ".elm-pages/compiled-ports",
       entryNames: "[dir]/[name]-[hash]",
@@ -157,11 +158,13 @@ async function start(options) {
           name: "example",
           setup(build) {
             build.onEnd((result) => {
-              global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+              try {
+                global.portsFilePath = Object.keys(result.metafile.outputs)[0];
 
-              clients.forEach((client) => {
-                client.response.write(`data: content.dat\n\n`);
-              });
+                clients.forEach((client) => {
+                  client.response.write(`data: content.dat\n\n`);
+                });
+              } catch (e) {}
             });
           },
         },
@@ -171,7 +174,13 @@ async function start(options) {
       console.log("Watching port-data-source...");
     })
     .catch((error) => {
-      console.error("Failed to start port-data-source watcher", error);
+      const portDataSourceFileFound =
+        globby.sync("./port-data-source.*").length > 0;
+      if (portDataSourceFileFound) {
+        // don't present error if there are no files matching port-data-source
+        // if there are files matching port-data-source, warn the user in case something went wrong loading it
+        console.error("Failed to start port-data-source watcher", error);
+      }
     });
 
   const app = connect()
