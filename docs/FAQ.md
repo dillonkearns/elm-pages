@@ -1,4 +1,42 @@
+## Why does elm-pages use Lamdera? Is it free?
+
+Starting with elm-pages v3, the Lamdera compiler is used instead of the Elm compiler. This is completely independent of the
+Lamdera hosted service. The Lamdera compiler is completely free to use and will not have any costs now or in the future.
+
+The reason elm-pages v3 began using the Lamdera compiler is for its automatic serialization of Elm data, which is known
+as Lamdera Wire. The Lamdera compiler is a fork of the Elm compiler which adds some functionality including Lamdera Wire. The
+elm-pages framework uses this under the hood. The DataSource `data` you define in your elm-pages Route Modules is resolved either at
+build-time (for pre-rendered routes, resolved when you run `elm-pages build`), or at request-time (for server-rendered routes). Imagine you
+have sensitive data that can't be exposed in your client-side app, like an API key to access data. Since DataSource's are resolved at build-time
+or request-time (they are NOT resolved on the client-side in the browser), you can safely use these secrets.
+
+The secrets you use to resolve that data won't end up on the client-side at all unless you include any sensitive data in your Route Module's `Data` value.
+The automatic serialization we get from the Lamdera Compiler gives us this abstraction for free. Before elm-pages v3, the `OptimizedDecoder` abstraction
+was used to serialize all data involved in resolve the DataSource. This would include any secret environment variables that were used along the way, which
+is way elm-pages v2 had the Secrets API - to ensure that you could use sensitive values without them showing up on the client-side. Thanks to the Lamdera Compiler,
+we're able to serialize only the final value for your Route Module's `Data` (not any of the intermediary values), so the user can reason about it more easily
+and write less code. It also improves performance because we serialize the `Data` value in a binary format, reducing the transfer size.
+
+The Lamdera Compiler is free to use, but is not source-available. In the future, it's possible that the Lamdera Wire functionality will be made available in
+an open source, source-available tool, but there's no guarantee of that or timeline.
+
+## Is elm-pages full-stack? Can I use it for pure static sites without a server? Can I use it for server-rendered pages with dynamic user content?
+
+Starting with `elm-pages` v3, the answer to all of the above is yes! Before `elm-pages` v3, it was a static-only site generator, meaning that you run
+a build step (`elm-pages build`), it outputs files, and a static host (like Netlify or GitHub pages) serves up those static files. In elm-pages v3,
+if you only use `RouteBuilder.preRender`, then you can use elm-pages as a purely static site generator and host your site without any dynamic server rendering
+or related server hosting functionality (just serve the generated files from `elm-pages build` like before).
+
+But starting with v3, you are also able to define server-rendered routes using `RouteBuilder.serverRender`. With this lifecycle, you're able to respond dynamically
+to a request, which means that you can do things like
+
+- Check for a session cookie
+- If the session cookie is present, use a DataSource to lookup the user using an API call and server-render a page with user-specific page content
+- If the session cookie is absent, redirect to the login page using an HTTP 301 response code
+- Load data dynmically at request-time, so every time the page is loaded you have the latest data (compared to statically built sites that have data from the time when the site was last built)
+
 ## Can you pass flags in to your `elm-pages` app?
+
 I'm trying to figure out the most intuitive way to model the concept of flags in `elm-pages`. Because the value of flags will be different during Pre-Rendering and Client-Side Rendering, just passing a single flag value would be misleading and make it seem like you have access to JS in the context of the user's browser on init. But you have to account for the Pre-Rendering phase as well, so flags has two different meanings.
 
 So for example, if you get the window dimensions from the flags and do responsive design based on that, then you'll see a flash after the client-side code takes over since it will run with a different value for flags. So that semantics of the flags are not quite intuitive there. You can achieve the same thing with a port, but the semantics are a little more obvious there because you now have to explicitly say how to handle the case where you don't have access to flags.
@@ -43,4 +81,3 @@ In the meantime, there are two workarounds:
 1. Use a git-based CMS. For example, https://forestry.io/ and https://www.netlifycms.org/ are both git-based. This means that adding new content to the CMS makes a pull request and adds that content to your repo. This works out of the box with elm-pages, because it will just add files to your `content/` folder. See https://github.com/dillonkearns/elm-pages-netlify-cms-starter.
 
 2. Alternatively, you can create a simple script (with NodeJS or bash) that runs before you do your `elm-pages build` or `elm-pages develop` command. That allows you to make any API requests you need to figure out the routes of your app. Then you'll need to write files to the `content/` folder based on that response. You can include some frontmatter (between the `---`'s at the top of the files you output) with some JSON data at the top. Then you can decode this data as metadata, and use it to perform StaticHttp requests for that page.
-
