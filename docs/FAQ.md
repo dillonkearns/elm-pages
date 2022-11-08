@@ -13,7 +13,7 @@ or request-time (they are NOT resolved on the client-side in the browser), you c
 The secrets you use to resolve that data won't end up on the client-side at all unless you include any sensitive data in your Route Module's `Data` value.
 The automatic serialization we get from the Lamdera Compiler gives us this abstraction for free. Before elm-pages v3, the `OptimizedDecoder` abstraction
 was used to serialize all data involved in resolve the DataSource. This would include any secret environment variables that were used along the way, which
-is way elm-pages v2 had the Secrets API - to ensure that you could use sensitive values without them showing up on the client-side. Thanks to the Lamdera Compiler,
+is why elm-pages v2 had the Secrets API - to ensure that you could use sensitive values without them showing up on the client-side. Thanks to the Lamdera Compiler,
 we're able to serialize only the final value for your Route Module's `Data` (not any of the intermediary values), so the user can reason about it more easily
 and write less code. It also improves performance because we serialize the `Data` value in a binary format, reducing the transfer size.
 
