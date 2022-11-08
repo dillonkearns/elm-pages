@@ -342,32 +342,27 @@ flagsDecoder :
     Decode.Decoder
         { staticHttpCache : RequestsAndPending
         , isDevServer : Bool
+        , compatibilityKey : Int
         }
 flagsDecoder =
-    Decode.field "compatibilityKey" Decode.int
-        |> Decode.andThen
-            (\compatibilityKey ->
-                if compatibilityKey == currentCompatibilityKey then
-                    Decode.map2
-                        (\staticHttpCache isDevServer ->
-                            { staticHttpCache = staticHttpCache
-                            , isDevServer = isDevServer
-                            }
-                        )
-                        --(Decode.field "staticHttpCache"
-                        --    (Decode.dict
-                        --        (Decode.string
-                        --            |> Decode.map Just
-                        --        )
-                        --    )
-                        --)
-                        -- TODO remove hardcoding and decode staticHttpCache here
-                        (Decode.succeed Dict.empty)
-                        (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
-
-                else
-                    Decode.fail "The NPM package and Elm package you have installed are incompatible. If you are updating versions, be sure to update both the elm-pages Elm and NPM package."
-            )
+    Decode.map3
+        (\staticHttpCache isDevServer compatibilityKey ->
+            { staticHttpCache = staticHttpCache
+            , isDevServer = isDevServer
+            , compatibilityKey = compatibilityKey
+            }
+        )
+        --(Decode.field "staticHttpCache"
+        --    (Decode.dict
+        --        (Decode.string
+        --            |> Decode.map Just
+        --        )
+        --    )
+        --)
+        -- TODO remove hardcoding and decode staticHttpCache here
+        (Decode.succeed Dict.empty)
+        (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
+        (Decode.field "compatibilityKey" Decode.int)
 
 
 {-| -}
@@ -379,8 +374,41 @@ init :
     -> ( Model route, Effect )
 init site renderRequest config flags =
     case Decode.decodeValue flagsDecoder flags of
-        Ok { staticHttpCache, isDevServer } ->
-            initLegacy site renderRequest { staticHttpCache = staticHttpCache, isDevServer = isDevServer } config
+        Ok { staticHttpCache, isDevServer, compatibilityKey } ->
+            if compatibilityKey == currentCompatibilityKey then
+                initLegacy site renderRequest { staticHttpCache = staticHttpCache, isDevServer = isDevServer } config
+
+            else
+                let
+                    elmPackageAheadOfNpmPackage =
+                        currentCompatibilityKey > compatibilityKey
+
+                    message : String
+                    message =
+                        "The NPM package and Elm package you have installed are incompatible. If you are updating versions, be sure to update both the elm-pages Elm and NPM package.\n\n"
+                            ++ (if elmPackageAheadOfNpmPackage then
+                                    "The elm-pages Elm package is ahead of the elm-pages NPM package. Try updating the elm-pages NPM package?"
+
+                                else
+                                    "The elm-pages NPM package is ahead of the elm-pages Elm package. Try updating the elm-pages Elm package?"
+                               )
+                in
+                updateAndSendPortIfDone
+                    site
+                    config
+                    { staticResponses = StaticResponses.empty
+                    , errors =
+                        [ { title = "Incompatible NPM and Elm package versions"
+                          , message = [ Terminal.text <| message ]
+                          , fatal = True
+                          , path = ""
+                          }
+                        ]
+                    , allRawResponses = Dict.empty
+                    , unprocessedPages = []
+                    , maybeRequestJson = renderRequest
+                    , isDevServer = False
+                    }
 
         Err error ->
             updateAndSendPortIfDone
