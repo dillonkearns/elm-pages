@@ -37,20 +37,9 @@ to a request, which means that you can do things like
 
 ## Can you pass flags in to your `elm-pages` app?
 
-I'm trying to figure out the most intuitive way to model the concept of flags in `elm-pages`. Because the value of flags will be different during Pre-Rendering and Client-Side Rendering, just passing a single flag value would be misleading and make it seem like you have access to JS in the context of the user's browser on init. But you have to account for the Pre-Rendering phase as well, so flags has two different meanings.
+Yes, see the [Pages.Flags module](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Pages-Flags). Note that elm-pages apps have a different life-cycle than standard Elm applications because they pre-render pages (either at build-time for static routes, or at request-time for server-rendered routes). So for example, if you get the window dimensions from the flags and do responsive design based on that, then you'll see a flash after the client-side code takes over since you need to give a value to use at pre-render time (before the app has reached the user's browser so before there are any dimensions available). So that semantics of the flags are not quite intuitive there.So you have to explicitly say how to handle the case where you don't have access to flags.
 
-So for example, if you get the window dimensions from the flags and do responsive design based on that, then you'll see a flash after the client-side code takes over since it will run with a different value for flags. So that semantics of the flags are not quite intuitive there. You can achieve the same thing with a port, but the semantics are a little more obvious there because you now have to explicitly say how to handle the case where you don't have access to flags.
-
-The discussion is being tracked here: https://github.com/dillonkearns/elm-pages/issues/9.
-
-I think the likely solution here will be to pass in flags, but wrap it in a custom type that makes the current lifecycle stage more clear:
-
-```elm
-type Flags value =
-  FromPrerenderer value | FromUsersBrowser value
-```
-
-Right now, you can achieve the same result with a port.
+You can see more discussion here for background into the design: https://github.com/dillonkearns/elm-pages/issues/9.
 
 ## How do you handle responsive layouts when you don't know the browser dimensions at build time?
 
