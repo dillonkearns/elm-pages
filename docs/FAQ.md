@@ -17,7 +17,8 @@ is why elm-pages v2 had the Secrets API - to ensure that you could use sensitive
 we're able to serialize only the final value for your Route Module's `Data` (not any of the intermediary values), so the user can reason about it more easily
 and write less code. It also improves performance because we serialize the `Data` value in a binary format, reducing the transfer size.
 
-The Lamdera Compiler is free to use, but is not source-available. In the future, it's possible that the Lamdera Wire functionality will be made available in
+The Lamdera Compiler is free to use, but is currently only source-available to enterprise customers of the hosted Lamdera service.
+In the future, it's possible that the Lamdera Wire functionality will be made available in
 an open source, source-available tool, but there's no guarantee of that or timeline.
 
 ## Is elm-pages full-stack? Can I use it for pure static sites without a server? Can I use it for server-rendered pages with dynamic user content?
