@@ -7,7 +7,7 @@ module DataSource exposing
     , map2, map3, map4, map5, map6, map7, map8, map9
     )
 
-{-| In an `elm-pages` app, each page can define a value `data` which is a `DataSource` that will be resolved **before** `init` is called. That means it is also available
+{-| In an `elm-pages` app, each Route Module can define a value `data` which is a `DataSource` that will be resolved **before** `init` is called. That means it is also available
 when the page's HTML is pre-rendered during the build step. You can also access the resolved data in `head` to use it for the page's SEO meta tags.
 
 A `DataSource` lets you pull in data from:
@@ -20,9 +20,17 @@ A `DataSource` lets you pull in data from:
   - Or any combination of the above, using `DataSource.map2`, `DataSource.andThen`, or other combining/continuing helpers from this module
 
 
-## Where Does DataSource Data Come From?
+## DataSource's vs. Effect's/Cmd's
 
-Data from a `DataSource` is resolved when you load a page in the `elm-pages` dev server, or when you run `elm-pages build`.
+DataSource's are always resolved before the page is rendered and sent to the browser. A DataSource is never executed
+in the Browser. Instead, the resolved data from the DataSource is passed down to the Browser - it has been resolved
+before any client-side JavaScript ever executes. In the case of a pre-rendered route, this is during the CLI build phase,
+and for server-rendered routes its DataSource is resolved on the server.
+
+Effect's/Cmd's are never executed on the CLI or server, they are only executed in the Browser. The data from a Route Module's
+`init` function is used to render the initial HTML on the server or build step, but the Effect isn't executed and `update` is never called
+before the page is hydrated in the Browser. This gives a deterministic mental model of what the first render will look like,
+and a nicely typed way to define the initial `Data` you have to render your initial view.
 
 Because `elm-pages` hydrates into a full Elm single-page app, it does need the data in order to initialize the Elm app.
 So why not just get the data the old-fashioned way, with `elm/http`, for example?
