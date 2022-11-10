@@ -11,9 +11,6 @@ module ApiRoute exposing
 to a DataSource so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
 the DataSource for your ApiRoutes, and it won't effect the payload size. Instead, the size of an ApiRoute is just the content you output for that route.
 
-In a future release, ApiRoutes may be able to run at request-time in a serverless function, allowing you to use pure Elm code to create dynamic APIs, and even pulling in data from
-DataSources dynamically.
-
 @docs ApiRoute, ApiRouteBuilder, Response
 
 @docs capture, literal, slash, succeed
