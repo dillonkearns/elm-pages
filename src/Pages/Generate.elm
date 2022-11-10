@@ -1,5 +1,5 @@
 module Pages.Generate exposing
-    ( buildWithLocalState, buildNoState, Builder
+    ( buildWithLocalState, buildWithSharedState, buildNoState, Builder
     , Type(..)
     , serverRender
     , preRender, single
@@ -10,7 +10,7 @@ module Pages.Generate exposing
 
 ## Initializing the Generator Builder
 
-@docs buildWithLocalState, buildNoState, Builder
+@docs buildWithLocalState, buildWithSharedState, buildNoState, Builder
 
 @docs Type
 
@@ -190,6 +190,7 @@ buildWithLocalState definitions builder_ =
                         { update = definitions.update
                         , init = definitions.init
                         , subscriptions = definitions.subscriptions
+                        , state = LocalState
                         }
                 , data = builder.data |> Tuple.second
                 , action = builder.action |> Tuple.second |> Action
@@ -210,6 +211,7 @@ buildWithLocalState definitions builder_ =
                         { update = definitions.update
                         , init = definitions.init
                         , subscriptions = definitions.subscriptions
+                        , state = LocalState
                         }
                 , data = builder.data |> Tuple.second
                 , action = builder.pages |> Pages
@@ -228,6 +230,72 @@ buildWithLocalState definitions builder_ =
                 }
 
 
+{-| -}
+buildWithSharedState :
+    { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    , update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    , init : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    , msg : Type
+    , model : Type
+    }
+    -> Builder
+    -> Elm.File
+buildWithSharedState definitions builder_ =
+    case builder_ of
+        ServerRender builder ->
+            userFunction builder.moduleName
+                { view = definitions.view
+                , localState =
+                    Just
+                        { update = definitions.update
+                        , init = definitions.init
+                        , subscriptions = definitions.subscriptions
+                        , state = SharedState
+                        }
+                , data = builder.data |> Tuple.second
+                , action = builder.action |> Tuple.second |> Action
+                , head = builder.head
+                , types =
+                    { model = definitions.model
+                    , msg = definitions.msg
+                    , data = builder.data |> Tuple.first
+                    , actionData = builder.action |> Tuple.first
+                    }
+                }
+
+        PreRender builder ->
+            userFunction builder.moduleName
+                { view = definitions.view
+                , localState =
+                    Just
+                        { update = definitions.update
+                        , init = definitions.init
+                        , subscriptions = definitions.subscriptions
+                        , state = SharedState
+                        }
+                , data = builder.data |> Tuple.second
+                , action = builder.pages |> Pages
+                , head = builder.head
+                , types =
+                    { model = definitions.model
+                    , msg = definitions.msg
+                    , data = builder.data |> Tuple.first
+                    , actionData =
+                        Elm.Annotation.namedWith [ "DataSource" ]
+                            "DataSource"
+                            [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
+                            ]
+                            |> Alias
+                    }
+                }
+
+
+type State
+    = SharedState
+    | LocalState
+
+
 type ActionOrPages
     = Action (Elm.Expression -> Elm.Expression)
     | Pages (Maybe Elm.Expression)
@@ -243,6 +311,7 @@ userFunction :
                 { update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
                 , init : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
                 , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                , state : State
                 }
         , data : Elm.Expression -> Elm.Expression
         , action : ActionOrPages
@@ -309,6 +378,7 @@ userFunction moduleName definitions =
                     }
                 , initFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression }
                 , subscriptionsFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression }
+                , state : State
                 }
         localDefinitions =
             definitions.localState
@@ -351,6 +421,7 @@ userFunction moduleName definitions =
                                 ( "sharedModel", Nothing )
                                 ( "model", Nothing )
                                 localState.subscriptions
+                        , state = localState.state
                         }
                     )
 
@@ -512,6 +583,7 @@ userFunction moduleName definitions =
                                         , update = local.updateFn.call
                                         , init = local.initFn.call
                                         , subscriptions = local.subscriptionsFn.call
+                                        , state = local.state
                                         }
                                         >> Elm.withType
                                             (Elm.Annotation.namedWith [ "RouteBuilder" ]
@@ -837,6 +909,7 @@ buildWithLocalState_ :
         -> Elm.Expression
         -> Elm.Expression
         -> Elm.Expression
+    , state : State
     }
     -> Elm.Expression
     -> Elm.Expression
@@ -844,7 +917,13 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
     Elm.apply
         (Elm.value
             { importFrom = [ "RouteBuilder" ]
-            , name = "buildWithLocalState"
+            , name =
+                case buildWithLocalStateArg.state of
+                    LocalState ->
+                        "buildWithLocalState"
+
+                    SharedState ->
+                        "buildWithSharedState"
             , annotation =
                 Just
                     (Elm.Annotation.function
@@ -920,13 +999,25 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                                     , Elm.Annotation.var "msg"
                                     , Elm.Annotation.var "model"
                                     ]
-                                    (Elm.Annotation.tuple
-                                        (Elm.Annotation.var "model")
-                                        (Elm.Annotation.namedWith
-                                            [ "Effect" ]
-                                            "Effect"
-                                            [ Elm.Annotation.var "msg" ]
-                                        )
+                                    (case buildWithLocalStateArg.state of
+                                        LocalState ->
+                                            Elm.Annotation.tuple
+                                                (Elm.Annotation.var "model")
+                                                (Elm.Annotation.namedWith
+                                                    [ "Effect" ]
+                                                    "Effect"
+                                                    [ Elm.Annotation.var "msg" ]
+                                                )
+
+                                        SharedState ->
+                                            Elm.Annotation.triple
+                                                (Elm.Annotation.var "model")
+                                                (Elm.Annotation.namedWith
+                                                    [ "Effect" ]
+                                                    "Effect"
+                                                    [ Elm.Annotation.var "msg" ]
+                                                )
+                                                (Elm.Annotation.maybe (Elm.Annotation.named [ "Shared" ] "Msg"))
                                     )
                               )
                             , ( "subscriptions"
