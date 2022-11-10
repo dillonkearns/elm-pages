@@ -62,12 +62,6 @@ But the media query will only show one at a time based on the dimensions.
 
 ## Can you define routes based on external data like a CMS or API response?
 
-You can't do that at the moment. Keep an eye on issue [#76](https://github.com/dillonkearns/elm-pages/issues/76), which is tracking that feature. It's a high priority, but involves some significant work under the hood.
-
-Currently, the only way to add new routes with `elm-pages` is by adding files to the `content/` folder. The routes in your `elm-pages` app are a direct mapping of the file paths in the `content/` folder.
-
-In the meantime, there are two workarounds:
-
-1. Use a git-based CMS. For example, https://forestry.io/ and https://www.netlifycms.org/ are both git-based. This means that adding new content to the CMS makes a pull request and adds that content to your repo. This works out of the box with elm-pages, because it will just add files to your `content/` folder. See https://github.com/dillonkearns/elm-pages-netlify-cms-starter.
-
-2. Alternatively, you can create a simple script (with NodeJS or bash) that runs before you do your `elm-pages build` or `elm-pages develop` command. That allows you to make any API requests you need to figure out the routes of your app. Then you'll need to write files to the `content/` folder based on that response. You can include some frontmatter (between the `---`'s at the top of the files you output) with some JSON data at the top. Then you can decode this data as metadata, and use it to perform StaticHttp requests for that page.
+Yes, with elm-pages 2.0 and later you can! For pre-rendered routes, you pass in a DataSource to pull in a list of pages to render for that route.
+For server-rendered routes, you can choose to render a 404 page (or other error page) for routes you don't want to respond to. You can use both the
+RouteParams and a DataSource to decide whether you want to give a 404 or render the page with your resolved Data.
