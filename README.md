@@ -1,7 +1,9 @@
 # `elm-pages` [![Netlify Status](https://api.netlify.com/api/v1/badges/8ee4a674-4f37-4f16-b99e-607c0a02ee75/deploy-status)](https://app.netlify.com/sites/elm-pages/deploys) [![Build Status](https://github.com/dillonkearns/elm-pages/workflows/Elm%20CI/badge.svg)](https://github.com/dillonkearns/elm-pages/actions?query=branch%3Amaster) [![npm](https://img.shields.io/npm/v/elm-pages.svg)](https://npmjs.com/package/elm-pages) [![Elm package](https://img.shields.io/elm-package/v/dillonkearns/elm-pages.svg)](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/)
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+
 [![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
+
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/dillonkearns/elm-pages-starter)
@@ -68,12 +70,18 @@ Try out `elm-pages`, open up Lighthouse, and
 see for yourself! Or check out https://elm-pages.com
 (find the source code in the [`examples/docs/`](https://github.com/dillonkearns/elm-pages/tree/master/examples/docs) folder).
 
-
 ## What's next?
 
 Take a look at the current projects to see the current priorities!
 
 https://github.com/dillonkearns/elm-pages/projects
+
+## Compatibility Key
+
+You will see an error if the NPM and Elm package do not have a matching Compatibility Key. Usually it's best to upgrade to the latest version of both the Elm and NPM
+packages when you upgrade. However, in case you want to install versions that are behind the latest, the Compatibility Key is included here for reference.
+
+Current Compatibility Key: 1.
 
 ## Contributors ✨
 
@@ -94,6 +102,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 
 <!-- markdownlint-enable -->
 <!-- prettier-ignore-end -->
+
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
