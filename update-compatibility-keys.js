@@ -16,7 +16,7 @@ currentCompatibilityKey =
 );
 
 fs.writeFileSync(
-  "generator/compatibility-key.js",
+  "generator/src/compatibility-key.js",
   `module.exports = { compatibilityKey: ${currentCompatibilityKey} };
 `
 );
