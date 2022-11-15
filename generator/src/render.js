@@ -9,6 +9,7 @@ const preRenderHtml = require("./pre-render-html.js");
 const { lookupOrPerform } = require("./request-cache.js");
 const kleur = require("kleur");
 const cookie = require("cookie-signature");
+const { compatibilityKey } = require("../compatibility-key.js");
 kleur.enabled = true;
 
 process.on("unhandledRejection", (error) => {
@@ -17,7 +18,6 @@ process.on("unhandledRejection", (error) => {
 let foundErrors;
 let pendingDataSourceResponses;
 let pendingDataSourceCount;
-const compatibilityKey = 1;
 
 module.exports =
   /**
