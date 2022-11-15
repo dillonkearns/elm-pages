@@ -1,6 +1,7 @@
 module Head exposing
     ( Tag, metaName, metaProperty, metaRedirect
     , rssLink, sitemapLink, rootLanguage, manifestLink
+    , nonLoadingNode
     , structuredData
     , AttributeValue
     , currentPageFullUrl, urlAttribute, raw
@@ -19,6 +20,8 @@ writing a plugin package to extend `elm-pages`.
 
 @docs Tag, metaName, metaProperty, metaRedirect
 @docs rssLink, sitemapLink, rootLanguage, manifestLink
+
+@docs nonLoadingNode
 
 
 ## Structured Data
@@ -45,9 +48,11 @@ writing a plugin package to extend `elm-pages`.
 
 import Json.Encode
 import LanguageTag exposing (LanguageTag)
+import List.Extra
 import MimeType
 import Pages.Internal.String as String
 import Pages.Url
+import Regex
 
 
 {-| Values that can be passed to the generated `Pages.application` config
@@ -57,6 +62,7 @@ type Tag
     = Tag Details
     | StructuredData Json.Encode.Value
     | RootModifier String String
+    | Stripped String
 
 
 type alias Details =
@@ -209,6 +215,120 @@ canonicalLink maybePath =
           , maybePath |> Maybe.map raw |> Maybe.withDefault currentPageFullUrl
           )
         ]
+
+
+{-| Escape hatch for any head tags that don't have high-level helpers. This lets you build arbitrary head nodes as long as they
+are not loading or preloading directives.
+
+Tags that do loading/pre-loading will not work from this function. `elm-pages` uses ViteJS for loading assets like
+script tags, stylesheets, fonts, etc., and allows you to customize which assets to preload and how through the elm-pages.config.mjs file.
+See the full discussion of the design in [#339](https://github.com/dillonkearns/elm-pages/discussions/339).
+
+So for example the following tags would _not_ load if defined through `nonLoadingNode`, and would instead need to be registered through Vite:
+
+  - `<script src="...">`
+  - `<link href="/style.css">`
+  - `<link rel="preload">`
+
+The following tag would successfully render as it is a non-loading tag:
+
+    Head.nonLoadingNode "link"
+        [ ( "rel", Head.raw "alternate" )
+        , ( "type", Head.raw "application/atom+xml" )
+        , ( "title", Head.raw "News" )
+        , ( "href", Head.raw "/news/atom" )
+        ]
+
+Renders the head tag:
+
+`<link rel="alternate" type="application/atom+xml" title="News" href="/news/atom">`
+
+-}
+nonLoadingNode : String -> List ( String, AttributeValue ) -> Tag
+nonLoadingNode nodeName attributes =
+    let
+        relTag : Maybe AttributeValue
+        relTag =
+            attributes
+                |> List.Extra.find (\( key, _ ) -> key == "rel")
+                |> Maybe.map Tuple.second
+
+        isPreloadDirective : Bool
+        isPreloadDirective =
+            case relTag of
+                Just (Raw rel) ->
+                    let
+                        isLinkTag : Bool
+                        isLinkTag =
+                            nodeName |> matchesKeyword "link"
+                    in
+                    isLinkTag
+                        && (rel
+                                |> matchesOneKeyword
+                                    [ "preload"
+                                    , "modulepreload"
+                                    , "preconnect"
+                                    , "dns-prefetch"
+                                    , "stylesheet"
+                                    ]
+                           )
+
+                _ ->
+                    False
+    in
+    if
+        (nodeName |> matchesKeyword "script")
+            || isPreloadDirective
+    then
+        Stripped
+            ("<"
+                ++ nodeName
+                ++ " "
+                ++ (attributes
+                        |> List.map
+                            (\( name, value ) ->
+                                name
+                                    ++ "=\""
+                                    ++ ((case value of
+                                            Raw rawValue ->
+                                                rawValue
+
+                                            _ ->
+                                                "<internals>"
+                                        )
+                                            ++ "\""
+                                       )
+                            )
+                        |> String.join " "
+                   )
+                ++ " />"
+            )
+
+    else
+        node nodeName attributes
+
+
+matchesOneKeyword : List String -> String -> Bool
+matchesOneKeyword keywords string =
+    List.any
+        (\keyword -> string |> matchesKeyword keyword)
+        keywords
+
+
+matchesKeyword : String -> String -> Bool
+matchesKeyword regex string =
+    string |> matchesRegex ("^\\s*" ++ regex ++ "\\s*$")
+
+
+matchesRegex : String -> String -> Bool
+matchesRegex regex string =
+    string
+        |> Regex.contains
+            (Regex.fromStringWith
+                { caseInsensitive = True, multiline = True }
+                regex
+                |> Maybe.withDefault Regex.never
+            )
 
 
 {-| Let's you link to your manifest.json file, see <https://developer.mozilla.org/en-US/docs/Web/Manifest#deploying_a_manifest>.
@@ -441,6 +561,12 @@ toJson canonicalSiteUrl currentPagePath tag =
             Json.Encode.object
                 [ ( "type", Json.Encode.string "root" )
                 , ( "keyValuePair", Json.Encode.list Json.Encode.string [ key, value ] )
+                ]
+
+        Stripped message ->
+            Json.Encode.object
+                [ ( "type", Json.Encode.string "stripped" )
+                , ( "message", Json.Encode.string message )
                 ]
 
 

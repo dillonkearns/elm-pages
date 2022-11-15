@@ -43,11 +43,16 @@ function headTag(rootModifiers) {
 
 function toString(/** @type { SeoTag[] }  */ tags) {
   return tags
-    .map((headTag) => {
+    .flatMap((headTag) => {
       if (headTag.type === "head") {
-        return appendTag(headTag);
+        return [appendTag(headTag)];
       } else if (headTag.type === "json-ld") {
-        return appendJsonLdTag(headTag);
+        return [appendJsonLdTag(headTag)];
+      } else if (headTag.type === "stripped") {
+        console.warn(
+          `WARNING: Head.nonLoadingTag value ignored because it used a loading tag: ${headTag.message}`
+        );
+        return [];
       } else {
         throw new Error(`Unknown tag type ${JSON.stringify(headTag)}`);
       }
@@ -55,7 +60,7 @@ function toString(/** @type { SeoTag[] }  */ tags) {
     .join("");
 }
 
-/** @typedef {HeadTag | JsonLdTag} SeoTag */
+/** @typedef {HeadTag | JsonLdTag | StrippedTag} SeoTag */
 
 /** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
 function appendTag(/** @type {HeadTag} */ tagDetails) {
@@ -66,6 +71,8 @@ function appendTag(/** @type {HeadTag} */ tagDetails) {
 }
 
 /** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
+/** @typedef {{ message: string; type: 'stripped' }} StrippedTag */
+
 function appendJsonLdTag(/** @type {JsonLdTag} */ tagDetails) {
   return `<script type="application/ld+json">
 ${JSON.stringify(tagDetails.contents)}
