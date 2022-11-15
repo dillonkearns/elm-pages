@@ -380,6 +380,7 @@ init site renderRequest config flags =
 
             else
                 let
+                    elmPackageAheadOfNpmPackage : Bool
                     elmPackageAheadOfNpmPackage =
                         currentCompatibilityKey > compatibilityKey
 
