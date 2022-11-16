@@ -1,8 +1,9 @@
 module ApiRoute exposing
-    ( ApiRoute, ApiRouteBuilder, Response
+    ( single, preRender
+    , serverRender
+    , preRenderWithFallback
+    , ApiRoute, ApiRouteBuilder, Response
     , capture, literal, slash, succeed
-    , single, preRender
-    , preRenderWithFallback, serverRender
     , withGlobalHeadTags
     , toJson, getBuildTimeRoutes, getGlobalHeadTagsDataSource
     )
@@ -11,7 +12,13 @@ module ApiRoute exposing
 to a DataSource so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
 the DataSource for your ApiRoutes, and it won't effect the payload size. Instead, the size of an ApiRoute is just the content you output for that route.
 
-Similar to your elm-pages Route Modules, ApiRoute's can be either server-rendered or pre-rendered. A pre-rendered ApiRoute is just a generated file. For example:
+Similar to your elm-pages Route Modules, ApiRoute's can be either server-rendered or pre-rendered. Let's compare the differences between pre-rendered and server-rendered ApiRoutes, and the different
+use cases they support.
+
+
+## Pre-Rendering
+
+A pre-rendered ApiRoute is just a generated file. For example:
 
   - [An RSS feed](https://github.com/dillonkearns/elm-pages/blob/131f7b750cdefb2ba7a34a06be06dfbfafc79a86/examples/docs/app/Api.elm#L77-L84)
   - [A calendar feed in the ical format](https://github.com/dillonkearns/incrementalelm.com/blob/d4934d899d06232dc66dcf9f4b5eccc74bbc60d3/src/Api.elm#L51-L60)
@@ -20,6 +27,11 @@ Similar to your elm-pages Route Modules, ApiRoute's can be either server-rendere
 You could even generate a JavaScript file, an Elm file, or any file with a String body! It's really just a way to generate files, which are typically used to serve files to a user or Browser, but you execute them, copy them, etc. The only limit is your imagination!
 The beauty is that you have a way to 1) pull in type-safe data using DataSource's, and 2) write those files, and all in pure Elm!
 
+@docs single, preRender
+
+
+## Server Rendering
+
 You could use server-rendered ApiRoutes to do a lot of similar things, the main difference being that it will be served up through a URL and generated on-demand when that URL is requested.
 So for example, for an RSS feed or ical calendar feed like in the pre-rendered examples, you could build the same routes, but you would be pulling in the list of posts or calendar events on-demand rather
 than upfront at build-time. That means you can hit your database and serve up always-up-to-date data.
@@ -27,22 +39,25 @@ than upfront at build-time. That means you can hit your database and serve up al
 Not only that, but your server-rendered ApiRoutes have access to the incoming HTTP request payload just like your server-rendered Route Modules do. Just as with server-rendered Route Modules,
 a server-rendered ApiRoute accesses the incoming HTTP request through a [Server.Request.Parser](Server-Request). Consider the use cases that this opens up:
 
-  - Serve up protected assets. For example, gated content, like a paid subscriber feed for a podcast that checks authentication information in a query paramter to authenticate that a user has an active paid subscription before serving up the Pro RSS feed.
+  - Serve up protected assets. For example, gated content, like a paid subscriber feed for a podcast that checks authentication information in a query parameter to authenticate that a user has an active paid subscription before serving up the Pro RSS feed.
   - Serve up user-specific content, either through a cookie or other means of authentication
+
+@docs serverRender
+
+You can also do a hybrid approach using `preRenderWithFallback`. This allows you to pre-render a set of routes at build-time, but build additional routes that weren't rendered at build-time on the fly on the server.
+Conceptually, this is just a delayed version of a pre-rendered route. Because of that, you _do not_ have access to the incoming HTTP request (no `Server.Request.Parser` like in server-rendered ApiRoute's).
+The strategy used to build these routes will differ depending on your hosting provider and the elm-pages adapter you have setup, but generally ApiRoute's that use `preRenderWithFallback` will be cached on the server
+so within a certain time interval (or in the case of [Netlify's DPR](https://www.netlify.com/blog/2021/04/14/distributed-persistent-rendering-a-new-jamstack-approach-for-faster-builds/), until a new build is done)
+that asset will be served up if that URL was already served up by the server.
+
+@docs preRenderWithFallback
+
+
+## Defining ApiRoute's
 
 @docs ApiRoute, ApiRouteBuilder, Response
 
 @docs capture, literal, slash, succeed
-
-
-## Pre-Rendering
-
-@docs single, preRender
-
-
-## Server Rendering
-
-@docs preRenderWithFallback, serverRender
 
 
 ## Including Head Tags
