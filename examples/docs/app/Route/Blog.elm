@@ -159,7 +159,7 @@ view maybeUrl sharedModel staticPayload =
     }
 
 
-head : StaticPayload Data ActionData {} -> List Head.Tag
+head : StaticPayload Data ActionData RouteParams -> List Head.Tag
 head staticPayload =
     Seo.summary
         { canonicalUrlOverride = Nothing
