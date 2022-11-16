@@ -38,38 +38,14 @@ So why not just get the data the old-fashioned way, with `elm/http`, for example
 A few reasons:
 
 1.  DataSource's allow you to pull in data that you wouldn't normally be able to access from an Elm app, like local files, or listings of files in a folder. Not only that, but the dev server knows to automatically hot reload the data when the files it depends on change, so you can edit the files you used in your DataSource and see the page hot reload as you save!
-2.  Because `elm-pages` has a build step, you know that your `DataSource.Http` requests succeeded, your decoders succeeded, your custom DataSource validations succeeded, and everything went smoothly. If something went wrong, you get a build failure and can deal with the issues before the site goes live. That means your users won't see those errors, and as a developer you don't need to handle those error cases in your code! Think of it as "parse, don't validate", but for your entire build.
-3.  You don't have to worry about an API being down, or hitting it repeatedly. You can build in data and it will end up as JSON files served up with all the other assets of your site. If your CDN (static site host) is down, then the rest of your site is probably down anyway. If your site host is up, then so is all of your `DataSource` data. Also, it will be served up extremely quickly without needing to wait for any database queries to be performed, `andThen` requests to be resolved, etc., because all of that work and waiting was done at build-time!
-4.  You can pre-render pages, including the SEO meta tags, with all that rich, well-typed Elm data available! That's something you can't accomplish with a vanilla Elm app, and it's one of the main use cases for elm-pages.
+2.  You can pre-render HTML for your pages, including the SEO meta tags, with all that rich, well-typed Elm data available! That's something you can't accomplish with a vanilla Elm app, and it's one of the main use cases for elm-pages.
+3.  Because `elm-pages` has a build step, you know that your `DataSource.Http` requests succeeded, your decoders succeeded, your custom DataSource validations succeeded, and everything went smoothly. If something went wrong, you get a build failure and can deal with the issues before the site goes live. That means your users won't see those errors, and as a developer you don't need to handle those error cases in your code! Think of it as "parse, don't validate", but for your entire build. In the case of server-rendered routes, a DataSource failure will render a 500 page, so more care needs to be taken to make sure all common errors are handled properly, but the tradeoff is that you can use DataSource's to pull in highly dynamic data and even render user-specific pages.
+4.  For static routes, you don't have to worry about an API being down, or hitting it repeatedly. You can build in data and it will end up as optimized binary-encoded data served up with all the other assets of your site. If your CDN (static site host) is down, then the rest of your site is probably down anyway. If your site host is up, then so is all of your `DataSource` data. Also, it will be served up extremely quickly without needing to wait for any database queries to be performed, `andThen` requests to be resolved, etc., because all of that work and waiting was done at build-time!
 
 
 ## Mental Model
 
 You can think of a DataSource as a declarative (not imperative) definition of data. It represents where to get the data from, and how to transform it (map, combine with other DataSources, etc.).
-
-Even though an HTTP request is non-deterministic, you should think of it that way as much as possible with a DataSource because elm-pages will only perform a given DataSource.Http request once, and
-it will share the result between any other DataSource.Http requests that have the exact same URL, Method, Body, and Headers.
-
-So calling a function to increment a counter on a server through an HTTP request would not be a good fit for a `DataSource`. Let's imagine we have an HTTP endpoint that gives these stateful results when called repeatedly:
-
-<https://my-api.example.com/increment-counter>
--> Returns 1
-<https://my-api.example.com/increment-counter>
--> Returns 2
-<https://my-api.example.com/increment-counter>
--> Returns 3
-
-If we define a `DataSource` that hits that endpoint:
-
-    data =
-        DataSource.Http.get
-            "https://my-api.example.com/increment-counter"
-            Decode.int
-
-No matter how many places we use that `DataSource`, its response will be "locked in" (let's say the response was `3`, then every page would have the same value of `3` for that request).
-
-So even though HTTP requests, JavaScript code, etc. can be non-deterministic, a `DataSource` always represents a single snapshot of a resource, and those values will be re-used as if they were a deterministic, declarative resource.
-So it's best to use that mental model to avoid confusion.
 
 
 ## Basics
