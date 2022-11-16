@@ -124,6 +124,23 @@ config =
                         [ "src/ElmHtml"
                         , "src/Test"
                         , ".elm-pages"
+
+                        -- elm-program-test vendored
+                        , "src/Vendored"
+                        , "src/SimulatedEffect"
+                        , "src/Result"
+                        , "src/Query"
+                        , "src/ProgramTest"
+                        ]
+                    |> Rule.ignoreErrorsForFiles
+                        [ -- elm-program-test vendored
+                          "src/PairingHeap.elm"
+                        , "src/MultiDict.elm"
+                        , "src/TestState.elm"
+                        , "src/Url/Extra.elm"
+                        , "src/ProgramTest.elm"
+                        , "src/TestResult.elm"
+                        , "src/Parser/Extra/String.elm"
                         ]
             )
 
