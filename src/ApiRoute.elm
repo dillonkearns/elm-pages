@@ -11,6 +11,25 @@ module ApiRoute exposing
 to a DataSource so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
 the DataSource for your ApiRoutes, and it won't effect the payload size. Instead, the size of an ApiRoute is just the content you output for that route.
 
+Similar to your elm-pages Route Modules, ApiRoute's can be either server-rendered or pre-rendered. A pre-rendered ApiRoute is just a generated file. For example:
+
+  - [An RSS feed](https://github.com/dillonkearns/elm-pages/blob/131f7b750cdefb2ba7a34a06be06dfbfafc79a86/examples/docs/app/Api.elm#L77-L84)
+  - [A calendar feed in the ical format](https://github.com/dillonkearns/incrementalelm.com/blob/d4934d899d06232dc66dcf9f4b5eccc74bbc60d3/src/Api.elm#L51-L60)
+  - A redirect file for a hosting provider like Netlify
+
+You could even generate a JavaScript file, an Elm file, or any file with a String body! It's really just a way to generate files, which are typically used to serve files to a user or Browser, but you execute them, copy them, etc. The only limit is your imagination!
+The beauty is that you have a way to 1) pull in type-safe data using DataSource's, and 2) write those files, and all in pure Elm!
+
+You could use server-rendered ApiRoutes to do a lot of similar things, the main difference being that it will be served up through a URL and generated on-demand when that URL is requested.
+So for example, for an RSS feed or ical calendar feed like in the pre-rendered examples, you could build the same routes, but you would be pulling in the list of posts or calendar events on-demand rather
+than upfront at build-time. That means you can hit your database and serve up always-up-to-date data.
+
+Not only that, but your server-rendered ApiRoutes have access to the incoming HTTP request payload just like your server-rendered Route Modules do. Just as with server-rendered Route Modules,
+a server-rendered ApiRoute accesses the incoming HTTP request through a [Server.Request.Parser](Server-Request). Consider the use cases that this opens up:
+
+  - Serve up protected assets. For example, gated content, like a paid subscriber feed for a podcast that checks authentication information in a query paramter to authenticate that a user has an active paid subscription before serving up the Pro RSS feed.
+  - Serve up user-specific content, either through a cookie or other means of authentication
+
 @docs ApiRoute, ApiRouteBuilder, Response
 
 @docs capture, literal, slash, succeed
