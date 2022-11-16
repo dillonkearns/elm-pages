@@ -47,6 +47,7 @@
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
         "avh4/elm-color": "1.0.0 <= v < 2.0.0",
+        "avh4/elm-fifo": "1.0.4 <= v < 2.0.0",
         "danfishgold/base64-bytes": "1.1.0 <= v < 2.0.0",
         "danyx23/elm-mimetype": "4.0.1 <= v < 5.0.0",
         "dillonkearns/elm-bcp47-language-tag": "1.0.1 <= v < 2.0.0",
@@ -64,9 +65,11 @@
         "elm/virtual-dom": "1.0.3 <= v < 2.0.0",
         "elm-community/dict-extra": "2.4.0 <= v < 3.0.0",
         "elm-community/list-extra": "8.6.0 <= v < 9.0.0",
+        "hecrj/html-parser": "2.4.0 <= v < 3.0.0",
         "jluckyiv/elm-utc-date-strings": "1.0.0 <= v < 2.0.0",
         "justinmimbs/date": "4.0.1 <= v < 5.0.0",
         "mdgriffith/elm-codegen": "2.0.0 <= v < 3.0.0",
+        "mgold/elm-nonempty-list": "4.2.0 <= v < 5.0.0",
         "miniBill/elm-codec": "2.0.0 <= v < 3.0.0",
         "noahzgordon/elm-color-extra": "1.0.2 <= v < 2.0.0",
         "robinheghan/fnv1a": "1.0.0 <= v < 2.0.0",
@@ -76,7 +79,7 @@
         "vito/elm-ansi": "10.0.1 <= v < 11.0.0"
     },
     "test-dependencies": {
-        "the-sett/elm-pretty-printer": "3.0.0 <= v < 4.0.0",
-        "elm-explorations/test": "2.0.1 <= v < 3.0.0"
+        "elm-explorations/test": "2.0.1 <= v < 3.0.0",
+        "the-sett/elm-pretty-printer": "3.0.0 <= v < 4.0.0"
     }
 }
