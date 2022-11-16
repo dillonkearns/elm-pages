@@ -9,14 +9,118 @@ module Head exposing
     , toJson, canonicalLink
     )
 
-{-| This module contains low-level functions for building up
-values that will be rendered into the page's `<head>` tag
-when you run `elm-pages build`. Most likely the `Head.Seo` module
-will do everything you need out of the box, and you will just need to import `Head`
-so you can use the `Tag` type in your type annotations.
+{-| This module contains functions for building up
+tags with metadata that will be rendered into the page's `<head>` tag
+when your page is pre-rendered (or server-rendered, in the case of your server-rendered Route Modules). See also [`Head.Seo`](Head-Seo),
+which has some helper functions for defining OpenGraph and Twitter tags.
 
-But this module might be useful if you have a special use case, or if you are
-writing a plugin package to extend `elm-pages`.
+One of the unique benefits of using `elm-pages` is that all of your routes (both pre-rendered and server-rendered) fully
+render the HTML of your page. That includes the full initial `view` (with the DataSource resolved, and the `Model` from `init`).
+The HTML response also includes all of the `Head` tags, which are defined in two places:
+
+1.  `app/Site.elm` - there is a `head` definition in `Site.elm` where you define global head tags that will be included on every rendered page.
+
+2.  In each Route Module - there is a `head` function where you have access to both the resolved `DataSource` and the `RouteParams` for the page and can return head tags based on that.
+
+Here is a common set of global head tags that we can define in `Site.elm`:
+
+    module Site exposing (canonicalUrl, config)
+
+    import DataSource exposing (DataSource)
+    import Head
+    import MimeType
+    import SiteConfig exposing (SiteConfig)
+
+    config : SiteConfig
+    config =
+    { canonicalUrl = "<https://elm-pages.com">
+    , head = head
+    }
+
+    head : DataSource (List Head.Tag)
+    head =
+    [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
+    , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
+    , Head.metaName "theme-color" (Head.raw "#ffffff")
+    , Head.metaName "apple-mobile-web-app-capable" (Head.raw "yes")
+    , Head.metaName "apple-mobile-web-app-status-bar-style" (Head.raw "black-translucent")
+    , Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
+    , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
+    , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
+    , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
+    ]
+    |> DataSource.succeed
+
+And here is a `head` function for a Route Module for a blog post. Note that we have access to our `DataSource` Data and
+are using it to populate article metadata like the article's image, publish date, etc.
+
+    import Article
+    import DataSource
+    import Date
+    import Head
+    import Head.Seo
+    import Path
+    import Route exposing (Route)
+    import RouteBuilder exposing (StatelessRoute, StaticPayload)
+
+    type alias RouteParams =
+        { slug : String }
+
+    type alias Data =
+        { metadata : ArticleMetadata
+        , body : List Markdown.Block.Block
+        }
+
+    route : StatelessRoute RouteParams Data ActionData
+    route =
+        RouteBuilder.preRender
+            { data = data
+            , head = head
+            , pages = pages
+            }
+            |> RouteBuilder.buildNoState { view = view }
+
+    head :
+        StaticPayload Data ActionData RouteParams
+        -> List Head.Tag
+    head static =
+        let
+            metadata =
+                static.data.metadata
+        in
+        Head.Seo.summaryLarge
+            { canonicalUrlOverride = Nothing
+            , siteName = "elm-pages"
+            , image =
+                { url = metadata.image
+                , alt = metadata.description
+                , dimensions = Nothing
+                , mimeType = Nothing
+                }
+            , description = metadata.description
+            , locale = Nothing
+            , title = metadata.title
+            }
+            |> Head.Seo.article
+                { tags = []
+                , section = Nothing
+                , publishedTime = Just (DateOrDateTime.Date metadata.published)
+                , modifiedTime = Nothing
+                , expirationTime = Nothing
+                }
+
+
+## Why is pre-rendered HTML important? Does it still matter for SEO?
+
+Many search engines are able to execute JavaScript now. However, not all are, and even with crawlers like Google, there
+is a longer lead time for your pages to be indexed when you have HTML with a blank page that is only visible after the JavaScript executes.
+
+But most importantly, many tools that unfurl links will not execute JavaScript at all, but rather simply do a simple pass to parse your `<head>` tags.
+It is not viable or reliable to add `<head>` tags for metadata on the client-side, it must be present in the initial HTML payload. Otherwise you may not
+get unfurling preview content when you share a link to your site on Slack, Twitter, etc.
+
+
+## Building up Head Tags
 
 @docs Tag, metaName, metaProperty, metaRedirect
 @docs rssLink, sitemapLink, rootLanguage, manifestLink
