@@ -68,8 +68,11 @@ all =
                             (\actualPorts ->
                                 case actualPorts of
                                     [ ToJsPayload.PageProgress portData ] ->
-                                        portData.is404
-                                            |> Expect.false "Expected page to be found and rendered"
+                                        if portData.is404 then
+                                            Expect.fail "Expected page to be found and rendered"
+
+                                        else
+                                            Expect.pass
 
                                     _ ->
                                         Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts

@@ -76,8 +76,7 @@
         "vito/elm-ansi": "10.0.1 <= v < 11.0.0"
     },
     "test-dependencies": {
-        "avh4/elm-program-test": "3.1.0 <= v < 4.0.0",
-        "elm-explorations/test": "1.2.2 <= v < 2.0.0",
-        "the-sett/elm-pretty-printer": "3.0.0 <= v < 4.0.0"
+        "the-sett/elm-pretty-printer": "3.0.0 <= v < 4.0.0",
+        "elm-explorations/test": "2.0.1 <= v < 3.0.0"
     }
 }

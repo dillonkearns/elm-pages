@@ -59,7 +59,7 @@
     "elm-optimize-level-2": "^0.1.5",
     "elm-review": "^2.8.2",
     "elm-test": "^0.19.1-revision10",
-    "elm-tooling": "^1.8.0",
+    "elm-tooling": "^1.10.0",
     "elm-verify-examples": "^5.2.0",
     "elmi-to-json": "^1.2.0",
     "mocha": "^10.0.0",
