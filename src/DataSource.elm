@@ -48,6 +48,19 @@ A few reasons:
 You can think of a DataSource as a declarative (not imperative) definition of data. It represents where to get the data from, and how to transform it (map, combine with other DataSources, etc.).
 
 
+## How do I actually use a DataSource?
+
+This is very similar to Cmd's in Elm. You don't perform a Cmd just by running that code, as you might in a language like JavaScript. Instead, a Cmd _will not do anything_ unless you pass it to The Elm Architecture to have it perform it for you.
+You pass a Cmd to The Elm Architecture by returning it in `init` or `update`. So actually a `Cmd` is just data describing a side-effect that the Elm runtime can perform, and how to build a `Msg` once it's done.
+
+`DataSource`'s are very similar. A `DataSource` doesn't do anything just by "running" it. Just like a `Cmd`, it's only data that describes a side-effect to perform. Specifically, it describes a side-effect that the _elm-pages runtime_ can perform.
+There are a few places where we can pass a `DataSource` to the `elm-pages` runtime so it can perform it. Most commonly, you give a field called `data` in your Route Module's definition. Instead of giving a `Msg` when the side-effects are complete,
+the page will render once all of the side-effects have run and all the data is resolved. `elm-pages` makes the resolved data available your Route Module's `init`, `view`, `update`, and `head` functions, similar to how a regular Elm app passes `Msg`'s in
+to `update`.
+
+Any place in your `elm-pages` app where the framework lets you pass in a value of type `DataSource` is a place where you can give `elm-pages` a DataSource to perform (for example, `Site.head` where you define global head tags for your site).
+
+
 ## Basics
 
 @docs DataSource
