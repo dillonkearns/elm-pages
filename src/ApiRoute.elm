@@ -63,6 +63,7 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
 
     import ApiRoute
     import DataSource exposing (DataSource)
+    import Server.Request
 
     routes :
         DataSource (List Route)
@@ -73,6 +74,17 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
         , requestPrinterExample
         ]
 
+    {-| Generates the following files when you
+    run `elm-pages build`:
+
+      - `dist/users/1.json`
+      - `dist/users/2.json`
+      - `dist/users/3.json`
+
+    When you host it, these static assets will
+    be served at `/users/1.json`, etc.
+
+    -}
     preRenderedExample : ApiRoute.ApiRoute ApiRoute.Response
     preRenderedExample =
         ApiRoute.succeed
@@ -98,10 +110,14 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
                         ]
                 )
 
+    {-| This returns a JSON response that prints information about the incoming
+    HTTP request. In practice you'd want to do something useful with that data,
+    and use more of the high-level helpers from the Server.Request API.
+    -}
     requestPrinterExample : ApiRoute ApiRoute.Response
     requestPrinterExample =
         ApiRoute.succeed
-            (Request.map4
+            (Server.Request.map4
                 (\rawBody method cookies queryParams ->
                     Encode.object
                         [ ( "rawBody"
@@ -111,7 +127,7 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
                           )
                         , ( "method"
                           , method
-                                |> Request.methodToString
+                                |> Server.Request.methodToString
                                 |> Encode.string
                           )
                         , ( "cookies"
@@ -130,10 +146,10 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
                         |> Response.json
                         |> DataSource.succeed
                 )
-                Request.rawBody
-                Request.method
-                Request.allCookies
-                Request.queryParams
+                Server.Request.rawBody
+                Server.Request.method
+                Server.Request.allCookies
+                Server.Request.queryParams
             )
             |> ApiRoute.literal "api"
             |> ApiRoute.slash
