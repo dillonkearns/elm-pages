@@ -90,7 +90,7 @@ import CookieParser
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Form
-import Form.Validation exposing (Validation)
+import Form.Validation as Validation
 import FormData
 import Internal.Request
 import Json.Decode
@@ -881,7 +881,7 @@ fileField_ name =
 
 {-| -}
 formDataWithServerValidation :
-    Form.ServerForms error (DataSource (Validation error combined kind constraints))
+    Form.ServerForms error (DataSource (Validation.Validation error combined kind constraints))
     -> Parser (DataSource (Result (Form.Response error) ( Form.Response error, combined )))
 formDataWithServerValidation formParsers =
     rawFormData

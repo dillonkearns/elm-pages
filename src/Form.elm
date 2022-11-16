@@ -272,7 +272,7 @@ import Dict exposing (Dict)
 import Form.Field as Field exposing (Field(..))
 import Form.FieldStatus as FieldStatus exposing (FieldStatus)
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Validation)
+import Form.Validation as Validation exposing (Combined)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
@@ -332,7 +332,7 @@ dynamic :
      ->
         Form
             error
-            { combine : Validation error parsed named constraints1
+            { combine : Validation.Validation error parsed named constraints1
             , view : subView
             }
             data
@@ -341,7 +341,7 @@ dynamic :
         Form
             error
             --((decider -> Validation error parsed named) -> combined)
-            ({ combine : decider -> Validation error parsed named constraints1
+            ({ combine : decider -> Validation.Validation error parsed named constraints1
              , view : decider -> subView
              }
              -> combineAndView
@@ -674,14 +674,14 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
 toServerForm :
     Form
         error
-        { combine : Validation error combined kind constraints
+        { combine : Validation.Validation error combined kind constraints
         , view : viewFn
         }
         data
     ->
         Form
             error
-            { combine : Validation error (DataSource (Validation error combined kind constraints)) kind constraints
+            { combine : Validation.Validation error (DataSource (Validation.Validation error combined kind constraints)) kind constraints
             , view : viewFn
             }
             data
@@ -694,7 +694,7 @@ toServerForm (Form a b c) =
                 { result : Dict String (List error)
                 , isMatchCandidate : Bool
                 , combineAndView :
-                    { combine : Validation error (DataSource (Validation error combined kind constraints)) kind constraints
+                    { combine : Validation.Validation error (DataSource (Validation.Validation error combined kind constraints)) kind constraints
                     , view : viewFn
                     }
                 }
@@ -844,7 +844,7 @@ parse :
     String
     -> AppContext app actionData
     -> data
-    -> Form error { info | combine : Validation error parsed named constraints } data
+    -> Form error { info | combine : Validation.Validation error parsed named constraints } data
     -> ( Maybe parsed, Dict String (List error) )
 parse formId app data (Form _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -883,7 +883,7 @@ insertIfNonempty key values dict =
 {-| -}
 runServerSide :
     List ( String, String )
-    -> Form error (Validation error parsed kind constraints) data
+    -> Form error (Validation.Validation error parsed kind constraints) data
     -> ( Bool, ( Maybe parsed, Dict String (List error) ) )
 runServerSide rawFormData (Form _ parser _) =
     let
@@ -989,7 +989,7 @@ renderHtml :
     ->
         FinalForm
             error
-            (Validation error parsed named constraints)
+            (Validation.Validation error parsed named constraints)
             data
             (Context error data
              -> List (Html (Pages.Msg.Msg msg))
@@ -1025,14 +1025,14 @@ toDynamicFetcher :
     ->
         Form
             error
-            { combine : Validation error parsed field constraints
+            { combine : Validation.Validation error parsed field constraints
             , view : Context error data -> view
             }
             data
     ->
         FinalForm
             error
-            (Validation error parsed field constraints)
+            (Validation.Validation error parsed field constraints)
             data
             (Context error data -> view)
             userMsg
@@ -1098,14 +1098,14 @@ toDynamicTransition :
     ->
         Form
             error
-            { combine : Validation error parsed field constraints
+            { combine : Validation.Validation error parsed field constraints
             , view : Context error data -> view
             }
             data
     ->
         FinalForm
             error
-            (Validation error parsed field constraints)
+            (Validation.Validation error parsed field constraints)
             data
             (Context error data -> view)
             userMsg
@@ -1126,7 +1126,7 @@ toDynamicTransition name (Form a b c) =
                 { result : Dict String (List error)
                 , isMatchCandidate : Bool
                 , combineAndView :
-                    { combine : Validation error parsed field constraints
+                    { combine : Validation.Validation error parsed field constraints
                     , view : Context error data -> view
                     }
                 }
@@ -1136,7 +1136,7 @@ toDynamicTransition name (Form a b c) =
                  -> FormState
                  ->
                     { result :
-                        ( Validation error parsed field constraints
+                        ( Validation.Validation error parsed field constraints
                         , Dict String (List error)
                         )
                     , isMatchCandidate : Bool
@@ -1150,7 +1150,7 @@ toDynamicTransition name (Form a b c) =
                         { result : Dict String (List error)
                         , isMatchCandidate : Bool
                         , combineAndView :
-                            { combine : Validation error parsed field constraints
+                            { combine : Validation.Validation error parsed field constraints
                             , view : Context error data -> view
                             }
                         }
@@ -1190,7 +1190,7 @@ renderStyledHtml :
     ->
         FinalForm
             error
-            (Validation error parsed named constraints)
+            (Validation.Validation error parsed named constraints)
             data
             (Context error data
              -> List (Html.Styled.Html (Pages.Msg.Msg msg))
@@ -1219,7 +1219,7 @@ renderHelper :
     -> RenderOptions msg
     -> AppContext app actionData
     -> data
-    -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
+    -> FormInternal error (Validation.Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
     -> Html (Pages.Msg.Msg msg)
 renderHelper attrs maybe options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -1261,7 +1261,7 @@ renderStyledHelper :
     -> RenderOptions msg
     -> AppContext app actionData
     -> data
-    -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
+    -> FormInternal error (Validation.Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
     -> Html.Styled.Html (Pages.Msg.Msg msg)
 renderStyledHelper attrs maybe options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -1304,7 +1304,7 @@ helperValues :
     -> AppContext app actionData
     -> data
     ---> Form error parsed data view
-    -> FormInternal error (Validation error parsed named constraints) data (Context error data -> List view)
+    -> FormInternal error (Validation.Validation error parsed named constraints) data (Context error data -> List view)
     -> { formId : String, hiddenInputs : List view, children : List view, isValid : Bool }
 helperValues toHiddenInput maybe options formState data (FormInternal fieldDefinitions parser toInitialValues) =
     let
@@ -1343,18 +1343,18 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                 |> Dict.union part2
 
         parsed :
-            { result : ( Validation error parsed named constraints, Dict String (List error) )
+            { result : ( Validation.Validation error parsed named constraints, Dict String (List error) )
             , isMatchCandidate : Bool
             , view : Context error data -> List view
             }
         parsed =
             parser (Just data) thisFormState
 
-        withoutServerErrors : Validation error parsed named constraints
+        withoutServerErrors : Validation.Validation error parsed named constraints
         withoutServerErrors =
             parsed |> mergeResults
 
-        withServerErrors : Validation error parsed named constraints
+        withServerErrors : Validation.Validation error parsed named constraints
         withServerErrors =
             mergeResults
                 { parsed
@@ -1498,7 +1498,7 @@ initCombined :
         Form
             error
             { combineAndView
-                | combine : Validation error parsed kind constraints
+                | combine : Validation.Validation error parsed kind constraints
             }
             input
     -> ServerForms error combined
@@ -1511,7 +1511,7 @@ initCombined mapFn (Form _ parseFn _) =
                     foo :
                         { result : Dict String (List error)
                         , isMatchCandidate : Bool
-                        , combineAndView : { combineAndView | combine : Validation error parsed kind constraints }
+                        , combineAndView : { combineAndView | combine : Validation.Validation error parsed kind constraints }
                         }
                     foo =
                         parseFn Nothing formState
@@ -1532,7 +1532,7 @@ combine :
         Form
             error
             { combineAndView
-                | combine : Validation error parsed kind constraints
+                | combine : Validation.Validation error parsed kind constraints
             }
             input
     -> ServerForms error combined
@@ -1546,7 +1546,7 @@ combine mapFn (Form _ parseFn _) (ServerForms serverForms) =
                             foo :
                                 { result : Dict String (List error)
                                 , isMatchCandidate : Bool
-                                , combineAndView : { combineAndView | combine : Validation error parsed kind constraints }
+                                , combineAndView : { combineAndView | combine : Validation.Validation error parsed kind constraints }
                                 }
                             foo =
                                 parseFn Nothing formState
@@ -1568,10 +1568,10 @@ initCombinedServer :
         Form
             error
             { combineAndView
-                | combine : Combined error (DataSource (Validation error parsed kind constraints))
+                | combine : Combined error (DataSource (Validation.Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (DataSource (Validation error combined kind constraints))
+    -> ServerForms error (DataSource (Validation.Validation error combined kind constraints))
 initCombinedServer mapFn serverForms =
     initCombined (DataSource.map (Validation.map mapFn)) serverForms
 
@@ -1584,11 +1584,11 @@ combineServer :
             error
             { combineAndView
                 | combine :
-                    Combined error (DataSource (Validation error parsed kind constraints))
+                    Combined error (DataSource (Validation.Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (DataSource (Validation error combined kind constraints))
-    -> ServerForms error (DataSource (Validation error combined kind constraints))
+    -> ServerForms error (DataSource (Validation.Validation error combined kind constraints))
+    -> ServerForms error (DataSource (Validation.Validation error combined kind constraints))
 combineServer mapFn a b =
     combine (DataSource.map (Validation.map mapFn)) a b
 
