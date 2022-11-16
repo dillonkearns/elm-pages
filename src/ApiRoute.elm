@@ -41,6 +41,8 @@ a server-rendered ApiRoute accesses the incoming HTTP request through a [Server.
 
   - Serve up protected assets. For example, gated content, like a paid subscriber feed for a podcast that checks authentication information in a query parameter to authenticate that a user has an active paid subscription before serving up the Pro RSS feed.
   - Serve up user-specific content, either through a cookie or other means of authentication
+  - Look at the [accepted content-type in the request headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept) and use that to choose a response format, like XML or JSON ([full example](https://github.com/dillonkearns/elm-pages/blob/131f7b750cdefb2ba7a34a06be06dfbfafc79a86/examples/end-to-end/app/Api.elm#L76-L107)).
+  - Look at the [accepted language in the request headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language) and use that to choose a language for the response data.
 
 @docs serverRender
 
@@ -54,6 +56,89 @@ that asset will be served up if that URL was already served up by the server.
 
 
 ## Defining ApiRoute's
+
+You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
+
+    module Api exposing (routes)
+
+    import ApiRoute
+    import DataSource exposing (DataSource)
+
+    routes :
+        DataSource (List Route)
+        -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
+        -> List (ApiRoute.ApiRoute ApiRoute.Response)
+    routes getStaticRoutes htmlToString =
+        [ preRenderedExample
+        , requestPrinterExample
+        ]
+
+    preRenderedExample : ApiRoute.ApiRoute ApiRoute.Response
+    preRenderedExample =
+        ApiRoute.succeed
+            (\userId ->
+                DataSource.succeed
+                    (Json.Encode.object
+                        [ ( "id", Json.Encode.string userId )
+                        , ( "name", "Data for user " ++ userId |> Json.Encode.string )
+                        ]
+                        |> Json.Encode.encode 2
+                    )
+            )
+            |> ApiRoute.literal "users"
+            |> ApiRoute.slash
+            |> ApiRoute.capture
+            |> ApiRoute.literal ".json"
+            |> ApiRoute.preRender
+                (\route ->
+                    DataSource.succeed
+                        [ route "1"
+                        , route "2"
+                        , route "3"
+                        ]
+                )
+
+    requestPrinterExample : ApiRoute ApiRoute.Response
+    requestPrinterExample =
+        ApiRoute.succeed
+            (Request.map4
+                (\rawBody method cookies queryParams ->
+                    Encode.object
+                        [ ( "rawBody"
+                          , rawBody
+                                |> Maybe.map Encode.string
+                                |> Maybe.withDefault Encode.null
+                          )
+                        , ( "method"
+                          , method
+                                |> Request.methodToString
+                                |> Encode.string
+                          )
+                        , ( "cookies"
+                          , cookies
+                                |> Encode.dict
+                                    identity
+                                    Encode.string
+                          )
+                        , ( "queryParams"
+                          , queryParams
+                                |> Encode.dict
+                                    identity
+                                    (Encode.list Encode.string)
+                          )
+                        ]
+                        |> Response.json
+                        |> DataSource.succeed
+                )
+                Request.rawBody
+                Request.method
+                Request.allCookies
+                Request.queryParams
+            )
+            |> ApiRoute.literal "api"
+            |> ApiRoute.slash
+            |> ApiRoute.literal "request-test"
+            |> ApiRoute.serverRender
 
 @docs ApiRoute, ApiRouteBuilder, Response
 
@@ -88,7 +173,9 @@ type alias ApiRoute response =
     Internal.ApiRoute.ApiRoute response
 
 
-{-| -}
+{-| Same as [`preRender`](#preRender), but for an ApiRoute that has no dynamic segments. This is just a bit simpler because
+since there are no dynamic segments, you don't need to provide a DataSource with the list of dynamic segments to pre-render because there is only a single possible route.
+-}
 single : ApiRouteBuilder (DataSource String) (List String) -> ApiRoute Response
 single handler =
     handler
@@ -269,7 +356,8 @@ toJson ((ApiRoute { kind }) as apiRoute) =
         ]
 
 
-{-| -}
+{-| A literal String segment of a route.
+-}
 literal : String -> ApiRouteBuilder a constructor -> ApiRouteBuilder a constructor
 literal segment (ApiRouteBuilder patterns pattern handler toString constructor) =
     ApiRouteBuilder
