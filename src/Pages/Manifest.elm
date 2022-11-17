@@ -2,6 +2,7 @@ module Pages.Manifest exposing
     ( Config, Icon
     , init
     , withBackgroundColor, withCategories, withDisplayMode, withIarcRatingId, withLang, withOrientation, withShortName, withThemeColor
+    , withField
     , DisplayMode(..), Orientation(..), IconPurpose(..)
     , generator
     , toJson
@@ -41,6 +42,11 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 @docs withBackgroundColor, withCategories, withDisplayMode, withIarcRatingId, withLang, withOrientation, withShortName, withThemeColor
 
 
+## Arbitrary Fields Escape Hatch
+
+@docs withField
+
+
 ## Config options
 
 @docs DisplayMode, Orientation, IconPurpose
@@ -61,6 +67,7 @@ import ApiRoute
 import Color exposing (Color)
 import Color.Convert
 import DataSource exposing (DataSource)
+import Dict exposing (Dict)
 import Head
 import Json.Encode as Encode
 import LanguageTag exposing (LanguageTag, emptySubtags)
@@ -123,6 +130,7 @@ init options =
     , shortName = Nothing
     , icons = options.icons
     , lang = usEnglish
+    , otherFields = Dict.empty
     }
 
 
@@ -191,6 +199,17 @@ withLang languageTag config =
     { config | lang = languageTag }
 
 
+{-| Escape hatch for specifying fields that aren't exposed through this module otherwise. The possible supported properties
+in a manifest file can change over time, so see [MDN manifest.json docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json)
+for a full listing of the current supported properties.
+-}
+withField : String -> Encode.Value -> Config -> Config
+withField name value config =
+    { config
+        | otherFields = config.otherFields |> Dict.insert name value
+    }
+
+
 orientationToString : Orientation -> String
 orientationToString orientation =
     case orientation of
@@ -239,6 +258,7 @@ type alias Config =
     , shortName : Maybe String
     , icons : List Icon
     , lang : LanguageTag
+    , otherFields : Dict String Encode.Value
     }
 
 
@@ -420,6 +440,10 @@ toJson canonicalSiteUrl config =
       , Encode.string "/" |> Just
       )
     ]
+        ++ (config.otherFields
+                |> Dict.toList
+                |> List.map (Tuple.mapSecond Just)
+           )
         |> encodeMaybeObject
 
 
