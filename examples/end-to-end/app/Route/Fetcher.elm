@@ -4,6 +4,7 @@ module Route.Fetcher exposing (ActionData, Data, Model, Msg, RouteParams, route)
 
 import DataSource
 import DataSource.Port
+import Dict
 import Effect
 import ErrorPage
 import Form
@@ -11,10 +12,12 @@ import Form.Field as Field
 import Form.FieldView as FieldView
 import Form.Validation as Validation
 import Html.Styled as Html
+import Html.Styled.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Msg
 import Pages.PageUrl
+import Pages.Transition exposing (FetcherSubmitStatus(..))
 import Platform.Sub
 import RouteBuilder
 import Server.Request
@@ -23,11 +26,13 @@ import View
 
 
 type alias Model =
-    {}
+    { itemIndex : Int
+    }
 
 
 type Msg
     = NoOp
+    | AddItemSubmitted
 
 
 type alias RouteParams =
@@ -49,9 +54,12 @@ init :
     Maybe Pages.PageUrl.PageUrl
     -> sharedModel
     -> RouteBuilder.StaticPayload Data ActionData RouteParams
-    -> ( {}, Effect.Effect Msg )
+    -> ( Model, Effect.Effect Msg )
 init pageUrl sharedModel app =
-    ( {}, Effect.none )
+    ( { itemIndex = 0
+      }
+    , Effect.none
+    )
 
 
 update :
@@ -65,6 +73,13 @@ update pageUrl sharedModel app msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
+
+        AddItemSubmitted ->
+            ( { model
+                | itemIndex = model.itemIndex + 1
+              }
+            , Effect.none
+            )
 
 
 type alias Data =
@@ -103,10 +118,7 @@ action :
     -> Server.Request.Parser (DataSource.DataSource (Server.Response.Response ActionData ErrorPage.ErrorPage))
 action routeParams =
     Server.Request.formData
-        (form
-            |> Form.initCombined AddItem
-            |> Form.combine (\() -> DeleteAll) deleteForm
-        )
+        forms
         |> Server.Request.map
             (\formPost ->
                 case formPost of
@@ -134,6 +146,13 @@ action routeParams =
             )
 
 
+forms : Form.ServerForms String Action
+forms =
+    form
+        |> Form.initCombined AddItem
+        |> Form.combine (\() -> DeleteAll) deleteForm
+
+
 form : Form.StyledHtmlForm String String () Msg
 form =
     Form.init
@@ -143,7 +162,7 @@ form =
                     |> Validation.andMap name
             , view =
                 \info ->
-                    [ name |> FieldView.inputStyled []
+                    [ name |> FieldView.inputStyled [ Attr.autofocus True ]
                     , Html.button []
                         [ Html.text "Submit"
                         ]
@@ -175,23 +194,85 @@ view :
     -> RouteBuilder.StaticPayload Data ActionData RouteParams
     -> View.View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model app =
+    let
+        inFlight : List Action
+        inFlight =
+            app.fetchers
+                |> Dict.values
+                |> List.filterMap
+                    (\{ status, payload } ->
+                        case status of
+                            FetcherComplete _ ->
+                                Nothing
+
+                            _ ->
+                                forms
+                                    |> Form.runOneOfServerSide payload.fields
+                                    |> Tuple.first
+                    )
+
+        creatingItems : List String
+        creatingItems =
+            inFlight
+                |> List.filterMap
+                    (\fetcher ->
+                        case fetcher of
+                            AddItem name ->
+                                Just name
+
+                            _ ->
+                                Nothing
+                    )
+
+        optimisticItems : List Status
+        optimisticItems =
+            (app.data.items |> List.map Created)
+                ++ (creatingItems |> List.map Pending)
+    in
     { title = "Fetcher Example"
     , body =
-        [ Html.div []
-            [ form
-                |> Form.toDynamicFetcher "add-item"
-                |> Form.renderStyledHtml [] Nothing app ()
-            ]
+        [ Html.p []
+            [ Html.text <| String.fromInt model.itemIndex ]
+        , form
+            |> Form.toDynamicFetcher ("add-item-" ++ String.fromInt model.itemIndex)
+            |> Form.withOnSubmit (\_ -> AddItemSubmitted)
+            |> Form.renderStyledHtml [] Nothing app ()
         , Html.div []
             [ deleteForm
                 |> Form.toDynamicFetcher "delete-all"
                 |> Form.renderStyledHtml [] Nothing app ()
             ]
-        , app.data.items
+        , optimisticItems
             |> List.map
                 (\item ->
-                    Html.li [] [ Html.text item ]
+                    case item of
+                        Pending name ->
+                            Html.li [] [ Html.text <| name ++ "..." ]
+
+                        Created name ->
+                            Html.li [] [ Html.text name ]
+                )
+            |> Html.ul [ Attr.id "items" ]
+        , Html.p []
+            [ if inFlight |> List.member DeleteAll then
+                Html.text "Deleting..."
+
+              else
+                Html.text "Ready"
+            ]
+        , app.fetchers
+            |> Dict.toList
+            |> List.map
+                (\( key, item ) ->
+                    Html.li []
+                        [ Html.text <| Debug.toString item
+                        ]
                 )
             |> Html.ul []
         ]
     }
+
+
+type Status
+    = Pending String
+    | Created String
