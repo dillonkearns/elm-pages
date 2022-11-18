@@ -20,8 +20,8 @@ use cases they support.
 
 A pre-rendered ApiRoute is just a generated file. For example:
 
-  - [An RSS feed](https://github.com/dillonkearns/elm-pages/blob/131f7b750cdefb2ba7a34a06be06dfbfafc79a86/examples/docs/app/Api.elm#L77-L84)
-  - [A calendar feed in the ical format](https://github.com/dillonkearns/incrementalelm.com/blob/d4934d899d06232dc66dcf9f4b5eccc74bbc60d3/src/Api.elm#L51-L60)
+  - [An RSS feed](https://github.com/dillonkearns/elm-pages/blob/131f7b750cdefb2ba7a34a06be06dfbfafc79a86/examples/docs/app/Api.elm#L77-L84) ([Output file](https://elm-pages.com/blog/feed.xml))
+  - [A calendar feed in the ical format](https://github.com/dillonkearns/incrementalelm.com/blob/d4934d899d06232dc66dcf9f4b5eccc74bbc60d3/src/Api.elm#L51-L60) ([Output file](https://incrementalelm.com/live.ics))
   - A redirect file for a hosting provider like Netlify
 
 You could even generate a JavaScript file, an Elm file, or any file with a String body! It's really just a way to generate files, which are typically used to serve files to a user or Browser, but you execute them, copy them, etc. The only limit is your imagination!
