@@ -12,7 +12,6 @@ context("fetchers", () => {
     addItem("5");
     cy.wait(100);
     addItem("501");
-    cy.wait(1000);
     expectList("5", "500", "501");
   });
 });
@@ -23,8 +22,9 @@ function addItem(itemName) {
 }
 
 function expectList(...list) {
+  cy.get("ul#items>li.loading").should("have.length", 0);
   cy.get("ul#items>li")
-    .should("have.length", 3)
+    .should("have.length", list.length)
     .then(($els) => {
       // source: https://glebbahmutov.com/cypress-examples/7.1.0/recipes/get-text-list.html#getting-text-from-list-of-elements
       // we get a list of jQuery elements

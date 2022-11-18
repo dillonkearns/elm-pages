@@ -247,7 +247,7 @@ view maybeUrl sharedModel model app =
                 (\item ->
                     case item of
                         Pending name ->
-                            Html.li [] [ Html.text <| name ++ "..." ]
+                            Html.li [ Attr.class "loading" ] [ Html.text <| name ++ "..." ]
 
                         Created name ->
                             Html.li [] [ Html.text name ]
