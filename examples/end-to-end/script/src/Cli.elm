@@ -15,10 +15,10 @@ import Gen.Server.Request
 import Gen.Server.Response
 import Gen.View
 import Pages.Generate exposing (Type(..))
-import Pages.Generator as Generator
+import Pages.Script as Generator
 
 
-generator : Generator.Generator
+generator : Generator.Script
 generator =
     Generator.withCliOptions program
         (\cliOptions ->

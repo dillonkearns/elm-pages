@@ -8,12 +8,12 @@ import DataSource.Http
 import DataSource.Port
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Pages.Generator exposing (Generator)
+import Pages.Script exposing (Script)
 
 
-generator : Generator
+generator : Script
 generator =
-    Pages.Generator.withCliOptions program
+    Pages.Script.withCliOptions program
         (\{ username, repo } ->
             DataSource.Http.get
                 ("https://api.github.com/repos/dillonkearns/" ++ repo)

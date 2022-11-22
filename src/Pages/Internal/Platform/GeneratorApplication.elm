@@ -14,12 +14,12 @@ import Dict
 import HtmlPrinter
 import Json.Decode as Decode
 import Json.Encode
-import Pages.Generator exposing (Generator(..))
 import Pages.GeneratorProgramConfig exposing (GeneratorProgramConfig)
 import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
+import Pages.Script exposing (Script(..))
 import Pages.StaticHttp.Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)

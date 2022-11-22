@@ -37,7 +37,7 @@
         "Pages.Transition",
         "Pages.Generate",
         "Form.Validation",
-        "Pages.Generator",
+        "Pages.Script",
         "Pages.Internal.Platform",
         "Pages.Internal.Platform.Cli",
         "Pages.Internal.Platform.GeneratorApplication",

@@ -1,5 +1,5 @@
-module Pages.Generator exposing
-    ( Generator(..)
+module Pages.Script exposing
+    ( Script(..)
     , withCliOptions, withoutCliOptions
     , writeFile
     , log
@@ -7,7 +7,7 @@ module Pages.Generator exposing
 
 {-|
 
-@docs Generator
+@docs Script
 
 @docs withCliOptions, withoutCliOptions
 
@@ -34,7 +34,7 @@ import Json.Encode as Encode
 
 
 {-| -}
-type Generator
+type Script
     = Generator
         ((Maybe { indent : Int, newLines : Bool }
           -> Html Never
@@ -68,7 +68,7 @@ log _ =
 
 
 {-| -}
-withoutCliOptions : DataSource () -> Generator
+withoutCliOptions : DataSource () -> Script
 withoutCliOptions execute =
     Generator
         (\_ ->
@@ -82,7 +82,7 @@ withoutCliOptions execute =
         )
 
 
-withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource ()) -> Generator
+withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource ()) -> Script
 withCliOptions config execute =
     Generator
         (\_ ->
