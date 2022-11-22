@@ -159,10 +159,11 @@ async function main() {
         process.chdir("./script");
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
         await build.compileCliApp({ debug: "debug" });
+        process.chdir("../");
         await renderer.runGenerator(
           unprocessedCliOptions,
           resolvedPortsPath,
-          requireElm("./elm-stuff/elm-pages/elm.js")
+          requireElm("./script/elm-stuff/elm-pages/elm.js")
         );
       } catch (error) {
         console.log(restoreColorSafe(error));

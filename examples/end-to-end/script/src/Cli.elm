@@ -1,6 +1,4 @@
-port module Cli exposing (main)
-
-{-| -}
+module Cli exposing (generator)
 
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
@@ -17,6 +15,23 @@ import Gen.Server.Request
 import Gen.Server.Response
 import Gen.View
 import Pages.Generate exposing (Type(..))
+import Pages.Generator as Generator
+
+
+generator : Generator.Generator
+generator =
+    Generator.withCliOptions program
+        (\cliOptions ->
+            let
+                file : Elm.File
+                file =
+                    buildFile (cliOptions.moduleName |> String.split ".")
+            in
+            Generator.writeFile
+                { path = "app/" ++ file.path
+                , body = file.contents
+                }
+        )
 
 
 type alias CliOptions =
@@ -41,35 +56,8 @@ moduleNameRegex =
     "([A-Z][a-zA-Z0-9_]*)(\\.([A-Z][a-zA-Z_0-9_]*))*"
 
 
-main : Program.StatelessProgram Never {}
-main =
-    Program.stateless
-        { printAndExitFailure = printAndExitFailure
-        , printAndExitSuccess = printAndExitSuccess
-        , init = init
-        , config = program
-        }
-
-
-type alias Flags =
-    Program.FlagsIncludingArgv {}
-
-
-init : Flags -> CliOptions -> Cmd Never
-init flags cliOptions =
-    let
-        file : Elm.File
-        file =
-            createFile (cliOptions.moduleName |> String.split ".")
-    in
-    writeFile
-        { path = file.path
-        , body = file.contents
-        }
-
-
-createFile : List String -> Elm.File
-createFile moduleName =
+buildFile : List String -> Elm.File
+buildFile moduleName =
     Pages.Generate.serverRender
         { moduleName = moduleName
         , action =
@@ -94,14 +82,6 @@ createFile moduleName =
             )
         , head = \app -> Elm.list []
         }
-        --|> Pages.Generate.buildNoState
-        --    { view =
-        --        \_ _ _ ->
-        --            Gen.View.make_.view
-        --                { title = moduleName |> String.join "." |> Elm.string
-        --                , body = Elm.list [ Gen.Html.text "Here is your generated page!!!" ]
-        --                }
-        --    }
         |> Pages.Generate.buildWithLocalState
             { view =
                 \maybeUrl sharedModel model app ->
@@ -139,15 +119,3 @@ createFile moduleName =
 effectType : Elm.Annotation.Annotation
 effectType =
     Elm.Annotation.namedWith [ "Effect" ] "Effect" [ Elm.Annotation.var "msg" ]
-
-
-port print : String -> Cmd msg
-
-
-port printAndExitFailure : String -> Cmd msg
-
-
-port printAndExitSuccess : String -> Cmd msg
-
-
-port writeFile : { path : String, body : String } -> Cmd msg

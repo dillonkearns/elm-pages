@@ -477,6 +477,8 @@ async function runInternalJob(
       pendingDataSourceResponses.push(
         await runDecryptJob(requestToPerform, patternsToWatch)
       );
+    } else if (requestToPerform.url === "elm-pages-internal://write-file") {
+      pendingDataSourceResponses.push(await runWriteFileJob(requestToPerform));
     } else {
       throw `Unexpected internal DataSource request format: ${kleur.yellow(
         JSON.stringify(2, null, requestToPerform)
@@ -513,6 +515,23 @@ async function readFileJobNew(req, patternsToWatch) {
       title: "DataSource.File Error",
       message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
         filePath
+      )}\n${kleur.red(error.toString())}`,
+    };
+  }
+}
+async function runWriteFileJob(req) {
+  const data = req.body.args[0];
+  try {
+    const fullPathToWrite = path.join(process.cwd(), data.path);
+    await fsPromises.mkdir(path.dirname(fullPathToWrite), { recursive: true });
+    await fsPromises.writeFile(fullPathToWrite, data.body);
+    return jsonResponse(req, null);
+  } catch (error) {
+    console.trace(error);
+    throw {
+      title: "DataSource Error",
+      message: `DataSource.Generator.writeFile failed for file path: ${kleur.yellow(
+        data.path
       )}\n${kleur.red(error.toString())}`,
     };
   }

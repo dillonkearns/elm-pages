@@ -27,7 +27,11 @@ module Pages.Generator exposing
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import DataSource exposing (DataSource)
+import DataSource.Http
+import DataSource.Internal.Request
 import Html exposing (Html)
+import Json.Decode as Decode
+import Json.Encode as Encode
 
 
 type Generator
@@ -42,8 +46,17 @@ type Generator
 
 writeFile : { path : String, body : String } -> DataSource ()
 writeFile { path, body } =
-    -- TODO implement an internal DataSource resolver for writeFile
-    DataSource.succeed ()
+    DataSource.Internal.Request.request
+        { name = "write-file"
+        , body =
+            DataSource.Http.jsonBody
+                (Encode.object
+                    [ ( "path", Encode.string path )
+                    , ( "body", Encode.string body )
+                    ]
+                )
+        , expect = DataSource.Http.expectJson (Decode.succeed ())
+        }
 
 
 log : String -> DataSource ()
