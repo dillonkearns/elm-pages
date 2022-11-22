@@ -140,7 +140,7 @@ async function render(event, context) {
     const mode = "build";
     const addWatcher = () => {};
 
-    const renderResult = await renderer(
+    const renderResult = await renderer.render(
       compiledPortsFile,
       basePath,
       require(compiledElmPath),

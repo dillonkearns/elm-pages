@@ -8,9 +8,13 @@ const codegen = require("./codegen.js");
 const fs = require("fs");
 const path = require("path");
 const { restoreColorSafe } = require("./error-formatter");
+const renderer = require("../../generator/src/render");
+const globby = require("globby");
+const esbuild = require("esbuild");
+const copyModifiedElmJson = require("./rewrite-elm-json.js");
+const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
 
 const commander = require("commander");
-const { compileCliApp } = require("./compile-elm.js");
 const { runElmCodegenInstall } = require("./elm-codegen.js");
 const Argument = commander.Argument;
 const Option = commander.Option;
@@ -84,66 +88,86 @@ async function main() {
     });
 
   program
-    .command("codegen <moduleName>")
-    .description("run a generator")
+    .command("run <moduleName>")
+    .description("run an elm-pages script")
     .allowUnknownOption()
     .allowExcessArguments()
     .action(async (moduleName, options, options2) => {
+      const unprocessedCliOptions = options2.args.splice(
+        options2.processedArgs.length,
+        options2.args.length
+      );
       if (!/^[A-Z][a-zA-Z0-9_]*(\.[A-Z][a-zA-Z0-9_]*)*$/.test(moduleName)) {
         throw `Invalid module name "${moduleName}", must be in the format of an Elm module`;
       }
       const splitModuleName = moduleName.split(".");
       const expectedFilePath = path.join(
         process.cwd(),
-        "codegen",
+        "script/src/",
         `${splitModuleName.join("/")}.elm`
       );
       if (!fs.existsSync(expectedFilePath)) {
         throw `I couldn't find a module named ${expectedFilePath}`;
       }
       try {
-        await codegen.generate("");
+        // await codegen.generate("");
         await runElmCodegenInstall();
-        await compileCliApp(
-          // { debug: true },
-          {},
-          `${splitModuleName.join("/")}.elm`,
-          path.join(process.cwd(), "codegen/elm-stuff/scaffold.js"),
-          "codegen",
 
-          path.join(process.cwd(), "codegen/elm-stuff/scaffold.js")
+        ensureDirSync("./script/elm-stuff");
+        ensureDirSync("./script/elm-stuff/elm-pages/.elm-pages");
+        await fs.promises.writeFile(
+          path.join("./script/elm-stuff/elm-pages/.elm-pages/Main.elm"),
+          generatorWrapperFile(moduleName)
+        );
+        await copyModifiedElmJson(
+          "./script/elm.json",
+          "./script/elm-stuff/elm-pages/elm.json"
+        );
+
+        const portDataSourceCompiled = esbuild
+          .build({
+            entryPoints: ["./port-data-source"],
+            platform: "node",
+            outfile: ".elm-pages/compiled-ports/port-data-source.js",
+            assetNames: "[name]-[hash]",
+            chunkNames: "chunks/[name]-[hash]",
+            outExtension: { ".js": ".js" },
+            metafile: true,
+            bundle: true,
+            watch: false,
+            logLevel: "silent",
+          })
+          .then((result) => {
+            try {
+              return Object.keys(result.metafile.outputs)[0];
+            } catch (e) {
+              return null;
+            }
+          })
+          .catch((error) => {
+            const portDataSourceFileFound =
+              globby.sync("./port-data-source.*").length > 0;
+            if (portDataSourceFileFound) {
+              // don't present error if there are no files matching port-data-source
+              // if there are files matching port-data-source, warn the user in case something went wrong loading it
+              console.error("Failed to start port-data-source watcher", error);
+            }
+          });
+        const portsPath = await portDataSourceCompiled;
+        const resolvedPortsPath = path.join(process.cwd(), portsPath);
+
+        process.chdir("./script");
+        // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
+        await build.compileCliApp({ debug: "debug" });
+        await renderer.runGenerator(
+          unprocessedCliOptions,
+          resolvedPortsPath,
+          requireElm("./elm-stuff/elm-pages/elm.js")
         );
       } catch (error) {
         console.log(restoreColorSafe(error));
         process.exit(1);
       }
-
-      const elmScaffoldProgram = getAt(
-        splitModuleName,
-        require(path.join(process.cwd(), "./codegen/elm-stuff/scaffold.js")).Elm
-      );
-      const program = elmScaffoldProgram.init({
-        flags: { argv: ["", ...options2.args], versionMessage: "1.2.3" },
-      });
-
-      safeSubscribe(program, "print", (message) => {
-        console.log(message);
-      });
-      safeSubscribe(program, "printAndExitFailure", (message) => {
-        console.log(message);
-        process.exit(1);
-      });
-      safeSubscribe(program, "printAndExitSuccess", (message) => {
-        console.log(message);
-        process.exit(0);
-      });
-      safeSubscribe(program, "writeFile", async (info) => {
-        const filePath = path.join(process.cwd(), "app", info.path);
-        await dirHelpers.tryMkdir(path.dirname(filePath));
-        fs.writeFileSync(filePath, info.body);
-        console.log("Success! Created file", filePath);
-        process.exit(0);
-      });
     });
 
   program
@@ -180,7 +204,8 @@ function getAt(properties, object) {
 }
 
 function safeSubscribe(program, portName, subscribeFunction) {
-  program.ports[portName] &&
+  program.ports &&
+    program.ports[portName] &&
     program.ports[portName].subscribe(subscribeFunction);
 }
 
@@ -217,6 +242,56 @@ function normalizeUrl(rawPagePath) {
   // `/base/` is not a prefix of `/base`, which can later lead to issues
   // with detecting whether the path contains the base.
   return `/${segments.join("/")}`;
+}
+/**
+ * @param {string} compiledElmPath
+ */
+function requireElm(compiledElmPath) {
+  const warnOriginal = console.warn;
+  console.warn = function () {};
+
+  Elm = require(path.resolve(compiledElmPath));
+  console.warn = warnOriginal;
+  return Elm;
+}
+
+/**
+ * @param {string} moduleName
+ */
+function generatorWrapperFile(moduleName) {
+  return `port module Main exposing (main)
+
+import Bytes
+import DataSource exposing (DataSource)
+import Cli.Program as Program
+import Json.Decode as Decode
+import Json.Encode as Encode
+import Pages.Internal.Platform.GeneratorApplication
+import ${moduleName}
+
+
+main : Program.StatefulProgram Pages.Internal.Platform.GeneratorApplication.Model Pages.Internal.Platform.GeneratorApplication.Msg (DataSource ()) Pages.Internal.Platform.GeneratorApplication.Flags
+main =
+    Pages.Internal.Platform.GeneratorApplication.app
+        { data = ${moduleName}.generator
+        , toJsPort = toJsPort
+        , fromJsPort = fromJsPort identity
+        , gotBatchSub = gotBatchSub identity
+        , sendPageData = sendPageData
+        }
+
+
+port toJsPort : Encode.Value -> Cmd msg
+
+
+port fromJsPort : (Decode.Value -> msg) -> Sub msg
+
+
+port gotBatchSub : (Decode.Value -> msg) -> Sub msg
+
+
+port sendPageData : { oldThing : Encode.Value, binaryPageData : Bytes.Bytes } -> Cmd msg
+`;
 }
 
 main();

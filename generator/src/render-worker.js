@@ -10,7 +10,7 @@ global.staticHttpCache = {};
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
   try {
-    const renderResult = await renderer(
+    const renderResult = await renderer.render(
       portsFilePath,
       workerData.basePath,
       requireElm(mode),

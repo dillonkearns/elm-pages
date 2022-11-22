@@ -19,18 +19,37 @@ let foundErrors;
 let pendingDataSourceResponses;
 let pendingDataSourceCount;
 
-module.exports =
-  /**
-   *
-   * @param {string} basePath
-   * @param {Object} elmModule
-   * @param {string} path
-   * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
-   * @param {(pattern: string) => void} addDataSourceWatcher
-   * @param {boolean} hasFsAccess
-   * @returns
-   */
-  async function run(
+module.exports = { render, runGenerator };
+
+/**
+ *
+ * @param {string} basePath
+ * @param {Object} elmModule
+ * @param {string} path
+ * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
+ * @param {(pattern: string) => void} addDataSourceWatcher
+ * @param {boolean} hasFsAccess
+ * @returns
+ */
+async function render(
+  portsFile,
+  basePath,
+  elmModule,
+  mode,
+  path,
+  request,
+  addDataSourceWatcher,
+  hasFsAccess
+) {
+  const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(hasFsAccess);
+  resetInMemoryFs();
+  foundErrors = false;
+  pendingDataSourceResponses = [];
+  pendingDataSourceCount = 0;
+  // since init/update are never called in pre-renders, and DataSource.Http is called using pure NodeJS HTTP fetching
+  // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
+  XMLHttpRequest = {};
+  const result = await runElmApp(
     portsFile,
     basePath,
     elmModule,
@@ -38,31 +57,167 @@ module.exports =
     path,
     request,
     addDataSourceWatcher,
+    fs,
     hasFsAccess
-  ) {
-    const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(
-      hasFsAccess
-    );
-    resetInMemoryFs();
-    foundErrors = false;
-    pendingDataSourceResponses = [];
-    pendingDataSourceCount = 0;
-    // since init/update are never called in pre-renders, and DataSource.Http is called using pure NodeJS HTTP fetching
-    // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-    XMLHttpRequest = {};
-    const result = await runElmApp(
-      portsFile,
-      basePath,
-      elmModule,
-      mode,
-      path,
-      request,
-      addDataSourceWatcher,
-      fs,
-      hasFsAccess
-    );
-    return result;
-  };
+  );
+  return result;
+}
+
+/**
+ * @param {Object} elmModule
+ * @returns
+ * @param {string[]} cliOptions
+ * @param {any} portsFile
+ */
+async function runGenerator(cliOptions, portsFile, elmModule) {
+  global.isRunningGenerator = true;
+  const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
+  resetInMemoryFs();
+  foundErrors = false;
+  pendingDataSourceResponses = [];
+  pendingDataSourceCount = 0;
+  // since init/update are never called in pre-renders, and DataSource.Http is called using pure NodeJS HTTP fetching
+  // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
+  XMLHttpRequest = {};
+  const result = await runGeneratorAppHelp(
+    cliOptions,
+    portsFile,
+    "",
+    elmModule,
+    "production",
+    "",
+    fs,
+    true
+  );
+  return result;
+}
+/**
+ * @param {string} basePath
+ * @param {Object} elmModule
+ * @param {string} pagePath
+ * @param {string} mode
+ * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;}))>}
+ * @param {string[]} cliOptions
+ * @param {any} portsFile
+ * @param {typeof import("fs") | import("memfs").IFs} fs
+ * @param {boolean} hasFsAccess
+ */
+function runGeneratorAppHelp(
+  cliOptions,
+  portsFile,
+  basePath,
+  elmModule,
+  mode,
+  pagePath,
+  fs,
+  hasFsAccess
+) {
+  const isDevServer = mode !== "build";
+  let patternsToWatch = new Set();
+  let app = null;
+  let killApp;
+  return new Promise((resolve, reject) => {
+    const isBytes = pagePath.match(/content\.dat\/?$/);
+
+    app = elmModule.Elm.Main.init({
+      flags: {
+        compatibilityKey,
+        argv: ["", "", ...cliOptions],
+        versionMessage: "1.2.3",
+      },
+    });
+
+    killApp = () => {
+      app.ports.toJsPort.unsubscribe(portHandler);
+      app.ports.sendPageData.unsubscribe(portHandler);
+      app.die();
+      app = null;
+      // delete require.cache[require.resolve(compiledElmPath)];
+    };
+
+    async function portHandler(/** @type { FromElm }  */ newThing) {
+      let fromElm;
+      let contentDatPayload;
+
+      fromElm = newThing;
+      if (fromElm.command === "log") {
+        console.log(fromElm.value);
+      } else if (fromElm.tag === "ApiResponse") {
+        const args = fromElm.args[0];
+        if (mode === "build") {
+          global.staticHttpCache = args.staticHttpCache;
+        }
+
+        resolve({
+          kind: "api-response",
+          is404: args.is404,
+          statusCode: args.statusCode,
+          body: args.body,
+        });
+      } else if (fromElm.tag === "PageProgress") {
+        const args = fromElm.args[0];
+        if (mode === "build") {
+          global.staticHttpCache = args.staticHttpCache;
+        }
+
+        if (isBytes) {
+          resolve({
+            kind: "bytes",
+            is404: false,
+            contentJson: JSON.stringify({
+              staticData: args.contentJson,
+              is404: false,
+            }),
+            statusCode: args.statusCode,
+            headers: args.headers,
+            contentDatPayload,
+          });
+        } else {
+          resolve(
+            outputString(basePath, fromElm, isDevServer, contentDatPayload)
+          );
+        }
+      } else if (fromElm.tag === "DoHttp") {
+        const requestToPerform = fromElm.args[0];
+        if (
+          requestToPerform.url !== "elm-pages-internal://port" &&
+          requestToPerform.url.startsWith("elm-pages-internal://")
+        ) {
+          runInternalJob(
+            app,
+            mode,
+            requestToPerform,
+            fs,
+            hasFsAccess,
+            patternsToWatch
+          );
+        } else {
+          runHttpJob(
+            portsFile,
+            app,
+            mode,
+            requestToPerform,
+            fs,
+            hasFsAccess,
+            fromElm.args[1]
+          );
+        }
+      } else if (fromElm.tag === "Errors") {
+        foundErrors = true;
+        reject(fromElm.args[0].errorsJson);
+      } else {
+        console.log(fromElm);
+      }
+    }
+    app.ports.toJsPort.subscribe(portHandler);
+    app.ports.sendPageData.subscribe(portHandler);
+  }).finally(() => {
+    try {
+      killApp();
+      killApp = null;
+    } catch (error) {}
+  });
+}
 
 /**
  * @param {string} basePath

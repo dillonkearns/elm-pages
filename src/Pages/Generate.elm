@@ -5,7 +5,10 @@ module Pages.Generate exposing
     , preRender, single
     )
 
-{-|
+{-| This module provides some functions for scaffolding code for a new Route Module. It uses [`elm-codegen`'s API](https://package.elm-lang.org/packages/mdgriffith/elm-codegen/latest/) for generating code.
+
+Typically you'll want to use this via the `elm-pages codegen` CLI command. The default starter template includes a file that uses these functions, which you can tweak to customize your scaffolding commands.
+Learn more about [the `elm-pages run` CLI command in its docs page](https://elm-pages.com/docs/run-command).
 
 
 ## Initializing the Generator Builder

@@ -63,7 +63,7 @@ async function generate(basePath) {
       browserCode.fetcherModules
     ),
     // write modified elm.json to elm-stuff/elm-pages/
-    copyModifiedElmJson(),
+    copyModifiedElmJson("./elm.json", "./elm-stuff/elm-pages/elm.json"),
     // ...(await listFiles("./Pages/Internal")).map(copyToBoth),
   ]);
 }
@@ -174,15 +174,16 @@ async function copyToBoth(moduleToCopy) {
     copyFileEnsureDir(
       path.join(__dirname, moduleToCopy),
       path.join(`./.elm-pages/`, moduleToCopy)
-   ),
-   copyFileEnsureDir(
+    ),
+    copyFileEnsureDir(
       path.join(__dirname, moduleToCopy),
       path.join(`./elm-stuff/elm-pages/client/.elm-pages`, moduleToCopy)
-   ),
-  copyFileEnsureDir(
+    ),
+    copyFileEnsureDir(
       path.join(__dirname, moduleToCopy),
       path.join(`./elm-stuff/elm-pages/.elm-pages/`, moduleToCopy)
-   )]);
+    ),
+  ]);
 }
 
 /**
@@ -190,10 +191,10 @@ async function copyToBoth(moduleToCopy) {
  * @param {string} to
  */
 async function copyFileEnsureDir(from, to) {
-    await fs.promises.mkdir(path.dirname(to), {
-      recursive: true,
-    })
-    await fs.promises.copyFile(from, to)
+  await fs.promises.mkdir(path.dirname(to), {
+    recursive: true,
+  });
+  await fs.promises.copyFile(from, to);
 }
 
 /**

@@ -54,3 +54,8 @@ export async function deleteAllItems(name: string) {
 
   return await listFiles();
 }
+
+export async function log(message: string) {
+  console.log(message);
+  return null;
+}

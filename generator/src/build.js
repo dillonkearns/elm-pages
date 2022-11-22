@@ -31,7 +31,6 @@ let pagesReadyCalled = false;
 let activeWorkers = 0;
 let buildError = false;
 
-const DIR_PATH = process.cwd();
 const OUTPUT_FILE_NAME = "elm.js";
 
 process.on("unhandledRejection", (error) => {
@@ -39,11 +38,9 @@ process.on("unhandledRejection", (error) => {
   process.exitCode = 1;
 });
 
-const ELM_FILE_PATH = path.join(
-  DIR_PATH,
-  "./elm-stuff/elm-pages",
-  OUTPUT_FILE_NAME
-);
+function ELM_FILE_PATH() {
+  return path.join(process.cwd(), "./elm-stuff/elm-pages", OUTPUT_FILE_NAME);
+}
 
 async function ensureRequiredDirs() {
   ensureDirSync(`dist`);
@@ -552,7 +549,7 @@ async function compileCliApp(options) {
     path.join(process.cwd(), "elm-stuff/elm-pages")
   );
 
-  const elmFileContent = await fsPromises.readFile(ELM_FILE_PATH, "utf-8");
+  const elmFileContent = await fsPromises.readFile(ELM_FILE_PATH(), "utf-8");
   // Source: https://github.com/elm-explorations/test/blob/d5eb84809de0f8bbf50303efd26889092c800609/src/Elm/Kernel/HtmlAsJson.js
   const forceThunksSource = ` _HtmlAsJson_toJson(x)
 }
@@ -598,7 +595,7 @@ function _HtmlAsJson_toJson(html) {
 `;
 
   await fsPromises.writeFile(
-    ELM_FILE_PATH,
+    ELM_FILE_PATH(),
     elmFileContent
       .replace(
         /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
@@ -675,4 +672,4 @@ function defaultPreloadForFile(file) {
  * @returns {string}
  */
 
-module.exports = { run };
+module.exports = { run, compileCliApp };

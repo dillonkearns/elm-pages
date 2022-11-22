@@ -1,14 +1,14 @@
 const fs = require("fs");
 
-module.exports = async function () {
+module.exports = async function (sourceElmJsonPath, targetElmJsonPath) {
   var elmJson = JSON.parse(
-    (await fs.promises.readFile("./elm.json")).toString()
+    (await fs.promises.readFile(sourceElmJsonPath)).toString()
   );
 
   // write new elm.json
 
   await writeFileIfChanged(
-    "./elm-stuff/elm-pages/elm.json",
+    targetElmJsonPath,
     JSON.stringify(rewriteElmJson(elmJson))
   );
 };
