@@ -1,11 +1,8 @@
-module Pages.Internal.Platform.GeneratorApplication exposing
-    ( Flags, Model, Msg(..), init, requestDecoder, update
-    , app
-    )
+module Pages.Internal.Platform.GeneratorApplication exposing (Flags, Model, Msg(..), init, requestDecoder, update, app)
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs Flags, Model, Msg, Program, cliApplication, init, requestDecoder, update
+@docs Flags, Model, Msg, init, requestDecoder, update, app
 
 -}
 
@@ -70,11 +67,11 @@ app config =
     Program.stateful
         { init =
             \flags cliOptions ->
-                init cliOptions config flags
+                init cliOptions flags
                     |> Tuple.mapSecond (perform config)
         , update =
             \cliOptions msg model ->
-                update cliOptions config msg model
+                update cliOptions msg model
                     |> Tuple.mapSecond (perform config)
         , subscriptions =
             \_ ->
@@ -257,31 +254,28 @@ perform config effect =
 --flagsDecoder :
 --    Decode.Decoder
 --        { staticHttpCache : RequestsAndPending
---        , isDevServer : Bool
 --        , compatibilityKey : Int
 --        }
 --flagsDecoder =
 --    Decode.map3
---        (\staticHttpCache isDevServer compatibilityKey ->
+--        (\staticHttpCache compatibilityKey ->
 --            { staticHttpCache = staticHttpCache
 --            , isDevServer = isDevServer
 --            , compatibilityKey = compatibilityKey
 --            }
 --        )
 --        (Decode.succeed Dict.empty)
---        (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
 --        (Decode.field "compatibilityKey" Decode.int)
 
 
 {-| -}
 init :
     DataSource ()
-    -> GeneratorProgramConfig
     -> FlagsIncludingArgv Flags
     -> ( Model, Effect )
-init execute config flags =
+init execute flags =
     if flags.compatibilityKey == Pages.Internal.Platform.CompatibilityKey.currentCompatibilityKey then
-        initLegacy execute { staticHttpCache = Dict.empty, isDevServer = False } config
+        initLegacy execute { staticHttpCache = Dict.empty }
 
     else
         let
@@ -300,7 +294,6 @@ init execute config flags =
                        )
         in
         updateAndSendPortIfDone execute
-            config
             { staticResponses = StaticResponses.empty
             , errors =
                 [ { title = "Incompatible NPM and Elm package versions"
@@ -316,10 +309,9 @@ init execute config flags =
 
 initLegacy :
     DataSource ()
-    -> { staticHttpCache : RequestsAndPending, isDevServer : Bool }
-    -> GeneratorProgramConfig
+    -> { staticHttpCache : RequestsAndPending }
     -> ( Model, Effect )
-initLegacy execute { staticHttpCache, isDevServer } config =
+initLegacy execute { staticHttpCache } =
     let
         staticResponses : StaticResponses
         staticResponses =
@@ -335,30 +327,27 @@ initLegacy execute { staticHttpCache, isDevServer } config =
     in
     StaticResponses.nextStep initialModel Nothing
         |> nextStepToEffect execute
-            config
             initialModel
 
 
 updateAndSendPortIfDone :
     DataSource ()
-    -> GeneratorProgramConfig
     -> Model
     -> ( Model, Effect )
-updateAndSendPortIfDone execute config model =
+updateAndSendPortIfDone execute model =
     StaticResponses.nextStep
         model
         Nothing
-        |> nextStepToEffect execute config model
+        |> nextStepToEffect execute model
 
 
 {-| -}
 update :
     DataSource ()
-    -> GeneratorProgramConfig
     -> Msg
     -> Model
     -> ( Model, Effect )
-update execute config msg model =
+update execute msg model =
     case msg of
         GotDataBatch batch ->
             let
@@ -370,7 +359,7 @@ update execute config msg model =
             StaticResponses.nextStep
                 updatedModel
                 Nothing
-                |> nextStepToEffect execute config updatedModel
+                |> nextStepToEffect execute updatedModel
 
         GotBuildError buildError ->
             let
@@ -384,18 +373,17 @@ update execute config msg model =
             StaticResponses.nextStep
                 updatedModel
                 Nothing
-                |> nextStepToEffect execute config updatedModel
+                |> nextStepToEffect execute updatedModel
 
 
 nextStepToEffect :
     DataSource ()
-    -> GeneratorProgramConfig
     -> Model
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model, Effect )
-nextStepToEffect execute config model ( updatedStaticResponsesModel, nextStep ) =
+nextStepToEffect execute model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
-        StaticResponses.Continue updatedAllRawResponses httpRequests maybeRoutes ->
+        StaticResponses.Continue updatedAllRawResponses httpRequests _ ->
             let
                 updatedModel : Model
                 updatedModel =
@@ -406,7 +394,6 @@ nextStepToEffect execute config model ( updatedStaticResponsesModel, nextStep ) 
             in
             if List.isEmpty httpRequests then
                 nextStepToEffect execute
-                    config
                     updatedModel
                     (StaticResponses.nextStep
                         updatedModel

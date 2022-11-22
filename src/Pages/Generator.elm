@@ -1,16 +1,15 @@
 module Pages.Generator exposing
     ( Generator(..)
-    , withCliOptions
+    , withCliOptions, withoutCliOptions
     , writeFile
     , log
-    , withoutCliOptions
     )
 
 {-|
 
 @docs Generator
 
-@docs simple, withCliOptions
+@docs withCliOptions, withoutCliOptions
 
 
 ## File System Utilities
@@ -34,6 +33,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 
 
+{-| -}
 type Generator
     = Generator
         ((Maybe { indent : Int, newLines : Bool }
@@ -44,6 +44,7 @@ type Generator
         )
 
 
+{-| -}
 writeFile : { path : String, body : String } -> DataSource ()
 writeFile { path, body } =
     DataSource.Internal.Request.request
@@ -59,16 +60,18 @@ writeFile { path, body } =
         }
 
 
+{-| -}
 log : String -> DataSource ()
-log message =
+log _ =
     -- TODO implement an internal DataSource resolver for log
     DataSource.succeed ()
 
 
+{-| -}
 withoutCliOptions : DataSource () -> Generator
 withoutCliOptions execute =
     Generator
-        (\htmlToString ->
+        (\_ ->
             Program.config
                 |> Program.add
                     (OptionsParser.build ())
@@ -82,7 +85,7 @@ withoutCliOptions execute =
 withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource ()) -> Generator
 withCliOptions config execute =
     Generator
-        (\htmlToString ->
+        (\_ ->
             config
                 |> Program.mapConfig execute
         )

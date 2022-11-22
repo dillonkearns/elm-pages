@@ -80,6 +80,7 @@ config =
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Seo.elm"
             , "src/DataSource/Glob.elm" -- incorrect result,
+            , "src/Pages/Internal/Platform/GeneratorApplication.elm"
             , "src/Pages/Internal/Platform/Effect.elm"
             , "src/Pages/Internal/Platform/Cli.elm"
             , "src/Pages/Internal/Platform.elm"
