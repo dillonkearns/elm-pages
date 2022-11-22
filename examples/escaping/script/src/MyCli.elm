@@ -1,4 +1,4 @@
-module MyCli exposing (generator)
+module MyCli exposing (run)
 
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
@@ -11,8 +11,8 @@ import Json.Encode as Encode
 import Pages.Script exposing (Script)
 
 
-generator : Script
-generator =
+run : Script
+run =
     Pages.Script.withCliOptions program
         (\{ username, repo } ->
             DataSource.Http.get

@@ -1,4 +1,4 @@
-module Cli exposing (generator)
+module Cli exposing (run)
 
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
@@ -18,8 +18,8 @@ import Pages.Generate exposing (Type(..))
 import Pages.Script as Generator
 
 
-generator : Generator.Script
-generator =
+run : Generator.Script
+run =
     Generator.withCliOptions program
         (\cliOptions ->
             let

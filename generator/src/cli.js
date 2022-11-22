@@ -274,7 +274,7 @@ import ${moduleName}
 main : Program.StatefulProgram Pages.Internal.Platform.GeneratorApplication.Model Pages.Internal.Platform.GeneratorApplication.Msg (DataSource ()) Pages.Internal.Platform.GeneratorApplication.Flags
 main =
     Pages.Internal.Platform.GeneratorApplication.app
-        { data = ${moduleName}.generator
+        { data = ${moduleName}.run
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , gotBatchSub = gotBatchSub identity
