@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 
-const currentCompatibilityKey = 1;
+const currentCompatibilityKey = 2;
 
 fs.writeFileSync(
   "src/Pages/Internal/Platform/CompatibilityKey.elm",

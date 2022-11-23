@@ -1,1 +1,1 @@
-module.exports = { compatibilityKey: 1 };
+module.exports = { compatibilityKey: 2 };
