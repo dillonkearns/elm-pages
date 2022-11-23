@@ -82,6 +82,7 @@ withoutCliOptions execute =
         )
 
 
+{-| -}
 withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource ()) -> Script
 withCliOptions config execute =
     Generator
