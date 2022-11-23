@@ -137,9 +137,20 @@ app config =
                             )
                     ]
         , config = cliConfig
-
-        -- TODO printAndExitFailure needs to trigger error exit code
-        , printAndExitFailure = \string -> config.toJsPort (Json.Encode.string string) |> Cmd.map never
+        , printAndExitFailure =
+            \string ->
+                ToJsPayload.Errors
+                    [ { title = "Invalid CLI arguments"
+                      , path = ""
+                      , message =
+                            [ Terminal.text string
+                            ]
+                      , fatal = True
+                      }
+                    ]
+                    |> Codec.encodeToValue (ToJsPayload.successCodecNew2 "" "")
+                    |> config.toJsPort
+                    |> Cmd.map never
         , printAndExitSuccess = \string -> config.toJsPort (Json.Encode.string string) |> Cmd.map never
         }
 
