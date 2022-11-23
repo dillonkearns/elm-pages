@@ -111,7 +111,9 @@ async function main() {
       }
       try {
         // await codegen.generate("");
-        await runElmCodegenInstall();
+        if (fs.existsSync("./codegen/")) {
+          await runElmCodegenInstall();
+        }
 
         ensureDirSync("./script/elm-stuff");
         ensureDirSync("./script/elm-stuff/elm-pages/.elm-pages");

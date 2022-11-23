@@ -25,7 +25,7 @@ function fullPath(portsHash, request, hasFsAccess) {
     return path.join(
       process.cwd(),
       // TODO use parameter or something other than global for this `global.isRunningGenerator` condition
-      global.isRunningGenerator ? "../.elm-pages" : ".elm-pages",
+      ".elm-pages",
       "http-response-cache",
       requestToString(requestWithPortHash)
     );

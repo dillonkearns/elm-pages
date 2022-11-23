@@ -17,6 +17,9 @@ function runElmCodegenInstall() {
     subprocess.stderr.on("data", function (data) {
       commandOutput += data;
     });
+    subprocess.stdout.on("data", function (data) {
+      commandOutput += data;
+    });
     subprocess.on("error", function () {
       reject(commandOutput);
     });
