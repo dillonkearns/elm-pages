@@ -5,23 +5,20 @@ import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import DataSource exposing (DataSource)
 import DataSource.Http
-import DataSource.Port
 import Json.Decode as Decode
-import Json.Encode as Encode
-import Pages.Script exposing (Script)
+import Pages.Script as Script exposing (Script)
 
 
 run : Script
 run =
-    Pages.Script.withCliOptions program
+    Script.withCliOptions program
         (\{ username, repo } ->
             DataSource.Http.get
                 ("https://api.github.com/repos/dillonkearns/" ++ repo)
                 (Decode.field "stargazers_count" Decode.int)
                 |> DataSource.andThen
                     (\stars ->
-                        log
-                            (String.fromInt stars)
+                        Script.log (String.fromInt stars)
                     )
         )
 
@@ -42,10 +39,3 @@ program =
                 |> OptionsParser.with
                     (Option.optionalKeywordArg "repo" |> Option.withDefault "elm-pages")
             )
-
-
-log : String -> DataSource ()
-log message =
-    DataSource.Port.get "log"
-        (Encode.string message)
-        (Decode.succeed ())

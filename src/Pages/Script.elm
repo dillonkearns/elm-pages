@@ -62,9 +62,17 @@ writeFile { path, body } =
 
 {-| -}
 log : String -> DataSource ()
-log _ =
-    -- TODO implement an internal DataSource resolver for log
-    DataSource.succeed ()
+log message =
+    DataSource.Internal.Request.request
+        { name = "log"
+        , body =
+            DataSource.Http.jsonBody
+                (Encode.object
+                    [ ( "message", Encode.string message )
+                    ]
+                )
+        , expect = DataSource.Http.expectJson (Decode.succeed ())
+        }
 
 
 {-| -}

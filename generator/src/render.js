@@ -457,7 +457,9 @@ async function runInternalJob(
   try {
     pendingDataSourceCount += 1;
 
-    if (requestToPerform.url === "elm-pages-internal://read-file") {
+    if (requestToPerform.url === "elm-pages-internal://log") {
+      pendingDataSourceResponses.push(await runLogJob(requestToPerform));
+    } else if (requestToPerform.url === "elm-pages-internal://read-file") {
       pendingDataSourceResponses.push(
         await readFileJobNew(requestToPerform, patternsToWatch)
       );
@@ -558,6 +560,15 @@ async function runGlobNew(req, patternsToWatch) {
   }
 }
 
+async function runLogJob(req) {
+  try {
+    console.log(req.body.args[0].message);
+    return jsonResponse(req, null);
+  } catch (e) {
+    console.log(`Error performing env '${JSON.stringify(req.body)}'`);
+    throw e;
+  }
+}
 async function runEnvJob(req, patternsToWatch) {
   try {
     const expectedEnv = req.body.args[0];
