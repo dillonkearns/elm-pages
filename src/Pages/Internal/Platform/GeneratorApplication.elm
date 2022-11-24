@@ -19,7 +19,7 @@ import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
-import Pages.Script exposing (Script(..))
+import Pages.Internal.Script
 import Pages.StaticHttp.Request
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
@@ -61,7 +61,7 @@ app config =
         cliConfig : Program.Config (DataSource ())
         cliConfig =
             case config.data of
-                Script theCliConfig ->
+                Pages.Internal.Script.Script theCliConfig ->
                     theCliConfig HtmlPrinter.htmlToString
     in
     Program.stateful
