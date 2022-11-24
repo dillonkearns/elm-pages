@@ -1,5 +1,5 @@
 module Pages.Script exposing
-    ( Script(..)
+    ( Script
     , withCliOptions, withoutCliOptions
     , writeFile
     , log
@@ -28,20 +28,14 @@ import Cli.Program as Program
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Request
-import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Pages.Internal.Script
 
 
 {-| -}
-type Script
-    = Script
-        ((Maybe { indent : Int, newLines : Bool }
-          -> Html Never
-          -> String
-         )
-         -> Program.Config (DataSource ())
-        )
+type alias Script =
+    Pages.Internal.Script.Script
 
 
 {-| -}
@@ -78,7 +72,7 @@ log message =
 {-| -}
 withoutCliOptions : DataSource () -> Script
 withoutCliOptions execute =
-    Script
+    Pages.Internal.Script.Script
         (\_ ->
             Program.config
                 |> Program.add
@@ -93,7 +87,7 @@ withoutCliOptions execute =
 {-| -}
 withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource ()) -> Script
 withCliOptions config execute =
-    Script
+    Pages.Internal.Script.Script
         (\_ ->
             config
                 |> Program.mapConfig execute
