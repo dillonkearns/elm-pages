@@ -35,7 +35,7 @@ import Json.Encode as Encode
 
 {-| -}
 type Script
-    = Generator
+    = Script
         ((Maybe { indent : Int, newLines : Bool }
           -> Html Never
           -> String
@@ -78,7 +78,7 @@ log message =
 {-| -}
 withoutCliOptions : DataSource () -> Script
 withoutCliOptions execute =
-    Generator
+    Script
         (\_ ->
             Program.config
                 |> Program.add
@@ -93,7 +93,7 @@ withoutCliOptions execute =
 {-| -}
 withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource ()) -> Script
 withCliOptions config execute =
-    Generator
+    Script
         (\_ ->
             config
                 |> Program.mapConfig execute

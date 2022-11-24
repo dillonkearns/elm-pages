@@ -61,7 +61,7 @@ app config =
         cliConfig : Program.Config (DataSource ())
         cliConfig =
             case config.data of
-                Generator theCliConfig ->
+                Script theCliConfig ->
                     theCliConfig HtmlPrinter.htmlToString
     in
     Program.stateful
