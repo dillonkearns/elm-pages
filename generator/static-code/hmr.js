@@ -49,12 +49,17 @@ async function handleEvent(sendContentJsonPort, evt) {
     showCompiling("");
     elmJsFetch().then(thenApplyHmr);
   } else if (evt.data === "style.css") {
-    // https://stackoverflow.com/a/43161591
     const links = document.getElementsByTagName("link");
     for (var i = 0; i < links.length; i++) {
       const link = links[i];
       if (link.rel === "stylesheet") {
-        link.href += "";
+        try {
+          const url = new URL(link.href);
+          url.searchParams.set('v', ''+Date.now());
+          link.href = url.toString();
+        } catch {
+          // could not parse URL for some reason
+        }
       }
     }
   } else {
@@ -251,7 +256,7 @@ const consoleMsg = ({ error, style }, msg) => ({
 
 const joinMessage = ({ error, style }) => [error.join("")].concat(style);
 
-const parseConsoleErrors = (path) => 
+const parseConsoleErrors = (path) =>
 /**
  * @param {{ title: string; message: Message[]}} info
  * */
@@ -316,15 +321,15 @@ const htmlMsg = (acc, msg) =>
 
 const parseHtmlErrors = (path) => (info) => {
   if (info.rule) {
-   return info.formatted.reduce(htmlMsg, htmlHeader(info.rule, path)); 
+   return info.formatted.reduce(htmlMsg, htmlHeader(info.rule, path));
   } else {
 
-   return info.message.reduce(htmlMsg, htmlHeader(info.title, path)); 
+   return info.message.reduce(htmlMsg, htmlHeader(info.title, path));
   }
 }
 
-const restoreColorHtml = 
-/** 
+const restoreColorHtml =
+/**
  *  @param {RootObject} error
  * */
 (error) => {
