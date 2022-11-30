@@ -62,7 +62,6 @@ toImportContext import_ =
 rule : Rule
 rule =
     Rule.newModuleRuleSchemaUsingContextCreator "Pages.Review.DeadCodeEliminateData" initialContext
-        |> Rule.providesFixesForModuleRule
         |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.withImportVisitor importVisitor
