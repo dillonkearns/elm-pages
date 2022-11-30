@@ -86,6 +86,13 @@ async function main() {
       server.listen();
     });
 
+  program
+    .command("generate")
+    .description("generate the elm-pages modules")
+    .action(async () => {
+      await codegen.generate("/");
+    });
+
   program.parse(process.argv);
 }
 
