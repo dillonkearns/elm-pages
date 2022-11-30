@@ -208,7 +208,7 @@ async function run(options) {
     );
   } catch (error) {
     if (error) {
-      console.error(error);
+      console.error(restoreColorSafe(error));
     }
     buildError = true;
     process.exitCode = 1;
