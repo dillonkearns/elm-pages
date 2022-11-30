@@ -88,9 +88,15 @@ async function main() {
 
   program
     .command("codegen")
+    .option(
+      "--base <basePath>",
+      "generate the elm-pages modules under a base path",
+      "/"
+    )
     .description("generate the elm-pages modules")
-    .action(async () => {
-      await codegen.generate("/");
+    .action(async (options) => {
+      options.base = normalizeUrl(options.base);
+      await codegen.generate(options.base);
     });
 
   program.parse(process.argv);
