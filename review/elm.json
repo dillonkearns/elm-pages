@@ -29,15 +29,14 @@
             "elm/time": "1.0.0",
             "elm/virtual-dom": "1.0.3",
             "elm-community/list-extra": "8.7.0",
+            "elm-explorations/test": "2.1.0",
             "miniBill/elm-unicode": "1.0.2",
             "rtfeldman/elm-hex": "1.0.0",
             "stil4m/structured-writer": "1.0.3"
         }
     },
     "test-dependencies": {
-        "direct": {
-            "elm-explorations/test": "2.0.1"
-        },
+        "direct": {},
         "indirect": {}
     }
 }
