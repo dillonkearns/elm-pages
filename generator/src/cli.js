@@ -87,7 +87,7 @@ async function main() {
     });
 
   program
-    .command("generate")
+    .command("codegen")
     .description("generate the elm-pages modules")
     .action(async () => {
       await codegen.generate("/");
