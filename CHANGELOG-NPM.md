@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.1.12] - 2022-12-02
+
+### Added
+
+- Adds back `elm-pages codegen` command to generate code without compiling or running a build.
+
 ## [2.1.9] - 2021-08-27
 
 ### Added
