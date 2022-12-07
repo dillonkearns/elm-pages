@@ -143,7 +143,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                         hasPermanentError : Bool
                         hasPermanentError =
                             case staticRequestsStatus of
-                                StaticHttpRequest.HasPermanentError _ ->
+                                StaticHttpRequest.HasPermanentError _ _ ->
                                     True
 
                                 _ ->
@@ -155,7 +155,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
 
                         ( allUrlsKnown, knownUrlsToFetch ) =
                             case staticRequestsStatus of
-                                StaticHttpRequest.Incomplete newUrlsToFetch ->
+                                StaticHttpRequest.Incomplete newUrlsToFetch _ ->
                                     ( False, newUrlsToFetch )
 
                                 _ ->
@@ -214,8 +214,38 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 maskedToUnmasked
                     |> Dict.Extra.removeMany alreadyPerformed
                     |> Dict.values
+
+            updatedStaticResponses : StaticResponses
+            updatedStaticResponses =
+                case staticRequestsStatus of
+                    StaticHttpRequest.HasPermanentError _ nextReq ->
+                        case model.staticResponses of
+                            ApiRequest (NotFetched _ dict) ->
+                                ApiRequest (NotFetched nextReq dict)
+
+                            StaticResponses (NotFetched _ dict) ->
+                                ApiRequest (NotFetched nextReq dict)
+
+                            CheckIfHandled _ _ _ ->
+                                -- TODO change this too, or maybe this is fine?
+                                model.staticResponses
+
+                    StaticHttpRequest.Incomplete _ nextReq ->
+                        case model.staticResponses of
+                            ApiRequest (NotFetched _ dict) ->
+                                ApiRequest (NotFetched nextReq dict)
+
+                            StaticResponses (NotFetched _ dict) ->
+                                ApiRequest (NotFetched nextReq dict)
+
+                            CheckIfHandled _ _ _ ->
+                                -- TODO change this too, or maybe this is fine?
+                                model.staticResponses
+
+                    StaticHttpRequest.Complete ->
+                        model.staticResponses
         in
-        ( model.staticResponses, Continue newAllRawResponses newThing maybeRoutes )
+        ( updatedStaticResponses, Continue newAllRawResponses newThing maybeRoutes )
 
     else
         let
@@ -228,7 +258,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                             maybePermanentError : Maybe StaticHttpRequest.Error
                             maybePermanentError =
                                 case staticRequestsStatus of
-                                    StaticHttpRequest.HasPermanentError theError ->
+                                    StaticHttpRequest.HasPermanentError theError _ ->
                                         Just theError
 
                                     _ ->
@@ -295,7 +325,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                                     maybePermanentError : Maybe StaticHttpRequest.Error
                                     maybePermanentError =
                                         case staticRequestsStatus of
-                                            StaticHttpRequest.HasPermanentError theError ->
+                                            StaticHttpRequest.HasPermanentError theError _ ->
                                                 Just theError
 
                                             _ ->

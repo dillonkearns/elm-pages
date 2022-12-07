@@ -118,12 +118,12 @@ cacheRequestResolution :
     -> RequestsAndPending
     -> Status value
 cacheRequestResolution request rawResponses =
-    cacheRequestResolutionHelp [] rawResponses request
+    cacheRequestResolutionHelp [] rawResponses request request
 
 
 type Status value
-    = Incomplete (List Pages.StaticHttp.Request.Request)
-    | HasPermanentError Error
+    = Incomplete (List Pages.StaticHttp.Request.Request) (RawRequest value)
+    | HasPermanentError Error (RawRequest value)
     | Complete
 
 
@@ -131,24 +131,26 @@ cacheRequestResolutionHelp :
     List Pages.StaticHttp.Request.Request
     -> RequestsAndPending
     -> RawRequest value
+    -> RawRequest value
     -> Status value
-cacheRequestResolutionHelp foundUrls rawResponses request =
+cacheRequestResolutionHelp foundUrls rawResponses parentRequest request =
     case request of
         RequestError error ->
             case error of
                 MissingHttpResponse _ _ ->
                     -- TODO do I need to pass through continuation URLs here? -- Incomplete (urlList ++ foundUrls)
-                    Incomplete foundUrls
+                    Incomplete foundUrls parentRequest
 
                 DecoderError _ ->
-                    HasPermanentError error
+                    HasPermanentError error parentRequest
 
                 UserCalledStaticHttpFail _ ->
-                    HasPermanentError error
+                    HasPermanentError error parentRequest
 
         Request urlList lookupFn ->
             cacheRequestResolutionHelp urlList
                 rawResponses
+                request
                 (lookupFn Nothing rawResponses)
 
         ApiRoute _ ->
