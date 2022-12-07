@@ -111,6 +111,9 @@ async function main() {
       }
       try {
         // await codegen.generate("");
+        ensureDirSync(
+          path.join(process.cwd(), ".elm-pages", "http-response-cache")
+        );
         if (fs.existsSync("./codegen/")) {
           await runElmCodegenInstall();
         }
