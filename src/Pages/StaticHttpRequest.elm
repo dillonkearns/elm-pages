@@ -97,20 +97,24 @@ resolveUrlsHelp rawResponses soFar request =
         RequestError error ->
             case error of
                 MissingHttpResponse _ next ->
-                    (soFar ++ next)
-                        |> List.Extra.uniqueBy Pages.StaticHttp.Request.hash
+                    --soFar ++ next
+                    next
 
+                --|> List.Extra.uniqueBy Pages.StaticHttp.Request.hash
                 _ ->
-                    soFar
+                    --soFar
+                    []
 
         Request urlList lookupFn ->
             resolveUrlsHelp
                 rawResponses
-                (soFar ++ urlList)
+                --(soFar ++ urlList)
+                urlList
                 (lookupFn Nothing rawResponses)
 
         ApiRoute _ ->
-            soFar
+            --soFar
+            []
 
 
 cacheRequestResolution :
