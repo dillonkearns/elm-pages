@@ -34,12 +34,14 @@ function fullPath(portsHash, request, hasFsAccess) {
   }
 }
 
+/** @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: JSON}} Response */
+
 /**
  * @param {string} mode
  * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body;}} rawRequest
- * @returns {Promise<string>}
  * @param {string} portsFile
  * @param {boolean} hasFsAccess
+ * @returns {Promise<Response>}
  */
 function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
   const { fs } = require("./request-cache-fs.js")(hasFsAccess);
@@ -51,7 +53,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
     // TODO check cache expiration time and delete and go to else if expired
     if (useCache && (await checkFileExists(fs, responsePath))) {
       // console.log("Skipping request, found file.");
-      resolve(responsePath);
+      resolve({ kind: "cache-response-path", value: responsePath });
     } else {
       let portDataSource = {};
       let portDataSourceImportError = null;
@@ -86,7 +88,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
             responsePath,
             JSON.stringify(jsonResponse(await portDataSource[portName](input)))
           );
-          resolve(responsePath);
+          resolve({ kind: "cache-response-path", value: responsePath });
         } catch (error) {
           console.trace(error);
           reject({
@@ -147,7 +149,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
               })
             );
 
-            resolve(responsePath);
+            resolve({ kind: "cache-response-path", value: responsePath });
           } else {
             console.log("@@@ request-cache1 bad HTTP response");
             reject({
