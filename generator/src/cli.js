@@ -159,7 +159,8 @@ async function main() {
             }
           });
         const portsPath = await portDataSourceCompiled;
-        const resolvedPortsPath = path.join(process.cwd(), portsPath);
+        const resolvedPortsPath =
+          portsPath && path.join(process.cwd(), portsPath);
 
         process.chdir("./script");
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
