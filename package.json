@@ -33,7 +33,7 @@
     "devcert": "^1.2.2",
     "elm-doc-preview": "^5.0.5",
     "elm-hot": "^1.1.6",
-    "esbuild": "^0.15.14",
+    "esbuild": "^0.16.1",
     "fs-extra": "^10.1.0",
     "globby": "11.0.4",
     "gray-matter": "^4.0.3",
