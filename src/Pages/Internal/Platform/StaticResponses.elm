@@ -180,10 +180,10 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     StaticHttpRequest.HasPermanentError _ nextReq ->
                         case model.staticResponses of
                             ApiRequest (NotFetched _ dict) ->
-                                ApiRequest (NotFetched nextReq dict)
+                                ApiRequest (NotFetched nextReq Dict.empty)
 
                             StaticResponses (NotFetched _ dict) ->
-                                ApiRequest (NotFetched nextReq dict)
+                                StaticResponses (NotFetched nextReq Dict.empty)
 
                             CheckIfHandled _ _ _ ->
                                 -- TODO change this too, or maybe this is fine?
@@ -192,10 +192,10 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     StaticHttpRequest.Incomplete _ nextReq ->
                         case model.staticResponses of
                             ApiRequest (NotFetched _ dict) ->
-                                ApiRequest (NotFetched nextReq dict)
+                                ApiRequest (NotFetched nextReq Dict.empty)
 
                             StaticResponses (NotFetched _ dict) ->
-                                ApiRequest (NotFetched nextReq dict)
+                                StaticResponses (NotFetched nextReq Dict.empty)
 
                             CheckIfHandled _ _ _ ->
                                 -- TODO change this too, or maybe this is fine?
