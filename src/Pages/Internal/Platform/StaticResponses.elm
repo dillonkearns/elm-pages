@@ -70,7 +70,18 @@ batchUpdate :
         }
 batchUpdate newEntries model =
     { model
-        | allRawResponses = insertAll newEntries model.allRawResponses
+        | allRawResponses =
+            newEntries
+                |> List.map
+                    (\{ request, response } ->
+                        ( HashRequest.hash request
+                        , Just response
+                        )
+                    )
+                --|> Dict.map (\_ value -> Just value)
+                |> Dict.fromList
+
+        --insertAll newEntries model.allRawResponses
     }
 
 
@@ -135,64 +146,19 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 CheckIfHandled _ staticHttpResult _ ->
                     staticHttpResult
 
-        pendingRequests : Bool
-        pendingRequests =
-            case staticResponses of
-                NotFetched _ rawResponses ->
-                    let
-                        hasPermanentError : Bool
-                        hasPermanentError =
-                            case staticRequestsStatus of
-                                StaticHttpRequest.HasPermanentError _ _ ->
-                                    True
+        ( pendingRequests, urlsToPerform ) =
+            case staticRequestsStatus of
+                StaticHttpRequest.Incomplete newUrlsToFetch _ ->
+                    ( True, newUrlsToFetch )
 
-                                _ ->
-                                    False
-
-                        hasPermanentHttpError : Bool
-                        hasPermanentHttpError =
-                            not (List.isEmpty errors)
-
-                        ( allUrlsKnown, knownUrlsToFetch ) =
-                            case staticRequestsStatus of
-                                StaticHttpRequest.Incomplete newUrlsToFetch _ ->
-                                    ( False, newUrlsToFetch )
-
-                                _ ->
-                                    ( True, [] )
-
-                        fetchedAllKnownUrls : Bool
-                        fetchedAllKnownUrls =
-                            (rawResponses
-                                |> Dict.keys
-                                |> Set.fromList
-                                |> Set.union (allRawResponses |> Dict.keys |> Set.fromList)
-                            )
-                                |> Set.diff
-                                    (knownUrlsToFetch
-                                        |> List.map HashRequest.hash
-                                        |> Set.fromList
-                                    )
-                                |> Set.isEmpty
-                    in
-                    not (hasPermanentHttpError || hasPermanentError || (allUrlsKnown && fetchedAllKnownUrls))
+                _ ->
+                    ( False, [] )
     in
     if pendingRequests then
         let
-            urlsToPerform : List HashRequest.Request
-            urlsToPerform =
-                -- TODO is this redundant with cacheRequestResolution?
-                StaticHttpRequest.resolveUrls request allRawResponses
-
             newAllRawResponses : RequestsAndPending
             newAllRawResponses =
-                Dict.union allRawResponses dictOfNewUrlsToPerform
-
-            dictOfNewUrlsToPerform : RequestsAndPending
-            dictOfNewUrlsToPerform =
-                urlsToPerform
-                    |> List.map (\url -> ( HashRequest.hash url, Nothing ))
-                    |> Dict.fromList
+                allRawResponses
 
             maskedToUnmasked : Dict String HashRequest.Request
             maskedToUnmasked =
@@ -203,16 +169,9 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                         )
                     |> Dict.fromList
 
-            alreadyPerformed : Set String
-            alreadyPerformed =
-                allRawResponses
-                    |> Dict.keys
-                    |> Set.fromList
-
             newThing : List HashRequest.Request
             newThing =
                 maskedToUnmasked
-                    |> Dict.Extra.removeMany alreadyPerformed
                     |> Dict.values
 
             updatedStaticResponses : StaticResponses
@@ -243,7 +202,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                                 model.staticResponses
 
                     StaticHttpRequest.Complete ->
-                        model.staticResponses
+                        ApiRequest (NotFetched (DataSource.succeed ()) Dict.empty)
         in
         ( updatedStaticResponses, Continue newAllRawResponses newThing maybeRoutes )
 

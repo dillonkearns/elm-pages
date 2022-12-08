@@ -21,7 +21,6 @@ import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (Stat
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.Script
 import Pages.StaticHttp.Request
-import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
 
@@ -394,12 +393,12 @@ nextStepToEffect :
     -> ( Model, Effect )
 nextStepToEffect execute model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
-        StaticResponses.Continue updatedAllRawResponses httpRequests _ ->
+        StaticResponses.Continue _ httpRequests _ ->
             let
                 updatedModel : Model
                 updatedModel =
                     { model
-                        | allRawResponses = updatedAllRawResponses
+                        | allRawResponses = Dict.empty
                         , staticResponses = updatedStaticResponsesModel
                     }
             in
@@ -422,31 +421,13 @@ nextStepToEffect execute model ( updatedStaticResponsesModel, nextStep ) =
         StaticResponses.Finish toJsPayload ->
             case toJsPayload of
                 StaticResponses.ApiResponse ->
-                    let
-                        apiResponse : Effect
-                        apiResponse =
-                            StaticHttpRequest.resolve
-                                execute
-                                model.allRawResponses
-                                |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
-                                |> (\response ->
-                                        case response of
-                                            Ok () ->
-                                                { body = Json.Encode.null
-                                                , staticHttpCache = Dict.empty
-                                                , statusCode = 200
-                                                }
-                                                    |> ToJsPayload.SendApiResponse
-                                                    |> Effect.SendSinglePage
-
-                                            Err error ->
-                                                [ error ]
-                                                    |> ToJsPayload.Errors
-                                                    |> Effect.SendSinglePage
-                                   )
-                    in
                     ( model
-                    , apiResponse
+                    , { body = Json.Encode.null
+                      , staticHttpCache = Dict.empty
+                      , statusCode = 200
+                      }
+                        |> ToJsPayload.SendApiResponse
+                        |> Effect.SendSinglePage
                     )
 
                 StaticResponses.Errors errors ->

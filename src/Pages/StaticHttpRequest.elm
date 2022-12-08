@@ -122,7 +122,7 @@ cacheRequestResolution :
     -> RequestsAndPending
     -> Status value
 cacheRequestResolution request rawResponses =
-    cacheRequestResolutionHelp [] rawResponses request request
+    cacheRequestResolutionHelp True [] rawResponses request request
 
 
 type Status value
@@ -132,12 +132,13 @@ type Status value
 
 
 cacheRequestResolutionHelp :
-    List Pages.StaticHttp.Request.Request
+    Bool
+    -> List Pages.StaticHttp.Request.Request
     -> RequestsAndPending
     -> RawRequest value
     -> RawRequest value
     -> Status value
-cacheRequestResolutionHelp foundUrls rawResponses parentRequest request =
+cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest request =
     case request of
         RequestError error ->
             case error of
@@ -152,10 +153,11 @@ cacheRequestResolutionHelp foundUrls rawResponses parentRequest request =
                     HasPermanentError error parentRequest
 
         Request urlList lookupFn ->
-            cacheRequestResolutionHelp urlList
-                rawResponses
-                request
-                (lookupFn Nothing rawResponses)
+            if firstCall then
+                cacheRequestResolutionHelp False (foundUrls ++ urlList) rawResponses request (lookupFn Nothing rawResponses)
+
+            else
+                Incomplete foundUrls request
 
         ApiRoute _ ->
             Complete
