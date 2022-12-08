@@ -3,12 +3,10 @@ module Pages.Internal.Platform.StaticResponses exposing (FinishKind(..), NextSte
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
-import Dict.Extra
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
-import Set exposing (Set)
 
 
 type StaticResponses
@@ -78,29 +76,8 @@ batchUpdate newEntries model =
                         , Just response
                         )
                     )
-                --|> Dict.map (\_ value -> Just value)
                 |> Dict.fromList
-
-        --insertAll newEntries model.allRawResponses
     }
-
-
-insertAll :
-    List
-        { request : HashRequest.Request
-        , response : RequestsAndPending.Response
-        }
-    -> RequestsAndPending
-    -> RequestsAndPending
-insertAll newEntries dict =
-    case newEntries of
-        [] ->
-            dict
-
-        info :: rest ->
-            insertAll
-                rest
-                (Dict.update (HashRequest.hash info.request) (\_ -> Just (Just info.response)) dict)
 
 
 type NextStep route
@@ -146,13 +123,13 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 CheckIfHandled _ staticHttpResult _ ->
                     staticHttpResult
 
-        ( pendingRequests, urlsToPerform ) =
+        ( pendingRequests, urlsToPerform, progressedDataSource ) =
             case staticRequestsStatus of
-                StaticHttpRequest.Incomplete newUrlsToFetch _ ->
-                    ( True, newUrlsToFetch )
+                StaticHttpRequest.Incomplete newUrlsToFetch nextReq ->
+                    ( True, newUrlsToFetch, nextReq )
 
                 _ ->
-                    ( False, [] )
+                    ( False, [], DataSource.succeed () )
     in
     if pendingRequests then
         let
@@ -176,33 +153,16 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
 
             updatedStaticResponses : StaticResponses
             updatedStaticResponses =
-                case staticRequestsStatus of
-                    StaticHttpRequest.HasPermanentError _ nextReq ->
-                        case model.staticResponses of
-                            ApiRequest (NotFetched _ dict) ->
-                                ApiRequest (NotFetched nextReq Dict.empty)
+                case model.staticResponses of
+                    ApiRequest (NotFetched _ _) ->
+                        ApiRequest (NotFetched progressedDataSource Dict.empty)
 
-                            StaticResponses (NotFetched _ dict) ->
-                                StaticResponses (NotFetched nextReq Dict.empty)
+                    StaticResponses (NotFetched _ _) ->
+                        StaticResponses (NotFetched progressedDataSource Dict.empty)
 
-                            CheckIfHandled _ _ _ ->
-                                -- TODO change this too, or maybe this is fine?
-                                model.staticResponses
-
-                    StaticHttpRequest.Incomplete _ nextReq ->
-                        case model.staticResponses of
-                            ApiRequest (NotFetched _ dict) ->
-                                ApiRequest (NotFetched nextReq Dict.empty)
-
-                            StaticResponses (NotFetched _ dict) ->
-                                StaticResponses (NotFetched nextReq Dict.empty)
-
-                            CheckIfHandled _ _ _ ->
-                                -- TODO change this too, or maybe this is fine?
-                                model.staticResponses
-
-                    StaticHttpRequest.Complete ->
-                        ApiRequest (NotFetched (DataSource.succeed ()) Dict.empty)
+                    CheckIfHandled _ _ _ ->
+                        -- TODO change this too, or maybe this is fine?
+                        model.staticResponses
         in
         ( updatedStaticResponses, Continue newAllRawResponses newThing maybeRoutes )
 

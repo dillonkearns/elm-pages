@@ -122,7 +122,15 @@ cacheRequestResolution :
     -> RequestsAndPending
     -> Status value
 cacheRequestResolution request rawResponses =
-    cacheRequestResolutionHelp True [] rawResponses request request
+    case request of
+        RequestError error ->
+            cacheRequestResolutionHelp True [] rawResponses request request
+
+        Request urlList lookupFn ->
+            cacheRequestResolutionHelp False urlList rawResponses request (lookupFn Nothing rawResponses)
+
+        ApiRoute _ ->
+            Complete
 
 
 type Status value
@@ -153,11 +161,8 @@ cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest reques
                     HasPermanentError error parentRequest
 
         Request urlList lookupFn ->
-            if firstCall then
-                cacheRequestResolutionHelp False (foundUrls ++ urlList) rawResponses request (lookupFn Nothing rawResponses)
-
-            else
-                Incomplete foundUrls request
+            Incomplete urlList
+                (Request [] lookupFn)
 
         ApiRoute _ ->
             Complete
