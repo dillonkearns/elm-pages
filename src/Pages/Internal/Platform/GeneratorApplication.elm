@@ -69,8 +69,8 @@ app config =
                 init cliOptions flags
                     |> Tuple.mapSecond (perform config)
         , update =
-            \cliOptions msg model ->
-                update cliOptions msg model
+            \_ msg model ->
+                update msg model
                     |> Tuple.mapSecond (perform config)
         , subscriptions =
             \_ ->
@@ -303,7 +303,7 @@ init execute flags =
                             "The elm-pages NPM package is ahead of the elm-pages Elm package. Try updating the elm-pages Elm package?"
                        )
         in
-        updateAndSendPortIfDone execute
+        updateAndSendPortIfDone
             { staticResponses = StaticResponses.empty
             , errors =
                 [ { title = "Incompatible NPM and Elm package versions"
@@ -336,28 +336,26 @@ initLegacy execute { staticHttpCache } =
             }
     in
     StaticResponses.nextStep initialModel Nothing
-        |> nextStepToEffect execute
+        |> nextStepToEffect
             initialModel
 
 
 updateAndSendPortIfDone :
-    DataSource ()
-    -> Model
+    Model
     -> ( Model, Effect )
-updateAndSendPortIfDone execute model =
+updateAndSendPortIfDone model =
     StaticResponses.nextStep
         model
         Nothing
-        |> nextStepToEffect execute model
+        |> nextStepToEffect model
 
 
 {-| -}
 update :
-    DataSource ()
-    -> Msg
+    Msg
     -> Model
     -> ( Model, Effect )
-update execute msg model =
+update msg model =
     case msg of
         GotDataBatch batch ->
             let
@@ -369,7 +367,7 @@ update execute msg model =
             StaticResponses.nextStep
                 updatedModel
                 Nothing
-                |> nextStepToEffect execute updatedModel
+                |> nextStepToEffect updatedModel
 
         GotBuildError buildError ->
             let
@@ -383,15 +381,14 @@ update execute msg model =
             StaticResponses.nextStep
                 updatedModel
                 Nothing
-                |> nextStepToEffect execute updatedModel
+                |> nextStepToEffect updatedModel
 
 
 nextStepToEffect :
-    DataSource ()
-    -> Model
+    Model
     -> ( StaticResponses, StaticResponses.NextStep route )
     -> ( Model, Effect )
-nextStepToEffect execute model ( updatedStaticResponsesModel, nextStep ) =
+nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
         StaticResponses.Continue _ httpRequests _ ->
             let
@@ -403,7 +400,7 @@ nextStepToEffect execute model ( updatedStaticResponsesModel, nextStep ) =
                     }
             in
             if List.isEmpty httpRequests then
-                nextStepToEffect execute
+                nextStepToEffect
                     updatedModel
                     (StaticResponses.nextStep
                         updatedModel
