@@ -12,7 +12,7 @@ import RequestsAndPending exposing (RequestsAndPending)
 type StaticResponses
     = ApiRequest StaticHttpResult
     | StaticResponses StaticHttpResult
-    | CheckIfHandled (DataSource (Maybe NotFoundReason)) StaticHttpResult StaticHttpResult
+    | CheckIfHandled (DataSource (Maybe NotFoundReason)) StaticHttpResult
 
 
 type StaticHttpResult
@@ -31,12 +31,6 @@ renderSingleRoute :
     -> StaticResponses
 renderSingleRoute request cliData =
     CheckIfHandled cliData
-        (NotFetched
-            (cliData
-                |> DataSource.map (\_ -> ())
-            )
-            Dict.empty
-        )
         (NotFetched (DataSource.map (\_ -> ()) request) Dict.empty)
 
 
@@ -120,8 +114,8 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 ApiRequest staticHttpResult ->
                     staticHttpResult
 
-                CheckIfHandled _ staticHttpResult _ ->
-                    staticHttpResult
+                CheckIfHandled staticHttpResult _ ->
+                    NotFetched (staticHttpResult |> DataSource.map (\_ -> ())) Dict.empty
 
         ( pendingRequests, urlsToPerform, progressedDataSource ) =
             case staticRequestsStatus of
@@ -160,7 +154,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     StaticResponses (NotFetched _ _) ->
                         StaticResponses (NotFetched progressedDataSource Dict.empty)
 
-                    CheckIfHandled _ _ _ ->
+                    CheckIfHandled _ _ ->
                         -- TODO change this too, or maybe this is fine?
                         model.staticResponses
         in
@@ -218,7 +212,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                         |> Finish
                 )
 
-            CheckIfHandled pageFoundDataSource (NotFetched _ _) andThenRequest ->
+            CheckIfHandled pageFoundDataSource andThenRequest ->
                 let
                     pageFoundResult : Result StaticHttpRequest.Error (Maybe NotFoundReason)
                     pageFoundResult =
