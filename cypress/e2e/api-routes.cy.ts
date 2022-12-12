@@ -76,6 +76,7 @@ it("multi-part form post", () => {
     method: "POST",
     url: "/api/greet",
     body: formData,
+    timeout: 60000,
   }).then((res) => {
     expect(res.headers["content-type"]).to.eq("text/plain");
     expect(res.status).to.eq(200);
