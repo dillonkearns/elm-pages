@@ -2,7 +2,6 @@ module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..)
 
 import BuildError exposing (BuildError)
 import Dict
-import List.Extra
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
@@ -129,14 +128,14 @@ cacheRequestResolution request rawResponses =
         Request urlList lookupFn ->
             cacheRequestResolutionHelp False urlList rawResponses request (lookupFn Nothing rawResponses)
 
-        ApiRoute _ ->
-            Complete
+        ApiRoute value ->
+            Complete value
 
 
 type Status value
     = Incomplete (List Pages.StaticHttp.Request.Request) (RawRequest value)
     | HasPermanentError Error (RawRequest value)
-    | Complete
+    | Complete value
 
 
 cacheRequestResolutionHelp :
@@ -164,5 +163,5 @@ cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest reques
             Incomplete urlList
                 (Request [] lookupFn)
 
-        ApiRoute _ ->
-            Complete
+        ApiRoute value ->
+            Complete value

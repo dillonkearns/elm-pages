@@ -55,7 +55,7 @@ currentCompatibilityKey =
 
 {-| -}
 type alias Model route =
-    { staticResponses : StaticResponses
+    { staticResponses : StaticResponses ()
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , unprocessedPages : List ( Path, route )
@@ -479,7 +479,8 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site renderRequest { staticHttpCache, isDevServer } config =
     let
-        staticResponses : StaticResponses
+        --staticResponses : StaticResponses
+        staticResponses : StaticResponses ()
         staticResponses =
             case renderRequest of
                 RenderRequest.SinglePage _ singleRequest _ ->
@@ -628,7 +629,7 @@ nextStepToEffect :
     SiteConfig
     -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Model route
-    -> ( StaticResponses, StaticResponses.NextStep route )
+    -> ( StaticResponses (), StaticResponses.NextStep route () )
     -> ( Model route, Effect )
 nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
@@ -674,100 +675,109 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                     |> Effect.Batch
                 )
 
-        StaticResponses.Finish toJsPayload ->
-            case toJsPayload of
-                StaticResponses.ApiResponse ->
-                    let
-                        apiResponse : Effect
-                        apiResponse =
-                            case model.maybeRequestJson of
-                                RenderRequest.SinglePage _ requestPayload _ ->
+        StaticResponses.FinishNotFound notFoundReason ->
+            ( model
+            , render404Page config
+                -- TODO should I use sharedDataResult here? Does it matter?
+                Nothing
+                model
+                -- TODO use logic like `case model.maybeRequestJson of` expression below
+                ("TODO" |> Path.fromString)
+                notFoundReason
+            )
+
+        StaticResponses.FinishedWithErrors errors ->
+            ( model
+            , errors |> ToJsPayload.Errors |> Effect.SendSinglePage
+            )
+
+        StaticResponses.Finish _ finalValue ->
+            let
+                apiResponse : Effect
+                apiResponse =
+                    case model.maybeRequestJson of
+                        RenderRequest.SinglePage _ requestPayload _ ->
+                            let
+                                sharedDataResult : Result BuildError sharedData
+                                sharedDataResult =
+                                    StaticHttpRequest.resolve
+                                        config.sharedData
+                                        model.allRawResponses
+                                        |> Result.mapError (StaticHttpRequest.toBuildError "")
+                            in
+                            case requestPayload of
+                                RenderRequest.Api ( path, ApiRoute apiHandler ) ->
                                     let
-                                        sharedDataResult : Result BuildError sharedData
-                                        sharedDataResult =
-                                            StaticHttpRequest.resolve
-                                                config.sharedData
-                                                model.allRawResponses
-                                                |> Result.mapError (StaticHttpRequest.toBuildError "")
+                                        thing : DataSource (Maybe ApiRoute.Response)
+                                        thing =
+                                            apiHandler.matchesToResponse path
                                     in
-                                    case requestPayload of
-                                        RenderRequest.Api ( path, ApiRoute apiHandler ) ->
-                                            let
-                                                thing : DataSource (Maybe ApiRoute.Response)
-                                                thing =
-                                                    apiHandler.matchesToResponse path
-                                            in
+                                    StaticHttpRequest.resolve
+                                        thing
+                                        model.allRawResponses
+                                        |> Result.mapError (StaticHttpRequest.toBuildError path)
+                                        |> (\response ->
+                                                case response of
+                                                    Ok (Just okResponse) ->
+                                                        { body = okResponse
+                                                        , staticHttpCache = Dict.empty -- TODO do I need to serialize the full cache here, or can I handle that from the JS side?
+
+                                                        -- model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
+                                                        , statusCode = 200
+                                                        }
+                                                            |> ToJsPayload.SendApiResponse
+                                                            |> Effect.SendSinglePage
+
+                                                    Ok Nothing ->
+                                                        render404Page config (Result.toMaybe sharedDataResult) model (Path.fromString path) NotFoundReason.NoMatchingRoute
+
+                                                    Err error ->
+                                                        [ error ]
+                                                            |> ToJsPayload.Errors
+                                                            |> Effect.SendSinglePage
+                                           )
+
+                                RenderRequest.Page payload ->
+                                    let
+                                        pageFoundResult : Result BuildError (Maybe NotFoundReason)
+                                        pageFoundResult =
                                             StaticHttpRequest.resolve
-                                                thing
+                                                (if model.isDevServer then
+                                                    -- TODO OPTIMIZATION this is redundant
+                                                    config.handleRoute payload.frontmatter
+
+                                                 else
+                                                    DataSource.succeed Nothing
+                                                )
                                                 model.allRawResponses
-                                                |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
-                                                |> (\response ->
-                                                        case response of
-                                                            Ok (Just okResponse) ->
-                                                                { body = okResponse
-                                                                , staticHttpCache = Dict.empty -- TODO do I need to serialize the full cache here, or can I handle that from the JS side?
+                                                |> Result.mapError (StaticHttpRequest.toBuildError (payload.path |> Path.toAbsolute))
+                                    in
+                                    case pageFoundResult of
+                                        Ok Nothing ->
+                                            sendSinglePageProgress site model.allRawResponses config model payload
 
-                                                                -- model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
-                                                                , statusCode = 200
-                                                                }
-                                                                    |> ToJsPayload.SendApiResponse
-                                                                    |> Effect.SendSinglePage
-
-                                                            Ok Nothing ->
-                                                                render404Page config (Result.toMaybe sharedDataResult) model (Path.fromString path) NotFoundReason.NoMatchingRoute
-
-                                                            Err error ->
-                                                                [ error ]
-                                                                    |> ToJsPayload.Errors
-                                                                    |> Effect.SendSinglePage
-                                                   )
-
-                                        RenderRequest.Page payload ->
-                                            let
-                                                pageFoundResult : Result BuildError (Maybe NotFoundReason)
-                                                pageFoundResult =
-                                                    StaticHttpRequest.resolve
-                                                        (if model.isDevServer then
-                                                            -- TODO OPTIMIZATION this is redundant
-                                                            config.handleRoute payload.frontmatter
-
-                                                         else
-                                                            DataSource.succeed Nothing
-                                                        )
-                                                        model.allRawResponses
-                                                        |> Result.mapError (StaticHttpRequest.toBuildError (payload.path |> Path.toAbsolute))
-                                            in
-                                            case pageFoundResult of
-                                                Ok Nothing ->
-                                                    sendSinglePageProgress site model.allRawResponses config model payload
-
-                                                Ok (Just notFoundReason) ->
-                                                    render404Page config
-                                                        --Nothing
-                                                        (Result.toMaybe sharedDataResult)
-                                                        model
-                                                        payload.path
-                                                        notFoundReason
-
-                                                Err error ->
-                                                    [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage
-
-                                        RenderRequest.NotFound path ->
+                                        Ok (Just notFoundReason) ->
                                             render404Page config
                                                 --Nothing
                                                 (Result.toMaybe sharedDataResult)
                                                 model
-                                                path
-                                                NotFoundReason.NoMatchingRoute
-                    in
-                    ( model
-                    , apiResponse
-                    )
+                                                payload.path
+                                                notFoundReason
 
-                StaticResponses.Errors errors ->
-                    ( model
-                    , errors |> ToJsPayload.Errors |> Effect.SendSinglePage
-                    )
+                                        Err error ->
+                                            [ error ] |> ToJsPayload.Errors |> Effect.SendSinglePage
+
+                                RenderRequest.NotFound path ->
+                                    render404Page config
+                                        --Nothing
+                                        (Result.toMaybe sharedDataResult)
+                                        model
+                                        path
+                                        NotFoundReason.NoMatchingRoute
+            in
+            ( model
+            , apiResponse
+            )
 
 
 sendSinglePageProgress :
