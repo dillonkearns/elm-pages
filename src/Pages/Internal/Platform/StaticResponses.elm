@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.StaticResponses exposing (FinishKind(..), NextStep(..), StaticResponses, batchUpdate, empty, nextStep, renderApiRequest, renderSingleRoute)
+module Pages.Internal.Platform.StaticResponses exposing (FinishKind(..), NextStep(..), StaticResponses, batchUpdate, empty, nextStep, renderApiRequest, renderSingleRoute, staticResponsesThing)
 
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
@@ -19,10 +19,10 @@ type StaticHttpResult a
     = NotFetched (DataSource a) (Dict String (Result () String))
 
 
-empty : StaticResponses ()
-empty =
+empty : a -> StaticResponses a
+empty a =
     StaticResponses
-        (NotFetched (DataSource.succeed ()) Dict.empty)
+        (NotFetched (DataSource.succeed a) Dict.empty)
 
 
 renderSingleRoute :
@@ -39,6 +39,13 @@ renderApiRequest :
     -> StaticResponses response
 renderApiRequest request =
     ApiRequest (NotFetched request Dict.empty)
+
+
+staticResponsesThing :
+    DataSource response
+    -> StaticResponses response
+staticResponsesThing request =
+    StaticResponses (NotFetched request Dict.empty)
 
 
 batchUpdate :
@@ -122,20 +129,20 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                         )
                         Dict.empty
 
-        ( pendingRequests, urlsToPerform, progressedDataSource ) =
+        ( ( pendingRequests, completedValue ), urlsToPerform, progressedDataSource ) =
             case staticRequestsStatus of
                 StaticHttpRequest.Incomplete newUrlsToFetch nextReq ->
-                    ( True, newUrlsToFetch, nextReq )
+                    ( ( True, Nothing ), newUrlsToFetch, nextReq )
 
                 StaticHttpRequest.Complete value ->
                     -- TODO wire through this completed value and replace the Debug.todo's below
-                    ( False
+                    ( ( False, Just value )
                     , []
                     , DataSource.succeed value
                     )
 
                 _ ->
-                    ( False
+                    ( ( False, Nothing )
                     , []
                     , DataSource.fail "TODO this shouldn't happen"
                     )
@@ -205,13 +212,19 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 errors ++ failedRequests
         in
         case model.staticResponses of
-            StaticResponses _ ->
+            StaticResponses thingy ->
                 ( model.staticResponses
                 , if List.length allErrors > 0 then
-                    Finish (Errors allErrors) (Debug.todo "")
+                    FinishedWithErrors allErrors
 
                   else
-                    Finish ApiResponse (Debug.todo "")
+                    case completedValue of
+                        Just value ->
+                            Finish ApiResponse value
+
+                        Nothing ->
+                            -- TODO put a real error here
+                            FinishedWithErrors []
                 )
 
             ApiRequest _ ->
@@ -220,7 +233,18 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     FinishedWithErrors allErrors
 
                   else
-                    Finish ApiResponse (Debug.todo "")
+                    case completedValue of
+                        Just completed ->
+                            Finish ApiResponse completed
+
+                        Nothing ->
+                            case completedValue of
+                                Just value ->
+                                    Finish ApiResponse value
+
+                                Nothing ->
+                                    -- TODO put a real error here
+                                    FinishedWithErrors []
                 )
 
             CheckIfHandled pageFoundDataSource andThenRequest ->
