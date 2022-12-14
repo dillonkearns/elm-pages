@@ -11,7 +11,6 @@ import RequestsAndPending exposing (RequestsAndPending)
 
 type StaticResponses a
     = ApiRequest (StaticHttpResult a)
-    | StaticResponses (StaticHttpResult a)
 
 
 type StaticHttpResult a
@@ -20,7 +19,7 @@ type StaticHttpResult a
 
 empty : a -> StaticResponses a
 empty a =
-    StaticResponses
+    ApiRequest
         (NotFetched (DataSource.succeed a) Dict.empty)
 
 
@@ -96,9 +95,6 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
         staticResponses : StaticHttpResult a
         staticResponses =
             case model.staticResponses of
-                StaticResponses s ->
-                    s
-
                 ApiRequest staticHttpResult ->
                     staticHttpResult
 
@@ -145,9 +141,6 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 case model.staticResponses of
                     ApiRequest (NotFetched _ _) ->
                         ApiRequest (NotFetched progressedDataSource Dict.empty)
-
-                    StaticResponses (NotFetched _ _) ->
-                        StaticResponses (NotFetched progressedDataSource Dict.empty)
         in
         ( updatedStaticResponses, Continue newAllRawResponses newThing maybeRoutes )
 
@@ -180,21 +173,6 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 errors ++ failedRequests
         in
         case model.staticResponses of
-            StaticResponses thingy ->
-                ( model.staticResponses
-                , if List.length allErrors > 0 then
-                    FinishedWithErrors allErrors
-
-                  else
-                    case completedValue of
-                        Just value ->
-                            Finish ApiResponse value
-
-                        Nothing ->
-                            -- TODO put a real error here
-                            FinishedWithErrors []
-                )
-
             ApiRequest _ ->
                 ( model.staticResponses
                 , if List.length allErrors > 0 then
@@ -206,11 +184,6 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                             Finish ApiResponse completed
 
                         Nothing ->
-                            case completedValue of
-                                Just value ->
-                                    Finish ApiResponse value
-
-                                Nothing ->
-                                    -- TODO put a real error here
-                                    FinishedWithErrors []
+                            -- TODO put a real error here
+                            FinishedWithErrors []
                 )
