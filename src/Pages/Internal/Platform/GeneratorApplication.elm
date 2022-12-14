@@ -33,7 +33,7 @@ type alias Flags =
 
 {-| -}
 type alias Model =
-    { staticResponses : StaticResponses
+    { staticResponses : StaticResponses ()
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , done : Bool
@@ -304,7 +304,7 @@ init execute flags =
                        )
         in
         updateAndSendPortIfDone
-            { staticResponses = StaticResponses.empty
+            { staticResponses = StaticResponses.empty ()
             , errors =
                 [ { title = "Incompatible NPM and Elm package versions"
                   , message = [ Terminal.text <| message ]
@@ -323,7 +323,7 @@ initLegacy :
     -> ( Model, Effect )
 initLegacy execute { staticHttpCache } =
     let
-        staticResponses : StaticResponses
+        staticResponses : StaticResponses ()
         staticResponses =
             StaticResponses.renderApiRequest execute
 
@@ -386,7 +386,7 @@ update msg model =
 
 nextStepToEffect :
     Model
-    -> ( StaticResponses, StaticResponses.NextStep route )
+    -> ( StaticResponses (), StaticResponses.NextStep route () )
     -> ( Model, Effect )
 nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
@@ -415,7 +415,7 @@ nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
                     |> Effect.Batch
                 )
 
-        StaticResponses.Finish toJsPayload ->
+        StaticResponses.Finish toJsPayload () ->
             case toJsPayload of
                 StaticResponses.ApiResponse ->
                     ( model
@@ -431,3 +431,13 @@ nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
                     ( model
                     , errors |> ToJsPayload.Errors |> Effect.SendSinglePage
                     )
+
+        StaticResponses.FinishNotFound notFoundReason ->
+            ( model
+            , [] |> ToJsPayload.Errors |> Effect.SendSinglePage
+            )
+
+        StaticResponses.FinishedWithErrors buildErrors ->
+            ( model
+            , buildErrors |> ToJsPayload.Errors |> Effect.SendSinglePage
+            )
