@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.StaticResponses exposing (FinishKind(..), NextStep(..), StaticResponses, batchUpdate, empty, nextStep, renderApiRequest, renderSingleRoute, staticResponsesThing)
+module Pages.Internal.Platform.StaticResponses exposing (FinishKind(..), NextStep(..), StaticResponses, batchUpdate, empty, nextStep, renderApiRequest)
 
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
@@ -12,7 +12,6 @@ import RequestsAndPending exposing (RequestsAndPending)
 type StaticResponses a
     = ApiRequest (StaticHttpResult a)
     | StaticResponses (StaticHttpResult a)
-    | CheckIfHandled (DataSource (Maybe NotFoundReason)) (StaticHttpResult a)
 
 
 type StaticHttpResult a
@@ -25,27 +24,11 @@ empty a =
         (NotFetched (DataSource.succeed a) Dict.empty)
 
 
-renderSingleRoute :
-    DataSource a
-    -> DataSource (Maybe NotFoundReason)
-    -> StaticResponses a
-renderSingleRoute request cliData =
-    CheckIfHandled cliData
-        (NotFetched request Dict.empty)
-
-
 renderApiRequest :
     DataSource response
     -> StaticResponses response
 renderApiRequest request =
     ApiRequest (NotFetched request Dict.empty)
-
-
-staticResponsesThing :
-    DataSource response
-    -> StaticResponses response
-staticResponsesThing request =
-    StaticResponses (NotFetched request Dict.empty)
 
 
 batchUpdate :
@@ -119,16 +102,6 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 ApiRequest staticHttpResult ->
                     staticHttpResult
 
-                CheckIfHandled staticHttpResult (NotFetched b _) ->
-                    NotFetched
-                        (staticHttpResult
-                            |> DataSource.andThen
-                                (\_ ->
-                                    b
-                                )
-                        )
-                        Dict.empty
-
         ( ( pendingRequests, completedValue ), urlsToPerform, progressedDataSource ) =
             case staticRequestsStatus of
                 StaticHttpRequest.Incomplete newUrlsToFetch nextReq ->
@@ -174,11 +147,6 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                         ApiRequest (NotFetched progressedDataSource Dict.empty)
 
                     StaticResponses (NotFetched _ _) ->
-                        StaticResponses (NotFetched progressedDataSource Dict.empty)
-
-                    CheckIfHandled a b ->
-                        -- TODO change this too, or maybe this is fine?
-                        --model.staticResponses
                         StaticResponses (NotFetched progressedDataSource Dict.empty)
         in
         ( updatedStaticResponses, Continue newAllRawResponses newThing maybeRoutes )
@@ -246,56 +214,3 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                                     -- TODO put a real error here
                                     FinishedWithErrors []
                 )
-
-            CheckIfHandled pageFoundDataSource andThenRequest ->
-                let
-                    pageFoundResult : Result StaticHttpRequest.Error (Maybe NotFoundReason)
-                    pageFoundResult =
-                        StaticHttpRequest.resolve
-                            pageFoundDataSource
-                            allRawResponses
-                in
-                case pageFoundResult of
-                    Ok Nothing ->
-                        nextStep { model | staticResponses = StaticResponses andThenRequest } maybeRoutes
-
-                    Ok (Just notFoundReason) ->
-                        ( -- TODO is this valid? Avoid this boilerplate with impossible states
-                          NotFetched (DataSource.fail "This should never happen") Dict.empty
-                            |> StaticResponses
-                        , FinishNotFound notFoundReason
-                        )
-
-                    Err error_ ->
-                        let
-                            failedRequests : List BuildError
-                            failedRequests =
-                                let
-                                    maybePermanentError : Maybe StaticHttpRequest.Error
-                                    maybePermanentError =
-                                        case staticRequestsStatus of
-                                            StaticHttpRequest.HasPermanentError theError _ ->
-                                                Just theError
-
-                                            _ ->
-                                                Nothing
-
-                                    decoderErrors : List BuildError
-                                    decoderErrors =
-                                        maybePermanentError
-                                            |> Maybe.map (StaticHttpRequest.toBuildError "TODO PATH")
-                                            |> Maybe.map List.singleton
-                                            |> Maybe.withDefault []
-                                in
-                                decoderErrors
-                        in
-                        ( model.staticResponses
-                        , FinishedWithErrors
-                            (StaticHttpRequest.toBuildError
-                                -- TODO give more fine-grained error reference
-                                "get static routes"
-                                error_
-                                :: failedRequests
-                                ++ errors
-                            )
-                        )
