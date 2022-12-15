@@ -472,272 +472,267 @@ initLegacy :
     -> { staticHttpCache : RequestsAndPending, isDevServer : Bool }
     -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> ( Model route, Effect )
-initLegacy site renderRequest { staticHttpCache, isDevServer } config =
+initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { staticHttpCache, isDevServer } config =
     let
+        globalHeadTags : DataSource (List Head.Tag)
+        globalHeadTags =
+            (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
+
         staticResponsesNew : StaticResponses Effect
         staticResponsesNew =
             StaticResponses.renderApiRequest
-                (case renderRequest of
-                    RenderRequest.SinglePage includeHtml singleRequest _ ->
+                (case singleRequest of
+                    RenderRequest.Page serverRequestPayload ->
                         let
-                            globalHeadTags : DataSource (List Head.Tag)
-                            globalHeadTags =
-                                --(config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
-                                DataSource.succeed []
+                            isAction : Maybe ActionRequest
+                            isAction =
+                                renderRequest
+                                    |> RenderRequest.maybeRequestPayload
+                                    |> Maybe.andThen (Decode.decodeValue isActionDecoder >> Result.withDefault Nothing)
+
+                            currentUrl : Url
+                            currentUrl =
+                                { protocol = Url.Https
+                                , host = site.canonicalUrl
+                                , port_ = Nothing
+                                , path = serverRequestPayload.path |> Path.toRelative
+                                , query = Nothing
+                                , fragment = Nothing
+                                }
                         in
-                        case singleRequest of
-                            RenderRequest.Page serverRequestPayload ->
-                                let
-                                    isAction : Maybe ActionRequest
-                                    isAction =
-                                        renderRequest
-                                            |> RenderRequest.maybeRequestPayload
-                                            |> Maybe.andThen (Decode.decodeValue isActionDecoder >> Result.withDefault Nothing)
+                        --case isAction of
+                        --    Just actionRequest ->
+                        (if isDevServer then
+                            config.handleRoute serverRequestPayload.frontmatter
 
-                                    currentUrl : Url
-                                    currentUrl =
-                                        { protocol = Url.Https
-                                        , host = site.canonicalUrl
-                                        , port_ = Nothing
-                                        , path = serverRequestPayload.path |> Path.toRelative
-                                        , query = Nothing
-                                        , fragment = Nothing
-                                        }
-                                in
-                                --case isAction of
-                                --    Just actionRequest ->
-                                (if isDevServer then
-                                    config.handleRoute serverRequestPayload.frontmatter
+                         else
+                            DataSource.succeed Nothing
+                        )
+                            |> DataSource.andThen
+                                (\pageFound ->
+                                    case pageFound of
+                                        Nothing ->
+                                            --sendSinglePageProgress site model.allRawResponses config model payload
+                                            (case isAction of
+                                                Just actionRequest ->
+                                                    config.action serverRequestPayload.frontmatter |> DataSource.map Just
 
-                                 else
-                                    DataSource.succeed Nothing
-                                )
-                                    |> DataSource.andThen
-                                        (\pageFound ->
-                                            case pageFound of
                                                 Nothing ->
-                                                    --sendSinglePageProgress site model.allRawResponses config model payload
-                                                    (case isAction of
-                                                        Just actionRequest ->
-                                                            config.action serverRequestPayload.frontmatter |> DataSource.map Just
+                                                    DataSource.succeed Nothing
+                                            )
+                                                |> DataSource.andThen
+                                                    (\something ->
+                                                        DataSource.map3
+                                                            (\pageData sharedData tags ->
+                                                                let
+                                                                    renderedResult : PageServerResponse { head : List Head.Tag, view : String, title : String } errorPage
+                                                                    renderedResult =
+                                                                        case includeHtml of
+                                                                            RenderRequest.OnlyJson ->
+                                                                                case pageData of
+                                                                                    PageServerResponse.RenderPage responseInfo _ ->
+                                                                                        PageServerResponse.RenderPage
+                                                                                            { statusCode = responseInfo.statusCode
+                                                                                            , headers = responseInfo.headers
+                                                                                            }
+                                                                                            { head = []
+                                                                                            , view = "This page was not rendered because it is a JSON-only request."
+                                                                                            , title = "This page was not rendered because it is a JSON-only request."
+                                                                                            }
 
-                                                        Nothing ->
-                                                            DataSource.succeed Nothing
-                                                    )
-                                                        |> DataSource.andThen
-                                                            (\something ->
-                                                                DataSource.map3
-                                                                    (\pageData sharedData tags ->
-                                                                        let
-                                                                            renderedResult : PageServerResponse { head : List Head.Tag, view : String, title : String } errorPage
-                                                                            renderedResult =
-                                                                                case includeHtml of
-                                                                                    RenderRequest.OnlyJson ->
-                                                                                        case pageData of
-                                                                                            PageServerResponse.RenderPage responseInfo _ ->
-                                                                                                PageServerResponse.RenderPage
-                                                                                                    { statusCode = responseInfo.statusCode
-                                                                                                    , headers = responseInfo.headers
-                                                                                                    }
-                                                                                                    { head = []
-                                                                                                    , view = "This page was not rendered because it is a JSON-only request."
-                                                                                                    , title = "This page was not rendered because it is a JSON-only request."
-                                                                                                    }
+                                                                                    PageServerResponse.ServerResponse serverResponse ->
+                                                                                        PageServerResponse.ServerResponse serverResponse
 
-                                                                                            PageServerResponse.ServerResponse serverResponse ->
-                                                                                                PageServerResponse.ServerResponse serverResponse
+                                                                                    PageServerResponse.ErrorPage error record ->
+                                                                                        PageServerResponse.ErrorPage error record
 
-                                                                                            PageServerResponse.ErrorPage error record ->
-                                                                                                PageServerResponse.ErrorPage error record
+                                                                            RenderRequest.HtmlAndJson ->
+                                                                                case pageData of
+                                                                                    PageServerResponse.RenderPage responseInfo pageData_ ->
+                                                                                        let
+                                                                                            currentPage : { path : Path, route : route }
+                                                                                            currentPage =
+                                                                                                { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
 
-                                                                                    RenderRequest.HtmlAndJson ->
-                                                                                        case pageData of
-                                                                                            PageServerResponse.RenderPage responseInfo pageData_ ->
-                                                                                                let
-                                                                                                    currentPage : { path : Path, route : route }
-                                                                                                    currentPage =
-                                                                                                        { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
+                                                                                            maybeActionData : Maybe actionData
+                                                                                            maybeActionData =
+                                                                                                --case isAction of
+                                                                                                --    Just _ ->
+                                                                                                --        case actionDataResult of
+                                                                                                --            Ok (PageServerResponse.RenderPage _ actionData) ->
+                                                                                                --                Just actionData
+                                                                                                --
+                                                                                                --            _ ->
+                                                                                                --                Nothing
+                                                                                                --
+                                                                                                --    Nothing ->
+                                                                                                --        Nothing
+                                                                                                case something of
+                                                                                                    Just (PageServerResponse.RenderPage responseThing actionThing) ->
+                                                                                                        Just actionThing
 
-                                                                                                    maybeActionData : Maybe actionData
-                                                                                                    maybeActionData =
-                                                                                                        --case isAction of
-                                                                                                        --    Just _ ->
-                                                                                                        --        case actionDataResult of
-                                                                                                        --            Ok (PageServerResponse.RenderPage _ actionData) ->
-                                                                                                        --                Just actionData
-                                                                                                        --
-                                                                                                        --            _ ->
-                                                                                                        --                Nothing
-                                                                                                        --
-                                                                                                        --    Nothing ->
-                                                                                                        --        Nothing
-                                                                                                        case something of
-                                                                                                            Just (PageServerResponse.RenderPage responseThing actionThing) ->
-                                                                                                                Just actionThing
+                                                                                                    _ ->
+                                                                                                        Nothing
 
-                                                                                                            _ ->
-                                                                                                                Nothing
+                                                                                            pageModel : userModel
+                                                                                            pageModel =
+                                                                                                config.init
+                                                                                                    Pages.Flags.PreRenderFlags
+                                                                                                    sharedData
+                                                                                                    pageData_
+                                                                                                    maybeActionData
+                                                                                                    (Just
+                                                                                                        { path =
+                                                                                                            { path = currentPage.path
+                                                                                                            , query = Nothing
+                                                                                                            , fragment = Nothing
+                                                                                                            }
+                                                                                                        , metadata = currentPage.route
+                                                                                                        , pageUrl = Nothing
+                                                                                                        }
+                                                                                                    )
+                                                                                                    |> Tuple.first
 
-                                                                                                    --Debug.todo ""
-                                                                                                    pageModel : userModel
-                                                                                                    pageModel =
-                                                                                                        config.init
-                                                                                                            Pages.Flags.PreRenderFlags
-                                                                                                            sharedData
-                                                                                                            pageData_
-                                                                                                            maybeActionData
-                                                                                                            (Just
-                                                                                                                { path =
-                                                                                                                    { path = currentPage.path
-                                                                                                                    , query = Nothing
-                                                                                                                    , fragment = Nothing
-                                                                                                                    }
-                                                                                                                , metadata = currentPage.route
-                                                                                                                , pageUrl = Nothing
-                                                                                                                }
-                                                                                                            )
-                                                                                                            |> Tuple.first
+                                                                                            viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
+                                                                                            viewValue =
+                                                                                                (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData |> .view) pageModel
+                                                                                        in
+                                                                                        PageServerResponse.RenderPage responseInfo
+                                                                                            { head = config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData |> .head
+                                                                                            , view = viewValue.body |> bodyToString
+                                                                                            , title = viewValue.title
+                                                                                            }
 
-                                                                                                    viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
-                                                                                                    viewValue =
-                                                                                                        (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData |> .view) pageModel
-                                                                                                in
-                                                                                                PageServerResponse.RenderPage responseInfo
-                                                                                                    { head = config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData |> .head
-                                                                                                    , view = viewValue.body |> bodyToString
-                                                                                                    , title = viewValue.title
-                                                                                                    }
+                                                                                    PageServerResponse.ServerResponse serverResponse ->
+                                                                                        PageServerResponse.ServerResponse serverResponse
 
-                                                                                            PageServerResponse.ServerResponse serverResponse ->
-                                                                                                PageServerResponse.ServerResponse serverResponse
+                                                                                    PageServerResponse.ErrorPage error record ->
+                                                                                        let
+                                                                                            currentPage : { path : Path, route : route }
+                                                                                            currentPage =
+                                                                                                { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
 
-                                                                                            PageServerResponse.ErrorPage error record ->
-                                                                                                let
-                                                                                                    currentPage : { path : Path, route : route }
-                                                                                                    currentPage =
-                                                                                                        { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
+                                                                                            pageModel : userModel
+                                                                                            pageModel =
+                                                                                                config.init
+                                                                                                    Pages.Flags.PreRenderFlags
+                                                                                                    sharedData
+                                                                                                    pageData2
+                                                                                                    Nothing
+                                                                                                    (Just
+                                                                                                        { path =
+                                                                                                            { path = currentPage.path
+                                                                                                            , query = Nothing
+                                                                                                            , fragment = Nothing
+                                                                                                            }
+                                                                                                        , metadata = currentPage.route
+                                                                                                        , pageUrl = Nothing
+                                                                                                        }
+                                                                                                    )
+                                                                                                    |> Tuple.first
 
-                                                                                                    pageModel : userModel
-                                                                                                    pageModel =
-                                                                                                        config.init
-                                                                                                            Pages.Flags.PreRenderFlags
-                                                                                                            sharedData
-                                                                                                            pageData2
-                                                                                                            Nothing
-                                                                                                            (Just
-                                                                                                                { path =
-                                                                                                                    { path = currentPage.path
-                                                                                                                    , query = Nothing
-                                                                                                                    , fragment = Nothing
-                                                                                                                    }
-                                                                                                                , metadata = currentPage.route
-                                                                                                                , pageUrl = Nothing
-                                                                                                                }
-                                                                                                            )
-                                                                                                            |> Tuple.first
+                                                                                            pageData2 : pageData
+                                                                                            pageData2 =
+                                                                                                config.errorPageToData error
 
-                                                                                                    pageData2 : pageData
-                                                                                                    pageData2 =
-                                                                                                        config.errorPageToData error
-
-                                                                                                    viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
-                                                                                                    viewValue =
-                                                                                                        (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData2 Nothing |> .view) pageModel
-                                                                                                in
-                                                                                                PageServerResponse.RenderPage
-                                                                                                    { statusCode = config.errorStatusCode error
-                                                                                                    , headers = record.headers
-                                                                                                    }
-                                                                                                    { head = config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData2 Nothing |> .head
-                                                                                                    , view = viewValue.body |> List.map (HtmlPrinter.htmlToString Nothing) |> String.join "\n"
-                                                                                                    , title = viewValue.title
-                                                                                                    }
-                                                                        in
-                                                                        --newHelper maybeNotFoundReason renderedOrApiResponse siteData pageServerResponse
-                                                                        newHelper config
-                                                                            serverRequestPayload.path
-                                                                            { maybeNotFoundReason = pageFound
-                                                                            , renderedOrApiResponse = renderedResult
-                                                                            , siteData = tags
-                                                                            , sharedData = sharedData
-                                                                            , actionData = something
-                                                                            , pageServerResponse = pageData
-                                                                            , isDevServer = isDevServer
-                                                                            , isAction = isAction
-                                                                            , includeHtml = includeHtml
-                                                                            }
-                                                                     --sendSinglePageProgress site model.allRawResponses config model payload
-                                                                     --maybeNotFoundReason, renderedOrApiResponse, siteData
-                                                                    )
-                                                                    (config.data serverRequestPayload.frontmatter)
-                                                                    config.sharedData
-                                                                    globalHeadTags
-                                                             --PageServerResponse.ServerResponse _ ->
-                                                             --    --DataSource.succeed something
-                                                             --    --    |> DataSource.map (\_ -> )
+                                                                                            viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
+                                                                                            viewValue =
+                                                                                                (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData2 Nothing |> .view) pageModel
+                                                                                        in
+                                                                                        PageServerResponse.RenderPage
+                                                                                            { statusCode = config.errorStatusCode error
+                                                                                            , headers = record.headers
+                                                                                            }
+                                                                                            { head = config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData2 Nothing |> .head
+                                                                                            , view = viewValue.body |> List.map (HtmlPrinter.htmlToString Nothing) |> String.join "\n"
+                                                                                            , title = viewValue.title
+                                                                                            }
+                                                                in
+                                                                --newHelper maybeNotFoundReason renderedOrApiResponse siteData pageServerResponse
+                                                                newHelper config
+                                                                    serverRequestPayload.path
+                                                                    { maybeNotFoundReason = pageFound
+                                                                    , renderedOrApiResponse = renderedResult
+                                                                    , siteData = tags
+                                                                    , sharedData = sharedData
+                                                                    , actionData = something
+                                                                    , pageServerResponse = pageData
+                                                                    , isDevServer = isDevServer
+                                                                    , isAction = isAction
+                                                                    , includeHtml = includeHtml
+                                                                    }
+                                                             --sendSinglePageProgress site model.allRawResponses config model payload
+                                                             --maybeNotFoundReason, renderedOrApiResponse, siteData
                                                             )
+                                                            (config.data serverRequestPayload.frontmatter)
+                                                            config.sharedData
+                                                            globalHeadTags
+                                                     --PageServerResponse.ServerResponse _ ->
+                                                     --    --DataSource.succeed something
+                                                     --    --    |> DataSource.map (\_ -> )
+                                                    )
 
-                                                Just notFoundReason ->
-                                                    render404Page config
-                                                        Nothing
-                                                        -- TODO do I need sharedDataResult?
-                                                        --(Result.toMaybe sharedDataResult)
-                                                        isDevServer
-                                                        serverRequestPayload.path
-                                                        notFoundReason
-                                                        |> DataSource.succeed
-                                        )
-
-                            --Nothing ->
-                            --    DataSource.map3
-                            --        (\_ _ _ ->
-                            --        )
-                            --        (config.data serverRequestPayload.frontmatter)
-                            --        config.sharedData
-                            --        globalHeadTags
-                            RenderRequest.Api ( path, ApiRoute apiHandler ) ->
-                                DataSource.map2
-                                    (\response _ ->
-                                        case response of
-                                            Just okResponse ->
-                                                { body = okResponse
-                                                , staticHttpCache = Dict.empty -- TODO do I need to serialize the full cache here, or can I handle that from the JS side?
-                                                , statusCode = 200
-                                                }
-                                                    |> ToJsPayload.SendApiResponse
-                                                    |> Effect.SendSinglePage
-
-                                            Nothing ->
-                                                render404Page config
-                                                    -- TODO do I need sharedDataResult here?
-                                                    Nothing
-                                                    isDevServer
-                                                    (Path.fromString path)
-                                                    NotFoundReason.NoMatchingRoute
-                                     --Err error ->
-                                     --    [ error ]
-                                     --        |> ToJsPayload.Errors
-                                     --        |> Effect.SendSinglePage
-                                    )
-                                    (apiHandler.matchesToResponse path)
-                                    globalHeadTags
-
-                            RenderRequest.NotFound notFoundPath ->
-                                (DataSource.map2
-                                    (\resolved1 resolvedGlobalHeadTags ->
-                                        render404Page config
-                                            Nothing
-                                            --(Result.toMaybe sharedDataResult)
-                                            --model
-                                            isDevServer
-                                            notFoundPath
-                                            NotFoundReason.NoMatchingRoute
-                                    )
-                                    (DataSource.succeed [])
-                                    globalHeadTags
-                                 -- TODO is there a way to resolve sharedData but get it as a Result if it fails?
-                                 --config.sharedData
+                                        Just notFoundReason ->
+                                            render404Page config
+                                                Nothing
+                                                -- TODO do I need sharedDataResult?
+                                                --(Result.toMaybe sharedDataResult)
+                                                isDevServer
+                                                serverRequestPayload.path
+                                                notFoundReason
+                                                |> DataSource.succeed
                                 )
+
+                    --Nothing ->
+                    --    DataSource.map3
+                    --        (\_ _ _ ->
+                    --        )
+                    --        (config.data serverRequestPayload.frontmatter)
+                    --        config.sharedData
+                    --        globalHeadTags
+                    RenderRequest.Api ( path, ApiRoute apiHandler ) ->
+                        DataSource.map2
+                            (\response _ ->
+                                case response of
+                                    Just okResponse ->
+                                        { body = okResponse
+                                        , staticHttpCache = Dict.empty -- TODO do I need to serialize the full cache here, or can I handle that from the JS side?
+                                        , statusCode = 200
+                                        }
+                                            |> ToJsPayload.SendApiResponse
+                                            |> Effect.SendSinglePage
+
+                                    Nothing ->
+                                        render404Page config
+                                            -- TODO do I need sharedDataResult here?
+                                            Nothing
+                                            isDevServer
+                                            (Path.fromString path)
+                                            NotFoundReason.NoMatchingRoute
+                             --Err error ->
+                             --    [ error ]
+                             --        |> ToJsPayload.Errors
+                             --        |> Effect.SendSinglePage
+                            )
+                            (apiHandler.matchesToResponse path)
+                            globalHeadTags
+
+                    RenderRequest.NotFound notFoundPath ->
+                        (DataSource.map2
+                            (\resolved1 resolvedGlobalHeadTags ->
+                                render404Page config
+                                    Nothing
+                                    --(Result.toMaybe sharedDataResult)
+                                    --model
+                                    isDevServer
+                                    notFoundPath
+                                    NotFoundReason.NoMatchingRoute
+                            )
+                            (DataSource.succeed [])
+                            globalHeadTags
+                         -- TODO is there a way to resolve sharedData but get it as a Result if it fails?
+                         --config.sharedData
+                        )
                 )
 
         initialModel : Model route
