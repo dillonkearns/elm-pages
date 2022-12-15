@@ -184,6 +184,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                             Finish ApiResponse completed
 
                         Nothing ->
-                            -- TODO put a real error here
-                            FinishedWithErrors []
+                            FinishedWithErrors
+                                [ BuildError.internal "TODO error message"
+                                ]
                 )
