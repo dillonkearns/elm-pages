@@ -623,15 +623,16 @@ otherFile routes phaseString =
 
         dataForRoute :
             { declaration : Elm.Declaration
-            , call : Elm.Expression -> Elm.Expression
-            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            , call : Elm.Expression -> Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
             , value : List String -> Elm.Expression
             }
         dataForRoute =
-            Elm.Declare.fn
+            Elm.Declare.fn2
                 "dataForRoute"
+                ( "requestPayload", Just Gen.Json.Decode.annotation_.value )
                 ( "maybeRoute", Type.maybe (Type.named [ "Route" ] "Route") |> Just )
-                (\maybeRoute ->
+                (\requestPayload maybeRoute ->
                     Elm.Case.maybe maybeRoute
                         { nothing =
                             Gen.DataSource.succeed
@@ -653,7 +654,8 @@ otherFile routes phaseString =
                                                 }
                                                 |> Elm.get "data"
                                             )
-                                            [ maybeRouteParams
+                                            [ requestPayload
+                                            , maybeRouteParams
                                                 |> Maybe.withDefault (Elm.record [])
                                             ]
                                             |> Gen.DataSource.map
@@ -672,15 +674,16 @@ otherFile routes phaseString =
 
         action :
             { declaration : Elm.Declaration
-            , call : Elm.Expression -> Elm.Expression
-            , callFrom : List String -> Elm.Expression -> Elm.Expression
+            , call : Elm.Expression -> Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
             , value : List String -> Elm.Expression
             }
         action =
-            Elm.Declare.fn
+            Elm.Declare.fn2
                 "action"
+                ( "requestPayload", Just Gen.Json.Decode.annotation_.value )
                 ( "maybeRoute", Type.maybe (Type.named [ "Route" ] "Route") |> Just )
-                (\maybeRoute ->
+                (\requestPayload maybeRoute ->
                     Elm.Case.maybe maybeRoute
                         { nothing =
                             Gen.DataSource.succeed
@@ -698,7 +701,8 @@ otherFile routes phaseString =
                                                 }
                                                 |> Elm.get "action"
                                             )
-                                            [ maybeRouteParams
+                                            [ requestPayload
+                                            , maybeRouteParams
                                                 |> Maybe.withDefault (Elm.record [])
                                             ]
                                             |> Gen.DataSource.map

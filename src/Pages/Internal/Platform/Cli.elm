@@ -243,53 +243,8 @@ perform site renderRequest config effect =
 
         Effect.FetchHttp unmasked ->
             if unmasked.url == "$$elm-pages$$headers" then
-                case
-                    renderRequest
-                        |> RenderRequest.maybeRequestPayload
-                        |> Maybe.map (\json -> RequestsAndPending.Response Nothing (RequestsAndPending.JsonBody json))
-                        |> Result.fromMaybe (Pages.Http.BadUrl "$$elm-pages$$headers is only available on server-side request (not on build).")
-                of
-                    Ok okResponse ->
-                        Task.succeed
-                            [ { request = unmasked
-                              , response = okResponse
-                              }
-                            ]
-                            |> Task.perform GotDataBatch
-
-                    Err error ->
-                        { title = "Static HTTP Error"
-                        , message =
-                            [ Terminal.text "I got an error making an HTTP request to this URL: "
-
-                            -- TODO include HTTP method, headers, and body
-                            , Terminal.yellow unmasked.url
-                            , Terminal.text <| Json.Encode.encode 2 <| StaticHttpBody.encode unmasked.body
-                            , Terminal.text "\n\n"
-                            , case error of
-                                Pages.Http.BadStatus metadata body ->
-                                    Terminal.text <|
-                                        String.join "\n"
-                                            [ "Bad status: " ++ String.fromInt metadata.statusCode
-                                            , "Status message: " ++ metadata.statusText
-                                            , "Body: " ++ body
-                                            ]
-
-                                Pages.Http.BadUrl _ ->
-                                    -- TODO include HTTP method, headers, and body
-                                    Terminal.text <| "Invalid url: " ++ unmasked.url
-
-                                Pages.Http.Timeout ->
-                                    Terminal.text "Timeout"
-
-                                Pages.Http.NetworkError ->
-                                    Terminal.text "Network error"
-                            ]
-                        , fatal = True
-                        , path = "" -- TODO wire in current path here
-                        }
-                            |> Task.succeed
-                            |> Task.perform GotBuildError
+                -- TODO remove this after all references have been removed
+                Debug.todo "$$elm-pages$$headers"
 
             else
                 ToJsPayload.DoHttp unmasked unmasked.useCache
@@ -515,7 +470,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                             --sendSinglePageProgress site model.allRawResponses config model payload
                                             (case isAction of
                                                 Just actionRequest ->
-                                                    config.action serverRequestPayload.frontmatter |> DataSource.map Just
+                                                    config.action (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter |> DataSource.map Just
 
                                                 Nothing ->
                                                     DataSource.succeed Nothing
@@ -664,7 +619,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                              --sendSinglePageProgress site model.allRawResponses config model payload
                                                              --maybeNotFoundReason, renderedOrApiResponse, siteData
                                                             )
-                                                            (config.data serverRequestPayload.frontmatter)
+                                                            (config.data (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter)
                                                             config.sharedData
                                                             globalHeadTags
                                                      --PageServerResponse.ServerResponse _ ->

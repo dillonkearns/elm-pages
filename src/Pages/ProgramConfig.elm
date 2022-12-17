@@ -49,8 +49,8 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , update : Pages.FormState.PageFormState -> Dict String (Pages.Transition.FetcherState actionData) -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : DataSource sharedData
-    , data : route -> DataSource (PageServerResponse pageData errorPage)
-    , action : route -> DataSource (PageServerResponse actionData errorPage)
+    , data : Decode.Value -> route -> DataSource (PageServerResponse pageData errorPage)
+    , action : Decode.Value -> route -> DataSource (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
         Pages.FormState.PageFormState

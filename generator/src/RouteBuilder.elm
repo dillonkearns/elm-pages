@@ -93,6 +93,7 @@ import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
 import Http
+import Json.Decode
 import Pages.Fetcher
 import Pages.FormState
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
@@ -109,8 +110,8 @@ import View exposing (View)
 
 {-| -}
 type alias StatefulRoute routeParams data action model msg =
-    { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
-    , action : routeParams -> DataSource (Server.Response.Response action ErrorPage)
+    { data : Json.Decode.Value -> routeParams -> DataSource (Server.Response.Response data ErrorPage)
+    , action : Json.Decode.Value -> routeParams -> DataSource (Server.Response.Response action ErrorPage)
     , staticRoutes : DataSource (List routeParams)
     , view :
         Maybe PageUrl
@@ -154,8 +155,8 @@ type alias StaticPayload data action routeParams =
 {-| -}
 type Builder routeParams data action
     = WithData
-        { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
-        , action : routeParams -> DataSource (Server.Response.Response action ErrorPage)
+        { data : Json.Decode.Value -> routeParams -> DataSource (Server.Response.Response data ErrorPage)
+        , action : Json.Decode.Value -> routeParams -> DataSource (Server.Response.Response action ErrorPage)
         , staticRoutes : DataSource (List routeParams)
         , head :
             StaticPayload data action routeParams
@@ -298,8 +299,8 @@ single :
     -> Builder {} data action
 single { data, head } =
     WithData
-        { data = \_ -> data |> DataSource.map Server.Response.render
-        , action = \_ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
+        { data = \_ _ -> data |> DataSource.map Server.Response.render
+        , action = \_ _ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
@@ -317,8 +318,8 @@ preRender :
     -> Builder routeParams data action
 preRender { data, head, pages } =
     WithData
-        { data = data >> DataSource.map Server.Response.render
-        , action = \_ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
+        { data = \_ -> data >> DataSource.map Server.Response.render
+        , action = \_ _ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -355,8 +356,8 @@ preRenderWithFallback :
     -> Builder routeParams data action
 preRenderWithFallback { data, head, pages } =
     WithData
-        { data = data
-        , action = \_ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
+        { data = \_ -> data
+        , action = \_ _ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -377,13 +378,16 @@ serverRender :
 serverRender { data, action, head } =
     WithData
         { data =
-            \routeParams ->
-                DataSource.Http.get
-                    "$$elm-pages$$headers"
-                    (routeParams
-                        |> data
-                        |> Server.Request.getDecoder
-                    )
+            \requestPayload routeParams ->
+                (routeParams
+                    |> data
+                    |> Server.Request.getDecoder
+                    |> (\decoder ->
+                            Json.Decode.decodeValue decoder requestPayload
+                                |> Result.mapError Json.Decode.errorToString
+                                |> DataSource.fromResult
+                       )
+                )
                     |> DataSource.andThen
                         (\rendered ->
                             case rendered of
@@ -394,13 +398,16 @@ serverRender { data, action, head } =
                                     Server.Request.errorsToString error |> DataSource.fail
                         )
         , action =
-            \routeParams ->
-                DataSource.Http.get
-                    "$$elm-pages$$headers"
-                    (routeParams
-                        |> action
-                        |> Server.Request.getDecoder
-                    )
+            \requestPayload routeParams ->
+                (routeParams
+                    |> action
+                    |> Server.Request.getDecoder
+                    |> (\decoder ->
+                            Json.Decode.decodeValue decoder requestPayload
+                                |> Result.mapError Json.Decode.errorToString
+                                |> DataSource.fromResult
+                       )
+                )
                     |> DataSource.andThen
                         (\rendered ->
                             case rendered of
