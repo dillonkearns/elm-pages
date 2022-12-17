@@ -88,15 +88,9 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
 
         request : DataSource a
         request =
-            case staticResponses of
-                NotFetched request_ _ ->
-                    request_
-
-        staticResponses : StaticHttpResult a
-        staticResponses =
             case model.staticResponses of
-                ApiRequest staticHttpResult ->
-                    staticHttpResult
+                ApiRequest (NotFetched request_ _) ->
+                    request_
 
         ( ( pendingRequests, completedValue ), urlsToPerform, progressedDataSource ) =
             case staticRequestsStatus of
@@ -110,7 +104,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     , DataSource.succeed value
                     )
 
-                _ ->
+                StaticHttpRequest.HasPermanentError error _ ->
                     ( ( False, Nothing )
                     , []
                     , DataSource.fail "TODO this shouldn't happen"
