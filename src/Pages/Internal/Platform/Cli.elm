@@ -20,14 +20,12 @@ import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Flags
-import Pages.Http
 import Pages.Internal.NotFoundReason as NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.ResponseSketch as ResponseSketch
-import Pages.Internal.StaticHttpBody as StaticHttpBody
 import Pages.Msg
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
@@ -35,7 +33,6 @@ import Pages.StaticHttp.Request
 import Path exposing (Path)
 import RenderRequest exposing (IncludeHtml(..), RenderRequest)
 import RequestsAndPending exposing (RequestsAndPending)
-import Task
 import TerminalText as Terminal
 import Url exposing (Url)
 
@@ -802,7 +799,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
             , errors |> ToJsPayload.Errors |> Effect.SendSinglePage
             )
 
-        StaticResponses.Finish _ finalValue ->
+        StaticResponses.Finish finalValue ->
             ( model
             , finalValue
             )

@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.StaticResponses exposing (FinishKind(..), NextStep(..), StaticResponses, batchUpdate, empty, nextStep, renderApiRequest)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, batchUpdate, empty, nextStep, renderApiRequest)
 
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
@@ -61,14 +61,9 @@ batchUpdate newEntries model =
 
 type NextStep route value
     = Continue (List HashRequest.Request) (Maybe (List route))
-    | Finish (FinishKind route) value
+    | Finish value
     | FinishNotFound NotFoundReason
     | FinishedWithErrors (List BuildError)
-
-
-type FinishKind route
-    = ApiResponse
-    | Errors (List BuildError)
 
 
 nextStep :
@@ -99,7 +94,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
 
                 StaticHttpRequest.Complete value ->
                     -- TODO wire through this completed value and replace the Debug.todo's below
-                    ( ( False, Just value )
+                    ( ( False, Just (value |> Debug.log "@@@value") )
                     , []
                     , DataSource.succeed value
                     )
@@ -169,7 +164,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
           else
             case completedValue of
                 Just completed ->
-                    Finish ApiResponse completed
+                    Finish completed
 
                 Nothing ->
                     FinishedWithErrors

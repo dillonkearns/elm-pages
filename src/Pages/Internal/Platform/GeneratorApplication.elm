@@ -390,7 +390,7 @@ nextStepToEffect :
     -> ( Model, Effect )
 nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
-        StaticResponses.Continue _ httpRequests _ ->
+        StaticResponses.Continue httpRequests _ ->
             let
                 updatedModel : Model
                 updatedModel =
@@ -415,22 +415,15 @@ nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
                     |> Effect.Batch
                 )
 
-        StaticResponses.Finish toJsPayload () ->
-            case toJsPayload of
-                StaticResponses.ApiResponse ->
-                    ( model
-                    , { body = Json.Encode.null
-                      , staticHttpCache = Dict.empty
-                      , statusCode = 200
-                      }
-                        |> ToJsPayload.SendApiResponse
-                        |> Effect.SendSinglePage
-                    )
-
-                StaticResponses.Errors errors ->
-                    ( model
-                    , errors |> ToJsPayload.Errors |> Effect.SendSinglePage
-                    )
+        StaticResponses.Finish () ->
+            ( model
+            , { body = Json.Encode.null
+              , staticHttpCache = Dict.empty
+              , statusCode = 200
+              }
+                |> ToJsPayload.SendApiResponse
+                |> Effect.SendSinglePage
+            )
 
         StaticResponses.FinishNotFound notFoundReason ->
             ( model
