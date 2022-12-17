@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..), Status(..), cacheRequestResolution, mockResolve, resolve, resolveUrls, toBuildError)
+module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..), Status(..), cacheRequestResolution, mockResolve, resolve, toBuildError)
 
 import BuildError exposing (BuildError)
 import Dict
@@ -83,37 +83,6 @@ mockResolve request mockResolver =
 
         ApiRoute value ->
             Ok value
-
-
-resolveUrls : RawRequest value -> RequestsAndPending -> List Pages.StaticHttp.Request.Request
-resolveUrls request rawResponses =
-    resolveUrlsHelp rawResponses [] request
-
-
-resolveUrlsHelp : RequestsAndPending -> List Pages.StaticHttp.Request.Request -> RawRequest value -> List Pages.StaticHttp.Request.Request
-resolveUrlsHelp rawResponses soFar request =
-    case request of
-        RequestError error ->
-            case error of
-                MissingHttpResponse _ next ->
-                    --soFar ++ next
-                    next
-
-                --|> List.Extra.uniqueBy Pages.StaticHttp.Request.hash
-                _ ->
-                    --soFar
-                    []
-
-        Request urlList lookupFn ->
-            resolveUrlsHelp
-                rawResponses
-                --(soFar ++ urlList)
-                urlList
-                (lookupFn Nothing rawResponses)
-
-        ApiRoute _ ->
-            --soFar
-            []
 
 
 cacheRequestResolution :
