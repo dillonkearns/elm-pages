@@ -162,19 +162,17 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 in
                 errors ++ failedRequests
         in
-        case model.staticResponses of
-            ApiRequest _ ->
-                ( model.staticResponses
-                , if List.length allErrors > 0 then
-                    FinishedWithErrors allErrors
+        ( model.staticResponses
+        , if List.length allErrors > 0 then
+            FinishedWithErrors allErrors
 
-                  else
-                    case completedValue of
-                        Just completed ->
-                            Finish ApiResponse completed
+          else
+            case completedValue of
+                Just completed ->
+                    Finish ApiResponse completed
 
-                        Nothing ->
-                            FinishedWithErrors
-                                [ BuildError.internal "TODO error message"
-                                ]
-                )
+                Nothing ->
+                    FinishedWithErrors
+                        [ BuildError.internal "TODO error message"
+                        ]
+        )
