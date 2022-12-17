@@ -60,7 +60,7 @@ batchUpdate newEntries model =
 
 
 type NextStep route value
-    = Continue RequestsAndPending (List HashRequest.Request) (Maybe (List route))
+    = Continue (List HashRequest.Request) (Maybe (List route))
     | Finish (FinishKind route) value
     | FinishNotFound NotFoundReason
     | FinishedWithErrors (List BuildError)
@@ -118,10 +118,6 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
     in
     if pendingRequests then
         let
-            newAllRawResponses : RequestsAndPending
-            newAllRawResponses =
-                allRawResponses
-
             maskedToUnmasked : Dict String HashRequest.Request
             maskedToUnmasked =
                 urlsToPerform
@@ -142,7 +138,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     ApiRequest (NotFetched _ _) ->
                         ApiRequest (NotFetched progressedDataSource Dict.empty)
         in
-        ( updatedStaticResponses, Continue newAllRawResponses newThing maybeRoutes )
+        ( updatedStaticResponses, Continue newThing maybeRoutes )
 
     else
         let

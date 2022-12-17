@@ -739,7 +739,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
         initialModel =
             { staticResponses = staticResponsesNew
             , errors = []
-            , allRawResponses = staticHttpCache
+            , allRawResponses = Dict.empty
             , maybeRequestJson = renderRequest
             , isDevServer = isDevServer
             }
@@ -806,13 +806,12 @@ nextStepToEffect :
     -> ( Model route, Effect )
 nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
-        StaticResponses.Continue updatedAllRawResponses httpRequests _ ->
+        StaticResponses.Continue httpRequests _ ->
             let
                 updatedModel : Model route
                 updatedModel =
                     { model
-                        | allRawResponses = updatedAllRawResponses
-                        , staticResponses = updatedStaticResponsesModel
+                        | staticResponses = updatedStaticResponsesModel
                     }
             in
             if List.isEmpty httpRequests then
