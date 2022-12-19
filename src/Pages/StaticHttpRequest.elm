@@ -95,7 +95,12 @@ cacheRequestResolution request rawResponses =
             cacheRequestResolutionHelp True [] rawResponses request request
 
         Request urlList lookupFn ->
-            cacheRequestResolutionHelp False urlList rawResponses request (lookupFn Nothing rawResponses)
+            if urlList |> List.isEmpty then
+                cacheRequestResolutionHelp False urlList rawResponses request (lookupFn Nothing rawResponses)
+
+            else
+                Incomplete urlList
+                    (Request [] lookupFn)
 
         ApiRoute value ->
             Complete value
@@ -118,9 +123,14 @@ cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest reques
     case request of
         RequestError error ->
             case error of
-                MissingHttpResponse _ _ ->
+                MissingHttpResponse _ requests ->
                     -- TODO do I need to pass through continuation URLs here? -- Incomplete (urlList ++ foundUrls)
-                    Incomplete foundUrls parentRequest
+                    --Incomplete (requests ++ foundUrls) parentRequest
+                    if List.isEmpty foundUrls then
+                        Incomplete requests parentRequest
+
+                    else
+                        Incomplete foundUrls parentRequest
 
                 DecoderError _ ->
                     HasPermanentError error parentRequest
@@ -129,8 +139,16 @@ cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest reques
                     HasPermanentError error parentRequest
 
         Request urlList lookupFn ->
-            Incomplete urlList
-                (Request [] lookupFn)
+            if urlList |> List.isEmpty then
+                cacheRequestResolutionHelp False
+                    foundUrls
+                    rawResponses
+                    request
+                    (lookupFn Nothing rawResponses)
+
+            else
+                Incomplete urlList
+                    (Request [] lookupFn)
 
         ApiRoute value ->
             Complete value
