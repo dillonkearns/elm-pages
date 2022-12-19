@@ -95,12 +95,7 @@ cacheRequestResolution request rawResponses =
             cacheRequestResolutionHelp True [] rawResponses request request
 
         Request urlList lookupFn ->
-            if urlList |> List.isEmpty then
-                cacheRequestResolutionHelp False urlList rawResponses request (lookupFn Nothing rawResponses)
-
-            else
-                Incomplete urlList
-                    (Request [] lookupFn)
+            cacheRequestResolutionHelp False urlList rawResponses request (lookupFn Nothing rawResponses)
 
         ApiRoute value ->
             Complete value
@@ -140,8 +135,9 @@ cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest reques
 
         Request urlList lookupFn ->
             if urlList |> List.isEmpty then
-                cacheRequestResolutionHelp False
-                    foundUrls
+                cacheRequestResolutionHelp
+                    False
+                    (urlList ++ foundUrls)
                     rawResponses
                     request
                     (lookupFn Nothing rawResponses)

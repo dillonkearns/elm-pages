@@ -157,7 +157,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 in
                 errors ++ failedRequests
         in
-        ( model.staticResponses
+        ( ApiRequest (NotFetched (DataSource.fail "TODO should never happen") Dict.empty)
         , if List.length allErrors > 0 then
             FinishedWithErrors allErrors
 

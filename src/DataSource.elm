@@ -80,9 +80,10 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 -}
 
+import Dict
 import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest
-import Pages.StaticHttpRequest exposing (RawRequest(..))
+import Pages.StaticHttpRequest exposing (Error(..), RawRequest(..))
 import RequestsAndPending exposing (RequestsAndPending)
 
 
@@ -227,6 +228,20 @@ map2 fn request1 request2 =
                 urls1
                 (mapReq fn (\_ _ -> ApiRoute value2) lookupFn1)
 
+        ( Request urls1 lookupFn1, RequestError (MissingHttpResponse string1 requests1) ) ->
+            Request
+                (urls1 ++ requests1)
+                (mapReq fn lookupFn1 (\_ _ -> request2))
+
+        ( RequestError (MissingHttpResponse string1 requests1), RequestError (MissingHttpResponse string2 requests2) ) ->
+            RequestError (MissingHttpResponse string1 (requests1 ++ requests2))
+
+        ( RequestError (MissingHttpResponse string1 requests1), RequestError _ ) ->
+            RequestError (MissingHttpResponse string1 requests1)
+
+        ( RequestError _, RequestError (MissingHttpResponse string1 requests1) ) ->
+            RequestError (MissingHttpResponse string1 requests1)
+
         ( RequestError error, _ ) ->
             RequestError error
 
@@ -241,16 +256,20 @@ mapReq fn lookupFn1 lookupFn2 maybeMock rawResponses =
         (lookupFn2 maybeMock rawResponses)
 
 
-lookup : Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
-lookup maybeMockResolver requestInfo rawResponses =
+lookup : List HashRequest.Request -> Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
+lookup previousUrls maybeMockResolver requestInfo rawResponses =
     case requestInfo of
         Request urls lookupFn ->
-            lookup maybeMockResolver
+            lookup (previousUrls ++ urls)
+                maybeMockResolver
                 (addUrls urls (lookupFn maybeMockResolver rawResponses))
                 rawResponses
 
         ApiRoute value ->
             Ok value
+
+        RequestError (MissingHttpResponse a urls) ->
+            Err (MissingHttpResponse a (previousUrls ++ urls))
 
         RequestError error ->
             Err error
@@ -264,6 +283,9 @@ addUrls urlsToAdd requestInfo =
 
         Request initialUrls function ->
             Request (initialUrls ++ urlsToAdd) function
+
+        RequestError (MissingHttpResponse a urls) ->
+            RequestError (MissingHttpResponse a (urlsToAdd ++ urls))
 
         RequestError error ->
             RequestError error
@@ -280,18 +302,21 @@ type alias RequestDetails =
     }
 
 
-lookupUrls : DataSource value -> List RequestDetails
-lookupUrls requestInfo =
+lookupUrls : List HashRequest.Request -> DataSource value -> List RequestDetails
+lookupUrls previousUrls requestInfo =
     case requestInfo of
         ApiRoute _ ->
-            []
+            previousUrls
 
-        Request urls _ ->
-            urls
+        Request urls lookupFn ->
+            lookupUrls urls (lookupFn Nothing Dict.empty)
+
+        RequestError (MissingHttpResponse _ urls) ->
+            previousUrls ++ urls
 
         RequestError _ ->
             -- TODO should this have URLs passed through?
-            []
+            previousUrls
 
 
 {-| Build off of the response from a previous `DataSource` request to build a follow-up request. You can use the data
@@ -314,23 +339,16 @@ from the previous response to build up the URL, headers, etc. that you send to t
 andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
     Request
-        (lookupUrls requestInfo)
+        (lookupUrls [] requestInfo)
         (\maybeMockResolver rawResponses ->
-            lookup maybeMockResolver
+            lookup []
+                maybeMockResolver
                 requestInfo
                 rawResponses
                 |> (\result ->
                         case result of
                             Ok value ->
-                                case fn value of
-                                    ApiRoute finalValue ->
-                                        ApiRoute finalValue
-
-                                    Request values function ->
-                                        Request values function
-
-                                    RequestError error ->
-                                        RequestError error
+                                fn value
 
                             Err error ->
                                 RequestError error
