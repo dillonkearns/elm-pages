@@ -208,6 +208,7 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                 Internal.ApiRoute.tryMatch path fullHandler
                     |> Maybe.map
                         (\toDataSource ->
+                            -- TODO remove reference to `$$elm-pages$$headers`, pass in value directly
                             DataSource.Http.get
                                 "$$elm-pages$$headers"
                                 (toDataSource |> Server.Request.getDecoder |> Decode.map Just)
