@@ -228,12 +228,12 @@ map2 fn request1 request2 =
                 urls1
                 (mapReq fn (\_ _ -> ApiRoute value2) lookupFn1)
 
-        ( Request urls1 lookupFn1, RequestError (MissingHttpResponse string1 requests1) ) ->
+        ( Request urls1 lookupFn1, RequestError (MissingHttpResponse _ requests1) ) ->
             Request
                 (urls1 ++ requests1)
                 (mapReq fn lookupFn1 (\_ _ -> request2))
 
-        ( RequestError (MissingHttpResponse string1 requests1), RequestError (MissingHttpResponse string2 requests2) ) ->
+        ( RequestError (MissingHttpResponse string1 requests1), RequestError (MissingHttpResponse _ requests2) ) ->
             RequestError (MissingHttpResponse string1 (requests1 ++ requests2))
 
         ( RequestError (MissingHttpResponse string1 requests1), RequestError _ ) ->
@@ -256,7 +256,7 @@ mapReq fn lookupFn1 lookupFn2 maybeMock rawResponses =
         (lookupFn2 maybeMock rawResponses)
 
 
-lookup : List HashRequest.Request -> Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
+lookup : List HashRequest.Request -> Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Error value
 lookup previousUrls maybeMockResolver requestInfo rawResponses =
     case requestInfo of
         Request urls lookupFn ->

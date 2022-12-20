@@ -3,7 +3,6 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticRes
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
-import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
@@ -14,20 +13,20 @@ type StaticResponses a
 
 
 type StaticHttpResult a
-    = NotFetched (DataSource a) (Dict String (Result () String))
+    = NotFetched (DataSource a)
 
 
 empty : a -> StaticResponses a
 empty a =
     ApiRequest
-        (NotFetched (DataSource.succeed a) Dict.empty)
+        (NotFetched (DataSource.succeed a))
 
 
 renderApiRequest :
     DataSource response
     -> StaticResponses response
 renderApiRequest request =
-    ApiRequest (NotFetched request Dict.empty)
+    ApiRequest (NotFetched request)
 
 
 batchUpdate :
@@ -62,7 +61,6 @@ batchUpdate newEntries model =
 type NextStep route value
     = Continue (List HashRequest.Request) (Maybe (List route))
     | Finish value
-    | FinishNotFound NotFoundReason
     | FinishedWithErrors (List BuildError)
 
 
@@ -84,7 +82,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
         request : DataSource a
         request =
             case model.staticResponses of
-                ApiRequest (NotFetched request_ _) ->
+                ApiRequest (NotFetched request_) ->
                     request_
 
         ( ( pendingRequests, completedValue ), urlsToPerform, progressedDataSource ) =
@@ -93,13 +91,12 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     ( ( True, Nothing ), newUrlsToFetch, nextReq )
 
                 StaticHttpRequest.Complete value ->
-                    -- TODO wire through this completed value and replace the Debug.todo's below
-                    ( ( False, Just (value |> Debug.log "@@@value") )
+                    ( ( False, Just value )
                     , []
                     , DataSource.succeed value
                     )
 
-                StaticHttpRequest.HasPermanentError error _ ->
+                StaticHttpRequest.HasPermanentError _ _ ->
                     ( ( False, Nothing )
                     , []
                     , DataSource.fail "TODO this shouldn't happen"
@@ -124,8 +121,8 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
             updatedStaticResponses : StaticResponses a
             updatedStaticResponses =
                 case model.staticResponses of
-                    ApiRequest (NotFetched _ _) ->
-                        ApiRequest (NotFetched progressedDataSource Dict.empty)
+                    ApiRequest (NotFetched _) ->
+                        ApiRequest (NotFetched progressedDataSource)
         in
         ( updatedStaticResponses, Continue newThing maybeRoutes )
 
@@ -157,7 +154,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                 in
                 errors ++ failedRequests
         in
-        ( ApiRequest (NotFetched (DataSource.fail "TODO should never happen") Dict.empty)
+        ( ApiRequest (NotFetched (DataSource.fail "TODO should never happen"))
         , if List.length allErrors > 0 then
             FinishedWithErrors allErrors
 

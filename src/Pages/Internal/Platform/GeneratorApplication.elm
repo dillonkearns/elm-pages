@@ -425,11 +425,6 @@ nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
                 |> Effect.SendSinglePage
             )
 
-        StaticResponses.FinishNotFound notFoundReason ->
-            ( model
-            , [] |> ToJsPayload.Errors |> Effect.SendSinglePage
-            )
-
         StaticResponses.FinishedWithErrors buildErrors ->
             ( model
             , buildErrors |> ToJsPayload.Errors |> Effect.SendSinglePage

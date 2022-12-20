@@ -421,7 +421,7 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { staticHttpCache, isDevServer } config =
     let
-        globalHeadTags : DataSource (List Head.Tag)
+        globalHeadTags : DataSource (List Tag)
         globalHeadTags =
             (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
 
@@ -472,7 +472,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                         DataSource.map3
                                                             (\pageData sharedData tags ->
                                                                 let
-                                                                    renderedResult : PageServerResponse { head : List Head.Tag, view : String, title : String } errorPage
+                                                                    renderedResult : PageServerResponse { head : List Tag, view : String, title : String } errorPage
                                                                     renderedResult =
                                                                         case includeHtml of
                                                                             RenderRequest.OnlyJson ->
@@ -784,17 +784,6 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                     |> Effect.Batch
                 )
 
-        StaticResponses.FinishNotFound notFoundReason ->
-            ( model
-            , render404Page config
-                -- TODO should I use sharedDataResult here? Does it matter?
-                Nothing
-                model.isDevServer
-                -- TODO use logic like `case model.maybeRequestJson of` expression below
-                ("TODO" |> Path.fromString)
-                notFoundReason
-            )
-
         StaticResponses.FinishedWithErrors errors ->
             ( model
             , errors |> ToJsPayload.Errors |> Effect.SendSinglePage
@@ -811,7 +800,7 @@ newHelper :
     -> Path
     ->
         { maybeNotFoundReason : Maybe NotFoundReason
-        , renderedOrApiResponse : PageServerResponse { head : List Head.Tag, view : String, title : String } errorPage
+        , renderedOrApiResponse : PageServerResponse { head : List Tag, view : String, title : String } errorPage
         , siteData : List Tag
         , sharedData : sharedData
         , actionData : Maybe (PageServerResponse actionData errorPage)
@@ -823,11 +812,9 @@ newHelper :
     -> Effect
 newHelper config path { maybeNotFoundReason, renderedOrApiResponse, siteData, sharedData, actionData, pageServerResponse, isDevServer, isAction, includeHtml } =
     let
+        sharedDataResult : Result error sharedData
         sharedDataResult =
             Ok sharedData
-
-        actionDataResult =
-            actionData
     in
     case maybeNotFoundReason of
         Nothing ->
@@ -840,6 +827,11 @@ newHelper config path { maybeNotFoundReason, renderedOrApiResponse, siteData, sh
                             --if model.isDevServer then
                             case isAction of
                                 Just actionRequestKind ->
+                                    let
+                                        actionDataResult : Maybe (PageServerResponse actionData errorPage)
+                                        actionDataResult =
+                                            actionData
+                                    in
                                     case actionDataResult of
                                         Just (PageServerResponse.RenderPage ignored2 actionData_) ->
                                             case actionRequestKind of
