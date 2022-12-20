@@ -76,7 +76,7 @@ jobs:
       - name: Setup for cypress
         run: (cd examples/end-to-end && npm install && npx elm-tooling install && rm -rf elm-stuff && npx elm-pages gen && lamdera make app/Route/Index.elm)
       - name: Cypress tests
-        uses: cypress-io/github-action@v4
+        uses: cypress-io/github-action@v5
         with:
           start: npm start
           wait-on: "http://localhost:1234"
@@ -102,7 +102,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./examples/base-path/dist
       - name: Elm Publish
-        uses: dillonkearns/elm-publish-action@v1
+        uses: dillonkearns/elm-publish-action@c42e6b74c43830ba50fcd0b5bd1a99baf3cb350f
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-elm: ./node_modules/.bin/elm

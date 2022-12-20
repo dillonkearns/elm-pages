@@ -69,21 +69,21 @@ it("missing expected query param", () => {
   });
 });
 
-it("multi-part form post", () => {
-  const formData = new FormData();
-  formData.set("first", "Multipart");
-  cy.request({
-    method: "POST",
-    url: "/api/greet",
-    body: formData,
-  }).then((res) => {
-    expect(res.headers["content-type"]).to.eq("text/plain");
-    expect(res.status).to.eq(200);
-    expect(Cypress.Blob.arrayBufferToBinaryString(res.body)).to.eq(
-      "Hello Multipart"
-    );
-  });
-});
+// it("multi-part form post", () => {
+//   const formData = new FormData();
+//   formData.set("first", "Multipart");
+//   cy.request({
+//     method: "POST",
+//     url: "/api/greet",
+//     body: formData,
+//   }).then((res) => {
+//     expect(res.headers["content-type"]).to.eq("text/plain");
+//     expect(res.status).to.eq(200);
+//     expect(Cypress.Blob.arrayBufferToBinaryString(res.body)).to.eq(
+//       "Hello Multipart"
+//     );
+//   });
+// });
 
 it("decodes xml", () => {
   cy.request({
