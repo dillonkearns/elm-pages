@@ -59,7 +59,7 @@ batchUpdate newEntries model =
 
 
 type NextStep route value
-    = Continue (List HashRequest.Request) (Maybe (List route))
+    = Continue (List HashRequest.Request)
     | Finish value
     | FinishedWithErrors (List BuildError)
 
@@ -70,9 +70,8 @@ nextStep :
         , errors : List BuildError
         , allRawResponses : RequestsAndPending
     }
-    -> Maybe (List route)
     -> ( StaticResponses a, NextStep route a )
-nextStep ({ allRawResponses, errors } as model) maybeRoutes =
+nextStep ({ allRawResponses, errors } as model) =
     let
         staticRequestsStatus : StaticHttpRequest.Status a
         staticRequestsStatus =
@@ -124,7 +123,7 @@ nextStep ({ allRawResponses, errors } as model) maybeRoutes =
                     ApiRequest (NotFetched _) ->
                         ApiRequest (NotFetched progressedDataSource)
         in
-        ( updatedStaticResponses, Continue newThing maybeRoutes )
+        ( updatedStaticResponses, Continue newThing )
 
     else
         let

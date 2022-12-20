@@ -335,7 +335,7 @@ initLegacy execute { staticHttpCache } =
             , done = False
             }
     in
-    StaticResponses.nextStep initialModel Nothing
+    StaticResponses.nextStep initialModel
         |> nextStepToEffect
             initialModel
 
@@ -346,7 +346,6 @@ updateAndSendPortIfDone :
 updateAndSendPortIfDone model =
     StaticResponses.nextStep
         model
-        Nothing
         |> nextStepToEffect model
 
 
@@ -366,7 +365,6 @@ update msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                Nothing
                 |> nextStepToEffect updatedModel
 
         GotBuildError buildError ->
@@ -380,7 +378,6 @@ update msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                Nothing
                 |> nextStepToEffect updatedModel
 
 
@@ -390,7 +387,7 @@ nextStepToEffect :
     -> ( Model, Effect )
 nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
-        StaticResponses.Continue httpRequests _ ->
+        StaticResponses.Continue httpRequests ->
             let
                 updatedModel : Model
                 updatedModel =
@@ -404,7 +401,6 @@ nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
                     updatedModel
                     (StaticResponses.nextStep
                         updatedModel
-                        Nothing
                     )
 
             else

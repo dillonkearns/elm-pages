@@ -697,7 +697,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
             , isDevServer = isDevServer
             }
     in
-    StaticResponses.nextStep initialModel Nothing
+    StaticResponses.nextStep initialModel
         |> nextStepToEffect site
             config
             initialModel
@@ -711,7 +711,6 @@ updateAndSendPortIfDone :
 updateAndSendPortIfDone site config model =
     StaticResponses.nextStep
         model
-        Nothing
         |> nextStepToEffect site config model
 
 
@@ -733,7 +732,6 @@ update site config msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                Nothing
                 |> nextStepToEffect site config updatedModel
 
         GotBuildError buildError ->
@@ -747,7 +745,6 @@ update site config msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                Nothing
                 |> nextStepToEffect site config updatedModel
 
 
@@ -759,7 +756,7 @@ nextStepToEffect :
     -> ( Model route, Effect )
 nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
     case nextStep of
-        StaticResponses.Continue httpRequests _ ->
+        StaticResponses.Continue httpRequests ->
             let
                 updatedModel : Model route
                 updatedModel =
@@ -773,7 +770,6 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                     updatedModel
                     (StaticResponses.nextStep
                         updatedModel
-                        Nothing
                     )
 
             else
