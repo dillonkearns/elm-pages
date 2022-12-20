@@ -239,15 +239,10 @@ perform site renderRequest config effect =
             flatten site renderRequest config list
 
         Effect.FetchHttp unmasked ->
-            if unmasked.url == "$$elm-pages$$headers" then
-                -- TODO remove this after all references have been removed
-                Debug.todo "$$elm-pages$$headers"
-
-            else
-                ToJsPayload.DoHttp unmasked unmasked.useCache
-                    |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
-                    |> config.toJsPort
-                    |> Cmd.map never
+            ToJsPayload.DoHttp unmasked unmasked.useCache
+                |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
+                |> config.toJsPort
+                |> Cmd.map never
 
         Effect.SendSinglePage info ->
             let
@@ -666,7 +661,13 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                              --        |> ToJsPayload.Errors
                              --        |> Effect.SendSinglePage
                             )
-                            (apiHandler.matchesToResponse path)
+                            (apiHandler.matchesToResponse
+                                (renderRequest
+                                    |> RenderRequest.maybeRequestPayload
+                                    |> Maybe.withDefault Json.Encode.null
+                                )
+                                path
+                            )
                             globalHeadTags
 
                     RenderRequest.NotFound notFoundPath ->
