@@ -24,7 +24,7 @@ withSession :
 withSession =
     Session.withSession
         { name = "mysession"
-        , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
+        , secrets = secrets
         , options = cookieOptions
         }
 
@@ -36,7 +36,7 @@ withSessionOrRedirect :
 withSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
-        , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
+        , secrets = secrets
         , options = cookieOptions
         }
         (\request sessionResult ->
@@ -52,6 +52,11 @@ withSessionOrRedirect toRequest handler =
         handler
 
 
+secrets : DataSource (List String)
+secrets =
+    Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
+
+
 expectSessionOrRedirect :
     (request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
     -> Parser request
@@ -59,7 +64,7 @@ expectSessionOrRedirect :
 expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
-        , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
+        , secrets = secrets
         , options = cookieOptions
         }
         (\request sessionResult ->
