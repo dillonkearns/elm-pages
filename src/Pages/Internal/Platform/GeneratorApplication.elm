@@ -17,7 +17,7 @@ import Json.Encode
 import Pages.GeneratorProgramConfig exposing (GeneratorProgramConfig)
 import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
-import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
+import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.Script
 import Pages.StaticHttp.Request
@@ -33,7 +33,7 @@ type alias Flags =
 
 {-| -}
 type alias Model =
-    { staticResponses : StaticResponses ()
+    { staticResponses : DataSource ()
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , done : Bool
@@ -323,7 +323,7 @@ initLegacy :
     -> ( Model, Effect )
 initLegacy execute { staticHttpCache } =
     let
-        staticResponses : StaticResponses ()
+        staticResponses : DataSource ()
         staticResponses =
             StaticResponses.renderApiRequest execute
 
@@ -383,11 +383,11 @@ update msg model =
 
 nextStepToEffect :
     Model
-    -> ( StaticResponses (), StaticResponses.NextStep route () )
+    -> StaticResponses.NextStep route ()
     -> ( Model, Effect )
-nextStepToEffect model ( updatedStaticResponsesModel, nextStep ) =
+nextStepToEffect model nextStep =
     case nextStep of
-        StaticResponses.Continue httpRequests ->
+        StaticResponses.Continue httpRequests updatedStaticResponsesModel ->
             let
                 updatedModel : Model
                 updatedModel =

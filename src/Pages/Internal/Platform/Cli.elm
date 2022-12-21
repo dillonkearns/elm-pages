@@ -23,7 +23,7 @@ import Pages.Flags
 import Pages.Internal.NotFoundReason as NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
-import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
+import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.ResponseSketch as ResponseSketch
 import Pages.Msg
@@ -50,7 +50,7 @@ currentCompatibilityKey =
 
 {-| -}
 type alias Model route =
-    { staticResponses : StaticResponses Effect
+    { staticResponses : DataSource Effect
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , maybeRequestJson : RenderRequest route
@@ -425,7 +425,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
         globalHeadTags =
             (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
 
-        staticResponsesNew : StaticResponses Effect
+        staticResponsesNew : DataSource Effect
         staticResponsesNew =
             StaticResponses.renderApiRequest
                 (case singleRequest of
@@ -862,11 +862,11 @@ nextStepToEffect :
     SiteConfig
     -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Model route
-    -> ( StaticResponses Effect, StaticResponses.NextStep route Effect )
+    -> StaticResponses.NextStep route Effect
     -> ( Model route, Effect )
-nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
+nextStepToEffect site config model nextStep =
     case nextStep of
-        StaticResponses.Continue httpRequests ->
+        StaticResponses.Continue httpRequests updatedStaticResponsesModel ->
             let
                 updatedModel : Model route
                 updatedModel =

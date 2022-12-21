@@ -1,4 +1,4 @@
-module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticResponses, batchUpdate, empty, nextStep, renderApiRequest)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), batchUpdate, empty, nextStep, renderApiRequest)
 
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
@@ -9,25 +9,16 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
 
 
-type StaticResponses a
-    = ApiRequest (StaticHttpResult a)
-
-
-type StaticHttpResult a
-    = NotFetched (DataSource a)
-
-
-empty : a -> StaticResponses a
+empty : a -> DataSource a
 empty a =
-    ApiRequest
-        (NotFetched (DataSource.succeed a))
+    DataSource.succeed a
 
 
 renderApiRequest :
     DataSource response
-    -> StaticResponses response
+    -> DataSource response
 renderApiRequest request =
-    ApiRequest (NotFetched request)
+    request
 
 
 batchUpdate :
@@ -37,12 +28,12 @@ batchUpdate :
         }
     ->
         { model
-            | staticResponses : StaticResponses a
+            | staticResponses : DataSource a
             , allRawResponses : RequestsAndPending
         }
     ->
         { model
-            | staticResponses : StaticResponses a
+            | staticResponses : DataSource a
             , allRawResponses : RequestsAndPending
         }
 batchUpdate newEntries model =
@@ -60,30 +51,24 @@ batchUpdate newEntries model =
 
 
 type NextStep route value
-    = Continue (List HashRequest.Request)
+    = Continue (List HashRequest.Request) (StaticHttpRequest.RawRequest value)
     | Finish value
     | FinishedWithErrors (List BuildError)
 
 
 nextStep :
     { model
-        | staticResponses : StaticResponses a
+        | staticResponses : DataSource a
         , errors : List BuildError
         , allRawResponses : RequestsAndPending
     }
-    -> ( StaticResponses a, NextStep route a )
+    -> NextStep route a
 nextStep ({ allRawResponses, errors } as model) =
     let
         staticRequestsStatus : StaticHttpRequest.Status a
         staticRequestsStatus =
             allRawResponses
-                |> StaticHttpRequest.cacheRequestResolution request
-
-        request : DataSource a
-        request =
-            case model.staticResponses of
-                ApiRequest (NotFetched request_) ->
-                    request_
+                |> StaticHttpRequest.cacheRequestResolution model.staticResponses
 
         ( ( pendingRequests, completedValue ), urlsToPerform, progressedDataSource ) =
             case staticRequestsStatus of
@@ -109,7 +94,7 @@ nextStep ({ allRawResponses, errors } as model) =
                 urlsToPerform
                     |> List.Extra.uniqueBy HashRequest.hash
         in
-        ( ApiRequest (NotFetched progressedDataSource), Continue newThing )
+        Continue newThing progressedDataSource
 
     else
         let
@@ -139,11 +124,10 @@ nextStep ({ allRawResponses, errors } as model) =
                 in
                 errors ++ failedRequests
         in
-        ( ApiRequest (NotFetched (DataSource.fail "TODO should never happen"))
-        , if List.length allErrors > 0 then
+        if List.length allErrors > 0 then
             FinishedWithErrors allErrors
 
-          else
+        else
             case completedValue of
                 Just completed ->
                     Finish completed
@@ -152,4 +136,3 @@ nextStep ({ allRawResponses, errors } as model) =
                     FinishedWithErrors
                         [ BuildError.internal "TODO error message"
                         ]
-        )
