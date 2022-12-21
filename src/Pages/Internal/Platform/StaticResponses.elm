@@ -3,6 +3,7 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), StaticRes
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
+import List.Extra
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
@@ -103,27 +104,12 @@ nextStep ({ allRawResponses, errors } as model) =
     in
     if pendingRequests then
         let
-            maskedToUnmasked : Dict String HashRequest.Request
-            maskedToUnmasked =
-                urlsToPerform
-                    |> List.map
-                        (\secureUrl ->
-                            ( HashRequest.hash secureUrl, secureUrl )
-                        )
-                    |> Dict.fromList
-
             newThing : List HashRequest.Request
             newThing =
-                maskedToUnmasked
-                    |> Dict.values
-
-            updatedStaticResponses : StaticResponses a
-            updatedStaticResponses =
-                case model.staticResponses of
-                    ApiRequest (NotFetched _) ->
-                        ApiRequest (NotFetched progressedDataSource)
+                urlsToPerform
+                    |> List.Extra.uniqueBy HashRequest.hash
         in
-        ( updatedStaticResponses, Continue newThing )
+        ( ApiRequest (NotFetched progressedDataSource), Continue newThing )
 
     else
         let
