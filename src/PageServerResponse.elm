@@ -15,7 +15,12 @@ type PageServerResponse data error
     | ErrorPage error { headers : List ( String, String ) }
 
 
-toRedirect : Response -> Maybe { statusCode : Int, location : String }
+toRedirect :
+    { response
+        | statusCode : Int
+        , headers : List ( String, String )
+    }
+    -> Maybe { statusCode : Int, location : String }
 toRedirect response =
     response.headers
         |> Dict.fromList
