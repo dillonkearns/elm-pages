@@ -117,76 +117,79 @@ all =
                         (get "NEXT-REQUEST")
                         (JsonBody Encode.null)
                     |> expectSuccess []
-        , test "andThen chain avoids repeat requests" <|
-            \() ->
-                let
-                    pokemonDetailRequest : DataSource ()
-                    pokemonDetailRequest =
-                        DataSource.Http.get
-                            "https://pokeapi.co/api/v2/pokemon/"
-                            (JD.list
-                                (JD.field "url" JD.string
-                                    |> JD.map
-                                        (\url ->
-                                            DataSource.Http.get url
-                                                (JD.field "image" JD.string)
-                                        )
-                                )
-                            )
-                            |> DataSource.resolve
-                            |> DataSource.map (\_ -> ())
-                in
-                startSimple
-                    [ "elm-pages" ]
-                    pokemonDetailRequest
-                    |> simulateMultipleHttp
-                        [ ( get "https://pokeapi.co/api/v2/pokemon/"
-                          , jsonBody """[
-                            {"url": "url1"},
-                            {"url": "url2"},
-                            {"url": "url3"},
-                            {"url": "url4"},
-                            {"url": "url5"},
-                            {"url": "url6"},
-                            {"url": "url7"},
-                            {"url": "url8"},
-                            {"url": "url9"},
-                            {"url": "url10"}
-                            ]"""
-                          )
-                        , ( get "url1"
-                          , jsonBody """{"image": "image1.jpg"}"""
-                          )
-                        , ( get "url2"
-                          , jsonBody """{"image": "image2.jpg"}"""
-                          )
-                        , ( get "url3"
-                          , jsonBody """{"image": "image3.jpg"}"""
-                          )
-                        , ( get "url4"
-                          , jsonBody """{"image": "image4.jpg"}"""
-                          )
-                        , ( get "url5"
-                          , jsonBody """{"image": "image5.jpg"}"""
-                          )
-                        , ( get "url6"
-                          , jsonBody """{"image": "image6.jpg"}"""
-                          )
-                        , ( get "url7"
-                          , jsonBody """{"image": "image7.jpg"}"""
-                          )
-                        , ( get "url8"
-                          , jsonBody """{"image": "image8.jpg"}"""
-                          )
-                        , ( get "url9"
-                          , jsonBody """{"image": "image9.jpg"}"""
-                          )
-                        , ( get "url10"
-                          , jsonBody """{"image": "image10.jpg"}"""
-                          )
-                        ]
-                    |> expectSuccess []
 
+        --, test "andThen chain avoids repeat requests" <|
+        -- TODO is this test case still relevant? Need to think about the new desired functionality with caching HTTP requests given that
+        -- DataSource's can perform non-deterministic effects now.
+        --    \() ->
+        --        let
+        --            pokemonDetailRequest : DataSource ()
+        --            pokemonDetailRequest =
+        --                DataSource.Http.get
+        --                    "https://pokeapi.co/api/v2/pokemon/"
+        --                    (JD.list
+        --                        (JD.field "url" JD.string
+        --                            |> JD.map
+        --                                (\url ->
+        --                                    DataSource.Http.get url
+        --                                        (JD.field "image" JD.string)
+        --                                )
+        --                        )
+        --                    )
+        --                    |> DataSource.resolve
+        --                    |> DataSource.map (\_ -> ())
+        --        in
+        --        startSimple
+        --            [ "elm-pages" ]
+        --            pokemonDetailRequest
+        --            |> simulateMultipleHttp
+        --                [ ( get "https://pokeapi.co/api/v2/pokemon/"
+        --                  , jsonBody """[
+        --                    {"url": "url1"},
+        --                    {"url": "url2"},
+        --                    {"url": "url3"},
+        --                    {"url": "url4"},
+        --                    {"url": "url5"},
+        --                    {"url": "url6"},
+        --                    {"url": "url7"},
+        --                    {"url": "url8"},
+        --                    {"url": "url9"},
+        --                    {"url": "url10"}
+        --                    ]"""
+        --                  )
+        --                , ( get "url1"
+        --                  , jsonBody """{"image": "image1.jpg"}"""
+        --                  )
+        --                , ( get "url2"
+        --                  , jsonBody """{"image": "image2.jpg"}"""
+        --                  )
+        --                , ( get "url3"
+        --                  , jsonBody """{"image": "image3.jpg"}"""
+        --                  )
+        --                , ( get "url4"
+        --                  , jsonBody """{"image": "image4.jpg"}"""
+        --                  )
+        --                , ( get "url5"
+        --                  , jsonBody """{"image": "image5.jpg"}"""
+        --                  )
+        --                , ( get "url6"
+        --                  , jsonBody """{"image": "image6.jpg"}"""
+        --                  )
+        --                , ( get "url7"
+        --                  , jsonBody """{"image": "image7.jpg"}"""
+        --                  )
+        --                , ( get "url8"
+        --                  , jsonBody """{"image": "image8.jpg"}"""
+        --                  )
+        --                , ( get "url9"
+        --                  , jsonBody """{"image": "image9.jpg"}"""
+        --                  )
+        --                , ( get "url10"
+        --                  , jsonBody """{"image": "image10.jpg"}"""
+        --                  )
+        --                ]
+        --            |> expectSuccess []
+        --
         --, test "port is sent out once all requests are finished" <|
         --    \() ->
         --        start
@@ -510,7 +513,7 @@ config apiRoutes pages =
     , basePath = []
     , onActionData = \() -> Nothing
     , data =
-        \(Route pageRoute) ->
+        \_ (Route pageRoute) ->
             let
                 thing : Maybe (DataSource a)
                 thing =
@@ -566,7 +569,7 @@ config apiRoutes pages =
     , notFoundRoute = Route "not-found"
     , internalError = \_ -> ()
     , errorPageToData = \_ -> ()
-    , action = \_ -> DataSource.fail "No action."
+    , action = \_ _ -> DataSource.fail "No action."
     , encodeAction = \_ -> Bytes.Encode.signedInt8 0
     }
 
