@@ -255,9 +255,6 @@ perform config effect =
                 |> config.sendPageData
                 |> Cmd.map never
 
-        Effect.Continue ->
-            Cmd.none
-
 
 
 -- TODO use Json.Decode.Value for flagsDecoder instead of hardcoded record flags
