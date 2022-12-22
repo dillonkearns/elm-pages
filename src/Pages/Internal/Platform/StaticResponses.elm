@@ -2,7 +2,7 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), batchUpda
 
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
-import Dict exposing (Dict)
+import Dict
 import List.Extra
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest

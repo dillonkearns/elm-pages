@@ -470,6 +470,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                 |> DataSource.andThen
                                                     (\something ->
                                                         let
+                                                            actionHeaders2 : Maybe { statusCode : Int, headers : List ( String, String ) }
                                                             actionHeaders2 =
                                                                 case something of
                                                                     Just (PageServerResponse.RenderPage responseThing actionThing) ->
@@ -571,6 +572,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                 )
                                                                                     |> (\( actionHeaders, byteEncodedPageData ) ->
                                                                                             let
+                                                                                                rendered : { view : userModel -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }, head : List Tag }
                                                                                                 rendered =
                                                                                                     config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData
                                                                                             in
