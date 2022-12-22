@@ -206,6 +206,8 @@ combine items =
 -}
 map2 : (a -> b -> c) -> DataSource a -> DataSource b -> DataSource c
 map2 fn request1 request2 =
+    -- elm-review: known-unoptimized-recursion
+    -- TODO try to find a way to optimize tail-call recursion here
     case ( request1, request2 ) of
         ( ApiRoute value1, ApiRoute value2 ) ->
             ApiRoute (fn value1 value2)
@@ -263,14 +265,15 @@ from the previous response to build up the URL, headers, etc. that you send to t
 -}
 andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
+    -- elm-review: known-unoptimized-recursion
+    -- TODO try to find a way to optimize recursion here
     case requestInfo of
         ApiRoute a ->
             fn a
 
         Request urls lookupFn ->
             if List.isEmpty urls then
-                lookupFn Nothing Dict.empty
-                    |> andThen fn
+                andThen fn (lookupFn Nothing Dict.empty)
 
             else
                 Request urls

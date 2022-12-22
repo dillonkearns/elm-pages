@@ -475,7 +475,7 @@ startLowLevel apiRoutes staticHttpCache pages =
                     (Encode.object [])
                 )
                 (config apiRoutes pages)
-        , update = update (config apiRoutes pages)
+        , update = update
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
@@ -631,7 +631,7 @@ startWithRoutes pageToLoad _ staticHttpCache pages =
                     (Encode.object [])
                 )
                 (config [] pages)
-        , update = update (config [] pages)
+        , update = update
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects

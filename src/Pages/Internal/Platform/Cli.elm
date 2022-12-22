@@ -106,7 +106,7 @@ cliApplication config =
                     |> Tuple.mapSecond (perform site renderRequest config)
         , update =
             \msg model ->
-                update config msg model
+                update msg model
                     |> Tuple.mapSecond (perform site model.maybeRequestJson config)
         , subscriptions =
             \_ ->
@@ -316,9 +316,9 @@ init :
     -> ( Model route, Effect )
 init site renderRequest config flags =
     case Decode.decodeValue flagsDecoder flags of
-        Ok { staticHttpCache, isDevServer, compatibilityKey } ->
+        Ok { isDevServer, compatibilityKey } ->
             if compatibilityKey == currentCompatibilityKey then
-                initLegacy site renderRequest { staticHttpCache = staticHttpCache, isDevServer = isDevServer } config
+                initLegacy site renderRequest { isDevServer = isDevServer } config
 
             else
                 let
@@ -337,7 +337,6 @@ init site renderRequest config flags =
                                )
                 in
                 updateAndSendPortIfDone
-                    config
                     { staticResponses = StaticResponses.empty Effect.NoEffect
                     , errors =
                         [ { title = "Incompatible NPM and Elm package versions"
@@ -353,7 +352,6 @@ init site renderRequest config flags =
 
         Err error ->
             updateAndSendPortIfDone
-                config
                 { staticResponses = StaticResponses.empty Effect.NoEffect
                 , errors =
                     [ { title = "Internal Error"
@@ -411,10 +409,10 @@ isActionDecoder =
 initLegacy :
     SiteConfig
     -> RenderRequest route
-    -> { staticHttpCache : RequestsAndPending, isDevServer : Bool }
+    -> { isDevServer : Bool }
     -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> ( Model route, Effect )
-initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { staticHttpCache, isDevServer } config =
+initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { isDevServer } config =
     let
         globalHeadTags : DataSource (List Tag)
         globalHeadTags =
@@ -610,21 +608,6 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                 --PageServerResponse.ServerResponse serverResponse
                                                                                 -- TODO handle error?
                                                                                 let
-                                                                                    ( _, byteEncodedPageData ) =
-                                                                                        ( serverResponse.headers
-                                                                                          --ignored1.headers
-                                                                                        , PageServerResponse.toRedirect serverResponse
-                                                                                            |> Maybe.map
-                                                                                                (\{ location } ->
-                                                                                                    location
-                                                                                                        |> ResponseSketch.Redirect
-                                                                                                        |> config.encodeResponse
-                                                                                                )
-                                                                                            -- TODO handle other cases besides redirects?
-                                                                                            |> Maybe.withDefault (Bytes.Encode.unsignedInt8 0)
-                                                                                            |> Bytes.Encode.encode
-                                                                                        )
-
                                                                                     responseMetadata : PageServerResponse.Response
                                                                                     responseMetadata =
                                                                                         case something of
@@ -637,6 +620,22 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                 PageServerResponse.toRedirect responseMetadata
                                                                                     |> Maybe.map
                                                                                         (\_ ->
+                                                                                            let
+                                                                                                ( _, byteEncodedPageData ) =
+                                                                                                    ( serverResponse.headers
+                                                                                                      --ignored1.headers
+                                                                                                    , PageServerResponse.toRedirect serverResponse
+                                                                                                        |> Maybe.map
+                                                                                                            (\{ location } ->
+                                                                                                                location
+                                                                                                                    |> ResponseSketch.Redirect
+                                                                                                                    |> config.encodeResponse
+                                                                                                            )
+                                                                                                        -- TODO handle other cases besides redirects?
+                                                                                                        |> Maybe.withDefault (Bytes.Encode.unsignedInt8 0)
+                                                                                                        |> Bytes.Encode.encode
+                                                                                                    )
+                                                                                            in
                                                                                             { route = serverRequestPayload.path |> Path.toRelative
                                                                                             , contentJson = Dict.empty
                                                                                             , html = "This is intentionally blank HTML"
@@ -806,27 +805,24 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
     in
     StaticResponses.nextStep initialModel
         |> nextStepToEffect
-            config
             initialModel
 
 
 updateAndSendPortIfDone :
-    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
-    -> Model route
+    Model route
     -> ( Model route, Effect )
-updateAndSendPortIfDone config model =
+updateAndSendPortIfDone model =
     StaticResponses.nextStep
         model
-        |> nextStepToEffect config model
+        |> nextStepToEffect model
 
 
 {-| -}
 update :
-    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
-    -> Msg
+    Msg
     -> Model route
     -> ( Model route, Effect )
-update config msg model =
+update msg model =
     case msg of
         GotDataBatch batch ->
             let
@@ -837,7 +833,7 @@ update config msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                |> nextStepToEffect config updatedModel
+                |> nextStepToEffect updatedModel
 
         GotBuildError buildError ->
             let
@@ -850,15 +846,14 @@ update config msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                |> nextStepToEffect config updatedModel
+                |> nextStepToEffect updatedModel
 
 
 nextStepToEffect :
-    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
-    -> Model route
+    Model route
     -> StaticResponses.NextStep route Effect
     -> ( Model route, Effect )
-nextStepToEffect config model nextStep =
+nextStepToEffect model nextStep =
     case nextStep of
         StaticResponses.Continue httpRequests updatedStaticResponsesModel ->
             let
@@ -870,7 +865,6 @@ nextStepToEffect config model nextStep =
             in
             if List.isEmpty httpRequests then
                 nextStepToEffect
-                    config
                     updatedModel
                     (StaticResponses.nextStep
                         updatedModel

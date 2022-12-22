@@ -829,7 +829,7 @@ perform config model effect =
                 |> Maybe.withDefault Cmd.none
 
         FetchPageData transitionKey maybeRequestInfo url toMsg ->
-            fetchRouteData True transitionKey toMsg config url maybeRequestInfo
+            fetchRouteData transitionKey toMsg config url maybeRequestInfo
 
         Submit fields ->
             if fields.method == Get then
@@ -844,7 +844,7 @@ perform config model effect =
                         -- TODO add optional path parameter to Submit variant to allow submitting to other routes
                         model.url
                 in
-                fetchRouteData False -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
+                fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
 
         SubmitFetcher fetcherKey transitionId formData ->
             startFetcher2 config False fetcherKey transitionId formData model
@@ -864,7 +864,7 @@ perform config model effect =
                         |> config.perform
                             { fetchRouteData =
                                 \fetchInfo ->
-                                    fetchRouteData False
+                                    fetchRouteData
                                         -1
                                         (prepare fetchInfo.toMsg)
                                         config
@@ -874,7 +874,7 @@ perform config model effect =
                             ---- TODO map the Msg with the wrapper type (like in the PR branch)
                             , submit =
                                 \fetchInfo ->
-                                    fetchRouteData False -1 (prepare fetchInfo.toMsg) config (fetchInfo.values.action |> Url.fromString |> Maybe.withDefault model.url) (Just fetchInfo.values)
+                                    fetchRouteData -1 (prepare fetchInfo.toMsg) config (fetchInfo.values.action |> Url.fromString |> Maybe.withDefault model.url) (Just fetchInfo.values)
                             , runFetcher =
                                 \(Pages.Fetcher.Fetcher options) ->
                                     -- TODO need to get the fetcherId here
@@ -1158,14 +1158,13 @@ urlPathToPath urls =
 
 
 fetchRouteData :
-    Bool
-    -> Int
+    Int
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Url
     -> Maybe FormData
     -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
-fetchRouteData forPageDataReload transitionKey toMsg config url details =
+fetchRouteData transitionKey toMsg config url details =
     {-
        TODO:
        - [X] `toMsg` needs a parameter for the callback Msg so it can pass it on if there is a Redirect response
@@ -1394,7 +1393,7 @@ loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg 
                     }
 
                 -- TODO use userEffect here?
-                ( userModel, userEffect ) =
+                ( userModel, _ ) =
                     -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
                     -- instead of calling update, call pushUrl (I think?)
                     -- TODO include user Cmd
