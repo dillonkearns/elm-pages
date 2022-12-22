@@ -41,7 +41,7 @@ batchUpdate newEntries model =
                 |> List.map
                     (\{ request, response } ->
                         ( HashRequest.hash request
-                        , Just response
+                        , response
                         )
                     )
                 |> Dict.fromList

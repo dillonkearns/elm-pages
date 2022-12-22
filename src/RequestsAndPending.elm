@@ -10,7 +10,7 @@ import Pages.StaticHttp.Request
 
 
 type alias RequestsAndPending =
-    Dict String (Maybe Response)
+    Dict String Response
 
 
 type ResponseBody
@@ -119,4 +119,3 @@ get : String -> RequestsAndPending -> Maybe Response
 get key requestsAndPending =
     requestsAndPending
         |> Dict.get key
-        |> Maybe.andThen identity
