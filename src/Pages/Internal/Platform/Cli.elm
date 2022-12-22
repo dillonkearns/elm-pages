@@ -31,7 +31,7 @@ import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request
 import Path exposing (Path)
-import RenderRequest exposing (IncludeHtml(..), RenderRequest)
+import RenderRequest exposing (RenderRequest)
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
 import Url exposing (Url)
@@ -106,7 +106,7 @@ cliApplication config =
                     |> Tuple.mapSecond (perform site renderRequest config)
         , update =
             \msg model ->
-                update site config msg model
+                update config msg model
                     |> Tuple.mapSecond (perform site model.maybeRequestJson config)
         , subscriptions =
             \_ ->
@@ -279,9 +279,6 @@ perform site renderRequest config effect =
                 |> config.sendPageData
                 |> Cmd.map never
 
-        Effect.Continue ->
-            Cmd.none
-
 
 flagsDecoder :
     Decode.Decoder
@@ -340,7 +337,6 @@ init site renderRequest config flags =
                                )
                 in
                 updateAndSendPortIfDone
-                    site
                     config
                     { staticResponses = StaticResponses.empty Effect.NoEffect
                     , errors =
@@ -357,7 +353,6 @@ init site renderRequest config flags =
 
         Err error ->
             updateAndSendPortIfDone
-                site
                 config
                 { staticResponses = StaticResponses.empty Effect.NoEffect
                 , errors =
@@ -461,7 +456,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                         Nothing ->
                                             --sendSinglePageProgress site model.allRawResponses config model payload
                                             (case isAction of
-                                                Just actionRequest ->
+                                                Just _ ->
                                                     config.action (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter |> DataSource.map Just
 
                                                 Nothing ->
@@ -473,7 +468,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                             actionHeaders2 : Maybe { statusCode : Int, headers : List ( String, String ) }
                                                             actionHeaders2 =
                                                                 case something of
-                                                                    Just (PageServerResponse.RenderPage responseThing actionThing) ->
+                                                                    Just (PageServerResponse.RenderPage responseThing _) ->
                                                                         Just responseThing
 
                                                                     Just (PageServerResponse.ServerResponse responseThing) ->
@@ -500,7 +495,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                     maybeActionData : Maybe actionData
                                                                                     maybeActionData =
                                                                                         case something of
-                                                                                            Just (PageServerResponse.RenderPage responseThing actionThing) ->
+                                                                                            Just (PageServerResponse.RenderPage _ actionThing) ->
                                                                                                 Just actionThing
 
                                                                                             _ ->
@@ -615,7 +610,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                 --PageServerResponse.ServerResponse serverResponse
                                                                                 -- TODO handle error?
                                                                                 let
-                                                                                    ( actionHeaders, byteEncodedPageData ) =
+                                                                                    ( _, byteEncodedPageData ) =
                                                                                         ( serverResponse.headers
                                                                                           --ignored1.headers
                                                                                         , PageServerResponse.toRedirect serverResponse
@@ -784,7 +779,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
 
                     RenderRequest.NotFound notFoundPath ->
                         (DataSource.map2
-                            (\resolved1 resolvedGlobalHeadTags ->
+                            (\_ _ ->
                                 render404Page config
                                     Nothing
                                     --(Result.toMaybe sharedDataResult)
@@ -810,30 +805,28 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
             }
     in
     StaticResponses.nextStep initialModel
-        |> nextStepToEffect site
+        |> nextStepToEffect
             config
             initialModel
 
 
 updateAndSendPortIfDone :
-    SiteConfig
-    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Model route
     -> ( Model route, Effect )
-updateAndSendPortIfDone site config model =
+updateAndSendPortIfDone config model =
     StaticResponses.nextStep
         model
-        |> nextStepToEffect site config model
+        |> nextStepToEffect config model
 
 
 {-| -}
 update :
-    SiteConfig
-    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Msg
     -> Model route
     -> ( Model route, Effect )
-update site config msg model =
+update config msg model =
     case msg of
         GotDataBatch batch ->
             let
@@ -844,7 +837,7 @@ update site config msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                |> nextStepToEffect site config updatedModel
+                |> nextStepToEffect config updatedModel
 
         GotBuildError buildError ->
             let
@@ -857,16 +850,15 @@ update site config msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                |> nextStepToEffect site config updatedModel
+                |> nextStepToEffect config updatedModel
 
 
 nextStepToEffect :
-    SiteConfig
-    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Model route
     -> StaticResponses.NextStep route Effect
     -> ( Model route, Effect )
-nextStepToEffect site config model nextStep =
+nextStepToEffect config model nextStep =
     case nextStep of
         StaticResponses.Continue httpRequests updatedStaticResponsesModel ->
             let
@@ -877,7 +869,7 @@ nextStepToEffect site config model nextStep =
                     }
             in
             if List.isEmpty httpRequests then
-                nextStepToEffect site
+                nextStepToEffect
                     config
                     updatedModel
                     (StaticResponses.nextStep

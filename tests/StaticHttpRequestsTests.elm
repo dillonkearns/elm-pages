@@ -475,7 +475,7 @@ startLowLevel apiRoutes staticHttpCache pages =
                     (Encode.object [])
                 )
                 (config apiRoutes pages)
-        , update = update site (config apiRoutes pages)
+        , update = update (config apiRoutes pages)
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
@@ -631,7 +631,7 @@ startWithRoutes pageToLoad _ staticHttpCache pages =
                     (Encode.object [])
                 )
                 (config [] pages)
-        , update = update site (config [] pages)
+        , update = update (config [] pages)
         , view = \_ -> { title = "", body = [] }
         }
         |> ProgramTest.withSimulatedEffects simulateEffects
@@ -693,9 +693,6 @@ simulateEffects effect =
                     |> SimulatedEffect.Ports.send "toJsPort"
                 , SimulatedEffect.Cmd.none
                 ]
-
-        Effect.Continue ->
-            SimulatedEffect.Cmd.none
 
         Effect.SendSinglePageNew _ toJsSuccessPayloadNewCombined ->
             SimulatedEffect.Cmd.batch

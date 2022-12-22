@@ -11,4 +11,3 @@ type Effect
     | Batch (List Effect)
     | SendSinglePage ToJsSuccessPayloadNewCombined
     | SendSinglePageNew Bytes ToJsSuccessPayloadNewCombined
-    | Continue
