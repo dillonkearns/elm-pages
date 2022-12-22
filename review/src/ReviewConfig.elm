@@ -95,20 +95,12 @@ config =
                     (\rule ->
                         rule
                             |> Rule.ignoreErrorsForFiles
-                                [ "src/Pages/Internal/Platform/Effect.elm"
-                                , "src/Pages/Internal/Platform.elm"
-                                , "src/Pages/Internal/Platform/Cli.elm"
-                                , "src/SecretsDict.elm"
-                                , "src/StructuredData.elm"
+                                [ "src/StructuredData.elm"
                                 , "src/Router.elm" -- used in generated code
                                 , "src/Pages/Internal/RoutePattern.elm" -- used in generated code
                                 , "src/Pages/Http.elm" -- reports incorrect unused custom type constructor
-                                , "src/DataSource/ServerRequest.elm" -- temporarily removed from exposed modules for alpha serverless
-                                , "src/BuildError.elm"
                                 , "src/Internal/ApiRoute.elm"
                                 , "src/Pages/StaticHttpRequest.elm"
-                                , "src/RenderRequest.elm"
-                                , "tests/Pages/Internal/Platform.elm"
                                 , "tests/Pages/Internal/Router.elm"
                                 , "src/Pages/Internal/NotFoundReason.elm"
                                 , "src/Pages/Internal/Platform/ToJsPayload.elm"
