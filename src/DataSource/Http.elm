@@ -324,7 +324,7 @@ requestRaw request__ expect =
                                 Ok rawResponse
 
                             Nothing ->
-                                Err (Pages.StaticHttpRequest.MissingHttpResponse request_.url [ request_ ])
+                                Err (Pages.StaticHttpRequest.UserCalledStaticHttpFail ("INTERNAL ERROR - expected request" ++ request_.url))
                    )
                 |> Result.andThen
                     (\(RequestsAndPending.Response maybeResponse body) ->

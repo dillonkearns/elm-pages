@@ -216,44 +216,35 @@ map2 fn request1 request2 =
         ( Request urls1 lookupFn1, Request urls2 lookupFn2 ) ->
             Request
                 (urls1 ++ urls2)
-                (mapReq fn lookupFn1 lookupFn2)
+                (\resolver responses ->
+                    map2 fn
+                        (lookupFn1 resolver responses)
+                        (lookupFn2 resolver responses)
+                )
 
         ( Request urls1 lookupFn1, ApiRoute value2 ) ->
             Request
                 urls1
-                (mapReq fn lookupFn1 (\_ _ -> ApiRoute value2))
+                (\resolver responses ->
+                    map2 fn
+                        (lookupFn1 resolver responses)
+                        (ApiRoute value2)
+                )
 
         ( ApiRoute value2, Request urls1 lookupFn1 ) ->
             Request
                 urls1
-                (mapReq fn (\_ _ -> ApiRoute value2) lookupFn1)
-
-        ( Request urls1 lookupFn1, RequestError (MissingHttpResponse _ requests1) ) ->
-            Request
-                (urls1 ++ requests1)
-                (mapReq fn lookupFn1 (\_ _ -> request2))
-
-        ( RequestError (MissingHttpResponse string1 requests1), RequestError (MissingHttpResponse _ requests2) ) ->
-            RequestError (MissingHttpResponse string1 (requests1 ++ requests2))
-
-        ( RequestError (MissingHttpResponse string1 requests1), RequestError _ ) ->
-            RequestError (MissingHttpResponse string1 requests1)
-
-        ( RequestError _, RequestError (MissingHttpResponse string1 requests1) ) ->
-            RequestError (MissingHttpResponse string1 requests1)
+                (\resolver responses ->
+                    map2 fn
+                        (ApiRoute value2)
+                        (lookupFn1 resolver responses)
+                )
 
         ( RequestError error, _ ) ->
             RequestError error
 
         ( _, RequestError error ) ->
             RequestError error
-
-
-mapReq : (a -> b -> c) -> (e -> d -> DataSource a) -> (e -> d -> DataSource b) -> e -> d -> DataSource c
-mapReq fn lookupFn1 lookupFn2 maybeMock rawResponses =
-    map2 fn
-        (lookupFn1 maybeMock rawResponses)
-        (lookupFn2 maybeMock rawResponses)
 
 
 lookup : List HashRequest.Request -> Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Error value
@@ -268,9 +259,6 @@ lookup previousUrls maybeMockResolver requestInfo rawResponses =
         ApiRoute value ->
             Ok value
 
-        RequestError (MissingHttpResponse a urls) ->
-            Err (MissingHttpResponse a (previousUrls ++ urls))
-
         RequestError error ->
             Err error
 
@@ -283,9 +271,6 @@ addUrls urlsToAdd requestInfo =
 
         Request initialUrls function ->
             Request (initialUrls ++ urlsToAdd) function
-
-        RequestError (MissingHttpResponse a urls) ->
-            RequestError (MissingHttpResponse a (urlsToAdd ++ urls))
 
         RequestError error ->
             RequestError error
@@ -300,23 +285,6 @@ type alias RequestDetails =
     , body : Body.Body
     , useCache : Bool
     }
-
-
-lookupUrls : List HashRequest.Request -> DataSource value -> List RequestDetails
-lookupUrls previousUrls requestInfo =
-    case requestInfo of
-        ApiRoute _ ->
-            previousUrls
-
-        Request urls lookupFn ->
-            lookupUrls urls (lookupFn Nothing Dict.empty)
-
-        RequestError (MissingHttpResponse _ urls) ->
-            previousUrls ++ urls
-
-        RequestError _ ->
-            -- TODO should this have URLs passed through?
-            previousUrls
 
 
 {-| Build off of the response from a previous `DataSource` request to build a follow-up request. You can use the data
@@ -338,22 +306,24 @@ from the previous response to build up the URL, headers, etc. that you send to t
 -}
 andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
-    Request
-        (lookupUrls [] requestInfo)
-        (\maybeMockResolver rawResponses ->
-            lookup []
-                maybeMockResolver
-                requestInfo
-                rawResponses
-                |> (\result ->
-                        case result of
-                            Ok value ->
-                                fn value
+    case requestInfo of
+        ApiRoute a ->
+            fn a
 
-                            Err error ->
-                                RequestError error
-                   )
-        )
+        Request urls lookupFn ->
+            if List.isEmpty urls then
+                lookupFn Nothing Dict.empty
+                    |> andThen fn
+
+            else
+                Request urls
+                    (\maybeMockResolver responses ->
+                        lookupFn maybeMockResolver responses
+                            |> andThen fn
+                    )
+
+        RequestError error ->
+            RequestError error
 
 
 {-| A helper for combining `DataSource`s in pipelines.

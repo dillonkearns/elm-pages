@@ -19,23 +19,13 @@ type RawRequest value
 
 
 type Error
-    = MissingHttpResponse String (List Pages.StaticHttp.Request.Request)
-    | DecoderError String
+    = DecoderError String
     | UserCalledStaticHttpFail String
 
 
 toBuildError : String -> Error -> BuildError
 toBuildError path error =
     case error of
-        MissingHttpResponse missingKey _ ->
-            { title = "Missing Http Response"
-            , message =
-                [ Terminal.text missingKey
-                ]
-            , path = path
-            , fatal = True
-            }
-
         DecoderError decodeErrorMessage ->
             { title = "Static Http Decoding Error"
             , message =
@@ -95,7 +85,11 @@ cacheRequestResolution request rawResponses =
             cacheRequestResolutionHelp True [] rawResponses request request
 
         Request urlList lookupFn ->
-            cacheRequestResolutionHelp False urlList rawResponses request (lookupFn Nothing rawResponses)
+            if List.isEmpty urlList then
+                cacheRequestResolutionHelp False urlList rawResponses request (lookupFn Nothing rawResponses)
+
+            else
+                Incomplete urlList (Request [] lookupFn)
 
         ApiRoute value ->
             Complete value
@@ -118,15 +112,6 @@ cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest reques
     case request of
         RequestError error ->
             case error of
-                MissingHttpResponse _ requests ->
-                    -- TODO do I need to pass through continuation URLs here? -- Incomplete (urlList ++ foundUrls)
-                    --Incomplete (requests ++ foundUrls) parentRequest
-                    if List.isEmpty foundUrls then
-                        Incomplete requests parentRequest
-
-                    else
-                        Incomplete foundUrls parentRequest
-
                 DecoderError _ ->
                     HasPermanentError error parentRequest
 
@@ -134,16 +119,16 @@ cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest reques
                     HasPermanentError error parentRequest
 
         Request urlList lookupFn ->
-            if urlList |> List.isEmpty then
+            if (urlList ++ foundUrls) |> List.isEmpty then
                 cacheRequestResolutionHelp
                     False
-                    (urlList ++ foundUrls)
+                    []
                     rawResponses
                     request
                     (lookupFn Nothing rawResponses)
 
             else
-                Incomplete urlList
+                Incomplete (urlList ++ foundUrls)
                     (Request [] lookupFn)
 
         ApiRoute value ->

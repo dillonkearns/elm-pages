@@ -45,7 +45,6 @@ batchUpdate newEntries model =
                         )
                     )
                 |> Dict.fromList
-                |> Dict.union model.allRawResponses
     }
 
 
