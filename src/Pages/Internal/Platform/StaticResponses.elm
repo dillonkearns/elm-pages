@@ -28,13 +28,11 @@ batchUpdate :
         }
     ->
         { model
-            | staticResponses : DataSource a
-            , allRawResponses : RequestsAndPending
+            | allRawResponses : RequestsAndPending
         }
     ->
         { model
-            | staticResponses : DataSource a
-            , allRawResponses : RequestsAndPending
+            | allRawResponses : RequestsAndPending
         }
 batchUpdate newEntries model =
     { model
