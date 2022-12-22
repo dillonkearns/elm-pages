@@ -96,16 +96,11 @@ config =
                         rule
                             |> Rule.ignoreErrorsForFiles
                                 [ "src/StructuredData.elm"
-                                , "src/Router.elm" -- used in generated code
                                 , "src/Pages/Internal/RoutePattern.elm" -- used in generated code
                                 , "src/Pages/Http.elm" -- reports incorrect unused custom type constructor
                                 , "src/Internal/ApiRoute.elm"
                                 , "src/Pages/StaticHttpRequest.elm"
-                                , "tests/Pages/Internal/Router.elm"
-                                , "src/Pages/Internal/NotFoundReason.elm"
                                 , "src/Pages/Internal/Platform/ToJsPayload.elm"
-                                , "src/Pages/Internal/Router.elm"
-                                , "src/Pages/Internal/ResponseSketch.elm"
                                 ]
                     )
            )
