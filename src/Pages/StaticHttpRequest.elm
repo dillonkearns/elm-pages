@@ -81,12 +81,12 @@ cacheRequestResolution :
     -> Status value
 cacheRequestResolution request rawResponses =
     case request of
-        RequestError error ->
-            cacheRequestResolutionHelp True [] rawResponses request request
+        RequestError _ ->
+            cacheRequestResolutionHelp [] rawResponses request request
 
         Request urlList lookupFn ->
             if List.isEmpty urlList then
-                cacheRequestResolutionHelp False urlList rawResponses request (lookupFn Nothing rawResponses)
+                cacheRequestResolutionHelp urlList rawResponses request (lookupFn Nothing rawResponses)
 
             else
                 Incomplete urlList (Request [] lookupFn)
@@ -102,13 +102,12 @@ type Status value
 
 
 cacheRequestResolutionHelp :
-    Bool
-    -> List Pages.StaticHttp.Request.Request
+    List Pages.StaticHttp.Request.Request
     -> RequestsAndPending
     -> RawRequest value
     -> RawRequest value
     -> Status value
-cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest request =
+cacheRequestResolutionHelp foundUrls rawResponses parentRequest request =
     case request of
         RequestError error ->
             case error of
@@ -121,7 +120,6 @@ cacheRequestResolutionHelp firstCall foundUrls rawResponses parentRequest reques
         Request urlList lookupFn ->
             if (urlList ++ foundUrls) |> List.isEmpty then
                 cacheRequestResolutionHelp
-                    False
                     []
                     rawResponses
                     request
