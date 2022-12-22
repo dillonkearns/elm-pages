@@ -1,4 +1,4 @@
-module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..), Status(..), cacheRequestResolution, mockResolve, resolve, toBuildError)
+module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..), Status(..), cacheRequestResolution, mockResolve, toBuildError)
 
 import BuildError exposing (BuildError)
 import Dict
@@ -43,21 +43,6 @@ toBuildError path error =
             , path = path
             , fatal = True
             }
-
-
-resolve : RawRequest value -> RequestsAndPending -> Result Error value
-resolve request rawResponses =
-    case request of
-        RequestError error ->
-            Err error
-
-        Request _ lookupFn ->
-            case lookupFn Nothing rawResponses of
-                nextRequest ->
-                    resolve nextRequest rawResponses
-
-        ApiRoute value ->
-            Ok value
 
 
 mockResolve : RawRequest value -> MockResolver -> Result Error value
