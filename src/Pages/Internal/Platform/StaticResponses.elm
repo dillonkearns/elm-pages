@@ -79,7 +79,7 @@ nextStep ({ allRawResponses, errors } as model) =
                     , DataSource.succeed value
                     )
 
-                StaticHttpRequest.HasPermanentError _ _ ->
+                StaticHttpRequest.HasPermanentError _ ->
                     ( ( False, Nothing )
                     , []
                     , DataSource.fail "TODO this shouldn't happen"
@@ -105,7 +105,7 @@ nextStep ({ allRawResponses, errors } as model) =
                             maybePermanentError : Maybe StaticHttpRequest.Error
                             maybePermanentError =
                                 case staticRequestsStatus of
-                                    StaticHttpRequest.HasPermanentError theError _ ->
+                                    StaticHttpRequest.HasPermanentError theError ->
                                         Just theError
 
                                     _ ->

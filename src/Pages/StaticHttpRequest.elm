@@ -67,11 +67,11 @@ cacheRequestResolution :
 cacheRequestResolution request rawResponses =
     case request of
         RequestError _ ->
-            cacheRequestResolutionHelp [] rawResponses request request
+            cacheRequestResolutionHelp [] rawResponses request
 
         Request urlList lookupFn ->
             if List.isEmpty urlList then
-                cacheRequestResolutionHelp urlList rawResponses request (lookupFn Nothing rawResponses)
+                cacheRequestResolutionHelp urlList rawResponses (lookupFn Nothing rawResponses)
 
             else
                 Incomplete urlList (Request [] lookupFn)
@@ -82,7 +82,7 @@ cacheRequestResolution request rawResponses =
 
 type Status value
     = Incomplete (List Pages.StaticHttp.Request.Request) (RawRequest value)
-    | HasPermanentError Error (RawRequest value)
+    | HasPermanentError Error
     | Complete value
 
 
@@ -90,24 +90,22 @@ cacheRequestResolutionHelp :
     List Pages.StaticHttp.Request.Request
     -> RequestsAndPending
     -> RawRequest value
-    -> RawRequest value
     -> Status value
-cacheRequestResolutionHelp foundUrls rawResponses parentRequest request =
+cacheRequestResolutionHelp foundUrls rawResponses request =
     case request of
         RequestError error ->
             case error of
                 DecoderError _ ->
-                    HasPermanentError error parentRequest
+                    HasPermanentError error
 
                 UserCalledStaticHttpFail _ ->
-                    HasPermanentError error parentRequest
+                    HasPermanentError error
 
         Request urlList lookupFn ->
             if (urlList ++ foundUrls) |> List.isEmpty then
                 cacheRequestResolutionHelp
                     []
                     rawResponses
-                    request
                     (lookupFn Nothing rawResponses)
 
             else
