@@ -81,10 +81,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 -}
 
 import Dict
-import Pages.Internal.StaticHttpBody as Body
-import Pages.StaticHttp.Request as HashRequest
-import Pages.StaticHttpRequest exposing (Error(..), RawRequest(..))
-import RequestsAndPending exposing (RequestsAndPending)
+import Pages.StaticHttpRequest exposing (RawRequest(..))
 
 
 {-| A DataSource represents data that will be gathered at build time. Multiple `DataSource`s can be combined together using the `mapN` functions,
@@ -245,46 +242,6 @@ map2 fn request1 request2 =
 
         ( _, RequestError error ) ->
             RequestError error
-
-
-lookup : List HashRequest.Request -> Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Error value
-lookup previousUrls maybeMockResolver requestInfo rawResponses =
-    case requestInfo of
-        Request urls lookupFn ->
-            lookup (previousUrls ++ urls)
-                maybeMockResolver
-                (addUrls urls (lookupFn maybeMockResolver rawResponses))
-                rawResponses
-
-        ApiRoute value ->
-            Ok value
-
-        RequestError error ->
-            Err error
-
-
-addUrls : List HashRequest.Request -> DataSource value -> DataSource value
-addUrls urlsToAdd requestInfo =
-    case requestInfo of
-        ApiRoute value ->
-            ApiRoute value
-
-        Request initialUrls function ->
-            Request (initialUrls ++ urlsToAdd) function
-
-        RequestError error ->
-            RequestError error
-
-
-{-| The full details to perform a StaticHttp request.
--}
-type alias RequestDetails =
-    { url : String
-    , method : String
-    , headers : List ( String, String )
-    , body : Body.Body
-    , useCache : Bool
-    }
 
 
 {-| Build off of the response from a previous `DataSource` request to build a follow-up request. You can use the data
