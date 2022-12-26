@@ -10,6 +10,7 @@ module Internal.ApiRoute exposing
 
 import DataSource exposing (DataSource)
 import Head
+import Json.Decode
 import Pattern exposing (Pattern)
 import Regex exposing (Regex)
 
@@ -44,7 +45,7 @@ tryMatchDone path (ApiRoute handler) =
 type ApiRoute response
     = ApiRoute
         { regex : Regex
-        , matchesToResponse : String -> DataSource (Maybe response)
+        , matchesToResponse : Json.Decode.Value -> String -> DataSource (Maybe response)
         , buildTimeRoutes : DataSource (List String)
         , handleRoute : String -> DataSource Bool
         , pattern : Pattern

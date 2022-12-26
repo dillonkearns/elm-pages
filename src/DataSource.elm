@@ -80,10 +80,8 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 -}
 
-import Pages.Internal.StaticHttpBody as Body
-import Pages.StaticHttp.Request as HashRequest
+import Dict
 import Pages.StaticHttpRequest exposing (RawRequest(..))
-import RequestsAndPending exposing (RequestsAndPending)
 
 
 {-| A DataSource represents data that will be gathered at build time. Multiple `DataSource`s can be combined together using the `mapN` functions,
@@ -208,6 +206,8 @@ combine items =
 -}
 map2 : (a -> b -> c) -> DataSource a -> DataSource b -> DataSource c
 map2 fn request1 request2 =
+    -- elm-review: known-unoptimized-recursion
+    -- TODO try to find a way to optimize tail-call recursion here
     case ( request1, request2 ) of
         ( ApiRoute value1, ApiRoute value2 ) ->
             ApiRoute (fn value1 value2)
@@ -215,83 +215,35 @@ map2 fn request1 request2 =
         ( Request urls1 lookupFn1, Request urls2 lookupFn2 ) ->
             Request
                 (urls1 ++ urls2)
-                (mapReq fn lookupFn1 lookupFn2)
+                (\resolver responses ->
+                    map2 fn
+                        (lookupFn1 resolver responses)
+                        (lookupFn2 resolver responses)
+                )
 
         ( Request urls1 lookupFn1, ApiRoute value2 ) ->
             Request
                 urls1
-                (mapReq fn lookupFn1 (\_ _ -> ApiRoute value2))
+                (\resolver responses ->
+                    map2 fn
+                        (lookupFn1 resolver responses)
+                        (ApiRoute value2)
+                )
 
         ( ApiRoute value2, Request urls1 lookupFn1 ) ->
             Request
                 urls1
-                (mapReq fn (\_ _ -> ApiRoute value2) lookupFn1)
+                (\resolver responses ->
+                    map2 fn
+                        (ApiRoute value2)
+                        (lookupFn1 resolver responses)
+                )
 
         ( RequestError error, _ ) ->
             RequestError error
 
         ( _, RequestError error ) ->
             RequestError error
-
-
-mapReq : (a -> b -> c) -> (e -> d -> DataSource a) -> (e -> d -> DataSource b) -> e -> d -> DataSource c
-mapReq fn lookupFn1 lookupFn2 maybeMock rawResponses =
-    map2 fn
-        (lookupFn1 maybeMock rawResponses)
-        (lookupFn2 maybeMock rawResponses)
-
-
-lookup : Maybe Pages.StaticHttpRequest.MockResolver -> DataSource value -> RequestsAndPending -> Result Pages.StaticHttpRequest.Error value
-lookup maybeMockResolver requestInfo rawResponses =
-    case requestInfo of
-        Request urls lookupFn ->
-            lookup maybeMockResolver
-                (addUrls urls (lookupFn maybeMockResolver rawResponses))
-                rawResponses
-
-        ApiRoute value ->
-            Ok value
-
-        RequestError error ->
-            Err error
-
-
-addUrls : List HashRequest.Request -> DataSource value -> DataSource value
-addUrls urlsToAdd requestInfo =
-    case requestInfo of
-        ApiRoute value ->
-            ApiRoute value
-
-        Request initialUrls function ->
-            Request (initialUrls ++ urlsToAdd) function
-
-        RequestError error ->
-            RequestError error
-
-
-{-| The full details to perform a StaticHttp request.
--}
-type alias RequestDetails =
-    { url : String
-    , method : String
-    , headers : List ( String, String )
-    , body : Body.Body
-    , useCache : Bool
-    }
-
-
-lookupUrls : DataSource value -> List RequestDetails
-lookupUrls requestInfo =
-    case requestInfo of
-        ApiRoute _ ->
-            []
-
-        Request urls _ ->
-            urls
-
-        RequestError _ ->
-            -- TODO should this have URLs passed through?
-            []
 
 
 {-| Build off of the response from a previous `DataSource` request to build a follow-up request. You can use the data
@@ -313,29 +265,25 @@ from the previous response to build up the URL, headers, etc. that you send to t
 -}
 andThen : (a -> DataSource b) -> DataSource a -> DataSource b
 andThen fn requestInfo =
-    Request
-        (lookupUrls requestInfo)
-        (\maybeMockResolver rawResponses ->
-            lookup maybeMockResolver
-                requestInfo
-                rawResponses
-                |> (\result ->
-                        case result of
-                            Ok value ->
-                                case fn value of
-                                    ApiRoute finalValue ->
-                                        ApiRoute finalValue
+    -- elm-review: known-unoptimized-recursion
+    -- TODO try to find a way to optimize recursion here
+    case requestInfo of
+        ApiRoute a ->
+            fn a
 
-                                    Request values function ->
-                                        Request values function
+        Request urls lookupFn ->
+            if List.isEmpty urls then
+                andThen fn (lookupFn Nothing Dict.empty)
 
-                                    RequestError error ->
-                                        RequestError error
+            else
+                Request urls
+                    (\maybeMockResolver responses ->
+                        lookupFn maybeMockResolver responses
+                            |> andThen fn
+                    )
 
-                            Err error ->
-                                RequestError error
-                   )
-        )
+        RequestError error ->
+            RequestError error
 
 
 {-| A helper for combining `DataSource`s in pipelines.

@@ -45,11 +45,6 @@ import Time
 import Url exposing (Url)
 
 
-type Transition
-    = Loading Int Path
-    | Submitting FormData
-
-
 {-| -}
 type alias Program userModel userMsg pageData actionData sharedData errorPage =
     Platform.Program Flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
@@ -430,7 +425,7 @@ update config appMsg model =
                             -- parallel to the browser behavior
                             |> startNewGetLoad url (UpdateCacheAndUrlNew True url Nothing)
 
-        FetcherComplete forPageReload fetcherKey transitionId___ userMsgResult ->
+        FetcherComplete _ fetcherKey _ userMsgResult ->
             case userMsgResult of
                 Ok ( userMsg, maybeFetcherDoneActionData ) ->
                     ( { model
@@ -772,7 +767,7 @@ update config appMsg model =
 toFetcherState : Dict String ( Int, Pages.Transition.FetcherState actionData ) -> Dict String (Pages.Transition.FetcherState actionData)
 toFetcherState inFlightFetchers =
     inFlightFetchers
-        |> Dict.map (\_ ( index, fetcherState ) -> fetcherState)
+        |> Dict.map (\_ ( _, fetcherState ) -> fetcherState)
 
 
 performUserMsg :
@@ -834,7 +829,7 @@ perform config model effect =
                 |> Maybe.withDefault Cmd.none
 
         FetchPageData transitionKey maybeRequestInfo url toMsg ->
-            fetchRouteData True transitionKey toMsg config url maybeRequestInfo
+            fetchRouteData transitionKey toMsg config url maybeRequestInfo
 
         Submit fields ->
             if fields.method == Get then
@@ -849,7 +844,7 @@ perform config model effect =
                         -- TODO add optional path parameter to Submit variant to allow submitting to other routes
                         model.url
                 in
-                fetchRouteData False -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
+                fetchRouteData -1 (UpdateCacheAndUrlNew False model.url Nothing) config urlToSubmitTo (Just fields)
 
         SubmitFetcher fetcherKey transitionId formData ->
             startFetcher2 config False fetcherKey transitionId formData model
@@ -869,7 +864,7 @@ perform config model effect =
                         |> config.perform
                             { fetchRouteData =
                                 \fetchInfo ->
-                                    fetchRouteData False
+                                    fetchRouteData
                                         -1
                                         (prepare fetchInfo.toMsg)
                                         config
@@ -879,7 +874,7 @@ perform config model effect =
                             ---- TODO map the Msg with the wrapper type (like in the PR branch)
                             , submit =
                                 \fetchInfo ->
-                                    fetchRouteData False -1 (prepare fetchInfo.toMsg) config (fetchInfo.values.action |> Url.fromString |> Maybe.withDefault model.url) (Just fetchInfo.values)
+                                    fetchRouteData -1 (prepare fetchInfo.toMsg) config (fetchInfo.values.action |> Url.fromString |> Maybe.withDefault model.url) (Just fetchInfo.values)
                             , runFetcher =
                                 \(Pages.Fetcher.Fetcher options) ->
                                     -- TODO need to get the fetcherId here
@@ -933,7 +928,7 @@ startFetcher fetcherKey transitionId options model =
                 Http.expectBytesResponse (FetcherComplete False fetcherKey model.nextTransitionKey)
                     (\bytes ->
                         case bytes of
-                            Http.GoodStatus_ metadata bytesBody ->
+                            Http.GoodStatus_ _ bytesBody ->
                                 ( options.decoder (Ok bytesBody)
                                     |> Just
                                 , Nothing
@@ -949,7 +944,7 @@ startFetcher fetcherKey transitionId options model =
                             Http.NetworkError_ ->
                                 Err <| Http.NetworkError
 
-                            Http.BadStatus_ metadata body ->
+                            Http.BadStatus_ metadata _ ->
                                 Err <| Http.BadStatus metadata.statusCode
                     )
             , tracker = Nothing
@@ -980,7 +975,7 @@ startFetcher2 config fromPageReload fetcherKey transitionId formData model =
     Cmd.batch
         [ cancelStaleFetchers model
         , case Dict.get fetcherKey model.inFlightFetchers of
-            Just ( inFlightId, inFlightFetcher ) ->
+            Just ( inFlightId, _ ) ->
                 Http.cancel (String.fromInt inFlightId)
 
             Nothing ->
@@ -991,7 +986,7 @@ startFetcher2 config fromPageReload fetcherKey transitionId formData model =
                 Http.expectBytesResponse (FetcherComplete fromPageReload fetcherKey model.nextTransitionKey)
                     (\bytes ->
                         case bytes of
-                            Http.GoodStatus_ metadata bytesBody ->
+                            Http.GoodStatus_ _ bytesBody ->
                                 let
                                     decodedAction : Maybe actionData
                                     decodedAction =
@@ -999,10 +994,10 @@ startFetcher2 config fromPageReload fetcherKey transitionId formData model =
                                             Just (ResponseSketch.RenderPage _ maybeAction) ->
                                                 maybeAction
 
-                                            Just (ResponseSketch.HotUpdate pageData shared maybeAction) ->
+                                            Just (ResponseSketch.HotUpdate _ _ maybeAction) ->
                                                 maybeAction
 
-                                            Just (ResponseSketch.NotFound notFound) ->
+                                            Just (ResponseSketch.NotFound _) ->
                                                 Nothing
 
                                             _ ->
@@ -1020,7 +1015,7 @@ startFetcher2 config fromPageReload fetcherKey transitionId formData model =
                             Http.NetworkError_ ->
                                 Err <| Http.NetworkError
 
-                            Http.BadStatus_ metadata body ->
+                            Http.BadStatus_ metadata _ ->
                                 Err <| Http.BadStatus metadata.statusCode
                     )
             , tracker = Just (String.fromInt transitionId)
@@ -1042,7 +1037,7 @@ cancelStaleFetchers model =
     model.inFlightFetchers
         |> Dict.toList
         |> List.filterMap
-            (\( fetcherKey, ( id, fetcher ) ) ->
+            (\( _, ( id, fetcher ) ) ->
                 case fetcher.status of
                     Pages.Transition.FetcherReloading _ ->
                         Http.cancel (String.fromInt id)
@@ -1163,14 +1158,13 @@ urlPathToPath urls =
 
 
 fetchRouteData :
-    Bool
-    -> Int
+    Int
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Url
     -> Maybe FormData
     -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
-fetchRouteData forPageDataReload transitionKey toMsg config url details =
+fetchRouteData transitionKey toMsg config url details =
     {-
        TODO:
        - [X] `toMsg` needs a parameter for the callback Msg so it can pass it on if there is a Redirect response
@@ -1257,7 +1251,7 @@ fetchRouteData forPageDataReload transitionKey toMsg config url details =
                         Http.NetworkError_ ->
                             Err Http.NetworkError
 
-                        Http.BadStatus_ metadata body ->
+                        Http.BadStatus_ _ body ->
                             body
                                 |> Bytes.Decode.decode config.decodeResponse
                                 |> Result.fromMaybe "Decoding error"
@@ -1309,7 +1303,7 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
         cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
             case model.transition of
-                Just ( transitionKey, Pages.Transition.Loading path loadingKind ) ->
+                Just ( transitionKey, Pages.Transition.Loading _ _ ) ->
                     CancelRequest transitionKey
 
                 _ ->
@@ -1320,13 +1314,13 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
         , transition =
             ( model.nextTransitionKey
             , case model.transition of
-                Just ( transitionKey, Pages.Transition.LoadAfterSubmit submitData _ _ ) ->
+                Just ( _, Pages.Transition.LoadAfterSubmit submitData _ _ ) ->
                     Pages.Transition.LoadAfterSubmit
                         submitData
                         (urlToGet.path |> Path.fromString)
                         Pages.Transition.Load
 
-                Just ( transitionKey, Pages.Transition.Submitting submitData ) ->
+                Just ( _, Pages.Transition.Submitting submitData ) ->
                     Pages.Transition.LoadAfterSubmit
                         submitData
                         (urlToGet.path |> Path.fromString)
@@ -1399,7 +1393,7 @@ loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg 
                     }
 
                 -- TODO use userEffect here?
-                ( userModel, userEffect ) =
+                ( userModel, _ ) =
                     -- TODO if urlWithoutRedirectResolution is different from the url with redirect resolution, then
                     -- instead of calling update, call pushUrl (I think?)
                     -- TODO include user Cmd

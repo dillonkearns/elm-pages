@@ -173,7 +173,6 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
 -}
 
 import DataSource exposing (DataSource)
-import DataSource.Http
 import Head
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Json.Decode as Decode
@@ -204,13 +203,17 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
-            \path ->
+            \serverRequest path ->
                 Internal.ApiRoute.tryMatch path fullHandler
                     |> Maybe.map
                         (\toDataSource ->
-                            DataSource.Http.get
-                                "$$elm-pages$$headers"
-                                (toDataSource |> Server.Request.getDecoder |> Decode.map Just)
+                            Server.Request.getDecoder toDataSource
+                                |> (\decoder ->
+                                        Decode.decodeValue decoder serverRequest
+                                            |> Result.mapError Decode.errorToString
+                                            |> DataSource.fromResult
+                                            |> DataSource.map Just
+                                   )
                                 |> DataSource.andThen
                                     (\rendered ->
                                         case rendered of
@@ -262,7 +265,7 @@ preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString co
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
-            \path ->
+            \_ path ->
                 Internal.ApiRoute.tryMatch path fullHandler
                     |> Maybe.map (DataSource.map (Server.Response.toJson >> Just))
                     |> Maybe.withDefault
@@ -308,7 +311,7 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
-            \path ->
+            \_ path ->
                 let
                     matches : List String
                     matches =

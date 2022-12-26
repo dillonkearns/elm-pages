@@ -17,11 +17,10 @@ import Json.Encode
 import Pages.GeneratorProgramConfig exposing (GeneratorProgramConfig)
 import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
-import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (StaticResponses)
+import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.Script
 import Pages.StaticHttp.Request
-import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
 
@@ -34,7 +33,7 @@ type alias Flags =
 
 {-| -}
 type alias Model =
-    { staticResponses : StaticResponses
+    { staticResponses : DataSource ()
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , done : Bool
@@ -70,8 +69,8 @@ app config =
                 init cliOptions flags
                     |> Tuple.mapSecond (perform config)
         , update =
-            \cliOptions msg model ->
-                update cliOptions msg model
+            \_ msg model ->
+                update msg model
                     |> Tuple.mapSecond (perform config)
         , subscriptions =
             \_ ->
@@ -256,9 +255,6 @@ perform config effect =
                 |> config.sendPageData
                 |> Cmd.map never
 
-        Effect.Continue ->
-            Cmd.none
-
 
 
 -- TODO use Json.Decode.Value for flagsDecoder instead of hardcoded record flags
@@ -304,8 +300,8 @@ init execute flags =
                             "The elm-pages NPM package is ahead of the elm-pages Elm package. Try updating the elm-pages Elm package?"
                        )
         in
-        updateAndSendPortIfDone execute
-            { staticResponses = StaticResponses.empty
+        updateAndSendPortIfDone
+            { staticResponses = StaticResponses.empty ()
             , errors =
                 [ { title = "Incompatible NPM and Elm package versions"
                   , message = [ Terminal.text <| message ]
@@ -324,7 +320,7 @@ initLegacy :
     -> ( Model, Effect )
 initLegacy execute { staticHttpCache } =
     let
-        staticResponses : StaticResponses
+        staticResponses : DataSource ()
         staticResponses =
             StaticResponses.renderApiRequest execute
 
@@ -336,29 +332,26 @@ initLegacy execute { staticHttpCache } =
             , done = False
             }
     in
-    StaticResponses.nextStep initialModel Nothing
-        |> nextStepToEffect execute
+    StaticResponses.nextStep initialModel
+        |> nextStepToEffect
             initialModel
 
 
 updateAndSendPortIfDone :
-    DataSource ()
-    -> Model
+    Model
     -> ( Model, Effect )
-updateAndSendPortIfDone execute model =
+updateAndSendPortIfDone model =
     StaticResponses.nextStep
         model
-        Nothing
-        |> nextStepToEffect execute model
+        |> nextStepToEffect model
 
 
 {-| -}
 update :
-    DataSource ()
-    -> Msg
+    Msg
     -> Model
     -> ( Model, Effect )
-update execute msg model =
+update msg model =
     case msg of
         GotDataBatch batch ->
             let
@@ -369,8 +362,7 @@ update execute msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                Nothing
-                |> nextStepToEffect execute updatedModel
+                |> nextStepToEffect updatedModel
 
         GotBuildError buildError ->
             let
@@ -383,32 +375,29 @@ update execute msg model =
             in
             StaticResponses.nextStep
                 updatedModel
-                Nothing
-                |> nextStepToEffect execute updatedModel
+                |> nextStepToEffect updatedModel
 
 
 nextStepToEffect :
-    DataSource ()
-    -> Model
-    -> ( StaticResponses, StaticResponses.NextStep route )
+    Model
+    -> StaticResponses.NextStep route ()
     -> ( Model, Effect )
-nextStepToEffect execute model ( updatedStaticResponsesModel, nextStep ) =
+nextStepToEffect model nextStep =
     case nextStep of
-        StaticResponses.Continue updatedAllRawResponses httpRequests _ ->
+        StaticResponses.Continue httpRequests updatedStaticResponsesModel ->
             let
                 updatedModel : Model
                 updatedModel =
                     { model
-                        | allRawResponses = updatedAllRawResponses
+                        | allRawResponses = Dict.empty
                         , staticResponses = updatedStaticResponsesModel
                     }
             in
             if List.isEmpty httpRequests then
-                nextStepToEffect execute
+                nextStepToEffect
                     updatedModel
                     (StaticResponses.nextStep
                         updatedModel
-                        Nothing
                     )
 
             else
@@ -419,37 +408,17 @@ nextStepToEffect execute model ( updatedStaticResponsesModel, nextStep ) =
                     |> Effect.Batch
                 )
 
-        StaticResponses.Finish toJsPayload ->
-            case toJsPayload of
-                StaticResponses.ApiResponse ->
-                    let
-                        apiResponse : Effect
-                        apiResponse =
-                            StaticHttpRequest.resolve
-                                execute
-                                model.allRawResponses
-                                |> Result.mapError (StaticHttpRequest.toBuildError "TODO - path from request")
-                                |> (\response ->
-                                        case response of
-                                            Ok () ->
-                                                { body = Json.Encode.null
-                                                , staticHttpCache = Dict.empty
-                                                , statusCode = 200
-                                                }
-                                                    |> ToJsPayload.SendApiResponse
-                                                    |> Effect.SendSinglePage
+        StaticResponses.Finish () ->
+            ( model
+            , { body = Json.Encode.null
+              , staticHttpCache = Dict.empty
+              , statusCode = 200
+              }
+                |> ToJsPayload.SendApiResponse
+                |> Effect.SendSinglePage
+            )
 
-                                            Err error ->
-                                                [ error ]
-                                                    |> ToJsPayload.Errors
-                                                    |> Effect.SendSinglePage
-                                   )
-                    in
-                    ( model
-                    , apiResponse
-                    )
-
-                StaticResponses.Errors errors ->
-                    ( model
-                    , errors |> ToJsPayload.Errors |> Effect.SendSinglePage
-                    )
+        StaticResponses.FinishedWithErrors buildErrors ->
+            ( model
+            , buildErrors |> ToJsPayload.Errors |> Effect.SendSinglePage
+            )

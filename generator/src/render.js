@@ -411,7 +411,7 @@ async function runHttpJob(
 ) {
   pendingDataSourceCount += 1;
   try {
-    const responseFilePath = await lookupOrPerform(
+    const lookupResponse = await lookupOrPerform(
       portsFile,
       mode,
       requestToPerform,
@@ -419,12 +419,22 @@ async function runHttpJob(
       useCache
     );
 
-    pendingDataSourceResponses.push({
-      request: requestToPerform,
-      response: JSON.parse(
-        (await fs.promises.readFile(responseFilePath, "utf8")).toString()
-      ),
-    });
+    if (lookupResponse.kind === "cache-response-path") {
+      const responseFilePath = lookupResponse.value;
+      pendingDataSourceResponses.push({
+        request: requestToPerform,
+        response: JSON.parse(
+          (await fs.promises.readFile(responseFilePath, "utf8")).toString()
+        ),
+      });
+    } else if (lookupResponse.kind === "response-json") {
+      pendingDataSourceResponses.push({
+        request: requestToPerform,
+        response: lookupResponse.value,
+      });
+    } else {
+      throw `Unexpected kind ${lookupResponse}`;
+    }
   } catch (error) {
     sendError(app, error);
   } finally {

@@ -11,7 +11,7 @@ request :
     }
     -> DataSource a
 request { name, body, expect } =
-    DataSource.Http.request
+    DataSource.Http.uncachedRequest
         { url = "elm-pages-internal://" ++ name
         , method = "GET"
         , headers = []
