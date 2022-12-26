@@ -1,5 +1,6 @@
 module Route.Links exposing (ActionData, Data, Model, Msg, route)
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Head
 import Head.Seo as Seo
@@ -42,7 +43,7 @@ type alias Data =
     ()
 
 
-data : DataSource Data
+data : DataSource BuildError Data
 data =
     DataSource.succeed ()
 

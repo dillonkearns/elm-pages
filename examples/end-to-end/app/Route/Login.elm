@@ -1,5 +1,6 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
 import Form
@@ -50,12 +51,13 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (DataSource BuildError (Response ActionData ErrorPage))
 action routeParams =
     Request.formDataWithServerValidation (form |> Form.initCombinedServer identity)
         |> MySession.withSession
             (\nameResultData session ->
-                nameResultData
+                --nameResultData
+                Debug.todo ""
                     |> DataSource.map
                         (\nameResult ->
                             case nameResult of
@@ -84,7 +86,7 @@ type alias Data =
     }
 
 
-form : Form.DoneForm String (DataSource (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (DataSource error (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\username ->
@@ -160,7 +162,7 @@ form =
         |> Form.field "name" (Field.text |> Field.required "Required")
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (DataSource BuildError (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.succeed ()

@@ -1,5 +1,6 @@
 module Site exposing (config)
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Head
 import Pages.Manifest as Manifest
@@ -18,7 +19,7 @@ config =
     }
 
 
-head : DataSource (List Head.Tag)
+head : DataSource BuildError (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")

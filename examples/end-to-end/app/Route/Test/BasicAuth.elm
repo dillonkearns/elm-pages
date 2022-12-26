@@ -1,6 +1,7 @@
 module Route.Test.BasicAuth exposing (ActionData, Data, Model, Msg, route)
 
 import Base64
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
 import Head
@@ -45,7 +46,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Parser (DataSource BuildError (Response Data ErrorPage))
 data routeParams =
     withBasicAuth
         (\{ username, password } ->
@@ -100,9 +101,9 @@ parseAuth base64Auth =
 
 
 withBasicAuth :
-    ({ username : String, password : String } -> DataSource Bool)
-    -> DataSource (Response data errorPage)
-    -> Parser (DataSource (Response data errorPage))
+    ({ username : String, password : String } -> DataSource error Bool)
+    -> DataSource error (Response data errorPage)
+    -> Parser (DataSource error (Response data errorPage))
 withBasicAuth checkAuth successResponse =
     Request.optionalHeader "authorization"
         |> Request.map

@@ -1,5 +1,6 @@
 module DocsSection exposing (Section, all)
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Glob as Glob
 
@@ -11,7 +12,7 @@ type alias Section =
     }
 
 
-all : DataSource (List Section)
+all : DataSource BuildError (List Section)
 all =
     Glob.succeed Section
         |> Glob.captureFilePath

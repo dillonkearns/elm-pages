@@ -16,7 +16,7 @@ type alias BlogPost =
     }
 
 
-blogPostsGlob : DataSource.DataSource (List { filePath : String, slug : String })
+blogPostsGlob : DataSource.DataSource error (List { filePath : String, slug : String })
 blogPostsGlob =
     Glob.succeed BlogPost
         |> Glob.captureFilePath
@@ -26,7 +26,7 @@ blogPostsGlob =
         |> Glob.toDataSource
 
 
-allMetadata : DataSource.DataSource (List ( Route.Route, ArticleMetadata ))
+allMetadata : DataSource.DataSource (File.FileReadError Decode.Error) (List ( Route.Route, ArticleMetadata ))
 allMetadata =
     blogPostsGlob
         |> DataSource.map

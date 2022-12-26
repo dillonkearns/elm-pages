@@ -515,6 +515,7 @@ async function readFileJobNew(req, patternsToWatch) {
           path.join(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
         )
       ).toString();
+    // TODO does this throw an error if there is invalid frontmatter?
     const parsedFile = matter(fileContents);
 
     return jsonResponse(req, {
@@ -523,12 +524,9 @@ async function readFileJobNew(req, patternsToWatch) {
       rawFile: fileContents,
     });
   } catch (error) {
-    throw {
-      title: "DataSource.File Error",
-      message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
-        filePath
-      )}\n${kleur.red(error.toString())}`,
-    };
+    return jsonResponse(req, {
+      errorCode: error.code,
+    });
   }
 }
 async function runWriteFileJob(req) {

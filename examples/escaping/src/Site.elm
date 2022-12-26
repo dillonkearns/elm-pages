@@ -1,5 +1,6 @@
 module Site exposing (config)
 
+import BuildError exposing (BuildError)
 import Cloudinary
 import DataSource exposing (DataSource)
 import Head
@@ -22,14 +23,14 @@ type alias Data =
     }
 
 
-data : DataSource.DataSource Data
+data : DataSource.DataSource BuildError Data
 data =
     DataSource.map Data
         --(StaticFile.request "site-name.txt" StaticFile.body)
         (DataSource.succeed "site-name")
 
 
-head : DataSource (List Head.Tag)
+head : DataSource BuildError (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")

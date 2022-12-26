@@ -1,5 +1,6 @@
 module Route.Hello exposing (ActionData, Data, Model, Msg, route)
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
 import Head
@@ -44,7 +45,7 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (DataSource BuildError (Response Data ErrorPage))
 data routeParams =
     Request.succeed (DataSource.succeed (Response.render Data))
 

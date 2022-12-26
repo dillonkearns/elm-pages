@@ -2,6 +2,7 @@ module Pages.ProgramConfig exposing (ProgramConfig)
 
 import ApiRoute
 import Browser.Navigation
+import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
@@ -48,9 +49,9 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> ( userModel, effect )
     , update : Pages.FormState.PageFormState -> Dict String (Pages.Transition.FetcherState actionData) -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
-    , sharedData : DataSource sharedData
-    , data : Decode.Value -> route -> DataSource (PageServerResponse pageData errorPage)
-    , action : Decode.Value -> route -> DataSource (PageServerResponse actionData errorPage)
+    , sharedData : DataSource BuildError sharedData
+    , data : Decode.Value -> route -> DataSource BuildError (PageServerResponse pageData errorPage)
+    , action : Decode.Value -> route -> DataSource BuildError (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
         Pages.FormState.PageFormState
@@ -68,8 +69,8 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
             { view : userModel -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
             , head : List Head.Tag
             }
-    , handleRoute : route -> DataSource (Maybe NotFoundReason)
-    , getStaticRoutes : DataSource (List route)
+    , handleRoute : route -> DataSource BuildError (Maybe NotFoundReason)
+    , getStaticRoutes : DataSource BuildError (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , site : Maybe SiteConfig
@@ -101,7 +102,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , encodeResponse : ResponseSketch pageData actionData sharedData -> Bytes.Encode.Encoder
     , encodeAction : actionData -> Bytes.Encode.Encoder
     , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData actionData sharedData)
-    , globalHeadTags : Maybe ((Maybe { indent : Int, newLines : Bool } -> Html Never -> String) -> DataSource (List Head.Tag))
+    , globalHeadTags : Maybe ((Maybe { indent : Int, newLines : Bool } -> Html Never -> String) -> DataSource BuildError (List Head.Tag))
     , cmdToEffect : Cmd userMsg -> effect
     , perform :
         { fetchRouteData :

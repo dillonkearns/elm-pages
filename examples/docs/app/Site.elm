@@ -1,5 +1,6 @@
 module Site exposing (canonicalUrl, config)
 
+import BuildError exposing (BuildError)
 import Cloudinary
 import DataSource exposing (DataSource)
 import Head
@@ -15,7 +16,7 @@ config =
     }
 
 
-head : DataSource (List Head.Tag)
+head : DataSource BuildError (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")

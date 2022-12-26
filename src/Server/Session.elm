@@ -242,17 +242,17 @@ flashPrefix =
 {-| -}
 withSession :
     { name : String
-    , secrets : DataSource (List String)
+    , secrets : DataSource error (List String)
     , options : SetCookie.Options
     }
-    -> (request -> Result NotLoadedReason Session -> DataSource ( Session, Response data errorPage ))
+    -> (request -> Result NotLoadedReason Session -> DataSource error ( Session, Response data errorPage ))
     -> Server.Request.Parser request
-    -> Server.Request.Parser (DataSource (Response data errorPage))
+    -> Server.Request.Parser (DataSource error (Response data errorPage))
 withSession config toRequest userRequest =
     Server.Request.map2
         (\maybeSessionCookie userRequestData ->
             let
-                unsigned : DataSource (Result NotLoadedReason Session)
+                unsigned : DataSource error (Result NotLoadedReason Session)
                 unsigned =
                     case maybeSessionCookie of
                         Just sessionCookie ->
@@ -282,13 +282,13 @@ withSession config toRequest userRequest =
 
 encodeSessionUpdate :
     { name : String
-    , secrets : DataSource (List String)
+    , secrets : DataSource error (List String)
     , options : SetCookie.Options
     }
-    -> (c -> d -> DataSource ( Session, Response data errorPage ))
+    -> (c -> d -> DataSource error ( Session, Response data errorPage ))
     -> c
     -> d
-    -> DataSource (Response data errorPage)
+    -> DataSource error (Response data errorPage)
 encodeSessionUpdate config toRequest userRequestData sessionResult =
     sessionResult
         |> toRequest userRequestData
@@ -306,7 +306,7 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
             )
 
 
-unsignCookie : { a | secrets : DataSource (List String) } -> String -> DataSource (Result () Session)
+unsignCookie : { a | secrets : DataSource error (List String) } -> String -> DataSource error (Result () Session)
 unsignCookie config sessionCookie =
     sessionCookie
         |> unsign config.secrets (Json.Decode.dict Json.Decode.string)
@@ -331,7 +331,7 @@ unsignCookie config sessionCookie =
             )
 
 
-sign : DataSource (List String) -> Json.Encode.Value -> DataSource String
+sign : DataSource error (List String) -> Json.Encode.Value -> DataSource error String
 sign getSecrets input =
     getSecrets
         |> DataSource.andThen
@@ -359,7 +359,7 @@ sign getSecrets input =
             )
 
 
-unsign : DataSource (List String) -> Json.Decode.Decoder a -> String -> DataSource (Result () a)
+unsign : DataSource error (List String) -> Json.Decode.Decoder a -> String -> DataSource error (Result () a)
 unsign getSecrets decoder input =
     getSecrets
         |> DataSource.andThen

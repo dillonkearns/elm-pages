@@ -1,5 +1,6 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.File
 import DataSource.Port
@@ -48,10 +49,10 @@ type alias Data =
     }
 
 
-data : DataSource Data
+data : DataSource BuildError Data
 data =
     DataSource.map2 Data
-        (DataSource.File.rawFile "greeting.txt")
+        (DataSource.File.rawFile "greeting.txt" |> DataSource.mapError DataSource.File.toBuildError)
         (DataSource.Port.get "hello" (Encode.string "Jane") Decode.string)
 
 

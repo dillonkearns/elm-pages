@@ -9,14 +9,14 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
 
 
-empty : a -> DataSource a
+empty : a -> DataSource BuildError a
 empty a =
     DataSource.succeed a
 
 
 renderApiRequest :
-    DataSource response
-    -> DataSource response
+    DataSource BuildError response
+    -> DataSource BuildError response
 renderApiRequest request =
     request
 
@@ -49,21 +49,21 @@ batchUpdate newEntries model =
 
 
 type NextStep route value
-    = Continue (List HashRequest.Request) (StaticHttpRequest.RawRequest value)
+    = Continue (List HashRequest.Request) (StaticHttpRequest.RawRequest BuildError value)
     | Finish value
     | FinishedWithErrors (List BuildError)
 
 
 nextStep :
     { model
-        | staticResponses : DataSource a
+        | staticResponses : DataSource BuildError a
         , errors : List BuildError
         , allRawResponses : RequestsAndPending
     }
     -> NextStep route a
 nextStep ({ allRawResponses, errors } as model) =
     let
-        staticRequestsStatus : StaticHttpRequest.Status a
+        staticRequestsStatus : StaticHttpRequest.Status BuildError a
         staticRequestsStatus =
             allRawResponses
                 |> StaticHttpRequest.cacheRequestResolution model.staticResponses
@@ -73,8 +73,14 @@ nextStep ({ allRawResponses, errors } as model) =
                 StaticHttpRequest.Incomplete newUrlsToFetch nextReq ->
                     ( ( True, Nothing ), newUrlsToFetch, nextReq )
 
-                StaticHttpRequest.Complete value ->
-                    ( ( False, Just value )
+                StaticHttpRequest.Complete (Err error) ->
+                    ( ( False, Just (Err error) )
+                    , []
+                    , DataSource.fail error
+                    )
+
+                StaticHttpRequest.Complete (Ok value) ->
+                    ( ( False, Just (Ok value) )
                     , []
                     , DataSource.succeed value
                     )
@@ -82,7 +88,7 @@ nextStep ({ allRawResponses, errors } as model) =
                 StaticHttpRequest.HasPermanentError _ ->
                     ( ( False, Nothing )
                     , []
-                    , DataSource.fail "TODO this shouldn't happen"
+                    , DataSource.fail (BuildError.internal "TODO this shouldn't happen")
                     )
     in
     if pendingRequests then
@@ -127,8 +133,13 @@ nextStep ({ allRawResponses, errors } as model) =
 
         else
             case completedValue of
-                Just completed ->
+                Just (Ok completed) ->
                     Finish completed
+
+                Just (Err buildError) ->
+                    FinishedWithErrors
+                        [ buildError
+                        ]
 
                 Nothing ->
                     FinishedWithErrors

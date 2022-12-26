@@ -1,5 +1,6 @@
 module Route.Escaping exposing (ActionData, Data, Model, Msg, route)
 
+import BuildError exposing (BuildError)
 import Css exposing (..)
 import Css.Global
 import DataSource exposing (DataSource)
@@ -47,9 +48,10 @@ type alias Data =
     String
 
 
-data : DataSource Data
+data : DataSource BuildError Data
 data =
     DataSource.File.rawFile "unsafe-script-tag.txt"
+        |> DataSource.mapError DataSource.File.toBuildError
 
 
 head :

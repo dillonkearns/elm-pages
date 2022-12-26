@@ -2,12 +2,11 @@ module Test.Glob exposing (all)
 
 import DataSource exposing (DataSource)
 import DataSource.Glob as Glob exposing (Glob, Include(..), defaultOptions)
-import DataSource.Internal.Glob
 import Expect
-import Test exposing (Test, describe, only, test)
+import Test exposing (Test, describe, test)
 
 
-all : DataSource Test
+all : DataSource error Test
 all =
     [ globTestCase
         { name = "1"
@@ -288,7 +287,7 @@ type JsonOrYaml
     | YAML
 
 
-globTestCase : { name : String, glob : Glob value, expected : List value } -> DataSource Test
+globTestCase : { name : String, glob : Glob value, expected : List value } -> DataSource error Test
 globTestCase { glob, name, expected } =
     Glob.toDataSource glob
         |> DataSource.map
@@ -322,7 +321,7 @@ testDir :
     , expectedDirs : List value
     , expectedFiles : List value
     }
-    -> DataSource Test
+    -> DataSource error Test
 testDir { glob, name, expectedDirs, expectedFiles } =
     glob
         |> Glob.toDataSourceWithOptions

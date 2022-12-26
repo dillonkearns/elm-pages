@@ -1,6 +1,7 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
-import DataSource
+import BuildError exposing (BuildError)
+import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import Html exposing (Html)
 import Html.Styled
@@ -75,7 +76,7 @@ subscriptions _ _ =
     Sub.none
 
 
-data : DataSource.DataSource Data
+data : DataSource BuildError Data
 data =
     DataSource.succeed ()
 

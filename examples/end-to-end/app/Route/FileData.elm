@@ -1,5 +1,6 @@
 module Route.FileData exposing (ActionData, Data, Model, Msg, route)
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.File
 import Head
@@ -44,10 +45,11 @@ type alias Data =
     }
 
 
-data : DataSource Data
+data : DataSource BuildError Data
 data =
     "my-json-data.json"
         |> DataSource.File.jsonFile (Decode.field "greeting" Decode.string)
+        |> DataSource.mapError DataSource.File.toBuildError
         |> DataSource.map Data
 
 

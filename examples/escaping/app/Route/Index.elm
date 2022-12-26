@@ -1,5 +1,6 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.File
 import Head
@@ -43,7 +44,7 @@ type alias Data =
     ()
 
 
-data : DataSource Data
+data : DataSource BuildError Data
 data =
     DataSource.succeed ()
 

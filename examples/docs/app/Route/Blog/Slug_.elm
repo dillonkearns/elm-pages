@@ -1,6 +1,7 @@
 module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
 import Article
+import BuildError exposing (BuildError)
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import DataSource exposing (DataSource)
@@ -51,7 +52,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource.DataSource (List RouteParams)
+pages : DataSource BuildError (List RouteParams)
 pages =
     Article.blogPostsGlob
         |> DataSource.map
@@ -239,7 +240,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> DataSource Data
+data : RouteParams -> DataSource BuildError Data
 data routeParams =
     MarkdownCodec.withFrontmatter Data
         frontmatterDecoder

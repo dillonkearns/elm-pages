@@ -2,7 +2,8 @@ module Route.Fetcher exposing (ActionData, Data, Model, Msg, RouteParams, route)
 
 {-| -}
 
-import DataSource
+import BuildError exposing (BuildError)
+import DataSource exposing (DataSource)
 import DataSource.Port
 import Dict
 import Effect
@@ -93,7 +94,7 @@ type alias ActionData =
 
 data :
     RouteParams
-    -> Server.Request.Parser (DataSource.DataSource (Server.Response.Response Data ErrorPage.ErrorPage))
+    -> Server.Request.Parser (DataSource BuildError (Server.Response.Response Data ErrorPage.ErrorPage))
 data routeParams =
     Server.Request.succeed
         (DataSource.Port.get "getItems"
@@ -115,7 +116,7 @@ type Action
 
 action :
     RouteParams
-    -> Server.Request.Parser (DataSource.DataSource (Server.Response.Response ActionData ErrorPage.ErrorPage))
+    -> Server.Request.Parser (DataSource BuildError (Server.Response.Response ActionData ErrorPage.ErrorPage))
 action routeParams =
     Server.Request.formData
         forms

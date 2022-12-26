@@ -1,5 +1,6 @@
 module TableOfContents exposing (..)
 
+import BuildError exposing (BuildError)
 import Css
 import DataSource exposing (DataSource)
 import DataSource.File
@@ -13,8 +14,8 @@ import Tailwind.Utilities as Tw
 
 
 dataSource :
-    DataSource (List { file | filePath : String, slug : String })
-    -> DataSource (TableOfContents Data)
+    DataSource BuildError (List { file | filePath : String, slug : String })
+    -> DataSource BuildError (TableOfContents Data)
 dataSource docFiles =
     docFiles
         |> DataSource.map
@@ -24,19 +25,20 @@ dataSource docFiles =
                         (\section ->
                             DataSource.File.bodyWithoutFrontmatter
                                 section.filePath
+                                |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
                                 |> DataSource.andThen (headingsDecoder section.slug)
                         )
             )
         |> DataSource.resolve
 
 
-headingsDecoder : String -> String -> DataSource (Entry Data)
+headingsDecoder : String -> String -> DataSource BuildError (Entry Data)
 headingsDecoder slug rawBody =
     rawBody
         |> Markdown.Parser.parse
-        |> Result.mapError (\_ -> "Markdown parsing error")
+        |> Result.mapError (\_ -> BuildError.internal "Markdown parsing error")
         |> Result.map gatherHeadings
-        |> Result.andThen (nameAndTopLevel slug)
+        |> Result.andThen (nameAndTopLevel slug >> Result.mapError BuildError.internal)
         |> DataSource.fromResult
 
 

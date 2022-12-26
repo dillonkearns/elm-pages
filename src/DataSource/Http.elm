@@ -126,7 +126,7 @@ type alias Body =
 get :
     String
     -> Json.Decode.Decoder a
-    -> DataSource a
+    -> DataSource Pages.StaticHttpRequest.Error a
 get url decoder =
     request
         ((\okUrl ->
@@ -253,7 +253,7 @@ expectToString expect =
 request :
     RequestDetails
     -> Expect a
-    -> DataSource a
+    -> DataSource Pages.StaticHttpRequest.Error a
 request request__ expect =
     let
         request_ : HashRequest.Request
@@ -272,7 +272,7 @@ request request__ expect =
 uncachedRequest :
     RequestDetails
     -> Expect a
-    -> DataSource a
+    -> DataSource Pages.StaticHttpRequest.Error a
 uncachedRequest request__ expect =
     let
         request_ : HashRequest.Request
@@ -294,7 +294,7 @@ with this as a low-level detail, or you can use functions like [DataSource.Http.
 requestRaw :
     HashRequest.Request
     -> Expect a
-    -> DataSource a
+    -> DataSource Pages.StaticHttpRequest.Error a
 requestRaw request__ expect =
     let
         request_ : HashRequest.Request
@@ -436,11 +436,6 @@ type Error
     | BadBody String
 
 
-toResult : Result Pages.StaticHttpRequest.Error b -> RawRequest b
+toResult : Result Pages.StaticHttpRequest.Error b -> RawRequest Pages.StaticHttpRequest.Error b
 toResult result =
-    case result of
-        Err error ->
-            RequestError error
-
-        Ok okValue ->
-            ApiRoute okValue
+    ApiRoute result

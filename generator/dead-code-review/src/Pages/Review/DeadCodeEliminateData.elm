@@ -134,7 +134,8 @@ declarationVisitor node context =
                                                 -- TODO need to replace `action` as well
                                                 [ ("data = "
                                                     ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                    ++ " \"\"\n    "
+                                                    -- TODO add `import BuildError` if not present (and use alias if present)
+                                                    ++ " (BuildError.internal \"\")\n    "
                                                   )
                                                     |> Review.Fix.replaceRangeBy (Node.range dataValue)
                                                 ]
@@ -192,12 +193,12 @@ expressionVisitor node context =
                                                     "preRender" ->
                                                         "\\_ -> "
                                                             ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                            ++ " \"\""
+                                                            ++ " (BuildError.internal \"\")"
 
                                                     "preRenderWithFallback" ->
                                                         "\\_ -> "
                                                             ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                            ++ " \"\""
+                                                            ++ " (BuildError.internal \"\")"
 
                                                     "serverRender" ->
                                                         "\\_ -> "
@@ -206,7 +207,7 @@ expressionVisitor node context =
 
                                                     "single" ->
                                                         referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                            ++ " \"\"\n       "
+                                                            ++ " (BuildError.internal \"\")\n       "
 
                                                     _ ->
                                                         "data"

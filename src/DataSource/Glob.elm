@@ -896,7 +896,7 @@ toNonEmptyWithDefault default list =
 
 {-| In order to get match data from your glob, turn it into a `DataSource` with this function.
 -}
-toDataSource : Glob a -> DataSource (List a)
+toDataSource : Glob a -> DataSource error (List a)
 toDataSource glob =
     toDataSourceWithOptions defaultOptions glob
 
@@ -970,7 +970,7 @@ encodeOptions options =
             |> Glob.toDataSourceWithOptions { defaultOptions | include = OnlyFolders }
 
 -}
-toDataSourceWithOptions : Options -> Glob a -> DataSource (List a)
+toDataSourceWithOptions : Options -> Glob a -> DataSource error (List a)
 toDataSourceWithOptions options glob =
     DataSource.Internal.Request.request
         { name = "glob"
@@ -996,6 +996,8 @@ toDataSourceWithOptions options glob =
                     )
                 |> DataSource.Http.expectJson
         }
+        |> DataSource.onError
+            (\_ -> DataSource.succeed [])
 
 
 {-| Sometimes you want to make sure there is a unique file matching a particular pattern.
@@ -1051,7 +1053,7 @@ so it's ideal to make this kind of assertion rather than having fallback behavio
 issues (like if we had instead ignored the case where there are two or more matching blog post files).
 
 -}
-expectUniqueMatch : Glob a -> DataSource a
+expectUniqueMatch : Glob a -> DataSource String a
 expectUniqueMatch glob =
     glob
         |> toDataSource
@@ -1070,7 +1072,7 @@ expectUniqueMatch glob =
 
 
 {-| -}
-expectUniqueMatchFromList : List (Glob a) -> DataSource a
+expectUniqueMatchFromList : List (Glob a) -> DataSource String a
 expectUniqueMatchFromList globs =
     globs
         |> List.map toDataSource

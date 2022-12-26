@@ -1,7 +1,8 @@
 module Route.Blog exposing (ActionData, Data, Model, Msg, route)
 
 import Article
-import DataSource
+import BuildError exposing (BuildError)
+import DataSource exposing (DataSource)
 import Date
 import Head
 import Head.Seo as Seo
@@ -33,9 +34,10 @@ route =
             }
 
 
-data : DataSource.DataSource Data
+data : DataSource BuildError Data
 data =
     Article.allMetadata
+        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
 
 
 type alias Data =

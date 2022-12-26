@@ -172,6 +172,7 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
 
 -}
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Head
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
@@ -191,14 +192,14 @@ type alias ApiRoute response =
 {-| Same as [`preRender`](#preRender), but for an ApiRoute that has no dynamic segments. This is just a bit simpler because
 since there are no dynamic segments, you don't need to provide a DataSource with the list of dynamic segments to pre-render because there is only a single possible route.
 -}
-single : ApiRouteBuilder (DataSource String) (List String) -> ApiRoute Response
+single : ApiRouteBuilder (DataSource BuildError String) (List String) -> ApiRoute Response
 single handler =
     handler
         |> preRender (\constructor -> DataSource.succeed [ constructor ])
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Parser (DataSource (Server.Response.Response Never Never))) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Parser (DataSource Never (Server.Response.Response Never Never))) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
@@ -214,11 +215,13 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                                             |> DataSource.fromResult
                                             |> DataSource.map Just
                                    )
+                                |> DataSource.onError (\stringError -> Debug.todo ("TODO: Not handled yet:" ++ stringError))
                                 |> DataSource.andThen
                                     (\rendered ->
                                         case rendered of
                                             Just (Ok okRendered) ->
                                                 okRendered
+                                                    |> DataSource.onError never
 
                                             Just (Err errors) ->
                                                 errors
@@ -226,11 +229,13 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                                                     |> Server.Response.plainText
                                                     |> Server.Response.withStatusCode 400
                                                     |> DataSource.succeed
+                                                    |> DataSource.onError never
 
                                             Nothing ->
                                                 Server.Response.plainText "No matching request handler"
                                                     |> Server.Response.withStatusCode 400
                                                     |> DataSource.succeed
+                                                    |> DataSource.onError never
                                     )
                         )
                     |> Maybe.map (DataSource.map (Server.Response.toJson >> Just))
@@ -254,10 +259,10 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
 
 
 {-| -}
-preRenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource (Server.Response.Response Never Never)) constructor -> ApiRoute Response
+preRenderWithFallback : (constructor -> DataSource BuildError (List (List String))) -> ApiRouteBuilder (DataSource BuildError (Server.Response.Response Never Never)) constructor -> ApiRoute Response
 preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
-        buildTimeRoutes__ : DataSource (List String)
+        buildTimeRoutes__ : DataSource BuildError (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> DataSource.map (List.map toString)
@@ -296,15 +301,15 @@ encodeStaticFileBody fileBody =
 
 
 {-| -}
-preRender : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource String) constructor -> ApiRoute Response
+preRender : (constructor -> DataSource BuildError (List (List String))) -> ApiRouteBuilder (DataSource BuildError String) constructor -> ApiRoute Response
 preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
-        buildTimeRoutes__ : DataSource (List String)
+        buildTimeRoutes__ : DataSource BuildError (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> DataSource.map (List.map toString)
 
-        preBuiltMatches : DataSource (List (List String))
+        preBuiltMatches : DataSource BuildError (List (List String))
         preBuiltMatches =
             buildUrls (constructor [])
     in
@@ -317,7 +322,7 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
                     matches =
                         Internal.ApiRoute.pathToMatches path fullHandler
 
-                    routeFound : DataSource Bool
+                    routeFound : DataSource BuildError Bool
                     routeFound =
                         preBuiltMatches
                             |> DataSource.map (List.member matches)
@@ -343,6 +348,7 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
                 in
                 preBuiltMatches
                     |> DataSource.map (List.member matches)
+                    |> Debug.todo ""
         , pattern = patterns
         , kind = "prerender"
         , globalHeadTags = Nothing
@@ -425,20 +431,20 @@ capture (ApiRouteBuilder patterns pattern previousHandler toString constructor) 
 
 {-| For internal use by generated code. Not so useful in user-land.
 -}
-getBuildTimeRoutes : ApiRoute response -> DataSource (List String)
+getBuildTimeRoutes : ApiRoute response -> DataSource BuildError (List String)
 getBuildTimeRoutes (ApiRoute handler) =
     handler.buildTimeRoutes
 
 
 {-| Include head tags on every page's HTML.
 -}
-withGlobalHeadTags : DataSource (List Head.Tag) -> ApiRoute response -> ApiRoute response
+withGlobalHeadTags : DataSource BuildError (List Head.Tag) -> ApiRoute response -> ApiRoute response
 withGlobalHeadTags globalHeadTags (ApiRoute handler) =
     ApiRoute { handler | globalHeadTags = Just globalHeadTags }
 
 
 {-| -}
-getGlobalHeadTagsDataSource : ApiRoute response -> Maybe (DataSource (List Head.Tag))
+getGlobalHeadTagsDataSource : ApiRoute response -> Maybe (DataSource BuildError (List Head.Tag))
 getGlobalHeadTagsDataSource (ApiRoute handler) =
     handler.globalHeadTags
 

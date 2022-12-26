@@ -665,6 +665,7 @@ otherFile routes phaseString =
                         }
                         |> Elm.withType
                             (Gen.DataSource.annotation_.dataSource
+                                (Type.named [ "BuildError" ] "BuildError")
                                 (Gen.Server.Response.annotation_.response
                                     (Type.named [] "PageData")
                                     (Type.named [ "ErrorPage" ] "ErrorPage")
@@ -714,6 +715,7 @@ otherFile routes phaseString =
                         }
                         |> Elm.withType
                             (Gen.DataSource.annotation_.dataSource
+                                (Type.named [ "BuildError" ] "BuildError")
                                 (Gen.Server.Response.annotation_.response
                                     (Type.named [] "ActionData")
                                     (Type.named [ "ErrorPage" ] "ErrorPage")
@@ -1426,7 +1428,10 @@ otherFile routes phaseString =
                             )
                         }
                         |> Elm.withType
-                            (Gen.DataSource.annotation_.dataSource (Type.maybe Gen.Pages.Internal.NotFoundReason.annotation_.notFoundReason))
+                            (Gen.DataSource.annotation_.dataSource
+                                (Type.named [ "BuildError" ] "BuildError")
+                                (Type.maybe Gen.Pages.Internal.NotFoundReason.annotation_.notFoundReason)
+                            )
                 )
 
         maybeToString : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
@@ -1864,6 +1869,7 @@ otherFile routes phaseString =
                         |> Gen.DataSource.call_.map Gen.List.values_.concat
                         |> Elm.withType
                             (Gen.DataSource.annotation_.dataSource
+                                (Type.named [ "BuildError" ] "BuildError")
                                 (Type.list Gen.Head.annotation_.tag)
                             )
                 )
@@ -1985,6 +1991,7 @@ otherFile routes phaseString =
                     |> Gen.DataSource.call_.map Gen.List.values_.concat
                     |> Elm.withType
                         (Gen.DataSource.annotation_.dataSource
+                            (Type.named [ "BuildError" ] "BuildError")
                             (Type.list (Type.named [ "Route" ] "Route"))
                         )
                 )

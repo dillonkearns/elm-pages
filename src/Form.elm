@@ -681,7 +681,7 @@ toServerForm :
     ->
         Form
             error
-            { combine : Validation.Validation error (DataSource (Validation.Validation error combined kind constraints)) kind constraints
+            { combine : Validation.Validation error (DataSource dataSourceError (Validation.Validation error combined kind constraints)) kind constraints
             , view : viewFn
             }
             data
@@ -694,7 +694,7 @@ toServerForm (Form a b c) =
                 { result : Dict String (List error)
                 , isMatchCandidate : Bool
                 , combineAndView :
-                    { combine : Validation.Validation error (DataSource (Validation.Validation error combined kind constraints)) kind constraints
+                    { combine : Validation.Validation error (DataSource dataSourceError (Validation.Validation error combined kind constraints)) kind constraints
                     , view : viewFn
                     }
                 }
@@ -1568,10 +1568,10 @@ initCombinedServer :
         Form
             error
             { combineAndView
-                | combine : Combined error (DataSource (Validation.Validation error parsed kind constraints))
+                | combine : Combined error (DataSource dataSourceError (Validation.Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (DataSource (Validation.Validation error combined kind constraints))
+    -> ServerForms error (DataSource dataSourceError (Validation.Validation error combined kind constraints))
 initCombinedServer mapFn serverForms =
     initCombined (DataSource.map (Validation.map mapFn)) serverForms
 
@@ -1584,11 +1584,11 @@ combineServer :
             error
             { combineAndView
                 | combine :
-                    Combined error (DataSource (Validation.Validation error parsed kind constraints))
+                    Combined error (DataSource dataSourceError (Validation.Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (DataSource (Validation.Validation error combined kind constraints))
-    -> ServerForms error (DataSource (Validation.Validation error combined kind constraints))
+    -> ServerForms error (DataSource dataSourceError (Validation.Validation error combined kind constraints))
+    -> ServerForms error (DataSource dataSourceError (Validation.Validation error combined kind constraints))
 combineServer mapFn a b =
     combine (DataSource.map (Validation.map mapFn)) a b
 

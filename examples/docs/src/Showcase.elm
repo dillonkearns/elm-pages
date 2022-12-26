@@ -1,6 +1,7 @@
 module Showcase exposing (..)
 
-import DataSource
+import BuildError exposing (BuildError)
+import DataSource exposing (DataSource)
 import DataSource.Env as Env
 import DataSource.Http
 import Json.Decode as Decode exposing (Decoder)
@@ -37,9 +38,10 @@ entryDecoder =
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
-staticRequest : DataSource.DataSource (List Entry)
+staticRequest : DataSource BuildError (List Entry)
 staticRequest =
     Env.expect "AIRTABLE_TOKEN"
+        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
         |> DataSource.andThen
             (\airtableToken ->
                 DataSource.Http.request
@@ -49,6 +51,7 @@ staticRequest =
                     , body = DataSource.Http.emptyBody
                     }
                     (DataSource.Http.expectJson decoder)
+                    |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
             )
 
 

@@ -1,5 +1,6 @@
 module Manifest exposing (config)
 
+import BuildError exposing (BuildError)
 import Cloudinary
 import DataSource exposing (DataSource)
 import MimeType
@@ -8,7 +9,7 @@ import Pages.Url
 import Route
 
 
-config : DataSource Manifest.Config
+config : DataSource BuildError Manifest.Config
 config =
     Manifest.init
         { name = "elm-pages"

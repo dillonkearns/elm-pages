@@ -50,7 +50,7 @@ currentCompatibilityKey =
 
 {-| -}
 type alias Model route =
-    { staticResponses : DataSource Effect
+    { staticResponses : DataSource BuildError Effect
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , maybeRequestJson : RenderRequest route
@@ -414,11 +414,11 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { isDevServer } config =
     let
-        globalHeadTags : DataSource (List Tag)
+        globalHeadTags : DataSource BuildError (List Tag)
         globalHeadTags =
             (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
 
-        staticResponsesNew : DataSource Effect
+        staticResponsesNew : DataSource BuildError Effect
         staticResponsesNew =
             StaticResponses.renderApiRequest
                 (case singleRequest of

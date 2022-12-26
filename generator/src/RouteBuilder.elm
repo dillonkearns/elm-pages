@@ -85,9 +85,8 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 
 -}
 
-import Bytes exposing (Bytes)
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
-import DataSource.Http
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -110,9 +109,9 @@ import View exposing (View)
 
 {-| -}
 type alias StatefulRoute routeParams data action model msg =
-    { data : Json.Decode.Value -> routeParams -> DataSource (Server.Response.Response data ErrorPage)
-    , action : Json.Decode.Value -> routeParams -> DataSource (Server.Response.Response action ErrorPage)
-    , staticRoutes : DataSource (List routeParams)
+    { data : Json.Decode.Value -> routeParams -> DataSource BuildError (Server.Response.Response data ErrorPage)
+    , action : Json.Decode.Value -> routeParams -> DataSource BuildError (Server.Response.Response action ErrorPage)
+    , staticRoutes : DataSource BuildError (List routeParams)
     , view :
         Maybe PageUrl
         -> Shared.Model
@@ -125,7 +124,7 @@ type alias StatefulRoute routeParams data action model msg =
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
     , update : PageUrl -> StaticPayload data action routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> model -> Shared.Model -> Sub msg
-    , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource (Maybe NotFoundReason)
+    , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource BuildError (Maybe NotFoundReason)
     , kind : String
     , onAction : Maybe (action -> msg)
     }
@@ -155,9 +154,9 @@ type alias StaticPayload data action routeParams =
 {-| -}
 type Builder routeParams data action
     = WithData
-        { data : Json.Decode.Value -> routeParams -> DataSource (Server.Response.Response data ErrorPage)
-        , action : Json.Decode.Value -> routeParams -> DataSource (Server.Response.Response action ErrorPage)
-        , staticRoutes : DataSource (List routeParams)
+        { data : Json.Decode.Value -> routeParams -> DataSource BuildError (Server.Response.Response data ErrorPage)
+        , action : Json.Decode.Value -> routeParams -> DataSource BuildError (Server.Response.Response action ErrorPage)
+        , staticRoutes : DataSource BuildError (List routeParams)
         , head :
             StaticPayload data action routeParams
             -> List Head.Tag
@@ -166,7 +165,7 @@ type Builder routeParams data action
             { moduleName : List String, routePattern : RoutePattern }
             -> (routeParams -> List ( String, String ))
             -> routeParams
-            -> DataSource (Maybe NotFoundReason)
+            -> DataSource BuildError (Maybe NotFoundReason)
         , kind : String
         }
 
@@ -293,14 +292,14 @@ buildWithSharedState config builderState =
 
 {-| -}
 single :
-    { data : DataSource data
+    { data : DataSource BuildError data
     , head : StaticPayload data action {} -> List Head.Tag
     }
     -> Builder {} data action
 single { data, head } =
     WithData
         { data = \_ _ -> data |> DataSource.map Server.Response.render
-        , action = \_ _ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
+        , action = \_ _ -> DataSource.fail (BuildError.internal "Internal Error - actions should never be called for statically generated pages.")
         , staticRoutes = DataSource.succeed [ {} ]
         , head = head
         , serverless = False
@@ -311,15 +310,15 @@ single { data, head } =
 
 {-| -}
 preRender :
-    { data : routeParams -> DataSource data
-    , pages : DataSource (List routeParams)
+    { data : routeParams -> DataSource BuildError data
+    , pages : DataSource BuildError (List routeParams)
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
 preRender { data, head, pages } =
     WithData
         { data = \_ -> data >> DataSource.map Server.Response.render
-        , action = \_ _ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
+        , action = \_ _ -> DataSource.fail (BuildError.internal "Internal Error - actions should never be called for statically generated pages.")
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -349,15 +348,15 @@ preRender { data, head, pages } =
 
 {-| -}
 preRenderWithFallback :
-    { data : routeParams -> DataSource (Server.Response.Response data ErrorPage)
-    , pages : DataSource (List routeParams)
+    { data : routeParams -> DataSource BuildError (Server.Response.Response data ErrorPage)
+    , pages : DataSource BuildError (List routeParams)
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
 preRenderWithFallback { data, head, pages } =
     WithData
         { data = \_ -> data
-        , action = \_ _ -> DataSource.fail "Internal Error - actions should never be called for statically generated pages."
+        , action = \_ _ -> DataSource.fail (BuildError.internal "Internal Error - actions should never be called for statically generated pages.")
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -370,8 +369,8 @@ preRenderWithFallback { data, head, pages } =
 
 {-| -}
 serverRender :
-    { data : routeParams -> Server.Request.Parser (DataSource (Server.Response.Response data ErrorPage))
-    , action : routeParams -> Server.Request.Parser (DataSource (Server.Response.Response action ErrorPage))
+    { data : routeParams -> Server.Request.Parser (DataSource BuildError (Server.Response.Response data ErrorPage))
+    , action : routeParams -> Server.Request.Parser (DataSource BuildError (Server.Response.Response action ErrorPage))
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
@@ -386,6 +385,7 @@ serverRender { data, action, head } =
                             Json.Decode.decodeValue decoder requestPayload
                                 |> Result.mapError Json.Decode.errorToString
                                 |> DataSource.fromResult
+                                |> DataSource.onError (\error -> Debug.todo "TODO - handle error type")
                        )
                 )
                     |> DataSource.andThen
@@ -395,7 +395,9 @@ serverRender { data, action, head } =
                                     okRendered
 
                                 Err error ->
-                                    Server.Request.errorsToString error |> DataSource.fail
+                                    Server.Request.errorsToString error
+                                        |> BuildError.internal
+                                        |> DataSource.fail
                         )
         , action =
             \requestPayload routeParams ->
@@ -406,6 +408,7 @@ serverRender { data, action, head } =
                             Json.Decode.decodeValue decoder requestPayload
                                 |> Result.mapError Json.Decode.errorToString
                                 |> DataSource.fromResult
+                                |> DataSource.onError (\error -> Debug.todo "TODO - handle error type")
                        )
                 )
                     |> DataSource.andThen
@@ -415,7 +418,9 @@ serverRender { data, action, head } =
                                     okRendered
 
                                 Err error ->
-                                    Server.Request.errorsToString error |> DataSource.fail
+                                    Server.Request.errorsToString error
+                                        |> BuildError.internal
+                                        |> DataSource.fail
                         )
         , staticRoutes = DataSource.succeed []
         , head = head

@@ -1,6 +1,7 @@
 module DataSource.File exposing
     ( bodyWithFrontmatter, bodyWithoutFrontmatter, onlyFrontmatter
     , jsonFile, rawFile
+    , FileReadError(..), toBuildError
     )
 
 {-| This module lets you read files from the local filesystem as a [`DataSource`](DataSource#DataSource).
@@ -42,6 +43,7 @@ plain old JSON in Elm.
 
 -}
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Request
@@ -133,7 +135,7 @@ It's common to parse the body with a markdown parser or other format.
                 )
 
 -}
-bodyWithFrontmatter : (String -> Decoder frontmatter) -> String -> DataSource frontmatter
+bodyWithFrontmatter : (String -> Decoder frontmatter) -> String -> DataSource (FileReadError Decode.Error) frontmatter
 bodyWithFrontmatter frontmatterDecoder filePath =
     read filePath
         (body
@@ -142,6 +144,12 @@ bodyWithFrontmatter frontmatterDecoder filePath =
                     frontmatter (frontmatterDecoder bodyString)
                 )
         )
+
+
+type FileReadError decoding
+    = FileDoesntExist
+    | FileReadError String
+    | DecodingError decoding
 
 
 {-| Same as `bodyWithFrontmatter` except it doesn't include the body.
@@ -198,7 +206,7 @@ the [`DataSource`](DataSource) API along with [`DataSource.Glob`](DataSource-Glo
             |> DataSource.resolve
 
 -}
-onlyFrontmatter : Decoder frontmatter -> String -> DataSource frontmatter
+onlyFrontmatter : Decoder frontmatter -> String -> DataSource (FileReadError Decode.Error) frontmatter
 onlyFrontmatter frontmatterDecoder filePath =
     read filePath
         (frontmatter frontmatterDecoder)
@@ -225,7 +233,7 @@ Hey there! This is my first post :)
 Then data will yield the value `"Hey there! This is my first post :)"`.
 
 -}
-bodyWithoutFrontmatter : String -> DataSource String
+bodyWithoutFrontmatter : String -> DataSource (FileReadError decoderError) String
 bodyWithoutFrontmatter filePath =
     read filePath
         body
@@ -249,9 +257,15 @@ You could read a file called `hello.txt` in your root project directory like thi
         File.rawFile "hello.txt"
 
 -}
-rawFile : String -> DataSource String
+rawFile : String -> DataSource (FileReadError decoderError) String
 rawFile filePath =
     read filePath (Decode.field "rawFile" Decode.string)
+
+
+toBuildError : FileReadError decodingError -> BuildError
+toBuildError error =
+    BuildError.internal
+        ("TODO - turn into a custom type variant of BuildError" ++ Debug.toString error)
 
 
 {-| Read a file as JSON.
@@ -271,14 +285,16 @@ The Decode will strip off any unused JSON data.
             "elm.json"
 
 -}
-jsonFile : Decoder a -> String -> DataSource a
+jsonFile : Decoder a -> String -> DataSource (FileReadError Decode.Error) a
 jsonFile jsonFileDecoder filePath =
     rawFile filePath
+        |> DataSource.onError (\foo -> Debug.todo "TODO: Not handled yet")
         |> DataSource.andThen
             (\jsonString ->
                 jsonString
                     |> Decode.decodeString jsonFileDecoder
-                    |> Result.mapError Decode.errorToString
+                    |> Result.mapError DecodingError
+                    --|> Result.mapError Decode.errorToString
                     |> DataSource.fromResult
             )
 
@@ -290,10 +306,23 @@ body =
     Decode.field "withoutFrontmatter" Decode.string
 
 
-read : String -> Decoder a -> DataSource a
+read : String -> Decoder a -> DataSource (FileReadError error) a
 read filePath decoder =
     DataSource.Internal.Request.request
         { name = "read-file"
         , body = DataSource.Http.stringBody "" filePath
-        , expect = decoder |> DataSource.Http.expectJson
+        , expect =
+            Decode.oneOf
+                [ Decode.field "errorCode"
+                    (Decode.map Err errorDecoder)
+                , decoder |> Decode.map Ok
+                ]
+                |> DataSource.Http.expectJson
         }
+        |> DataSource.onError (\_ -> Debug.todo "TODO: not handled")
+        |> DataSource.andThen DataSource.fromResult
+
+
+errorDecoder : Decoder (FileReadError decoding)
+errorDecoder =
+    Decode.succeed FileDoesntExist

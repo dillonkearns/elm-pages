@@ -1,5 +1,6 @@
 module Route.Form exposing (ActionData, Data, Model, Msg, route)
 
+import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Date exposing (Date)
 import Dict
@@ -187,7 +188,7 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Parser (DataSource (Server.Response.Response Data ErrorPage))
+data : RouteParams -> Parser (DataSource BuildError (Server.Response.Response Data ErrorPage))
 data routeParams =
     Data
         |> Server.Response.render
@@ -195,7 +196,7 @@ data routeParams =
         |> Request.succeed
 
 
-action : RouteParams -> Parser (DataSource (Server.Response.Response ActionData ErrorPage))
+action : RouteParams -> Parser (DataSource BuildError (Server.Response.Response ActionData ErrorPage))
 action routeParams =
     Request.formData (form |> Form.initCombined identity)
         |> Request.map

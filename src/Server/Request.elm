@@ -225,7 +225,7 @@ succeed value =
 
 {-| TODO internal only
 -}
-getDecoder : Parser (DataSource response) -> Json.Decode.Decoder (Result ( ValidationError, List ValidationError ) (DataSource response))
+getDecoder : Parser (DataSource error response) -> Json.Decode.Decoder (Result ( ValidationError, List ValidationError ) (DataSource error response))
 getDecoder (Internal.Request.Parser decoder) =
     decoder
         |> Json.Decode.map
@@ -881,8 +881,8 @@ fileField_ name =
 
 {-| -}
 formDataWithServerValidation :
-    Form.ServerForms error (DataSource (Validation.Validation error combined kind constraints))
-    -> Parser (DataSource (Result (Form.Response error) ( Form.Response error, combined )))
+    Form.ServerForms error (DataSource error (Validation.Validation error combined kind constraints))
+    -> Parser (DataSource error (Result (Form.Response error) ( Form.Response error, combined )))
 formDataWithServerValidation formParsers =
     rawFormData
         |> andThen

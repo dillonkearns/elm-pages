@@ -2,6 +2,7 @@ module DataSource.Internal.Request exposing (request)
 
 import DataSource exposing (DataSource)
 import DataSource.Http exposing (Body, Expect)
+import Pages.StaticHttpRequest
 
 
 request :
@@ -9,7 +10,7 @@ request :
     , body : Body
     , expect : Expect a
     }
-    -> DataSource a
+    -> DataSource error a
 request { name, body, expect } =
     DataSource.Http.uncachedRequest
         { url = "elm-pages-internal://" ++ name
@@ -18,3 +19,4 @@ request { name, body, expect } =
         , body = body
         }
         expect
+        |> DataSource.onError (\_ -> Debug.todo "TODO - unhandled")

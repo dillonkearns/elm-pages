@@ -1,6 +1,7 @@
 module Shared exposing (Data, Model, Msg, template)
 
-import DataSource
+import BuildError exposing (BuildError)
+import DataSource exposing (DataSource)
 import DocsSection
 import Effect exposing (Effect)
 import Html exposing (Html)
@@ -85,7 +86,7 @@ subscriptions _ _ =
     Sub.none
 
 
-data : DataSource.DataSource Data
+data : DataSource BuildError Data
 data =
     TableOfContents.dataSource DocsSection.all
 
