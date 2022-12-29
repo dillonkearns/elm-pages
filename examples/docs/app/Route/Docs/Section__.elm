@@ -138,7 +138,7 @@ titleForSection section =
             (\filePath ->
                 DataSource.File.bodyWithoutFrontmatter filePath
                     |> DataSource.throw
-                    |> DataSource.andThen markdownBodyDecoder2
+                    |> DataSource.andThen markdownBody
                     |> DataSource.map
                         (\blocks ->
                             List.Extra.findMap
@@ -316,8 +316,8 @@ findBySlug slug =
         |> Glob.match (Glob.literal ".md")
 
 
-markdownBodyDecoder2 : String -> DataSource Throwable (List Block)
-markdownBodyDecoder2 rawBody =
+markdownBody : String -> DataSource Throwable (List Block)
+markdownBody rawBody =
     rawBody
         |> Markdown.Parser.parse
         |> Result.mapError (\_ -> Exception.fromString "Markdown parsing error")
