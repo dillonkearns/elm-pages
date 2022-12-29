@@ -7,6 +7,7 @@ import Codec
 import DataSource exposing (DataSource)
 import DataSource.Http
 import Dict
+import Exception exposing (Throwable)
 import Expect
 import Html
 import Json.Decode as JD exposing (Decoder)
@@ -34,7 +35,7 @@ all =
         [ test "initial requests are sent out" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
+                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> DataSource.throw)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (JsonBody
@@ -45,7 +46,7 @@ all =
             \() ->
                 startSimple
                     [ "post-1" ]
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
+                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> DataSource.throw)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (JsonBody
@@ -56,7 +57,7 @@ all =
             [ test "single pages that are pre-rendered" <|
                 \() ->
                     startSimple [ "post-1" ]
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
+                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> DataSource.throw)
                         |> simulateHttp
                             (get "https://api.github.com/repos/dillonkearns/elm-pages")
                             (JsonBody
@@ -85,9 +86,11 @@ all =
                     (DataSource.map2 Tuple.pair
                         (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
                             (JD.field "stargazer_count" JD.int)
+                            |> DataSource.throw
                         )
                         (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
                             (JD.field "language" JD.string)
+                            |> DataSource.throw
                         )
                     )
                     |> simulateHttp
@@ -105,9 +108,11 @@ all =
                 startSimple
                     [ "elm-pages" ]
                     (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.succeed ())
+                        |> DataSource.throw
                         |> DataSource.andThen
                             (\_ ->
                                 DataSource.Http.get "NEXT-REQUEST" (JD.succeed ())
+                                    |> DataSource.throw
                             )
                     )
                     |> simulateHttp
@@ -225,7 +230,9 @@ all =
         , test "reduced JSON is sent out" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int))
+                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
+                        |> DataSource.throw
+                    )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
@@ -242,6 +249,7 @@ all =
                         (DataSource.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
                         )
+                        |> DataSource.throw
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -257,6 +265,7 @@ all =
                         , body = DataSource.Http.emptyBody
                         }
                         DataSource.Http.expectString
+                        |> DataSource.throw
                     )
                     |> simulateHttp
                         { method = "GET"
@@ -278,6 +287,7 @@ all =
                         , body = DataSource.Http.emptyBody
                         }
                         DataSource.Http.expectString
+                        |> DataSource.throw
                         |> DataSource.map
                             (\string ->
                                 if String.toUpper string == string then
@@ -286,7 +296,7 @@ all =
                                 else
                                     Err "String was not uppercased"
                             )
-                        |> DataSource.andThen DataSource.fromResult
+                        |> DataSource.andThen (\result -> result |> Result.mapError Exception.fromString |> DataSource.fromResult)
                     )
                     |> simulateHttp
                         (get "https://example.com/file.txt")
@@ -313,6 +323,7 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
                         (DataSource.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
                         )
+                        |> DataSource.throw
                     )
                     |> simulateHttp
                         (post "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -326,6 +337,7 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
                             (\_ ->
                                 DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
                             )
+                        |> DataSource.throw
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -338,8 +350,8 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
             \() ->
                 startSimple []
                     (DataSource.map2 (\_ _ -> ())
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int))
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int))
+                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int) |> DataSource.throw)
+                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int) |> DataSource.throw)
                     )
                     |> simulateMultipleHttp
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -362,8 +374,8 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
             \() ->
                 startSimple []
                     (DataSource.map2 (\_ _ -> ())
-                        (DataSource.Http.get "http://example.com" (JD.succeed ()))
-                        (DataSource.Http.get "http://example.com" (JD.succeed ()))
+                        (DataSource.Http.get "http://example.com" (JD.succeed ()) |> DataSource.throw)
+                        (DataSource.Http.get "http://example.com" (JD.succeed ()) |> DataSource.throw)
                     )
                     |> simulateHttp
                         (get "http://example.com")
@@ -372,7 +384,7 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
         , test "an error is sent out for decoder failures" <|
             \() ->
                 startSimple [ "elm-pages" ]
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI."))
+                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI.") |> DataSource.throw)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (jsonBody """{ "stargazer_count": 86 }""")
@@ -397,14 +409,14 @@ type Route
     = Route String
 
 
-start : List ( List String, DataSource a ) -> ProgramTest (Model Route) Msg Effect
+start : List ( List String, DataSource Throwable a ) -> ProgramTest (Model Route) Msg Effect
 start pages =
     startWithHttpCache [] pages
 
 
 startWithHttpCache :
     List ( Request.Request, String )
-    -> List ( List String, DataSource a )
+    -> List ( List String, DataSource Throwable a )
     -> ProgramTest (Model Route) Msg Effect
 startWithHttpCache =
     startLowLevel []
@@ -413,7 +425,7 @@ startWithHttpCache =
 startLowLevel :
     List (ApiRoute.ApiRoute ApiRoute.Response)
     -> List ( Request.Request, String )
-    -> List ( List String, DataSource a )
+    -> List ( List String, DataSource Throwable a )
     -> ProgramTest (Model Route) Msg Effect
 startLowLevel apiRoutes staticHttpCache pages =
     let
@@ -489,12 +501,12 @@ site =
     }
 
 
-startSimple : List String -> DataSource a -> ProgramTest (Model Route) Msg Effect
+startSimple : List String -> DataSource Throwable a -> ProgramTest (Model Route) Msg Effect
 startSimple route dataSources =
     startWithRoutes route [ route ] [] [ ( route, dataSources ) ]
 
 
-config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, DataSource a ) -> ProgramConfig Msg () Route () () () Effect mappedMsg ()
+config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, DataSource Throwable a ) -> ProgramConfig Msg () Route () () () Effect mappedMsg ()
 config apiRoutes pages =
     { toJsPort = toJsPort
     , fromJsPort = fromJsPort
@@ -515,7 +527,7 @@ config apiRoutes pages =
     , data =
         \_ (Route pageRoute) ->
             let
-                thing : Maybe (DataSource a)
+                thing : Maybe (DataSource Throwable a)
                 thing =
                     pages
                         |> Dict.fromList
@@ -535,7 +547,7 @@ config apiRoutes pages =
     , view =
         \_ _ _ page _ _ _ _ ->
             let
-                thing : Maybe (DataSource a)
+                thing : Maybe (DataSource Throwable a)
                 thing =
                     pages
                         |> Dict.fromList
@@ -569,7 +581,7 @@ config apiRoutes pages =
     , notFoundRoute = Route "not-found"
     , internalError = \_ -> ()
     , errorPageToData = \_ -> ()
-    , action = \_ _ -> DataSource.fail "No action."
+    , action = \_ _ -> DataSource.fail (Exception.fromString "No action.")
     , encodeAction = \_ -> Bytes.Encode.signedInt8 0
     }
 
@@ -578,7 +590,7 @@ startWithRoutes :
     List String
     -> List (List String)
     -> List ( Request.Request, String )
-    -> List ( List String, DataSource a )
+    -> List ( List String, DataSource Throwable a )
     -> ProgramTest (Model Route) Msg Effect
 startWithRoutes pageToLoad _ staticHttpCache pages =
     let
