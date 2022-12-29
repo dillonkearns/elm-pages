@@ -7,6 +7,7 @@ import Data.Author as Author exposing (Author)
 import DataSource exposing (DataSource)
 import Date exposing (Date)
 import DateOrDateTime
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -52,7 +53,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource BuildError (List RouteParams)
+pages : DataSource Throwable (List RouteParams)
 pages =
     Article.blogPostsGlob
         |> DataSource.map
@@ -240,7 +241,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> DataSource BuildError Data
+data : RouteParams -> DataSource Throwable Data
 data routeParams =
     MarkdownCodec.withFrontmatter Data
         frontmatterDecoder

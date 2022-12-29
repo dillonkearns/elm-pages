@@ -1,10 +1,10 @@
 module Route.Test.ResponseHeaders exposing (ActionData, Data, Model, Msg, route)
 
-import Base64
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.File
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Html.Styled exposing (div, text)
 import Pages.Msg
@@ -47,11 +47,11 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource BuildError (Response Data ErrorPage))
+data : RouteParams -> Parser (DataSource Throwable (Response Data ErrorPage))
 data routeParams =
     Request.succeed
         (DataSource.succeed Data
-            |> DataSource.andMap (DataSource.File.rawFile "greeting.txt" |> DataSource.mapError DataSource.File.toBuildError)
+            |> DataSource.andMap (DataSource.File.rawFile "greeting.txt" |> DataSource.throw)
             |> DataSource.map Response.render
             |> DataSource.map (Response.withHeader "x-powered-by" "my-framework")
         )

@@ -2,9 +2,9 @@ module Api exposing (routes)
 
 import ApiRoute
 import Article
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Http
+import Exception exposing (Throwable)
 import Head
 import Html exposing (Html)
 import Json.Decode as Decode
@@ -21,7 +21,7 @@ import Time
 
 
 routes :
-    DataSource BuildError (List Route)
+    DataSource Throwable (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
@@ -64,7 +64,7 @@ routes getStaticRoutes htmlToString =
                             ]
                             |> Json.Encode.encode 2
                     )
-                |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+                |> DataSource.throw
         )
         |> ApiRoute.literal "repo"
         |> ApiRoute.slash
@@ -105,7 +105,7 @@ routes getStaticRoutes htmlToString =
     ]
 
 
-postsDataSource : DataSource BuildError (List Rss.Item)
+postsDataSource : DataSource Throwable (List Rss.Item)
 postsDataSource =
     Article.allMetadata
         |> DataSource.map
@@ -126,7 +126,7 @@ postsDataSource =
                     }
                 )
             )
-        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+        |> DataSource.throw
 
 
 rss :
@@ -136,7 +136,7 @@ rss :
     , builtAt : Time.Posix
     , indexPage : List String
     }
-    -> DataSource BuildError (List Rss.Item)
+    -> DataSource Throwable (List Rss.Item)
     -> ApiRoute.ApiRoute ApiRoute.Response
 rss options itemsRequest =
     ApiRoute.succeed

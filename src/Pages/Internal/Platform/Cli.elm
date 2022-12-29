@@ -12,6 +12,7 @@ import Bytes.Encode
 import Codec
 import DataSource exposing (DataSource)
 import Dict
+import Exception exposing (Throwable)
 import Head exposing (Tag)
 import Html exposing (Html)
 import HtmlPrinter
@@ -50,7 +51,7 @@ currentCompatibilityKey =
 
 {-| -}
 type alias Model route =
-    { staticResponses : DataSource BuildError Effect
+    { staticResponses : DataSource Throwable Effect
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , maybeRequestJson : RenderRequest route
@@ -414,11 +415,11 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { isDevServer } config =
     let
-        globalHeadTags : DataSource BuildError (List Tag)
+        globalHeadTags : DataSource Throwable (List Tag)
         globalHeadTags =
             (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
 
-        staticResponsesNew : DataSource BuildError Effect
+        staticResponsesNew : DataSource Throwable Effect
         staticResponsesNew =
             StaticResponses.renderApiRequest
                 (case singleRequest of

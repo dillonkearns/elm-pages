@@ -1,12 +1,12 @@
 module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, route)
 
-import BuildError exposing (BuildError)
 import Css
 import Css.Global
 import DataSource exposing (DataSource)
 import DataSource.File
 import DataSource.Glob as Glob exposing (Glob)
 import DocsSection exposing (Section)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Heroicon
@@ -55,7 +55,7 @@ route =
             }
 
 
-pages : DataSource BuildError (List RouteParams)
+pages : DataSource Throwable (List RouteParams)
 pages =
     DocsSection.all
         |> DataSource.map
@@ -70,7 +70,7 @@ pages =
             )
 
 
-data : RouteParams -> DataSource BuildError Data
+data : RouteParams -> DataSource Throwable Data
 data routeParams =
     DataSource.map4 Data
         (pageBody routeParams)
@@ -80,7 +80,7 @@ data routeParams =
             |> findBySlug
             |> Glob.expectUniqueMatch
             |> DataSource.map filePathToEditUrl
-            |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+            |> DataSource.throw
         )
         (routeParams |> filePathDataSource |> DataSource.andThen MarkdownCodec.titleAndDescription)
 
@@ -90,7 +90,7 @@ filePathToEditUrl filePath =
     "https://github.com/dillonkearns/elm-pages/edit/master/examples/docs/" ++ filePath
 
 
-previousAndNextData : RouteParams -> DataSource BuildError { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
+previousAndNextData : RouteParams -> DataSource Throwable { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
 previousAndNextData current =
     DocsSection.all
         |> DataSource.andThen
@@ -105,7 +105,7 @@ previousAndNextData current =
                 DataSource.map2 (\title previousAndNext -> { title = title, previousAndNext = previousAndNext })
                     (List.Extra.getAt index sections
                         |> maybeDataSource titleForSection
-                        |> DataSource.map (Result.fromMaybe (BuildError.internal "Couldn't find section"))
+                        |> DataSource.map (Result.fromMaybe (Exception.fromString "Couldn't find section"))
                         |> DataSource.andThen DataSource.fromResult
                         |> DataSource.map .title
                     )
@@ -130,14 +130,14 @@ maybeDataSource fn maybe =
             DataSource.succeed Nothing
 
 
-titleForSection : Section -> DataSource BuildError NextPrevious.Item
+titleForSection : Section -> DataSource Throwable NextPrevious.Item
 titleForSection section =
     Glob.expectUniqueMatch (findBySlug section.slug)
-        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+        |> DataSource.throw
         |> DataSource.andThen
             (\filePath ->
                 DataSource.File.bodyWithoutFrontmatter filePath
-                    |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+                    |> DataSource.throw
                     |> DataSource.andThen markdownBodyDecoder2
                     |> DataSource.map
                         (\blocks ->
@@ -159,7 +159,7 @@ titleForSection section =
         |> DataSource.andThen
             (\maybeTitle ->
                 maybeTitle
-                    |> Result.fromMaybe (BuildError.internal "Expected to find an H1 heading in this markdown.")
+                    |> Result.fromMaybe (Exception.fromString "Expected to find an H1 heading in this markdown.")
                     |> DataSource.fromResult
             )
 
@@ -285,7 +285,7 @@ view maybeUrl sharedModel static =
     }
 
 
-filePathDataSource : RouteParams -> DataSource BuildError String
+filePathDataSource : RouteParams -> DataSource Throwable String
 filePathDataSource routeParams =
     let
         slug : String
@@ -294,10 +294,10 @@ filePathDataSource routeParams =
                 |> Maybe.withDefault "what-is-elm-pages"
     in
     Glob.expectUniqueMatch (findBySlug slug)
-        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+        |> DataSource.throw
 
 
-pageBody : RouteParams -> DataSource BuildError (List Block)
+pageBody : RouteParams -> DataSource Throwable (List Block)
 pageBody routeParams =
     routeParams
         |> filePathDataSource
@@ -316,9 +316,9 @@ findBySlug slug =
         |> Glob.match (Glob.literal ".md")
 
 
-markdownBodyDecoder2 : String -> DataSource BuildError (List Block)
+markdownBodyDecoder2 : String -> DataSource Throwable (List Block)
 markdownBodyDecoder2 rawBody =
     rawBody
         |> Markdown.Parser.parse
-        |> Result.mapError (\_ -> BuildError.internal "Markdown parsing error")
+        |> Result.mapError (\_ -> Exception.fromString "Markdown parsing error")
         |> DataSource.fromResult

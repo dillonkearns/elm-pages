@@ -4,6 +4,7 @@ import Article
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Date
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -34,10 +35,10 @@ route =
             }
 
 
-data : DataSource BuildError Data
+data : DataSource Throwable Data
 data =
     Article.allMetadata
-        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+        |> DataSource.throw
 
 
 type alias Data =

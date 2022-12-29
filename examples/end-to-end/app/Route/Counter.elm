@@ -1,9 +1,8 @@
 module Route.Counter exposing (ActionData, Data, Model, Msg, route)
 
-import Browser.Navigation
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -86,7 +85,7 @@ type alias Data =
     {}
 
 
-data : DataSource BuildError Data
+data : DataSource Throwable Data
 data =
     DataSource.succeed Data
 

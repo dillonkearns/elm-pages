@@ -1,7 +1,7 @@
 module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Pages.Msg
@@ -38,7 +38,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource BuildError (List RouteParams)
+pages : DataSource Throwable (List RouteParams)
 pages =
     DataSource.succeed []
 
@@ -47,7 +47,7 @@ type alias Data =
     {}
 
 
-data : RouteParams -> DataSource BuildError Data
+data : RouteParams -> DataSource Throwable Data
 data routeParams =
     DataSource.succeed {}
 

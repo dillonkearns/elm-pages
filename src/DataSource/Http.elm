@@ -70,6 +70,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
+import Exception exposing (Catchable)
 import Json.Decode
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as Body
@@ -126,7 +127,7 @@ type alias Body =
 get :
     String
     -> Json.Decode.Decoder a
-    -> DataSource Pages.StaticHttpRequest.Error a
+    -> DataSource (Catchable Pages.StaticHttpRequest.Error) a
 get url decoder =
     request
         ((\okUrl ->
@@ -253,7 +254,7 @@ expectToString expect =
 request :
     RequestDetails
     -> Expect a
-    -> DataSource Pages.StaticHttpRequest.Error a
+    -> DataSource (Catchable Pages.StaticHttpRequest.Error) a
 request request__ expect =
     let
         request_ : HashRequest.Request
@@ -272,7 +273,7 @@ request request__ expect =
 uncachedRequest :
     RequestDetails
     -> Expect a
-    -> DataSource Pages.StaticHttpRequest.Error a
+    -> DataSource (Catchable Pages.StaticHttpRequest.Error) a
 uncachedRequest request__ expect =
     let
         request_ : HashRequest.Request
@@ -294,7 +295,7 @@ with this as a low-level detail, or you can use functions like [DataSource.Http.
 requestRaw :
     HashRequest.Request
     -> Expect a
-    -> DataSource Pages.StaticHttpRequest.Error a
+    -> DataSource (Catchable Pages.StaticHttpRequest.Error) a
 requestRaw request__ expect =
     let
         request_ : HashRequest.Request
@@ -406,6 +407,7 @@ requestRaw request__ expect =
                                     )
                     )
                 |> toResult
+                |> DataSource.mapError (\error -> Exception.Catchable error "TODO - error message here")
         )
 
 

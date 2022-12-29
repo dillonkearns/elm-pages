@@ -1,7 +1,7 @@
 module Route.Links exposing (ActionData, Data, Model, Msg, route)
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (text)
@@ -43,7 +43,7 @@ type alias Data =
     ()
 
 
-data : DataSource BuildError Data
+data : DataSource Throwable Data
 data =
     DataSource.succeed ()
 

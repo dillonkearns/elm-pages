@@ -8,8 +8,8 @@ module Internal.ApiRoute exposing
     , withRoutes
     )
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import Json.Decode
 import Pattern exposing (Pattern)
@@ -46,12 +46,12 @@ tryMatchDone path (ApiRoute handler) =
 type ApiRoute response
     = ApiRoute
         { regex : Regex
-        , matchesToResponse : Json.Decode.Value -> String -> DataSource BuildError (Maybe response)
-        , buildTimeRoutes : DataSource BuildError (List String)
-        , handleRoute : String -> DataSource BuildError Bool
+        , matchesToResponse : Json.Decode.Value -> String -> DataSource Throwable (Maybe response)
+        , buildTimeRoutes : DataSource Throwable (List String)
+        , handleRoute : String -> DataSource Throwable Bool
         , pattern : Pattern
         , kind : String
-        , globalHeadTags : Maybe (DataSource BuildError (List Head.Tag))
+        , globalHeadTags : Maybe (DataSource Throwable (List Head.Tag))
         }
 
 

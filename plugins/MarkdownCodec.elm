@@ -1,8 +1,8 @@
 module MarkdownCodec exposing (isPlaceholder, noteTitle, titleAndDescription, withFrontmatter, withoutFrontmatter)
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.File as StaticFile
+import Exception exposing (Throwable)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 import List.Extra
@@ -12,15 +12,15 @@ import Markdown.Renderer
 import MarkdownExtra
 
 
-isPlaceholder : String -> DataSource BuildError (Maybe ())
+isPlaceholder : String -> DataSource Throwable (Maybe ())
 isPlaceholder filePath =
     filePath
         |> StaticFile.bodyWithoutFrontmatter
-        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+        |> DataSource.throw
         |> DataSource.andThen
             (\rawContent ->
                 Markdown.Parser.parse rawContent
-                    |> Result.mapError (\_ -> BuildError.internal "Markdown error")
+                    |> Result.mapError (\_ -> Exception.fromString "Markdown error")
                     |> Result.map
                         (\blocks ->
                             List.any
@@ -47,7 +47,7 @@ isPlaceholder filePath =
             )
 
 
-noteTitle : String -> DataSource BuildError String
+noteTitle : String -> DataSource Throwable String
 noteTitle filePath =
     titleFromFrontmatter filePath
         |> DataSource.andThen
@@ -56,7 +56,7 @@ noteTitle filePath =
                     |> Maybe.map DataSource.succeed
                     |> Maybe.withDefault
                         (StaticFile.bodyWithoutFrontmatter filePath
-                            |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+                            |> DataSource.throw
                             |> DataSource.andThen
                                 (\rawContent ->
                                     Markdown.Parser.parse rawContent
@@ -76,13 +76,13 @@ noteTitle filePath =
                                             )
                                         |> Result.andThen (Result.fromMaybe <| "Expected to find an H1 heading for page " ++ filePath)
                                         |> DataSource.fromResult
-                                        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+                                        |> DataSource.throw
                                 )
                         )
             )
 
 
-titleAndDescription : String -> DataSource BuildError { title : String, description : String }
+titleAndDescription : String -> DataSource Throwable { title : String, description : String }
 titleAndDescription filePath =
     filePath
         |> StaticFile.onlyFrontmatter
@@ -90,7 +90,7 @@ titleAndDescription filePath =
                 (Json.Decode.Extra.optionalField "title" Decode.string)
                 (Json.Decode.Extra.optionalField "description" Decode.string)
             )
-        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+        |> DataSource.throw
         |> DataSource.andThen
             (\metadata ->
                 Maybe.map2 (\title description -> { title = title, description = description })
@@ -99,7 +99,7 @@ titleAndDescription filePath =
                     |> Maybe.map DataSource.succeed
                     |> Maybe.withDefault
                         (StaticFile.bodyWithoutFrontmatter filePath
-                            |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+                            |> DataSource.throw
                             |> DataSource.andThen
                                 (\rawContent ->
                                     Markdown.Parser.parse rawContent
@@ -127,8 +127,8 @@ titleAndDescription filePath =
                                                     )
                                             )
                                         |> Result.andThen (Result.fromMaybe <| "Expected to find an H1 heading for page " ++ filePath)
+                                        |> Result.mapError Exception.fromString
                                         |> DataSource.fromResult
-                                        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
                                 )
                         )
             )
@@ -163,27 +163,27 @@ findDescription blocks =
         |> Maybe.withDefault ""
 
 
-titleFromFrontmatter : String -> DataSource BuildError (Maybe String)
+titleFromFrontmatter : String -> DataSource Throwable (Maybe String)
 titleFromFrontmatter filePath =
     StaticFile.onlyFrontmatter
         (Json.Decode.Extra.optionalField "title" Decode.string)
         filePath
-        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+        |> DataSource.throw
 
 
 withoutFrontmatter :
     Markdown.Renderer.Renderer view
     -> String
-    -> DataSource BuildError (List Block)
+    -> DataSource Throwable (List Block)
 withoutFrontmatter renderer filePath =
     (filePath
         |> StaticFile.bodyWithoutFrontmatter
-        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+        |> DataSource.throw
         |> DataSource.andThen
             (\rawBody ->
                 rawBody
                     |> Markdown.Parser.parse
-                    |> Result.mapError (\_ -> BuildError.internal "Couldn't parse markdown.")
+                    |> Result.mapError (\_ -> Exception.fromString "Couldn't parse markdown.")
                     |> DataSource.fromResult
             )
     )
@@ -195,7 +195,7 @@ withoutFrontmatter renderer filePath =
                     -- but we can at least make sure there are no errors turning it into HTML before encoding it
                     |> Result.map (\_ -> blocks)
                     |> DataSource.fromResult
-                    |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+                    |> DataSource.throw
             )
 
 
@@ -204,22 +204,22 @@ withFrontmatter :
     -> Decoder frontmatter
     -> Markdown.Renderer.Renderer view
     -> String
-    -> DataSource BuildError value
+    -> DataSource Throwable value
 withFrontmatter constructor frontmatterDecoder_ renderer filePath =
     DataSource.map2 constructor
         (StaticFile.onlyFrontmatter
             frontmatterDecoder_
             filePath
-            |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+            |> DataSource.throw
         )
         (StaticFile.bodyWithoutFrontmatter
             filePath
-            |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+            |> DataSource.throw
             |> DataSource.andThen
                 (\rawBody ->
                     rawBody
                         |> Markdown.Parser.parse
-                        |> Result.mapError (\_ -> BuildError.internal "Couldn't parse markdown.")
+                        |> Result.mapError (\_ -> Exception.fromString "Couldn't parse markdown.")
                         |> DataSource.fromResult
                 )
             |> DataSource.andThen
@@ -230,6 +230,6 @@ withFrontmatter constructor frontmatterDecoder_ renderer filePath =
                         -- but we can at least make sure there are no errors turning it into HTML before encoding it
                         |> Result.map (\_ -> blocks)
                         |> DataSource.fromResult
-                        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+                        |> DataSource.throw
                 )
         )

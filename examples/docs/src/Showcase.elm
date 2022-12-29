@@ -4,6 +4,7 @@ import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Env as Env
 import DataSource.Http
+import Exception exposing (Throwable)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 
@@ -38,10 +39,10 @@ entryDecoder =
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
-staticRequest : DataSource BuildError (List Entry)
+staticRequest : DataSource Throwable (List Entry)
 staticRequest =
     Env.expect "AIRTABLE_TOKEN"
-        |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+        |> DataSource.throw
         |> DataSource.andThen
             (\airtableToken ->
                 DataSource.Http.request
@@ -51,7 +52,7 @@ staticRequest =
                     , body = DataSource.Http.emptyBody
                     }
                     (DataSource.Http.expectJson decoder)
-                    |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+                    |> DataSource.throw
             )
 
 

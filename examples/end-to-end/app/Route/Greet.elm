@@ -1,14 +1,13 @@
 module Route.Greet exposing (ActionData, Data, Model, Msg, route)
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
-import Html.Styled.Events exposing (onSubmit)
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -82,7 +81,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request.Parser (DataSource BuildError (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (DataSource Throwable (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.map2 (\a b -> Data a b Nothing)

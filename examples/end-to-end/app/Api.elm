@@ -1,8 +1,8 @@
 module Api exposing (routes)
 
 import ApiRoute exposing (ApiRoute)
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Form
 import Form.Field as Field
 import Form.Validation as Validation
@@ -22,7 +22,7 @@ import Xml.Decode
 
 
 routes :
-    DataSource BuildError (List Route)
+    DataSource Throwable (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =

@@ -1,9 +1,9 @@
 module Route.Test.BasicAuth exposing (ActionData, Data, Model, Msg, route)
 
 import Base64
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Html.Styled exposing (div, text)
 import Pages.Msg
@@ -46,7 +46,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource BuildError (Response Data ErrorPage))
+data : RouteParams -> Parser (DataSource Throwable (Response Data ErrorPage))
 data routeParams =
     withBasicAuth
         (\{ username, password } ->

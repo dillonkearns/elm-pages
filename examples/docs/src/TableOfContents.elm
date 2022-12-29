@@ -1,9 +1,9 @@
 module TableOfContents exposing (..)
 
-import BuildError exposing (BuildError)
 import Css
 import DataSource exposing (DataSource)
 import DataSource.File
+import Exception exposing (Throwable)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import List.Extra
@@ -14,8 +14,8 @@ import Tailwind.Utilities as Tw
 
 
 dataSource :
-    DataSource BuildError (List { file | filePath : String, slug : String })
-    -> DataSource BuildError (TableOfContents Data)
+    DataSource Throwable (List { file | filePath : String, slug : String })
+    -> DataSource Throwable (TableOfContents Data)
 dataSource docFiles =
     docFiles
         |> DataSource.map
@@ -25,20 +25,20 @@ dataSource docFiles =
                         (\section ->
                             DataSource.File.bodyWithoutFrontmatter
                                 section.filePath
-                                |> DataSource.onError (\_ -> DataSource.fail (BuildError.internal "TODO map to more informative error"))
+                                |> DataSource.throw
                                 |> DataSource.andThen (headingsDecoder section.slug)
                         )
             )
         |> DataSource.resolve
 
 
-headingsDecoder : String -> String -> DataSource BuildError (Entry Data)
+headingsDecoder : String -> String -> DataSource Throwable (Entry Data)
 headingsDecoder slug rawBody =
     rawBody
         |> Markdown.Parser.parse
-        |> Result.mapError (\_ -> BuildError.internal "Markdown parsing error")
+        |> Result.mapError (\_ -> Exception.fromString "Markdown parsing error")
         |> Result.map gatherHeadings
-        |> Result.andThen (nameAndTopLevel slug >> Result.mapError BuildError.internal)
+        |> Result.andThen (nameAndTopLevel slug >> Result.mapError Exception.fromString)
         |> DataSource.fromResult
 
 

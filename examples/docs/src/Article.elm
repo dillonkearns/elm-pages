@@ -5,6 +5,7 @@ import DataSource
 import DataSource.File as File
 import DataSource.Glob as Glob
 import Date exposing (Date)
+import Exception exposing (Catchable, Throwable)
 import Json.Decode as Decode exposing (Decoder)
 import Pages.Url exposing (Url)
 import Route
@@ -26,7 +27,7 @@ blogPostsGlob =
         |> Glob.toDataSource
 
 
-allMetadata : DataSource.DataSource (File.FileReadError Decode.Error) (List ( Route.Route, ArticleMetadata ))
+allMetadata : DataSource.DataSource (Catchable (File.FileReadError Decode.Error)) (List ( Route.Route, ArticleMetadata ))
 allMetadata =
     blogPostsGlob
         |> DataSource.map

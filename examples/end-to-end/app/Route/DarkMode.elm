@@ -2,11 +2,11 @@ module Route.DarkMode exposing (..)
 
 {-| -}
 
-import BuildError exposing (BuildError)
 import Css
 import DataSource exposing (DataSource)
 import Effect
 import ErrorPage
+import Exception exposing (Throwable)
 import Form
 import Form.Field as Field
 import Form.Validation as Validation
@@ -102,7 +102,7 @@ sessionOptions =
 
 data :
     RouteParams
-    -> Server.Request.Parser (DataSource BuildError (Server.Response.Response Data ErrorPage.ErrorPage))
+    -> Server.Request.Parser (DataSource Throwable (Server.Response.Response Data ErrorPage.ErrorPage))
 data routeParams =
     Server.Request.succeed ()
         |> Session.withSession sessionOptions
@@ -128,7 +128,7 @@ data routeParams =
 
 action :
     RouteParams
-    -> Server.Request.Parser (DataSource BuildError (Server.Response.Response ActionData ErrorPage.ErrorPage))
+    -> Server.Request.Parser (DataSource Throwable (Server.Response.Response ActionData ErrorPage.ErrorPage))
 action routeParams =
     Server.Request.formData
         (form

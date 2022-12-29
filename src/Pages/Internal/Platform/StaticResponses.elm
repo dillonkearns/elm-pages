@@ -3,20 +3,21 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), batchUpda
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Dict
+import Exception exposing (Catchable(..), Throwable)
 import List.Extra
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
 
 
-empty : a -> DataSource BuildError a
+empty : a -> DataSource Throwable a
 empty a =
     DataSource.succeed a
 
 
 renderApiRequest :
-    DataSource BuildError response
-    -> DataSource BuildError response
+    DataSource Throwable response
+    -> DataSource Throwable response
 renderApiRequest request =
     request
 
@@ -49,21 +50,21 @@ batchUpdate newEntries model =
 
 
 type NextStep route value
-    = Continue (List HashRequest.Request) (StaticHttpRequest.RawRequest BuildError value)
+    = Continue (List HashRequest.Request) (StaticHttpRequest.RawRequest Throwable value)
     | Finish value
     | FinishedWithErrors (List BuildError)
 
 
 nextStep :
     { model
-        | staticResponses : DataSource BuildError a
+        | staticResponses : DataSource Throwable a
         , errors : List BuildError
         , allRawResponses : RequestsAndPending
     }
     -> NextStep route a
 nextStep ({ allRawResponses, errors } as model) =
     let
-        staticRequestsStatus : StaticHttpRequest.Status BuildError a
+        staticRequestsStatus : StaticHttpRequest.Status Throwable a
         staticRequestsStatus =
             allRawResponses
                 |> StaticHttpRequest.cacheRequestResolution model.staticResponses
@@ -88,7 +89,7 @@ nextStep ({ allRawResponses, errors } as model) =
                 StaticHttpRequest.HasPermanentError _ ->
                     ( ( False, Nothing )
                     , []
-                    , DataSource.fail (BuildError.internal "TODO this shouldn't happen")
+                    , DataSource.fail (Exception.fromString "TODO this shouldn't happen")
                     )
     in
     if pendingRequests then
@@ -136,9 +137,9 @@ nextStep ({ allRawResponses, errors } as model) =
                 Just (Ok completed) ->
                     Finish completed
 
-                Just (Err buildError) ->
+                Just (Err (Catchable () buildError)) ->
                     FinishedWithErrors
-                        [ buildError
+                        [ buildError |> BuildError.internal
                         ]
 
                 Nothing ->

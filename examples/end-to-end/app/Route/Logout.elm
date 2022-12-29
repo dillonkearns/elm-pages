@@ -1,8 +1,8 @@
 module Route.Logout exposing (ActionData, Data, Model, Msg, route)
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import MySession
@@ -44,7 +44,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-action : RouteParams -> Request.Parser (DataSource BuildError (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (DataSource Throwable (Response ActionData ErrorPage))
 action _ =
     Request.succeed ()
         |> MySession.withSession
@@ -61,7 +61,7 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource BuildError (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (DataSource Throwable (Response Data ErrorPage))
 data routeParams =
     Request.succeed (DataSource.succeed (Response.render {}))
 

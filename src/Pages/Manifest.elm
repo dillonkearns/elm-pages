@@ -64,11 +64,11 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 -}
 
 import ApiRoute
-import BuildError exposing (BuildError)
 import Color exposing (Color)
 import Color.Convert
 import DataSource exposing (DataSource)
 import Dict exposing (Dict)
+import Exception exposing (Throwable)
 import Head
 import Json.Encode as Encode
 import LanguageTag exposing (LanguageTag, emptySubtags)
@@ -345,7 +345,7 @@ nonEmptyList list =
 
 {-| A generator for Api.elm to include a manifest.json.
 -}
-generator : String -> DataSource BuildError Config -> ApiRoute.ApiRoute ApiRoute.Response
+generator : String -> DataSource Throwable Config -> ApiRoute.ApiRoute ApiRoute.Response
 generator canonicalSiteUrl config =
     ApiRoute.succeed
         (config

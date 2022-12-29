@@ -47,6 +47,7 @@ import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Request
+import Exception exposing (Catchable, Throwable)
 import Json.Decode as Decode exposing (Decoder)
 
 
@@ -135,7 +136,7 @@ It's common to parse the body with a markdown parser or other format.
                 )
 
 -}
-bodyWithFrontmatter : (String -> Decoder frontmatter) -> String -> DataSource (FileReadError Decode.Error) frontmatter
+bodyWithFrontmatter : (String -> Decoder frontmatter) -> String -> DataSource (Catchable (FileReadError Decode.Error)) frontmatter
 bodyWithFrontmatter frontmatterDecoder filePath =
     read filePath
         (body
@@ -206,7 +207,7 @@ the [`DataSource`](DataSource) API along with [`DataSource.Glob`](DataSource-Glo
             |> DataSource.resolve
 
 -}
-onlyFrontmatter : Decoder frontmatter -> String -> DataSource (FileReadError Decode.Error) frontmatter
+onlyFrontmatter : Decoder frontmatter -> String -> DataSource (Catchable (FileReadError Decode.Error)) frontmatter
 onlyFrontmatter frontmatterDecoder filePath =
     read filePath
         (frontmatter frontmatterDecoder)
@@ -233,7 +234,7 @@ Hey there! This is my first post :)
 Then data will yield the value `"Hey there! This is my first post :)"`.
 
 -}
-bodyWithoutFrontmatter : String -> DataSource (FileReadError decoderError) String
+bodyWithoutFrontmatter : String -> DataSource (Catchable (FileReadError decoderError)) String
 bodyWithoutFrontmatter filePath =
     read filePath
         body
@@ -257,7 +258,7 @@ You could read a file called `hello.txt` in your root project directory like thi
         File.rawFile "hello.txt"
 
 -}
-rawFile : String -> DataSource (FileReadError decoderError) String
+rawFile : String -> DataSource (Catchable (FileReadError decoderError)) String
 rawFile filePath =
     read filePath (Decode.field "rawFile" Decode.string)
 
@@ -285,7 +286,7 @@ The Decode will strip off any unused JSON data.
             "elm.json"
 
 -}
-jsonFile : Decoder a -> String -> DataSource (FileReadError Decode.Error) a
+jsonFile : Decoder a -> String -> DataSource (Catchable (FileReadError Decode.Error)) a
 jsonFile jsonFileDecoder filePath =
     rawFile filePath
         |> DataSource.onError (\foo -> Debug.todo "TODO: Not handled yet")
@@ -294,8 +295,8 @@ jsonFile jsonFileDecoder filePath =
                 jsonString
                     |> Decode.decodeString jsonFileDecoder
                     |> Result.mapError DecodingError
-                    --|> Result.mapError Decode.errorToString
                     |> DataSource.fromResult
+                    |> DataSource.onError (\error -> DataSource.fail <| Exception.Catchable error "TODO error message here")
             )
 
 
@@ -306,7 +307,7 @@ body =
     Decode.field "withoutFrontmatter" Decode.string
 
 
-read : String -> Decoder a -> DataSource (FileReadError error) a
+read : String -> Decoder a -> DataSource (Catchable (FileReadError error)) a
 read filePath decoder =
     DataSource.Internal.Request.request
         { name = "read-file"
@@ -321,6 +322,7 @@ read filePath decoder =
         }
         |> DataSource.onError (\_ -> Debug.todo "TODO: not handled")
         |> DataSource.andThen DataSource.fromResult
+        |> DataSource.onError (\error -> DataSource.fail <| Exception.Catchable error "TODO error message here")
 
 
 errorDecoder : Decoder (FileReadError decoding)

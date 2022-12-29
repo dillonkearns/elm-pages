@@ -1,8 +1,8 @@
 module Route.Showcase exposing (ActionData, Data, Model, Msg, route)
 
-import BuildError exposing (BuildError)
 import Css
 import DataSource exposing (DataSource)
+import Exception exposing (Catchable, Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -40,7 +40,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource BuildError Data
+data : DataSource Throwable Data
 data =
     Showcase.staticRequest
 

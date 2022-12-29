@@ -35,6 +35,7 @@ import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Request
+import Exception exposing (Catchable)
 import Json.Decode as Decode
 import Json.Encode as Encode
 
@@ -64,7 +65,7 @@ toBuildError (MissingEnvVariable errorName) =
 
 {-| Get an environment variable, or a DataSource failure if there is no environment variable matching that name.
 -}
-expect : String -> DataSource Error String
+expect : String -> DataSource (Catchable Error) String
 expect envVariableName =
     envVariableName
         |> get
@@ -73,5 +74,5 @@ expect envVariableName =
                 maybeValue
                     |> Result.fromMaybe ("DataSource.Env.expect was expecting a variable `" ++ envVariableName ++ "` but couldn't find a variable with that name.")
                     |> DataSource.fromResult
-                    |> DataSource.onError (\_ -> DataSource.fail (MissingEnvVariable envVariableName))
+                    |> DataSource.onError (\_ -> DataSource.fail (Exception.Catchable (MissingEnvVariable envVariableName) "TODO"))
             )

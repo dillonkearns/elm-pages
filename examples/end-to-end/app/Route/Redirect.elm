@@ -1,12 +1,10 @@
 module Route.Redirect exposing (ActionData, Data, Model, Msg, route)
 
-import Browser.Navigation
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Form.FormData exposing (Method(..))
-import FormDecoder
 import Head
 import Head.Seo as Seo
 import Pages.Msg
@@ -94,7 +92,7 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource BuildError (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (DataSource Throwable (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.acceptMethod ( Request.Post, [] )

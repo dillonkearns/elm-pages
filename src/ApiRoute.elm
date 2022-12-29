@@ -172,8 +172,8 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
 
 -}
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Json.Decode as Decode
@@ -192,7 +192,7 @@ type alias ApiRoute response =
 {-| Same as [`preRender`](#preRender), but for an ApiRoute that has no dynamic segments. This is just a bit simpler because
 since there are no dynamic segments, you don't need to provide a DataSource with the list of dynamic segments to pre-render because there is only a single possible route.
 -}
-single : ApiRouteBuilder (DataSource BuildError String) (List String) -> ApiRoute Response
+single : ApiRouteBuilder (DataSource Throwable String) (List String) -> ApiRoute Response
 single handler =
     handler
         |> preRender (\constructor -> DataSource.succeed [ constructor ])
@@ -259,10 +259,10 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
 
 
 {-| -}
-preRenderWithFallback : (constructor -> DataSource BuildError (List (List String))) -> ApiRouteBuilder (DataSource BuildError (Server.Response.Response Never Never)) constructor -> ApiRoute Response
+preRenderWithFallback : (constructor -> DataSource Throwable (List (List String))) -> ApiRouteBuilder (DataSource Throwable (Server.Response.Response Never Never)) constructor -> ApiRoute Response
 preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
-        buildTimeRoutes__ : DataSource BuildError (List String)
+        buildTimeRoutes__ : DataSource Throwable (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> DataSource.map (List.map toString)
@@ -301,15 +301,15 @@ encodeStaticFileBody fileBody =
 
 
 {-| -}
-preRender : (constructor -> DataSource BuildError (List (List String))) -> ApiRouteBuilder (DataSource BuildError String) constructor -> ApiRoute Response
+preRender : (constructor -> DataSource Throwable (List (List String))) -> ApiRouteBuilder (DataSource Throwable String) constructor -> ApiRoute Response
 preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
-        buildTimeRoutes__ : DataSource BuildError (List String)
+        buildTimeRoutes__ : DataSource Throwable (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> DataSource.map (List.map toString)
 
-        preBuiltMatches : DataSource BuildError (List (List String))
+        preBuiltMatches : DataSource Throwable (List (List String))
         preBuiltMatches =
             buildUrls (constructor [])
     in
@@ -322,7 +322,7 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
                     matches =
                         Internal.ApiRoute.pathToMatches path fullHandler
 
-                    routeFound : DataSource BuildError Bool
+                    routeFound : DataSource Throwable Bool
                     routeFound =
                         preBuiltMatches
                             |> DataSource.map (List.member matches)
@@ -431,20 +431,20 @@ capture (ApiRouteBuilder patterns pattern previousHandler toString constructor) 
 
 {-| For internal use by generated code. Not so useful in user-land.
 -}
-getBuildTimeRoutes : ApiRoute response -> DataSource BuildError (List String)
+getBuildTimeRoutes : ApiRoute response -> DataSource Throwable (List String)
 getBuildTimeRoutes (ApiRoute handler) =
     handler.buildTimeRoutes
 
 
 {-| Include head tags on every page's HTML.
 -}
-withGlobalHeadTags : DataSource BuildError (List Head.Tag) -> ApiRoute response -> ApiRoute response
+withGlobalHeadTags : DataSource Throwable (List Head.Tag) -> ApiRoute response -> ApiRoute response
 withGlobalHeadTags globalHeadTags (ApiRoute handler) =
     ApiRoute { handler | globalHeadTags = Just globalHeadTags }
 
 
 {-| -}
-getGlobalHeadTagsDataSource : ApiRoute response -> Maybe (DataSource BuildError (List Head.Tag))
+getGlobalHeadTagsDataSource : ApiRoute response -> Maybe (DataSource Throwable (List Head.Tag))
 getGlobalHeadTagsDataSource (ApiRoute handler) =
     handler.globalHeadTags
 

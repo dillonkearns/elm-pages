@@ -229,6 +229,7 @@ import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Glob exposing (Glob(..))
 import DataSource.Internal.Request
+import Exception exposing (Catchable, Throwable)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
@@ -1053,7 +1054,7 @@ so it's ideal to make this kind of assertion rather than having fallback behavio
 issues (like if we had instead ignored the case where there are two or more matching blog post files).
 
 -}
-expectUniqueMatch : Glob a -> DataSource String a
+expectUniqueMatch : Glob a -> DataSource (Catchable String) a
 expectUniqueMatch glob =
     glob
         |> toDataSource
@@ -1064,10 +1065,16 @@ expectUniqueMatch glob =
                         DataSource.succeed file
 
                     [] ->
-                        DataSource.fail <| "No files matched the pattern: " ++ toPatternString glob
+                        DataSource.fail <|
+                            Exception.fromStringWithValue
+                                ("No files matched the pattern: " ++ toPatternString glob)
+                                ("No files matched the pattern: " ++ toPatternString glob)
 
                     _ ->
-                        DataSource.fail "More than one file matched."
+                        DataSource.fail <|
+                            Exception.fromStringWithValue
+                                "More than one file matched."
+                                "More than one file matched."
             )
 
 

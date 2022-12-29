@@ -5,7 +5,7 @@ module DataSource exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , mapError, onError
+    , catch, mapError, onError, throw
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `DataSource` that will be resolved **before** `init` is called. That means it is also available
@@ -82,6 +82,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 -}
 
 import Dict
+import Exception exposing (Catchable(..), Throwable)
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 
 
@@ -524,3 +525,20 @@ map9 combineFn request1 request2 request3 request4 request5 request6 request7 re
         |> map2 (|>) request7
         |> map2 (|>) request8
         |> map2 (|>) request9
+
+
+catch : DataSource (Catchable error) value -> DataSource error value
+catch ds =
+    ds
+        |> onError
+            (\exception ->
+                case exception of
+                    Catchable error string ->
+                        fail error
+            )
+
+
+throw : DataSource (Catchable error) data -> DataSource Throwable data
+throw dataSource =
+    dataSource
+        |> onError (Exception.throw >> fail)

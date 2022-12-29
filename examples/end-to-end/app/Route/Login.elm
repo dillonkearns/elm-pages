@@ -1,8 +1,8 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Form
 import Form.Field as Field
 import Form.FieldView
@@ -51,7 +51,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-action : RouteParams -> Request.Parser (DataSource BuildError (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (DataSource Throwable (Response ActionData ErrorPage))
 action routeParams =
     Request.formDataWithServerValidation (form |> Form.initCombinedServer identity)
         |> MySession.withSession
@@ -162,7 +162,7 @@ form =
         |> Form.field "name" (Field.text |> Field.required "Required")
 
 
-data : RouteParams -> Request.Parser (DataSource BuildError (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (DataSource Throwable (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.succeed ()

@@ -1,8 +1,8 @@
 module Site exposing (config)
 
-import BuildError exposing (BuildError)
 import Cloudinary
 import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import MimeType
 import Pages.Manifest as Manifest
@@ -23,14 +23,14 @@ type alias Data =
     }
 
 
-data : DataSource.DataSource BuildError Data
+data : DataSource.DataSource Throwable Data
 data =
     DataSource.map Data
         --(StaticFile.request "site-name.txt" StaticFile.body)
         (DataSource.succeed "site-name")
 
 
-head : DataSource BuildError (List Head.Tag)
+head : DataSource Throwable (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")

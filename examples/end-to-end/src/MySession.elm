@@ -1,12 +1,12 @@
 module MySession exposing (..)
 
-import BuildError exposing (BuildError)
 import Codec
 import DataSource exposing (DataSource)
 import DataSource.Env as Env
+import Exception exposing (Throwable)
 import Route
 import Server.Request exposing (Parser)
-import Server.Response as Response exposing (Response)
+import Server.Response exposing (Response)
 import Server.Session as Session
 import Server.SetCookie as SetCookie
 
@@ -19,9 +19,9 @@ cookieOptions =
 
 
 withSession :
-    (request -> Result Session.NotLoadedReason Session.Session -> DataSource BuildError ( Session.Session, Response data errorPage ))
+    (request -> Result Session.NotLoadedReason Session.Session -> DataSource Throwable ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource BuildError (Response data errorPage))
+    -> Parser (DataSource Throwable (Response data errorPage))
 withSession =
     Session.withSession
         { name = "mysession"
@@ -31,9 +31,9 @@ withSession =
 
 
 withSessionOrRedirect :
-    (request -> Session.Session -> DataSource BuildError ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> DataSource Throwable ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource BuildError (Response data errorPage))
+    -> Parser (DataSource Throwable (Response data errorPage))
 withSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
@@ -53,17 +53,17 @@ withSessionOrRedirect toRequest handler =
         handler
 
 
-secrets : DataSource BuildError (List String)
+secrets : DataSource Throwable (List String)
 secrets =
     Env.expect "SESSION_SECRET"
+        |> DataSource.throw
         |> DataSource.map List.singleton
-        |> DataSource.mapError Env.toBuildError
 
 
 expectSessionOrRedirect :
-    (request -> Session.Session -> DataSource BuildError ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> DataSource Throwable ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource BuildError (Response data errorPage))
+    -> Parser (DataSource Throwable (Response data errorPage))
 expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"

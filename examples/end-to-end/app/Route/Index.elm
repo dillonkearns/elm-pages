@@ -1,9 +1,9 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.File
 import DataSource.Port
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (a, div, text)
@@ -49,10 +49,10 @@ type alias Data =
     }
 
 
-data : DataSource BuildError Data
+data : DataSource Throwable Data
 data =
     DataSource.map2 Data
-        (DataSource.File.rawFile "greeting.txt" |> DataSource.mapError DataSource.File.toBuildError)
+        (DataSource.File.rawFile "greeting.txt" |> DataSource.throw)
         (DataSource.Port.get "hello" (Encode.string "Jane") Decode.string)
 
 

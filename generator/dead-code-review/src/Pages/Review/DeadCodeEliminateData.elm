@@ -134,8 +134,8 @@ declarationVisitor node context =
                                                 -- TODO need to replace `action` as well
                                                 [ ("data = "
                                                     ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                    -- TODO add `import BuildError` if not present (and use alias if present)
-                                                    ++ " (BuildError.internal \"\")\n    "
+                                                    -- TODO add `import Exception` if not present (and use alias if present)
+                                                    ++ " (Exception.fromString \"\")\n    "
                                                   )
                                                     |> Review.Fix.replaceRangeBy (Node.range dataValue)
                                                 ]
@@ -193,12 +193,12 @@ expressionVisitor node context =
                                                     "preRender" ->
                                                         "\\_ -> "
                                                             ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                            ++ " (BuildError.internal \"\")"
+                                                            ++ " (Exception.fromString \"\")"
 
                                                     "preRenderWithFallback" ->
                                                         "\\_ -> "
                                                             ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                            ++ " (BuildError.internal \"\")"
+                                                            ++ " (Exception.fromString \"\")"
 
                                                     "serverRender" ->
                                                         "\\_ -> "
@@ -207,7 +207,7 @@ expressionVisitor node context =
 
                                                     "single" ->
                                                         referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                            ++ " (BuildError.internal \"\")\n       "
+                                                            ++ " (Exception.fromString \"\")\n       "
 
                                                     _ ->
                                                         "data"

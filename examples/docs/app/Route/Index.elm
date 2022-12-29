@@ -1,8 +1,8 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
-import BuildError exposing (BuildError)
 import Css
 import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
@@ -86,7 +86,7 @@ view maybeUrl sharedModel static =
     }
 
 
-data : DataSource BuildError Data
+data : DataSource Throwable Data
 data =
     DataSource.succeed ()
 

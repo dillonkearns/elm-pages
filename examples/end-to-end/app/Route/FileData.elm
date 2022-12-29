@@ -3,6 +3,7 @@ module Route.FileData exposing (ActionData, Data, Model, Msg, route)
 import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.File
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
@@ -45,11 +46,11 @@ type alias Data =
     }
 
 
-data : DataSource BuildError Data
+data : DataSource Throwable Data
 data =
     "my-json-data.json"
         |> DataSource.File.jsonFile (Decode.field "greeting" Decode.string)
-        |> DataSource.mapError DataSource.File.toBuildError
+        |> DataSource.throw
         |> DataSource.map Data
 
 

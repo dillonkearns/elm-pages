@@ -12,7 +12,7 @@ type alias Section =
     }
 
 
-all : DataSource BuildError (List Section)
+all : DataSource error (List Section)
 all =
     Glob.succeed Section
         |> Glob.captureFilePath
