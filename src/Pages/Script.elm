@@ -3,6 +3,7 @@ module Pages.Script exposing
     , withCliOptions, withoutCliOptions
     , writeFile
     , log
+    , Error(..)
     )
 
 {-|
@@ -20,6 +21,11 @@ module Pages.Script exposing
 ## Utilities
 
 @docs log
+
+
+## Errors
+
+@docs Error
 
 -}
 
@@ -39,6 +45,7 @@ type alias Script =
     Pages.Internal.Script.Script
 
 
+{-| -}
 type Error
     = --TODO make more descriptive
       FileWriteError
