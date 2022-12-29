@@ -270,6 +270,7 @@ function generatorWrapperFile(moduleName) {
 
 import Bytes
 import DataSource exposing (DataSource)
+import Exception
 import Cli.Program as Program
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -277,7 +278,7 @@ import Pages.Internal.Platform.GeneratorApplication
 import ${moduleName}
 
 
-main : Program.StatefulProgram Pages.Internal.Platform.GeneratorApplication.Model Pages.Internal.Platform.GeneratorApplication.Msg (DataSource ()) Pages.Internal.Platform.GeneratorApplication.Flags
+main : Program.StatefulProgram Pages.Internal.Platform.GeneratorApplication.Model Pages.Internal.Platform.GeneratorApplication.Msg (DataSource Exception.Throwable ()) Pages.Internal.Platform.GeneratorApplication.Flags
 main =
     Pages.Internal.Platform.GeneratorApplication.app
         { data = ${moduleName}.run

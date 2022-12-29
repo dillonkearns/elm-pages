@@ -1,7 +1,7 @@
 module DataSource.File exposing
     ( bodyWithFrontmatter, bodyWithoutFrontmatter, onlyFrontmatter
     , jsonFile, rawFile
-    , FileReadError(..), toBuildError
+    , FileReadError(..)
     )
 
 {-| This module lets you read files from the local filesystem as a [`DataSource`](DataSource#DataSource).
@@ -41,9 +41,13 @@ plain old JSON in Elm.
 
 @docs jsonFile, rawFile
 
+
+## Exceptions
+
+@docs FileReadError
+
 -}
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Request
@@ -147,6 +151,7 @@ bodyWithFrontmatter frontmatterDecoder filePath =
         )
 
 
+{-| -}
 type FileReadError decoding
     = FileDoesntExist
     | FileReadError String
@@ -261,12 +266,6 @@ You could read a file called `hello.txt` in your root project directory like thi
 rawFile : String -> DataSource (Catchable (FileReadError decoderError)) String
 rawFile filePath =
     read filePath (Decode.field "rawFile" Decode.string)
-
-
-toBuildError : FileReadError decodingError -> BuildError
-toBuildError error =
-    BuildError.internal
-        ("TODO - turn into a custom type variant of BuildError" ++ Debug.toString error)
 
 
 {-| Read a file as JSON.

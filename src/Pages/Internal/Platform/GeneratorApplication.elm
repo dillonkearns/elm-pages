@@ -11,6 +11,7 @@ import Cli.Program as Program exposing (FlagsIncludingArgv)
 import Codec
 import DataSource exposing (DataSource)
 import Dict
+import Exception exposing (Throwable)
 import HtmlPrinter
 import Json.Decode as Decode
 import Json.Encode
@@ -33,7 +34,7 @@ type alias Flags =
 
 {-| -}
 type alias Model =
-    { staticResponses : DataSource ()
+    { staticResponses : DataSource Throwable ()
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , done : Bool
@@ -54,10 +55,10 @@ type Msg
 {-| -}
 app :
     GeneratorProgramConfig
-    -> Program.StatefulProgram Model Msg (DataSource ()) Flags
+    -> Program.StatefulProgram Model Msg (DataSource Throwable ()) Flags
 app config =
     let
-        cliConfig : Program.Config (DataSource ())
+        cliConfig : Program.Config (DataSource Throwable ())
         cliConfig =
             case config.data of
                 Pages.Internal.Script.Script theCliConfig ->
@@ -277,7 +278,7 @@ perform config effect =
 
 {-| -}
 init :
-    DataSource ()
+    DataSource Throwable ()
     -> FlagsIncludingArgv Flags
     -> ( Model, Effect )
 init execute flags =
@@ -315,12 +316,12 @@ init execute flags =
 
 
 initLegacy :
-    DataSource ()
+    DataSource Throwable ()
     -> { staticHttpCache : RequestsAndPending }
     -> ( Model, Effect )
 initLegacy execute { staticHttpCache } =
     let
-        staticResponses : DataSource ()
+        staticResponses : DataSource Throwable ()
         staticResponses =
             StaticResponses.renderApiRequest execute
 

@@ -28,6 +28,7 @@ import Cli.Program as Program
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Request
+import Exception exposing (Catchable, Throwable)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
@@ -38,8 +39,13 @@ type alias Script =
     Pages.Internal.Script.Script
 
 
+type Error
+    = --TODO make more descriptive
+      FileWriteError
+
+
 {-| -}
-writeFile : { path : String, body : String } -> DataSource ()
+writeFile : { path : String, body : String } -> DataSource (Catchable Error) ()
 writeFile { path, body } =
     DataSource.Internal.Request.request
         { name = "write-file"
@@ -50,12 +56,14 @@ writeFile { path, body } =
                     , ( "body", Encode.string body )
                     ]
                 )
-        , expect = DataSource.Http.expectJson (Decode.succeed ())
+        , expect =
+            -- TODO decode possible error details here
+            DataSource.Http.expectJson (Decode.succeed ())
         }
 
 
 {-| -}
-log : String -> DataSource ()
+log : String -> DataSource error ()
 log message =
     DataSource.Internal.Request.request
         { name = "log"
@@ -70,7 +78,7 @@ log message =
 
 
 {-| -}
-withoutCliOptions : DataSource () -> Script
+withoutCliOptions : DataSource Throwable () -> Script
 withoutCliOptions execute =
     Pages.Internal.Script.Script
         (\_ ->
@@ -85,7 +93,7 @@ withoutCliOptions execute =
 
 
 {-| -}
-withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource ()) -> Script
+withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource Throwable ()) -> Script
 withCliOptions config execute =
     Pages.Internal.Script.Script
         (\_ ->

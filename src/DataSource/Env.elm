@@ -1,6 +1,6 @@
 module DataSource.Env exposing
     ( get, expect
-    , Error(..), toBuildError
+    , Error(..)
     )
 
 {-| Because DataSource's in `elm-pages` never run in the browser (see [the DataSource docs](DataSource)), you can access environment variables securely. As long as the environment variable isn't sent
@@ -29,9 +29,13 @@ down into the final `Data` value, it won't end up in the client!
 
 @docs get, expect
 
+
+## Errors
+
+@docs Error
+
 -}
 
-import BuildError exposing (BuildError)
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Request
@@ -40,6 +44,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 
 
+{-| -}
 type Error
     = MissingEnvVariable String
 
@@ -56,11 +61,6 @@ get envVariableName =
                 (Decode.nullable Decode.string)
         }
         |> DataSource.onError (\_ -> DataSource.succeed Nothing)
-
-
-toBuildError : Error -> BuildError
-toBuildError (MissingEnvVariable errorName) =
-    BuildError.internal ("Missing environment variable from DataSource.Env.expect: `" ++ errorName ++ "`")
 
 
 {-| Get an environment variable, or a DataSource failure if there is no environment variable matching that name.

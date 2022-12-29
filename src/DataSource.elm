@@ -5,7 +5,7 @@ module DataSource exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , catch, mapError, onError, throw
+    , catch, throw, mapError, onError
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `DataSource` that will be resolved **before** `init` is called. That means it is also available
@@ -78,6 +78,11 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 @docs andMap
 
 @docs map2, map3, map4, map5, map6, map7, map8, map9
+
+
+## Exception Handling
+
+@docs catch, throw, mapError, onError
 
 -}
 
@@ -281,6 +286,7 @@ andThen fn requestInfo =
                     )
 
 
+{-| -}
 onError : (error -> DataSource mappedError value) -> DataSource error value -> DataSource mappedError value
 onError fromError dataSource =
     case dataSource of
@@ -527,6 +533,7 @@ map9 combineFn request1 request2 request3 request4 request5 request6 request7 re
         |> map2 (|>) request9
 
 
+{-| -}
 catch : DataSource (Catchable error) value -> DataSource error value
 catch ds =
     ds
@@ -538,6 +545,7 @@ catch ds =
             )
 
 
+{-| -}
 throw : DataSource (Catchable error) data -> DataSource Throwable data
 throw dataSource =
     dataSource
