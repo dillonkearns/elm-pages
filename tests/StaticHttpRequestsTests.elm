@@ -305,11 +305,11 @@ all =
                         "toJsPort"
                         (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
                         (expectErrorsPort
-                            """-- CALLED STATIC HTTP FAIL ----------------------------------------------------- elm-pages
+                            """-- INTERNAL ERROR ----------------------------------------------------- elm-pages
 
 
 
-I ran into a call to `DataSource.fail` with message: String was not uppercased"""
+String was not uppercased"""
                         )
         , test "POST method works" <|
             \() ->
@@ -392,7 +392,7 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
                         "toJsPort"
                         (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
                         (expectErrorsPort
-                            """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
+                            """-- INTERNAL ERROR ----------------------------------------------------- elm-pages
 
 Problem with the given value:
 

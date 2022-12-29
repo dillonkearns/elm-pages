@@ -407,8 +407,21 @@ requestRaw request__ expect =
                                     )
                     )
                 |> toResult
-                |> DataSource.mapError (\error -> Exception.Catchable error "TODO - error message here")
+                |> DataSource.mapError
+                    (\error ->
+                        Exception.Catchable error (errorToString error)
+                    )
         )
+
+
+errorToString : Pages.StaticHttpRequest.Error -> String
+errorToString error =
+    case error of
+        Pages.StaticHttpRequest.DecoderError string ->
+            string
+
+        Pages.StaticHttpRequest.UserCalledStaticHttpFail string ->
+            string
 
 
 {-| -}
