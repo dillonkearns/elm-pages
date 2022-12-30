@@ -2,9 +2,10 @@ module Route.Slide.Number_ exposing (ActionData, Data, Model, Msg, route)
 
 import Browser.Events
 import Browser.Navigation
-import DataSource
+import DataSource exposing (DataSource)
 import DataSource.File
 import Effect
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -88,15 +89,16 @@ toDirection string =
             Nothing
 
 
-data : RouteParams -> DataSource.DataSource Data
+data : RouteParams -> DataSource Throwable Data
 data routeParams =
     DataSource.map Data
         (slideBody routeParams)
 
 
-slideBody : RouteParams -> DataSource.DataSource String
+slideBody : RouteParams -> DataSource Throwable String
 slideBody route_ =
     DataSource.File.bodyWithoutFrontmatter "slides.md"
+        |> DataSource.throw
 
 
 head :

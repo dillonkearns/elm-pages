@@ -1,6 +1,7 @@
 module Route.Date.SPLAT_ exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource
+import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import Html.Styled exposing (text)
 import Pages.Msg
@@ -38,7 +39,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource.DataSource (List RouteParams)
+pages : DataSource Throwable (List RouteParams)
 pages =
     DataSource.succeed
         [ { splat = ( "2021", [ "04", "28" ] )
@@ -48,7 +49,7 @@ pages =
         ]
 
 
-data : RouteParams -> DataSource.DataSource Data
+data : RouteParams -> DataSource Throwable Data
 data routeParams =
     DataSource.succeed {}
 

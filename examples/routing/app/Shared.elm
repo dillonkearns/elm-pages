@@ -1,19 +1,15 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
-import Browser.Navigation
-import Css.Global
-import DataSource
-import DataSource.Http
+import DataSource exposing (DataSource)
 import Effect exposing (Effect)
+import Exception exposing (Throwable)
 import Html exposing (Html)
 import Html.Styled
-import Json.Decode as D
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
-import Tailwind.Utilities
 import View exposing (View)
 
 
@@ -80,7 +76,7 @@ subscriptions _ _ =
     Sub.none
 
 
-data : DataSource.DataSource Data
+data : DataSource Throwable Data
 data =
     --DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
     --    (D.field "stargazers_count" D.int)

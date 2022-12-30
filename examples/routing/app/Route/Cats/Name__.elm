@@ -1,6 +1,7 @@
 module Route.Cats.Name__ exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource
+import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
@@ -38,7 +39,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource.DataSource (List RouteParams)
+pages : DataSource Throwable (List RouteParams)
 pages =
     DataSource.succeed
         [ { name = Just "larry"
@@ -48,7 +49,7 @@ pages =
         ]
 
 
-data : RouteParams -> DataSource.DataSource Data
+data : RouteParams -> DataSource Throwable Data
 data routeParams =
     DataSource.succeed {}
 

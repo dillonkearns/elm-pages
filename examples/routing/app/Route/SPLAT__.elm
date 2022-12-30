@@ -1,6 +1,7 @@
 module Route.SPLAT__ exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource
+import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import Html.Styled exposing (text)
 import Pages.Msg
@@ -38,7 +39,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : RouteParams -> DataSource.DataSource Data
+data : RouteParams -> DataSource Throwable Data
 data routeParams =
     DataSource.succeed {}
 

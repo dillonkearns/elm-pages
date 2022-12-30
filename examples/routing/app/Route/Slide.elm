@@ -1,6 +1,7 @@
 module Route.Slide exposing (ActionData, Data, Model, Msg, route)
 
 import DataSource
+import Exception
 import Head
 import Head.Seo as Seo
 import Pages.Msg

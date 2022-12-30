@@ -2,6 +2,7 @@ module Site exposing (config)
 
 import Cloudinary
 import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import MimeType
 import Pages.Manifest as Manifest
@@ -22,14 +23,14 @@ type alias Data =
     }
 
 
-data : DataSource Data
+data : DataSource Throwable Data
 data =
     DataSource.map Data
         --(StaticFile.request "site-name.txt" StaticFile.body)
         (DataSource.succeed "site-name")
 
 
-head : DataSource (List Head.Tag)
+head : DataSource Throwable (List Head.Tag)
 head =
     [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
     , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
