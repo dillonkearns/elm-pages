@@ -98,7 +98,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
    single
        { head = head
-       , data = DataSource.fail ""
+       , data = DataSource.fail (Exception.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
 
@@ -196,7 +196,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
    single
        { head = head
-       , data = DS.fail ""
+       , data = DS.fail (Exception.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
 
@@ -295,7 +295,7 @@ type alias Data =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
-        { data = \\_ -> DataSource.fail ""
+        { data = \\_ -> DataSource.fail (Exception.fromString "")
         , head = head
         , pages = pages
         }
@@ -567,7 +567,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
    RouteBuilder.single
        { head = head
-       , data = DataSource.fail ""
+       , data = DataSource.fail (Exception.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
 
@@ -653,7 +653,7 @@ template =
     { init = init
     , update = update
     , view = view
-    , data = DataSource.fail ""
+    , data = DataSource.fail (Exception.fromString "")
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
     }
