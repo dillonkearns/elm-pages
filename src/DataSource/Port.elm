@@ -96,6 +96,7 @@ get portName input decoder =
         |> DataSource.onError (\_ -> DataSource.fail Error)
 
 
+{-| -}
 type Error
     = -- TODO include additional context about error or better name to reflect the error state
       Error
