@@ -215,7 +215,11 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                                             |> DataSource.fromResult
                                             |> DataSource.map Just
                                    )
-                                |> DataSource.onError (\stringError -> Debug.todo ("TODO: Not handled yet:" ++ stringError))
+                                |> DataSource.onError
+                                    (\stringError ->
+                                        -- TODO make error with title and better context/formatting
+                                        Exception.fromString stringError |> DataSource.fail
+                                    )
                                 |> DataSource.andThen
                                     (\rendered ->
                                         case rendered of
@@ -348,7 +352,6 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
                 in
                 preBuiltMatches
                     |> DataSource.map (List.member matches)
-                    |> Debug.todo ""
         , pattern = patterns
         , kind = "prerender"
         , globalHeadTags = Nothing
@@ -447,9 +450,3 @@ withGlobalHeadTags globalHeadTags (ApiRoute handler) =
 getGlobalHeadTagsDataSource : ApiRoute response -> Maybe (DataSource Throwable (List Head.Tag))
 getGlobalHeadTagsDataSource (ApiRoute handler) =
     handler.globalHeadTags
-
-
-
---captureRest : ApiRouteBuilder (List String -> a) b -> ApiRouteBuilder a b
---captureRest previousHandler =
---    Debug.todo ""

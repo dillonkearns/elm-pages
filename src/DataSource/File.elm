@@ -288,7 +288,6 @@ The Decode will strip off any unused JSON data.
 jsonFile : Decoder a -> String -> DataSource (Catchable (FileReadError Decode.Error)) a
 jsonFile jsonFileDecoder filePath =
     rawFile filePath
-        |> DataSource.onError (\foo -> Debug.todo "TODO: Not handled yet")
         |> DataSource.andThen
             (\jsonString ->
                 jsonString
@@ -319,7 +318,6 @@ read filePath decoder =
                 ]
                 |> DataSource.Http.expectJson
         }
-        |> DataSource.onError (\_ -> Debug.todo "TODO: not handled")
         |> DataSource.andThen DataSource.fromResult
         |> DataSource.onError (\error -> DataSource.fail <| Exception.Catchable error "TODO error message here")
 

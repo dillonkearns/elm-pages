@@ -385,7 +385,8 @@ serverRender { data, action, head } =
                             Json.Decode.decodeValue decoder requestPayload
                                 |> Result.mapError Json.Decode.errorToString
                                 |> DataSource.fromResult
-                                |> DataSource.onError (\error -> Debug.todo "TODO - handle error type")
+                                -- TODO include title and better error context and formatting
+                                |> DataSource.onError (\error -> DataSource.fail (Exception.fromString error))
                        )
                 )
                     |> DataSource.andThen
@@ -408,7 +409,8 @@ serverRender { data, action, head } =
                             Json.Decode.decodeValue decoder requestPayload
                                 |> Result.mapError Json.Decode.errorToString
                                 |> DataSource.fromResult
-                                |> DataSource.onError (\error -> Debug.todo "TODO - handle error type")
+                                -- TODO include title and better error context and formatting
+                                |> DataSource.onError (\error -> DataSource.fail (Exception.fromString error))
                        )
                 )
                     |> DataSource.andThen

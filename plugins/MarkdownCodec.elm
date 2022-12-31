@@ -74,9 +74,12 @@ noteTitle filePath =
                                                     )
                                                     blocks
                                             )
-                                        |> Result.andThen (Result.fromMaybe <| "Expected to find an H1 heading for page " ++ filePath)
+                                        |> Result.andThen
+                                            (Result.fromMaybe <|
+                                                ("Expected to find an H1 heading for page " ++ filePath)
+                                            )
+                                        |> Result.mapError Exception.fromString
                                         |> DataSource.fromResult
-                                        |> DataSource.throw
                                 )
                         )
             )
@@ -194,8 +197,8 @@ withoutFrontmatter renderer filePath =
                     -- we don't want to encode the HTML since it contains functions so it's not serializable
                     -- but we can at least make sure there are no errors turning it into HTML before encoding it
                     |> Result.map (\_ -> blocks)
+                    |> Result.mapError (\error -> Exception.fromString error)
                     |> DataSource.fromResult
-                    |> DataSource.throw
             )
 
 
@@ -229,7 +232,7 @@ withFrontmatter constructor frontmatterDecoder_ renderer filePath =
                         -- we don't want to encode the HTML since it contains functions so it's not serializable
                         -- but we can at least make sure there are no errors turning it into HTML before encoding it
                         |> Result.map (\_ -> blocks)
+                        |> Result.mapError (\error -> Exception.fromString error)
                         |> DataSource.fromResult
-                        |> DataSource.throw
                 )
         )
