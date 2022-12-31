@@ -100,6 +100,7 @@ data routeParams =
         (DataSource.Port.get "getItems"
             Encode.null
             (Decode.list Decode.string)
+            |> DataSource.throw
             |> DataSource.map
                 (\items ->
                     Server.Response.render
@@ -127,6 +128,7 @@ action routeParams =
                         DataSource.Port.get "addItem"
                             (Encode.string newItem)
                             (Decode.list Decode.string)
+                            |> DataSource.throw
                             |> DataSource.map
                                 (\_ ->
                                     Server.Response.render ActionData
@@ -136,6 +138,7 @@ action routeParams =
                         DataSource.Port.get "deleteAllItems"
                             Encode.null
                             (Decode.list Decode.string)
+                            |> DataSource.throw
                             |> DataSource.map
                                 (\_ ->
                                     Server.Response.render ActionData

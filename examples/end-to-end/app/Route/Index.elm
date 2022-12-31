@@ -53,7 +53,7 @@ data : DataSource Throwable Data
 data =
     DataSource.map2 Data
         (DataSource.File.rawFile "greeting.txt" |> DataSource.throw)
-        (DataSource.Port.get "hello" (Encode.string "Jane") Decode.string)
+        (DataSource.Port.get "hello" (Encode.string "Jane") Decode.string |> DataSource.throw)
 
 
 head :
