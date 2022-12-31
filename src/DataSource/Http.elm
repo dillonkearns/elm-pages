@@ -455,8 +455,3 @@ type Error
     | NetworkError
     | BadStatus Metadata String
     | BadBody String
-
-
-toResult : Result Pages.StaticHttpRequest.Error b -> RawRequest Pages.StaticHttpRequest.Error b
-toResult result =
-    ApiRoute result
