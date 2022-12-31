@@ -2,6 +2,7 @@ module Site exposing (config)
 
 import Cloudinary
 import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import MimeType
 import Pages.Manifest as Manifest
@@ -22,7 +23,7 @@ type alias Data =
     }
 
 
-head : DataSource (List Head.Tag)
+head : DataSource Throwable (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
