@@ -289,6 +289,7 @@ andThen fn requestInfo =
 {-| -}
 onError : (error -> DataSource mappedError value) -> DataSource error value -> DataSource mappedError value
 onError fromError dataSource =
+    -- elm-review: known-unoptimized-recursion
     case dataSource of
         ApiRoute a ->
             case a of
@@ -380,17 +381,6 @@ mapError mapFn requestInfo =
 mapLookupFnError : (error -> errorMapped) -> (d -> c -> DataSource error a) -> d -> c -> DataSource errorMapped a
 mapLookupFnError fn lookupFn maybeMock requests =
     mapError fn (lookupFn maybeMock requests)
-
-
-{-| -}
-mapError___ : Result error value -> DataSource error value
-mapError___ result =
-    case result of
-        Ok okValue ->
-            succeed okValue
-
-        Err error ->
-            fail error
 
 
 {-| -}
@@ -540,7 +530,7 @@ catch ds =
         |> onError
             (\exception ->
                 case exception of
-                    Catchable error string ->
+                    Catchable error _ ->
                         fail error
             )
 

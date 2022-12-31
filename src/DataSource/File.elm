@@ -51,7 +51,7 @@ plain old JSON in Elm.
 import DataSource exposing (DataSource)
 import DataSource.Http
 import DataSource.Internal.Request
-import Exception exposing (Catchable, Throwable)
+import Exception exposing (Catchable)
 import Json.Decode as Decode exposing (Decoder)
 
 

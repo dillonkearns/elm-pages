@@ -33,5 +33,5 @@ fromStringWithValue string value =
 throw : Catchable error -> Catchable ()
 throw exception =
     case exception of
-        Catchable error string ->
+        Catchable _ string ->
             Catchable () string

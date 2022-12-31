@@ -11,6 +11,7 @@ request :
     }
     -> DataSource error a
 request ({ name, body, expect } as params) =
+    -- elm-review: known-unoptimized-recursion
     DataSource.Http.uncachedRequest
         { url = "elm-pages-internal://" ++ name
         , method = "GET"

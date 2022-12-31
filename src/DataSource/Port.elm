@@ -1,8 +1,13 @@
-module DataSource.Port exposing (get)
+module DataSource.Port exposing
+    ( get
+    , Error(..)
+    )
 
 {-|
 
 @docs get
+
+@docs Error
 
 -}
 
@@ -74,7 +79,7 @@ prefer to add ANSI color codes within the error string in an exception and it wi
 As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For example, avoid using `fs.readFileSync`, because blocking IO can slow down your elm-pages builds and dev server.
 
 -}
-get : String -> Encode.Value -> Decoder b -> DataSource.DataSource error b
+get : String -> Encode.Value -> Decoder b -> DataSource.DataSource Error b
 get portName input decoder =
     DataSource.Internal.Request.request
         { name = "port"
@@ -88,4 +93,9 @@ get portName input decoder =
             decoder
                 |> DataSource.Http.expectJson
         }
-        |> DataSource.onError (\_ -> Debug.todo "TODO Internal Error - Not yet handled")
+        |> DataSource.onError (\_ -> DataSource.fail Error)
+
+
+type Error
+    = -- TODO include additional context about error or better name to reflect the error state
+      Error
