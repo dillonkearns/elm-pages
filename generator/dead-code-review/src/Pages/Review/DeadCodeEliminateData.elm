@@ -97,6 +97,13 @@ importVisitor node context =
 
 declarationVisitor : Node Declaration -> Context -> ( List (Error {}), Context )
 declarationVisitor node context =
+    let
+        exceptionFromString : String
+        exceptionFromString =
+            "("
+                ++ referenceFunction context.importContext ( [ "Exception" ], "fromString" )
+                ++ " \"\")"
+    in
     case Node.value node of
         Declaration.FunctionDeclaration { declaration } ->
             case Node.value declaration of
@@ -135,7 +142,9 @@ declarationVisitor node context =
                                                 [ ("data = "
                                                     ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
                                                     -- TODO add `import Exception` if not present (and use alias if present)
-                                                    ++ " (Exception.fromString \"\")\n    "
+                                                    ++ " "
+                                                    ++ exceptionFromString
+                                                    ++ "\n    "
                                                   )
                                                     |> Review.Fix.replaceRangeBy (Node.range dataValue)
                                                 ]
@@ -181,6 +190,13 @@ expressionVisitor node context =
                     ( dataFieldValue
                         |> List.concatMap
                             (\( key, dataValue ) ->
+                                let
+                                    exceptionFromString : String
+                                    exceptionFromString =
+                                        "("
+                                            ++ referenceFunction context.importContext ( [ "Exception" ], "fromString" )
+                                            ++ " \"\")"
+                                in
                                 [ Rule.errorWithFix
                                     { message = "Codemod"
                                     , details = [ "" ]
@@ -193,12 +209,14 @@ expressionVisitor node context =
                                                     "preRender" ->
                                                         "\\_ -> "
                                                             ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                            ++ " (Exception.fromString \"\")"
+                                                            ++ " "
+                                                            ++ exceptionFromString
 
                                                     "preRenderWithFallback" ->
                                                         "\\_ -> "
                                                             ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                            ++ " (Exception.fromString \"\")"
+                                                            ++ " "
+                                                            ++ exceptionFromString
 
                                                     "serverRender" ->
                                                         "\\_ -> "
@@ -207,7 +225,9 @@ expressionVisitor node context =
 
                                                     "single" ->
                                                         referenceFunction context.importContext ( [ "DataSource" ], "fail" )
-                                                            ++ " (Exception.fromString \"\")\n       "
+                                                            ++ " "
+                                                            ++ exceptionFromString
+                                                            ++ "\n       "
 
                                                     _ ->
                                                         "data"
