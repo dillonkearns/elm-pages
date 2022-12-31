@@ -127,7 +127,7 @@ type alias Body =
 get :
     String
     -> Json.Decode.Decoder a
-    -> DataSource (Catchable Pages.StaticHttpRequest.Error) a
+    -> DataSource (Catchable Error) a
 get url decoder =
     request
         ((\okUrl ->
@@ -254,7 +254,7 @@ expectToString expect =
 request :
     RequestDetails
     -> Expect a
-    -> DataSource (Catchable Pages.StaticHttpRequest.Error) a
+    -> DataSource (Catchable Error) a
 request request__ expect =
     let
         request_ : HashRequest.Request
@@ -273,7 +273,7 @@ request request__ expect =
 uncachedRequest :
     RequestDetails
     -> Expect a
-    -> DataSource (Catchable Pages.StaticHttpRequest.Error) a
+    -> DataSource (Catchable Error) a
 uncachedRequest request__ expect =
     let
         request_ : HashRequest.Request
@@ -295,7 +295,7 @@ with this as a low-level detail, or you can use functions like [DataSource.Http.
 requestRaw :
     HashRequest.Request
     -> Expect a
-    -> DataSource (Catchable Pages.StaticHttpRequest.Error) a
+    -> DataSource (Catchable Error) a
 requestRaw request__ expect =
     let
         request_ : HashRequest.Request
@@ -325,7 +325,8 @@ requestRaw request__ expect =
                                 Ok rawResponse
 
                             Nothing ->
-                                Err (Pages.StaticHttpRequest.UserCalledStaticHttpFail ("INTERNAL ERROR - expected request" ++ request_.url))
+                                --Err (Pages.StaticHttpRequest.UserCalledStaticHttpFail ("INTERNAL ERROR - expected request" ++ request_.url))
+                                Err (BadBody ("INTERNAL ERROR - expected request" ++ request_.url))
                    )
                 |> Result.andThen
                     (\(RequestsAndPending.Response maybeResponse body) ->
@@ -337,7 +338,7 @@ requestRaw request__ expect =
                                         (\error ->
                                             error
                                                 |> Json.Decode.errorToString
-                                                |> Pages.StaticHttpRequest.DecoderError
+                                                |> BadBody
                                         )
 
                             ( ExpectString mapStringFn, RequestsAndPending.StringBody string, _ ) ->
@@ -393,20 +394,15 @@ requestRaw request__ expect =
                                 rawBytes
                                     |> Bytes.Decode.decode bytesDecoder
                                     |> Result.fromMaybe
-                                        (Pages.StaticHttpRequest.DecoderError
-                                            "Bytes decoding failed."
-                                        )
+                                        (BadBody "Bytes decoding failed.")
 
                             ( ExpectWhatever whateverValue, RequestsAndPending.WhateverBody, _ ) ->
                                 Ok whateverValue
 
                             _ ->
-                                Err
-                                    (Pages.StaticHttpRequest.DecoderError
-                                        "Internal error - unexpected body, expect, and raw response combination."
-                                    )
+                                Err (BadBody "Unexpected combination, internal error")
                     )
-                |> toResult
+                |> DataSource.fromResult
                 |> DataSource.mapError
                     (\error ->
                         Exception.Catchable error (errorToString error)
@@ -414,14 +410,24 @@ requestRaw request__ expect =
         )
 
 
-errorToString : Pages.StaticHttpRequest.Error -> String
+errorToString : Error -> String
 errorToString error =
+    -- TODO turn into formatted build error instead of simple String
     case error of
-        Pages.StaticHttpRequest.DecoderError string ->
-            string
+        BadUrl string ->
+            "BadUrl " ++ string
 
-        Pages.StaticHttpRequest.UserCalledStaticHttpFail string ->
-            string
+        Timeout ->
+            "Timeout"
+
+        NetworkError ->
+            "NetworkError"
+
+        BadStatus _ string ->
+            "BadStatus: " ++ string
+
+        BadBody string ->
+            "BadBody: " ++ string
 
 
 {-| -}
