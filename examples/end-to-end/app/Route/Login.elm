@@ -56,8 +56,8 @@ action routeParams =
     Request.formDataWithServerValidation (form |> Form.initCombinedServer identity)
         |> MySession.withSession
             (\nameResultData session ->
-                --nameResultData
-                Debug.todo ""
+                nameResultData
+                    |> DataSource.mapError Exception.fromString
                     |> DataSource.map
                         (\nameResult ->
                             case nameResult of
