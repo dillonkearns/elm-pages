@@ -394,7 +394,7 @@ String was not uppercased"""
                         (expectErrorsPort
                             """-- INTERNAL ERROR ----------------------------------------------------- elm-pages
 
-Problem with the given value:
+BadBody: Problem with the given value:
 
 {
    "stargazer_count": 86
