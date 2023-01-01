@@ -54,27 +54,3 @@ staticRequest =
                     (DataSource.Http.expectJson decoder)
                     |> DataSource.throw
             )
-
-
-allCategroies : List String
-allCategroies =
-    [ "Documentation"
-    , "eCommerce"
-    , "Conference"
-    , "Consulting"
-    , "Education"
-    , "Entertainment"
-    , "Event"
-    , "Food"
-    , "Freelance"
-    , "Gallery"
-    , "Landing Page"
-    , "Music"
-    , "Nonprofit"
-    , "Podcast"
-    , "Portfolio"
-    , "Programming"
-    , "Sports"
-    , "Travel"
-    , "Blog"
-    ]
