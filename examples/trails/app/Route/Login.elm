@@ -1,6 +1,6 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import Head
@@ -49,7 +49,7 @@ route =
                             |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
                         , Route.redirectTo Route.Todos
                         )
-                            |> DataSource.succeed
+                            |> BackendTask.succeed
                     )
         }
         |> RouteBuilder.buildNoState { view = view }
@@ -61,7 +61,7 @@ type alias Request =
     }
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     MySession.withSession
         (Request.succeed ())
@@ -74,14 +74,14 @@ data routeParams =
                         |> Data
                         |> Server.Response.render
                     )
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
 
                 _ ->
                     ( Session.empty
                     , { username = Nothing }
                         |> Server.Response.render
                     )
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
         )
 
 

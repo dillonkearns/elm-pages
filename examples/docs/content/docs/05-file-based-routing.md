@@ -51,14 +51,14 @@ page =
         |> Page.buildNoState { view = view }
 
 
-routes : DataSource.DataSource (List RouteParams)
+routes : BackendTask.BackendTask (List RouteParams)
 routes =
-    DataSource.succeed [ { slug = "introducing-elm-pages" } ]
+    BackendTask.succeed [ { slug = "introducing-elm-pages" } ]
 ```
 
-And since `DataSource`s can come from anywhere, you could get that same data from `DataSource.Http`, `DataSource.Glob`, or any combination of `DataSource`s.
+And since `BackendTask`s can come from anywhere, you could get that same data from `BackendTask.Http`, `BackendTask.Glob`, or any combination of `BackendTask`s.
 
-Often it's helpful to extract helper functions to make sure your routes are in sync with other `DataSource`s. For example, in your blog index page, you'd want to make sure
+Often it's helpful to extract helper functions to make sure your routes are in sync with other `BackendTask`s. For example, in your blog index page, you'd want to make sure
 you display the same blog posts as you build routes for.
 
 ### Request-Time Routes

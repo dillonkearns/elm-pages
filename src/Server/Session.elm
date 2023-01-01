@@ -13,13 +13,13 @@ to choose which requests to respond to and how to extract structured data from t
 Using these functions, you can store and read session data in cookies to maintain state between requests.
 For example, TODO:
 
-    action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+    action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
     action routeParams =
         MySession.withSession
             (Request.formDataWithServerValidation (form |> Form.initCombinedServer identity))
             (\nameResultData session ->
                 nameResultData
-                    |> DataSource.map
+                    |> BackendTask.map
                         (\nameResult ->
                             case nameResult of
                                 Err errors ->
@@ -42,7 +42,7 @@ For example, TODO:
                         )
             )
 
-The elm-pages framework will manage signing these cookies using the `secrets : DataSource (List String)` you pass in.
+The elm-pages framework will manage signing these cookies using the `secrets : BackendTask (List String)` you pass in.
 That means that the values you set in your session will be directly visible to anyone who has access to the cookie
 (so don't directly store sensitive data in your session). Since the session cookie is signed using the secret you provide,
 the cookie will be invalidated if it is tampered with because it won't match when elm-pages verifies that it has been
@@ -51,13 +51,13 @@ signed with your secrets. Of course you need to provide secure secrets and treat
 
 ### Rotating Secrets
 
-The first String in `secrets : DataSource (List String)` will be used to sign sessions, while the remaining String's will
+The first String in `secrets : BackendTask (List String)` will be used to sign sessions, while the remaining String's will
 still be used to attempt to "unsign" the cookies. So if you have a single secret:
 
     Session.withSession
         { name = "mysession"
         , secrets =
-            DataSource.map List.singleton
+            BackendTask.map List.singleton
                 (Env.expect "SESSION_SECRET2022-09-01")
         , options = cookieOptions
         }
@@ -67,7 +67,7 @@ Then you add a second secret
     Session.withSession
         { name = "mysession"
         , secrets =
-            DataSource.map2
+            BackendTask.map2
                 (\newSecret oldSecret -> [ newSecret, oldSecret ])
                 (Env.expect "SESSION_SECRET2022-12-01")
                 (Env.expect "SESSION_SECRET2022-09-01")
@@ -87,7 +87,7 @@ it will invalidate all cookies signed with that. For example, if we remove our o
     Session.withSession
         { name = "mysession"
         , secrets =
-            DataSource.map List.singleton
+            BackendTask.map List.singleton
                 (Env.expect "SESSION_SECRET2022-12-01")
         , options = cookieOptions
         }
@@ -107,9 +107,9 @@ so there's nothing wrong with an old session expiring (and the browser will even
 
 -}
 
-import DataSource exposing (DataSource)
-import DataSource.Http
-import DataSource.Internal.Request
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Request
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
@@ -242,23 +242,23 @@ flashPrefix =
 {-| -}
 withSession :
     { name : String
-    , secrets : DataSource error (List String)
+    , secrets : BackendTask error (List String)
     , options : SetCookie.Options
     }
-    -> (request -> Result NotLoadedReason Session -> DataSource error ( Session, Response data errorPage ))
+    -> (request -> Result NotLoadedReason Session -> BackendTask error ( Session, Response data errorPage ))
     -> Server.Request.Parser request
-    -> Server.Request.Parser (DataSource error (Response data errorPage))
+    -> Server.Request.Parser (BackendTask error (Response data errorPage))
 withSession config toRequest userRequest =
     Server.Request.map2
         (\maybeSessionCookie userRequestData ->
             let
-                unsigned : DataSource error (Result NotLoadedReason Session)
+                unsigned : BackendTask error (Result NotLoadedReason Session)
                 unsigned =
                     case maybeSessionCookie of
                         Just sessionCookie ->
                             sessionCookie
                                 |> unsignCookie config
-                                |> DataSource.map
+                                |> BackendTask.map
                                     (\unsignResult ->
                                         case unsignResult of
                                             Ok decoded ->
@@ -270,10 +270,10 @@ withSession config toRequest userRequest =
 
                         Nothing ->
                             Err NoSessionCookie
-                                |> DataSource.succeed
+                                |> BackendTask.succeed
             in
             unsigned
-                |> DataSource.andThen
+                |> BackendTask.andThen
                     (encodeSessionUpdate config toRequest userRequestData)
         )
         (Server.Request.cookie config.name)
@@ -282,19 +282,19 @@ withSession config toRequest userRequest =
 
 encodeSessionUpdate :
     { name : String
-    , secrets : DataSource error (List String)
+    , secrets : BackendTask error (List String)
     , options : SetCookie.Options
     }
-    -> (c -> d -> DataSource error ( Session, Response data errorPage ))
+    -> (c -> d -> BackendTask error ( Session, Response data errorPage ))
     -> c
     -> d
-    -> DataSource error (Response data errorPage)
+    -> BackendTask error (Response data errorPage)
 encodeSessionUpdate config toRequest userRequestData sessionResult =
     sessionResult
         |> toRequest userRequestData
-        |> DataSource.andThen
+        |> BackendTask.andThen
             (\( sessionUpdate, response ) ->
-                DataSource.map
+                BackendTask.map
                     (\encoded ->
                         response
                             |> Server.Response.withSetCookieHeader
@@ -306,11 +306,11 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
             )
 
 
-unsignCookie : { a | secrets : DataSource error (List String) } -> String -> DataSource error (Result () Session)
+unsignCookie : { a | secrets : BackendTask error (List String) } -> String -> BackendTask error (Result () Session)
 unsignCookie config sessionCookie =
     sessionCookie
         |> unsign config.secrets (Json.Decode.dict Json.Decode.string)
-        |> DataSource.map
+        |> BackendTask.map
             (Result.map
                 (\dict ->
                     dict
@@ -331,15 +331,15 @@ unsignCookie config sessionCookie =
             )
 
 
-sign : DataSource error (List String) -> Json.Encode.Value -> DataSource error String
+sign : BackendTask error (List String) -> Json.Encode.Value -> BackendTask error String
 sign getSecrets input =
     getSecrets
-        |> DataSource.andThen
+        |> BackendTask.andThen
             (\secrets ->
-                DataSource.Internal.Request.request
+                BackendTask.Internal.Request.request
                     { name = "encrypt"
                     , body =
-                        DataSource.Http.jsonBody
+                        BackendTask.Http.jsonBody
                             (Json.Encode.object
                                 [ ( "values", input )
                                 , ( "secret"
@@ -353,21 +353,21 @@ sign getSecrets input =
                                 ]
                             )
                     , expect =
-                        DataSource.Http.expectJson
+                        BackendTask.Http.expectJson
                             Json.Decode.string
                     }
             )
 
 
-unsign : DataSource error (List String) -> Json.Decode.Decoder a -> String -> DataSource error (Result () a)
+unsign : BackendTask error (List String) -> Json.Decode.Decoder a -> String -> BackendTask error (Result () a)
 unsign getSecrets decoder input =
     getSecrets
-        |> DataSource.andThen
+        |> BackendTask.andThen
             (\secrets ->
-                DataSource.Internal.Request.request
+                BackendTask.Internal.Request.request
                     { name = "decrypt"
                     , body =
-                        DataSource.Http.jsonBody
+                        BackendTask.Http.jsonBody
                             (Json.Encode.object
                                 [ ( "input", Json.Encode.string input )
                                 , ( "secrets", Json.Encode.list Json.Encode.string secrets )
@@ -377,6 +377,6 @@ unsign getSecrets decoder input =
                         decoder
                             |> Json.Decode.nullable
                             |> Json.Decode.map (Result.fromMaybe ())
-                            |> DataSource.Http.expectJson
+                            |> BackendTask.Http.expectJson
                     }
             )

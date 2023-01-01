@@ -1,6 +1,6 @@
 module Route.Links exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
@@ -43,9 +43,9 @@ type alias Data =
     ()
 
 
-data : DataSource Throwable Data
+data : BackendTask Throwable Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 
 
 head :

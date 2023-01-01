@@ -1,7 +1,7 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
+import BackendTask exposing (BackendTask)
 import Css
-import DataSource exposing (DataSource)
 import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
@@ -86,9 +86,9 @@ view maybeUrl sharedModel static =
     }
 
 
-data : DataSource Throwable Data
+data : BackendTask Throwable Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 
 
 landingView : Html Msg
@@ -136,13 +136,13 @@ route =
         }
         |> RouteBuilder.buildNoState { view = view }
 
-pages : DataSource (List RouteParams)
+pages : BackendTask (List RouteParams)
 pages =
-    DataSource.succeed [ { name = "elm-pages" } ]
+    BackendTask.succeed [ { name = "elm-pages" } ]
 
-data : RouteParams -> DataSource Data
+data : RouteParams -> BackendTask Data
 data routeParams =
-    DataSource.Http.get
+    BackendTask.Http.get
         (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (Decode.field "stargazer_count" Decode.int)
 
@@ -159,8 +159,8 @@ view static =
             }
         , firstSection
             { heading = "Combine data from multiple sources"
-            , body = "Wherever the data came from, you can transform DataSources and combine multiple DataSources using the full power of Elm's type system."
-            , buttonText = "Learn more about DataSources"
+            , body = "Wherever the data came from, you can transform BackendTasks and combine multiple BackendTasks using the full power of Elm's type system."
+            , buttonText = "Learn more about BackendTasks"
             , buttonLink = Route.Docs__Section__ { section = Just "data-sources" }
             , svgIcon = "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
             , code =
@@ -171,25 +171,25 @@ view static =
     }
 
 
-all : DataSource (List Project)
+all : BackendTask (List Project)
 all =
     Glob.succeed
         (\\projectName filePath ->
-            DataSource.map2 (Project projectName)
-                (DataSource.File.rawFile filePath DataSource.File.body)
+            BackendTask.map2 (Project projectName)
+                (BackendTask.File.rawFile filePath BackendTask.File.body)
                 (repo projectName)
         )
         |> Glob.match (Glob.literal "projects/")
         |> Glob.capture Glob.wildcard
         |> Glob.match (Glob.literal ".txt")
         |> Glob.captureFilePath
-        |> Glob.toDataSource
-        |> DataSource.resolve
+        |> Glob.toBackendTask
+        |> BackendTask.resolve
 
 
-repo : String -> DataSource Repo
+repo : String -> BackendTask Repo
 repo repoName =
-    DataSource.Http.get (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+    BackendTask.Http.get (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
         (OptimizedDecoder.map Repo
             (OptimizedDecoder.field "stargazers_count" OptimizedDecoder.int)
         )
@@ -197,7 +197,7 @@ repo repoName =
             }
         , firstSection
             { heading = "SEO"
-            , body = "Make sure your site previews look polished with the type-safe SEO API. `elm-pages build` pre-renders HTML for your pages. And your SEO tags get access to the page's DataSources."
+            , body = "Make sure your site previews look polished with the type-safe SEO API. `elm-pages build` pre-renders HTML for your pages. And your SEO tags get access to the page's BackendTasks."
             , buttonText = "Learn about the SEO API"
             , buttonLink = Route.Docs__Section__ { section = Nothing }
             , svgIcon = "M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242z"
@@ -231,16 +231,16 @@ head static =
             }
         , firstSection
             { heading = "Optimized Data"
-            , body = "The OptimizedDecoder module is a drop-in replacement for vanilla decoders. Just by using that module, elm-pages will strip out any untouched JSON values from your DataSource's."
+            , body = "The OptimizedDecoder module is a drop-in replacement for vanilla decoders. Just by using that module, elm-pages will strip out any untouched JSON values from your BackendTask's."
             , buttonText = "Learn about OptimizedDecoders"
             , buttonLink = Route.Docs__Section__ { section = Nothing }
             , svgIcon = "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
             , code =
                 ( "src/Page/Blog/Slug_.elm", """import OptimizedDecoder
 
-data : RouteParams -> DataSource Data
+data : RouteParams -> BackendTask Data
 data routeParams =
-    DataSource.Http.get
+    BackendTask.Http.get
         (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (OptimizedDecoder.field "stargazer_count" OptimizedDecoder.int)
 

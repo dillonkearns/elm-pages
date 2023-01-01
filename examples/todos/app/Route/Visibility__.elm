@@ -1,9 +1,9 @@
 module Route.Visibility__ exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
+import BackendTask exposing (BackendTask)
 import Data.Session
 import Data.Todo
-import DataSource exposing (DataSource)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -157,17 +157,17 @@ update pageUrl sharedModel static msg model =
             ( { model | nextId = currentTime }, Effect.none )
 
 
-performAction : Time.Posix -> Action -> Uuid -> DataSource (Response ActionData ErrorPage)
+performAction : Time.Posix -> Action -> Uuid -> BackendTask (Response ActionData ErrorPage)
 performAction requestTime actionInput userId =
     case actionInput of
         Add newItemDescription ->
             if newItemDescription |> String.contains "error" then
-                DataSource.succeed (Response.render { errors = Just "Cannot contain the word error" })
+                BackendTask.succeed (Response.render { errors = Just "Cannot contain the word error" })
 
             else
                 Data.Todo.create requestTime userId newItemDescription
-                    |> Request.Hasura.mutationDataSource
-                    |> DataSource.map (\_ -> Response.render { errors = Nothing })
+                    |> Request.Hasura.mutationBackendTask
+                    |> BackendTask.map (\_ -> Response.render { errors = Nothing })
 
         UpdateEntry ( itemId, newDescription ) ->
             Data.Todo.update
@@ -175,21 +175,21 @@ performAction requestTime actionInput userId =
                 , todoId = Uuid itemId
                 , newDescription = newDescription
                 }
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render { errors = Nothing })
+                |> Request.Hasura.mutationBackendTask
+                |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
         Delete itemId ->
             Data.Todo.delete
                 { userId = userId
                 , itemId = Uuid itemId
                 }
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render { errors = Nothing })
+                |> Request.Hasura.mutationBackendTask
+                |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
         DeleteComplete ->
             Data.Todo.clearCompletedTodos userId
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render { errors = Nothing })
+                |> Request.Hasura.mutationBackendTask
+                |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
         Check ( newCompleteValue, itemId ) ->
             Data.Todo.setCompleteTo
@@ -197,16 +197,16 @@ performAction requestTime actionInput userId =
                 , itemId = Uuid itemId
                 , newCompleteValue = newCompleteValue
                 }
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render { errors = Nothing })
+                |> Request.Hasura.mutationBackendTask
+                |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
         CheckAll toggleTo ->
             Data.Todo.toggleAllTo userId toggleTo
-                |> Request.Hasura.mutationDataSource
-                |> DataSource.map (\() -> Response.render { errors = Nothing })
+                |> Request.Hasura.mutationBackendTask
+                |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
@@ -214,8 +214,8 @@ data routeParams =
                 case visibilityFromRouteParams routeParams of
                     Just visibility ->
                         Data.Todo.findAllBySession parsedSession
-                            |> Request.Hasura.dataSource
-                            |> DataSource.map
+                            |> Request.Hasura.backendTask
+                            |> BackendTask.map
                                 (\todos ->
                                     ( session
                                     , Response.render
@@ -231,7 +231,7 @@ data routeParams =
                                 )
 
                     Nothing ->
-                        DataSource.succeed
+                        BackendTask.succeed
                             ( session
                             , Route.Visibility__ { visibility = Nothing }
                                 |> Route.redirectTo
@@ -239,7 +239,7 @@ data routeParams =
             )
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
         Request.requestTime
@@ -259,14 +259,14 @@ action routeParams =
                                 session
                                     |> Result.withDefault Session.empty
                         in
-                        DataSource.succeed ( okSession, Response.render { errors = Nothing } )
+                        BackendTask.succeed ( okSession, Response.render { errors = Nothing } )
             )
 
 
 withUserSession :
     Result x Session
-    -> (Uuid -> DataSource (Response ActionData ErrorPage))
-    -> DataSource ( Session, Response ActionData ErrorPage )
+    -> (Uuid -> BackendTask (Response ActionData ErrorPage))
+    -> BackendTask ( Session, Response ActionData ErrorPage )
 withUserSession cookieSession continue =
     let
         okSession : Session
@@ -277,9 +277,9 @@ withUserSession cookieSession continue =
     okSession
         |> Session.get "sessionId"
         |> Maybe.map Data.Session.get
-        |> Maybe.map Request.Hasura.dataSource
+        |> Maybe.map Request.Hasura.backendTask
         |> Maybe.map
-            (DataSource.andThen
+            (BackendTask.andThen
                 (\maybeUserSession ->
                     let
                         maybeUserId : Maybe Uuid
@@ -289,14 +289,14 @@ withUserSession cookieSession continue =
                     in
                     case maybeUserId of
                         Nothing ->
-                            DataSource.succeed ( okSession, Response.render { errors = Nothing } )
+                            BackendTask.succeed ( okSession, Response.render { errors = Nothing } )
 
                         Just userId ->
                             continue userId
-                                |> DataSource.map (Tuple.pair okSession)
+                                |> BackendTask.map (Tuple.pair okSession)
                 )
             )
-        |> Maybe.withDefault (DataSource.succeed ( okSession, Response.render { errors = Nothing } ))
+        |> Maybe.withDefault (BackendTask.succeed ( okSession, Response.render { errors = Nothing } ))
 
 
 visibilityFromRouteParams : RouteParams -> Maybe Visibility

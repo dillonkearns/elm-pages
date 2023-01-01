@@ -5,7 +5,7 @@ import Api.Mutation
 import Api.Object exposing (Todos)
 import Api.Object.Todos
 import Api.Query
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Graphql.Operation exposing (RootQuery)
@@ -123,7 +123,7 @@ todosByUserId userId =
         )
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.requestTime
         |> MySession.expectSessionOrRedirect
@@ -138,8 +138,8 @@ data routeParams =
                 case maybeUserId of
                     Just userId ->
                         todosByUserId userId
-                            |> Request.Hasura.dataSource (requestTime |> Time.posixToMillis |> String.fromInt)
-                            |> DataSource.map
+                            |> Request.Hasura.backendTask (requestTime |> Time.posixToMillis |> String.fromInt)
+                            |> BackendTask.map
                                 (\todos ->
                                     ( session
                                     , Response.render { todos = todos }
@@ -148,11 +148,11 @@ data routeParams =
 
                     Nothing ->
                         ( session, Route.redirectTo Route.Login )
-                            |> DataSource.succeed
+                            |> BackendTask.succeed
             )
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     let
         userId =
@@ -165,8 +165,8 @@ action routeParams =
                     |> Request.map
                         (\title ->
                             createTodo userId title
-                                |> Request.Hasura.mutationDataSource ""
-                                |> DataSource.map
+                                |> Request.Hasura.mutationBackendTask ""
+                                |> BackendTask.map
                                     (\_ -> Response.render {})
                         )
                 , field "deleteId"
@@ -174,8 +174,8 @@ action routeParams =
                         (\deleteId ->
                             -- TODO use RBAC here in Hasura?
                             deleteTodo userId (deleteId |> String.toInt |> Maybe.withDefault 0)
-                                |> Request.Hasura.mutationDataSource ""
-                                |> DataSource.map
+                                |> Request.Hasura.mutationBackendTask ""
+                                |> BackendTask.map
                                     (\_ -> Response.render {})
                         )
                 ]

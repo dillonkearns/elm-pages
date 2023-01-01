@@ -1,7 +1,7 @@
 module Timestamps exposing (Timestamps, data, format)
 
-import DataSource exposing (DataSource)
-import DataSource.Port
+import BackendTask exposing (BackendTask)
+import BackendTask.Port
 import DateFormat
 import Json.Decode as Decode
 import Json.Decode.Extra
@@ -17,9 +17,9 @@ type alias Timestamps =
     }
 
 
-data : String -> DataSource Timestamps
+data : String -> BackendTask Timestamps
 data filePath =
-    DataSource.Port.get "gitTimestamps"
+    BackendTask.Port.get "gitTimestamps"
         (Json.Encode.string filePath)
         (Decode.string
             |> Decode.map (String.trim >> String.split "\n")

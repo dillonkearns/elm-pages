@@ -1,7 +1,7 @@
 module Route.PortTest exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.Port
+import BackendTask exposing (BackendTask)
+import BackendTask.Port
 import Head
 import Head.Seo as Seo
 import Html
@@ -45,10 +45,10 @@ type alias ActionData =
     {}
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed Data
-        |> DataSource.andMap (DataSource.Port.get "hello" (Encode.string "Jane") Decode.string)
+    BackendTask.succeed Data
+        |> BackendTask.andMap (BackendTask.Port.get "hello" (Encode.string "Jane") Decode.string)
 
 
 head :

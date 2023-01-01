@@ -16,8 +16,8 @@ process.on("unhandledRejection", (error) => {
   console.error(error);
 });
 let foundErrors;
-let pendingDataSourceResponses;
-let pendingDataSourceCount;
+let pendingBackendTaskResponses;
+let pendingBackendTaskCount;
 
 module.exports = { render, runGenerator };
 
@@ -27,7 +27,7 @@ module.exports = { render, runGenerator };
  * @param {Object} elmModule
  * @param {string} path
  * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
- * @param {(pattern: string) => void} addDataSourceWatcher
+ * @param {(pattern: string) => void} addBackendTaskWatcher
  * @param {boolean} hasFsAccess
  * @returns
  */
@@ -38,15 +38,15 @@ async function render(
   mode,
   path,
   request,
-  addDataSourceWatcher,
+  addBackendTaskWatcher,
   hasFsAccess
 ) {
   const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(hasFsAccess);
   resetInMemoryFs();
   foundErrors = false;
-  pendingDataSourceResponses = [];
-  pendingDataSourceCount = 0;
-  // since init/update are never called in pre-renders, and DataSource.Http is called using pure NodeJS HTTP fetching
+  pendingBackendTaskResponses = [];
+  pendingBackendTaskCount = 0;
+  // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   XMLHttpRequest = {};
   const result = await runElmApp(
@@ -56,7 +56,7 @@ async function render(
     mode,
     path,
     request,
-    addDataSourceWatcher,
+    addBackendTaskWatcher,
     fs,
     hasFsAccess
   );
@@ -74,9 +74,9 @@ async function runGenerator(cliOptions, portsFile, elmModule) {
   const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
   resetInMemoryFs();
   foundErrors = false;
-  pendingDataSourceResponses = [];
-  pendingDataSourceCount = 0;
-  // since init/update are never called in pre-renders, and DataSource.Http is called using pure NodeJS HTTP fetching
+  pendingBackendTaskResponses = [];
+  pendingBackendTaskCount = 0;
+  // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   XMLHttpRequest = {};
   const result = await runGeneratorAppHelp(
@@ -225,7 +225,7 @@ function runGeneratorAppHelp(
  * @param {string} pagePath
  * @param {string} mode
  * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} request
- * @param {(pattern: string) => void} addDataSourceWatcher
+ * @param {(pattern: string) => void} addBackendTaskWatcher
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
 function runElmApp(
@@ -235,7 +235,7 @@ function runElmApp(
   mode,
   pagePath,
   request,
-  addDataSourceWatcher,
+  addBackendTaskWatcher,
   fs,
   hasFsAccess
 ) {
@@ -352,7 +352,7 @@ function runElmApp(
     app.ports.toJsPort.subscribe(portHandler);
     app.ports.sendPageData.subscribe(portHandler);
   }).finally(() => {
-    addDataSourceWatcher(patternsToWatch);
+    addBackendTaskWatcher(patternsToWatch);
     try {
       killApp();
       killApp = null;
@@ -409,7 +409,7 @@ async function runHttpJob(
   hasFsAccess,
   useCache
 ) {
-  pendingDataSourceCount += 1;
+  pendingBackendTaskCount += 1;
   try {
     const lookupResponse = await lookupOrPerform(
       portsFile,
@@ -421,14 +421,14 @@ async function runHttpJob(
 
     if (lookupResponse.kind === "cache-response-path") {
       const responseFilePath = lookupResponse.value;
-      pendingDataSourceResponses.push({
+      pendingBackendTaskResponses.push({
         request: requestToPerform,
         response: JSON.parse(
           (await fs.promises.readFile(responseFilePath, "utf8")).toString()
         ),
       });
     } else if (lookupResponse.kind === "response-json") {
-      pendingDataSourceResponses.push({
+      pendingBackendTaskResponses.push({
         request: requestToPerform,
         response: lookupResponse.value,
       });
@@ -438,7 +438,7 @@ async function runHttpJob(
   } catch (error) {
     sendError(app, error);
   } finally {
-    pendingDataSourceCount -= 1;
+    pendingBackendTaskCount -= 1;
     flushIfDone(app);
   }
 }
@@ -465,41 +465,41 @@ async function runInternalJob(
   patternsToWatch
 ) {
   try {
-    pendingDataSourceCount += 1;
+    pendingBackendTaskCount += 1;
 
     if (requestToPerform.url === "elm-pages-internal://log") {
-      pendingDataSourceResponses.push(await runLogJob(requestToPerform));
+      pendingBackendTaskResponses.push(await runLogJob(requestToPerform));
     } else if (requestToPerform.url === "elm-pages-internal://read-file") {
-      pendingDataSourceResponses.push(
+      pendingBackendTaskResponses.push(
         await readFileJobNew(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://glob") {
-      pendingDataSourceResponses.push(
+      pendingBackendTaskResponses.push(
         await runGlobNew(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://env") {
-      pendingDataSourceResponses.push(
+      pendingBackendTaskResponses.push(
         await runEnvJob(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://encrypt") {
-      pendingDataSourceResponses.push(
+      pendingBackendTaskResponses.push(
         await runEncryptJob(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://decrypt") {
-      pendingDataSourceResponses.push(
+      pendingBackendTaskResponses.push(
         await runDecryptJob(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://write-file") {
-      pendingDataSourceResponses.push(await runWriteFileJob(requestToPerform));
+      pendingBackendTaskResponses.push(await runWriteFileJob(requestToPerform));
     } else {
-      throw `Unexpected internal DataSource request format: ${kleur.yellow(
+      throw `Unexpected internal BackendTask request format: ${kleur.yellow(
         JSON.stringify(2, null, requestToPerform)
       )}`;
     }
   } catch (error) {
     sendError(app, error);
   } finally {
-    pendingDataSourceCount -= 1;
+    pendingBackendTaskCount -= 1;
     flushIfDone(app);
   }
 }
@@ -539,8 +539,8 @@ async function runWriteFileJob(req) {
   } catch (error) {
     console.trace(error);
     throw {
-      title: "DataSource Error",
-      message: `DataSource.Generator.writeFile failed for file path: ${kleur.yellow(
+      title: "BackendTask Error",
+      message: `BackendTask.Generator.writeFile failed for file path: ${kleur.yellow(
         data.path
       )}\n${kleur.red(error.toString())}`,
     };
@@ -597,7 +597,7 @@ async function runEncryptJob(req, patternsToWatch) {
     );
   } catch (e) {
     throw {
-      title: "DataSource Encrypt Error",
+      title: "BackendTask Encrypt Error",
       message:
         e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
     };
@@ -614,7 +614,7 @@ async function runDecryptJob(req, patternsToWatch) {
     return jsonResponse(req, JSON.parse(signed || "null"));
   } catch (e) {
     throw {
-      title: "DataSource Decrypt Error",
+      title: "BackendTask Decrypt Error",
       message:
         e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
     };
@@ -623,10 +623,10 @@ async function runDecryptJob(req, patternsToWatch) {
 
 function flushIfDone(app) {
   if (foundErrors) {
-    pendingDataSourceResponses = [];
-  } else if (pendingDataSourceCount === 0) {
+    pendingBackendTaskResponses = [];
+  } else if (pendingBackendTaskCount === 0) {
     // console.log(
-    //   `Flushing ${pendingDataSourceResponses.length} items in ${timeUntilThreshold}ms`
+    //   `Flushing ${pendingBackendTaskResponses.length} items in ${timeUntilThreshold}ms`
     // );
 
     flushQueue(app);
@@ -634,8 +634,8 @@ function flushIfDone(app) {
 }
 
 function flushQueue(app) {
-  const temp = pendingDataSourceResponses;
-  pendingDataSourceResponses = [];
+  const temp = pendingBackendTaskResponses;
+  pendingBackendTaskResponses = [];
   // console.log("@@@ FLUSHING", temp.length);
   app.ports.gotBatchSub.send(temp);
 }

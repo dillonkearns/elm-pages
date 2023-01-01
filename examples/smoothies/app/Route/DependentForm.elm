@@ -1,6 +1,6 @@
 module Route.DependentForm exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form
@@ -82,12 +82,12 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
-    Request.succeed (DataSource.succeed (Response.render Data))
+    Request.succeed (BackendTask.succeed (Response.render Data))
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.formData (dependentParser |> Form.initCombined identity)
         |> Request.map
@@ -106,7 +106,7 @@ action routeParams =
                                     "formErrors"
                             )
                 in
-                DataSource.succeed
+                BackendTask.succeed
                     (Response.render ActionData)
             )
 

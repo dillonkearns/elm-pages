@@ -1,6 +1,6 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
 import Exception exposing (Throwable)
 import Form
@@ -51,14 +51,14 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-action : RouteParams -> Request.Parser (DataSource Throwable (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask Throwable (Response ActionData ErrorPage))
 action routeParams =
     Request.formDataWithServerValidation (form |> Form.initCombinedServer identity)
         |> MySession.withSession
             (\nameResultData session ->
                 nameResultData
-                    |> DataSource.mapError Exception.fromString
-                    |> DataSource.map
+                    |> BackendTask.mapError Exception.fromString
+                    |> BackendTask.map
                         (\nameResult ->
                             case nameResult of
                                 Err errors ->
@@ -86,7 +86,7 @@ type alias Data =
     }
 
 
-form : Form.DoneForm String (DataSource error (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\username ->
@@ -95,7 +95,7 @@ form =
                     |> Validation.andMap username
                     |> Validation.map
                         (\clientValidated ->
-                            DataSource.succeed
+                            BackendTask.succeed
                                 (Validation.succeed clientValidated
                                     |> Validation.withErrorIf
                                         (clientValidated == "error")
@@ -162,7 +162,7 @@ form =
         |> Form.field "name" (Field.text |> Field.required "Required")
 
 
-data : RouteParams -> Request.Parser (DataSource Throwable (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.succeed ()
@@ -182,14 +182,14 @@ data routeParams =
                                 flashMessage
                                 |> Response.render
                             )
-                                |> DataSource.succeed
+                                |> BackendTask.succeed
 
                         _ ->
                             ( Session.empty
                             , { username = Nothing, flashMessage = Nothing }
                                 |> Response.render
                             )
-                                |> DataSource.succeed
+                                |> BackendTask.succeed
                 )
         ]
 

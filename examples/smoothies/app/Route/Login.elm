@@ -2,8 +2,8 @@ module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
 import Data.User
-import DataSource exposing (DataSource)
-import DataSource.Port
+import BackendTask exposing (BackendTask)
+import BackendTask.Port
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import Form
@@ -58,7 +58,7 @@ type alias Login =
     }
 
 
-form : Form.DoneForm String (DataSource (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (BackendTask (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\username password ->
@@ -66,7 +66,7 @@ form =
                 Validation.succeed
                     (\u p ->
                         attemptLogIn u p
-                            |> DataSource.map
+                            |> BackendTask.map
                                 (\maybeUserId ->
                                     case maybeUserId of
                                         Just (Uuid userId) ->
@@ -97,18 +97,18 @@ form =
         |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
 
 
-attemptLogIn : String -> String -> DataSource (Maybe Uuid)
+attemptLogIn : String -> String -> BackendTask (Maybe Uuid)
 attemptLogIn username password =
-    DataSource.Port.get "hashPassword"
+    BackendTask.Port.get "hashPassword"
         (Json.Encode.string password)
         Json.Decode.string
-        |> DataSource.andThen
+        |> BackendTask.andThen
             (\hashed ->
                 { username = username
                 , expectedPasswordHash = hashed
                 }
                     |> Data.User.login
-                    |> Request.Hasura.dataSource
+                    |> Request.Hasura.backendTask
             )
 
 
@@ -154,7 +154,7 @@ type alias Request =
     }
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     MySession.withSession
         (Request.succeed ())
@@ -167,24 +167,24 @@ data routeParams =
                         |> Data
                         |> Server.Response.render
                     )
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
 
                 _ ->
                     ( Session.empty
                     , { username = Nothing }
                         |> Server.Response.render
                     )
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
         )
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     MySession.withSession
         (Request.formDataWithServerValidation (form |> Form.initCombined identity))
         (\usernameDs session ->
             usernameDs
-                |> DataSource.andThen
+                |> BackendTask.andThen
                     (\usernameResult ->
                         case usernameResult of
                             Err error ->
@@ -193,7 +193,7 @@ action routeParams =
                                     |> Maybe.withDefault Session.empty
                                 , error |> render
                                 )
-                                    |> DataSource.succeed
+                                    |> BackendTask.succeed
 
                             Ok ( _, userId ) ->
                                 ( session
@@ -202,7 +202,7 @@ action routeParams =
                                     |> Session.insert "userId" userId
                                 , Route.redirectTo Route.Index
                                 )
-                                    |> DataSource.succeed
+                                    |> BackendTask.succeed
                     )
         )
 

@@ -2,7 +2,7 @@ module Route.TailwindForm exposing (ActionData, Data, Model, Msg, route)
 
 import Css exposing (Color)
 import Css.Global
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
@@ -209,7 +209,7 @@ validateCapitalized string =
         ( Nothing, [ "Needs to be capitalized" ] )
 
 
-form : Form.DoneForm String (DataSource (Combined String User)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (BackendTask (Combined String User)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
@@ -257,7 +257,7 @@ form =
                             Validation.map2
                                 (\dobValue usernameValue ->
                                     isValidDob dobValue
-                                        |> DataSource.map
+                                        |> BackendTask.map
                                             (\maybeError ->
                                                 case maybeError of
                                                     Nothing ->
@@ -266,7 +266,7 @@ form =
                                                     Just error ->
                                                         dob |> Validation.fail error
                                             )
-                                        |> DataSource.map
+                                        |> BackendTask.map
                                             (Validation.withErrorIf (usernameValue == "asdf") username "username is taken")
                                 )
                                 dob
@@ -445,13 +445,13 @@ form =
             )
 
 
-isValidDob : Date -> DataSource (Maybe String)
+isValidDob : Date -> BackendTask (Maybe String)
 isValidDob birthDate =
     if birthDate == Date.fromCalendarDate 1969 Time.Jul 20 then
-        DataSource.succeed (Just "No way, that's when the moon landing happened!")
+        BackendTask.succeed (Just "No way, that's when the moon landing happened!")
 
     else
-        DataSource.succeed Nothing
+        BackendTask.succeed Nothing
 
 
 type PushNotificationsSetting
@@ -544,31 +544,31 @@ route =
             }
 
 
-action : RouteParams -> Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.formDataWithServerValidation (form |> Form.initCombined identity)
         |> Request.map
-            (\toDataSource ->
-                toDataSource
-                    |> DataSource.andThen
+            (\toBackendTask ->
+                toBackendTask
+                    |> BackendTask.andThen
                         (\result ->
                             case result of
                                 Ok ( _, user ) ->
-                                    DataSource.succeed
+                                    BackendTask.succeed
                                         { user = user
                                         , flashMessage =
                                             Ok ("Successfully updated profile for user " ++ user.first ++ " " ++ user.last)
                                         , formResponse = Nothing
                                         }
-                                        |> DataSource.map Response.render
+                                        |> BackendTask.map Response.render
 
                                 Err (Form.Response error) ->
-                                    DataSource.succeed
+                                    BackendTask.succeed
                                         { flashMessage = Err "Got errors"
                                         , user = defaultUser
                                         , formResponse = Just error
                                         }
-                                        |> DataSource.map Response.render
+                                        |> BackendTask.map Response.render
                         )
             )
 
@@ -595,12 +595,12 @@ type alias ActionData =
     }
 
 
-data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ {}
             |> Response.render
-            |> DataSource.succeed
+            |> BackendTask.succeed
             |> Request.succeed
         ]
 

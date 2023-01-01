@@ -19,4 +19,4 @@ This creates a new project in `my-project/` and starts the dev server. You can t
 
 ## The dev server
 
-`elm-pages dev` gives you a dev server with hot module replacement built in. It even reloads your `DataSource`s any time you change them.
+`elm-pages dev` gives you a dev server with hot module replacement built in. It even reloads your `BackendTask`s any time you change them.

@@ -37,7 +37,7 @@ toBuildError path error =
         UserCalledStaticHttpFail decodeErrorMessage ->
             { title = "Called Static Http Fail"
             , message =
-                [ Terminal.text <| "I ran into a call to `DataSource.fail` with message: " ++ decodeErrorMessage
+                [ Terminal.text <| "I ran into a call to `BackendTask.fail` with message: " ++ decodeErrorMessage
                 ]
             , path = path
             , fatal = True

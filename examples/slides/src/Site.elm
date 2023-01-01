@@ -1,7 +1,7 @@
 module Site exposing (config)
 
 import Cloudinary
-import DataSource
+import BackendTask
 import Head
 import MimeType
 import Pages.Manifest as Manifest
@@ -25,9 +25,9 @@ type alias Data =
     }
 
 
-data : DataSource.DataSource Data
+data : BackendTask.BackendTask Data
 data =
-    DataSource.map Data (DataSource.succeed "site-name")
+    BackendTask.map Data (BackendTask.succeed "site-name")
 
 
 head : Data -> List Head.Tag

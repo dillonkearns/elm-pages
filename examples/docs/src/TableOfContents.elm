@@ -1,8 +1,8 @@
 module TableOfContents exposing (..)
 
+import BackendTask exposing (BackendTask)
+import BackendTask.File
 import Css
-import DataSource exposing (DataSource)
-import DataSource.File
 import Exception exposing (Throwable)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
@@ -13,33 +13,33 @@ import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
 
 
-dataSource :
-    DataSource Throwable (List { file | filePath : String, slug : String })
-    -> DataSource Throwable (TableOfContents Data)
-dataSource docFiles =
+backendTask :
+    BackendTask Throwable (List { file | filePath : String, slug : String })
+    -> BackendTask Throwable (TableOfContents Data)
+backendTask docFiles =
     docFiles
-        |> DataSource.map
+        |> BackendTask.map
             (\sections ->
                 sections
                     |> List.map
                         (\section ->
-                            DataSource.File.bodyWithoutFrontmatter
+                            BackendTask.File.bodyWithoutFrontmatter
                                 section.filePath
-                                |> DataSource.throw
-                                |> DataSource.andThen (headingsDecoder section.slug)
+                                |> BackendTask.throw
+                                |> BackendTask.andThen (headingsDecoder section.slug)
                         )
             )
-        |> DataSource.resolve
+        |> BackendTask.resolve
 
 
-headingsDecoder : String -> String -> DataSource Throwable (Entry Data)
+headingsDecoder : String -> String -> BackendTask Throwable (Entry Data)
 headingsDecoder slug rawBody =
     rawBody
         |> Markdown.Parser.parse
         |> Result.mapError (\_ -> Exception.fromString "Markdown parsing error")
         |> Result.map gatherHeadings
         |> Result.andThen (nameAndTopLevel slug >> Result.mapError Exception.fromString)
-        |> DataSource.fromResult
+        |> BackendTask.fromResult
 
 
 nameAndTopLevel :

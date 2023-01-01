@@ -1,8 +1,8 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.Env as Env
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Env as Env
+import BackendTask.Http
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
@@ -46,10 +46,10 @@ type alias ActionData =
     {}
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.map2 Data
-        (DataSource.Http.get
+    BackendTask.map2 Data
+        (BackendTask.Http.get
             "https://pokeapi.co/api/v2/pokemon/?limit=100&offset=0"
             (Decode.field "results"
                 (Decode.list (Decode.field "name" Decode.string))

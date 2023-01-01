@@ -14,7 +14,7 @@ module RouteBuilder exposing
 
 ## Stateless Route Modules
 
-The simplest Route Module you can build is one with no state. It still can use `DataSource`'s, but it has no `init`, `update`, or `subscriptions`.
+The simplest Route Module you can build is one with no state. It still can use `BackendTask`'s, but it has no `init`, `update`, or `subscriptions`.
 
 It can read the `Shared.Model`, but it cannot send `Shared.Msg`'s to update the `Shared.Model`. If you need a `Model`, use `buildWithLocalState`.
 
@@ -25,7 +25,7 @@ If you need to _change_ Shared state, use `buildWithSharedState`.
 
 ## Accessing Static Data
 
-With `elm-pages`, you can have HTTP data available before a page is loaded, or read in a file, etc, using the DataSource API. Since the data
+With `elm-pages`, you can have HTTP data available before a page is loaded, or read in a file, etc, using the BackendTask API. Since the data
 is available when the page is pre-rendered (as well as in the hydrated page), this is called Static Data.
 
 An example of dynamic data would be keyboard input from the user, query params, or any other data that comes from the app running in the browser.
@@ -33,7 +33,7 @@ An example of dynamic data would be keyboard input from the user, query params, 
 We have the following data during pre-render:
 
   - `path` - the current path is static. In other words, we know the current path when we build an elm-pages site. Note that we **do not** know query parameters, fragments, etc. That is dynamic data. Pre-rendering occurs for paths in our app, but we don't know what possible query paremters might be used when those paths are hit.
-  - `data` - this will be the resolved `DataSource` for our page.
+  - `data` - this will be the resolved `BackendTask` for our page.
   - `sharedData` - we can access any shared data between pages. For example, you may have fetched the name of a blog ("Jane's Blog") from the API for a Content Management System (CMS).
   - `routeParams` - this is the record that includes any Dynamic Route Segments for the given page (or an empty record if there are none)
 
@@ -65,7 +65,7 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
             }
 
     pages =
-        DataSource.succeed
+        BackendTask.succeed
             [ { slug = "blog-post1" }
             , { slug = "blog-post2" }
             ]
@@ -85,7 +85,7 @@ When there are Dynamic Route Segments, you need to tell `elm-pages` which pages 
 
 -}
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -109,9 +109,9 @@ import View exposing (View)
 
 {-| -}
 type alias StatefulRoute routeParams data action model msg =
-    { data : Json.Decode.Value -> routeParams -> DataSource Throwable (Server.Response.Response data ErrorPage)
-    , action : Json.Decode.Value -> routeParams -> DataSource Throwable (Server.Response.Response action ErrorPage)
-    , staticRoutes : DataSource Throwable (List routeParams)
+    { data : Json.Decode.Value -> routeParams -> BackendTask Throwable (Server.Response.Response data ErrorPage)
+    , action : Json.Decode.Value -> routeParams -> BackendTask Throwable (Server.Response.Response action ErrorPage)
+    , staticRoutes : BackendTask Throwable (List routeParams)
     , view :
         Maybe PageUrl
         -> Shared.Model
@@ -124,7 +124,7 @@ type alias StatefulRoute routeParams data action model msg =
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
     , update : PageUrl -> StaticPayload data action routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> model -> Shared.Model -> Sub msg
-    , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> DataSource Throwable (Maybe NotFoundReason)
+    , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> BackendTask Throwable (Maybe NotFoundReason)
     , kind : String
     , onAction : Maybe (action -> msg)
     }
@@ -154,9 +154,9 @@ type alias StaticPayload data action routeParams =
 {-| -}
 type Builder routeParams data action
     = WithData
-        { data : Json.Decode.Value -> routeParams -> DataSource Throwable (Server.Response.Response data ErrorPage)
-        , action : Json.Decode.Value -> routeParams -> DataSource Throwable (Server.Response.Response action ErrorPage)
-        , staticRoutes : DataSource Throwable (List routeParams)
+        { data : Json.Decode.Value -> routeParams -> BackendTask Throwable (Server.Response.Response data ErrorPage)
+        , action : Json.Decode.Value -> routeParams -> BackendTask Throwable (Server.Response.Response action ErrorPage)
+        , staticRoutes : BackendTask Throwable (List routeParams)
         , head :
             StaticPayload data action routeParams
             -> List Head.Tag
@@ -165,7 +165,7 @@ type Builder routeParams data action
             { moduleName : List String, routePattern : RoutePattern }
             -> (routeParams -> List ( String, String ))
             -> routeParams
-            -> DataSource Throwable (Maybe NotFoundReason)
+            -> BackendTask Throwable (Maybe NotFoundReason)
         , kind : String
         }
 
@@ -292,40 +292,40 @@ buildWithSharedState config builderState =
 
 {-| -}
 single :
-    { data : DataSource Throwable data
+    { data : BackendTask Throwable data
     , head : StaticPayload data action {} -> List Head.Tag
     }
     -> Builder {} data action
 single { data, head } =
     WithData
-        { data = \_ _ -> data |> DataSource.map Server.Response.render
-        , action = \_ _ -> DataSource.fail (Exception.fromString "Internal Error - actions should never be called for statically generated pages.")
-        , staticRoutes = DataSource.succeed [ {} ]
+        { data = \_ _ -> data |> BackendTask.map Server.Response.render
+        , action = \_ _ -> BackendTask.fail (Exception.fromString "Internal Error - actions should never be called for statically generated pages.")
+        , staticRoutes = BackendTask.succeed [ {} ]
         , head = head
         , serverless = False
-        , handleRoute = \_ _ _ -> DataSource.succeed Nothing
+        , handleRoute = \_ _ _ -> BackendTask.succeed Nothing
         , kind = "static"
         }
 
 
 {-| -}
 preRender :
-    { data : routeParams -> DataSource Throwable data
-    , pages : DataSource Throwable (List routeParams)
+    { data : routeParams -> BackendTask Throwable data
+    , pages : BackendTask Throwable (List routeParams)
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
 preRender { data, head, pages } =
     WithData
-        { data = \_ -> data >> DataSource.map Server.Response.render
-        , action = \_ _ -> DataSource.fail (Exception.fromString "Internal Error - actions should never be called for statically generated pages.")
+        { data = \_ -> data >> BackendTask.map Server.Response.render
+        , action = \_ _ -> BackendTask.fail (Exception.fromString "Internal Error - actions should never be called for statically generated pages.")
         , staticRoutes = pages
         , head = head
         , serverless = False
         , handleRoute =
             \moduleContext toRecord routeParams ->
                 pages
-                    |> DataSource.map
+                    |> BackendTask.map
                         (\allRoutes ->
                             if allRoutes |> List.member routeParams then
                                 Nothing
@@ -348,29 +348,29 @@ preRender { data, head, pages } =
 
 {-| -}
 preRenderWithFallback :
-    { data : routeParams -> DataSource Throwable (Server.Response.Response data ErrorPage)
-    , pages : DataSource Throwable (List routeParams)
+    { data : routeParams -> BackendTask Throwable (Server.Response.Response data ErrorPage)
+    , pages : BackendTask Throwable (List routeParams)
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
 preRenderWithFallback { data, head, pages } =
     WithData
         { data = \_ -> data
-        , action = \_ _ -> DataSource.fail (Exception.fromString "Internal Error - actions should never be called for statically generated pages.")
+        , action = \_ _ -> BackendTask.fail (Exception.fromString "Internal Error - actions should never be called for statically generated pages.")
         , staticRoutes = pages
         , head = head
         , serverless = False
         , handleRoute =
             \moduleContext toRecord routeParams ->
-                DataSource.succeed Nothing
+                BackendTask.succeed Nothing
         , kind = "prerender-with-fallback"
         }
 
 
 {-| -}
 serverRender :
-    { data : routeParams -> Server.Request.Parser (DataSource Throwable (Server.Response.Response data ErrorPage))
-    , action : routeParams -> Server.Request.Parser (DataSource Throwable (Server.Response.Response action ErrorPage))
+    { data : routeParams -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response data ErrorPage))
+    , action : routeParams -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response action ErrorPage))
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
@@ -384,12 +384,12 @@ serverRender { data, action, head } =
                     |> (\decoder ->
                             Json.Decode.decodeValue decoder requestPayload
                                 |> Result.mapError Json.Decode.errorToString
-                                |> DataSource.fromResult
+                                |> BackendTask.fromResult
                                 -- TODO include title and better error context and formatting
-                                |> DataSource.onError (\error -> DataSource.fail (Exception.fromString error))
+                                |> BackendTask.onError (\error -> BackendTask.fail (Exception.fromString error))
                        )
                 )
-                    |> DataSource.andThen
+                    |> BackendTask.andThen
                         (\rendered ->
                             case rendered of
                                 Ok okRendered ->
@@ -398,7 +398,7 @@ serverRender { data, action, head } =
                                 Err error ->
                                     Server.Request.errorsToString error
                                         |> Exception.fromString
-                                        |> DataSource.fail
+                                        |> BackendTask.fail
                         )
         , action =
             \requestPayload routeParams ->
@@ -408,12 +408,12 @@ serverRender { data, action, head } =
                     |> (\decoder ->
                             Json.Decode.decodeValue decoder requestPayload
                                 |> Result.mapError Json.Decode.errorToString
-                                |> DataSource.fromResult
+                                |> BackendTask.fromResult
                                 -- TODO include title and better error context and formatting
-                                |> DataSource.onError (\error -> DataSource.fail (Exception.fromString error))
+                                |> BackendTask.onError (\error -> BackendTask.fail (Exception.fromString error))
                        )
                 )
-                    |> DataSource.andThen
+                    |> BackendTask.andThen
                         (\rendered ->
                             case rendered of
                                 Ok okRendered ->
@@ -422,13 +422,13 @@ serverRender { data, action, head } =
                                 Err error ->
                                     Server.Request.errorsToString error
                                         |> Exception.fromString
-                                        |> DataSource.fail
+                                        |> BackendTask.fail
                         )
-        , staticRoutes = DataSource.succeed []
+        , staticRoutes = BackendTask.succeed []
         , head = head
         , serverless = True
         , handleRoute =
             \moduleContext toRecord routeParams ->
-                DataSource.succeed Nothing
+                BackendTask.succeed Nothing
         , kind = "serverless"
         }

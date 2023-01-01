@@ -1,6 +1,6 @@
 module Site exposing (config)
 
-import DataSource
+import BackendTask
 import Head
 import Pages.Manifest as Manifest
 import Route exposing (Route)
@@ -22,9 +22,9 @@ config =
         }
 
 
-data : DataSource.DataSource Data
+data : BackendTask.BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 
 
 head : Data -> List Head.Tag

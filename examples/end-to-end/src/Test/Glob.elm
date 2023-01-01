@@ -1,12 +1,12 @@
 module Test.Glob exposing (all)
 
-import DataSource exposing (DataSource)
-import DataSource.Glob as Glob exposing (Glob, Include(..), defaultOptions)
+import BackendTask exposing (BackendTask)
+import BackendTask.Glob as Glob exposing (Glob, Include(..), defaultOptions)
 import Expect
 import Test exposing (Test, describe, test)
 
 
-all : DataSource error Test
+all : BackendTask error Test
 all =
     [ globTestCase
         { name = "1"
@@ -259,8 +259,8 @@ all =
             ]
         }
     ]
-        |> DataSource.combine
-        |> DataSource.map (describe "glob tests")
+        |> BackendTask.combine
+        |> BackendTask.map (describe "glob tests")
 
 
 findBySplat : List String -> Glob String
@@ -287,10 +287,10 @@ type JsonOrYaml
     | YAML
 
 
-globTestCase : { name : String, glob : Glob value, expected : List value } -> DataSource error Test
+globTestCase : { name : String, glob : Glob value, expected : List value } -> BackendTask error Test
 globTestCase { glob, name, expected } =
-    Glob.toDataSource glob
-        |> DataSource.map
+    Glob.toBackendTask glob
+        |> BackendTask.map
             (\actual ->
                 test name <|
                     \() ->
@@ -307,7 +307,7 @@ globTestCase { glob, name, expected } =
              --    Err <|
              --        name
              --            ++ " failed\nPattern: `"
-             --            ++ DataSource.Internal.Glob.toPattern glob
+             --            ++ BackendTask.Internal.Glob.toPattern glob
              --            ++ "`\nExpected\n"
              --            ++ Debug.toString expected
              --            ++ "\nActual\n"
@@ -321,14 +321,14 @@ testDir :
     , expectedDirs : List value
     , expectedFiles : List value
     }
-    -> DataSource error Test
+    -> BackendTask error Test
 testDir { glob, name, expectedDirs, expectedFiles } =
     glob
-        |> Glob.toDataSourceWithOptions
+        |> Glob.toBackendTaskWithOptions
             { defaultOptions
                 | include = OnlyFolders
             }
-        |> DataSource.map
+        |> BackendTask.map
             (\actual ->
                 test name <|
                     \() ->
@@ -345,7 +345,7 @@ testDir { glob, name, expectedDirs, expectedFiles } =
              --    Err <|
              --        name
              --            ++ " failed\nPattern: `"
-             --            ++ DataSource.Internal.Glob.toPattern glob
+             --            ++ BackendTask.Internal.Glob.toPattern glob
              --            ++ "`\nExpected\n"
              --            ++ Debug.toString expectedDirs
              --            ++ "\nActual\n"

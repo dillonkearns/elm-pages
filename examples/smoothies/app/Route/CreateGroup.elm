@@ -1,6 +1,6 @@
 module Route.CreateGroup exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Description exposing (Description)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -84,12 +84,12 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
-    Request.succeed (DataSource.succeed (Response.render Data))
+    Request.succeed (BackendTask.succeed (Response.render Data))
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.formData (postForm |> Form.initCombined identity)
         |> Request.map
@@ -105,7 +105,7 @@ action routeParams =
                                     "Got from errors: " ++ Debug.toString formErrors
                             )
                 in
-                DataSource.succeed (Response.render ActionData)
+                BackendTask.succeed (Response.render ActionData)
             )
 
 

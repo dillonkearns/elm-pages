@@ -129,7 +129,7 @@ async function main() {
           "./script/elm-stuff/elm-pages/elm.json"
         );
 
-        const portDataSourceCompiled = esbuild
+        const portBackendTaskCompiled = esbuild
           .build({
             entryPoints: ["./port-data-source"],
             platform: "node",
@@ -150,15 +150,15 @@ async function main() {
             }
           })
           .catch((error) => {
-            const portDataSourceFileFound =
+            const portBackendTaskFileFound =
               globby.sync("./port-data-source.*").length > 0;
-            if (portDataSourceFileFound) {
+            if (portBackendTaskFileFound) {
               // don't present error if there are no files matching port-data-source
               // if there are files matching port-data-source, warn the user in case something went wrong loading it
               console.error("Failed to start port-data-source watcher", error);
             }
           });
-        const portsPath = await portDataSourceCompiled;
+        const portsPath = await portBackendTaskCompiled;
         const resolvedPortsPath =
           portsPath && path.join(process.cwd(), portsPath);
 
@@ -269,7 +269,7 @@ function generatorWrapperFile(moduleName) {
   return `port module Main exposing (main)
 
 import Bytes
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Exception
 import Cli.Program as Program
 import Json.Decode as Decode
@@ -278,7 +278,7 @@ import Pages.Internal.Platform.GeneratorApplication
 import ${moduleName}
 
 
-main : Program.StatefulProgram Pages.Internal.Platform.GeneratorApplication.Model Pages.Internal.Platform.GeneratorApplication.Msg (DataSource Exception.Throwable ()) Pages.Internal.Platform.GeneratorApplication.Flags
+main : Program.StatefulProgram Pages.Internal.Platform.GeneratorApplication.Model Pages.Internal.Platform.GeneratorApplication.Msg (BackendTask Exception.Throwable ()) Pages.Internal.Platform.GeneratorApplication.Flags
 main =
     Pages.Internal.Platform.GeneratorApplication.app
         { data = ${moduleName}.run

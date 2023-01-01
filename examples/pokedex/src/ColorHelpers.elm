@@ -3,8 +3,8 @@ module ColorHelpers exposing (..)
 {-| This is an example to demo Netlify's on-demand builders, adapted from <https://github.com/netlify/example-every-color>.
 -}
 
-import DataSource exposing (DataSource)
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
@@ -19,12 +19,12 @@ import Shared
 import View exposing (View)
 
 
-data : routeParams -> DataSource (Server.Response.Response Data ErrorPage)
+data : routeParams -> BackendTask (Server.Response.Response Data ErrorPage)
 data _ =
-    DataSource.Http.get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
+    BackendTask.Http.get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
         Decode.string
-        |> DataSource.map Data
-        |> DataSource.map Server.Response.render
+        |> BackendTask.map Data
+        |> BackendTask.map Server.Response.render
 
 
 head : (routeParams -> String) -> StaticPayload Data {} routeParams -> List Head.Tag

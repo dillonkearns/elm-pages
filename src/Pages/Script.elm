@@ -29,11 +29,11 @@ module Pages.Script exposing
 
 -}
 
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Request
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
-import DataSource exposing (DataSource)
-import DataSource.Http
-import DataSource.Internal.Request
 import Exception exposing (Catchable, Throwable)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -52,12 +52,12 @@ type Error
 
 
 {-| -}
-writeFile : { path : String, body : String } -> DataSource (Catchable Error) ()
+writeFile : { path : String, body : String } -> BackendTask (Catchable Error) ()
 writeFile { path, body } =
-    DataSource.Internal.Request.request
+    BackendTask.Internal.Request.request
         { name = "write-file"
         , body =
-            DataSource.Http.jsonBody
+            BackendTask.Http.jsonBody
                 (Encode.object
                     [ ( "path", Encode.string path )
                     , ( "body", Encode.string body )
@@ -65,27 +65,27 @@ writeFile { path, body } =
                 )
         , expect =
             -- TODO decode possible error details here
-            DataSource.Http.expectJson (Decode.succeed ())
+            BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
 {-| -}
-log : String -> DataSource error ()
+log : String -> BackendTask error ()
 log message =
-    DataSource.Internal.Request.request
+    BackendTask.Internal.Request.request
         { name = "log"
         , body =
-            DataSource.Http.jsonBody
+            BackendTask.Http.jsonBody
                 (Encode.object
                     [ ( "message", Encode.string message )
                     ]
                 )
-        , expect = DataSource.Http.expectJson (Decode.succeed ())
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
 {-| -}
-withoutCliOptions : DataSource Throwable () -> Script
+withoutCliOptions : BackendTask Throwable () -> Script
 withoutCliOptions execute =
     Pages.Internal.Script.Script
         (\_ ->
@@ -100,7 +100,7 @@ withoutCliOptions execute =
 
 
 {-| -}
-withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource Throwable ()) -> Script
+withCliOptions : Program.Config cliOptions -> (cliOptions -> BackendTask Throwable ()) -> Script
 withCliOptions config execute =
     Pages.Internal.Script.Script
         (\_ ->

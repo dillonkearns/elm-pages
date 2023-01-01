@@ -140,7 +140,7 @@ declarationVisitor node context =
                                                 (Node.range dataValue)
                                                 -- TODO need to replace `action` as well
                                                 [ ("data = "
-                                                    ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
+                                                    ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                     -- TODO add `import Exception` if not present (and use alias if present)
                                                     ++ " "
                                                     ++ exceptionFromString
@@ -208,13 +208,13 @@ expressionVisitor node context =
                                             ++ (case pageBuilderName of
                                                     "preRender" ->
                                                         "\\_ -> "
-                                                            ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
+                                                            ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                             ++ " "
                                                             ++ exceptionFromString
 
                                                     "preRenderWithFallback" ->
                                                         "\\_ -> "
-                                                            ++ referenceFunction context.importContext ( [ "DataSource" ], "fail" )
+                                                            ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                             ++ " "
                                                             ++ exceptionFromString
 
@@ -224,7 +224,7 @@ expressionVisitor node context =
                                                             ++ " []\n        "
 
                                                     "single" ->
-                                                        referenceFunction context.importContext ( [ "DataSource" ], "fail" )
+                                                        referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                             ++ " "
                                                             ++ exceptionFromString
                                                             ++ "\n       "
@@ -281,7 +281,7 @@ isAlreadyApplied lookupTable expression =
                                             )
                                         |> Maybe.withDefault []
                             in
-                            resolvedModuleName == [ "DataSource" ]
+                            resolvedModuleName == [ "BackendTask" ]
 
                         (Expression.FunctionOrValue _ "oneOf") :: (Expression.ListExpr []) :: _ ->
                             let
@@ -317,7 +317,7 @@ isAlreadyApplied lookupTable expression =
                                     )
                                 |> Maybe.withDefault []
                     in
-                    resolvedModuleName == [ "DataSource" ]
+                    resolvedModuleName == [ "BackendTask" ]
 
                 _ ->
                     False

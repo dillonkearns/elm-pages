@@ -1,9 +1,9 @@
 module Route.Escaping exposing (ActionData, Data, Model, Msg, route)
 
+import BackendTask exposing (BackendTask)
+import BackendTask.File
 import Css exposing (..)
 import Css.Global
-import DataSource exposing (DataSource)
-import DataSource.File
 import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
@@ -48,10 +48,10 @@ type alias Data =
     String
 
 
-data : DataSource Throwable Data
+data : BackendTask Throwable Data
 data =
-    DataSource.File.rawFile "unsafe-script-tag.txt"
-        |> DataSource.throw
+    BackendTask.File.rawFile "unsafe-script-tag.txt"
+        |> BackendTask.throw
 
 
 head :

@@ -6,11 +6,11 @@ module Pages.Internal.Platform.Cli exposing (Flags, Model, Msg(..), Program, cli
 
 -}
 
+import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Encode
 import Codec
-import DataSource exposing (DataSource)
 import Dict
 import Exception exposing (Throwable)
 import Head exposing (Tag)
@@ -51,7 +51,7 @@ currentCompatibilityKey =
 
 {-| -}
 type alias Model route =
-    { staticResponses : DataSource Throwable Effect
+    { staticResponses : BackendTask Throwable Effect
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , maybeRequestJson : RenderRequest route
@@ -415,11 +415,11 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { isDevServer } config =
     let
-        globalHeadTags : DataSource Throwable (List Tag)
+        globalHeadTags : BackendTask Throwable (List Tag)
         globalHeadTags =
-            (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
+            (config.globalHeadTags |> Maybe.withDefault (\_ -> BackendTask.succeed [])) HtmlPrinter.htmlToString
 
-        staticResponsesNew : DataSource Throwable Effect
+        staticResponsesNew : BackendTask Throwable Effect
         staticResponsesNew =
             StaticResponses.renderApiRequest
                 (case singleRequest of
@@ -447,21 +447,21 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                             config.handleRoute serverRequestPayload.frontmatter
 
                          else
-                            DataSource.succeed Nothing
+                            BackendTask.succeed Nothing
                         )
-                            |> DataSource.andThen
+                            |> BackendTask.andThen
                                 (\pageFound ->
                                     case pageFound of
                                         Nothing ->
                                             --sendSinglePageProgress site model.allRawResponses config model payload
                                             (case isAction of
                                                 Just _ ->
-                                                    config.action (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter |> DataSource.map Just
+                                                    config.action (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter |> BackendTask.map Just
 
                                                 Nothing ->
-                                                    DataSource.succeed Nothing
+                                                    BackendTask.succeed Nothing
                                             )
-                                                |> DataSource.andThen
+                                                |> BackendTask.andThen
                                                     (\something ->
                                                         let
                                                             actionHeaders2 : Maybe { statusCode : Int, headers : List ( String, String ) }
@@ -479,7 +479,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                     _ ->
                                                                         Nothing
                                                         in
-                                                        DataSource.map3
+                                                        BackendTask.map3
                                                             (\pageData sharedData tags ->
                                                                 let
                                                                     renderedResult : Effect
@@ -741,11 +741,11 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                 isDevServer
                                                 serverRequestPayload.path
                                                 notFoundReason
-                                                |> DataSource.succeed
+                                                |> BackendTask.succeed
                                 )
 
                     RenderRequest.Api ( path, ApiRoute apiHandler ) ->
-                        DataSource.map2
+                        BackendTask.map2
                             (\response _ ->
                                 case response of
                                     Just okResponse ->
@@ -778,7 +778,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                             globalHeadTags
 
                     RenderRequest.NotFound notFoundPath ->
-                        (DataSource.map2
+                        (BackendTask.map2
                             (\_ _ ->
                                 render404Page config
                                     Nothing
@@ -788,7 +788,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                     notFoundPath
                                     NotFoundReason.NoMatchingRoute
                             )
-                            (DataSource.succeed [])
+                            (BackendTask.succeed [])
                             globalHeadTags
                          -- TODO is there a way to resolve sharedData but get it as a Result if it fails?
                          --config.sharedData

@@ -2,7 +2,7 @@ module Route.SmoothieId_.Edit exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
 import Data.Smoothies as Smoothies exposing (Smoothie)
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -91,9 +91,9 @@ subscriptions maybePageUrl routeParams path sharedModel model =
     Sub.none
 
 
-pages : DataSource (List RouteParams)
+pages : BackendTask (List RouteParams)
 pages =
-    DataSource.succeed []
+    BackendTask.succeed []
 
 
 type alias Data =
@@ -105,22 +105,22 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.succeed ()
         |> MySession.expectSessionDataOrRedirect (Session.get "userId")
             (\userId () session ->
                 ((Smoothies.find (Uuid routeParams.smoothieId)
-                    |> Request.Hasura.dataSource
+                    |> Request.Hasura.backendTask
                  )
-                    |> DataSource.map
+                    |> BackendTask.map
                         (\maybeSmoothie ->
                             maybeSmoothie
                                 |> Maybe.map (Data >> Response.render)
                                 |> Maybe.withDefault (Response.errorPage ErrorPage.NotFound)
                         )
                 )
-                    |> DataSource.map (Tuple.pair session)
+                    |> BackendTask.map (Tuple.pair session)
             )
 
 
@@ -131,7 +131,7 @@ formParsers =
         |> Form.combine Edit form
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.formData formParsers
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
@@ -139,8 +139,8 @@ action routeParams =
                 case parsed of
                     Ok (Edit okParsed) ->
                         Smoothies.update (Uuid routeParams.smoothieId) okParsed
-                            |> Request.Hasura.mutationDataSource
-                            |> DataSource.map
+                            |> Request.Hasura.mutationBackendTask
+                            |> BackendTask.map
                                 (\_ ->
                                     ( session
                                     , Route.redirectTo Route.Index
@@ -149,8 +149,8 @@ action routeParams =
 
                     Ok Delete ->
                         Smoothies.delete (Uuid routeParams.smoothieId)
-                            |> Request.Hasura.mutationDataSource
-                            |> DataSource.map
+                            |> Request.Hasura.mutationBackendTask
+                            |> BackendTask.map
                                 (\_ ->
                                     ( session
                                     , Route.redirectTo Route.Index
@@ -162,7 +162,7 @@ action routeParams =
                             _ =
                                 Debug.log "@@@ERRORS" errors
                         in
-                        DataSource.succeed
+                        BackendTask.succeed
                             -- TODO need to render errors here
                             ( session, Response.render {} )
             )

@@ -1,6 +1,6 @@
 module Route.Greet exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import Head
@@ -42,7 +42,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.map2 (\a b -> Data a b Nothing)
@@ -55,7 +55,7 @@ data routeParams =
                         |> Server.Response.withHeader
                             "x-greeting"
                             ("hello there " ++ requestData.username ++ "!")
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
         , Request.requestTime
             |> MySession.expectSessionOrRedirect
@@ -82,7 +82,7 @@ data routeParams =
                             "x-greeting"
                             ("hello " ++ username ++ "!")
                     )
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
         ]
 

@@ -2,7 +2,7 @@ module Route.Profile.Edit exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
 import Data.User as User exposing (User)
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -96,14 +96,14 @@ type alias ActionData =
     Result { fields : List ( String, String ), errors : Dict String (List String) } Action
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.succeed ()
         |> MySession.expectSessionDataOrRedirect (Session.get "userId")
             (\userId () session ->
                 User.selection userId
-                    |> Request.Hasura.dataSource
-                    |> DataSource.map
+                    |> Request.Hasura.backendTask
+                    |> BackendTask.map
                         (\user ->
                             user
                                 |> Data
@@ -119,7 +119,7 @@ type alias Action =
     }
 
 
-formParser : Form.DoneForm String (DataSource (Validation.Combined String Action)) Data (List (Html (Pages.Msg.Msg msg)))
+formParser : Form.DoneForm String (BackendTask (Validation.Combined String Action)) Data (List (Html (Pages.Msg.Msg msg)))
 formParser =
     Form.init
         (\username name ->
@@ -127,7 +127,7 @@ formParser =
                 Validation.succeed
                     (\u n ->
                         toValidUsername u username
-                            |> DataSource.map
+                            |> BackendTask.map
                                 (\vu ->
                                     Validation.succeed Action
                                         |> Validation.andMap vu
@@ -189,9 +189,9 @@ formParser =
             )
 
 
-toValidUsername : String -> Validation.Field String parsed1 field -> DataSource (Validation.Combined String String)
+toValidUsername : String -> Validation.Field String parsed1 field -> BackendTask (Validation.Combined String String)
 toValidUsername username usernameField =
-    DataSource.succeed
+    BackendTask.succeed
         (if username == "dillon123" then
             Validation.fail "This username is taken" usernameField
 
@@ -209,29 +209,29 @@ validateUsername rawUsername =
         ( Just rawUsername, [] )
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.formDataWithServerValidation (formParser |> Form.initCombined identity)
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsedActionData session ->
                 parsedActionData
-                    |> DataSource.andThen
+                    |> BackendTask.andThen
                         (\parsedAction ->
                             case parsedAction |> Debug.log "parsedAction" of
                                 Ok ( response, { name } ) ->
                                     User.updateUser { userId = userId, name = name |> Debug.log "Updating name mutation" }
-                                        |> Request.Hasura.mutationDataSource
-                                        |> DataSource.map
+                                        |> Request.Hasura.mutationBackendTask
+                                        |> BackendTask.map
                                             (\_ ->
                                                 Route.redirectTo Route.Profile
                                             )
-                                        |> DataSource.map (Tuple.pair session)
+                                        |> BackendTask.map (Tuple.pair session)
 
                                 Err (Form.Response errors) ->
                                     -- TODO need to render errors here?
-                                    DataSource.succeed
+                                    BackendTask.succeed
                                         (Response.render (Err errors))
-                                        |> DataSource.map (Tuple.pair session)
+                                        |> BackendTask.map (Tuple.pair session)
                         )
             )
 

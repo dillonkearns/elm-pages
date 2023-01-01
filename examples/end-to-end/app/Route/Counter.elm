@@ -1,6 +1,6 @@
 module Route.Counter exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import Exception exposing (Throwable)
 import Head
@@ -85,9 +85,9 @@ type alias Data =
     {}
 
 
-data : DataSource Throwable Data
+data : BackendTask Throwable Data
 data =
-    DataSource.succeed Data
+    BackendTask.succeed Data
 
 
 head :

@@ -60,7 +60,7 @@ suite =
         ]
 
 
-mockData : PagesTest.DataSourceSimulator
+mockData : PagesTest.BackendTaskSimulator
 mockData _ _ _ request =
     Nothing
 

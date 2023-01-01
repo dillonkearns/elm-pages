@@ -1,6 +1,6 @@
 module Route.SPLAT__ exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Exception exposing (Throwable)
 import Head
 import Html.Styled exposing (text)
@@ -31,17 +31,17 @@ route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { head = head
-        , pages = DataSource.succeed []
+        , pages = BackendTask.succeed []
         , data = data
 
-        --, routeFound = \_ -> DataSource.succeed True
+        --, routeFound = \_ -> BackendTask.succeed True
         }
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : RouteParams -> DataSource Throwable Data
+data : RouteParams -> BackendTask Throwable Data
 data routeParams =
-    DataSource.succeed {}
+    BackendTask.succeed {}
 
 
 head :

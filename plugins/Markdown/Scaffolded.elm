@@ -1,12 +1,12 @@
 {- Copied from https://github.com/matheus23/elm-markdown-transforms/blob/02fddd3bf9e82412eb289bead3b5124a98163ab6/src/Markdown/Scaffolded.elm
-   Modified to use DataSource instead of StaticHttp
+   Modified to use BackendTask instead of StaticHttp
 -}
 
 
 module Markdown.Scaffolded exposing
     ( Block(..)
     , map, indexedMap
-    , parameterized, validating, withDataSource
+    , parameterized, validating, withBackendTask
     , reduceHtml, reduceWords, reducePretty, reduce
     , foldFunction, foldResults, foldStaticHttpRequests, foldIndexed
     , fromRenderer, toRenderer
@@ -42,7 +42,7 @@ These functions are not as composable as [transformation building blocks](#trans
 but might suffice for your use case. Take a look at the other section if you find you need
 something better.
 
-@docs parameterized, validating, withDataSource
+@docs parameterized, validating, withBackendTask
 
 
 # Transformation Building Blocks
@@ -153,7 +153,7 @@ I mean to aggregate utilites for transforming Blocks in this section.
 
 -}
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Markdown.Block as Block
@@ -520,14 +520,14 @@ validating reducer markdown =
     markdown |> foldResults |> Result.andThen reducer
 
 
-{-| This transform allows you to perform elm-pages' DataSource requests without having to
+{-| This transform allows you to perform elm-pages' BackendTask requests without having to
 think about how to thread these through your renderer.
 
 Some applications that can be realized like this:
 
   - Verifying that all links in your markdown do resolve at page build-time
     (Note: This currently needs some change in elm-pages, so it's not possible _yet_)
-  - Giving custom elm-markdown HTML elements the ability to perform DataSource requests
+  - Giving custom elm-markdown HTML elements the ability to perform BackendTask requests
 
 
 ### Missing Functionality
@@ -537,11 +537,11 @@ The `wihtStaticHttpRequests` definition basically just documents a common patter
 Its implementation is just 1 line of code.
 
 -}
-withDataSource :
-    (Block view -> DataSource view)
-    -> (Block (DataSource view) -> DataSource view)
-withDataSource reducer markdown =
-    markdown |> foldStaticHttpRequests |> DataSource.andThen reducer
+withBackendTask :
+    (Block view -> BackendTask view)
+    -> (Block (BackendTask view) -> BackendTask view)
+withBackendTask reducer markdown =
+    markdown |> foldStaticHttpRequests |> BackendTask.andThen reducer
 
 
 {-| This will reduce a `Block` to `Html` similar to what the
@@ -955,20 +955,20 @@ foldResults markdown =
 
 
 {-| Accumulate elm-page's
-[`DataSource`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Pages-DataSource#Request)s
+[`BackendTask`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Pages-BackendTask#Request)s
 over blocks.
 
 Using this, it is possible to write reducers that produce views as a result of performing
 static http requests.
 
 -}
-foldStaticHttpRequests : Block (DataSource view) -> DataSource (Block view)
+foldStaticHttpRequests : Block (BackendTask view) -> BackendTask (Block view)
 foldStaticHttpRequests markdown =
     case markdown of
         Heading { level, rawText, children } ->
             children
                 |> allStaticHttp
-                |> DataSource.map
+                |> BackendTask.map
                     (\chdr ->
                         Heading { level = level, rawText = rawText, children = chdr }
                     )
@@ -976,47 +976,47 @@ foldStaticHttpRequests markdown =
         Paragraph children ->
             children
                 |> allStaticHttp
-                |> DataSource.map Paragraph
+                |> BackendTask.map Paragraph
 
         BlockQuote children ->
             children
                 |> allStaticHttp
-                |> DataSource.map BlockQuote
+                |> BackendTask.map BlockQuote
 
         Text content ->
             Text content
-                |> DataSource.succeed
+                |> BackendTask.succeed
 
         CodeSpan content ->
             CodeSpan content
-                |> DataSource.succeed
+                |> BackendTask.succeed
 
         Strong children ->
             children
                 |> allStaticHttp
-                |> DataSource.map Strong
+                |> BackendTask.map Strong
 
         Emphasis children ->
             children
                 |> allStaticHttp
-                |> DataSource.map Emphasis
+                |> BackendTask.map Emphasis
 
         Strikethrough children ->
             children
                 |> allStaticHttp
-                |> DataSource.map Strikethrough
+                |> BackendTask.map Strikethrough
 
         Link { title, destination, children } ->
             children
                 |> allStaticHttp
-                |> DataSource.map
+                |> BackendTask.map
                     (\chdr ->
                         Link { title = title, destination = destination, children = chdr }
                     )
 
         Image imageInfo ->
             Image imageInfo
-                |> DataSource.succeed
+                |> BackendTask.succeed
 
         UnorderedList { items } ->
             items
@@ -1024,61 +1024,61 @@ foldStaticHttpRequests markdown =
                     (\(Block.ListItem task children) ->
                         children
                             |> allStaticHttp
-                            |> DataSource.map (Block.ListItem task)
+                            |> BackendTask.map (Block.ListItem task)
                     )
                 |> allStaticHttp
-                |> DataSource.map (\itms -> UnorderedList { items = itms })
+                |> BackendTask.map (\itms -> UnorderedList { items = itms })
 
         OrderedList { startingIndex, items } ->
             items
                 |> List.map allStaticHttp
                 |> allStaticHttp
-                |> DataSource.map
+                |> BackendTask.map
                     (\itms ->
                         OrderedList { startingIndex = startingIndex, items = itms }
                     )
 
         CodeBlock codeBlockInfo ->
             CodeBlock codeBlockInfo
-                |> DataSource.succeed
+                |> BackendTask.succeed
 
         HardLineBreak ->
             HardLineBreak
-                |> DataSource.succeed
+                |> BackendTask.succeed
 
         ThematicBreak ->
             ThematicBreak
-                |> DataSource.succeed
+                |> BackendTask.succeed
 
         Table children ->
             children
                 |> allStaticHttp
-                |> DataSource.map Table
+                |> BackendTask.map Table
 
         TableHeader children ->
             children
                 |> allStaticHttp
-                |> DataSource.map TableHeader
+                |> BackendTask.map TableHeader
 
         TableBody children ->
             children
                 |> allStaticHttp
-                |> DataSource.map TableBody
+                |> BackendTask.map TableBody
 
         TableRow children ->
             children
                 |> allStaticHttp
-                |> DataSource.map TableRow
+                |> BackendTask.map TableRow
 
         TableHeaderCell maybeAlignment children ->
             children
                 |> allStaticHttp
-                |> DataSource.map (TableHeaderCell maybeAlignment)
+                |> BackendTask.map (TableHeaderCell maybeAlignment)
 
         TableCell maybeAlignment children ->
             children
                 |> allStaticHttp
-                |> DataSource.map (TableCell maybeAlignment)
+                |> BackendTask.map (TableCell maybeAlignment)
 
 
 {-| Convert a block of markdown back to markdown text.
@@ -1565,9 +1565,9 @@ bumpHeadings by markdown =
 -- LOCAL DEFINITIONS
 
 
-allStaticHttp : List (DataSource a) -> DataSource (List a)
+allStaticHttp : List (BackendTask a) -> BackendTask (List a)
 allStaticHttp =
-    List.foldr (DataSource.map2 (::)) (DataSource.succeed [])
+    List.foldr (BackendTask.map2 (::)) (BackendTask.succeed [])
 
 
 bumpHeadingLevel : Block.HeadingLevel -> Block.HeadingLevel

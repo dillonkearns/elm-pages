@@ -23,7 +23,7 @@ module Form exposing
   - Showing validation errors on the client-side
   - Receiving a form submission on the server-side
   - Using the exact same client-side validations on the server-side
-  - Letting you run server-only Validations with DataSource's (things like checking for a unique username)
+  - Letting you run server-only Validations with BackendTask's (things like checking for a unique username)
 
 Because elm-pages is a framework, it has its own internal Model and Msg's. That means you, the user,
 can offload some of the responsibility to elm-pages and build an interactive form with real-time
@@ -64,7 +64,7 @@ them into a type and/or errors.
 
 Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of the fields declared.
 
-    import DataSource exposing (DataSource)
+    import BackendTask exposing (BackendTask)
     import ErrorPage exposing (ErrorPage)
     import Form
     import Form.Field as Field
@@ -184,7 +184,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
 ### Step 3 - Handle Server-Side Form Submissions
 
-    action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+    action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
     action routeParams =
         Request.formData [ signupForm ]
             |> Request.map
@@ -192,8 +192,8 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
                     case signupResult of
                         Ok newUser ->
                             newUser
-                                |> myCreateUserDataSource
-                                |> DataSource.map
+                                |> myCreateUserBackendTask
+                                |> BackendTask.map
                                     (\() ->
                                         -- redirect to the home page
                                         -- after successful sign-up
@@ -202,12 +202,12 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
                         Err _ ->
                             Route.redirectTo Route.Login
-                                |> DataSource.succeed
+                                |> BackendTask.succeed
                 )
 
-    myCreateUserDataSource : DataSource ()
-    myCreateUserDataSource =
-        DataSource.fail
+    myCreateUserBackendTask : BackendTask ()
+    myCreateUserBackendTask =
+        BackendTask.fail
             "TODO - make a database call to create a new user"
 
 
@@ -267,7 +267,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
 -}
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Form.Field as Field exposing (Field(..))
 import Form.FieldStatus as FieldStatus exposing (FieldStatus)
@@ -681,7 +681,7 @@ toServerForm :
     ->
         Form
             error
-            { combine : Validation.Validation error (DataSource dataSourceError (Validation.Validation error combined kind constraints)) kind constraints
+            { combine : Validation.Validation error (BackendTask backendTaskError (Validation.Validation error combined kind constraints)) kind constraints
             , view : viewFn
             }
             data
@@ -694,7 +694,7 @@ toServerForm (Form a b c) =
                 { result : Dict String (List error)
                 , isMatchCandidate : Bool
                 , combineAndView :
-                    { combine : Validation.Validation error (DataSource dataSourceError (Validation.Validation error combined kind constraints)) kind constraints
+                    { combine : Validation.Validation error (BackendTask backendTaskError (Validation.Validation error combined kind constraints)) kind constraints
                     , view : viewFn
                     }
                 }
@@ -705,7 +705,7 @@ toServerForm (Form a b c) =
                         , combineAndView =
                             { combine =
                                 thing.combineAndView.combine
-                                    |> DataSource.succeed
+                                    |> BackendTask.succeed
                                     |> Validation.succeed2
                             , view = thing.combineAndView.view
                             }
@@ -1568,12 +1568,12 @@ initCombinedServer :
         Form
             error
             { combineAndView
-                | combine : Combined error (DataSource dataSourceError (Validation.Validation error parsed kind constraints))
+                | combine : Combined error (BackendTask backendTaskError (Validation.Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (DataSource dataSourceError (Validation.Validation error combined kind constraints))
+    -> ServerForms error (BackendTask backendTaskError (Validation.Validation error combined kind constraints))
 initCombinedServer mapFn serverForms =
-    initCombined (DataSource.map (Validation.map mapFn)) serverForms
+    initCombined (BackendTask.map (Validation.map mapFn)) serverForms
 
 
 {-| -}
@@ -1584,13 +1584,13 @@ combineServer :
             error
             { combineAndView
                 | combine :
-                    Combined error (DataSource dataSourceError (Validation.Validation error parsed kind constraints))
+                    Combined error (BackendTask backendTaskError (Validation.Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (DataSource dataSourceError (Validation.Validation error combined kind constraints))
-    -> ServerForms error (DataSource dataSourceError (Validation.Validation error combined kind constraints))
+    -> ServerForms error (BackendTask backendTaskError (Validation.Validation error combined kind constraints))
+    -> ServerForms error (BackendTask backendTaskError (Validation.Validation error combined kind constraints))
 combineServer mapFn a b =
-    combine (DataSource.map (Validation.map mapFn)) a b
+    combine (BackendTask.map (Validation.map mapFn)) a b
 
 
 {-| -}

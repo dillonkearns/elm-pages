@@ -9,7 +9,7 @@ import Cli.Validate
 import Elm
 import Elm.Annotation
 import Elm.Case
-import Gen.DataSource
+import Gen.BackendTask
 import Gen.Effect
 import Gen.Html
 import Gen.Platform.Sub
@@ -86,12 +86,12 @@ createFile preRender moduleName =
             Pages.Generate.preRender
                 { moduleName = moduleName
                 , pages =
-                    Gen.DataSource.succeed
+                    Gen.BackendTask.succeed
                         (Elm.list [])
                 , data =
                     ( Alias (Elm.Annotation.record [])
                     , \routeParams ->
-                        Gen.DataSource.succeed (Elm.record [])
+                        Gen.BackendTask.succeed (Elm.record [])
                     )
                 , head = \app -> Elm.list []
                 }
@@ -101,7 +101,7 @@ createFile preRender moduleName =
                 { moduleName = moduleName
                 , data =
                     ( Alias (Elm.Annotation.record [])
-                    , Gen.DataSource.succeed (Elm.record [])
+                    , Gen.BackendTask.succeed (Elm.record [])
                     )
                 , head = \app -> Elm.list []
                 }
@@ -113,7 +113,7 @@ createFile preRender moduleName =
                 ( Alias (Elm.Annotation.record [])
                 , \routeParams ->
                     Gen.Server.Request.succeed
-                        (Gen.DataSource.succeed
+                        (Gen.BackendTask.succeed
                             (Gen.Server.Response.render
                                 (Elm.record [])
                             )
@@ -123,7 +123,7 @@ createFile preRender moduleName =
                 ( Alias (Elm.Annotation.record [])
                 , \routeParams ->
                     Gen.Server.Request.succeed
-                        (Gen.DataSource.succeed
+                        (Gen.BackendTask.succeed
                             (Gen.Server.Response.render
                                 (Elm.record [])
                             )

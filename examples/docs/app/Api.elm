@@ -2,8 +2,8 @@ module Api exposing (routes)
 
 import ApiRoute
 import Article
-import DataSource exposing (DataSource)
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import Exception exposing (Throwable)
 import Head
 import Html exposing (Html)
@@ -21,13 +21,13 @@ import Time
 
 
 routes :
-    DataSource Throwable (List Route)
+    BackendTask Throwable (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
     [ ApiRoute.succeed
         (\userId ->
-            DataSource.succeed
+            BackendTask.succeed
                 (Json.Encode.object
                     [ ( "id", Json.Encode.string userId )
                     , ( "name"
@@ -45,7 +45,7 @@ routes getStaticRoutes htmlToString =
         |> ApiRoute.literal ".json"
         |> ApiRoute.preRender
             (\route ->
-                DataSource.succeed
+                BackendTask.succeed
                     [ route "1"
                     , route "2"
                     , route "3"
@@ -53,10 +53,10 @@ routes getStaticRoutes htmlToString =
             )
     , ApiRoute.succeed
         (\repoName ->
-            DataSource.Http.get
+            BackendTask.Http.get
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Decode.field "stargazers_count" Decode.int)
-                |> DataSource.map
+                |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
                             [ ( "repo", Json.Encode.string repoName )
@@ -64,7 +64,7 @@ routes getStaticRoutes htmlToString =
                             ]
                             |> Json.Encode.encode 2
                     )
-                |> DataSource.throw
+                |> BackendTask.throw
         )
         |> ApiRoute.literal "repo"
         |> ApiRoute.slash
@@ -72,7 +72,7 @@ routes getStaticRoutes htmlToString =
         |> ApiRoute.literal ".json"
         |> ApiRoute.preRender
             (\route ->
-                DataSource.succeed
+                BackendTask.succeed
                     [ route "elm-graphql"
                     ]
             )
@@ -83,10 +83,10 @@ routes getStaticRoutes htmlToString =
         , builtAt = Pages.builtAt
         , indexPage = [ "blog" ]
         }
-        postsDataSource
+        postsBackendTask
     , ApiRoute.succeed
         (getStaticRoutes
-            |> DataSource.map
+            |> BackendTask.map
                 (\allRoutes ->
                     allRoutes
                         |> List.map
@@ -100,15 +100,15 @@ routes getStaticRoutes htmlToString =
         )
         |> ApiRoute.literal "sitemap.xml"
         |> ApiRoute.single
-        |> ApiRoute.withGlobalHeadTags (DataSource.succeed [ Head.sitemapLink "/sitemap.xml" ])
+        |> ApiRoute.withGlobalHeadTags (BackendTask.succeed [ Head.sitemapLink "/sitemap.xml" ])
     , Pages.Manifest.generator Site.canonicalUrl Manifest.config
     ]
 
 
-postsDataSource : DataSource Throwable (List Rss.Item)
-postsDataSource =
+postsBackendTask : BackendTask Throwable (List Rss.Item)
+postsBackendTask =
     Article.allMetadata
-        |> DataSource.map
+        |> BackendTask.map
             (List.map
                 (\( route, article ) ->
                     { title = article.title
@@ -126,7 +126,7 @@ postsDataSource =
                     }
                 )
             )
-        |> DataSource.throw
+        |> BackendTask.throw
 
 
 rss :
@@ -136,12 +136,12 @@ rss :
     , builtAt : Time.Posix
     , indexPage : List String
     }
-    -> DataSource Throwable (List Rss.Item)
+    -> BackendTask Throwable (List Rss.Item)
     -> ApiRoute.ApiRoute ApiRoute.Response
 rss options itemsRequest =
     ApiRoute.succeed
         (itemsRequest
-            |> DataSource.map
+            |> BackendTask.map
                 (\items ->
                     Rss.generate
                         { title = options.title
@@ -157,7 +157,7 @@ rss options itemsRequest =
         |> ApiRoute.literal "blog/feed.xml"
         |> ApiRoute.single
         |> ApiRoute.withGlobalHeadTags
-            (DataSource.succeed
+            (BackendTask.succeed
                 [ Head.rssLink "/blog/feed.xml"
                 ]
             )

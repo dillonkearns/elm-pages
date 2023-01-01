@@ -1,6 +1,6 @@
 module Route.Signup exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -51,7 +51,7 @@ route =
             }
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action _ =
     MySession.withSession
         (Request.expectFormPost
@@ -71,7 +71,7 @@ action _ =
                 { email = email
                 , first = first
                 }
-                |> DataSource.succeed
+                |> BackendTask.succeed
         )
 
 
@@ -145,7 +145,7 @@ type ActionData
         }
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     MySession.withSession
         (Request.succeed ())
@@ -163,7 +163,7 @@ data routeParams =
             , Response.render
                 { flashMessage = flashMessage |> Maybe.map Ok }
             )
-                |> DataSource.succeed
+                |> BackendTask.succeed
         )
 
 

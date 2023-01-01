@@ -2,8 +2,8 @@ module Route.DarkMode exposing (..)
 
 {-| -}
 
+import BackendTask exposing (BackendTask)
 import Css
-import DataSource exposing (DataSource)
 import Effect
 import ErrorPage
 import Exception exposing (Throwable)
@@ -92,7 +92,7 @@ type alias ActionData =
 
 sessionOptions =
     { name = "darkMode"
-    , secrets = DataSource.succeed [ "test" ]
+    , secrets = BackendTask.succeed [ "test" ]
     , options =
         SetCookie.initOptions
             |> SetCookie.withPath "/"
@@ -102,7 +102,7 @@ sessionOptions =
 
 data :
     RouteParams
-    -> Server.Request.Parser (DataSource Throwable (Server.Response.Response Data ErrorPage.ErrorPage))
+    -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response Data ErrorPage.ErrorPage))
 data routeParams =
     Server.Request.succeed ()
         |> Session.withSession sessionOptions
@@ -117,7 +117,7 @@ data routeParams =
                     isDarkMode =
                         (session |> Session.get "darkMode") == Just "dark"
                 in
-                DataSource.succeed
+                BackendTask.succeed
                     ( session
                     , Server.Response.render
                         { isDarkMode = isDarkMode
@@ -128,7 +128,7 @@ data routeParams =
 
 action :
     RouteParams
-    -> Server.Request.Parser (DataSource Throwable (Server.Response.Response ActionData ErrorPage.ErrorPage))
+    -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response ActionData ErrorPage.ErrorPage))
 action routeParams =
     Server.Request.formData
         (form
@@ -151,7 +151,7 @@ action routeParams =
                         sessionResult
                             |> Result.withDefault Session.empty
                 in
-                DataSource.succeed
+                BackendTask.succeed
                     ( session
                         |> Session.insert "darkMode"
                             (if setToDarkMode then

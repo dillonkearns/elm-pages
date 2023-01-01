@@ -1,7 +1,7 @@
 module Route.Profile exposing (ActionData, Data, Model, Msg, route)
 
 import Data.User as User exposing (User)
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -95,14 +95,14 @@ type alias ActionData =
     Result { fields : List ( String, String ), errors : Dict String (List String) } Action
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.succeed ()
         |> MySession.expectSessionDataOrRedirect (Session.get "userId")
             (\userId () session ->
                 User.selection userId
-                    |> Request.Hasura.dataSource
-                    |> DataSource.map
+                    |> Request.Hasura.backendTask
+                    |> BackendTask.map
                         (\user ->
                             user
                                 |> Data
@@ -118,7 +118,7 @@ type alias Action =
     }
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.skip "No action."
 

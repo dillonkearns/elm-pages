@@ -1,7 +1,7 @@
-module DataSource.Internal.Request exposing (request)
+module BackendTask.Internal.Request exposing (request)
 
-import DataSource exposing (DataSource)
-import DataSource.Http exposing (Body, Expect)
+import BackendTask exposing (BackendTask)
+import BackendTask.Http exposing (Body, Expect)
 
 
 request :
@@ -9,17 +9,17 @@ request :
     , body : Body
     , expect : Expect a
     }
-    -> DataSource error a
+    -> BackendTask error a
 request ({ name, body, expect } as params) =
     -- elm-review: known-unoptimized-recursion
-    DataSource.Http.uncachedRequest
+    BackendTask.Http.uncachedRequest
         { url = "elm-pages-internal://" ++ name
         , method = "GET"
         , headers = []
         , body = body
         }
         expect
-        |> DataSource.onError
+        |> BackendTask.onError
             (\_ ->
                 -- TODO avoid crash here, this should be handled as an internal error
                 request params

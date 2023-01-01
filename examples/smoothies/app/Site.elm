@@ -1,6 +1,6 @@
 module Site exposing (canonicalUrl, config)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Head
 import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
@@ -23,7 +23,7 @@ canonicalUrl =
     "https://elm-pages.com"
 
 
-head : DataSource (List Head.Tag)
+head : BackendTask (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
@@ -32,7 +32,7 @@ head =
     , Head.metaName "apple-mobile-web-app-status-bar-style" (Head.raw "black-translucent")
     , Head.sitemapLink "/sitemap.xml"
     ]
-        |> DataSource.succeed
+        |> BackendTask.succeed
 
 
 siteMap :

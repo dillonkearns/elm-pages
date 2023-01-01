@@ -1,8 +1,8 @@
 module Route.SubPage exposing (ActionData, Data, Model, Msg, route)
 
+import BackendTask exposing (BackendTask)
 import Css exposing (..)
 import Css.Global
-import DataSource exposing (DataSource)
 import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
@@ -46,9 +46,9 @@ type alias Data =
     ()
 
 
-data : DataSource Throwable Data
+data : BackendTask Throwable Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 
 
 head :

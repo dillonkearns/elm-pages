@@ -1,7 +1,7 @@
 module Route.Stories.Id_ exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
@@ -77,9 +77,9 @@ subscriptions maybePageUrl routeParams path sharedModel model =
     Sub.none
 
 
-pages : DataSource (List RouteParams)
+pages : BackendTask (List RouteParams)
 pages =
-    DataSource.succeed []
+    BackendTask.succeed []
 
 
 type alias Data =
@@ -91,15 +91,15 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.succeed
-        (DataSource.Http.get ("https://node-hnapi.herokuapp.com/item/" ++ routeParams.id)
+        (BackendTask.Http.get ("https://node-hnapi.herokuapp.com/item/" ++ routeParams.id)
             (Decode.map2 Tuple.pair
                 Story.decoder
                 (Decode.field "comments" (Decode.value |> Decode.map (Encode.encode 0)))
             )
-            |> DataSource.map
+            |> BackendTask.map
                 (\story ->
                     Response.render
                         (Data story)

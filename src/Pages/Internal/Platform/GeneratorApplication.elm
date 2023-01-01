@@ -6,10 +6,10 @@ module Pages.Internal.Platform.GeneratorApplication exposing (Flags, Model, Msg(
 
 -}
 
+import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
 import Cli.Program as Program exposing (FlagsIncludingArgv)
 import Codec
-import DataSource exposing (DataSource)
 import Dict
 import Exception exposing (Throwable)
 import HtmlPrinter
@@ -34,7 +34,7 @@ type alias Flags =
 
 {-| -}
 type alias Model =
-    { staticResponses : DataSource Throwable ()
+    { staticResponses : BackendTask Throwable ()
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , done : Bool
@@ -55,10 +55,10 @@ type Msg
 {-| -}
 app :
     GeneratorProgramConfig
-    -> Program.StatefulProgram Model Msg (DataSource Throwable ()) Flags
+    -> Program.StatefulProgram Model Msg (BackendTask Throwable ()) Flags
 app config =
     let
-        cliConfig : Program.Config (DataSource Throwable ())
+        cliConfig : Program.Config (BackendTask Throwable ())
         cliConfig =
             case config.data of
                 Pages.Internal.Script.Script theCliConfig ->
@@ -278,7 +278,7 @@ perform config effect =
 
 {-| -}
 init :
-    DataSource Throwable ()
+    BackendTask Throwable ()
     -> FlagsIncludingArgv Flags
     -> ( Model, Effect )
 init execute flags =
@@ -316,12 +316,12 @@ init execute flags =
 
 
 initLegacy :
-    DataSource Throwable ()
+    BackendTask Throwable ()
     -> { staticHttpCache : RequestsAndPending }
     -> ( Model, Effect )
 initLegacy execute { staticHttpCache } =
     let
-        staticResponses : DataSource Throwable ()
+        staticResponses : BackendTask Throwable ()
         staticResponses =
             StaticResponses.renderApiRequest execute
 

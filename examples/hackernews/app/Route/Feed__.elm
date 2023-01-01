@@ -1,8 +1,8 @@
 module Route.Feed__ exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.Http
-import DataSource.Port
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Port
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Head
@@ -80,9 +80,9 @@ subscriptions maybePageUrl routeParams path sharedModel model =
     Sub.none
 
 
-pages : DataSource (List RouteParams)
+pages : BackendTask (List RouteParams)
 pages =
-    DataSource.succeed []
+    BackendTask.succeed []
 
 
 type alias Data =
@@ -95,7 +95,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.queryParam "page"
         |> Request.map
@@ -136,15 +136,15 @@ data routeParams =
                             [ Url.Builder.int "page" currentPage
                             ]
 
-                    getStories : DataSource (List Item)
+                    getStories : BackendTask (List Item)
                     getStories =
-                        DataSource.Http.get getStoriesUrl
+                        BackendTask.Http.get getStoriesUrl
                             (Story.decoder |> Json.Decode.list)
                 in
-                DataSource.map2 Data
+                BackendTask.map2 Data
                     getStories
-                    (DataSource.succeed currentPage)
-                    |> DataSource.map Response.render
+                    (BackendTask.succeed currentPage)
+                    |> BackendTask.map Response.render
             )
 
 

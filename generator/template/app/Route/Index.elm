@@ -1,6 +1,6 @@
 module Route.Index exposing (Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Head
 import Head.Seo as Seo
 import Html
@@ -38,9 +38,9 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed Data
+    BackendTask.succeed Data
 
 
 head :

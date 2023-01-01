@@ -1,6 +1,6 @@
 module Site exposing (canonicalUrl, config)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Head
 import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
@@ -23,11 +23,11 @@ canonicalUrl =
     "https://elm-pages.com"
 
 
-head : DataSource (List Head.Tag)
+head : BackendTask (List Head.Tag)
 head =
     [ Head.sitemapLink "/sitemap.xml"
     ]
-        |> DataSource.succeed
+        |> BackendTask.succeed
 
 
 siteMap :

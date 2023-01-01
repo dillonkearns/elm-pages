@@ -1,7 +1,7 @@
 module Route.PokedexNumber_ exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
@@ -39,12 +39,12 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource (List RouteParams)
+pages : BackendTask (List RouteParams)
 pages =
-    DataSource.succeed []
+    BackendTask.succeed []
 
 
-data : RouteParams -> DataSource (Response Data ErrorPage)
+data : RouteParams -> BackendTask (Response Data ErrorPage)
 data { pokedexNumber } =
     let
         asNumber : Int
@@ -54,24 +54,24 @@ data { pokedexNumber } =
     in
     if asNumber < 1 then
         Response.errorPage (ErrorPage.InvalidPokedexNumber pokedexNumber)
-            |> DataSource.succeed
+            |> BackendTask.succeed
 
     else if asNumber > 898 && asNumber < 10001 || asNumber > 10194 then
         Response.errorPage (ErrorPage.MissingPokedexNumber asNumber)
-            |> DataSource.succeed
+            |> BackendTask.succeed
 
     else
-        DataSource.map2 Data
-            (DataSource.Http.get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
+        BackendTask.map2 Data
+            (BackendTask.Http.get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
                 Decode.string
             )
-            (DataSource.Http.get ("https://pokeapi.co/api/v2/pokemon/" ++ pokedexNumber)
+            (BackendTask.Http.get ("https://pokeapi.co/api/v2/pokemon/" ++ pokedexNumber)
                 (Decode.map2 Pokemon
                     (Decode.field "forms" (Decode.index 0 (Decode.field "name" Decode.string)))
                     (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
                 )
             )
-            |> DataSource.map Response.render
+            |> BackendTask.map Response.render
 
 
 type alias Pokemon =

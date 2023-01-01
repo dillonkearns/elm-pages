@@ -1,7 +1,7 @@
 module Site exposing (config)
 
+import BackendTask exposing (BackendTask)
 import Cloudinary
-import DataSource exposing (DataSource)
 import Exception exposing (Throwable)
 import Head
 import MimeType
@@ -23,7 +23,7 @@ type alias Data =
     }
 
 
-head : DataSource Throwable (List Head.Tag)
+head : BackendTask Throwable (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
@@ -36,7 +36,7 @@ head =
     , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
     , Head.sitemapLink "/sitemap.xml"
     ]
-        |> DataSource.succeed
+        |> BackendTask.succeed
 
 
 canonicalUrl : String

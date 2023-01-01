@@ -1,6 +1,6 @@
 module Shared exposing (Data, Model, Msg, template)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import DocsSection
 import Effect exposing (Effect)
 import Exception exposing (Throwable)
@@ -86,9 +86,9 @@ subscriptions _ _ =
     Sub.none
 
 
-data : DataSource Throwable Data
+data : BackendTask Throwable Data
 data =
-    TableOfContents.dataSource DocsSection.all
+    TableOfContents.backendTask DocsSection.all
 
 
 view :

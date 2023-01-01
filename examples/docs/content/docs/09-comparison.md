@@ -5,7 +5,7 @@
 The way I've been thinking about it is that elm-pages v3 specializes in what happens before init:
 
 - Pre-rendering the HTML and including meta tags
-- Pulling in DataSources and avoiding extra intermediary states
+- Pulling in BackendTasks and avoiding extra intermediary states
 - Choosing how to handle incoming HTTP requests with the Request.Parser API (parsing the incoming request's method, query params, headers, cookies, etc.)
 - Returning low-level HTTP responses (setting cookies, doing redirects)
 

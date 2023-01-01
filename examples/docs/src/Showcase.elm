@@ -1,9 +1,9 @@
 module Showcase exposing (..)
 
+import BackendTask exposing (BackendTask)
+import BackendTask.Env as Env
+import BackendTask.Http
 import BuildError exposing (BuildError)
-import DataSource exposing (DataSource)
-import DataSource.Env as Env
-import DataSource.Http
 import Exception exposing (Throwable)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
@@ -39,18 +39,18 @@ entryDecoder =
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
-staticRequest : DataSource Throwable (List Entry)
+staticRequest : BackendTask Throwable (List Entry)
 staticRequest =
     Env.expect "AIRTABLE_TOKEN"
-        |> DataSource.throw
-        |> DataSource.andThen
+        |> BackendTask.throw
+        |> BackendTask.andThen
             (\airtableToken ->
-                DataSource.Http.request
+                BackendTask.Http.request
                     { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
                     , method = "GET"
                     , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
-                    , body = DataSource.Http.emptyBody
+                    , body = BackendTask.Http.emptyBody
                     }
-                    (DataSource.Http.expectJson decoder)
-                    |> DataSource.throw
+                    (BackendTask.Http.expectJson decoder)
+                    |> BackendTask.throw
             )

@@ -1,7 +1,7 @@
 module Route.Rgb.Red_.Green_.Blue_ exposing (ActionData, Data, Model, Msg, route)
 
 import ColorHelpers
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 
 
@@ -27,9 +27,9 @@ route =
         |> RouteBuilder.buildNoState { view = ColorHelpers.view toCssVal }
 
 
-pages : DataSource (List RouteParams)
+pages : BackendTask (List RouteParams)
 pages =
-    DataSource.succeed []
+    BackendTask.succeed []
 
 
 type alias Data =

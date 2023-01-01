@@ -1,6 +1,6 @@
 module Route.FormEvent exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import Form.FormData exposing (FormData)
 import FormDecoder
@@ -86,9 +86,9 @@ type alias ActionData =
     {}
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed {}
+    BackendTask.succeed {}
 
 
 head :

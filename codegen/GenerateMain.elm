@@ -9,11 +9,11 @@ import Elm.Let
 import Elm.Op
 import Elm.Pattern
 import Gen.ApiRoute
+import Gen.BackendTask
 import Gen.Basics
 import Gen.Bytes
 import Gen.Bytes.Decode
 import Gen.Bytes.Encode
-import Gen.DataSource
 import Gen.Dict
 import Gen.Head
 import Gen.Html
@@ -80,11 +80,11 @@ otherFile routes phaseString =
             , getStaticRoutes =
                 case phase of
                     Browser ->
-                        Gen.DataSource.succeed (Elm.list [])
+                        Gen.BackendTask.succeed (Elm.list [])
 
                     Cli ->
                         getStaticRoutes.reference
-                            |> Gen.DataSource.map (Gen.List.call_.map (Elm.val "Just"))
+                            |> Gen.BackendTask.map (Gen.List.call_.map (Elm.val "Just"))
             , urlToRoute =
                 Elm.value
                     { annotation = Nothing
@@ -635,7 +635,7 @@ otherFile routes phaseString =
                 (\requestPayload maybeRoute ->
                     Elm.Case.maybe maybeRoute
                         { nothing =
-                            Gen.DataSource.succeed
+                            Gen.BackendTask.succeed
                                 (Gen.Server.Response.mapError Gen.Basics.never
                                     (Gen.Server.Response.withStatusCode 404
                                         (Gen.Server.Response.render (Elm.val "Data404NotFoundPage____"))
@@ -658,13 +658,13 @@ otherFile routes phaseString =
                                             , maybeRouteParams
                                                 |> Maybe.withDefault (Elm.record [])
                                             ]
-                                            |> Gen.DataSource.map
+                                            |> Gen.BackendTask.map
                                                 (Gen.Server.Response.call_.map (Elm.val ("Data" ++ (RoutePattern.toModuleName route |> String.join "__"))))
                                     )
                             )
                         }
                         |> Elm.withType
-                            (Gen.DataSource.annotation_.dataSource
+                            (Gen.BackendTask.annotation_.backendTask
                                 (Type.named [ "Exception" ] "Throwable")
                                 (Gen.Server.Response.annotation_.response
                                     (Type.named [] "PageData")
@@ -687,7 +687,7 @@ otherFile routes phaseString =
                 (\requestPayload maybeRoute ->
                     Elm.Case.maybe maybeRoute
                         { nothing =
-                            Gen.DataSource.succeed
+                            Gen.BackendTask.succeed
                                 (Gen.Server.Response.plainText "TODO")
                         , just =
                             ( "justRoute"
@@ -706,7 +706,7 @@ otherFile routes phaseString =
                                             , maybeRouteParams
                                                 |> Maybe.withDefault (Elm.record [])
                                             ]
-                                            |> Gen.DataSource.map
+                                            |> Gen.BackendTask.map
                                                 (Gen.Server.Response.call_.map
                                                     (route |> routeVariantExpression ActionData)
                                                 )
@@ -714,7 +714,7 @@ otherFile routes phaseString =
                             )
                         }
                         |> Elm.withType
-                            (Gen.DataSource.annotation_.dataSource
+                            (Gen.BackendTask.annotation_.backendTask
                                 (Type.named [ "Exception" ] "Throwable")
                                 (Gen.Server.Response.annotation_.response
                                     (Type.named [] "ActionData")
@@ -1361,7 +1361,7 @@ otherFile routes phaseString =
                 ( "maybeRoute", Type.maybe (Type.named [ "Route" ] "Route") |> Just )
                 (\maybeRoute ->
                     Elm.Case.maybe maybeRoute
-                        { nothing = Gen.DataSource.succeed Elm.nothing
+                        { nothing = Gen.BackendTask.succeed Elm.nothing
                         , just =
                             ( "route"
                             , \justRoute ->
@@ -1428,7 +1428,7 @@ otherFile routes phaseString =
                             )
                         }
                         |> Elm.withType
-                            (Gen.DataSource.annotation_.dataSource
+                            (Gen.BackendTask.annotation_.backendTask
                                 (Type.named [ "Exception" ] "Throwable")
                                 (Type.maybe Gen.Pages.Internal.NotFoundReason.annotation_.notFoundReason)
                             )
@@ -1665,7 +1665,7 @@ otherFile routes phaseString =
         pathsToGenerateHandler =
             topLevelValue "pathsToGenerateHandler"
                 (Gen.ApiRoute.succeed
-                    (Gen.DataSource.map2
+                    (Gen.BackendTask.map2
                         (\pageRoutes apiRoutes ->
                             Elm.Op.append pageRoutes
                                 (apiRoutes
@@ -1674,7 +1674,7 @@ otherFile routes phaseString =
                                 |> Gen.Json.Encode.call_.list Gen.Json.Encode.values_.string
                                 |> Gen.Json.Encode.encode 0
                         )
-                        (Gen.DataSource.map
+                        (Gen.BackendTask.map
                             (Gen.List.call_.map
                                 (Elm.fn ( "route", Nothing )
                                     (\route_ ->
@@ -1701,8 +1701,8 @@ otherFile routes phaseString =
                                 )
                             )
                             |> Gen.List.call_.map Gen.ApiRoute.values_.getBuildTimeRoutes
-                            |> Gen.DataSource.call_.combine
-                            |> Gen.DataSource.call_.map Gen.List.values_.concat
+                            |> Gen.BackendTask.call_.combine
+                            |> Gen.BackendTask.call_.map Gen.List.values_.concat
                         )
                     )
                     |> Gen.ApiRoute.literal "all-paths.json"
@@ -1727,7 +1727,7 @@ otherFile routes phaseString =
                             |> Gen.List.call_.map Gen.ApiRoute.values_.toJson
                         )
                         |> Gen.Json.Encode.encode 0
-                        |> Gen.DataSource.succeed
+                        |> Gen.BackendTask.succeed
                     )
                     |> Gen.ApiRoute.literal "api-patterns.json"
                     |> Gen.ApiRoute.single
@@ -1813,7 +1813,7 @@ otherFile routes phaseString =
                             |> Elm.list
                         )
                         |> Gen.Json.Encode.encode 0
-                        |> Gen.DataSource.succeed
+                        |> Gen.BackendTask.succeed
                     )
                     |> Gen.ApiRoute.literal "route-patterns.json"
                     |> Gen.ApiRoute.single
@@ -1863,12 +1863,12 @@ otherFile routes phaseString =
                             [ getStaticRoutes.reference
                             , htmlToString
                             ]
-                            |> Gen.List.call_.filterMap Gen.ApiRoute.values_.getGlobalHeadTagsDataSource
+                            |> Gen.List.call_.filterMap Gen.ApiRoute.values_.getGlobalHeadTagsBackendTask
                         )
-                        |> Gen.DataSource.call_.combine
-                        |> Gen.DataSource.call_.map Gen.List.values_.concat
+                        |> Gen.BackendTask.call_.combine
+                        |> Gen.BackendTask.call_.map Gen.List.values_.concat
                         |> Elm.withType
-                            (Gen.DataSource.annotation_.dataSource
+                            (Gen.BackendTask.annotation_.backendTask
                                 (Type.named [ "Exception" ] "Throwable")
                                 (Type.list Gen.Head.annotation_.tag)
                             )
@@ -1953,7 +1953,7 @@ otherFile routes phaseString =
             }
         getStaticRoutes =
             topLevelValue "getStaticRoutes"
-                (Gen.DataSource.combine
+                (Gen.BackendTask.combine
                     (routes
                         |> List.map
                             (\route ->
@@ -1963,7 +1963,7 @@ otherFile routes phaseString =
                                     , importFrom = "Route" :: (route |> RoutePattern.toModuleName)
                                     }
                                     |> Elm.get "staticRoutes"
-                                    |> Gen.DataSource.map
+                                    |> Gen.BackendTask.map
                                         (Gen.List.call_.map
                                             (if RoutePattern.hasRouteParams route then
                                                 Elm.value
@@ -1988,9 +1988,9 @@ otherFile routes phaseString =
                                         )
                             )
                     )
-                    |> Gen.DataSource.call_.map Gen.List.values_.concat
+                    |> Gen.BackendTask.call_.map Gen.List.values_.concat
                     |> Elm.withType
-                        (Gen.DataSource.annotation_.dataSource
+                        (Gen.BackendTask.annotation_.backendTask
                             (Type.named [ "Exception" ] "Throwable")
                             (Type.list (Type.named [ "Route" ] "Route"))
                         )

@@ -14,7 +14,7 @@ all =
 
 import Server.Request as Request
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -49,9 +49,9 @@ route =
        |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -68,7 +68,7 @@ data =
 
 import Server.Request as Request
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -98,22 +98,22 @@ route : StatelessRoute RouteParams Data ActionData
 route =
    single
        { head = head
-       , data = DataSource.fail (Exception.fromString "")
+       , data = BackendTask.fail (Exception.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 """
                         ]
-        , test "supports aliased DataSource module import" <|
+        , test "supports aliased BackendTask module import" <|
             \() ->
                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
-import DataSource as DS
+import BackendTask as DS
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -148,9 +148,9 @@ route =
        |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -166,7 +166,7 @@ data =
                                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
-import DataSource as DS
+import BackendTask as DS
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -201,9 +201,9 @@ route =
        |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 """
                         ]
         , test "replaces data record setter with non-empty RouteParams" <|
@@ -212,7 +212,7 @@ data =
 
 import Server.Request as Request
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -248,9 +248,9 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -266,7 +266,7 @@ data =
 
 import Server.Request as Request
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -295,16 +295,16 @@ type alias Data =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
-        { data = \\_ -> DataSource.fail (Exception.fromString "")
+        { data = \\_ -> BackendTask.fail (Exception.fromString "")
         , head = head
         , pages = pages
         }
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 """
                         ]
         , test "replaces data record setter with RouteBuilder.serverRendered" <|
@@ -537,7 +537,7 @@ route =
 
 import Server.Request as Request
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -567,14 +567,14 @@ route : StatelessRoute RouteParams Data ActionData
 route =
    RouteBuilder.single
        { head = head
-       , data = DataSource.fail (Exception.fromString "")
+       , data = BackendTask.fail (Exception.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
@@ -585,7 +585,7 @@ data =
 import Server.Request as Request
 
 import Browser.Navigation
-import DataSource
+import BackendTask
 import Html exposing (Html)
 import Html.Styled
 import Pages.Flags
@@ -635,7 +635,7 @@ type alias Model =
 import Server.Request as Request
 
 import Browser.Navigation
-import DataSource
+import BackendTask
 import Html exposing (Html)
 import Html.Styled
 import Pages.Flags
@@ -653,7 +653,7 @@ template =
     { init = init
     , update = update
     , view = view
-    , data = DataSource.fail (Exception.fromString "")
+    , data = BackendTask.fail (Exception.fromString "")
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
     }

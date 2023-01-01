@@ -1,7 +1,7 @@
 module Route.Secret exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.File
+import BackendTask exposing (BackendTask)
+import BackendTask.File
 import ErrorPage exposing (ErrorPage)
 import Head
 import Head.Seo as Seo
@@ -55,7 +55,7 @@ type alias LoggedInInfo =
     }
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.expectCookie "username"
@@ -63,20 +63,20 @@ data routeParams =
                 (\username ->
                     username
                         |> LoggedInInfo
-                        |> DataSource.succeed
-                        |> DataSource.andMap (DataSource.File.rawFile "examples/pokedex/content/secret-note.txt")
-                        |> DataSource.map LoggedIn
-                        |> DataSource.map Response.render
+                        |> BackendTask.succeed
+                        |> BackendTask.andMap (BackendTask.File.rawFile "examples/pokedex/content/secret-note.txt")
+                        |> BackendTask.map LoggedIn
+                        |> BackendTask.map Response.render
                 )
         , Request.succeed
             (NotLoggedIn
-                |> DataSource.succeed
-                |> DataSource.map Response.render
+                |> BackendTask.succeed
+                |> BackendTask.map Response.render
              --"/login"
              --    |> ServerResponse.temporaryRedirect
              --    --|> ServerResponse.withStatusCode 404
              --    |> PageServerResponse.ServerResponse
-             --    |> DataSource.succeed
+             --    |> BackendTask.succeed
             )
         ]
 

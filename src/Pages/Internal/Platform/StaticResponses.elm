@@ -1,7 +1,7 @@
 module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), batchUpdate, empty, nextStep, renderApiRequest)
 
+import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
-import DataSource exposing (DataSource)
 import Dict
 import Exception exposing (Catchable(..), Throwable)
 import List.Extra
@@ -10,14 +10,14 @@ import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
 
 
-empty : a -> DataSource Throwable a
+empty : a -> BackendTask Throwable a
 empty a =
-    DataSource.succeed a
+    BackendTask.succeed a
 
 
 renderApiRequest :
-    DataSource Throwable response
-    -> DataSource Throwable response
+    BackendTask Throwable response
+    -> BackendTask Throwable response
 renderApiRequest request =
     request
 
@@ -57,7 +57,7 @@ type NextStep route value
 
 nextStep :
     { model
-        | staticResponses : DataSource Throwable a
+        | staticResponses : BackendTask Throwable a
         , errors : List BuildError
         , allRawResponses : RequestsAndPending
     }
@@ -69,7 +69,7 @@ nextStep ({ allRawResponses, errors } as model) =
             allRawResponses
                 |> StaticHttpRequest.cacheRequestResolution model.staticResponses
 
-        ( ( pendingRequests, completedValue ), urlsToPerform, progressedDataSource ) =
+        ( ( pendingRequests, completedValue ), urlsToPerform, progressedBackendTask ) =
             case staticRequestsStatus of
                 StaticHttpRequest.Incomplete newUrlsToFetch nextReq ->
                     ( ( True, Nothing ), newUrlsToFetch, nextReq )
@@ -77,19 +77,19 @@ nextStep ({ allRawResponses, errors } as model) =
                 StaticHttpRequest.Complete (Err error) ->
                     ( ( False, Just (Err error) )
                     , []
-                    , DataSource.fail error
+                    , BackendTask.fail error
                     )
 
                 StaticHttpRequest.Complete (Ok value) ->
                     ( ( False, Just (Ok value) )
                     , []
-                    , DataSource.succeed value
+                    , BackendTask.succeed value
                     )
 
                 StaticHttpRequest.HasPermanentError _ ->
                     ( ( False, Nothing )
                     , []
-                    , DataSource.fail (Exception.fromString "TODO this shouldn't happen")
+                    , BackendTask.fail (Exception.fromString "TODO this shouldn't happen")
                     )
     in
     if pendingRequests then
@@ -99,7 +99,7 @@ nextStep ({ allRawResponses, errors } as model) =
                 urlsToPerform
                     |> List.Extra.uniqueBy HashRequest.hash
         in
-        Continue newThing progressedDataSource
+        Continue newThing progressedBackendTask
 
     else
         let

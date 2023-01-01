@@ -1,7 +1,7 @@
 module Api exposing (routes)
 
 import ApiRoute exposing (ApiRoute)
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Exception exposing (Throwable)
 import Form
 import Form.Field as Field
@@ -22,7 +22,7 @@ import Xml.Decode
 
 
 routes :
-    DataSource Throwable (List Route)
+    BackendTask Throwable (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
@@ -37,8 +37,8 @@ routes getStaticRoutes htmlToString =
     , ApiRoute.succeed
         (Request.succeed
             (Test.Glob.all
-                |> DataSource.map viewHtmlResults
-                |> DataSource.map html
+                |> BackendTask.map viewHtmlResults
+                |> BackendTask.map html
             )
         )
         |> ApiRoute.literal "tests"
@@ -63,7 +63,7 @@ xmlDecoder =
                     |> Xml.Decode.run dataDecoder
                     |> Result.Extra.merge
                     |> Response.plainText
-                    |> DataSource.succeed
+                    |> BackendTask.succeed
             )
             (Request.expectContentType "application/xml")
             Request.expectBody
@@ -89,7 +89,7 @@ multipleContentTypes =
                         |> Xml.Decode.run dataDecoder
                         |> Result.Extra.merge
                         |> Response.plainText
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
                 (Request.expectContentType "application/xml")
                 Request.expectBody
@@ -97,7 +97,7 @@ multipleContentTypes =
                 (\decodedValue ->
                     decodedValue
                         |> Response.plainText
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
                 (Request.expectJsonBody (Decode.at [ "path", "to", "string", "value" ] Decode.string))
             ]
@@ -129,7 +129,7 @@ requestPrinter =
                       )
                     ]
                     |> Response.json
-                    |> DataSource.succeed
+                    |> BackendTask.succeed
             )
             Request.rawBody
             Request.method
@@ -189,7 +189,7 @@ greet =
             |> Request.map
                 (\firstName ->
                     Response.plainText ("Hello " ++ firstName)
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
         )
         |> ApiRoute.literal "api"

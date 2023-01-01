@@ -1,10 +1,10 @@
 module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
 import Article
+import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
 import Cloudinary
 import Data.Author as Author exposing (Author)
-import DataSource exposing (DataSource)
 import Date exposing (Date)
 import DateOrDateTime
 import Exception exposing (Throwable)
@@ -53,10 +53,10 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource Throwable (List RouteParams)
+pages : BackendTask Throwable (List RouteParams)
 pages =
     Article.blogPostsGlob
-        |> DataSource.map
+        |> BackendTask.map
             (List.map
                 (\globData ->
                     { slug = globData.slug }
@@ -241,7 +241,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> DataSource Throwable Data
+data : RouteParams -> BackendTask Throwable Data
 data routeParams =
     MarkdownCodec.withFrontmatter Data
         frontmatterDecoder

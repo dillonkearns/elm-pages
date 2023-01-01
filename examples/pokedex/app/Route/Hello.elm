@@ -1,6 +1,6 @@
 module Route.Hello exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Fetcher.Signup
@@ -38,7 +38,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.succeed (DataSource.succeed (Response.render {}))
+        , action = \_ -> Request.succeed (BackendTask.succeed (Response.render {}))
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -103,9 +103,9 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
-    Request.succeed (DataSource.succeed (Response.render Data))
+    Request.succeed (BackendTask.succeed (Response.render Data))
 
 
 head :
