@@ -42,6 +42,7 @@ import DataSource.Internal.Request
 import Exception exposing (Catchable)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import TerminalText
 
 
 {-| -}
@@ -72,7 +73,15 @@ expect envVariableName =
         |> DataSource.andThen
             (\maybeValue ->
                 maybeValue
-                    |> Result.fromMaybe ("DataSource.Env.expect was expecting a variable `" ++ envVariableName ++ "` but couldn't find a variable with that name.")
+                    |> Result.fromMaybe
+                        (Exception.Catchable (MissingEnvVariable envVariableName)
+                            { title = "Missing Env Variable"
+                            , body =
+                                [ TerminalText.text "DataSource.Env.expect was expecting a variable `"
+                                , TerminalText.yellow envVariableName
+                                , TerminalText.text "` but couldn't find a variable with that name."
+                                ]
+                            }
+                        )
                     |> DataSource.fromResult
-                    |> DataSource.onError (\_ -> DataSource.fail (Exception.Catchable (MissingEnvVariable envVariableName) "TODO"))
             )

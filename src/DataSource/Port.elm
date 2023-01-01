@@ -17,6 +17,7 @@ import DataSource.Internal.Request
 import Exception exposing (Catchable)
 import Json.Decode exposing (Decoder)
 import Json.Encode as Encode
+import TerminalText
 
 
 {-| In a vanilla Elm application, ports let you either send or receive JSON data between your Elm application and the JavaScript context in the user's browser at runtime.
@@ -94,7 +95,17 @@ get portName input decoder =
             decoder
                 |> DataSource.Http.expectJson
         }
-        |> DataSource.onError (\_ -> DataSource.fail (Exception.Catchable Error "Port Error - TODO better error message"))
+        |> DataSource.onError
+            (\_ ->
+                DataSource.fail
+                    (Exception.Catchable Error
+                        { title = "Port Error"
+                        , body =
+                            [ TerminalText.text "Something went wrong in a call to DataSource.Port.get."
+                            ]
+                        }
+                    )
+            )
 
 
 {-| -}

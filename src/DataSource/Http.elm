@@ -77,6 +77,7 @@ import Pages.Internal.StaticHttpBody as Body
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 import RequestsAndPending
+import TerminalText
 
 
 {-| Build an empty body for a DataSource.Http request. See [elm/http's `Http.emptyBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#emptyBody).
@@ -410,24 +411,44 @@ requestRaw request__ expect =
         )
 
 
-errorToString : Error -> String
+errorToString : Error -> { title : String, body : List TerminalText.Text }
 errorToString error =
     -- TODO turn into formatted build error instead of simple String
     case error of
         BadUrl string ->
-            "BadUrl " ++ string
+            { title = "HTTP Error"
+            , body =
+                [ TerminalText.text ("BadUrl " ++ string)
+                ]
+            }
 
         Timeout ->
-            "Timeout"
+            { title = "HTTP Error"
+            , body =
+                [ TerminalText.text "Timeout"
+                ]
+            }
 
         NetworkError ->
-            "NetworkError"
+            { title = "HTTP Error"
+            , body =
+                [ TerminalText.text "NetworkError"
+                ]
+            }
 
         BadStatus _ string ->
-            "BadStatus: " ++ string
+            { title = "HTTP Error"
+            , body =
+                [ TerminalText.text ("BadStatus: " ++ string)
+                ]
+            }
 
         BadBody string ->
-            "BadBody: " ++ string
+            { title = "HTTP Error"
+            , body =
+                [ TerminalText.text ("BadBody: " ++ string)
+                ]
+            }
 
 
 {-| -}

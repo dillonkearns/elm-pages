@@ -6,6 +6,8 @@ module Exception exposing (Throwable, Catchable(..), fromString, fromStringWithV
 
 -}
 
+import TerminalText
+
 
 {-| -}
 type alias Throwable =
@@ -14,19 +16,19 @@ type alias Throwable =
 
 {-| -}
 type Catchable error
-    = Catchable error String
+    = Catchable error { title : String, body : List TerminalText.Text }
 
 
 {-| -}
 fromString : String -> Catchable ()
 fromString string =
-    Catchable () string
+    fromStringWithValue string ()
 
 
 {-| -}
 fromStringWithValue : String -> value -> Catchable value
 fromStringWithValue string value =
-    Catchable value string
+    Catchable value { title = "Custom Error", body = [ TerminalText.text string ] }
 
 
 {-| -}

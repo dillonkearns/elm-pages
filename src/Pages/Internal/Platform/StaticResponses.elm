@@ -139,7 +139,11 @@ nextStep ({ allRawResponses, errors } as model) =
 
                 Just (Err (Catchable () buildError)) ->
                     FinishedWithErrors
-                        [ buildError |> BuildError.internal
+                        [ { title = buildError.title |> String.toUpper
+                          , path = "" -- TODO include path here
+                          , message = buildError.body
+                          , fatal = True
+                          }
                         ]
 
                 Nothing ->

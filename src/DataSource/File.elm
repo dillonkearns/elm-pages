@@ -53,6 +53,7 @@ import DataSource.Http
 import DataSource.Internal.Request
 import Exception exposing (Catchable)
 import Json.Decode as Decode exposing (Decoder)
+import TerminalText
 
 
 frontmatter : Decoder frontmatter -> Decoder frontmatter
@@ -292,9 +293,16 @@ jsonFile jsonFileDecoder filePath =
             (\jsonString ->
                 jsonString
                     |> Decode.decodeString jsonFileDecoder
-                    |> Result.mapError DecodingError
+                    |> Result.mapError
+                        (\jsonDecodeError ->
+                            Exception.Catchable (DecodingError jsonDecodeError)
+                                { title = "JSON Decoding Error"
+                                , body =
+                                    [ TerminalText.text (Decode.errorToString jsonDecodeError)
+                                    ]
+                                }
+                        )
                     |> DataSource.fromResult
-                    |> DataSource.onError (\error -> DataSource.fail <| Exception.Catchable error "TODO error message here")
             )
 
 
@@ -313,15 +321,23 @@ read filePath decoder =
         , expect =
             Decode.oneOf
                 [ Decode.field "errorCode"
-                    (Decode.map Err errorDecoder)
+                    (Decode.map Err (errorDecoder filePath))
                 , decoder |> Decode.map Ok
                 ]
                 |> DataSource.Http.expectJson
         }
         |> DataSource.andThen DataSource.fromResult
-        |> DataSource.onError (\error -> DataSource.fail <| Exception.Catchable error "TODO error message here")
 
 
-errorDecoder : Decoder (FileReadError decoding)
-errorDecoder =
-    Decode.succeed FileDoesntExist
+errorDecoder : String -> Decoder (Catchable (FileReadError decoding))
+errorDecoder filePath =
+    Decode.succeed
+        (Exception.Catchable FileDoesntExist
+            { title = "File Doesn't Exist"
+            , body =
+                [ TerminalText.text "Couldn't find file at path `"
+                , TerminalText.yellow filePath
+                , TerminalText.text "`"
+                ]
+            }
+        )

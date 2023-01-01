@@ -305,7 +305,7 @@ all =
                         "toJsPort"
                         (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
                         (expectErrorsPort
-                            """-- INTERNAL ERROR ----------------------------------------------------- elm-pages
+                            """-- CUSTOM ERROR ----------------------------------------------------- elm-pages
 
 
 
@@ -392,7 +392,7 @@ String was not uppercased"""
                         "toJsPort"
                         (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
                         (expectErrorsPort
-                            """-- INTERNAL ERROR ----------------------------------------------------- elm-pages
+                            """-- HTTP ERROR ----------------------------------------------------- elm-pages
 
 BadBody: Problem with the given value:
 
