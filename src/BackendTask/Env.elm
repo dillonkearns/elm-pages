@@ -81,6 +81,7 @@ expect envVariableName =
                                 , TerminalText.yellow envVariableName
                                 , TerminalText.text "` but couldn't find a variable with that name."
                                 ]
+                                    |> TerminalText.toString
                             }
                         )
                     |> BackendTask.fromResult

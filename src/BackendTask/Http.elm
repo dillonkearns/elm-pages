@@ -411,44 +411,33 @@ requestRaw request__ expect =
         )
 
 
-errorToString : Error -> { title : String, body : List TerminalText.Text }
+errorToString : Error -> { title : String, body : String }
 errorToString error =
-    -- TODO turn into formatted build error instead of simple String
-    case error of
-        BadUrl string ->
-            { title = "HTTP Error"
-            , body =
+    { title = "HTTP Error"
+    , body =
+        (case error of
+            BadUrl string ->
                 [ TerminalText.text ("BadUrl " ++ string)
                 ]
-            }
 
-        Timeout ->
-            { title = "HTTP Error"
-            , body =
+            Timeout ->
                 [ TerminalText.text "Timeout"
                 ]
-            }
 
-        NetworkError ->
-            { title = "HTTP Error"
-            , body =
+            NetworkError ->
                 [ TerminalText.text "NetworkError"
                 ]
-            }
 
-        BadStatus _ string ->
-            { title = "HTTP Error"
-            , body =
+            BadStatus _ string ->
                 [ TerminalText.text ("BadStatus: " ++ string)
                 ]
-            }
 
-        BadBody string ->
-            { title = "HTTP Error"
-            , body =
+            BadBody string ->
                 [ TerminalText.text ("BadBody: " ++ string)
                 ]
-            }
+        )
+            |> TerminalText.toString
+    }
 
 
 {-| -}

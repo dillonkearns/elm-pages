@@ -103,6 +103,7 @@ get portName input decoder =
                         , body =
                             [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get."
                             ]
+                                |> TerminalText.toString
                         }
                     )
             )

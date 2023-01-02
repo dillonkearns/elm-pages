@@ -300,6 +300,7 @@ jsonFile jsonFileDecoder filePath =
                                 , body =
                                     [ TerminalText.text (Decode.errorToString jsonDecodeError)
                                     ]
+                                        |> TerminalText.toString
                                 }
                         )
                     |> BackendTask.fromResult
@@ -339,5 +340,6 @@ errorDecoder filePath =
                 , TerminalText.yellow filePath
                 , TerminalText.text "`"
                 ]
+                    |> TerminalText.toString
             }
         )

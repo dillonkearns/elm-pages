@@ -8,6 +8,7 @@ import List.Extra
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
+import TerminalText
 
 
 empty : a -> BackendTask Throwable a
@@ -141,7 +142,7 @@ nextStep ({ allRawResponses, errors } as model) =
                     FinishedWithErrors
                         [ { title = buildError.title |> String.toUpper
                           , path = "" -- TODO include path here
-                          , message = buildError.body
+                          , message = buildError.body |> TerminalText.fromAnsiString
                           , fatal = True
                           }
                         ]
