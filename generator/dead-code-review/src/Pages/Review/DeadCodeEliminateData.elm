@@ -7,6 +7,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Range exposing (Range)
 import Review.Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -15,6 +16,7 @@ import Review.Rule as Rule exposing (Error, Rule)
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , importContext : Dict (List String) ImportContext
+    , firstImport : Maybe Range
     }
 
 
@@ -66,7 +68,30 @@ rule =
         |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.withImportVisitor importVisitor
+        |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
+
+
+finalEvaluation : Context -> List (Rule.Error {})
+finalEvaluation context =
+    case Dict.get [ "Exception" ] context.importContext of
+        Nothing ->
+            let
+                importAddRange : { start : { row : Int, column : Int }, end : { row : Int, column : Int } }
+                importAddRange =
+                    context.firstImport |> Maybe.withDefault { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+            in
+            [ Rule.errorWithFix
+                { message = "Codemod"
+                , details = [ "" ]
+                }
+                importAddRange
+                [ Review.Fix.insertAt importAddRange.end "\nimport Exception\n"
+                ]
+            ]
+
+        _ ->
+            []
 
 
 initialContext : Rule.ContextCreator () Context
@@ -75,6 +100,7 @@ initialContext =
         (\lookupTable () ->
             { lookupTable = lookupTable
             , importContext = Dict.empty
+            , firstImport = Nothing
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -91,6 +117,7 @@ importVisitor node context =
     , { context
         | importContext =
             context.importContext |> Dict.insert key value
+        , firstImport = context.firstImport |> Maybe.withDefault (Node.range node) |> Just
       }
     )
 

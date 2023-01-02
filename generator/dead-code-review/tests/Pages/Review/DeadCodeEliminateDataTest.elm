@@ -15,6 +15,7 @@ all =
 import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
+import Exception
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -69,6 +70,7 @@ data =
 import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
+import Exception
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -113,6 +115,7 @@ data =
                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
+import Exception
 import BackendTask as DS
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
@@ -166,6 +169,7 @@ data =
                                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
+import Exception
 import BackendTask as DS
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
@@ -213,6 +217,7 @@ data =
 import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
+import Exception
 import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -267,6 +272,7 @@ data =
 import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
+import Exception
 import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -312,6 +318,7 @@ data =
                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
+import Exception
 
 type alias Model =
     {}
@@ -348,6 +355,7 @@ route =
                                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
+import Exception
 
 type alias Model =
     {}
@@ -382,6 +390,7 @@ route =
                                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
+import Exception
 
 type alias Model =
     {}
@@ -410,6 +419,7 @@ route =
                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request
+import Exception
 
 type alias Model =
     {}
@@ -446,6 +456,7 @@ route =
                                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request
+import Exception
 
 type alias Model =
     {}
@@ -480,6 +491,7 @@ route =
                                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request
+import Exception
 
 type alias Model =
     {}
@@ -508,6 +520,7 @@ route =
                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
+import Exception
 
 type alias Model =
     {}
@@ -536,6 +549,7 @@ route =
                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
+import Exception
 
 import BackendTask exposing (BackendTask)
 import RouteBuilder exposing (Page, StaticPayload)
@@ -583,6 +597,7 @@ data =
                 """module Shared exposing (Data, Model, Msg, template)
 
 import Server.Request as Request
+import Exception
 
 import Browser.Navigation
 import BackendTask
@@ -633,6 +648,7 @@ type alias Model =
                                 """module Shared exposing (Data, Model, Msg, template)
 
 import Server.Request as Request
+import Exception
 
 import Browser.Navigation
 import BackendTask
