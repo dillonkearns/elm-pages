@@ -15,7 +15,7 @@ import BackendTask
 import BackendTask.Http
 import BackendTask.Internal.Request
 import Exception exposing (Catchable)
-import Json.Decode exposing (Decoder)
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import TerminalText
 
@@ -92,24 +92,111 @@ get portName input decoder =
                 ]
                 |> BackendTask.Http.jsonBody
         , expect =
-            decoder
+            Decode.oneOf
+                [ Decode.field "elm-pages-internal-error" Decode.string
+                    |> Decode.andThen
+                        (\errorKind ->
+                            if errorKind == "PortNotDefined" then
+                                Exception.Catchable (PortNotDefined { name = portName })
+                                    { title = "Port Error"
+                                    , body =
+                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I expected to find a port named `"
+                                        , TerminalText.yellow portName
+                                        , TerminalText.text "` but I couldn't find it. Is the function exported in your port-data-source file?"
+                                        ]
+                                            |> TerminalText.toString
+                                    }
+                                    |> Decode.succeed
+
+                            else if errorKind == "ExportIsNotFunction" then
+                                Decode.field "error" Decode.string
+                                    |> Decode.maybe
+                                    |> Decode.map (Maybe.withDefault "")
+                                    |> Decode.map
+                                        (\incorrectPortType ->
+                                            Exception.Catchable ExportIsNotFunction
+                                                { title = "Port Error"
+                                                , body =
+                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I found an export called `"
+                                                    , TerminalText.yellow portName
+                                                    , TerminalText.text "` but I expected its type to be function, but instead its type was: "
+                                                    , TerminalText.red incorrectPortType
+                                                    ]
+                                                        |> TerminalText.toString
+                                                }
+                                        )
+
+                            else if errorKind == "MissingPortsFile" then
+                                Exception.Catchable MissingPortsFile
+                                    { title = "Port Error"
+                                    , body =
+                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I couldn't find your port-data-source file. Be sure to create a 'port-data-source.ts' or 'port-data-source.js' file."
+                                        ]
+                                            |> TerminalText.toString
+                                    }
+                                    |> Decode.succeed
+
+                            else if errorKind == "ErrorInPortsFile" then
+                                Decode.field "error" Decode.string
+                                    |> Decode.maybe
+                                    |> Decode.map (Maybe.withDefault "")
+                                    |> Decode.map
+                                        (\errorMessage ->
+                                            Exception.Catchable
+                                                ErrorInPortsFile
+                                                { title = "Port Error"
+                                                , body =
+                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I couldn't import the port definitions file, because of this exception:\n\n"
+                                                    , TerminalText.red errorMessage
+                                                    , TerminalText.text "\n\nAre there syntax errors or exceptions thrown during import?"
+                                                    ]
+                                                        |> TerminalText.toString
+                                                }
+                                        )
+
+                            else if errorKind == "PortCallError" then
+                                Decode.field "error" Decode.value
+                                    |> Decode.maybe
+                                    |> Decode.map (Maybe.withDefault Encode.null)
+                                    |> Decode.map
+                                        (\portCallError ->
+                                            Exception.Catchable
+                                                (PortCallError portCallError)
+                                                { title = "Port Error"
+                                                , body =
+                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I couldn't import the port definitions file, because of this exception:\n\n"
+                                                    , TerminalText.red (Encode.encode 2 portCallError)
+                                                    , TerminalText.text "\n\nAre there syntax errors or exceptions thrown during import?"
+                                                    ]
+                                                        |> TerminalText.toString
+                                                }
+                                        )
+
+                            else
+                                Exception.Catchable ErrorInPortsFile
+                                    { title = "Port Error"
+                                    , body =
+                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I expected to find a port named `"
+                                        , TerminalText.yellow portName
+                                        , TerminalText.text "`."
+                                        ]
+                                            |> TerminalText.toString
+                                    }
+                                    |> Decode.succeed
+                        )
+                    |> Decode.map Err
+                , decoder |> Decode.map Ok
+                ]
                 |> BackendTask.Http.expectJson
         }
-        |> BackendTask.onError
-            (\_ ->
-                BackendTask.fail
-                    (Exception.Catchable Error
-                        { title = "Port Error"
-                        , body =
-                            [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get."
-                            ]
-                                |> TerminalText.toString
-                        }
-                    )
-            )
+        |> BackendTask.andThen BackendTask.fromResult
 
 
 {-| -}
 type Error
-    = -- TODO include additional context about error or better name to reflect the error state
-      Error
+    = Error
+    | ErrorInPortsFile
+    | MissingPortsFile
+    | PortNotDefined { name : String }
+    | PortCallError Decode.Value
+    | ExportIsNotFunction

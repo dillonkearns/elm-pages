@@ -75,20 +75,60 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
 
           if (!portBackendTask[portName]) {
             if (portBackendTaskImportError === null) {
-              throw `BackendTask.Port.send "${portName}" was called, but I couldn't find a function with that name in the port definitions file. Is it exported correctly?`;
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "PortNotDefined",
+                }),
+              });
             } else if (portBackendTaskImportError === "missing") {
-              throw `BackendTask.Port.send "${portName}" was called, but I couldn't find the port definitions file. Be sure to create a 'port-data-source.ts' or 'port-data-source.js' file and maybe restart the dev server.`;
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "MissingPortsFile",
+                }),
+              });
             } else {
-              throw `BackendTask.Port.send "${portName}" was called, but I couldn't import the port definitions file, because of this exception: \`${portBackendTaskImportError}\` Are there syntax errors or expections thrown during import?`;
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "ErrorInPortsFile",
+                  error:
+                    (portBackendTaskImportError &&
+                      portBackendTaskImportError.stack) ||
+                    "",
+                }),
+              });
             }
           } else if (typeof portBackendTask[portName] !== "function") {
-            throw `BackendTask.Port.send "${portName}" was called, but it is not a function. Be sure to export a function with that name from port-data-source.js`;
+            resolve({
+              kind: "response-json",
+              value: jsonResponse({
+                "elm-pages-internal-error": "ExportIsNotFunction",
+                error: typeof portBackendTask[portName],
+              }),
+            });
+          } else {
+            try {
+              const portFunctionResult = await portBackendTask[portName](input);
+              await fs.promises.writeFile(
+                responsePath,
+                JSON.stringify(jsonResponse(portFunctionResult))
+              );
+              resolve({
+                kind: "cache-response-path",
+                value: responsePath,
+              });
+            } catch (portCallError) {
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "PortCallError",
+                  error: portCallError,
+                }),
+              });
+            }
           }
-          await fs.promises.writeFile(
-            responsePath,
-            JSON.stringify(jsonResponse(await portBackendTask[portName](input)))
-          );
-          resolve({ kind: "cache-response-path", value: responsePath });
         } catch (error) {
           console.trace(error);
           reject({
