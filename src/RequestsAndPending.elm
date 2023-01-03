@@ -10,7 +10,7 @@ import Pages.StaticHttp.Request
 
 
 type alias RequestsAndPending =
-    Dict String Response
+    Decode.Value
 
 
 type ResponseBody
@@ -117,5 +117,9 @@ responseDecoder =
 
 get : String -> RequestsAndPending -> Maybe Response
 get key requestsAndPending =
-    requestsAndPending
-        |> Dict.get key
+    Decode.decodeValue
+        (Decode.field key
+            (Decode.field "response" decoder)
+        )
+        requestsAndPending
+        |> Result.toMaybe

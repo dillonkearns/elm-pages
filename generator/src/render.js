@@ -16,7 +16,7 @@ process.on("unhandledRejection", (error) => {
   console.error(error);
 });
 let foundErrors;
-let pendingBackendTaskResponses;
+let pendingBackendTaskResponses = new Map();
 let pendingBackendTaskCount;
 
 module.exports = { render, runGenerator };
@@ -44,7 +44,7 @@ async function render(
   const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(hasFsAccess);
   resetInMemoryFs();
   foundErrors = false;
-  pendingBackendTaskResponses = [];
+  pendingBackendTaskResponses = new Map();
   pendingBackendTaskCount = 0;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
@@ -74,7 +74,7 @@ async function runGenerator(cliOptions, portsFile, elmModule) {
   const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
   resetInMemoryFs();
   foundErrors = false;
-  pendingBackendTaskResponses = [];
+  pendingBackendTaskResponses = new Map();
   pendingBackendTaskCount = 0;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
@@ -184,6 +184,7 @@ function runGeneratorAppHelp(
           requestToPerform.url.startsWith("elm-pages-internal://")
         ) {
           runInternalJob(
+            requestHash,
             app,
             mode,
             requestToPerform,
@@ -193,6 +194,7 @@ function runGeneratorAppHelp(
           );
         } else {
           runHttpJob(
+            requestHash,
             portsFile,
             app,
             mode,
@@ -318,12 +320,14 @@ function runElmApp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
-        const requestToPerform = fromElm.args[0];
+        const requestHash = fromElm.args[0];
+        const requestToPerform = fromElm.args[1];
         if (
           requestToPerform.url !== "elm-pages-internal://port" &&
           requestToPerform.url.startsWith("elm-pages-internal://")
         ) {
           runInternalJob(
+            requestHash,
             app,
             mode,
             requestToPerform,
@@ -333,6 +337,7 @@ function runElmApp(
           );
         } else {
           runHttpJob(
+            requestHash,
             portsFile,
             app,
             mode,
@@ -401,6 +406,7 @@ async function outputString(
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
 async function runHttpJob(
+  requestHash,
   portsFile,
   app,
   mode,
@@ -421,14 +427,14 @@ async function runHttpJob(
 
     if (lookupResponse.kind === "cache-response-path") {
       const responseFilePath = lookupResponse.value;
-      pendingBackendTaskResponses.push({
+      pendingBackendTaskResponses.set(requestHash, {
         request: requestToPerform,
         response: JSON.parse(
           (await fs.promises.readFile(responseFilePath, "utf8")).toString()
         ),
       });
     } else if (lookupResponse.kind === "response-json") {
-      pendingBackendTaskResponses.push({
+      pendingBackendTaskResponses.set(requestHash, {
         request: requestToPerform,
         response: lookupResponse.value,
       });
@@ -457,6 +463,7 @@ function jsonResponse(request, json) {
 }
 
 async function runInternalJob(
+  requestHash,
   app,
   mode,
   requestToPerform,
@@ -468,29 +475,40 @@ async function runInternalJob(
     pendingBackendTaskCount += 1;
 
     if (requestToPerform.url === "elm-pages-internal://log") {
-      pendingBackendTaskResponses.push(await runLogJob(requestToPerform));
+      pendingBackendTaskResponses.set(
+        requestHash,
+        await runLogJob(requestToPerform)
+      );
     } else if (requestToPerform.url === "elm-pages-internal://read-file") {
-      pendingBackendTaskResponses.push(
+      pendingBackendTaskResponses.set(
+        requestHash,
         await readFileJobNew(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://glob") {
-      pendingBackendTaskResponses.push(
+      pendingBackendTaskResponses.set(
+        requestHash,
         await runGlobNew(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://env") {
-      pendingBackendTaskResponses.push(
+      pendingBackendTaskResponses.set(
+        requestHash,
         await runEnvJob(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://encrypt") {
-      pendingBackendTaskResponses.push(
+      pendingBackendTaskResponses.set(
+        requestHash,
         await runEncryptJob(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://decrypt") {
-      pendingBackendTaskResponses.push(
+      pendingBackendTaskResponses.set(
+        requestHash,
         await runDecryptJob(requestToPerform, patternsToWatch)
       );
     } else if (requestToPerform.url === "elm-pages-internal://write-file") {
-      pendingBackendTaskResponses.push(await runWriteFileJob(requestToPerform));
+      pendingBackendTaskResponses.set(
+        requestHash,
+        await runWriteFileJob(requestToPerform)
+      );
     } else {
       throw `Unexpected internal BackendTask request format: ${kleur.yellow(
         JSON.stringify(2, null, requestToPerform)
@@ -623,7 +641,7 @@ async function runDecryptJob(req, patternsToWatch) {
 
 function flushIfDone(app) {
   if (foundErrors) {
-    pendingBackendTaskResponses = [];
+    pendingBackendTaskResponses = new Map();
   } else if (pendingBackendTaskCount === 0) {
     // console.log(
     //   `Flushing ${pendingBackendTaskResponses.length} items in ${timeUntilThreshold}ms`
@@ -634,10 +652,9 @@ function flushIfDone(app) {
 }
 
 function flushQueue(app) {
-  const temp = pendingBackendTaskResponses;
-  pendingBackendTaskResponses = [];
+  app.ports.gotBatchSub.send(Object.fromEntries(pendingBackendTaskResponses));
+  pendingBackendTaskResponses = new Map();
   // console.log("@@@ FLUSHING", temp.length);
-  app.ports.gotBatchSub.send(temp);
 }
 
 /**

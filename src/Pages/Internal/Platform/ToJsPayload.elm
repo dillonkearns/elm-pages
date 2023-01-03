@@ -89,7 +89,7 @@ headCodec canonicalSiteUrl currentPagePath =
 type ToJsSuccessPayloadNewCombined
     = PageProgress ToJsSuccessPayloadNew
     | SendApiResponse { body : Json.Encode.Value, staticHttpCache : Dict String String, statusCode : Int }
-    | DoHttp Pages.StaticHttp.Request.Request Bool
+    | DoHttp String Pages.StaticHttp.Request.Request Bool
     | Port String
     | Errors (List BuildError)
     | ApiResponse
@@ -109,8 +109,8 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
                 PageProgress payload ->
                     success payload
 
-                DoHttp requestUrl _ ->
-                    vDoHttp requestUrl requestUrl.useCache
+                DoHttp hash requestUrl _ ->
+                    vDoHttp hash requestUrl requestUrl.useCache
 
                 SendApiResponse record ->
                     vSendApiResponse record
@@ -121,8 +121,9 @@ successCodecNew2 canonicalSiteUrl currentPagePath =
         |> Codec.variant1 "Errors" Errors errorCodec
         |> Codec.variant0 "ApiResponse" ApiResponse
         |> Codec.variant1 "PageProgress" PageProgress (successCodecNew canonicalSiteUrl currentPagePath)
-        |> Codec.variant2 "DoHttp"
+        |> Codec.variant3 "DoHttp"
             DoHttp
+            Codec.string
             Pages.StaticHttp.Request.codec
             Codec.bool
         |> Codec.variant1 "ApiResponse"

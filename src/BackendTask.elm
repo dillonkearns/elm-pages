@@ -88,6 +88,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 import Dict
 import Exception exposing (Catchable(..), Throwable)
+import Json.Encode
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 
 
@@ -276,7 +277,7 @@ andThen fn requestInfo =
 
         Request urls lookupFn ->
             if List.isEmpty urls then
-                andThen fn (lookupFn Nothing Dict.empty)
+                andThen fn (lookupFn Nothing (Json.Encode.object []))
 
             else
                 Request urls
@@ -301,7 +302,7 @@ onError fromError backendTask =
 
         Request urls lookupFn ->
             if List.isEmpty urls then
-                onError fromError (lookupFn Nothing Dict.empty)
+                onError fromError (lookupFn Nothing (Json.Encode.object []))
 
             else
                 Request urls
