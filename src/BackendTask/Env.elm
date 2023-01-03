@@ -61,7 +61,6 @@ get envVariableName =
             BackendTask.Http.expectJson
                 (Decode.nullable Decode.string)
         }
-        |> BackendTask.onError (\_ -> BackendTask.succeed Nothing)
 
 
 {-| Get an environment variable, or a BackendTask failure if there is no environment variable matching that name.
