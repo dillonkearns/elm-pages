@@ -14,7 +14,7 @@ import Dict
 import Exception exposing (Throwable)
 import HtmlPrinter
 import Json.Decode as Decode
-import Json.Encode
+import Json.Encode as Encode
 import Pages.GeneratorProgramConfig exposing (GeneratorProgramConfig)
 import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
@@ -43,12 +43,7 @@ type alias Model =
 
 {-| -}
 type Msg
-    = GotDataBatch
-        (List
-            { request : Pages.StaticHttp.Request.Request
-            , response : RequestsAndPending.Response
-            }
-        )
+    = GotDataBatch Decode.Value
     | GotBuildError BuildError
 
 
@@ -118,23 +113,7 @@ app config =
                                         )
                                     |> mergeResult
                             )
-                    , config.gotBatchSub
-                        |> Sub.map
-                            (\newBatch ->
-                                Decode.decodeValue batchDecoder newBatch
-                                    |> Result.map GotDataBatch
-                                    |> Result.mapError
-                                        (\error ->
-                                            ("From location 2: "
-                                                ++ (error
-                                                        |> Decode.errorToString
-                                                   )
-                                            )
-                                                |> BuildError.internal
-                                                |> GotBuildError
-                                        )
-                                    |> mergeResult
-                            )
+                    , config.gotBatchSub |> Sub.map GotDataBatch
                     ]
         , config = cliConfig
         , printAndExitFailure =
@@ -151,7 +130,7 @@ app config =
                     |> Codec.encodeToValue (ToJsPayload.successCodecNew2 "" "")
                     |> config.toJsPort
                     |> Cmd.map never
-        , printAndExitSuccess = \string -> config.toJsPort (Json.Encode.string string) |> Cmd.map never
+        , printAndExitSuccess = \string -> config.toJsPort (Encode.string string) |> Cmd.map never
         }
 
 
@@ -216,7 +195,7 @@ perform config effect =
             flatten config list
 
         Effect.FetchHttp unmasked ->
-            ToJsPayload.DoHttp unmasked unmasked.useCache
+            ToJsPayload.DoHttp (Pages.StaticHttp.Request.hash unmasked) unmasked unmasked.useCache
                 |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                 |> config.toJsPort
                 |> Cmd.map never
@@ -283,7 +262,7 @@ init :
     -> ( Model, Effect )
 init execute flags =
     if flags.compatibilityKey == Pages.Internal.Platform.CompatibilityKey.currentCompatibilityKey then
-        initLegacy execute { staticHttpCache = Dict.empty }
+        initLegacy execute
 
     else
         let
@@ -310,16 +289,15 @@ init execute flags =
                   , path = ""
                   }
                 ]
-            , allRawResponses = Dict.empty
+            , allRawResponses = Encode.object []
             , done = False
             }
 
 
 initLegacy :
     BackendTask Throwable ()
-    -> { staticHttpCache : RequestsAndPending }
     -> ( Model, Effect )
-initLegacy execute { staticHttpCache } =
+initLegacy execute =
     let
         staticResponses : BackendTask Throwable ()
         staticResponses =
@@ -329,7 +307,7 @@ initLegacy execute { staticHttpCache } =
         initialModel =
             { staticResponses = staticResponses
             , errors = []
-            , allRawResponses = staticHttpCache
+            , allRawResponses = Encode.object []
             , done = False
             }
     in
@@ -390,7 +368,7 @@ nextStepToEffect model nextStep =
                 updatedModel : Model
                 updatedModel =
                     { model
-                        | allRawResponses = Dict.empty
+                        | allRawResponses = Encode.object []
                         , staticResponses = updatedStaticResponsesModel
                     }
             in
@@ -411,7 +389,7 @@ nextStepToEffect model nextStep =
 
         StaticResponses.Finish () ->
             ( model
-            , { body = Json.Encode.null
+            , { body = Encode.null
               , staticHttpCache = Dict.empty
               , statusCode = 200
               }

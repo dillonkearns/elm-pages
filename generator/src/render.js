@@ -178,7 +178,8 @@ function runGeneratorAppHelp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
-        const requestToPerform = fromElm.args[0];
+        const requestHash = fromElm.args[0];
+        const requestToPerform = fromElm.args[1];
         if (
           requestToPerform.url !== "elm-pages-internal://port" &&
           requestToPerform.url.startsWith("elm-pages-internal://")

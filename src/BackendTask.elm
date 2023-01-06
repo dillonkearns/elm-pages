@@ -5,8 +5,7 @@ module BackendTask exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , catch, throw, mapError, onError
-    , toResult
+    , catch, throw, mapError, onError, toResult
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `BackendTask` that will be resolved **before** `init` is called. That means it is also available
@@ -83,11 +82,10 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 ## Exception Handling
 
-@docs catch, throw, mapError, onError
+@docs catch, throw, mapError, onError, toResult
 
 -}
 
-import Dict
 import Exception exposing (Catchable(..), Throwable)
 import Json.Encode
 import Pages.StaticHttpRequest exposing (RawRequest(..))
