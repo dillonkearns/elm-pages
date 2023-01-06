@@ -16,6 +16,7 @@ import Route exposing (Route)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Test.Glob
+import Test.HttpRequests
 import Test.Runner.Html
 import Time
 import Xml.Decode
@@ -42,6 +43,15 @@ routes getStaticRoutes htmlToString =
             )
         )
         |> ApiRoute.literal "tests"
+        |> ApiRoute.serverRender
+    , ApiRoute.succeed
+        (Request.succeed
+            (Test.HttpRequests.all
+                |> BackendTask.map viewHtmlResults
+                |> BackendTask.map html
+            )
+        )
+        |> ApiRoute.literal "http-tests"
         |> ApiRoute.serverRender
     , requestPrinter
     , xmlDecoder

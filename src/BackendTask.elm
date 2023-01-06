@@ -6,6 +6,7 @@ module BackendTask exposing
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , catch, throw, mapError, onError
+    , toResult
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `BackendTask` that will be resolved **before** `init` is called. That means it is also available
@@ -541,3 +542,12 @@ throw : BackendTask (Catchable error) data -> BackendTask Throwable data
 throw backendTask =
     backendTask
         |> onError (Exception.throw >> fail)
+
+
+{-| -}
+toResult : BackendTask (Catchable error) data -> BackendTask noError (Result error data)
+toResult backendTask =
+    backendTask
+        |> catch
+        |> andThen (Ok >> succeed)
+        |> onError (Err >> succeed)
