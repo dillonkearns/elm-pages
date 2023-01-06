@@ -5,7 +5,7 @@ module BackendTask.Http exposing
     , Response(..), Metadata, Error(..)
     , expectStringResponse, expectBytesResponse
     , Body, emptyBody, stringBody, jsonBody
-    , uncachedRequest
+    , CacheStrategy(..), requestWithOptions
     )
 
 {-| `BackendTask.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -60,9 +60,9 @@ and describe your use case!
 @docs Body, emptyBody, stringBody, jsonBody
 
 
-## Uncached Requests
+## Caching Options
 
-@docs uncachedRequest
+@docs CacheStrategy, requestWithOptions
 
 -}
 
@@ -265,18 +265,29 @@ request request__ expect =
             , headers = request__.headers
             , method = request__.method
             , body = request__.body
-            , useCache = True
+            , useCache = Nothing
             }
     in
     requestRaw request_ expect
 
 
 {-| -}
-uncachedRequest :
+type CacheStrategy
+    = UseGlobalDefault
+    | IgnoreCache -- 'no-store'
+    | ForceRevalidate -- 'no-cache'
+    | ForceReload -- 'reload'
+    | ForceCache -- 'force-cache'
+    | ErrorUnlessCached -- 'only-if-cached'
+
+
+{-| -}
+requestWithOptions :
     RequestDetails
+    -> Options
     -> Expect a
     -> BackendTask (Catchable Error) a
-uncachedRequest request__ expect =
+requestWithOptions request__ options expect =
     let
         request_ : HashRequest.Request
         request_ =
@@ -284,10 +295,50 @@ uncachedRequest request__ expect =
             , headers = request__.headers
             , method = request__.method
             , body = request__.body
-            , useCache = False
+            , useCache = encodeOptions options |> Just
             }
     in
     requestRaw request_ expect
+
+
+encodeOptions : Options -> Encode.Value
+encodeOptions options =
+    Encode.object
+        ([ ( "cache"
+           , (case options.cacheStrategy of
+                UseGlobalDefault ->
+                    Nothing
+
+                IgnoreCache ->
+                    Just "no-store"
+
+                ForceRevalidate ->
+                    Just "no-cache"
+
+                ForceReload ->
+                    Just "reload"
+
+                ForceCache ->
+                    Just "force-cache"
+
+                ErrorUnlessCached ->
+                    Just "only-if-cached"
+             )
+                |> Maybe.map Encode.string
+           )
+         , ( "retry", Encode.int options.retries |> Just )
+         , ( "timeout", options.timeoutInMs |> Maybe.map Encode.int )
+         ]
+            |> List.filterMap
+                (\( a, b ) -> b |> Maybe.map (Tuple.pair a))
+        )
+
+
+type alias Options =
+    { cacheStrategy : CacheStrategy
+    , retries : Int
+    , timeoutInMs : Maybe Int
+    }
 
 
 {-| Build a `BackendTask.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
@@ -308,7 +359,7 @@ requestRaw request__ expect =
                     :: request__.headers
             , method = request__.method
             , body = request__.body
-            , useCache = False
+            , useCache = request__.useCache
             }
     in
     Request

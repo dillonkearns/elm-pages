@@ -12,7 +12,7 @@ request :
     -> BackendTask error a
 request ({ name, body, expect } as params) =
     -- elm-review: known-unoptimized-recursion
-    BackendTask.Http.uncachedRequest
+    BackendTask.Http.request
         { url = "elm-pages-internal://" ++ name
         , method = "GET"
         , headers = []

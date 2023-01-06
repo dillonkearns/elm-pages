@@ -63,6 +63,29 @@ all =
                     _ ->
                         Expect.fail ("Expected BadStatus, got: " ++ Debug.toString result)
             )
+    , BackendTask.Http.requestWithOptions
+        { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+        , method = "GET"
+        , headers = []
+        , body = BackendTask.Http.emptyBody
+        }
+        { cacheStrategy = BackendTask.Http.IgnoreCache
+        , retries = 0
+        , timeoutInMs = Nothing
+        }
+        (BackendTask.Http.expectJson
+            (Decode.field "this-field-doesn't-exist" Decode.int)
+        )
+        |> test "cache options"
+            (\result ->
+                case result of
+                    Err (BackendTask.Http.BadBody (Just (Decode.Failure failureString _)) _) ->
+                        failureString
+                            |> Expect.equal "Expecting an OBJECT with a field named `this-field-doesn't-exist`"
+
+                    _ ->
+                        Expect.fail ("Expected BadStatus, got: " ++ Debug.toString result)
+            )
     ]
         |> BackendTask.combine
         |> BackendTask.map (Test.describe "BackendTask tests")

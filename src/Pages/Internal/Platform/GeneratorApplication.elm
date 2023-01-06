@@ -195,7 +195,7 @@ perform config effect =
             flatten config list
 
         Effect.FetchHttp unmasked ->
-            ToJsPayload.DoHttp (Pages.StaticHttp.Request.hash unmasked) unmasked unmasked.useCache
+            ToJsPayload.DoHttp (Pages.StaticHttp.Request.hash unmasked) unmasked
                 |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                 |> config.toJsPort
                 |> Cmd.map never

@@ -468,7 +468,7 @@ sendEmail :
     -> SendGrid.Email
     -> BackendTask (Result SendGrid.Error ())
 sendEmail apiKey_ email_ =
-    BackendTask.Http.uncachedRequest
+    BackendTask.Http.requestWithOptions
         { method = "POST"
         , headers = [ ( "Authorization", "Bearer " ++ apiKey_ ) ]
         , url = SendGrid.sendGridApiUrl
