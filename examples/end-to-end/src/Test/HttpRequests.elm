@@ -65,7 +65,7 @@ all =
             )
     ]
         |> BackendTask.combine
-        |> BackendTask.map (Test.describe "glob tests")
+        |> BackendTask.map (Test.describe "BackendTask tests")
 
 
 test : String -> (Result error data -> Expect.Expectation) -> BackendTask (Catchable error) data -> BackendTask noError Test
