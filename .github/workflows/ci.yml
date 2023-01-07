@@ -64,9 +64,12 @@ jobs:
         run: npm run build:generator
       - name: Tests
         run: npm test
-      - uses: sparksp/elm-review-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: elm-review
+        run: npx elm-review
+        # TODO - this is giving stale errors somehow, could it be because of the DeadCodeEliminate codemods?
+      # - uses: sparksp/elm-review-action@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: elm-format
         run: npx --no-install elm-format --validate src/ generator/src
       - name: Build elm docs
