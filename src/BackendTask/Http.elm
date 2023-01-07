@@ -5,7 +5,7 @@ module BackendTask.Http exposing
     , withMetadata, Metadata
     , Error(..)
     , Body, emptyBody, stringBody, jsonBody
-    , CacheStrategy(..), requestWithOptions, Options
+    , CacheStrategy(..), Options
     )
 
 {-| `BackendTask.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -65,7 +65,7 @@ and describe your use case!
 
 ## Caching Options
 
-@docs CacheStrategy, requestWithOptions, Options
+@docs CacheStrategy, Options
 
 -}
 
@@ -140,6 +140,7 @@ get url decoder =
             , method = "GET"
             , headers = []
             , body = emptyBody
+            , options = Nothing
             }
          )
             url
@@ -154,6 +155,7 @@ type alias RequestDetails =
     , method : String
     , headers : List ( String, String )
     , body : Body
+    , options : Maybe Options
     }
 
 
@@ -286,7 +288,7 @@ request request__ expect =
             , headers = request__.headers
             , method = request__.method
             , body = request__.body
-            , useCache = Nothing
+            , useCache = request__.options |> Maybe.map encodeOptions
             }
     in
     requestRaw request_ expect
@@ -300,26 +302,6 @@ type CacheStrategy
     | ForceReload -- 'reload'
     | ForceCache -- 'force-cache'
     | ErrorUnlessCached -- 'only-if-cached'
-
-
-{-| -}
-requestWithOptions :
-    RequestDetails
-    -> Options
-    -> Expect a
-    -> BackendTask (Catchable Error) a
-requestWithOptions request__ options expect =
-    let
-        request_ : HashRequest.Request
-        request_ =
-            { url = request__.url
-            , headers = request__.headers
-            , method = request__.method
-            , body = request__.body
-            , useCache = encodeOptions options |> Just
-            }
-    in
-    requestRaw request_ expect
 
 
 encodeOptions : Options -> Encode.Value
