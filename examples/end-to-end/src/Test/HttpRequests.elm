@@ -96,7 +96,7 @@ all =
         , retries = 0
         , timeoutInMs = Nothing
         }
-        (BackendTask.Http.withMetadata
+        (BackendTask.Http.withMetadata Tuple.pair
             (BackendTask.Http.expectJson
                 (Decode.field "stargazers_count" Decode.int)
             )

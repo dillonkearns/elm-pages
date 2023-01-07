@@ -208,27 +208,27 @@ expectJson =
 
 
 {-| -}
-withMetadata : Expect value -> Expect ( Metadata, value )
-withMetadata originalExpect =
+withMetadata : (Metadata -> value -> combined) -> Expect value -> Expect combined
+withMetadata combineFn originalExpect =
     -- known-unoptimized-recursion
     case originalExpect of
         ExpectJson jsonDecoder ->
-            ExpectMetadata (\metadata -> ExpectJson (jsonDecoder |> Json.Decode.map (Tuple.pair metadata)))
+            ExpectMetadata (\metadata -> ExpectJson (jsonDecoder |> Json.Decode.map (combineFn metadata)))
 
         ExpectString stringToValue ->
             ExpectMetadata
                 (\metadata ->
-                    ExpectString (\string -> string |> stringToValue |> Tuple.pair metadata)
+                    ExpectString (\string -> string |> stringToValue |> combineFn metadata)
                 )
 
         ExpectBytes bytesDecoder ->
-            ExpectMetadata (\metadata -> ExpectBytes (bytesDecoder |> Bytes.Decode.map (Tuple.pair metadata)))
+            ExpectMetadata (\metadata -> ExpectBytes (bytesDecoder |> Bytes.Decode.map (combineFn metadata)))
 
         ExpectWhatever value ->
-            ExpectMetadata (\metadata -> ExpectWhatever ( metadata, value ))
+            ExpectMetadata (\metadata -> ExpectWhatever (combineFn metadata value))
 
         ExpectMetadata metadataToExpect ->
-            ExpectMetadata (\metadata -> withMetadata (metadataToExpect metadata))
+            ExpectMetadata (\metadata -> withMetadata combineFn (metadataToExpect metadata))
 
 
 {-| -}
