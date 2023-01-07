@@ -882,7 +882,7 @@ jsonBody jsonString =
 
 encodeBatchEntry : ( Request.Request, ResponseBody ) -> ( String, Encode.Value )
 encodeBatchEntry ( req, response ) =
-    ( Request.hash req
+    ( Request.hash (req |> withInternalHeader response)
     , Encode.object
         [ ( "request"
           , Codec.encodeToValue Request.codec
