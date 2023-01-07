@@ -134,14 +134,6 @@ app config =
         }
 
 
-batchDecoder : Decode.Decoder (List { request : Pages.StaticHttp.Request.Request, response : RequestsAndPending.Response })
-batchDecoder =
-    Decode.map2 (\request response -> { request = request, response = response })
-        (Decode.field "request" requestDecoder)
-        (Decode.field "response" RequestsAndPending.decoder)
-        |> Decode.list
-
-
 mergeResult : Result a a -> a
 mergeResult r =
     case r of

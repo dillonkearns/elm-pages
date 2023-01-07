@@ -5,7 +5,7 @@ module BackendTask.Http exposing
     , withMetadata, Metadata
     , Error(..)
     , Body, emptyBody, stringBody, jsonBody
-    , CacheStrategy(..), requestWithOptions
+    , CacheStrategy(..), requestWithOptions, Options
     )
 
 {-| `BackendTask.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -65,7 +65,7 @@ and describe your use case!
 
 ## Caching Options
 
-@docs CacheStrategy, requestWithOptions
+@docs CacheStrategy, requestWithOptions, Options
 
 -}
 
@@ -210,6 +210,7 @@ expectJson =
 {-| -}
 withMetadata : Expect value -> Expect ( Metadata, value )
 withMetadata originalExpect =
+    -- known-unoptimized-recursion
     case originalExpect of
         ExpectJson jsonDecoder ->
             ExpectMetadata (\metadata -> ExpectJson (jsonDecoder |> Json.Decode.map (Tuple.pair metadata)))
@@ -227,7 +228,7 @@ withMetadata originalExpect =
             ExpectMetadata (\metadata -> ExpectWhatever ( metadata, value ))
 
         ExpectMetadata metadataToExpect ->
-            Debug.todo ""
+            ExpectMetadata (\metadata -> withMetadata (metadataToExpect metadata))
 
 
 {-| -}
@@ -244,6 +245,7 @@ expectWhatever =
 
 expectToString : Expect a -> String
 expectToString expect =
+    -- known-unoptimized-recursion
     case expect of
         ExpectJson _ ->
             "ExpectJson"
@@ -353,6 +355,7 @@ encodeOptions options =
         )
 
 
+{-| -}
 type alias Options =
     { cacheStrategy : CacheStrategy
     , retries : Int
