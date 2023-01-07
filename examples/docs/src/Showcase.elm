@@ -50,6 +50,7 @@ staticRequest =
                     , method = "GET"
                     , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
                     , body = BackendTask.Http.emptyBody
+                    , options = Nothing
                     }
                     (BackendTask.Http.expectJson decoder)
                     |> BackendTask.throw

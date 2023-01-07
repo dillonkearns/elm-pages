@@ -142,7 +142,7 @@ pages =
 
 data : RouteParams -> BackendTask Data
 data routeParams =
-    BackendTask.Http.get
+    BackendTask.Http.getJson
         (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (Decode.field "stargazer_count" Decode.int)
 
@@ -189,7 +189,7 @@ all =
 
 repo : String -> BackendTask Repo
 repo repoName =
-    BackendTask.Http.get (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
+    BackendTask.Http.getJson (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
         (OptimizedDecoder.map Repo
             (OptimizedDecoder.field "stargazers_count" OptimizedDecoder.int)
         )
@@ -240,7 +240,7 @@ head static =
 
 data : RouteParams -> BackendTask Data
 data routeParams =
-    BackendTask.Http.get
+    BackendTask.Http.getJson
         (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (OptimizedDecoder.field "stargazer_count" OptimizedDecoder.int)
 

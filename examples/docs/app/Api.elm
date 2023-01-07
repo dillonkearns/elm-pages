@@ -53,7 +53,7 @@ routes getStaticRoutes htmlToString =
             )
     , ApiRoute.succeed
         (\repoName ->
-            BackendTask.Http.get
+            BackendTask.Http.getJson
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Decode.field "stargazers_count" Decode.int)
                 |> BackendTask.map
