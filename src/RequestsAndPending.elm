@@ -1,12 +1,10 @@
-module RequestsAndPending exposing (RawResponse, RequestsAndPending, Response(..), ResponseBody(..), batchDecoder, bodyEncoder, get)
+module RequestsAndPending exposing (RawResponse, RequestsAndPending, Response(..), ResponseBody(..), bodyEncoder, get)
 
 import Base64
 import Bytes exposing (Bytes)
-import Codec
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import Pages.StaticHttp.Request
 
 
 type alias RequestsAndPending =
@@ -18,18 +16,6 @@ type ResponseBody
     | StringBody String
     | JsonBody Decode.Value
     | WhateverBody
-
-
-batchDecoder : Decoder (List { request : Pages.StaticHttp.Request.Request, response : Response })
-batchDecoder =
-    Decode.map2 (\request response -> { request = request, response = response })
-        (Decode.field "request"
-            (Pages.StaticHttp.Request.codec
-                |> Codec.decoder
-            )
-        )
-        (Decode.field "response" decoder)
-        |> Decode.list
 
 
 decoder : Decoder Response
