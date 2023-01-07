@@ -10,7 +10,7 @@ import Test exposing (Test)
 
 all : BackendTask error Test
 all =
-    [ BackendTask.Http.get "http://httpstat.us/500" (Decode.succeed ())
+    [ BackendTask.Http.get "http://httpstat.us/500" (BackendTask.Http.expectWhatever ())
         |> test "http 500 error"
             (\result ->
                 case result of
@@ -26,7 +26,7 @@ all =
                     Ok () ->
                         Expect.fail "Expected HTTP error, got Ok"
             )
-    , BackendTask.Http.get "http://httpstat.us/404" (Decode.succeed ())
+    , BackendTask.Http.get "http://httpstat.us/404" (BackendTask.Http.expectWhatever ())
         |> test "http 404 error"
             (\result ->
                 case result of
@@ -42,7 +42,7 @@ all =
                     Ok () ->
                         Expect.fail "Expected HTTP error, got Ok"
             )
-    , BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.field "stargazers_count" Decode.int)
+    , BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.field "stargazers_count" Decode.int)
         |> test "200 JSON"
             (\result ->
                 case result of
@@ -52,7 +52,7 @@ all =
                     Ok count ->
                         Expect.pass
             )
-    , BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.field "this-field-doesn't-exist" Decode.int)
+    , BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.field "this-field-doesn't-exist" Decode.int)
         |> test "JSON decoding error"
             (\result ->
                 case result of
@@ -63,15 +63,17 @@ all =
                     _ ->
                         Expect.fail ("Expected BadStatus, got: " ++ Debug.toString result)
             )
-    , BackendTask.Http.requestWithOptions
+    , BackendTask.Http.request
         { url = "https://api.github.com/repos/dillonkearns/elm-pages"
         , method = "GET"
         , headers = []
         , body = BackendTask.Http.emptyBody
-        }
-        { cacheStrategy = BackendTask.Http.IgnoreCache
-        , retries = 0
-        , timeoutInMs = Nothing
+        , options =
+            Just
+                { cacheStrategy = BackendTask.Http.IgnoreCache
+                , retries = 0
+                , timeoutInMs = Nothing
+                }
         }
         (BackendTask.Http.expectJson
             (Decode.field "this-field-doesn't-exist" Decode.int)
@@ -86,15 +88,17 @@ all =
                     _ ->
                         Expect.fail ("Expected BadStatus, got: " ++ Debug.toString result)
             )
-    , BackendTask.Http.requestWithOptions
+    , BackendTask.Http.request
         { url = "https://api.github.com/repos/dillonkearns/elm-pages"
         , method = "GET"
         , headers = []
         , body = BackendTask.Http.emptyBody
-        }
-        { cacheStrategy = BackendTask.Http.ForceRevalidate
-        , retries = 0
-        , timeoutInMs = Nothing
+        , options =
+            Just
+                { cacheStrategy = BackendTask.Http.ForceRevalidate
+                , retries = 0
+                , timeoutInMs = Nothing
+                }
         }
         (BackendTask.Http.withMetadata Tuple.pair
             (BackendTask.Http.expectJson

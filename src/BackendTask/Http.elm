@@ -1,9 +1,10 @@
 module BackendTask.Http exposing
-    ( RequestDetails
-    , get, request
+    ( get, getJson
+    , post
     , Expect, expectString, expectJson, expectBytes, expectWhatever
-    , withMetadata, Metadata
     , Error(..)
+    , RequestDetails, request
+    , withMetadata, Metadata
     , Body, emptyBody, stringBody, jsonBody
     , CacheStrategy(..), Options
     )
@@ -35,8 +36,12 @@ in [this article introducing BackendTask.Http requests and some concepts around 
   - Data that is specific to the logged-in user
   - Data that needs to be the very latest and changes often (for example, sports scores)
 
-@docs RequestDetails
-@docs get, request
+
+## Making a Request
+
+@docs get, getJson
+
+@docs post
 
 
 ## Decoding Request Body
@@ -44,14 +49,19 @@ in [this article introducing BackendTask.Http requests and some concepts around 
 @docs Expect, expectString, expectJson, expectBytes, expectWhatever
 
 
+## Error Handling
+
+@docs Error
+
+
+## General Requests
+
+@docs RequestDetails, request
+
+
 ## With Metadata
 
 @docs withMetadata, Metadata
-
-
-## Errors
-
-@docs Error
 
 
 ## Building a BackendTask.Http Request Body
@@ -128,24 +138,52 @@ type alias Body =
             (Decode.field "stargazers_count" Decode.int)
 
 -}
-get :
+getJson :
     String
     -> Json.Decode.Decoder a
     -> BackendTask (Catchable Error) a
-get url decoder =
+getJson url decoder =
     request
-        ((\okUrl ->
-            -- wrap in new variant
-            { url = okUrl
-            , method = "GET"
-            , headers = []
-            , body = emptyBody
-            , options = Nothing
-            }
-         )
-            url
-        )
+        { url = url
+        , method = "GET"
+        , headers = []
+        , body = emptyBody
+        , options = Nothing
+        }
         (expectJson decoder)
+
+
+{-| -}
+get :
+    String
+    -> Expect a
+    -> BackendTask (Catchable Error) a
+get url expect =
+    request
+        { url = url
+        , method = "GET"
+        , headers = []
+        , body = emptyBody
+        , options = Nothing
+        }
+        expect
+
+
+{-| -}
+post :
+    String
+    -> Body
+    -> Expect a
+    -> BackendTask (Catchable Error) a
+post url body expect =
+    request
+        { url = url
+        , method = "POST"
+        , headers = []
+        , body = body
+        , options = Nothing
+        }
+        expect
 
 
 {-| The full details to perform a BackendTask.Http request.
