@@ -251,6 +251,9 @@ function toBody(body) {
     case "StringBody": {
       return body.args[1];
     }
+    case "BytesBody": {
+      return Buffer.from(body.args[1], "base64");
+    }
     case "JsonBody": {
       return JSON.stringify(body.args[0]);
     }
@@ -269,13 +272,16 @@ function toContentType(body) {
     case "StringBody": {
       return { "Content-Type": body.args[0] };
     }
+    case "BytesBody": {
+      return { "Content-Type": body.args[0] };
+    }
     case "JsonBody": {
       return { "Content-Type": "application/json" };
     }
   }
 }
 
-/** @typedef { { tag: 'EmptyBody'} | { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } } Body  */
+/** @typedef { { tag: 'EmptyBody'} |{ tag: 'BytesBody'; args: [string, string] } |  { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } } Body  */
 function requireUncached(mode, filePath) {
   if (mode === "dev-server") {
     // for the build command, we can skip clearing the cache because it won't change while the build is running

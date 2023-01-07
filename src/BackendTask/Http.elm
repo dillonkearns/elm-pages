@@ -5,7 +5,7 @@ module BackendTask.Http exposing
     , Error(..)
     , RequestDetails, request
     , withMetadata, Metadata
-    , Body, emptyBody, stringBody, jsonBody
+    , Body, emptyBody, stringBody, jsonBody, bytesBody
     , CacheStrategy(..), Options
     )
 
@@ -70,7 +70,7 @@ The way you build a body is analogous to the `elm/http` package. Currently, only
 `stringBody` are supported. If you have a use case that calls for a different body type, please open a Github issue
 and describe your use case!
 
-@docs Body, emptyBody, stringBody, jsonBody
+@docs Body, emptyBody, stringBody, jsonBody, bytesBody
 
 
 ## Caching Options
@@ -81,6 +81,7 @@ and describe your use case!
 
 import BackendTask exposing (BackendTask)
 import Base64
+import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
 import Exception exposing (Catchable)
@@ -98,6 +99,13 @@ import TerminalText
 emptyBody : Body
 emptyBody =
     Body.EmptyBody
+
+
+{-| Build a body from `Bytes` for a BackendTask.Http request. See [elm/http's `Http.bytesBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#bytesBody).
+-}
+bytesBody : String -> Bytes -> Body
+bytesBody =
+    Body.BytesBody
 
 
 {-| Builds a string body for a BackendTask.Http request. See [elm/http's `Http.stringBody`](https://package.elm-lang.org/packages/elm/http/latest/Http#stringBody).
