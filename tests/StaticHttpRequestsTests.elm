@@ -35,7 +35,7 @@ all =
         [ test "initial requests are sent out" <|
             \() ->
                 startSimple []
-                    (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (JsonBody
@@ -46,7 +46,7 @@ all =
             \() ->
                 startSimple
                     [ "post-1" ]
-                    (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (JsonBody
@@ -57,7 +57,7 @@ all =
             [ test "single pages that are pre-rendered" <|
                 \() ->
                     startSimple [ "post-1" ]
-                        (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
                         |> simulateHttp
                             (get "https://api.github.com/repos/dillonkearns/elm-pages")
                             (JsonBody
@@ -84,11 +84,11 @@ all =
                 startSimple
                     [ "post-1" ]
                     (BackendTask.map2 Tuple.pair
-                        (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
                             (JD.field "stargazer_count" JD.int)
                             |> BackendTask.throw
                         )
-                        (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
                             (JD.field "language" JD.string)
                             |> BackendTask.throw
                         )
@@ -107,11 +107,11 @@ all =
             \() ->
                 startSimple
                     [ "elm-pages" ]
-                    (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.succeed ())
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.succeed ())
                         |> BackendTask.throw
                         |> BackendTask.andThen
                             (\_ ->
-                                BackendTask.Http.get "NEXT-REQUEST" (JD.succeed ())
+                                BackendTask.Http.getJson "NEXT-REQUEST" (JD.succeed ())
                                     |> BackendTask.throw
                             )
                     )
@@ -130,13 +130,13 @@ all =
         --        let
         --            pokemonDetailRequest : BackendTask ()
         --            pokemonDetailRequest =
-        --                BackendTask.Http.get
+        --                JsonBackendTask.Http.get
         --                    "https://pokeapi.co/api/v2/pokemon/"
         --                    (JD.list
         --                        (JD.field "url" JD.string
         --                            |> JD.map
         --                                (\url ->
-        --                                    BackendTask.Http.get url
+        --                                    BackendTask.Http.getJson url
         --                                        (JD.field "image" JD.string)
         --                                )
         --                        )
@@ -199,10 +199,10 @@ all =
         --    \() ->
         --        start
         --            [ ( [ "elm-pages" ]
-        --              , BackendTask.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+        --              , BackendTask.Http.getJson (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
         --              )
         --            , ( [ "elm-pages-starter" ]
-        --              , BackendTask.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
+        --              , BackendTask.Http.getJson (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
         --              )
         --            ]
         --            |> ProgramTest.simulateHttpOk
@@ -230,7 +230,7 @@ all =
         , test "reduced JSON is sent out" <|
             \() ->
                 startSimple []
-                    (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
                         |> BackendTask.throw
                     )
                     |> simulateHttp
@@ -245,6 +245,7 @@ all =
                         , method = "GET"
                         , headers = []
                         , body = BackendTask.Http.emptyBody
+                        , options = Nothing
                         }
                         (BackendTask.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
@@ -263,6 +264,7 @@ all =
                         , method = "GET"
                         , headers = []
                         , body = BackendTask.Http.emptyBody
+                        , options = Nothing
                         }
                         BackendTask.Http.expectString
                         |> BackendTask.throw
@@ -285,6 +287,7 @@ all =
                         , method = "GET"
                         , headers = []
                         , body = BackendTask.Http.emptyBody
+                        , options = Nothing
                         }
                         BackendTask.Http.expectString
                         |> BackendTask.throw
@@ -319,6 +322,7 @@ String was not uppercased"""
                         , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                         , headers = []
                         , body = BackendTask.Http.emptyBody
+                        , options = Nothing
                         }
                         (BackendTask.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
@@ -332,10 +336,10 @@ String was not uppercased"""
         , test "json is reduced from andThen chains" <|
             \() ->
                 startSimple []
-                    (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
                         |> BackendTask.andThen
                             (\_ ->
-                                BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
+                                BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
                             )
                         |> BackendTask.throw
                     )
@@ -350,8 +354,8 @@ String was not uppercased"""
             \() ->
                 startSimple []
                     (BackendTask.map2 (\_ _ -> ())
-                        (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int) |> BackendTask.throw)
-                        (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int) |> BackendTask.throw)
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int) |> BackendTask.throw)
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int) |> BackendTask.throw)
                     )
                     |> simulateMultipleHttp
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -374,8 +378,8 @@ String was not uppercased"""
             \() ->
                 startSimple []
                     (BackendTask.map2 (\_ _ -> ())
-                        (BackendTask.Http.get "http://example.com" (JD.succeed ()) |> BackendTask.throw)
-                        (BackendTask.Http.get "http://example.com" (JD.succeed ()) |> BackendTask.throw)
+                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.throw)
+                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.throw)
                     )
                     |> simulateHttp
                         (get "http://example.com")
@@ -384,7 +388,7 @@ String was not uppercased"""
         , test "an error is sent out for decoder failures" <|
             \() ->
                 startSimple [ "elm-pages" ]
-                    (BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI.") |> BackendTask.throw)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI.") |> BackendTask.throw)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (jsonBody """{ "stargazer_count": 86 }""")
