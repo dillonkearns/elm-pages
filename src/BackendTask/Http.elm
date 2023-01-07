@@ -2,8 +2,8 @@ module BackendTask.Http exposing
     ( RequestDetails
     , get, request
     , Expect, expectString, expectJson, expectBytes, expectWhatever
-    , Response(..), Metadata, Error(..)
-    , expectStringResponse, expectBytesResponse
+    , withMetadata, Metadata
+    , Error(..)
     , Body, emptyBody, stringBody, jsonBody
     , CacheStrategy(..), requestWithOptions
     )
@@ -44,11 +44,14 @@ in [this article introducing BackendTask.Http requests and some concepts around 
 @docs Expect, expectString, expectJson, expectBytes, expectWhatever
 
 
-## Expecting Responses
+## With Metadata
 
-@docs Response, Metadata, Error
+@docs withMetadata, Metadata
 
-@docs expectStringResponse, expectBytesResponse
+
+## Errors
+
+@docs Error
 
 
 ## Building a BackendTask.Http Request Body
@@ -68,7 +71,6 @@ and describe your use case!
 
 import BackendTask exposing (BackendTask)
 import Base64
-import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
 import Exception exposing (Catchable)
@@ -165,10 +167,9 @@ as XML, for example, or give an `elm-pages` build error if the response can't be
 type Expect value
     = ExpectJson (Json.Decode.Decoder value)
     | ExpectString (String -> value)
-    | ExpectResponse (Response String -> value)
-    | ExpectBytesResponse (Response Bytes -> value)
     | ExpectBytes (Bytes.Decode.Decoder value)
     | ExpectWhatever value
+    | ExpectMetadata (Metadata -> Expect value)
 
 
 {-| Gives the HTTP response body as a raw String.
@@ -207,6 +208,29 @@ expectJson =
 
 
 {-| -}
+withMetadata : Expect value -> Expect ( Metadata, value )
+withMetadata originalExpect =
+    case originalExpect of
+        ExpectJson jsonDecoder ->
+            ExpectMetadata (\metadata -> ExpectJson (jsonDecoder |> Json.Decode.map (Tuple.pair metadata)))
+
+        ExpectString stringToValue ->
+            ExpectMetadata
+                (\metadata ->
+                    ExpectString (\string -> string |> stringToValue |> Tuple.pair metadata)
+                )
+
+        ExpectBytes bytesDecoder ->
+            ExpectMetadata (\metadata -> ExpectBytes (bytesDecoder |> Bytes.Decode.map (Tuple.pair metadata)))
+
+        ExpectWhatever value ->
+            ExpectMetadata (\metadata -> ExpectWhatever ( metadata, value ))
+
+        ExpectMetadata metadataToExpect ->
+            Debug.todo ""
+
+
+{-| -}
 expectBytes : Bytes.Decode.Decoder value -> Expect value
 expectBytes =
     ExpectBytes
@@ -218,18 +242,6 @@ expectWhatever =
     ExpectWhatever
 
 
-{-| -}
-expectStringResponse : Expect (Response String)
-expectStringResponse =
-    ExpectResponse identity
-
-
-{-| -}
-expectBytesResponse : Expect (Response Bytes)
-expectBytesResponse =
-    ExpectBytesResponse identity
-
-
 expectToString : Expect a -> String
 expectToString expect =
     case expect of
@@ -239,17 +251,24 @@ expectToString expect =
         ExpectString _ ->
             "ExpectString"
 
-        ExpectResponse _ ->
-            "ExpectResponse"
-
         ExpectBytes _ ->
             "ExpectBytes"
 
         ExpectWhatever _ ->
             "ExpectWhatever"
 
-        ExpectBytesResponse _ ->
-            "ExpectBytesResponse"
+        ExpectMetadata toExpect ->
+            -- It's safe to call this with fake metadata to get the kind of Expect because the exposed
+            -- API, `withMetadata`, will never change the type of Expect it returns based on the metadata, it simply
+            -- wraps the Expect with the additional Metadata.
+            -- It's important not to expose the raw `ExpectMetadata` constructor however because that would break that guarantee.
+            toExpect
+                { url = ""
+                , statusCode = 123
+                , statusText = ""
+                , headers = Dict.empty
+                }
+                |> expectToString
 
 
 {-| -}
@@ -441,77 +460,7 @@ requestRaw request__ expect =
                                 Err badResponse
 
                             Nothing ->
-                                case ( expect, body, maybeResponse ) of
-                                    ( ExpectJson decoder, RequestsAndPending.JsonBody json, _ ) ->
-                                        json
-                                            |> Json.Decode.decodeValue decoder
-                                            |> Result.mapError
-                                                (\error ->
-                                                    error
-                                                        |> Json.Decode.errorToString
-                                                        |> BadBody (Just error)
-                                                )
-
-                                    ( ExpectString mapStringFn, RequestsAndPending.StringBody string, _ ) ->
-                                        string
-                                            |> mapStringFn
-                                            |> Ok
-
-                                    ( ExpectResponse mapResponse, RequestsAndPending.StringBody asStringBody, Just rawResponse ) ->
-                                        let
-                                            asMetadata : Metadata
-                                            asMetadata =
-                                                { url = rawResponse.url
-                                                , statusCode = rawResponse.statusCode
-                                                , statusText = rawResponse.statusText
-                                                , headers = rawResponse.headers
-                                                }
-
-                                            rawResponseToResponse : Response String
-                                            rawResponseToResponse =
-                                                if 200 <= rawResponse.statusCode && rawResponse.statusCode < 300 then
-                                                    GoodStatus_ asMetadata asStringBody
-
-                                                else
-                                                    BadStatus_ asMetadata asStringBody
-                                        in
-                                        rawResponseToResponse
-                                            |> mapResponse
-                                            |> Ok
-
-                                    ( ExpectBytesResponse mapResponse, RequestsAndPending.BytesBody rawBytesBody, Just rawResponse ) ->
-                                        let
-                                            asMetadata : Metadata
-                                            asMetadata =
-                                                { url = rawResponse.url
-                                                , statusCode = rawResponse.statusCode
-                                                , statusText = rawResponse.statusText
-                                                , headers = rawResponse.headers
-                                                }
-
-                                            rawResponseToResponse : Response Bytes
-                                            rawResponseToResponse =
-                                                if 200 <= rawResponse.statusCode && rawResponse.statusCode < 300 then
-                                                    GoodStatus_ asMetadata rawBytesBody
-
-                                                else
-                                                    BadStatus_ asMetadata rawBytesBody
-                                        in
-                                        rawResponseToResponse
-                                            |> mapResponse
-                                            |> Ok
-
-                                    ( ExpectBytes bytesDecoder, RequestsAndPending.BytesBody rawBytes, _ ) ->
-                                        rawBytes
-                                            |> Bytes.Decode.decode bytesDecoder
-                                            |> Result.fromMaybe
-                                                (BadBody Nothing "Bytes decoding failed.")
-
-                                    ( ExpectWhatever whateverValue, RequestsAndPending.WhateverBody, _ ) ->
-                                        Ok whateverValue
-
-                                    _ ->
-                                        Err (BadBody Nothing "Unexpected combination, internal error")
+                                toResultThing ( expect, body, maybeResponse )
                     )
                 |> BackendTask.fromResult
                 |> BackendTask.mapError
@@ -519,6 +468,54 @@ requestRaw request__ expect =
                         Exception.Catchable error (errorToString error)
                     )
         )
+
+
+toResultThing :
+    ( Expect value
+    , RequestsAndPending.ResponseBody
+    , Maybe RequestsAndPending.RawResponse
+    )
+    -> Result Error value
+toResultThing ( expect, body, maybeResponse ) =
+    case ( expect, body, maybeResponse ) of
+        ( ExpectMetadata toExpect, _, Just rawResponse ) ->
+            let
+                asMetadata : Metadata
+                asMetadata =
+                    { url = rawResponse.url
+                    , statusCode = rawResponse.statusCode
+                    , statusText = rawResponse.statusText
+                    , headers = rawResponse.headers
+                    }
+            in
+            toResultThing ( toExpect asMetadata, body, maybeResponse )
+
+        ( ExpectJson decoder, RequestsAndPending.JsonBody json, _ ) ->
+            json
+                |> Json.Decode.decodeValue decoder
+                |> Result.mapError
+                    (\error ->
+                        error
+                            |> Json.Decode.errorToString
+                            |> BadBody (Just error)
+                    )
+
+        ( ExpectString mapStringFn, RequestsAndPending.StringBody string, _ ) ->
+            string
+                |> mapStringFn
+                |> Ok
+
+        ( ExpectBytes bytesDecoder, RequestsAndPending.BytesBody rawBytes, _ ) ->
+            rawBytes
+                |> Bytes.Decode.decode bytesDecoder
+                |> Result.fromMaybe
+                    (BadBody Nothing "Bytes decoding failed.")
+
+        ( ExpectWhatever whateverValue, RequestsAndPending.WhateverBody, _ ) ->
+            Ok whateverValue
+
+        _ ->
+            Err (BadBody Nothing "Unexpected combination, internal error")
 
 
 errorToString : Error -> { title : String, body : String }
@@ -557,15 +554,6 @@ type alias Metadata =
     , statusText : String
     , headers : Dict String String
     }
-
-
-{-| -}
-type Response body
-    = BadUrl_ String
-    | Timeout_
-    | NetworkError_
-    | BadStatus_ Metadata body
-    | GoodStatus_ Metadata body
 
 
 {-| -}

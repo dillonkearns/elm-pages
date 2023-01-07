@@ -86,6 +86,31 @@ all =
                     _ ->
                         Expect.fail ("Expected BadStatus, got: " ++ Debug.toString result)
             )
+    , BackendTask.Http.requestWithOptions
+        { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+        , method = "GET"
+        , headers = []
+        , body = BackendTask.Http.emptyBody
+        }
+        { cacheStrategy = BackendTask.Http.ForceRevalidate
+        , retries = 0
+        , timeoutInMs = Nothing
+        }
+        (BackendTask.Http.withMetadata
+            (BackendTask.Http.expectJson
+                (Decode.field "stargazers_count" Decode.int)
+            )
+        )
+        |> test "with metadata"
+            (\result ->
+                case result of
+                    Ok ( metadata, stars ) ->
+                        metadata.statusCode
+                            |> Expect.equal 200
+
+                    _ ->
+                        Expect.fail ("Expected Ok, got: " ++ Debug.toString result)
+            )
     ]
         |> BackendTask.combine
         |> BackendTask.map (Test.describe "BackendTask tests")
