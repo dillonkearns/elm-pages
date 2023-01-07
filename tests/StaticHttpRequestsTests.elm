@@ -273,7 +273,7 @@ all =
                         , headers =
                             []
                         , body = BackendTask.Http.emptyBody
-                        , useCache = Nothing
+                        , cacheOptions = Nothing
                         }
                         (StringBody "This is a raw text file.")
                     |> expectSuccess []
@@ -813,7 +813,7 @@ get url =
     , url = url
     , headers = []
     , body = BackendTask.Http.emptyBody
-    , useCache = Nothing
+    , cacheOptions = Nothing
     }
 
 
@@ -823,7 +823,7 @@ post url =
     , url = url
     , headers = []
     , body = BackendTask.Http.emptyBody
-    , useCache = Nothing
+    , cacheOptions = Nothing
     }
 
 

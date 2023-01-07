@@ -149,7 +149,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
               "User-Agent": "request",
               ...request.headers,
             },
-            ...rawRequest.useCache,
+            ...rawRequest.cacheOptions,
           });
 
           console.timeEnd(`fetch ${request.url}`);

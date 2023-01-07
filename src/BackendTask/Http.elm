@@ -334,7 +334,7 @@ request request__ expect =
             , headers = request__.headers
             , method = request__.method
             , body = request__.body
-            , useCache = request__.options |> Maybe.map encodeOptions
+            , cacheOptions = request__.options |> Maybe.map encodeOptions
             }
     in
     requestRaw request_ expect
@@ -409,7 +409,7 @@ requestRaw request__ expect =
                     :: request__.headers
             , method = request__.method
             , body = request__.body
-            , useCache = request__.useCache
+            , cacheOptions = request__.cacheOptions
             }
     in
     Request
