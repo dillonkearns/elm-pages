@@ -15,7 +15,7 @@ backendTask selectionSet =
     BackendTask.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> BackendTask.andThen
             (\hasuraSecret ->
-                BackendTask.Http.uncachedRequest
+                BackendTask.Http.requestWithOptions
                     { url = hasuraUrl
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
@@ -42,7 +42,7 @@ mutationBackendTask selectionSet =
     BackendTask.Env.expect "SMOOTHIES_HASURA_SECRET"
         |> BackendTask.andThen
             (\hasuraSecret ->
-                BackendTask.Http.uncachedRequest
+                BackendTask.Http.requestWithOptions
                     { url = hasuraUrl
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]

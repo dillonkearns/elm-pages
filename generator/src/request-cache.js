@@ -1,5 +1,4 @@
 const path = require("path");
-const fetch = require("node-fetch");
 const objectHash = require("object-hash");
 const kleur = require("kleur");
 
@@ -44,6 +43,10 @@ function fullPath(portsHash, request, hasFsAccess) {
  * @returns {Promise<Response>}
  */
 function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
+  const fetch = require("make-fetch-happen").defaults({
+    cachePath: "./.elm-pages/http-cache",
+    cache: mode === "build" ? "no-cache" : "default",
+  });
   const { fs } = require("./request-cache-fs.js")(hasFsAccess);
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
@@ -146,62 +149,59 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
               "User-Agent": "request",
               ...request.headers,
             },
+            ...rawRequest.useCache,
           });
 
           console.timeEnd(`fetch ${request.url}`);
           const expectString = request.headers["elm-pages-internal"];
 
-          if (response.ok || expectString === "ExpectResponse") {
-            let body;
-            let bodyKind;
-            if (expectString === "ExpectJson") {
-              body = await response.json();
+          let body;
+          let bodyKind;
+          if (expectString === "ExpectJson") {
+            try {
+              body = await response.buffer();
+              body = JSON.parse(body.toString("utf-8"));
               bodyKind = "json";
-            } else if (
-              expectString === "ExpectBytes" ||
-              expectString === "ExpectBytesResponse"
-            ) {
-              bodyKind = "bytes";
-              const arrayBuffer = await response.arrayBuffer();
-              body = Buffer.from(arrayBuffer).toString("base64");
-            } else if (expectString === "ExpectWhatever") {
-              bodyKind = "whatever";
-              body = null;
-            } else if (
-              expectString === "ExpectResponse" ||
-              expectString === "ExpectString"
-            ) {
+            } catch (error) {
+              body = body.toString("utf8");
               bodyKind = "string";
-              body = await response.text();
-            } else {
-              throw `Unexpected expectString ${expectString}`;
             }
-
-            await fs.promises.writeFile(
-              responsePath,
-              JSON.stringify({
-                headers: Object.fromEntries(response.headers.entries()),
-                statusCode: response.status,
-                body: body,
-                bodyKind,
-                url: response.url,
-                statusText: response.statusText,
-              })
-            );
-
-            resolve({ kind: "cache-response-path", value: responsePath });
+          } else if (
+            expectString === "ExpectBytes" ||
+            expectString === "ExpectBytesResponse"
+          ) {
+            body = await response.buffer();
+            try {
+              body = body.toString("base64");
+              bodyKind = "bytes";
+            } catch (e) {
+              body = body.toString("utf8");
+              bodyKind = "string";
+            }
+          } else if (expectString === "ExpectWhatever") {
+            bodyKind = "whatever";
+            body = null;
+          } else if (
+            expectString === "ExpectResponse" ||
+            expectString === "ExpectString"
+          ) {
+            bodyKind = "string";
+            body = await response.text();
           } else {
-            console.log("@@@ request-cache1 bad HTTP response");
-            reject({
-              title: "BackendTask.Http Error",
-              message: `${kleur
-                .yellow()
-                .underline(request.url)} Bad HTTP response ${response.status} ${
-                response.statusText
-              }
-`,
-            });
+            throw `Unexpected expectString ${expectString}`;
           }
+
+          resolve({
+            kind: "response-json",
+            value: {
+              headers: Object.fromEntries(response.headers.entries()),
+              statusCode: response.status,
+              body,
+              bodyKind,
+              url: response.url,
+              statusText: response.statusText,
+            },
+          });
         } catch (error) {
           console.trace("@@@ request-cache2 HTTP error", error);
           reject({

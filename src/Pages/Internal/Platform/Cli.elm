@@ -61,12 +61,7 @@ type alias Model route =
 
 {-| -}
 type Msg
-    = GotDataBatch
-        (List
-            { request : Pages.StaticHttp.Request.Request
-            , response : RequestsAndPending.Response
-            }
-        )
+    = GotDataBatch Decode.Value
     | GotBuildError BuildError
 
 
@@ -154,33 +149,9 @@ cliApplication config =
                                         )
                                     |> mergeResult
                             )
-                    , config.gotBatchSub
-                        |> Sub.map
-                            (\newBatch ->
-                                Decode.decodeValue batchDecoder newBatch
-                                    |> Result.map GotDataBatch
-                                    |> Result.mapError
-                                        (\error ->
-                                            ("From location 2: "
-                                                ++ (error
-                                                        |> Decode.errorToString
-                                                   )
-                                            )
-                                                |> BuildError.internal
-                                                |> GotBuildError
-                                        )
-                                    |> mergeResult
-                            )
+                    , config.gotBatchSub |> Sub.map GotDataBatch
                     ]
         }
-
-
-batchDecoder : Decode.Decoder (List { request : Pages.StaticHttp.Request.Request, response : RequestsAndPending.Response })
-batchDecoder =
-    Decode.map2 (\request response -> { request = request, response = response })
-        (Decode.field "request" requestDecoder)
-        (Decode.field "response" RequestsAndPending.decoder)
-        |> Decode.list
 
 
 mergeResult : Result a a -> a
@@ -240,7 +211,7 @@ perform site renderRequest config effect =
             flatten site renderRequest config list
 
         Effect.FetchHttp unmasked ->
-            ToJsPayload.DoHttp unmasked unmasked.useCache
+            ToJsPayload.DoHttp (Pages.StaticHttp.Request.hash unmasked) unmasked
                 |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                 |> config.toJsPort
                 |> Cmd.map never
@@ -295,15 +266,8 @@ flagsDecoder =
             , compatibilityKey = compatibilityKey
             }
         )
-        --(Decode.field "staticHttpCache"
-        --    (Decode.dict
-        --        (Decode.string
-        --            |> Decode.map Just
-        --        )
-        --    )
-        --)
         -- TODO remove hardcoding and decode staticHttpCache here
-        (Decode.succeed Dict.empty)
+        (Decode.succeed (Json.Encode.object []))
         (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
         (Decode.field "compatibilityKey" Decode.int)
 
@@ -346,7 +310,7 @@ init site renderRequest config flags =
                           , path = ""
                           }
                         ]
-                    , allRawResponses = Dict.empty
+                    , allRawResponses = Json.Encode.object []
                     , maybeRequestJson = renderRequest
                     , isDevServer = False
                     }
@@ -361,7 +325,7 @@ init site renderRequest config flags =
                       , path = ""
                       }
                     ]
-                , allRawResponses = Dict.empty
+                , allRawResponses = Json.Encode.object []
                 , maybeRequestJson = renderRequest
                 , isDevServer = False
                 }
@@ -799,7 +763,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
         initialModel =
             { staticResponses = staticResponsesNew
             , errors = []
-            , allRawResponses = Dict.empty
+            , allRawResponses = Json.Encode.object []
             , maybeRequestJson = renderRequest
             , isDevServer = isDevServer
             }

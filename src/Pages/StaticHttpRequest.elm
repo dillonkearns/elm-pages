@@ -2,6 +2,7 @@ module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..)
 
 import BuildError exposing (BuildError)
 import Dict
+import Json.Encode
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
@@ -48,7 +49,7 @@ mockResolve : RawRequest error value -> MockResolver -> Result error value
 mockResolve request mockResolver =
     case request of
         Request _ lookupFn ->
-            case lookupFn (Just mockResolver) Dict.empty of
+            case lookupFn (Just mockResolver) (Json.Encode.object []) of
                 nextRequest ->
                     mockResolve nextRequest mockResolver
 
