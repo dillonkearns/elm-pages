@@ -273,7 +273,7 @@ all =
                         , headers =
                             []
                         , body = BackendTask.Http.emptyBody
-                        , useCache = True
+                        , useCache = Nothing
                         }
                         (StringBody "This is a raw text file.")
                     |> expectSuccess []
@@ -427,7 +427,7 @@ startLowLevel :
     -> List ( Request.Request, String )
     -> List ( List String, BackendTask Throwable a )
     -> ProgramTest (Model Route) Msg Effect
-startLowLevel apiRoutes staticHttpCache pages =
+startLowLevel apiRoutes _ pages =
     let
         pageToLoad : List String
         pageToLoad =
@@ -452,18 +452,8 @@ startLowLevel apiRoutes staticHttpCache pages =
                         |> Encode.dict identity Encode.string
                   )
                 , ( "mode", Encode.string "prod" )
-                , ( "staticHttpCache", encodedStaticHttpCache )
                 , ( "compatibilityKey", Encode.int currentCompatibilityKey )
                 ]
-
-        encodedStaticHttpCache : Encode.Value
-        encodedStaticHttpCache =
-            staticHttpCache
-                |> List.map
-                    (\( request, httpResponseString ) ->
-                        ( Request.hash request, Encode.string httpResponseString )
-                    )
-                |> Encode.object
     in
     {-
        (Model -> model)
@@ -563,7 +553,7 @@ config apiRoutes pages =
     , subscriptions = \_ _ _ -> Sub.none
     , routeToPath = \(Route route) -> route |> String.split "/"
     , sharedData = BackendTask.succeed ()
-    , onPageChange = \_ -> GotDataBatch []
+    , onPageChange = \_ -> GotDataBatch (Encode.object [])
     , apiRoutes = \_ -> apiRoutes
     , pathPatterns = []
     , byteDecodePageData = \_ -> Bytes.Decode.fail
@@ -592,7 +582,7 @@ startWithRoutes :
     -> List ( Request.Request, String )
     -> List ( List String, BackendTask Throwable a )
     -> ProgramTest (Model Route) Msg Effect
-startWithRoutes pageToLoad _ staticHttpCache pages =
+startWithRoutes pageToLoad _ _ pages =
     let
         encodedFlags : Encode.Value
         encodedFlags =
@@ -614,12 +604,7 @@ startWithRoutes pageToLoad _ staticHttpCache pages =
 
         encodedStaticHttpCache : Encode.Value
         encodedStaticHttpCache =
-            staticHttpCache
-                |> List.map
-                    (\( request, httpResponseString ) ->
-                        ( Request.hash request, Encode.string httpResponseString )
-                    )
-                |> Encode.object
+            [] |> Encode.object
     in
     {-
        (Model -> model)
@@ -690,11 +675,7 @@ simulateEffects effect =
                     |> SimulatedEffect.Cmd.map never
 
             else
-                ToJsPayload.DoHttp
-                    (unmasked
-                     --|> withInternalHeader
-                    )
-                    True
+                ToJsPayload.DoHttp (Request.hash unmasked) unmasked
                     |> sendToJsPort
                     |> SimulatedEffect.Cmd.map never
 
@@ -822,7 +803,7 @@ simulateSubscriptions : a -> ProgramTest.SimulatedSub Msg
 simulateSubscriptions _ =
     -- TODO handle build errors or not needed?
     SimulatedEffect.Ports.subscribe "gotBatchSub"
-        (RequestsAndPending.batchDecoder |> JD.map GotDataBatch)
+        (JD.value |> JD.map GotDataBatch)
         identity
 
 
@@ -832,7 +813,7 @@ get url =
     , url = url
     , headers = []
     , body = BackendTask.Http.emptyBody
-    , useCache = True
+    , useCache = Nothing
     }
 
 
@@ -842,7 +823,7 @@ post url =
     , url = url
     , headers = []
     , body = BackendTask.Http.emptyBody
-    , useCache = True
+    , useCache = Nothing
     }
 
 
@@ -863,9 +844,7 @@ simulateHttp request response program =
                                 ++ Debug.toString actualPorts
             )
         |> ProgramTest.simulateIncomingPort "gotBatchSub"
-            (Encode.list (\req -> encodeBatchEntry req response)
-                [ request ]
-            )
+            (Encode.object [ encodeBatchEntry ( request, response ) ])
 
 
 simulateMultipleHttp : List ( Request.Request, ResponseBody ) -> ProgramTest model msg effect -> ProgramTest model msg effect
@@ -887,10 +866,8 @@ simulateMultipleHttp requests program =
             )
         |> ProgramTest.simulateIncomingPort "gotBatchSub"
             (requests
-                |> Encode.list
-                    (\( req, response ) ->
-                        encodeBatchEntry req response
-                    )
+                |> List.map encodeBatchEntry
+                |> Encode.object
             )
 
 
@@ -903,9 +880,10 @@ jsonBody jsonString =
         )
 
 
-encodeBatchEntry : Request.Request -> ResponseBody -> Encode.Value
-encodeBatchEntry req response =
-    Encode.object
+encodeBatchEntry : ( Request.Request, ResponseBody ) -> ( String, Encode.Value )
+encodeBatchEntry ( req, response ) =
+    ( Request.hash req
+    , Encode.object
         [ ( "request"
           , Codec.encodeToValue Request.codec
                 (withInternalHeader response req)
@@ -914,6 +892,7 @@ encodeBatchEntry req response =
           , RequestsAndPending.bodyEncoder response
           )
         ]
+    )
 
 
 withInternalHeader : ResponseBody -> { a | headers : List ( String, String ) } -> { a | headers : List ( String, String ) }
