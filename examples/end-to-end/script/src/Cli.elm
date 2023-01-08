@@ -1,5 +1,6 @@
 module Cli exposing (run)
 
+import BackendTask
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
@@ -31,6 +32,7 @@ run =
                 { path = "app/" ++ file.path
                 , body = file.contents
                 }
+                |> BackendTask.throw
         )
 
 
