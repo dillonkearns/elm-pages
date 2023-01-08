@@ -63,21 +63,17 @@ all =
                     _ ->
                         Expect.fail ("Expected BadStatus, got: " ++ Debug.toString result)
             )
-    , BackendTask.Http.request
+    , BackendTask.Http.getWithOptions
         { url = "https://api.github.com/repos/dillonkearns/elm-pages"
-        , method = "GET"
         , headers = []
-        , body = BackendTask.Http.emptyBody
-        , options =
-            Just
-                { cacheStrategy = BackendTask.Http.IgnoreCache
-                , retries = 0
-                , timeoutInMs = Nothing
-                }
+        , cacheStrategy = Just BackendTask.Http.IgnoreCache
+        , cachePath = Nothing
+        , retries = Nothing
+        , timeoutInMs = Nothing
+        , expect =
+            BackendTask.Http.expectJson
+                (Decode.field "this-field-doesn't-exist" Decode.int)
         }
-        (BackendTask.Http.expectJson
-            (Decode.field "this-field-doesn't-exist" Decode.int)
-        )
         |> test "cache options"
             (\result ->
                 case result of
@@ -88,23 +84,19 @@ all =
                     _ ->
                         Expect.fail ("Expected BadStatus, got: " ++ Debug.toString result)
             )
-    , BackendTask.Http.request
+    , BackendTask.Http.getWithOptions
         { url = "https://api.github.com/repos/dillonkearns/elm-pages"
-        , method = "GET"
         , headers = []
-        , body = BackendTask.Http.emptyBody
-        , options =
-            Just
-                { cacheStrategy = BackendTask.Http.ForceRevalidate
-                , retries = 0
-                , timeoutInMs = Nothing
-                }
+        , cacheStrategy = Just BackendTask.Http.ForceRevalidate
+        , cachePath = Nothing
+        , retries = Nothing
+        , timeoutInMs = Nothing
+        , expect =
+            BackendTask.Http.withMetadata Tuple.pair
+                (BackendTask.Http.expectJson
+                    (Decode.field "stargazers_count" Decode.int)
+                )
         }
-        (BackendTask.Http.withMetadata Tuple.pair
-            (BackendTask.Http.expectJson
-                (Decode.field "stargazers_count" Decode.int)
-            )
-        )
         |> test "with metadata"
             (\result ->
                 case result of
