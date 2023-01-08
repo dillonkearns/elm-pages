@@ -1,9 +1,10 @@
 module Route.Test.ResponseHeaders exposing (ActionData, Data, Model, Msg, route)
 
-import Base64
-import DataSource exposing (DataSource)
-import DataSource.File
+import BackendTask exposing (BackendTask)
+import BackendTask.File
+import BuildError exposing (BuildError)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Html.Styled exposing (div, text)
 import Pages.Msg
@@ -46,13 +47,13 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     Request.succeed
-        (DataSource.succeed Data
-            |> DataSource.andMap (DataSource.File.rawFile "greeting.txt")
-            |> DataSource.map Response.render
-            |> DataSource.map (Response.withHeader "x-powered-by" "my-framework")
+        (BackendTask.succeed Data
+            |> BackendTask.andMap (BackendTask.File.rawFile "greeting.txt" |> BackendTask.throw)
+            |> BackendTask.map Response.render
+            |> BackendTask.map (Response.withHeader "x-powered-by" "my-framework")
         )
 
 
@@ -62,7 +63,7 @@ data routeParams =
 --        |> Request.andThen
 --            (\ifNoneMatch ->
 --                if ifNoneMatch == "v3" then
---                    DataSource.succeed
+--                    BackendTask.succeed
 --                        (Response.customResponse
 --                            { statusCode = 304
 --                            , headers = []
@@ -76,13 +77,13 @@ data routeParams =
 --                    Request.skipMatch (Request.validationError "")
 --            )
 --    , Request.succeed
---        (DataSource.succeed Data
---            |> DataSource.andMap (DataSource.File.rawFile "greeting.txt")
---            |> DataSource.map Response.render
---            |> DataSource.map (Response.withHeader "ETag" "v3")
+--        (BackendTask.succeed Data
+--            |> BackendTask.andMap (BackendTask.File.rawFile "greeting.txt")
+--            |> BackendTask.map Response.render
+--            |> BackendTask.map (Response.withHeader "ETag" "v3")
 --        )
 --    , Request.succeed
---        (DataSource.succeed
+--        (BackendTask.succeed
 --            (Response.customResponse
 --                { statusCode = 304
 --                , headers = []

@@ -1,8 +1,8 @@
-module Request.Hasura exposing (dataSource, mutationDataSource)
+module Request.Hasura exposing (backendTask, mutationBackendTask)
 
-import DataSource exposing (DataSource)
-import DataSource.Env
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Env
+import BackendTask.Http
 import Graphql.Document
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.SelectionSet exposing (SelectionSet)
@@ -10,17 +10,17 @@ import Json.Encode as Encode
 import Time
 
 
-dataSource : SelectionSet value RootQuery -> DataSource value
-dataSource selectionSet =
-    DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
-        |> DataSource.andThen
+backendTask : SelectionSet value RootQuery -> BackendTask value
+backendTask selectionSet =
+    BackendTask.Env.expect "SMOOTHIES_HASURA_SECRET"
+        |> BackendTask.andThen
             (\hasuraSecret ->
-                DataSource.Http.uncachedRequest
+                BackendTask.Http.uncachedRequest
                     { url = hasuraUrl
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
                     , body =
-                        DataSource.Http.jsonBody
+                        BackendTask.Http.jsonBody
                             (Encode.object
                                 [ ( "query"
                                   , selectionSet
@@ -32,22 +32,22 @@ dataSource selectionSet =
                     }
                     (selectionSet
                         |> Graphql.Document.decoder
-                        |> DataSource.Http.expectJson
+                        |> BackendTask.Http.expectJson
                     )
             )
 
 
-mutationDataSource : SelectionSet value RootMutation -> DataSource value
-mutationDataSource selectionSet =
-    DataSource.Env.expect "SMOOTHIES_HASURA_SECRET"
-        |> DataSource.andThen
+mutationBackendTask : SelectionSet value RootMutation -> BackendTask value
+mutationBackendTask selectionSet =
+    BackendTask.Env.expect "SMOOTHIES_HASURA_SECRET"
+        |> BackendTask.andThen
             (\hasuraSecret ->
-                DataSource.Http.uncachedRequest
+                BackendTask.Http.uncachedRequest
                     { url = hasuraUrl
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
                     , body =
-                        DataSource.Http.jsonBody
+                        BackendTask.Http.jsonBody
                             (Encode.object
                                 [ ( "query"
                                   , selectionSet
@@ -59,7 +59,7 @@ mutationDataSource selectionSet =
                     }
                     (selectionSet
                         |> Graphql.Document.decoder
-                        |> DataSource.Http.expectJson
+                        |> BackendTask.Http.expectJson
                     )
             )
 

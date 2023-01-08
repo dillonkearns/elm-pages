@@ -1,6 +1,6 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
-import DataSource
+import BackendTask
 import Effect exposing (Effect)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -75,9 +75,9 @@ subscriptions _ _ =
     Sub.none
 
 
-data : DataSource.DataSource Data
+data : BackendTask.BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 
 
 view :

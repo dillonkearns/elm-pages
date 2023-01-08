@@ -1,8 +1,9 @@
 module Route.Test.BasicAuth exposing (ActionData, Data, Model, Msg, route)
 
+import BackendTask exposing (BackendTask)
 import Base64
-import DataSource exposing (DataSource)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Html.Styled exposing (div, text)
 import Pages.Msg
@@ -45,16 +46,16 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     withBasicAuth
         (\{ username, password } ->
             (username == "asdf" && password == "qwer")
-                |> DataSource.succeed
+                |> BackendTask.succeed
         )
         (Data "Login success!"
             |> Response.render
-            |> DataSource.succeed
+            |> BackendTask.succeed
         )
 
 
@@ -100,9 +101,9 @@ parseAuth base64Auth =
 
 
 withBasicAuth :
-    ({ username : String, password : String } -> DataSource Bool)
-    -> DataSource (Response data errorPage)
-    -> Parser (DataSource (Response data errorPage))
+    ({ username : String, password : String } -> BackendTask error Bool)
+    -> BackendTask error (Response data errorPage)
+    -> Parser (BackendTask error (Response data errorPage))
 withBasicAuth checkAuth successResponse =
     Request.optionalHeader "authorization"
         |> Request.map
@@ -110,18 +111,18 @@ withBasicAuth checkAuth successResponse =
                 case base64Auth |> Maybe.andThen parseAuth of
                     Just userPass ->
                         checkAuth userPass
-                            |> DataSource.andThen
+                            |> BackendTask.andThen
                                 (\authSucceeded ->
                                     if authSucceeded then
                                         successResponse
 
                                     else
-                                        requireBasicAuth |> DataSource.succeed
+                                        requireBasicAuth |> BackendTask.succeed
                                 )
 
                     Nothing ->
                         requireBasicAuth
-                            |> DataSource.succeed
+                            |> BackendTask.succeed
             )
 
 

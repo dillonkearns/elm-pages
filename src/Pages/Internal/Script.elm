@@ -1,7 +1,8 @@
 module Pages.Internal.Script exposing (Script(..))
 
+import BackendTask exposing (BackendTask)
 import Cli.Program as Program
-import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Html exposing (Html)
 
 
@@ -12,5 +13,5 @@ type Script
           -> Html Never
           -> String
          )
-         -> Program.Config (DataSource ())
+         -> Program.Config (BackendTask Throwable ())
         )

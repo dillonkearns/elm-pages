@@ -64,10 +64,11 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 -}
 
 import ApiRoute
+import BackendTask exposing (BackendTask)
 import Color exposing (Color)
 import Color.Convert
-import DataSource exposing (DataSource)
 import Dict exposing (Dict)
+import Exception exposing (Throwable)
 import Head
 import Json.Encode as Encode
 import LanguageTag exposing (LanguageTag, emptySubtags)
@@ -344,16 +345,16 @@ nonEmptyList list =
 
 {-| A generator for Api.elm to include a manifest.json.
 -}
-generator : String -> DataSource Config -> ApiRoute.ApiRoute ApiRoute.Response
+generator : String -> BackendTask Throwable Config -> ApiRoute.ApiRoute ApiRoute.Response
 generator canonicalSiteUrl config =
     ApiRoute.succeed
         (config
-            |> DataSource.map (toJson canonicalSiteUrl >> Encode.encode 0)
+            |> BackendTask.map (toJson canonicalSiteUrl >> Encode.encode 0)
         )
         |> ApiRoute.literal "manifest.json"
         |> ApiRoute.single
         |> ApiRoute.withGlobalHeadTags
-            (DataSource.succeed
+            (BackendTask.succeed
                 [ Head.manifestLink "/manifest.json"
                 ]
             )

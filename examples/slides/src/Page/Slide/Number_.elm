@@ -2,8 +2,8 @@ module Page.Slide.Number_ exposing (Data, Model, Msg, page)
 
 import Browser.Events
 import Browser.Navigation
-import DataSource
-import DataSource.File
+import BackendTask
+import BackendTask.File
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -38,7 +38,7 @@ page =
         { head = head
         , pages =
             slideCount
-                |> DataSource.map
+                |> BackendTask.map
                     (\count ->
                         List.range 1 count
                             |> List.map String.fromInt
@@ -113,18 +113,18 @@ toDirection string =
             Nothing
 
 
-data : RouteParams -> DataSource.DataSource Data
+data : RouteParams -> BackendTask.BackendTask Data
 data routeParams =
-    DataSource.map2 Data
+    BackendTask.map2 Data
         (slideBody routeParams)
         slideCount
 
 
-slideBody : RouteParams -> DataSource.DataSource (List (Html.Html Msg))
+slideBody : RouteParams -> BackendTask.BackendTask (List (Html.Html Msg))
 slideBody route =
-    DataSource.File.read
+    BackendTask.File.read
         "slides.md"
-        (DataSource.File.body
+        (BackendTask.File.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->
                     case rawBody |> Markdown.Parser.parse of
@@ -146,10 +146,10 @@ slideBody route =
         )
 
 
-slideCount : DataSource.DataSource Int
+slideCount : BackendTask.BackendTask Int
 slideCount =
-    DataSource.File.read "slides.md"
-        (DataSource.File.body
+    BackendTask.File.read "slides.md"
+        (BackendTask.File.body
             |> OptimizedDecoder.andThen
                 (\rawBody ->
                     case rawBody |> Markdown.Parser.parse of

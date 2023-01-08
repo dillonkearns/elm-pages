@@ -1,7 +1,9 @@
 module Route.FileData exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.File
+import BackendTask exposing (BackendTask)
+import BackendTask.File
+import BuildError exposing (BuildError)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
@@ -44,11 +46,12 @@ type alias Data =
     }
 
 
-data : DataSource Data
+data : BackendTask Throwable Data
 data =
     "my-json-data.json"
-        |> DataSource.File.jsonFile (Decode.field "greeting" Decode.string)
-        |> DataSource.map Data
+        |> BackendTask.File.jsonFile (Decode.field "greeting" Decode.string)
+        |> BackendTask.throw
+        |> BackendTask.map Data
 
 
 head :

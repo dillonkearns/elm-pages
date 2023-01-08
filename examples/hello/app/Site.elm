@@ -1,6 +1,6 @@
 module Site exposing (config)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Head
 import SiteConfig exposing (SiteConfig)
 
@@ -12,8 +12,8 @@ config =
     }
 
 
-head : DataSource (List Head.Tag)
+head : BackendTask (List Head.Tag)
 head =
     [ Head.sitemapLink "/sitemap.xml"
     ]
-        |> DataSource.succeed
+        |> BackendTask.succeed

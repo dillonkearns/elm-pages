@@ -1,6 +1,6 @@
 module Route.PasswordConfirmation exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -83,12 +83,12 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
-    Request.succeed (DataSource.succeed (Response.render Data))
+    Request.succeed (BackendTask.succeed (Response.render Data))
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.formData (dependentParser |> Form.initCombined identity)
         |> Request.map
@@ -97,7 +97,7 @@ action routeParams =
                     _ =
                         Debug.log "parsedForm" parsedForm
                 in
-                DataSource.succeed
+                BackendTask.succeed
                     (Response.render ActionData)
             )
 

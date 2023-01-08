@@ -6,12 +6,13 @@ module Pages.Internal.Platform.Cli exposing (Flags, Model, Msg(..), Program, cli
 
 -}
 
+import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Encode
 import Codec
-import DataSource exposing (DataSource)
 import Dict
+import Exception exposing (Throwable)
 import Head exposing (Tag)
 import Html exposing (Html)
 import HtmlPrinter
@@ -50,7 +51,7 @@ currentCompatibilityKey =
 
 {-| -}
 type alias Model route =
-    { staticResponses : DataSource Effect
+    { staticResponses : BackendTask Throwable Effect
     , errors : List BuildError
     , allRawResponses : RequestsAndPending
     , maybeRequestJson : RenderRequest route
@@ -60,12 +61,7 @@ type alias Model route =
 
 {-| -}
 type Msg
-    = GotDataBatch
-        (List
-            { request : Pages.StaticHttp.Request.Request
-            , response : RequestsAndPending.Response
-            }
-        )
+    = GotDataBatch Decode.Value
     | GotBuildError BuildError
 
 
@@ -153,33 +149,9 @@ cliApplication config =
                                         )
                                     |> mergeResult
                             )
-                    , config.gotBatchSub
-                        |> Sub.map
-                            (\newBatch ->
-                                Decode.decodeValue batchDecoder newBatch
-                                    |> Result.map GotDataBatch
-                                    |> Result.mapError
-                                        (\error ->
-                                            ("From location 2: "
-                                                ++ (error
-                                                        |> Decode.errorToString
-                                                   )
-                                            )
-                                                |> BuildError.internal
-                                                |> GotBuildError
-                                        )
-                                    |> mergeResult
-                            )
+                    , config.gotBatchSub |> Sub.map GotDataBatch
                     ]
         }
-
-
-batchDecoder : Decode.Decoder (List { request : Pages.StaticHttp.Request.Request, response : RequestsAndPending.Response })
-batchDecoder =
-    Decode.map2 (\request response -> { request = request, response = response })
-        (Decode.field "request" requestDecoder)
-        (Decode.field "response" RequestsAndPending.decoder)
-        |> Decode.list
 
 
 mergeResult : Result a a -> a
@@ -239,7 +211,7 @@ perform site renderRequest config effect =
             flatten site renderRequest config list
 
         Effect.FetchHttp unmasked ->
-            ToJsPayload.DoHttp unmasked unmasked.useCache
+            ToJsPayload.DoHttp (Pages.StaticHttp.Request.hash unmasked) unmasked
                 |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                 |> config.toJsPort
                 |> Cmd.map never
@@ -294,15 +266,8 @@ flagsDecoder =
             , compatibilityKey = compatibilityKey
             }
         )
-        --(Decode.field "staticHttpCache"
-        --    (Decode.dict
-        --        (Decode.string
-        --            |> Decode.map Just
-        --        )
-        --    )
-        --)
         -- TODO remove hardcoding and decode staticHttpCache here
-        (Decode.succeed Dict.empty)
+        (Decode.succeed (Json.Encode.object []))
         (Decode.field "mode" Decode.string |> Decode.map (\mode -> mode == "dev-server"))
         (Decode.field "compatibilityKey" Decode.int)
 
@@ -345,7 +310,7 @@ init site renderRequest config flags =
                           , path = ""
                           }
                         ]
-                    , allRawResponses = Dict.empty
+                    , allRawResponses = Json.Encode.object []
                     , maybeRequestJson = renderRequest
                     , isDevServer = False
                     }
@@ -360,7 +325,7 @@ init site renderRequest config flags =
                       , path = ""
                       }
                     ]
-                , allRawResponses = Dict.empty
+                , allRawResponses = Json.Encode.object []
                 , maybeRequestJson = renderRequest
                 , isDevServer = False
                 }
@@ -414,11 +379,11 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { isDevServer } config =
     let
-        globalHeadTags : DataSource (List Tag)
+        globalHeadTags : BackendTask Throwable (List Tag)
         globalHeadTags =
-            (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
+            (config.globalHeadTags |> Maybe.withDefault (\_ -> BackendTask.succeed [])) HtmlPrinter.htmlToString
 
-        staticResponsesNew : DataSource Effect
+        staticResponsesNew : BackendTask Throwable Effect
         staticResponsesNew =
             StaticResponses.renderApiRequest
                 (case singleRequest of
@@ -446,21 +411,21 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                             config.handleRoute serverRequestPayload.frontmatter
 
                          else
-                            DataSource.succeed Nothing
+                            BackendTask.succeed Nothing
                         )
-                            |> DataSource.andThen
+                            |> BackendTask.andThen
                                 (\pageFound ->
                                     case pageFound of
                                         Nothing ->
                                             --sendSinglePageProgress site model.allRawResponses config model payload
                                             (case isAction of
                                                 Just _ ->
-                                                    config.action (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter |> DataSource.map Just
+                                                    config.action (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter |> BackendTask.map Just
 
                                                 Nothing ->
-                                                    DataSource.succeed Nothing
+                                                    BackendTask.succeed Nothing
                                             )
-                                                |> DataSource.andThen
+                                                |> BackendTask.andThen
                                                     (\something ->
                                                         let
                                                             actionHeaders2 : Maybe { statusCode : Int, headers : List ( String, String ) }
@@ -478,7 +443,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                     _ ->
                                                                         Nothing
                                                         in
-                                                        DataSource.map3
+                                                        BackendTask.map3
                                                             (\pageData sharedData tags ->
                                                                 let
                                                                     renderedResult : Effect
@@ -740,11 +705,11 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                 isDevServer
                                                 serverRequestPayload.path
                                                 notFoundReason
-                                                |> DataSource.succeed
+                                                |> BackendTask.succeed
                                 )
 
                     RenderRequest.Api ( path, ApiRoute apiHandler ) ->
-                        DataSource.map2
+                        BackendTask.map2
                             (\response _ ->
                                 case response of
                                     Just okResponse ->
@@ -777,7 +742,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                             globalHeadTags
 
                     RenderRequest.NotFound notFoundPath ->
-                        (DataSource.map2
+                        (BackendTask.map2
                             (\_ _ ->
                                 render404Page config
                                     Nothing
@@ -787,7 +752,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                     notFoundPath
                                     NotFoundReason.NoMatchingRoute
                             )
-                            (DataSource.succeed [])
+                            (BackendTask.succeed [])
                             globalHeadTags
                          -- TODO is there a way to resolve sharedData but get it as a Result if it fails?
                          --config.sharedData
@@ -798,7 +763,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
         initialModel =
             { staticResponses = staticResponsesNew
             , errors = []
-            , allRawResponses = Dict.empty
+            , allRawResponses = Json.Encode.object []
             , maybeRequestJson = renderRequest
             , isDevServer = isDevServer
             }

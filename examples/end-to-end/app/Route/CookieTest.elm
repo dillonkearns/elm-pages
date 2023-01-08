@@ -1,13 +1,12 @@
 module Route.CookieTest exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
-import Head.Seo as Seo
 import Html.Styled exposing (text)
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
@@ -45,16 +44,16 @@ type alias Data =
     { darkMode : Maybe String }
 
 
-data : RouteParams -> Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.expectCookie "dark-mode"
             |> Request.map
                 (\darkMode ->
-                    DataSource.succeed (Response.render { darkMode = Just darkMode })
+                    BackendTask.succeed (Response.render { darkMode = Just darkMode })
                 )
         , Request.succeed
-            (DataSource.succeed (Response.render { darkMode = Nothing }))
+            (BackendTask.succeed (Response.render { darkMode = Nothing }))
         ]
 
 

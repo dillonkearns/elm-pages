@@ -2,6 +2,7 @@ module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..)
 
 import BuildError exposing (BuildError)
 import Dict
+import Json.Encode
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
@@ -12,10 +13,9 @@ type alias MockResolver =
     -> Maybe RequestsAndPending.Response
 
 
-type RawRequest value
-    = Request (List Pages.StaticHttp.Request.Request) (Maybe MockResolver -> RequestsAndPending -> RawRequest value)
-    | RequestError Error
-    | ApiRoute value
+type RawRequest error value
+    = Request (List Pages.StaticHttp.Request.Request) (Maybe MockResolver -> RequestsAndPending -> RawRequest error value)
+    | ApiRoute (Result error value)
 
 
 type Error
@@ -38,37 +38,31 @@ toBuildError path error =
         UserCalledStaticHttpFail decodeErrorMessage ->
             { title = "Called Static Http Fail"
             , message =
-                [ Terminal.text <| "I ran into a call to `DataSource.fail` with message: " ++ decodeErrorMessage
+                [ Terminal.text <| "I ran into a call to `BackendTask.fail` with message: " ++ decodeErrorMessage
                 ]
             , path = path
             , fatal = True
             }
 
 
-mockResolve : RawRequest value -> MockResolver -> Result Error value
+mockResolve : RawRequest error value -> MockResolver -> Result error value
 mockResolve request mockResolver =
     case request of
-        RequestError error ->
-            Err error
-
         Request _ lookupFn ->
-            case lookupFn (Just mockResolver) Dict.empty of
+            case lookupFn (Just mockResolver) (Json.Encode.object []) of
                 nextRequest ->
                     mockResolve nextRequest mockResolver
 
         ApiRoute value ->
-            Ok value
+            value
 
 
 cacheRequestResolution :
-    RawRequest value
+    RawRequest error value
     -> RequestsAndPending
-    -> Status value
+    -> Status error value
 cacheRequestResolution request rawResponses =
     case request of
-        RequestError _ ->
-            cacheRequestResolutionHelp [] rawResponses request
-
         Request urlList lookupFn ->
             if List.isEmpty urlList then
                 cacheRequestResolutionHelp urlList rawResponses (lookupFn Nothing rawResponses)
@@ -80,27 +74,19 @@ cacheRequestResolution request rawResponses =
             Complete value
 
 
-type Status value
-    = Incomplete (List Pages.StaticHttp.Request.Request) (RawRequest value)
+type Status error value
+    = Incomplete (List Pages.StaticHttp.Request.Request) (RawRequest error value)
     | HasPermanentError Error
-    | Complete value
+    | Complete (Result error value)
 
 
 cacheRequestResolutionHelp :
     List Pages.StaticHttp.Request.Request
     -> RequestsAndPending
-    -> RawRequest value
-    -> Status value
+    -> RawRequest error value
+    -> Status error value
 cacheRequestResolutionHelp foundUrls rawResponses request =
     case request of
-        RequestError error ->
-            case error of
-                DecoderError _ ->
-                    HasPermanentError error
-
-                UserCalledStaticHttpFail _ ->
-                    HasPermanentError error
-
         Request urlList lookupFn ->
             if (urlList ++ foundUrls) |> List.isEmpty then
                 cacheRequestResolutionHelp

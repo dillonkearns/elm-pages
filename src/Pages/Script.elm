@@ -3,6 +3,7 @@ module Pages.Script exposing
     , withCliOptions, withoutCliOptions
     , writeFile
     , log
+    , Error(..)
     )
 
 {-|
@@ -21,13 +22,19 @@ module Pages.Script exposing
 
 @docs log
 
+
+## Errors
+
+@docs Error
+
 -}
 
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Request
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
-import DataSource exposing (DataSource)
-import DataSource.Http
-import DataSource.Internal.Request
+import Exception exposing (Catchable, Throwable)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
@@ -39,38 +46,46 @@ type alias Script =
 
 
 {-| -}
-writeFile : { path : String, body : String } -> DataSource ()
+type Error
+    = --TODO make more descriptive
+      FileWriteError
+
+
+{-| -}
+writeFile : { path : String, body : String } -> BackendTask (Catchable Error) ()
 writeFile { path, body } =
-    DataSource.Internal.Request.request
+    BackendTask.Internal.Request.request
         { name = "write-file"
         , body =
-            DataSource.Http.jsonBody
+            BackendTask.Http.jsonBody
                 (Encode.object
                     [ ( "path", Encode.string path )
                     , ( "body", Encode.string body )
                     ]
                 )
-        , expect = DataSource.Http.expectJson (Decode.succeed ())
+        , expect =
+            -- TODO decode possible error details here
+            BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
 {-| -}
-log : String -> DataSource ()
+log : String -> BackendTask error ()
 log message =
-    DataSource.Internal.Request.request
+    BackendTask.Internal.Request.request
         { name = "log"
         , body =
-            DataSource.Http.jsonBody
+            BackendTask.Http.jsonBody
                 (Encode.object
                     [ ( "message", Encode.string message )
                     ]
                 )
-        , expect = DataSource.Http.expectJson (Decode.succeed ())
+        , expect = BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
 {-| -}
-withoutCliOptions : DataSource () -> Script
+withoutCliOptions : BackendTask Throwable () -> Script
 withoutCliOptions execute =
     Pages.Internal.Script.Script
         (\_ ->
@@ -85,7 +100,7 @@ withoutCliOptions execute =
 
 
 {-| -}
-withCliOptions : Program.Config cliOptions -> (cliOptions -> DataSource ()) -> Script
+withCliOptions : Program.Config cliOptions -> (cliOptions -> BackendTask Throwable ()) -> Script
 withCliOptions config execute =
     Pages.Internal.Script.Script
         (\_ ->

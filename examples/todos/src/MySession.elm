@@ -1,8 +1,8 @@
 module MySession exposing (..)
 
+import BackendTask exposing (BackendTask)
+import BackendTask.Env as Env
 import Codec
-import DataSource exposing (DataSource)
-import DataSource.Env as Env
 import Route
 import Server.Request exposing (Parser)
 import Server.Response exposing (Response)
@@ -18,32 +18,32 @@ cookieOptions =
 
 
 withSession :
-    (request -> Result Session.NotLoadedReason Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Result Session.NotLoadedReason Session.Session -> BackendTask ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data errorPage))
+    -> Parser (BackendTask (Response data errorPage))
 withSession =
     Session.withSession
         { name = "mysession"
-        , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
+        , secrets = Env.expect "SESSION_SECRET" |> BackendTask.map List.singleton
         , options = cookieOptions
         }
 
 
 withSessionOrRedirect :
-    (request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> BackendTask ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data errorPage))
+    -> Parser (BackendTask (Response data errorPage))
 withSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
-        , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
+        , secrets = Env.expect "SESSION_SECRET" |> BackendTask.map List.singleton
         , options = cookieOptions
         }
         (\request sessionResult ->
             sessionResult
                 |> Result.map (toRequest request)
                 |> Result.withDefault
-                    (DataSource.succeed
+                    (BackendTask.succeed
                         ( Session.empty
                         , Route.redirectTo Route.Login
                         )
@@ -53,20 +53,20 @@ withSessionOrRedirect toRequest handler =
 
 
 expectSessionOrRedirect :
-    (request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> BackendTask ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data errorPage))
+    -> Parser (BackendTask (Response data errorPage))
 expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
-        , secrets = Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
+        , secrets = Env.expect "SESSION_SECRET" |> BackendTask.map List.singleton
         , options = cookieOptions
         }
         (\request sessionResult ->
             sessionResult
                 |> Result.map (toRequest request)
                 |> Result.withDefault
-                    (DataSource.succeed
+                    (BackendTask.succeed
                         ( Session.empty
                         , Route.redirectTo Route.Login
                         )
@@ -77,9 +77,9 @@ expectSessionOrRedirect toRequest handler =
 
 expectSessionDataOrRedirect :
     (Session.Session -> Maybe parsedSession)
-    -> (parsedSession -> request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    -> (parsedSession -> request -> Session.Session -> BackendTask ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data errorPage))
+    -> Parser (BackendTask (Response data errorPage))
 expectSessionDataOrRedirect parseSessionData handler toRequest =
     toRequest
         |> expectSessionOrRedirect
@@ -89,7 +89,7 @@ expectSessionDataOrRedirect parseSessionData handler toRequest =
                         handler parsedSession parsedRequest session
 
                     Nothing ->
-                        DataSource.succeed
+                        BackendTask.succeed
                             ( session
                             , Route.redirectTo Route.Login
                             )

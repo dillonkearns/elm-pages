@@ -3,7 +3,7 @@
 - Pre-render routes to HTML
 - Hydrate to a full Elm app, with client-side navigation after initial load
 - A file-based router
-- `DataSource`s allow you to pull data in to a given page and have it available before load
+- `BackendTask`s allow you to pull data in to a given page and have it available before load
 - A nice type-safe API for SEO
 - Generate files, like RSS, sitemaps, podcast feeds, or any other strings you can output with pure Elm
 
@@ -17,7 +17,7 @@
 
 ### The dev server
 
-`elm-pages dev` gives you a dev server with hot module replacement built-in. It even reloads your `DataSource`s any time you change them.
+`elm-pages dev` gives you a dev server with hot module replacement built-in. It even reloads your `BackendTask`s any time you change them.
 
 ## The elm-pages philosophy
 
@@ -31,7 +31,7 @@ Many frameworks provide features like
 
 You can do all those things with `elm-pages`, but using the core building blocks
 
-- The DataSources API lets you read from a file, parse frontmatter, and more. `elm-pages` helps you get the data.
+- The BackendTasks API lets you read from a file, parse frontmatter, and more. `elm-pages` helps you get the data.
 - The data you get from any of those data sources is just typed Elm data. You decide what it means and how to use it.
 
 The goal of `elm-pages` is to get nicely typed data from the right sources (HTTP, files, structured formats like JSON, markdown, etc.), and get that data to the right places in order to build an optimized site with good SEO.
@@ -91,7 +91,7 @@ You build the `page` using a builder chain, adding complexity as needed. You can
 ```elm
 module Page.Hello.Name_ exposing (Model, Msg, StaticData, page)
 
-import DataSource
+import BackendTask
 import View exposing (View)
 import Head
 import Head.Seo as Seo
@@ -112,7 +112,7 @@ page : Page Route StaticData
 page =
     Page.noStaticData
         { head = head
-        , staticRoutes = DataSource.succeed [ { name = "world" } ]
+        , staticRoutes = BackendTask.succeed [ { name = "world" } ]
         }
         |> Page.buildNoState { view = view }
 
@@ -131,9 +131,9 @@ view static =
     }
 ```
 
-## `DataSource`s
+## `BackendTask`s
 
-It doesn't matter _where_ a `DataSource` came from.
+It doesn't matter _where_ a `BackendTask` came from.
 
 For example, if you have
 
@@ -143,43 +143,43 @@ type alias Author =
     , avatarUrl : String
     }
 
-authors : DataSource (List Author)
+authors : BackendTask (List Author)
 ```
 
 It makes no difference where that data came from. In fact, let's define it as hardcoded data:
 
 ```elm
-hardcodedAuthors : DataSource (List Author)
+hardcodedAuthors : BackendTask (List Author)
 hardcodedAuthors =
-    DataSource.succeed [
+    BackendTask.succeed [
         { name = "Dillon Kearns"
         , avatarUrl = "/avatars/dillon.jpg"
         }
     ]
 ```
 
-We could swap that out to get the data from another source at any time. Like this HTTP DataSource.
+We could swap that out to get the data from another source at any time. Like this HTTP BackendTask.
 
 ```elm
-authorsFromCms : DataSource (List Author)
+authorsFromCms : BackendTask (List Author)
 authorsFromCms =
-    DataSource.Http.get (Secrets.succeed "mycms.com/authors")
+    BackendTask.Http.get (Secrets.succeed "mycms.com/authors")
         authorsDecoder
 ```
 
 Notice that the type signature hasn't changed. The end result will be data that is available when our page loads.
 
-In fact, let's combine our library of authors from 3 different `DataSource`s.
+In fact, let's combine our library of authors from 3 different `BackendTask`s.
 
 ```elm
-authorsFromFile : DataSource (List Author)
+authorsFromFile : BackendTask (List Author)
 authorsFromFile =
-    DataSource.File.read "data/authors.json"
+    BackendTask.File.read "data/authors.json"
         authorsDecoder
 
-allAuthors : DataSource (List Author)
+allAuthors : BackendTask (List Author)
 allAuthors =
-    DataSource.map3 (\authors1 authors2 authors3 ->
+    BackendTask.map3 (\authors1 authors2 authors3 ->
         List.concat [ authors1, authors2, authors3 ]
     )
     authorsFromFile
@@ -187,11 +187,11 @@ allAuthors =
     hardcodedAuthors
 ```
 
-So how does the data get there? Let's take a look at the lifecycle of a DataSource.
+So how does the data get there? Let's take a look at the lifecycle of a BackendTask.
 
-### The `DataSource` Lifecycle
+### The `BackendTask` Lifecycle
 
-A `DataSource` is split between two phases:
+A `BackendTask` is split between two phases:
 
 1. Build step - build up the data for a given page
 2. Decode the data - it's available without reading files or making HTTP requests from the build step
@@ -211,11 +211,11 @@ For example, the GitHub API returns back dozens of fields in this API response, 
 
 ```elm
 import OptimizedDecoder
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 
-staticData : DataSource Int
+staticData : BackendTask Int
 staticData =
-    DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+    BackendTask.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (OptimizedDecoder.field "stargazers_count" OptimizedDecoder.int)
 ```
 

@@ -1,4 +1,4 @@
-module DataSource.Glob exposing
+module BackendTask.Glob exposing
     ( Glob
     , capture, match
     , captureFilePath
@@ -9,8 +9,8 @@ module DataSource.Glob exposing
     , map, succeed
     , oneOf
     , zeroOrMore, atLeastOne
-    , toDataSource
-    , toDataSourceWithOptions
+    , toBackendTask
+    , toBackendTaskWithOptions
     , defaultOptions, Options, Include(..)
     )
 
@@ -18,23 +18,23 @@ module DataSource.Glob exposing
 
 @docs Glob
 
-This module helps you get a List of matching file paths from your local file system as a [`DataSource`](DataSource#DataSource). See the [`DataSource`](DataSource) module documentation
-for ways you can combine and map `DataSource`s.
+This module helps you get a List of matching file paths from your local file system as a [`BackendTask`](BackendTask#BackendTask). See the [`BackendTask`](BackendTask) module documentation
+for ways you can combine and map `BackendTask`s.
 
 A common example would be to find all the markdown files of your blog posts. If you have all your blog posts in `content/blog/*.md`
 , then you could use that glob pattern in most shells to refer to each of those files.
 
-With the `DataSource.Glob` API, you could get all of those files like so:
+With the `BackendTask.Glob` API, you could get all of those files like so:
 
-    import DataSource exposing (DataSource)
+    import BackendTask exposing (BackendTask)
 
-    blogPostsGlob : DataSource (List String)
+    blogPostsGlob : BackendTask (List String)
     blogPostsGlob =
         Glob.succeed (\slug -> slug)
             |> Glob.match (Glob.literal "content/blog/")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
 Let's say you have these files locally:
 
@@ -47,11 +47,11 @@ Let's say you have these files locally:
     - second-post.md
 ```
 
-We would end up with a `DataSource` like this:
+We would end up with a `BackendTask` like this:
 
-    DataSource.succeed [ "first-post", "second-post" ]
+    BackendTask.succeed [ "first-post", "second-post" ]
 
-Of course, if you add or remove matching files, the DataSource will get those new files (unlike `DataSource.succeed`). That's why we have Glob!
+Of course, if you add or remove matching files, the BackendTask will get those new files (unlike `BackendTask.succeed`). That's why we have Glob!
 
 You can even see the `elm-pages dev` server will automatically flow through any added/removed matching files with its hot module reloading.
 
@@ -66,10 +66,10 @@ There are two functions for building up a Glob pattern: `capture` and `match`.
 `capture` and `match` both build up a `Glob` pattern that will match 0 or more files on your local file system.
 There will be one argument for every `capture` in your pipeline, whereas `match` does not apply any arguments.
 
-    import DataSource exposing (DataSource)
-    import DataSource.Glob as Glob
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Glob as Glob
 
-    blogPostsGlob : DataSource (List String)
+    blogPostsGlob : BackendTask (List String)
     blogPostsGlob =
         Glob.succeed (\slug -> slug)
             -- no argument from this, but we will only
@@ -81,7 +81,7 @@ There will be one argument for every `capture` in your pipeline, whereas `match`
             -- no argument from this, but we will only
             -- match files that end with `.md`
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
 So to understand _which_ files will match, you can ignore whether you are using `capture` or `match` and just read
 the patterns you're using in order to understand what will match. To understand what Elm data type you will get
@@ -94,10 +94,10 @@ used in the function you use in `Glob.succeed`.
 
 Let's try our blogPostsGlob from before, but change every `match` to `capture`.
 
-    import DataSource exposing (DataSource)
+    import BackendTask exposing (BackendTask)
 
     blogPostsGlob :
-        DataSource
+        BackendTask
             (List
                 { filePath : String
                 , slug : String
@@ -113,15 +113,15 @@ Let's try our blogPostsGlob from before, but change every `match` to `capture`.
             |> Glob.capture (Glob.literal "content/blog/")
             |> Glob.capture Glob.wildcard
             |> Glob.capture (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
 Notice that we now need 3 arguments at the start of our pipeline instead of 1. That's because
 we apply 1 more argument every time we do a `Glob.capture`, much like `Json.Decode.Pipeline.required`, or other pipeline APIs.
 
 Now we actually have the full file path of our files. But having that slug (like `first-post`) is also very helpful sometimes, so
-we kept that in our record as well. So we'll now have the equivalent of this `DataSource` with the current `.md` files in our `blog` folder:
+we kept that in our record as well. So we'll now have the equivalent of this `BackendTask` with the current `.md` files in our `blog` folder:
 
-    DataSource.succeed
+    BackendTask.succeed
         [ { filePath = "content/blog/first-post.md"
           , slug = "first-post"
           }
@@ -152,23 +152,23 @@ title: My First Post
 This is my first post!
 ```
 
-Then we could read that title for our blog post list page using our `blogPosts` `DataSource` that we defined above.
+Then we could read that title for our blog post list page using our `blogPosts` `BackendTask` that we defined above.
 
-    import DataSource.File
+    import BackendTask.File
     import Json.Decode as Decode exposing (Decoder)
 
-    titles : DataSource (List BlogPost)
+    titles : BackendTask (List BlogPost)
     titles =
         blogPosts
-            |> DataSource.map
+            |> BackendTask.map
                 (List.map
                     (\blogPost ->
-                        DataSource.File.request
+                        BackendTask.File.request
                             blogPost.filePath
-                            (DataSource.File.frontmatter blogFrontmatterDecoder)
+                            (BackendTask.File.frontmatter blogFrontmatterDecoder)
                     )
                 )
-            |> DataSource.resolve
+            |> BackendTask.resolve
 
     type alias BlogPost =
         { title : String }
@@ -180,7 +180,7 @@ Then we could read that title for our blog post list page using our `blogPosts` 
 
 That will give us
 
-    DataSource.succeed
+    BackendTask.succeed
         [ { title = "My First Post" }
         , { title = "My Second Post" }
         ]
@@ -212,23 +212,24 @@ That will give us
 @docs zeroOrMore, atLeastOne
 
 
-## Getting Glob Data from a DataSource
+## Getting Glob Data from a BackendTask
 
-@docs toDataSource
+@docs toBackendTask
 
 
 ### With Custom Options
 
-@docs toDataSourceWithOptions
+@docs toBackendTaskWithOptions
 
 @docs defaultOptions, Options, Include
 
 -}
 
-import DataSource exposing (DataSource)
-import DataSource.Http
-import DataSource.Internal.Glob exposing (Glob(..))
-import DataSource.Internal.Request
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Glob exposing (Glob(..))
+import BackendTask.Internal.Request
+import Exception exposing (Catchable, Throwable)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
@@ -237,7 +238,7 @@ import List.Extra
 {-| A pattern to match local files and capture parts of the path into a nice Elm data type.
 -}
 type alias Glob a =
-    DataSource.Internal.Glob.Glob a
+    BackendTask.Internal.Glob.Glob a
 
 
 {-| A `Glob` can be mapped. This can be useful for transforming a sub-match in-place.
@@ -245,26 +246,26 @@ type alias Glob a =
 For example, if you wanted to take the slugs for a blog post and make sure they are normalized to be all lowercase, you
 could use
 
-    import DataSource exposing (DataSource)
-    import DataSource.Glob as Glob
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Glob as Glob
 
-    blogPostsGlob : DataSource (List String)
+    blogPostsGlob : BackendTask (List String)
     blogPostsGlob =
         Glob.succeed (\slug -> slug)
             |> Glob.match (Glob.literal "content/blog/")
             |> Glob.capture (Glob.wildcard |> Glob.map String.toLower)
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
-If you want to validate file formats, you can combine that with some `DataSource` helpers to turn a `Glob (Result String value)` into
-a `DataSource (List value)`.
+If you want to validate file formats, you can combine that with some `BackendTask` helpers to turn a `Glob (Result String value)` into
+a `BackendTask (List value)`.
 
 For example, you could take a date and parse it.
 
-    import DataSource exposing (DataSource)
-    import DataSource.Glob as Glob
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Glob as Glob
 
-    example : DataSource (List ( String, String ))
+    example : BackendTask (List ( String, String ))
     example =
         Glob.succeed
             (\dateResult slug ->
@@ -276,9 +277,9 @@ For example, you could take a date and parse it.
             |> Glob.match (Glob.literal "/")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
-            |> DataSource.map (List.map DataSource.fromResult)
-            |> DataSource.resolve
+            |> Glob.toBackendTask
+            |> BackendTask.map (List.map BackendTask.fromResult)
+            |> BackendTask.resolve
 
     expectDateFormat : List String -> Result String String
     expectDateFormat dateParts =
@@ -317,11 +318,11 @@ fullFilePath =
 
 {-|
 
-    import DataSource exposing (DataSource)
-    import DataSource.Glob as Glob
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Glob as Glob
 
     blogPosts :
-        DataSource
+        BackendTask
             (List
                 { filePath : String
                 , slug : String
@@ -338,7 +339,7 @@ fullFilePath =
             |> Glob.match (Glob.literal "content/blog/")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
 This function does not change which files will or will not match. It just gives you the full matching
 file path in your `Glob` pipeline.
@@ -357,8 +358,8 @@ where you can run commands like `rm client/*.js` to remove all `.js` files in th
 Just like a `*` glob pattern in bash, this `Glob.wildcard` function will only match within a path part. If you need to
 match 0 or more path parts like, see `recursiveWildcard`.
 
-    import DataSource exposing (DataSource)
-    import DataSource.Glob as Glob
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Glob as Glob
 
     type alias BlogPost =
         { year : String
@@ -367,7 +368,7 @@ match 0 or more path parts like, see `recursiveWildcard`.
         , slug : String
         }
 
-    example : DataSource (List BlogPost)
+    example : BackendTask (List BlogPost)
     example =
         Glob.succeed BlogPost
             |> Glob.match (Glob.literal "blog/")
@@ -379,7 +380,7 @@ match 0 or more path parts like, see `recursiveWildcard`.
             |> Glob.match (Glob.literal "/")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
 ```shell
 
@@ -390,9 +391,9 @@ match 0 or more path parts like, see `recursiveWildcard`.
 
 That will match to:
 
-    results : DataSource (List BlogPost)
+    results : BackendTask (List BlogPost)
     results =
-        DataSource.succeed
+        BackendTask.succeed
             [ { year = "2021"
               , month = "05"
               , day = "27"
@@ -439,16 +440,16 @@ digits =
 
 Leading 0's are ignored.
 
-    import DataSource exposing (DataSource)
-    import DataSource.Glob as Glob
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Glob as Glob
 
-    slides : DataSource (List Int)
+    slides : BackendTask (List Int)
     slides =
         Glob.succeed identity
             |> Glob.match (Glob.literal "slide-")
             |> Glob.capture Glob.int
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
 With files
 
@@ -471,9 +472,9 @@ With files
 
 Yields
 
-    matches : DataSource (List Int)
+    matches : BackendTask (List Int)
     matches =
-        DataSource.succeed
+        BackendTask.succeed
             [ 1
             , 1
             , 2
@@ -509,10 +510,10 @@ In contrast, `wildcard` will never match `/`, so it only matches within a single
 
 This is the elm-pages equivalent of `**/*.txt` in standard shell syntax:
 
-    import DataSource exposing (DataSource)
-    import DataSource.Glob as Glob
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Glob as Glob
 
-    example : DataSource (List ( List String, String ))
+    example : BackendTask (List ( List String, String ))
     example =
         Glob.succeed Tuple.pair
             |> Glob.match (Glob.literal "articles/")
@@ -520,7 +521,7 @@ This is the elm-pages equivalent of `**/*.txt` in standard shell syntax:
             |> Glob.match (Glob.literal "/")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal ".txt")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
 With these files:
 
@@ -536,9 +537,9 @@ With these files:
 
 We would get the following matches:
 
-    matches : DataSource (List ( List String, String ))
+    matches : BackendTask (List ( List String, String ))
     matches =
-        DataSource.succeed
+        BackendTask.succeed
             [ ( [ "archive", "1977", "06", "10" ], "apple-2-announced" )
             , ( [], "google-io-2021-recap" )
             ]
@@ -551,16 +552,16 @@ And also note that it matches 0 path parts into an empty list.
 If we didn't include the `wildcard` after the `recursiveWildcard`, then we would only get
 a single level of matches because it is followed by a file extension.
 
-    example : DataSource (List String)
+    example : BackendTask (List String)
     example =
         Glob.succeed identity
             |> Glob.match (Glob.literal "articles/")
             |> Glob.capture Glob.recursiveWildcard
             |> Glob.match (Glob.literal ".txt")
 
-    matches : DataSource (List String)
+    matches : BackendTask (List String)
     matches =
-        DataSource.succeed
+        BackendTask.succeed
             [ "google-io-2021-recap"
             ]
 
@@ -615,8 +616,8 @@ Some common uses include
   - In-between wildcards, to say "these dynamic parts are separated by `/`"
 
 ```elm
-import DataSource exposing (DataSource)
-import DataSource.Glob as Glob
+import BackendTask exposing (BackendTask)
+import BackendTask.Glob as Glob
 
 blogPosts =
     Glob.succeed
@@ -676,7 +677,7 @@ Exactly the same as `match` except it also captures the matched sub-pattern.
         , slug : String
         }
 
-    archives : DataSource ArchivesArticle
+    archives : BackendTask ArchivesArticle
     archives =
         Glob.succeed ArchivesArticle
             |> Glob.match (Glob.literal "archive/")
@@ -688,13 +689,13 @@ Exactly the same as `match` except it also captures the matched sub-pattern.
             |> Glob.match (Glob.literal "/")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
 The file `archive/1977/06/10/apple-2-released.md` will give us this match:
 
     matches : List ArchivesArticle
     matches =
-        DataSource.succeed
+        BackendTask.succeed
             [ { year = 1977
               , month = 6
               , day = 10
@@ -732,7 +733,7 @@ capture (Glob matcherPattern apply1) (Glob pattern apply2) =
 
 {-|
 
-    import DataSource.Glob as Glob
+    import BackendTask.Glob as Glob
 
     type Extension
         = Json
@@ -743,7 +744,7 @@ capture (Glob matcherPattern apply1) (Glob pattern apply2) =
         , extension : String
         }
 
-    dataFiles : DataSource (List DataFile)
+    dataFiles : BackendTask (List DataFile)
     dataFiles =
         Glob.succeed DataFile
             |> Glob.match (Glob.literal "my-data/")
@@ -767,9 +768,9 @@ If we have the following files
 
 That gives us
 
-    results : DataSource (List DataFile)
+    results : BackendTask (List DataFile)
     results =
-        DataSource.succeed
+        BackendTask.succeed
             [ { name = "authors"
               , extension = Yml
               }
@@ -780,7 +781,7 @@ That gives us
 
 You could also match an optional file path segment using `oneOf`.
 
-    rootFilesMd : DataSource (List String)
+    rootFilesMd : BackendTask (List String)
     rootFilesMd =
         Glob.succeed (\slug -> slug)
             |> Glob.match (Glob.literal "blog/")
@@ -792,7 +793,7 @@ You could also match an optional file path segment using `oneOf`.
                     )
                 )
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
 With these files:
 
@@ -805,9 +806,9 @@ With these files:
 
 This would give us:
 
-    results : DataSource (List String)
+    results : BackendTask (List String)
     results =
-        DataSource.succeed
+        BackendTask.succeed
             [ "first-post"
             , "second-post"
             ]
@@ -874,7 +875,7 @@ atLeastOne ( defaultMatch, otherMatchers ) =
                       --        |> Maybe.withDefault (defaultMatch |> Tuple.second)
                       --  , []
                       --  )
-                      DataSource.Internal.Glob.extractMatches (defaultMatch |> Tuple.second) allMatchers match_
+                      BackendTask.Internal.Glob.extractMatches (defaultMatch |> Tuple.second) allMatchers match_
                         |> toNonEmptyWithDefault (defaultMatch |> Tuple.second)
                     , rest
                     )
@@ -894,11 +895,11 @@ toNonEmptyWithDefault default list =
             ( default, [] )
 
 
-{-| In order to get match data from your glob, turn it into a `DataSource` with this function.
+{-| In order to get match data from your glob, turn it into a `BackendTask` with this function.
 -}
-toDataSource : Glob a -> DataSource (List a)
-toDataSource glob =
-    toDataSourceWithOptions defaultOptions glob
+toBackendTask : Glob a -> BackendTask error (List a)
+toBackendTask glob =
+    toBackendTaskWithOptions defaultOptions glob
 
 
 {-| <https://github.com/mrmlnc/fast-glob#onlyfiles>
@@ -912,7 +913,7 @@ type Include
     | FilesAndFolders
 
 
-{-| Custom options you can pass in to run the glob with [`toDataSourceWithOptions`](#toDataSourceWithOptions).
+{-| Custom options you can pass in to run the glob with [`toBackendTaskWithOptions`](#toBackendTaskWithOptions).
 
     { includeDotFiles = Bool -- https://github.com/mrmlnc/fast-glob#dot
     , include = Include -- return results that are `OnlyFiles`, `OnlyFolders`, or both `FilesAndFolders` (default is `OnlyFiles`)
@@ -933,7 +934,7 @@ type alias Options =
     }
 
 
-{-| The default options used in [`toDataSource`](#toDataSource). To use a custom set of options, use [`toDataSourceWithOptions`](#toDataSourceWithOptions).
+{-| The default options used in [`toBackendTask`](#toBackendTask). To use a custom set of options, use [`toBackendTaskWithOptions`](#toBackendTaskWithOptions).
 -}
 defaultOptions : Options
 defaultOptions =
@@ -960,26 +961,26 @@ encodeOptions options =
         |> Encode.object
 
 
-{-| Same as toDataSource, but lets you set custom glob options. For example, to list folders instead of files,
+{-| Same as toBackendTask, but lets you set custom glob options. For example, to list folders instead of files,
 
-    import DataSource.Glob as Glob exposing (OnlyFolders, defaultOptions)
+    import BackendTask.Glob as Glob exposing (OnlyFolders, defaultOptions)
 
-    matchingFiles : Glob a -> DataSource (List a)
+    matchingFiles : Glob a -> BackendTask (List a)
     matchingFiles glob =
         glob
-            |> Glob.toDataSourceWithOptions { defaultOptions | include = OnlyFolders }
+            |> Glob.toBackendTaskWithOptions { defaultOptions | include = OnlyFolders }
 
 -}
-toDataSourceWithOptions : Options -> Glob a -> DataSource (List a)
-toDataSourceWithOptions options glob =
-    DataSource.Internal.Request.request
+toBackendTaskWithOptions : Options -> Glob a -> BackendTask error (List a)
+toBackendTaskWithOptions options glob =
+    BackendTask.Internal.Request.request
         { name = "glob"
         , body =
             Encode.object
-                [ ( "pattern", Encode.string <| DataSource.Internal.Glob.toPattern glob )
+                [ ( "pattern", Encode.string <| BackendTask.Internal.Glob.toPattern glob )
                 , ( "options", encodeOptions options )
                 ]
-                |> DataSource.Http.jsonBody
+                |> BackendTask.Http.jsonBody
         , expect =
             Decode.map2 (\fullPath captures -> { fullPath = fullPath, captures = captures })
                 (Decode.field "fullPath" Decode.string)
@@ -990,24 +991,26 @@ toDataSourceWithOptions options glob =
                         rawGlob
                             |> List.map
                                 (\{ fullPath, captures } ->
-                                    DataSource.Internal.Glob.run fullPath captures glob
+                                    BackendTask.Internal.Glob.run fullPath captures glob
                                         |> .match
                                 )
                     )
-                |> DataSource.Http.expectJson
+                |> BackendTask.Http.expectJson
         }
+        |> BackendTask.onError
+            (\_ -> BackendTask.succeed [])
 
 
 {-| Sometimes you want to make sure there is a unique file matching a particular pattern.
-This is a simple helper that will give you a `DataSource` error if there isn't exactly 1 matching file.
+This is a simple helper that will give you a `BackendTask` error if there isn't exactly 1 matching file.
 If there is exactly 1, then you successfully get back that single match.
 
 For example, maybe you can have
 
-    import DataSource exposing (DataSource)
-    import DataSource.Glob as Glob
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Glob as Glob
 
-    findBlogBySlug : String -> DataSource String
+    findBlogBySlug : String -> BackendTask String
     findBlogBySlug slug =
         Glob.succeed identity
             |> Glob.captureFilePath
@@ -1032,9 +1035,9 @@ If we used `findBlogBySlug "first-post"` with these files:
 
 This would give us:
 
-    results : DataSource String
+    results : BackendTask String
     results =
-        DataSource.succeed "blog/first-post/index.md"
+        BackendTask.succeed "blog/first-post/index.md"
 
 If we used `findBlogBySlug "first-post"` with these files:
 
@@ -1045,47 +1048,53 @@ If we used `findBlogBySlug "first-post"` with these files:
         - index.md
 ```
 
-Then we will get a `DataSource` error saying `More than one file matched.` Keep in mind that `DataSource` failures
+Then we will get a `BackendTask` error saying `More than one file matched.` Keep in mind that `BackendTask` failures
 in build-time routes will cause a build failure, giving you the opportunity to fix the problem before users see the issue,
 so it's ideal to make this kind of assertion rather than having fallback behavior that could silently cover up
 issues (like if we had instead ignored the case where there are two or more matching blog post files).
 
 -}
-expectUniqueMatch : Glob a -> DataSource a
+expectUniqueMatch : Glob a -> BackendTask (Catchable String) a
 expectUniqueMatch glob =
     glob
-        |> toDataSource
-        |> DataSource.andThen
+        |> toBackendTask
+        |> BackendTask.andThen
             (\matchingFiles ->
                 case matchingFiles of
                     [ file ] ->
-                        DataSource.succeed file
+                        BackendTask.succeed file
 
                     [] ->
-                        DataSource.fail <| "No files matched the pattern: " ++ toPatternString glob
+                        BackendTask.fail <|
+                            Exception.fromStringWithValue
+                                ("No files matched the pattern: " ++ toPatternString glob)
+                                ("No files matched the pattern: " ++ toPatternString glob)
 
                     _ ->
-                        DataSource.fail "More than one file matched."
+                        BackendTask.fail <|
+                            Exception.fromStringWithValue
+                                "More than one file matched."
+                                "More than one file matched."
             )
 
 
 {-| -}
-expectUniqueMatchFromList : List (Glob a) -> DataSource a
+expectUniqueMatchFromList : List (Glob a) -> BackendTask String a
 expectUniqueMatchFromList globs =
     globs
-        |> List.map toDataSource
-        |> DataSource.combine
-        |> DataSource.andThen
+        |> List.map toBackendTask
+        |> BackendTask.combine
+        |> BackendTask.andThen
             (\matchingFiles ->
                 case List.concat matchingFiles of
                     [ file ] ->
-                        DataSource.succeed file
+                        BackendTask.succeed file
 
                     [] ->
-                        DataSource.fail <| "No files matched the patterns: " ++ (globs |> List.map toPatternString |> String.join ", ")
+                        BackendTask.fail <| "No files matched the patterns: " ++ (globs |> List.map toPatternString |> String.join ", ")
 
                     _ ->
-                        DataSource.fail "More than one file matched."
+                        BackendTask.fail "More than one file matched."
             )
 
 

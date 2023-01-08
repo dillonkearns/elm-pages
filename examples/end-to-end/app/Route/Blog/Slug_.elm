@@ -1,6 +1,7 @@
 module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Pages.Msg
@@ -37,18 +38,18 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource (List RouteParams)
+pages : BackendTask Throwable (List RouteParams)
 pages =
-    DataSource.succeed []
+    BackendTask.succeed []
 
 
 type alias Data =
     {}
 
 
-data : RouteParams -> DataSource Data
+data : RouteParams -> BackendTask Throwable Data
 data routeParams =
-    DataSource.succeed {}
+    BackendTask.succeed {}
 
 
 head :

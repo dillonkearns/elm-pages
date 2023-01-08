@@ -1,6 +1,6 @@
 module Route.Search exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Form
@@ -98,13 +98,13 @@ list =
     ]
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.formData (form |> Form.initCombined identity)
             |> Request.map
                 (\formResult ->
-                    DataSource.succeed
+                    BackendTask.succeed
                         (Response.render
                             { results =
                                 formResult
@@ -119,7 +119,7 @@ data routeParams =
                             }
                         )
                 )
-        , Request.succeed (DataSource.succeed (Response.render { results = Nothing }))
+        , Request.succeed (BackendTask.succeed (Response.render { results = Nothing }))
         ]
 
 
@@ -168,7 +168,7 @@ errorsForField formState field =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.skip "No action."
 

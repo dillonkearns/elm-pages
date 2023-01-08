@@ -1,27 +1,27 @@
-module Request.Fauna exposing (dataSource, mutationDataSource)
+module Request.Fauna exposing (backendTask, mutationBackendTask)
 
-import DataSource exposing (DataSource)
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import Graphql.Document
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Encode as Encode
 
 
-dataSource : String -> SelectionSet value RootQuery -> DataSource value
-dataSource timeStamp selectionSet =
-    DataSource.Http.request
+backendTask : String -> SelectionSet value RootQuery -> BackendTask value
+backendTask timeStamp selectionSet =
+    BackendTask.Http.request
         { url =
             faunaUrl
                 -- for now, this timestamp invalidates the dev server cache
-                -- it would be helpful to have a way to mark a DataSource as uncached. Maybe only allow
+                -- it would be helpful to have a way to mark a BackendTask as uncached. Maybe only allow
                 -- from server-rendered pages?
                 ++ "?time="
                 ++ timeStamp
         , method = "POST"
         , headers = [ ( "authorization", faunaAuthValue ) ]
         , body =
-            DataSource.Http.jsonBody
+            BackendTask.Http.jsonBody
                 (Encode.object
                     [ ( "query"
                       , selectionSet
@@ -33,18 +33,18 @@ dataSource timeStamp selectionSet =
         }
         (selectionSet
             |> Graphql.Document.decoder
-            |> DataSource.Http.expectJson
+            |> BackendTask.Http.expectJson
         )
 
 
-mutationDataSource : String -> SelectionSet value RootMutation -> DataSource value
-mutationDataSource timeStamp selectionSet =
-    DataSource.Http.request
+mutationBackendTask : String -> SelectionSet value RootMutation -> BackendTask value
+mutationBackendTask timeStamp selectionSet =
+    BackendTask.Http.request
         { url = faunaUrl ++ "?time=" ++ timeStamp
         , method = "POST"
         , headers = [ ( "authorization", faunaAuthValue ) ]
         , body =
-            DataSource.Http.jsonBody
+            BackendTask.Http.jsonBody
                 (Encode.object
                     [ ( "query"
                       , selectionSet
@@ -56,7 +56,7 @@ mutationDataSource timeStamp selectionSet =
         }
         (selectionSet
             |> Graphql.Document.decoder
-            |> DataSource.Http.expectJson
+            |> BackendTask.Http.expectJson
         )
 
 

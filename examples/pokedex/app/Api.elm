@@ -1,8 +1,8 @@
 module Api exposing (routes)
 
 import ApiRoute exposing (ApiRoute)
-import DataSource exposing (DataSource)
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
@@ -16,7 +16,7 @@ import Site
 
 
 routes :
-    DataSource (List Route)
+    BackendTask (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
@@ -30,7 +30,7 @@ routes getStaticRoutes htmlToString =
 
     --, greet
     , fileLength
-    , DataSource.succeed manifest |> Manifest.generator Site.canonicalUrl
+    , BackendTask.succeed manifest |> Manifest.generator Site.canonicalUrl
     ]
 
 
@@ -53,7 +53,7 @@ routes getStaticRoutes htmlToString =
 --            |> Server.Request.map
 --                (\firstName ->
 --                    Server.Response.plainText ("Hello " ++ firstName)
---                        |> DataSource.succeed
+--                        |> BackendTask.succeed
 --                )
 --        )
 --        |> ApiRoute.literal "api"
@@ -86,7 +86,7 @@ fileLength =
                               )
                             ]
                         )
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
         )
         |> ApiRoute.literal "api"
@@ -99,7 +99,7 @@ redirectRoute : ApiRoute ApiRoute.Response
 redirectRoute =
     ApiRoute.succeed
         (Server.Request.succeed
-            (DataSource.succeed
+            (BackendTask.succeed
                 (Route.redirectTo Route.Index)
             )
         )
@@ -113,10 +113,10 @@ noArgs : ApiRoute ApiRoute.Response
 noArgs =
     ApiRoute.succeed
         (Server.Request.succeed
-            (DataSource.Http.get
+            (BackendTask.Http.get
                 "https://api.github.com/repos/dillonkearns/elm-pages"
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
-                |> DataSource.map
+                |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
                             [ ( "repo", Json.Encode.string "elm-pages" )
@@ -135,10 +135,10 @@ noArgs =
 nonHybridRoute =
     ApiRoute.succeed
         (\repoName ->
-            DataSource.Http.get
+            BackendTask.Http.get
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
-                |> DataSource.map
+                |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
                             [ ( "repo", Json.Encode.string repoName )
@@ -152,7 +152,7 @@ nonHybridRoute =
         |> ApiRoute.capture
         |> ApiRoute.preRender
             (\route ->
-                DataSource.succeed
+                BackendTask.succeed
                     [ route "elm-graphql"
                     ]
             )
@@ -164,7 +164,7 @@ logout =
         (MySession.withSession
             (Server.Request.succeed ())
             (\() sessionResult ->
-                DataSource.succeed
+                BackendTask.succeed
                     ( Session.empty
                     , Route.redirectTo Route.Login
                     )
@@ -181,10 +181,10 @@ repoStars =
     ApiRoute.succeed
         (\repoName ->
             Server.Request.succeed
-                (DataSource.Http.get
+                (BackendTask.Http.get
                     ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                     (Json.Decode.field "stargazers_count" Json.Decode.int)
-                    |> DataSource.map
+                    |> BackendTask.map
                         (\stars ->
                             Json.Encode.object
                                 [ ( "repo", Json.Encode.string repoName )
@@ -207,10 +207,10 @@ repoStars2 : ApiRoute ApiRoute.Response
 repoStars2 =
     ApiRoute.succeed
         (\repoName ->
-            DataSource.Http.get
+            BackendTask.Http.get
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
-                |> DataSource.map
+                |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
                             [ ( "repo", Json.Encode.string repoName )
@@ -226,7 +226,7 @@ repoStars2 =
         |> ApiRoute.capture
         |> ApiRoute.preRenderWithFallback
             (\route ->
-                DataSource.succeed
+                BackendTask.succeed
                     [ route "elm-graphql"
                     , route "elm-pages"
                     ]
@@ -236,10 +236,10 @@ repoStars2 =
 route1 =
     ApiRoute.succeed
         (\repoName ->
-            DataSource.Http.get
+            BackendTask.Http.get
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
-                |> DataSource.map
+                |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
                             [ ( "repo", Json.Encode.string repoName )

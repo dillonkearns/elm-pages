@@ -5,12 +5,12 @@ module ApiRoute exposing
     , ApiRoute, ApiRouteBuilder, Response
     , capture, literal, slash, succeed
     , withGlobalHeadTags
-    , toJson, getBuildTimeRoutes, getGlobalHeadTagsDataSource
+    , toJson, getBuildTimeRoutes, getGlobalHeadTagsBackendTask
     )
 
 {-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files, like RSS feeds, sitemaps, or any text-based file that you output with an Elm function! You get access
-to a DataSource so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
-the DataSource for your ApiRoutes, and it won't effect the payload size. Instead, the size of an ApiRoute is just the content you output for that route.
+to a BackendTask so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
+the BackendTask for your ApiRoutes, and it won't effect the payload size. Instead, the size of an ApiRoute is just the content you output for that route.
 
 Similar to your elm-pages Route Modules, ApiRoute's can be either server-rendered or pre-rendered. Let's compare the differences between pre-rendered and server-rendered ApiRoutes, and the different
 use cases they support.
@@ -25,7 +25,7 @@ A pre-rendered ApiRoute is just a generated file. For example:
   - A redirect file for a hosting provider like Netlify
 
 You could even generate a JavaScript file, an Elm file, or any file with a String body! It's really just a way to generate files, which are typically used to serve files to a user or Browser, but you execute them, copy them, etc. The only limit is your imagination!
-The beauty is that you have a way to 1) pull in type-safe data using DataSource's, and 2) write those files, and all in pure Elm!
+The beauty is that you have a way to 1) pull in type-safe data using BackendTask's, and 2) write those files, and all in pure Elm!
 
 @docs single, preRender
 
@@ -62,11 +62,11 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
     module Api exposing (routes)
 
     import ApiRoute
-    import DataSource exposing (DataSource)
+    import BackendTask exposing (BackendTask)
     import Server.Request
 
     routes :
-        DataSource (List Route)
+        BackendTask (List Route)
         -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
         -> List (ApiRoute.ApiRoute ApiRoute.Response)
     routes getStaticRoutes htmlToString =
@@ -89,7 +89,7 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
     preRenderedExample =
         ApiRoute.succeed
             (\userId ->
-                DataSource.succeed
+                BackendTask.succeed
                     (Json.Encode.object
                         [ ( "id", Json.Encode.string userId )
                         , ( "name", "Data for user " ++ userId |> Json.Encode.string )
@@ -103,7 +103,7 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
             |> ApiRoute.literal ".json"
             |> ApiRoute.preRender
                 (\route ->
-                    DataSource.succeed
+                    BackendTask.succeed
                         [ route "1"
                         , route "2"
                         , route "3"
@@ -144,7 +144,7 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
                           )
                         ]
                         |> Response.json
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
                 Server.Request.rawBody
                 Server.Request.method
@@ -168,11 +168,12 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
 
 ## Internals
 
-@docs toJson, getBuildTimeRoutes, getGlobalHeadTagsDataSource
+@docs toJson, getBuildTimeRoutes, getGlobalHeadTagsBackendTask
 
 -}
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
+import Exception exposing (Throwable)
 import Head
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Json.Decode as Decode
@@ -189,16 +190,16 @@ type alias ApiRoute response =
 
 
 {-| Same as [`preRender`](#preRender), but for an ApiRoute that has no dynamic segments. This is just a bit simpler because
-since there are no dynamic segments, you don't need to provide a DataSource with the list of dynamic segments to pre-render because there is only a single possible route.
+since there are no dynamic segments, you don't need to provide a BackendTask with the list of dynamic segments to pre-render because there is only a single possible route.
 -}
-single : ApiRouteBuilder (DataSource String) (List String) -> ApiRoute Response
+single : ApiRouteBuilder (BackendTask Throwable String) (List String) -> ApiRoute Response
 single handler =
     handler
-        |> preRender (\constructor -> DataSource.succeed [ constructor ])
+        |> preRender (\constructor -> BackendTask.succeed [ constructor ])
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Parser (DataSource (Server.Response.Response Never Never))) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Parser (BackendTask Never (Server.Response.Response Never Never))) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
@@ -206,40 +207,48 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
             \serverRequest path ->
                 Internal.ApiRoute.tryMatch path fullHandler
                     |> Maybe.map
-                        (\toDataSource ->
-                            Server.Request.getDecoder toDataSource
+                        (\toBackendTask ->
+                            Server.Request.getDecoder toBackendTask
                                 |> (\decoder ->
                                         Decode.decodeValue decoder serverRequest
                                             |> Result.mapError Decode.errorToString
-                                            |> DataSource.fromResult
-                                            |> DataSource.map Just
+                                            |> BackendTask.fromResult
+                                            |> BackendTask.map Just
                                    )
-                                |> DataSource.andThen
+                                |> BackendTask.onError
+                                    (\stringError ->
+                                        -- TODO make error with title and better context/formatting
+                                        Exception.fromString stringError |> BackendTask.fail
+                                    )
+                                |> BackendTask.andThen
                                     (\rendered ->
                                         case rendered of
                                             Just (Ok okRendered) ->
                                                 okRendered
+                                                    |> BackendTask.onError never
 
                                             Just (Err errors) ->
                                                 errors
                                                     |> Server.Request.errorsToString
                                                     |> Server.Response.plainText
                                                     |> Server.Response.withStatusCode 400
-                                                    |> DataSource.succeed
+                                                    |> BackendTask.succeed
+                                                    |> BackendTask.onError never
 
                                             Nothing ->
                                                 Server.Response.plainText "No matching request handler"
                                                     |> Server.Response.withStatusCode 400
-                                                    |> DataSource.succeed
+                                                    |> BackendTask.succeed
+                                                    |> BackendTask.onError never
                                     )
                         )
-                    |> Maybe.map (DataSource.map (Server.Response.toJson >> Just))
+                    |> Maybe.map (BackendTask.map (Server.Response.toJson >> Just))
                     |> Maybe.withDefault
-                        (DataSource.succeed Nothing)
-        , buildTimeRoutes = DataSource.succeed []
+                        (BackendTask.succeed Nothing)
+        , buildTimeRoutes = BackendTask.succeed []
         , handleRoute =
             \path ->
-                DataSource.succeed
+                BackendTask.succeed
                     (case Internal.ApiRoute.tryMatch path fullHandler of
                         Just _ ->
                             True
@@ -254,26 +263,26 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
 
 
 {-| -}
-preRenderWithFallback : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource (Server.Response.Response Never Never)) constructor -> ApiRoute Response
+preRenderWithFallback : (constructor -> BackendTask Throwable (List (List String))) -> ApiRouteBuilder (BackendTask Throwable (Server.Response.Response Never Never)) constructor -> ApiRoute Response
 preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
-        buildTimeRoutes__ : DataSource (List String)
+        buildTimeRoutes__ : BackendTask Throwable (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
-                |> DataSource.map (List.map toString)
+                |> BackendTask.map (List.map toString)
     in
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
             \_ path ->
                 Internal.ApiRoute.tryMatch path fullHandler
-                    |> Maybe.map (DataSource.map (Server.Response.toJson >> Just))
+                    |> Maybe.map (BackendTask.map (Server.Response.toJson >> Just))
                     |> Maybe.withDefault
-                        (DataSource.succeed Nothing)
+                        (BackendTask.succeed Nothing)
         , buildTimeRoutes = buildTimeRoutes__
         , handleRoute =
             \path ->
-                DataSource.succeed
+                BackendTask.succeed
                     (case Internal.ApiRoute.tryMatch path fullHandler of
                         Just _ ->
                             True
@@ -296,15 +305,15 @@ encodeStaticFileBody fileBody =
 
 
 {-| -}
-preRender : (constructor -> DataSource (List (List String))) -> ApiRouteBuilder (DataSource String) constructor -> ApiRoute Response
+preRender : (constructor -> BackendTask Throwable (List (List String))) -> ApiRouteBuilder (BackendTask Throwable String) constructor -> ApiRoute Response
 preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
-        buildTimeRoutes__ : DataSource (List String)
+        buildTimeRoutes__ : BackendTask Throwable (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
-                |> DataSource.map (List.map toString)
+                |> BackendTask.map (List.map toString)
 
-        preBuiltMatches : DataSource (List (List String))
+        preBuiltMatches : BackendTask Throwable (List (List String))
         preBuiltMatches =
             buildUrls (constructor [])
     in
@@ -317,21 +326,21 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
                     matches =
                         Internal.ApiRoute.pathToMatches path fullHandler
 
-                    routeFound : DataSource Bool
+                    routeFound : BackendTask Throwable Bool
                     routeFound =
                         preBuiltMatches
-                            |> DataSource.map (List.member matches)
+                            |> BackendTask.map (List.member matches)
                 in
                 routeFound
-                    |> DataSource.andThen
+                    |> BackendTask.andThen
                         (\found ->
                             if found then
                                 Internal.ApiRoute.tryMatch path fullHandler
-                                    |> Maybe.map (DataSource.map (encodeStaticFileBody >> Just))
-                                    |> Maybe.withDefault (DataSource.succeed Nothing)
+                                    |> Maybe.map (BackendTask.map (encodeStaticFileBody >> Just))
+                                    |> Maybe.withDefault (BackendTask.succeed Nothing)
 
                             else
-                                DataSource.succeed Nothing
+                                BackendTask.succeed Nothing
                         )
         , buildTimeRoutes = buildTimeRoutes__
         , handleRoute =
@@ -342,7 +351,7 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
                         Internal.ApiRoute.pathToMatches path fullHandler
                 in
                 preBuiltMatches
-                    |> DataSource.map (List.member matches)
+                    |> BackendTask.map (List.member matches)
         , pattern = patterns
         , kind = "prerender"
         , globalHeadTags = Nothing
@@ -425,25 +434,19 @@ capture (ApiRouteBuilder patterns pattern previousHandler toString constructor) 
 
 {-| For internal use by generated code. Not so useful in user-land.
 -}
-getBuildTimeRoutes : ApiRoute response -> DataSource (List String)
+getBuildTimeRoutes : ApiRoute response -> BackendTask Throwable (List String)
 getBuildTimeRoutes (ApiRoute handler) =
     handler.buildTimeRoutes
 
 
 {-| Include head tags on every page's HTML.
 -}
-withGlobalHeadTags : DataSource (List Head.Tag) -> ApiRoute response -> ApiRoute response
+withGlobalHeadTags : BackendTask Throwable (List Head.Tag) -> ApiRoute response -> ApiRoute response
 withGlobalHeadTags globalHeadTags (ApiRoute handler) =
     ApiRoute { handler | globalHeadTags = Just globalHeadTags }
 
 
 {-| -}
-getGlobalHeadTagsDataSource : ApiRoute response -> Maybe (DataSource (List Head.Tag))
-getGlobalHeadTagsDataSource (ApiRoute handler) =
+getGlobalHeadTagsBackendTask : ApiRoute response -> Maybe (BackendTask Throwable (List Head.Tag))
+getGlobalHeadTagsBackendTask (ApiRoute handler) =
     handler.globalHeadTags
-
-
-
---captureRest : ApiRouteBuilder (List String -> a) b -> ApiRouteBuilder a b
---captureRest previousHandler =
---    Debug.todo ""

@@ -1,7 +1,8 @@
 module Site exposing (canonicalUrl, config)
 
+import BackendTask exposing (BackendTask)
 import Cloudinary
-import DataSource exposing (DataSource)
+import Exception exposing (Throwable)
 import Head
 import MimeType
 import Pages.Url
@@ -15,7 +16,7 @@ config =
     }
 
 
-head : DataSource (List Head.Tag)
+head : BackendTask Throwable (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
@@ -27,7 +28,7 @@ head =
     , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
     , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
     ]
-        |> DataSource.succeed
+        |> BackendTask.succeed
 
 
 canonicalUrl : String

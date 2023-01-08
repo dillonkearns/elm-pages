@@ -1,6 +1,7 @@
 module Route.Slide exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource
+import BackendTask
+import Exception
 import Head
 import Head.Seo as Seo
 import Pages.Msg
@@ -31,7 +32,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
-        , data = DataSource.succeed {}
+        , data = BackendTask.succeed {}
         }
         |> RouteBuilder.buildNoState { view = view }
 

@@ -1,6 +1,6 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
 import Form
 import Form.Field as Field
@@ -67,7 +67,7 @@ form =
         |> Form.field "name" (Field.text |> Field.required "Required")
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ MySession.withSession
@@ -92,7 +92,7 @@ data routeParams =
                             )
                         )
                 )
-                    |> DataSource.succeed
+                    |> BackendTask.succeed
             )
         , MySession.withSession
             (Request.succeed ())
@@ -111,14 +111,14 @@ data routeParams =
                             flashMessage
                             |> Response.render
                         )
-                            |> DataSource.succeed
+                            |> BackendTask.succeed
 
                     _ ->
                         ( Session.empty
                         , { username = Nothing, flashMessage = Nothing }
                             |> Response.render
                         )
-                            |> DataSource.succeed
+                            |> BackendTask.succeed
             )
         ]
 

@@ -1,88 +1,83 @@
 module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), batchUpdate, empty, nextStep, renderApiRequest)
 
+import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
-import DataSource exposing (DataSource)
-import Dict
+import Exception exposing (Catchable(..), Throwable)
+import Json.Decode as Decode
 import List.Extra
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
+import TerminalText
 
 
-empty : a -> DataSource a
+empty : a -> BackendTask Throwable a
 empty a =
-    DataSource.succeed a
+    BackendTask.succeed a
 
 
 renderApiRequest :
-    DataSource response
-    -> DataSource response
+    BackendTask Throwable response
+    -> BackendTask Throwable response
 renderApiRequest request =
     request
 
 
 batchUpdate :
-    List
-        { request : HashRequest.Request
-        , response : RequestsAndPending.Response
+    Decode.Value
+    ->
+        { model
+            | allRawResponses : Decode.Value
         }
     ->
         { model
-            | allRawResponses : RequestsAndPending
-        }
-    ->
-        { model
-            | allRawResponses : RequestsAndPending
+            | allRawResponses : Decode.Value
         }
 batchUpdate newEntries model =
-    { model
-        | allRawResponses =
-            newEntries
-                |> List.map
-                    (\{ request, response } ->
-                        ( HashRequest.hash request
-                        , response
-                        )
-                    )
-                |> Dict.fromList
-    }
+    { model | allRawResponses = newEntries }
 
 
 type NextStep route value
-    = Continue (List HashRequest.Request) (StaticHttpRequest.RawRequest value)
+    = Continue (List HashRequest.Request) (StaticHttpRequest.RawRequest Throwable value)
     | Finish value
     | FinishedWithErrors (List BuildError)
 
 
 nextStep :
     { model
-        | staticResponses : DataSource a
+        | staticResponses : BackendTask Throwable a
         , errors : List BuildError
         , allRawResponses : RequestsAndPending
     }
     -> NextStep route a
 nextStep ({ allRawResponses, errors } as model) =
     let
-        staticRequestsStatus : StaticHttpRequest.Status a
+        staticRequestsStatus : StaticHttpRequest.Status Throwable a
         staticRequestsStatus =
             allRawResponses
                 |> StaticHttpRequest.cacheRequestResolution model.staticResponses
 
-        ( ( pendingRequests, completedValue ), urlsToPerform, progressedDataSource ) =
+        ( ( pendingRequests, completedValue ), urlsToPerform, progressedBackendTask ) =
             case staticRequestsStatus of
                 StaticHttpRequest.Incomplete newUrlsToFetch nextReq ->
                     ( ( True, Nothing ), newUrlsToFetch, nextReq )
 
-                StaticHttpRequest.Complete value ->
-                    ( ( False, Just value )
+                StaticHttpRequest.Complete (Err error) ->
+                    ( ( False, Just (Err error) )
                     , []
-                    , DataSource.succeed value
+                    , BackendTask.fail error
+                    )
+
+                StaticHttpRequest.Complete (Ok value) ->
+                    ( ( False, Just (Ok value) )
+                    , []
+                    , BackendTask.succeed value
                     )
 
                 StaticHttpRequest.HasPermanentError _ ->
                     ( ( False, Nothing )
                     , []
-                    , DataSource.fail "TODO this shouldn't happen"
+                    , BackendTask.fail (Exception.fromString "TODO this shouldn't happen")
                     )
     in
     if pendingRequests then
@@ -92,7 +87,7 @@ nextStep ({ allRawResponses, errors } as model) =
                 urlsToPerform
                     |> List.Extra.uniqueBy HashRequest.hash
         in
-        Continue newThing progressedDataSource
+        Continue newThing progressedBackendTask
 
     else
         let
@@ -127,8 +122,17 @@ nextStep ({ allRawResponses, errors } as model) =
 
         else
             case completedValue of
-                Just completed ->
+                Just (Ok completed) ->
                     Finish completed
+
+                Just (Err (Catchable () buildError)) ->
+                    FinishedWithErrors
+                        [ { title = buildError.title |> String.toUpper
+                          , path = "" -- TODO include path here
+                          , message = buildError.body |> TerminalText.fromAnsiString
+                          , fatal = True
+                          }
+                        ]
 
                 Nothing ->
                     FinishedWithErrors

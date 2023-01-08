@@ -5,14 +5,14 @@ Lamdera hosted service. The Lamdera compiler is completely free to use and will 
 
 The reason elm-pages v3 began using the Lamdera compiler is for its automatic serialization of Elm data, which is known
 as Lamdera Wire. The Lamdera compiler is a fork of the Elm compiler which adds some functionality including Lamdera Wire. The
-elm-pages framework uses this under the hood. The DataSource `data` you define in your elm-pages Route Modules is resolved either at
+elm-pages framework uses this under the hood. The BackendTask `data` you define in your elm-pages Route Modules is resolved either at
 build-time (for pre-rendered routes, resolved when you run `elm-pages build`), or at request-time (for server-rendered routes). Imagine you
-have sensitive data that can't be exposed in your client-side app, like an API key to access data. Since DataSource's are resolved at build-time
+have sensitive data that can't be exposed in your client-side app, like an API key to access data. Since BackendTask's are resolved at build-time
 or request-time (they are NOT resolved on the client-side in the browser), you can safely use these secrets.
 
 The secrets you use to resolve that data won't end up on the client-side at all unless you include any sensitive data in your Route Module's `Data` value.
 The automatic serialization we get from the Lamdera Compiler gives us this abstraction for free. Before elm-pages v3, the `OptimizedDecoder` abstraction
-was used to serialize all data involved in resolve the DataSource. This would include any secret environment variables that were used along the way, which
+was used to serialize all data involved in resolve the BackendTask. This would include any secret environment variables that were used along the way, which
 is why elm-pages v2 had the Secrets API - to ensure that you could use sensitive values without them showing up on the client-side. Thanks to the Lamdera Compiler,
 we're able to serialize only the final value for your Route Module's `Data` (not any of the intermediary values), so the user can reason about it more easily
 and write less code. It also improves performance because we serialize the `Data` value in a binary format, reducing the transfer size.
@@ -32,7 +32,7 @@ But starting with v3, you are also able to define server-rendered routes using `
 to a request, which means that you can do things like
 
 - Check for a session cookie
-- If the session cookie is present, use a DataSource to lookup the user using an API call and server-render a page with user-specific page content
+- If the session cookie is present, use a BackendTask to lookup the user using an API call and server-render a page with user-specific page content
 - If the session cookie is absent, redirect to the login page using an HTTP 301 response code
 - Load data dynmically at request-time, so every time the page is loaded you have the latest data (compared to statically built sites that have data from the time when the site was last built)
 
@@ -62,6 +62,6 @@ But the media query will only show one at a time based on the dimensions.
 
 ## Can you define routes based on external data like a CMS or API response?
 
-Yes, with elm-pages 2.0 and later you can! For pre-rendered routes, you pass in a DataSource to pull in a list of pages to render for that route.
+Yes, with elm-pages 2.0 and later you can! For pre-rendered routes, you pass in a BackendTask to pull in a list of pages to render for that route.
 For server-rendered routes, you can choose to render a 404 page (or other error page) for routes you don't want to respond to. You can use both the
-RouteParams and a DataSource to decide whether you want to give a 404 or render the page with your resolved Data.
+RouteParams and a BackendTask to decide whether you want to give a 404 or render the page with your resolved Data.

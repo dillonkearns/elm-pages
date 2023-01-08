@@ -1,7 +1,7 @@
 module ApiRouteTests exposing (all)
 
 import ApiRoute exposing (..)
-import DataSource
+import BackendTask
 import Expect
 import Internal.ApiRoute exposing (tryMatch, withRoutes)
 import Pattern exposing (Pattern(..))
@@ -117,7 +117,7 @@ all =
                                 (\() ->
                                     ""
                                         |> Server.Response.plainText
-                                        |> DataSource.succeed
+                                        |> BackendTask.succeed
                                 )
                         )
                         |> literal "no-dynamic-segments.json"
@@ -132,7 +132,7 @@ all =
                                 (\() ->
                                     ""
                                         |> Server.Response.plainText
-                                        |> DataSource.succeed
+                                        |> BackendTask.succeed
                                 )
                         )
                         |> literal "api"
@@ -151,7 +151,7 @@ all =
                 \() ->
                     succeed
                         (\userId ->
-                            DataSource.succeed ("Data for user " ++ userId)
+                            BackendTask.succeed ("Data for user " ++ userId)
                         )
                         |> literal "users"
                         |> slash
@@ -159,7 +159,7 @@ all =
                         |> literal ".json"
                         |> preRender
                             (\route ->
-                                DataSource.succeed
+                                BackendTask.succeed
                                     [ route "100"
                                     , route "101"
                                     ]
@@ -183,7 +183,7 @@ all =
                             Server.Request.succeed ()
                                 |> Server.Request.map
                                     (\() ->
-                                        DataSource.succeed ("Data for repo " ++ repo |> Server.Response.plainText)
+                                        BackendTask.succeed ("Data for repo " ++ repo |> Server.Response.plainText)
                                     )
                         )
                         |> literal "api"

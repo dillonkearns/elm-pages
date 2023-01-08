@@ -69,7 +69,7 @@ async function run(options) {
   try {
     await ensureRequiredDirs();
     await ensureRequiredExecutables();
-    // since init/update are never called in pre-renders, and DataSource.Http is called using pure NodeJS HTTP fetching
+    // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
     // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
 
     const generateCode = codegen.generate(options.base);
@@ -141,7 +141,7 @@ async function run(options) {
     await fsPromises.writeFile("dist/template.html", processedIndexTemplate);
     await fsPromises.unlink(assetManifestPath);
 
-    const portDataSourceCompiled = esbuild
+    const portBackendTaskCompiled = esbuild
       .build({
         entryPoints: ["./port-data-source"],
         platform: "node",
@@ -160,9 +160,9 @@ async function run(options) {
         } catch (e) {}
       })
       .catch((error) => {
-        const portDataSourceFileFound =
+        const portBackendTaskFileFound =
           globby.sync("./port-data-source.*").length > 0;
-        if (portDataSourceFileFound) {
+        if (portBackendTaskFileFound) {
           // don't present error if there are no files matching port-data-source
           // if there are files matching port-data-source, warn the user in case something went wrong loading it
           console.error("Failed to start port-data-source watcher", error);
@@ -189,7 +189,7 @@ async function run(options) {
       }
       process.exit(1);
     }
-    await portDataSourceCompiled;
+    await portBackendTaskCompiled;
     const cliDone = runCli(options);
     await cliDone;
 

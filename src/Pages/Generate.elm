@@ -101,8 +101,8 @@ preRender input =
         , pages =
             input.pages
                 |> Elm.withType
-                    (Elm.Annotation.namedWith [ "DataSource" ]
-                        "DataSource"
+                    (Elm.Annotation.namedWith [ "BackendTask" ]
+                        "BackendTask"
                         [ Elm.Annotation.list <| Elm.Annotation.named [] "RouteParams"
                         ]
                     )
@@ -163,8 +163,8 @@ buildNoState definitions builder_ =
                     , msg = Alias Elm.Annotation.unit
                     , data = builder.data |> Tuple.first
                     , actionData =
-                        Elm.Annotation.namedWith [ "DataSource" ]
-                            "DataSource"
+                        Elm.Annotation.namedWith [ "BackendTask" ]
+                            "BackendTask"
                             [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
                             ]
                             |> Alias
@@ -224,8 +224,8 @@ buildWithLocalState definitions builder_ =
                     , msg = definitions.msg
                     , data = builder.data |> Tuple.first
                     , actionData =
-                        Elm.Annotation.namedWith [ "DataSource" ]
-                            "DataSource"
+                        Elm.Annotation.namedWith [ "BackendTask" ]
+                            "BackendTask"
                             [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
                             ]
                             |> Alias
@@ -285,8 +285,8 @@ buildWithSharedState definitions builder_ =
                     , msg = definitions.msg
                     , data = builder.data |> Tuple.first
                     , actionData =
-                        Elm.Annotation.namedWith [ "DataSource" ]
-                            "DataSource"
+                        Elm.Annotation.namedWith [ "BackendTask" ]
+                            "BackendTask"
                             [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
                             ]
                             |> Alias
@@ -439,8 +439,8 @@ userFunction moduleName definitions =
                                 |> Elm.withType
                                     (case definitions.action of
                                         Pages _ ->
-                                            Elm.Annotation.namedWith [ "DataSource" ]
-                                                "DataSource"
+                                            Elm.Annotation.namedWith [ "BackendTask" ]
+                                                "BackendTask"
                                                 [ Elm.Annotation.named [] "Data"
                                                 ]
 
@@ -464,8 +464,8 @@ userFunction moduleName definitions =
                                         |> Elm.withType
                                             (case definitions.action of
                                                 Pages _ ->
-                                                    Elm.Annotation.namedWith [ "DataSource" ]
-                                                        "DataSource"
+                                                    Elm.Annotation.namedWith [ "BackendTask" ]
+                                                        "BackendTask"
                                                         [ Elm.Annotation.named [] "Data"
                                                         ]
 
@@ -556,8 +556,8 @@ userFunction moduleName definitions =
                                 { data =
                                     dataFn.call []
                                         |> Elm.withType
-                                            (Elm.Annotation.namedWith [ "DataSource" ]
-                                                "DataSource"
+                                            (Elm.Annotation.namedWith [ "BackendTask" ]
+                                                "BackendTask"
                                                 [ Elm.Annotation.named [] "Data"
                                                 ]
                                             )
@@ -571,8 +571,8 @@ userFunction moduleName definitions =
                                     \routeParams ->
                                         dataFn.call [ routeParams ]
                                             |> Elm.withType
-                                                (Elm.Annotation.namedWith [ "DataSource" ]
-                                                    "DataSource"
+                                                (Elm.Annotation.namedWith [ "BackendTask" ]
+                                                    "BackendTask"
                                                     [ Elm.Annotation.named [] "Data"
                                                     ]
                                                 )
@@ -646,8 +646,8 @@ myType : String -> Elm.Annotation.Annotation
 myType dataType =
     Elm.Annotation.namedWith [ "Server", "Request" ]
         "Parser"
-        [ Elm.Annotation.namedWith [ "DataSource" ]
-            "DataSource"
+        [ Elm.Annotation.namedWith [ "BackendTask" ]
+            "BackendTask"
             [ Elm.Annotation.namedWith [ "Server", "Response" ]
                 "Response"
                 [ Elm.Annotation.named [] dataType
@@ -689,8 +689,8 @@ serverRender_ serverRenderArg =
                                         [ "Server", "Request" ]
                                         "Parser"
                                         [ Elm.Annotation.namedWith
-                                            [ "DataSource" ]
-                                            "DataSource"
+                                            [ "BackendTask" ]
+                                            "BackendTask"
                                             [ Elm.Annotation.namedWith
                                                 [ "Server", "Response" ]
                                                 "Response"
@@ -711,8 +711,8 @@ serverRender_ serverRenderArg =
                                         [ "Server", "Request" ]
                                         "Parser"
                                         [ Elm.Annotation.namedWith
-                                            [ "DataSource" ]
-                                            "DataSource"
+                                            [ "BackendTask" ]
+                                            "BackendTask"
                                             [ Elm.Annotation.namedWith
                                                 [ "Server", "Response" ]
                                                 "Response"
@@ -786,16 +786,16 @@ preRender_ serverRenderArg =
                               , Elm.Annotation.function
                                     [ Elm.Annotation.var "routeParams" ]
                                     (Elm.Annotation.namedWith
-                                        [ "DataSource" ]
-                                        "DataSource"
+                                        [ "BackendTask" ]
+                                        "BackendTask"
                                         [ Elm.Annotation.var "data"
                                         ]
                                     )
                               )
                             , ( "pages"
                               , Elm.Annotation.namedWith
-                                    [ "DataSource" ]
-                                    "DataSource"
+                                    [ "BackendTask" ]
+                                    "BackendTask"
                                     [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
                                     ]
                               )
@@ -850,8 +850,8 @@ single_ serverRenderArg =
                         [ Elm.Annotation.record
                             [ ( "data"
                               , Elm.Annotation.namedWith
-                                    [ "DataSource" ]
-                                    "DataSource"
+                                    [ "BackendTask" ]
+                                    "BackendTask"
                                     [ Elm.Annotation.var "data"
                                     ]
                               )

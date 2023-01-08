@@ -1,7 +1,7 @@
 module Api exposing (routes)
 
 import ApiRoute exposing (ApiRoute)
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Html exposing (Html)
 import Pages.Manifest as Manifest
 import Route exposing (Route)
@@ -9,11 +9,11 @@ import Site
 
 
 routes :
-    DataSource (List Route)
+    BackendTask (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
-    [ DataSource.succeed manifest |> Manifest.generator Site.canonicalUrl
+    [ BackendTask.succeed manifest |> Manifest.generator Site.canonicalUrl
     ]
 
 

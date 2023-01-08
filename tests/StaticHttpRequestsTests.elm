@@ -1,12 +1,13 @@
 module StaticHttpRequestsTests exposing (all)
 
 import ApiRoute
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import Bytes.Decode
 import Bytes.Encode
 import Codec
-import DataSource exposing (DataSource)
-import DataSource.Http
 import Dict
+import Exception exposing (Throwable)
 import Expect
 import Html
 import Json.Decode as JD exposing (Decoder)
@@ -34,7 +35,7 @@ all =
         [ test "initial requests are sent out" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (JsonBody
@@ -45,7 +46,7 @@ all =
             \() ->
                 startSimple
                     [ "post-1" ]
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (JsonBody
@@ -56,7 +57,7 @@ all =
             [ test "single pages that are pre-rendered" <|
                 \() ->
                     startSimple [ "post-1" ]
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder)
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
                         |> simulateHttp
                             (get "https://api.github.com/repos/dillonkearns/elm-pages")
                             (JsonBody
@@ -82,12 +83,14 @@ all =
             \() ->
                 startSimple
                     [ "post-1" ]
-                    (DataSource.map2 Tuple.pair
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
+                    (BackendTask.map2 Tuple.pair
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
                             (JD.field "stargazer_count" JD.int)
+                            |> BackendTask.throw
                         )
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
                             (JD.field "language" JD.string)
+                            |> BackendTask.throw
                         )
                     )
                     |> simulateHttp
@@ -104,10 +107,12 @@ all =
             \() ->
                 startSimple
                     [ "elm-pages" ]
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.succeed ())
-                        |> DataSource.andThen
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.succeed ())
+                        |> BackendTask.throw
+                        |> BackendTask.andThen
                             (\_ ->
-                                DataSource.Http.get "NEXT-REQUEST" (JD.succeed ())
+                                BackendTask.Http.getJson "NEXT-REQUEST" (JD.succeed ())
+                                    |> BackendTask.throw
                             )
                     )
                     |> simulateHttp
@@ -120,24 +125,24 @@ all =
 
         --, test "andThen chain avoids repeat requests" <|
         -- TODO is this test case still relevant? Need to think about the new desired functionality with caching HTTP requests given that
-        -- DataSource's can perform non-deterministic effects now.
+        -- BackendTask's can perform non-deterministic effects now.
         --    \() ->
         --        let
-        --            pokemonDetailRequest : DataSource ()
+        --            pokemonDetailRequest : BackendTask ()
         --            pokemonDetailRequest =
-        --                DataSource.Http.get
+        --                JsonBackendTask.Http.get
         --                    "https://pokeapi.co/api/v2/pokemon/"
         --                    (JD.list
         --                        (JD.field "url" JD.string
         --                            |> JD.map
         --                                (\url ->
-        --                                    DataSource.Http.get url
+        --                                    BackendTask.Http.getJson url
         --                                        (JD.field "image" JD.string)
         --                                )
         --                        )
         --                    )
-        --                    |> DataSource.resolve
-        --                    |> DataSource.map (\_ -> ())
+        --                    |> BackendTask.resolve
+        --                    |> BackendTask.map (\_ -> ())
         --        in
         --        startSimple
         --            [ "elm-pages" ]
@@ -194,10 +199,10 @@ all =
         --    \() ->
         --        start
         --            [ ( [ "elm-pages" ]
-        --              , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
+        --              , BackendTask.Http.getJson (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages") starDecoder
         --              )
         --            , ( [ "elm-pages-starter" ]
-        --              , DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
+        --              , BackendTask.Http.getJson (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages-starter") starDecoder
         --              )
         --            ]
         --            |> ProgramTest.simulateHttpOk
@@ -225,7 +230,9 @@ all =
         , test "reduced JSON is sent out" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int))
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
+                        |> BackendTask.throw
+                    )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
@@ -233,15 +240,18 @@ all =
         , test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.request
+                    (BackendTask.Http.request
                         { url = "https://api.github.com/repos/dillonkearns/elm-pages"
                         , method = "GET"
                         , headers = []
-                        , body = DataSource.Http.emptyBody
+                        , body = BackendTask.Http.emptyBody
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
                         }
-                        (DataSource.Http.expectJson
+                        (BackendTask.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
                         )
+                        |> BackendTask.throw
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -250,35 +260,41 @@ all =
         , test "plain string" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.request
+                    (BackendTask.Http.request
                         { url = "https://example.com/file.txt"
                         , method = "GET"
                         , headers = []
-                        , body = DataSource.Http.emptyBody
+                        , body = BackendTask.Http.emptyBody
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
                         }
-                        DataSource.Http.expectString
+                        BackendTask.Http.expectString
+                        |> BackendTask.throw
                     )
                     |> simulateHttp
                         { method = "GET"
                         , url = "https://example.com/file.txt"
                         , headers =
                             []
-                        , body = DataSource.Http.emptyBody
-                        , useCache = True
+                        , body = BackendTask.Http.emptyBody
+                        , cacheOptions = Nothing
                         }
                         (StringBody "This is a raw text file.")
                     |> expectSuccess []
         , test "Err in String to Result function turns into decode error" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.request
+                    (BackendTask.Http.request
                         { url = "https://example.com/file.txt"
                         , method = "GET"
                         , headers = []
-                        , body = DataSource.Http.emptyBody
+                        , body = BackendTask.Http.emptyBody
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
                         }
-                        DataSource.Http.expectString
-                        |> DataSource.map
+                        BackendTask.Http.expectString
+                        |> BackendTask.throw
+                        |> BackendTask.map
                             (\string ->
                                 if String.toUpper string == string then
                                     Ok string
@@ -286,7 +302,7 @@ all =
                                 else
                                     Err "String was not uppercased"
                             )
-                        |> DataSource.andThen DataSource.fromResult
+                        |> BackendTask.andThen (\result -> result |> Result.mapError Exception.fromString |> BackendTask.fromResult)
                     )
                     |> simulateHttp
                         (get "https://example.com/file.txt")
@@ -295,24 +311,27 @@ all =
                         "toJsPort"
                         (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
                         (expectErrorsPort
-                            """-- CALLED STATIC HTTP FAIL ----------------------------------------------------- elm-pages
+                            """-- CUSTOM ERROR ----------------------------------------------------- elm-pages
 
 
 
-I ran into a call to `DataSource.fail` with message: String was not uppercased"""
+String was not uppercased"""
                         )
         , test "POST method works" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.request
+                    (BackendTask.Http.request
                         { method = "POST"
                         , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                         , headers = []
-                        , body = DataSource.Http.emptyBody
+                        , body = BackendTask.Http.emptyBody
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
                         }
-                        (DataSource.Http.expectJson
+                        (BackendTask.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
                         )
+                        |> BackendTask.throw
                     )
                     |> simulateHttp
                         (post "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -321,11 +340,12 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
         , test "json is reduced from andThen chains" <|
             \() ->
                 startSimple []
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
-                        |> DataSource.andThen
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
+                        |> BackendTask.andThen
                             (\_ ->
-                                DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
+                                BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
                             )
+                        |> BackendTask.throw
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -337,9 +357,9 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
         , test "reduced json is preserved by StaticHttp.map2" <|
             \() ->
                 startSimple []
-                    (DataSource.map2 (\_ _ -> ())
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int))
-                        (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int))
+                    (BackendTask.map2 (\_ _ -> ())
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int) |> BackendTask.throw)
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int) |> BackendTask.throw)
                     )
                     |> simulateMultipleHttp
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -354,16 +374,16 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
             \() ->
                 start
                     [ ( []
-                      , DataSource.succeed ()
+                      , BackendTask.succeed ()
                       )
                     ]
                     |> expectSuccess []
         , test "the port sends out when there are duplicate http requests for the same page" <|
             \() ->
                 startSimple []
-                    (DataSource.map2 (\_ _ -> ())
-                        (DataSource.Http.get "http://example.com" (JD.succeed ()))
-                        (DataSource.Http.get "http://example.com" (JD.succeed ()))
+                    (BackendTask.map2 (\_ _ -> ())
+                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.throw)
+                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.throw)
                     )
                     |> simulateHttp
                         (get "http://example.com")
@@ -372,7 +392,7 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
         , test "an error is sent out for decoder failures" <|
             \() ->
                 startSimple [ "elm-pages" ]
-                    (DataSource.Http.get "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI."))
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI.") |> BackendTask.throw)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (jsonBody """{ "stargazer_count": 86 }""")
@@ -380,9 +400,9 @@ I ran into a call to `DataSource.fail` with message: String was not uppercased""
                         "toJsPort"
                         (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
                         (expectErrorsPort
-                            """-- STATIC HTTP DECODING ERROR ----------------------------------------------------- elm-pages
+                            """-- HTTP ERROR ----------------------------------------------------- elm-pages
 
-Problem with the given value:
+BadBody: Problem with the given value:
 
 {
    "stargazer_count": 86
@@ -397,14 +417,14 @@ type Route
     = Route String
 
 
-start : List ( List String, DataSource a ) -> ProgramTest (Model Route) Msg Effect
+start : List ( List String, BackendTask Throwable a ) -> ProgramTest (Model Route) Msg Effect
 start pages =
     startWithHttpCache [] pages
 
 
 startWithHttpCache :
     List ( Request.Request, String )
-    -> List ( List String, DataSource a )
+    -> List ( List String, BackendTask Throwable a )
     -> ProgramTest (Model Route) Msg Effect
 startWithHttpCache =
     startLowLevel []
@@ -413,9 +433,9 @@ startWithHttpCache =
 startLowLevel :
     List (ApiRoute.ApiRoute ApiRoute.Response)
     -> List ( Request.Request, String )
-    -> List ( List String, DataSource a )
+    -> List ( List String, BackendTask Throwable a )
     -> ProgramTest (Model Route) Msg Effect
-startLowLevel apiRoutes staticHttpCache pages =
+startLowLevel apiRoutes _ pages =
     let
         pageToLoad : List String
         pageToLoad =
@@ -440,18 +460,8 @@ startLowLevel apiRoutes staticHttpCache pages =
                         |> Encode.dict identity Encode.string
                   )
                 , ( "mode", Encode.string "prod" )
-                , ( "staticHttpCache", encodedStaticHttpCache )
                 , ( "compatibilityKey", Encode.int currentCompatibilityKey )
                 ]
-
-        encodedStaticHttpCache : Encode.Value
-        encodedStaticHttpCache =
-            staticHttpCache
-                |> List.map
-                    (\( request, httpResponseString ) ->
-                        ( Request.hash request, Encode.string httpResponseString )
-                    )
-                |> Encode.object
     in
     {-
        (Model -> model)
@@ -485,16 +495,16 @@ startLowLevel apiRoutes staticHttpCache pages =
 site : SiteConfig
 site =
     { canonicalUrl = "canonical-site-url"
-    , head = DataSource.succeed []
+    , head = BackendTask.succeed []
     }
 
 
-startSimple : List String -> DataSource a -> ProgramTest (Model Route) Msg Effect
-startSimple route dataSources =
-    startWithRoutes route [ route ] [] [ ( route, dataSources ) ]
+startSimple : List String -> BackendTask Throwable a -> ProgramTest (Model Route) Msg Effect
+startSimple route backendTasks =
+    startWithRoutes route [ route ] [] [ ( route, backendTasks ) ]
 
 
-config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, DataSource a ) -> ProgramConfig Msg () Route () () () Effect mappedMsg ()
+config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, BackendTask Throwable a ) -> ProgramConfig Msg () Route () () () Effect mappedMsg ()
 config apiRoutes pages =
     { toJsPort = toJsPort
     , fromJsPort = fromJsPort
@@ -506,8 +516,8 @@ config apiRoutes pages =
             |> List.map Tuple.first
             |> List.map (String.join "/")
             |> List.map Route
-            |> DataSource.succeed
-    , handleRoute = \_ -> DataSource.succeed Nothing
+            |> BackendTask.succeed
+    , handleRoute = \_ -> BackendTask.succeed Nothing
     , urlToRoute = .path >> Route
     , update = \_ _ _ _ _ _ _ _ -> ( (), Effect.NoEffect )
     , basePath = []
@@ -515,7 +525,7 @@ config apiRoutes pages =
     , data =
         \_ (Route pageRoute) ->
             let
-                thing : Maybe (DataSource a)
+                thing : Maybe (BackendTask Throwable a)
                 thing =
                     pages
                         |> Dict.fromList
@@ -527,7 +537,7 @@ config apiRoutes pages =
             in
             case thing of
                 Just request ->
-                    request |> DataSource.map (\_ -> Response.render ())
+                    request |> BackendTask.map (\_ -> Response.render ())
 
                 Nothing ->
                     Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
@@ -535,7 +545,7 @@ config apiRoutes pages =
     , view =
         \_ _ _ page _ _ _ _ ->
             let
-                thing : Maybe (DataSource a)
+                thing : Maybe (BackendTask Throwable a)
                 thing =
                     pages
                         |> Dict.fromList
@@ -550,8 +560,8 @@ config apiRoutes pages =
                     Debug.todo <| "Couldn't find page: " ++ Debug.toString page ++ "\npages: " ++ Debug.toString pages
     , subscriptions = \_ _ _ -> Sub.none
     , routeToPath = \(Route route) -> route |> String.split "/"
-    , sharedData = DataSource.succeed ()
-    , onPageChange = \_ -> GotDataBatch []
+    , sharedData = BackendTask.succeed ()
+    , onPageChange = \_ -> GotDataBatch (Encode.object [])
     , apiRoutes = \_ -> apiRoutes
     , pathPatterns = []
     , byteDecodePageData = \_ -> Bytes.Decode.fail
@@ -569,7 +579,7 @@ config apiRoutes pages =
     , notFoundRoute = Route "not-found"
     , internalError = \_ -> ()
     , errorPageToData = \_ -> ()
-    , action = \_ _ -> DataSource.fail "No action."
+    , action = \_ _ -> BackendTask.fail (Exception.fromString "No action.")
     , encodeAction = \_ -> Bytes.Encode.signedInt8 0
     }
 
@@ -578,9 +588,9 @@ startWithRoutes :
     List String
     -> List (List String)
     -> List ( Request.Request, String )
-    -> List ( List String, DataSource a )
+    -> List ( List String, BackendTask Throwable a )
     -> ProgramTest (Model Route) Msg Effect
-startWithRoutes pageToLoad _ staticHttpCache pages =
+startWithRoutes pageToLoad _ _ pages =
     let
         encodedFlags : Encode.Value
         encodedFlags =
@@ -602,12 +612,7 @@ startWithRoutes pageToLoad _ staticHttpCache pages =
 
         encodedStaticHttpCache : Encode.Value
         encodedStaticHttpCache =
-            staticHttpCache
-                |> List.map
-                    (\( request, httpResponseString ) ->
-                        ( Request.hash request, Encode.string httpResponseString )
-                    )
-                |> Encode.object
+            [] |> Encode.object
     in
     {-
        (Model -> model)
@@ -678,11 +683,7 @@ simulateEffects effect =
                     |> SimulatedEffect.Cmd.map never
 
             else
-                ToJsPayload.DoHttp
-                    (unmasked
-                     --|> withInternalHeader
-                    )
-                    True
+                ToJsPayload.DoHttp (Request.hash unmasked) unmasked
                     |> sendToJsPort
                     |> SimulatedEffect.Cmd.map never
 
@@ -810,7 +811,7 @@ simulateSubscriptions : a -> ProgramTest.SimulatedSub Msg
 simulateSubscriptions _ =
     -- TODO handle build errors or not needed?
     SimulatedEffect.Ports.subscribe "gotBatchSub"
-        (RequestsAndPending.batchDecoder |> JD.map GotDataBatch)
+        (JD.value |> JD.map GotDataBatch)
         identity
 
 
@@ -819,8 +820,8 @@ get url =
     { method = "GET"
     , url = url
     , headers = []
-    , body = DataSource.Http.emptyBody
-    , useCache = True
+    , body = BackendTask.Http.emptyBody
+    , cacheOptions = Nothing
     }
 
 
@@ -829,8 +830,8 @@ post url =
     { method = "POST"
     , url = url
     , headers = []
-    , body = DataSource.Http.emptyBody
-    , useCache = True
+    , body = BackendTask.Http.emptyBody
+    , cacheOptions = Nothing
     }
 
 
@@ -851,9 +852,7 @@ simulateHttp request response program =
                                 ++ Debug.toString actualPorts
             )
         |> ProgramTest.simulateIncomingPort "gotBatchSub"
-            (Encode.list (\req -> encodeBatchEntry req response)
-                [ request ]
-            )
+            (Encode.object [ encodeBatchEntry ( request, response ) ])
 
 
 simulateMultipleHttp : List ( Request.Request, ResponseBody ) -> ProgramTest model msg effect -> ProgramTest model msg effect
@@ -875,10 +874,8 @@ simulateMultipleHttp requests program =
             )
         |> ProgramTest.simulateIncomingPort "gotBatchSub"
             (requests
-                |> Encode.list
-                    (\( req, response ) ->
-                        encodeBatchEntry req response
-                    )
+                |> List.map encodeBatchEntry
+                |> Encode.object
             )
 
 
@@ -891,9 +888,10 @@ jsonBody jsonString =
         )
 
 
-encodeBatchEntry : Request.Request -> ResponseBody -> Encode.Value
-encodeBatchEntry req response =
-    Encode.object
+encodeBatchEntry : ( Request.Request, ResponseBody ) -> ( String, Encode.Value )
+encodeBatchEntry ( req, response ) =
+    ( Request.hash (req |> withInternalHeader response)
+    , Encode.object
         [ ( "request"
           , Codec.encodeToValue Request.codec
                 (withInternalHeader response req)
@@ -902,6 +900,7 @@ encodeBatchEntry req response =
           , RequestsAndPending.bodyEncoder response
           )
         ]
+    )
 
 
 withInternalHeader : ResponseBody -> { a | headers : List ( String, String ) } -> { a | headers : List ( String, String ) }

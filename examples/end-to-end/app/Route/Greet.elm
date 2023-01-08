@@ -1,13 +1,13 @@
 module Route.Greet exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
-import Html.Styled.Events exposing (onSubmit)
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
@@ -81,7 +81,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.map2 (\a b -> Data a b Nothing)
@@ -94,7 +94,7 @@ data routeParams =
                         |> Response.withHeader
                             "x-greeting"
                             ("hello there " ++ requestData.username ++ "!")
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
         , Request.requestTime
             |> MySession.expectSessionOrRedirect
@@ -121,7 +121,7 @@ data routeParams =
                             "x-greeting"
                             ("hello " ++ username ++ "!")
                     )
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
         ]
 

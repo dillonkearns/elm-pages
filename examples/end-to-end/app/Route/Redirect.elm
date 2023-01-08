@@ -1,11 +1,10 @@
 module Route.Redirect exposing (ActionData, Data, Model, Msg, route)
 
-import Browser.Navigation
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Form.FormData exposing (Method(..))
-import FormDecoder
 import Head
 import Head.Seo as Seo
 import Pages.Msg
@@ -93,12 +92,12 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.acceptMethod ( Request.Post, [] )
-            (Request.succeed (DataSource.succeed (Route.redirectTo Route.Hello)))
-        , Request.succeed (DataSource.succeed (Response.render Data))
+            (Request.succeed (BackendTask.succeed (Route.redirectTo Route.Hello)))
+        , Request.succeed (BackendTask.succeed (Response.render Data))
         ]
 
 

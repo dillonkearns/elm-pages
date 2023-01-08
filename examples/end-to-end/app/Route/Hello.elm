@@ -1,7 +1,8 @@
 module Route.Hello exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Pages.Msg
@@ -44,9 +45,9 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
-    Request.succeed (DataSource.succeed (Response.render Data))
+    Request.succeed (BackendTask.succeed (Response.render Data))
 
 
 head :

@@ -1,10 +1,10 @@
 module MyCli exposing (run)
 
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
-import DataSource exposing (DataSource)
-import DataSource.Http
 import Json.Decode as Decode
 import Pages.Script as Script exposing (Script)
 
@@ -13,10 +13,10 @@ run : Script
 run =
     Script.withCliOptions program
         (\{ username, repo } ->
-            DataSource.Http.get
+            BackendTask.Http.get
                 ("https://api.github.com/repos/dillonkearns/" ++ repo)
                 (Decode.field "stargazers_count" Decode.int)
-                |> DataSource.andThen
+                |> BackendTask.andThen
                     (\stars ->
                         Script.log (String.fromInt stars)
                     )

@@ -1,6 +1,6 @@
 module Page.Index exposing (Data, Model, Msg, page)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Head
 import Head.Seo as Seo
 import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
@@ -29,9 +29,9 @@ page =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 
 
 head :

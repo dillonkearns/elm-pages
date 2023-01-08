@@ -1,9 +1,10 @@
-module DataSource.File exposing
+module BackendTask.File exposing
     ( bodyWithFrontmatter, bodyWithoutFrontmatter, onlyFrontmatter
     , jsonFile, rawFile
+    , FileReadError(..)
     )
 
-{-| This module lets you read files from the local filesystem as a [`DataSource`](DataSource#DataSource).
+{-| This module lets you read files from the local filesystem as a [`BackendTask`](BackendTask#BackendTask).
 File paths are relative to the root of your `elm-pages` project (next to the `elm.json` file and `src/` directory).
 
 
@@ -40,12 +41,19 @@ plain old JSON in Elm.
 
 @docs jsonFile, rawFile
 
+
+## Exceptions
+
+@docs FileReadError
+
 -}
 
-import DataSource exposing (DataSource)
-import DataSource.Http
-import DataSource.Internal.Request
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Request
+import Exception exposing (Catchable)
 import Json.Decode as Decode exposing (Decoder)
+import TerminalText
 
 
 frontmatter : Decoder frontmatter -> Decoder frontmatter
@@ -55,11 +63,11 @@ frontmatter frontmatterDecoder =
 
 {-|
 
-    import DataSource exposing (DataSource)
-    import DataSource.File as File
+    import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
     import Decode as Decode exposing (Decoder)
 
-    blogPost : DataSource BlogPostMetadata
+    blogPost : BackendTask BlogPostMetadata
     blogPost =
         File.bodyWithFrontmatter blogPostDecoder
             "blog/hello-world.md"
@@ -81,7 +89,7 @@ frontmatter frontmatterDecoder =
         Decode.map (String.split " ")
             Decode.string
 
-This will give us a DataSource that results in the following value:
+This will give us a BackendTask that results in the following value:
 
     value =
         { body = "Hey there! This is my first post :)"
@@ -91,13 +99,13 @@ This will give us a DataSource that results in the following value:
 
 It's common to parse the body with a markdown parser or other format.
 
-    import DataSource exposing (DataSource)
-    import DataSource.File as File
+    import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
     import Decode as Decode exposing (Decoder)
     import Html exposing (Html)
 
     example :
-        DataSource
+        BackendTask
             { title : String
             , body : List (Html msg)
             }
@@ -133,7 +141,7 @@ It's common to parse the body with a markdown parser or other format.
                 )
 
 -}
-bodyWithFrontmatter : (String -> Decoder frontmatter) -> String -> DataSource frontmatter
+bodyWithFrontmatter : (String -> Decoder frontmatter) -> String -> BackendTask (Catchable (FileReadError Decode.Error)) frontmatter
 bodyWithFrontmatter frontmatterDecoder filePath =
     read filePath
         (body
@@ -144,16 +152,23 @@ bodyWithFrontmatter frontmatterDecoder filePath =
         )
 
 
+{-| -}
+type FileReadError decoding
+    = FileDoesntExist
+    | FileReadError String
+    | DecodingError decoding
+
+
 {-| Same as `bodyWithFrontmatter` except it doesn't include the body.
 
 This is often useful when you're aggregating data, for example getting a listing of blog posts and need to extract
 just the metadata.
 
-    import DataSource exposing (DataSource)
-    import DataSource.File as File
+    import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
     import Decode as Decode exposing (Decoder)
 
-    blogPost : DataSource BlogPostMetadata
+    blogPost : BackendTask BlogPostMetadata
     blogPost =
         File.onlyFrontmatter
             blogPostDecoder
@@ -171,34 +186,34 @@ just the metadata.
             (Decode.field "tags" (Decode.list Decode.string))
 
 If you wanted to use this to get this metadata for all blog posts in a folder, you could use
-the [`DataSource`](DataSource) API along with [`DataSource.Glob`](DataSource-Glob).
+the [`BackendTask`](BackendTask) API along with [`BackendTask.Glob`](BackendTask-Glob).
 
-    import DataSource exposing (DataSource)
-    import DataSource.File as File
+    import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
     import Decode as Decode exposing (Decoder)
 
-    blogPostFiles : DataSource (List String)
+    blogPostFiles : BackendTask (List String)
     blogPostFiles =
         Glob.succeed identity
             |> Glob.captureFilePath
             |> Glob.match (Glob.literal "content/blog/")
             |> Glob.match Glob.wildcard
             |> Glob.match (Glob.literal ".md")
-            |> Glob.toDataSource
+            |> Glob.toBackendTask
 
-    allMetadata : DataSource (List BlogPostMetadata)
+    allMetadata : BackendTask (List BlogPostMetadata)
     allMetadata =
         blogPostFiles
-            |> DataSource.map
+            |> BackendTask.map
                 (List.map
                     (File.onlyFrontmatter
                         blogPostDecoder
                     )
                 )
-            |> DataSource.resolve
+            |> BackendTask.resolve
 
 -}
-onlyFrontmatter : Decoder frontmatter -> String -> DataSource frontmatter
+onlyFrontmatter : Decoder frontmatter -> String -> BackendTask (Catchable (FileReadError Decode.Error)) frontmatter
 onlyFrontmatter frontmatterDecoder filePath =
     read filePath
         (frontmatter frontmatterDecoder)
@@ -216,16 +231,16 @@ tags: elm
 Hey there! This is my first post :)
 ```
 
-    import DataSource exposing (DataSource)
+    import BackendTask exposing (BackendTask)
 
-    data : DataSource String
+    data : BackendTask String
     data =
         bodyWithoutFrontmatter "blog/hello-world.md"
 
 Then data will yield the value `"Hey there! This is my first post :)"`.
 
 -}
-bodyWithoutFrontmatter : String -> DataSource String
+bodyWithoutFrontmatter : String -> BackendTask (Catchable (FileReadError decoderError)) String
 bodyWithoutFrontmatter filePath =
     read filePath
         body
@@ -241,15 +256,15 @@ use `jsonFile` to get the benefits of the `Decode` here.
 
 You could read a file called `hello.txt` in your root project directory like this:
 
-    import DataSource exposing (DataSource)
-    import DataSource.File as File
+    import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
 
-    elmJsonFile : DataSource String
+    elmJsonFile : BackendTask String
     elmJsonFile =
         File.rawFile "hello.txt"
 
 -}
-rawFile : String -> DataSource String
+rawFile : String -> BackendTask (Catchable (FileReadError decoderError)) String
 rawFile filePath =
     read filePath (Decode.field "rawFile" Decode.string)
 
@@ -258,10 +273,10 @@ rawFile filePath =
 
 The Decode will strip off any unused JSON data.
 
-    import DataSource exposing (DataSource)
-    import DataSource.File as File
+    import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
 
-    sourceDirectories : DataSource (List String)
+    sourceDirectories : BackendTask (List String)
     sourceDirectories =
         File.jsonFile
             (Decode.field
@@ -271,15 +286,24 @@ The Decode will strip off any unused JSON data.
             "elm.json"
 
 -}
-jsonFile : Decoder a -> String -> DataSource a
+jsonFile : Decoder a -> String -> BackendTask (Catchable (FileReadError Decode.Error)) a
 jsonFile jsonFileDecoder filePath =
     rawFile filePath
-        |> DataSource.andThen
+        |> BackendTask.andThen
             (\jsonString ->
                 jsonString
                     |> Decode.decodeString jsonFileDecoder
-                    |> Result.mapError Decode.errorToString
-                    |> DataSource.fromResult
+                    |> Result.mapError
+                        (\jsonDecodeError ->
+                            Exception.Catchable (DecodingError jsonDecodeError)
+                                { title = "JSON Decoding Error"
+                                , body =
+                                    [ TerminalText.text (Decode.errorToString jsonDecodeError)
+                                    ]
+                                        |> TerminalText.toString
+                                }
+                        )
+                    |> BackendTask.fromResult
             )
 
 
@@ -290,10 +314,32 @@ body =
     Decode.field "withoutFrontmatter" Decode.string
 
 
-read : String -> Decoder a -> DataSource a
+read : String -> Decoder a -> BackendTask (Catchable (FileReadError error)) a
 read filePath decoder =
-    DataSource.Internal.Request.request
+    BackendTask.Internal.Request.request
         { name = "read-file"
-        , body = DataSource.Http.stringBody "" filePath
-        , expect = decoder |> DataSource.Http.expectJson
+        , body = BackendTask.Http.stringBody "" filePath
+        , expect =
+            Decode.oneOf
+                [ Decode.field "errorCode"
+                    (Decode.map Err (errorDecoder filePath))
+                , decoder |> Decode.map Ok
+                ]
+                |> BackendTask.Http.expectJson
         }
+        |> BackendTask.andThen BackendTask.fromResult
+
+
+errorDecoder : String -> Decoder (Catchable (FileReadError decoding))
+errorDecoder filePath =
+    Decode.succeed
+        (Exception.Catchable FileDoesntExist
+            { title = "File Doesn't Exist"
+            , body =
+                [ TerminalText.text "Couldn't find file at path `"
+                , TerminalText.yellow filePath
+                , TerminalText.text "`"
+                ]
+                    |> TerminalText.toString
+            }
+        )

@@ -29,5 +29,5 @@ view static =
 ## Core Concepts
 
 - Page Modules (`Page.*.elm`)
-- `DataSource`s
+- `BackendTask`s
 - `Shared.elm`, `Site.elm`

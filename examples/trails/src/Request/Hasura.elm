@@ -1,31 +1,31 @@
-module Request.Hasura exposing (dataSource, mutationDataSource)
+module Request.Hasura exposing (backendTask, mutationBackendTask)
 
-import DataSource exposing (DataSource)
-import DataSource.Env
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Env
+import BackendTask.Http
 import Graphql.Document
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Encode as Encode
 
 
-dataSource : String -> SelectionSet value RootQuery -> DataSource value
-dataSource timeStamp selectionSet =
-    DataSource.Env.expect "TRAILS_HASURA_SECRET"
-        |> DataSource.andThen
+backendTask : String -> SelectionSet value RootQuery -> BackendTask value
+backendTask timeStamp selectionSet =
+    BackendTask.Env.expect "TRAILS_HASURA_SECRET"
+        |> BackendTask.andThen
             (\hasuraSecret ->
-                DataSource.Http.request
+                BackendTask.Http.request
                     { url =
                         hasuraUrl
                             -- for now, this timestamp invalidates the dev server cache
-                            -- it would be helpful to have a way to mark a DataSource as uncached. Maybe only allow
+                            -- it would be helpful to have a way to mark a BackendTask as uncached. Maybe only allow
                             -- from server-rendered pages?
                             ++ "?time="
                             ++ timeStamp
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
                     , body =
-                        DataSource.Http.jsonBody
+                        BackendTask.Http.jsonBody
                             (Encode.object
                                 [ ( "query"
                                   , selectionSet
@@ -37,22 +37,22 @@ dataSource timeStamp selectionSet =
                     }
                     (selectionSet
                         |> Graphql.Document.decoder
-                        |> DataSource.Http.expectJson
+                        |> BackendTask.Http.expectJson
                     )
             )
 
 
-mutationDataSource : String -> SelectionSet value RootMutation -> DataSource value
-mutationDataSource timeStamp selectionSet =
-    DataSource.Env.expect "TRAILS_HASURA_SECRET"
-        |> DataSource.andThen
+mutationBackendTask : String -> SelectionSet value RootMutation -> BackendTask value
+mutationBackendTask timeStamp selectionSet =
+    BackendTask.Env.expect "TRAILS_HASURA_SECRET"
+        |> BackendTask.andThen
             (\hasuraSecret ->
-                DataSource.Http.request
+                BackendTask.Http.request
                     { url = hasuraUrl ++ "?time=" ++ timeStamp
                     , method = "POST"
                     , headers = [ ( "x-hasura-admin-secret", hasuraSecret ) ]
                     , body =
-                        DataSource.Http.jsonBody
+                        BackendTask.Http.jsonBody
                             (Encode.object
                                 [ ( "query"
                                   , selectionSet
@@ -64,7 +64,7 @@ mutationDataSource timeStamp selectionSet =
                     }
                     (selectionSet
                         |> Graphql.Document.decoder
-                        |> DataSource.Http.expectJson
+                        |> BackendTask.Http.expectJson
                     )
             )
 

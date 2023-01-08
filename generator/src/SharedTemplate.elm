@@ -1,7 +1,8 @@
 module SharedTemplate exposing (SharedTemplate)
 
-import DataSource
+import BackendTask
 import Effect exposing (Effect)
+import Exception exposing (Throwable)
 import Html exposing (Html)
 import Pages.Flags exposing (Flags)
 import Pages.PageUrl exposing (PageUrl)
@@ -35,7 +36,7 @@ type alias SharedTemplate msg sharedModel sharedData mappedMsg =
         -> (msg -> mappedMsg)
         -> View mappedMsg
         -> { body : List (Html mappedMsg), title : String }
-    , data : DataSource.DataSource sharedData
+    , data : BackendTask.BackendTask Throwable sharedData
     , subscriptions : Path -> sharedModel -> Sub msg
     , onPageChange :
         Maybe

@@ -11,7 +11,7 @@ import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Encode
 import Codec
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict
 import Head
 import Html exposing (Html)
@@ -483,9 +483,9 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
             case renderRequest of
                 RenderRequest.SinglePage _ singleRequest _ ->
                     let
-                        globalHeadTags : DataSource (List Head.Tag)
+                        globalHeadTags : BackendTask (List Head.Tag)
                         globalHeadTags =
-                            (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
+                            (config.globalHeadTags |> Maybe.withDefault (\_ -> BackendTask.succeed [])) HtmlPrinter.htmlToString
                     in
                     case singleRequest of
                         RenderRequest.Page serverRequestPayload ->
@@ -500,26 +500,26 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                                 (case isAction of
                                     Just _ ->
                                         config.action serverRequestPayload.frontmatter
-                                            |> DataSource.andThen
+                                            |> BackendTask.andThen
                                                 (\something ->
                                                     case something of
                                                         PageServerResponse.ErrorPage _ _ ->
-                                                            DataSource.succeed something
-                                                                |> DataSource.map (\_ -> ())
+                                                            BackendTask.succeed something
+                                                                |> BackendTask.map (\_ -> ())
 
                                                         PageServerResponse.RenderPage _ _ ->
-                                                            DataSource.map3 (\_ _ _ -> ())
+                                                            BackendTask.map3 (\_ _ _ -> ())
                                                                 (config.data serverRequestPayload.frontmatter)
                                                                 config.sharedData
                                                                 globalHeadTags
 
                                                         PageServerResponse.ServerResponse _ ->
-                                                            DataSource.succeed something
-                                                                |> DataSource.map (\_ -> ())
+                                                            BackendTask.succeed something
+                                                                |> BackendTask.map (\_ -> ())
                                                 )
 
                                     Nothing ->
-                                        DataSource.map3 (\_ _ _ -> ())
+                                        BackendTask.map3 (\_ _ _ -> ())
                                             (config.data serverRequestPayload.frontmatter)
                                             config.sharedData
                                             globalHeadTags
@@ -528,20 +528,20 @@ initLegacy site renderRequest { staticHttpCache, isDevServer } config =
                                     config.handleRoute serverRequestPayload.frontmatter
 
                                  else
-                                    DataSource.succeed Nothing
+                                    BackendTask.succeed Nothing
                                 )
 
                         RenderRequest.Api ( path, ApiRoute apiRequest ) ->
                             StaticResponses.renderApiRequest
-                                (DataSource.map2 (\_ _ -> ())
+                                (BackendTask.map2 (\_ _ -> ())
                                     (apiRequest.matchesToResponse path)
                                     globalHeadTags
                                 )
 
                         RenderRequest.NotFound _ ->
                             StaticResponses.renderApiRequest
-                                (DataSource.map2 (\_ _ -> ())
-                                    (DataSource.succeed [])
+                                (BackendTask.map2 (\_ _ -> ())
+                                    (BackendTask.succeed [])
                                     globalHeadTags
                                 )
 
@@ -692,7 +692,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                     case requestPayload of
                                         RenderRequest.Api ( path, ApiRoute apiHandler ) ->
                                             let
-                                                thing : DataSource (Maybe ApiRoute.Response)
+                                                thing : BackendTask (Maybe ApiRoute.Response)
                                                 thing =
                                                     apiHandler.matchesToResponse path
                                             in
@@ -731,7 +731,7 @@ nextStepToEffect site config model ( updatedStaticResponsesModel, nextStep ) =
                                                             config.handleRoute payload.frontmatter
 
                                                          else
-                                                            DataSource.succeed Nothing
+                                                            BackendTask.succeed Nothing
                                                         )
                                                         model.allRawResponses
                                                         |> Result.mapError (StaticHttpRequest.toBuildError (payload.path |> Path.toAbsolute))
@@ -798,7 +798,7 @@ sendSinglePageProgress site contentJson config model info =
                             config.handleRoute route
 
                          else
-                            DataSource.succeed Nothing
+                            BackendTask.succeed Nothing
                         )
                         model.allRawResponses
                         |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
@@ -945,12 +945,12 @@ sendSinglePageProgress site contentJson config model info =
                         (case isAction of
                             Just _ ->
                                 config.action (urlToRoute config currentUrl)
-                                    |> DataSource.andThen
+                                    |> BackendTask.andThen
                                         (\something ->
                                             case something of
                                                 PageServerResponse.ErrorPage a b ->
                                                     PageServerResponse.ErrorPage a b
-                                                        |> DataSource.succeed
+                                                        |> BackendTask.succeed
 
                                                 PageServerResponse.RenderPage _ _ ->
                                                     -- TODO the headers/response codes are ignored from the action here
@@ -960,7 +960,7 @@ sendSinglePageProgress site contentJson config model info =
 
                                                 PageServerResponse.ServerResponse a ->
                                                     PageServerResponse.ServerResponse a
-                                                        |> DataSource.succeed
+                                                        |> BackendTask.succeed
                                         )
 
                             Nothing ->
@@ -984,9 +984,9 @@ sendSinglePageProgress site contentJson config model info =
                         contentJson
                         |> Result.mapError (StaticHttpRequest.toBuildError currentUrl.path)
 
-                globalHeadTags : DataSource (List Head.Tag)
+                globalHeadTags : BackendTask (List Head.Tag)
                 globalHeadTags =
-                    (config.globalHeadTags |> Maybe.withDefault (\_ -> DataSource.succeed [])) HtmlPrinter.htmlToString
+                    (config.globalHeadTags |> Maybe.withDefault (\_ -> BackendTask.succeed [])) HtmlPrinter.htmlToString
 
                 siteDataResult : Result BuildError (List Head.Tag)
                 siteDataResult =

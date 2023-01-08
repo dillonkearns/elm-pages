@@ -5,7 +5,7 @@ import Api.Mutation
 import Api.Object exposing (Users)
 import Api.Object.Users
 import Api.Query
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Graphql.Operation exposing (RootQuery)
@@ -92,24 +92,24 @@ type ActionData
     | ValidationError String
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.requestTime
         |> Request.map
             (\requestTime ->
-                Request.Hasura.dataSource
+                Request.Hasura.backendTask
                     (requestTime |> Time.posixToMillis |> String.fromInt)
                     profile
-                    |> DataSource.andThen
+                    |> BackendTask.andThen
                         (\users ->
                             case users of
                                 [ user ] ->
-                                    DataSource.succeed user
+                                    BackendTask.succeed user
 
                                 _ ->
-                                    DataSource.fail "Expected one user."
+                                    BackendTask.fail "Expected one user."
                         )
-                    |> DataSource.map
+                    |> BackendTask.map
                         (\user -> Response.render { user = user })
             )
 
@@ -179,7 +179,7 @@ type alias Profile =
     }
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.requestTime
         |> Request.andThen
@@ -196,10 +196,10 @@ action routeParams =
                                         _ =
                                             Debug.log "action" profileData
                                     in
-                                    Request.Hasura.mutationDataSource
+                                    Request.Hasura.mutationBackendTask
                                         (requestTime |> Time.posixToMillis |> String.fromInt)
                                         (updateUser 1 profileData)
-                                        |> DataSource.map
+                                        |> BackendTask.map
                                             (\_ ->
                                                 Response.render Success
                                              --(ValidationError ("Username " ++ profileData.name ++ " is taken"))

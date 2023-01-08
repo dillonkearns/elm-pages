@@ -1,8 +1,9 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.File
-import DataSource.Port
+import BackendTask exposing (BackendTask)
+import BackendTask.File
+import BackendTask.Port
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (a, div, text)
@@ -48,11 +49,11 @@ type alias Data =
     }
 
 
-data : DataSource Data
+data : BackendTask Throwable Data
 data =
-    DataSource.map2 Data
-        (DataSource.File.rawFile "greeting.txt")
-        (DataSource.Port.get "hello" (Encode.string "Jane") Decode.string)
+    BackendTask.map2 Data
+        (BackendTask.File.rawFile "greeting.txt" |> BackendTask.throw)
+        (BackendTask.Port.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.throw)
 
 
 head :

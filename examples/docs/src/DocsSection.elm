@@ -1,7 +1,8 @@
 module DocsSection exposing (Section, all)
 
-import DataSource exposing (DataSource)
-import DataSource.Glob as Glob
+import BackendTask exposing (BackendTask)
+import BackendTask.Glob as Glob
+import BuildError exposing (BuildError)
 
 
 type alias Section =
@@ -11,7 +12,7 @@ type alias Section =
     }
 
 
-all : DataSource (List Section)
+all : BackendTask error (List Section)
 all =
     Glob.succeed Section
         |> Glob.captureFilePath
@@ -20,8 +21,8 @@ all =
         |> Glob.match (Glob.literal "-")
         |> Glob.capture Glob.wildcard
         |> Glob.match (Glob.literal ".md")
-        |> Glob.toDataSource
-        |> DataSource.map
+        |> Glob.toBackendTask
+        |> BackendTask.map
             (\sections ->
                 sections
                     |> List.sortBy .order

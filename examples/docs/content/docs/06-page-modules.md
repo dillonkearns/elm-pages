@@ -11,7 +11,7 @@ You build the `page` using a builder chain, adding complexity as needed. You can
 ```elm
 module Page.Hello.Name_ exposing (Model, Msg, StaticData, page)
 
-import DataSource
+import BackendTask
 import View exposing (View)
 import Head
 import Head.Seo as Seo
@@ -32,7 +32,7 @@ page : Page Route StaticData
 page =
     Page.noStaticData
         { head = head
-        , staticRoutes = DataSource.succeed [ { name = "world" } ]
+        , staticRoutes = BackendTask.succeed [ { name = "world" } ]
         }
         |> Page.buildNoState { view = view }
 

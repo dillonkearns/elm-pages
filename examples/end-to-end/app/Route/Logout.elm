@@ -1,7 +1,8 @@
 module Route.Logout exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import MySession
@@ -43,7 +44,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask Throwable (Response ActionData ErrorPage))
 action _ =
     Request.succeed ()
         |> MySession.withSession
@@ -52,7 +53,7 @@ action _ =
                     |> Session.withFlash "message" "You have been successfully logged out."
                 , Route.redirectTo Route.Login
                 )
-                    |> DataSource.succeed
+                    |> BackendTask.succeed
             )
 
 
@@ -60,9 +61,9 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
-    Request.succeed (DataSource.succeed (Response.render {}))
+    Request.succeed (BackendTask.succeed (Response.render {}))
 
 
 head :

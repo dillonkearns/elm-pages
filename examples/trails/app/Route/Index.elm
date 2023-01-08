@@ -1,8 +1,8 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.Env as Env
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Env as Env
+import BackendTask.Http
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
@@ -46,9 +46,9 @@ type alias ActionData =
     {}
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed {}
+    BackendTask.succeed {}
 
 
 head :

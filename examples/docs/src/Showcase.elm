@@ -1,8 +1,10 @@
 module Showcase exposing (..)
 
-import DataSource
-import DataSource.Env as Env
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Env as Env
+import BackendTask.Http
+import BuildError exposing (BuildError)
+import Exception exposing (Throwable)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 
@@ -37,40 +39,20 @@ entryDecoder =
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
-staticRequest : DataSource.DataSource (List Entry)
+staticRequest : BackendTask Throwable (List Entry)
 staticRequest =
     Env.expect "AIRTABLE_TOKEN"
-        |> DataSource.andThen
+        |> BackendTask.throw
+        |> BackendTask.andThen
             (\airtableToken ->
-                DataSource.Http.request
+                BackendTask.Http.request
                     { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
                     , method = "GET"
                     , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
-                    , body = DataSource.Http.emptyBody
+                    , body = BackendTask.Http.emptyBody
+                    , retries = Nothing
+                    , timeoutInMs = Nothing
                     }
-                    (DataSource.Http.expectJson decoder)
+                    (BackendTask.Http.expectJson decoder)
+                    |> BackendTask.throw
             )
-
-
-allCategroies : List String
-allCategroies =
-    [ "Documentation"
-    , "eCommerce"
-    , "Conference"
-    , "Consulting"
-    , "Education"
-    , "Entertainment"
-    , "Event"
-    , "Food"
-    , "Freelance"
-    , "Gallery"
-    , "Landing Page"
-    , "Music"
-    , "Nonprofit"
-    , "Podcast"
-    , "Portfolio"
-    , "Programming"
-    , "Sports"
-    , "Travel"
-    , "Blog"
-    ]

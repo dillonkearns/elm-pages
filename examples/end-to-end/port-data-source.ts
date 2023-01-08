@@ -40,7 +40,9 @@ export async function addItem(name: string) {
 const folder = "./items-list";
 
 async function listFiles(): Promise<string[]> {
-  return await fs.promises.readdir(folder);
+  return (await fs.promises.readdir(folder)).filter(
+    (file) => !file.startsWith(".")
+  );
 }
 
 export async function getItems() {

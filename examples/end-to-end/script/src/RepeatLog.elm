@@ -1,6 +1,6 @@
 module RepeatLog exposing (run)
 
-import DataSource
+import BackendTask
 import Pages.Script as Script exposing (Script)
 
 
@@ -8,13 +8,13 @@ run : Script
 run =
     Script.withoutCliOptions
         (Script.log "-> 1"
-            |> DataSource.andThen
+            |> BackendTask.andThen
                 (\_ ->
                     Script.log "-> 1"
-                        |> DataSource.andThen
+                        |> BackendTask.andThen
                             (\_ ->
                                 Script.log "-> 1"
-                                    |> DataSource.andThen
+                                    |> BackendTask.andThen
                                         (\_ ->
                                             Script.log "-> 1"
                                         )

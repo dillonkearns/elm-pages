@@ -11,7 +11,7 @@ type alias Request =
     , method : String
     , headers : List ( String, String )
     , body : Body
-    , useCache : Bool
+    , cacheOptions : Maybe Encode.Value
     }
 
 
@@ -40,5 +40,5 @@ codec =
         |> Codec.field "method" .method Codec.string
         |> Codec.field "headers" .headers (Codec.list (Codec.tuple Codec.string Codec.string))
         |> Codec.field "body" .body StaticHttpBody.codec
-        |> Codec.field "useCache" .useCache Codec.bool
+        |> Codec.nullableField "cacheOptions" .cacheOptions Codec.value
         |> Codec.buildObject

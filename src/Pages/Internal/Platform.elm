@@ -680,10 +680,10 @@ update config appMsg model =
                 Err _ ->
                     {-
                        When there is an error loading the content.dat, we are either
-                       1) in the dev server, and should show the relevant DataSource error for the page
+                       1) in the dev server, and should show the relevant BackendTask error for the page
                           we're navigating to. This could be done more cleanly, but it's simplest to just
                           do a fresh page load and use the code path for presenting an error for a fresh page.
-                       2) In a production app. That means we had a successful build, so there were no DataSource failures,
+                       2) In a production app. That means we had a successful build, so there were no BackendTask failures,
                           so the app must be stale (unless it's in some unexpected state from a bug). In the future,
                           it probably makes sense to include some sort of hash of the app version we are fetching, match
                           it with the current version that's running, and perform this logic when we see there is a mismatch.
@@ -1468,10 +1468,10 @@ loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg 
         Err _ ->
             {-
                When there is an error loading the content.dat, we are either
-               1) in the dev server, and should show the relevant DataSource error for the page
+               1) in the dev server, and should show the relevant BackendTask error for the page
                   we're navigating to. This could be done more cleanly, but it's simplest to just
                   do a fresh page load and use the code path for presenting an error for a fresh page.
-               2) In a production app. That means we had a successful build, so there were no DataSource failures,
+               2) In a production app. That means we had a successful build, so there were no BackendTask failures,
                   so the app must be stale (unless it's in some unexpected state from a bug). In the future,
                   it probably makes sense to include some sort of hash of the app version we are fetching, match
                   it with the current version that's running, and perform this logic when we see there is a mismatch.

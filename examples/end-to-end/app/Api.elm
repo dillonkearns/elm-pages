@@ -1,7 +1,8 @@
 module Api exposing (routes)
 
 import ApiRoute exposing (ApiRoute)
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
+import Exception exposing (Throwable)
 import Form
 import Form.Field as Field
 import Form.Validation as Validation
@@ -15,13 +16,14 @@ import Route exposing (Route)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Test.Glob
+import Test.HttpRequests
 import Test.Runner.Html
 import Time
 import Xml.Decode
 
 
 routes :
-    DataSource (List Route)
+    BackendTask Throwable (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
@@ -36,11 +38,20 @@ routes getStaticRoutes htmlToString =
     , ApiRoute.succeed
         (Request.succeed
             (Test.Glob.all
-                |> DataSource.map viewHtmlResults
-                |> DataSource.map html
+                |> BackendTask.map viewHtmlResults
+                |> BackendTask.map html
             )
         )
         |> ApiRoute.literal "tests"
+        |> ApiRoute.serverRender
+    , ApiRoute.succeed
+        (Request.succeed
+            (Test.HttpRequests.all
+                |> BackendTask.map viewHtmlResults
+                |> BackendTask.map html
+            )
+        )
+        |> ApiRoute.literal "http-tests"
         |> ApiRoute.serverRender
     , requestPrinter
     , xmlDecoder
@@ -62,7 +73,7 @@ xmlDecoder =
                     |> Xml.Decode.run dataDecoder
                     |> Result.Extra.merge
                     |> Response.plainText
-                    |> DataSource.succeed
+                    |> BackendTask.succeed
             )
             (Request.expectContentType "application/xml")
             Request.expectBody
@@ -88,7 +99,7 @@ multipleContentTypes =
                         |> Xml.Decode.run dataDecoder
                         |> Result.Extra.merge
                         |> Response.plainText
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
                 (Request.expectContentType "application/xml")
                 Request.expectBody
@@ -96,7 +107,7 @@ multipleContentTypes =
                 (\decodedValue ->
                     decodedValue
                         |> Response.plainText
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
                 (Request.expectJsonBody (Decode.at [ "path", "to", "string", "value" ] Decode.string))
             ]
@@ -128,7 +139,7 @@ requestPrinter =
                       )
                     ]
                     |> Response.json
-                    |> DataSource.succeed
+                    |> BackendTask.succeed
             )
             Request.rawBody
             Request.method
@@ -188,7 +199,7 @@ greet =
             |> Request.map
                 (\firstName ->
                     Response.plainText ("Hello " ++ firstName)
-                        |> DataSource.succeed
+                        |> BackendTask.succeed
                 )
         )
         |> ApiRoute.literal "api"

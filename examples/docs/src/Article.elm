@@ -1,10 +1,11 @@
 module Article exposing (..)
 
+import BackendTask
+import BackendTask.File as File
+import BackendTask.Glob as Glob
 import Cloudinary
-import DataSource
-import DataSource.File as File
-import DataSource.Glob as Glob
 import Date exposing (Date)
+import Exception exposing (Catchable, Throwable)
 import Json.Decode as Decode exposing (Decoder)
 import Pages.Url exposing (Url)
 import Route
@@ -16,31 +17,31 @@ type alias BlogPost =
     }
 
 
-blogPostsGlob : DataSource.DataSource (List { filePath : String, slug : String })
+blogPostsGlob : BackendTask.BackendTask error (List { filePath : String, slug : String })
 blogPostsGlob =
     Glob.succeed BlogPost
         |> Glob.captureFilePath
         |> Glob.match (Glob.literal "content/blog/")
         |> Glob.capture Glob.wildcard
         |> Glob.match (Glob.literal ".md")
-        |> Glob.toDataSource
+        |> Glob.toBackendTask
 
 
-allMetadata : DataSource.DataSource (List ( Route.Route, ArticleMetadata ))
+allMetadata : BackendTask.BackendTask (Catchable (File.FileReadError Decode.Error)) (List ( Route.Route, ArticleMetadata ))
 allMetadata =
     blogPostsGlob
-        |> DataSource.map
+        |> BackendTask.map
             (\paths ->
                 paths
                     |> List.map
                         (\{ filePath, slug } ->
-                            DataSource.map2 Tuple.pair
-                                (DataSource.succeed <| Route.Blog__Slug_ { slug = slug })
+                            BackendTask.map2 Tuple.pair
+                                (BackendTask.succeed <| Route.Blog__Slug_ { slug = slug })
                                 (File.onlyFrontmatter frontmatterDecoder filePath)
                         )
             )
-        |> DataSource.resolve
-        |> DataSource.map
+        |> BackendTask.resolve
+        |> BackendTask.map
             (\articles ->
                 articles
                     |> List.filterMap
@@ -52,7 +53,7 @@ allMetadata =
                                 Just ( route, metadata )
                         )
             )
-        |> DataSource.map
+        |> BackendTask.map
             (List.sortBy
                 (\( route, metadata ) -> -(Date.toRataDie metadata.published))
             )

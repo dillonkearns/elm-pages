@@ -1,6 +1,6 @@
 module Page.Slide exposing (Data, Model, Msg, page)
 
-import DataSource
+import BackendTask
 import Head
 import Head.Seo as Seo
 import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
@@ -24,7 +24,7 @@ page : StatelessRoute RouteParams Data ActionData
 page =
     RouteBuilder.single
         { head = head
-        , data = DataSource.succeed ()
+        , data = BackendTask.succeed ()
         }
         |> RouteBuilder.buildNoState { view = view }
 

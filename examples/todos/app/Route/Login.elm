@@ -1,11 +1,11 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
+import BackendTask exposing (BackendTask)
+import BackendTask.Env
+import BackendTask.Http
+import BackendTask.Port
 import Data.Session
-import DataSource exposing (DataSource)
-import DataSource.Env
-import DataSource.Http
-import DataSource.Port
 import Dict exposing (Dict)
 import EmailAddress exposing (EmailAddress)
 import ErrorPage exposing (ErrorPage)
@@ -59,19 +59,19 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-now : DataSource Time.Posix
+now : BackendTask Time.Posix
 now =
-    DataSource.Port.get "now"
+    BackendTask.Port.get "now"
         Encode.null
         (Decode.int |> Decode.map Time.millisToPosix)
 
 
-emailToMagicLink : EmailAddress -> String -> DataSource String
+emailToMagicLink : EmailAddress -> String -> BackendTask String
 emailToMagicLink email baseUrl =
     now
-        |> DataSource.andThen
+        |> BackendTask.andThen
             (\now_ ->
-                DataSource.Port.get "encrypt"
+                BackendTask.Port.get "encrypt"
                     (Encode.object
                         [ ( "text", Encode.string (EmailAddress.toString email) )
                         , ( "expiresAt", (Time.posixToMillis now_ + (1000 * 60 * 30)) |> Encode.int )
@@ -94,20 +94,20 @@ type alias EnvVariables =
     }
 
 
-form : Form.DoneForm String (DataSource (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (BackendTask (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\fieldEmail ->
             { combine =
                 Validation.succeed
                     (\email ->
-                        DataSource.map2 EnvVariables
-                            (DataSource.Env.expect "TODOS_SEND_GRID_KEY")
-                            (DataSource.Env.get "BASE_URL"
-                                |> DataSource.map (Maybe.withDefault "http://localhost:1234")
+                        BackendTask.map2 EnvVariables
+                            (BackendTask.Env.expect "TODOS_SEND_GRID_KEY")
+                            (BackendTask.Env.get "BASE_URL"
+                                |> BackendTask.map (Maybe.withDefault "http://localhost:1234")
                             )
-                            |> DataSource.andThen (sendEmailDataSource email)
-                            |> DataSource.map
+                            |> BackendTask.andThen (sendEmailBackendTask email)
+                            |> BackendTask.map
                                 (\emailSendResult ->
                                     case emailSendResult of
                                         Ok () ->
@@ -195,7 +195,7 @@ globalErrors formState =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.queryParam "magic"
         |> MySession.withSession
@@ -214,13 +214,13 @@ data routeParams =
                 case magicLinkHash of
                     Just magicHash ->
                         parseMagicHashIfNotExpired magicHash
-                            |> DataSource.andThen
+                            |> BackendTask.andThen
                                 (\emailIfValid ->
                                     case maybeSessionId of
                                         Just sessionId ->
                                             Data.Session.get sessionId
-                                                |> Request.Hasura.dataSource
-                                                |> DataSource.map
+                                                |> Request.Hasura.backendTask
+                                                |> BackendTask.map
                                                     (\maybeUserSession ->
                                                         ( okSessionThing
                                                         , maybeUserSession
@@ -234,11 +234,11 @@ data routeParams =
                                             case emailIfValid of
                                                 Just confirmedEmail ->
                                                     Data.Session.findOrCreateUser confirmedEmail
-                                                        |> Request.Hasura.mutationDataSource
-                                                        |> DataSource.andThen
+                                                        |> Request.Hasura.mutationBackendTask
+                                                        |> BackendTask.andThen
                                                             (\userId ->
                                                                 now
-                                                                    |> DataSource.andThen
+                                                                    |> BackendTask.andThen
                                                                         (\now_ ->
                                                                             let
                                                                                 expirationTime : Time.Posix
@@ -246,10 +246,10 @@ data routeParams =
                                                                                     Time.millisToPosix (Time.posixToMillis now_ + (1000 * 60 * 30))
                                                                             in
                                                                             Data.Session.create expirationTime userId
-                                                                                |> Request.Hasura.mutationDataSource
+                                                                                |> Request.Hasura.mutationBackendTask
                                                                         )
                                                             )
-                                                        |> DataSource.map
+                                                        |> BackendTask.map
                                                             (\(Uuid sessionId) ->
                                                                 ( okSessionThing
                                                                     |> Session.insert "sessionId" sessionId
@@ -259,7 +259,7 @@ data routeParams =
                                                             )
 
                                                 Nothing ->
-                                                    DataSource.succeed
+                                                    BackendTask.succeed
                                                         ( okSessionThing
                                                           -- TODO give flash message saying it was an invalid magic link
                                                         , Nothing
@@ -270,9 +270,9 @@ data routeParams =
 
                     Nothing ->
                         maybeSessionId
-                            |> Maybe.map (Data.Session.get >> Request.Hasura.dataSource)
-                            |> Maybe.withDefault (DataSource.succeed Nothing)
-                            |> DataSource.map
+                            |> Maybe.map (Data.Session.get >> Request.Hasura.backendTask)
+                            |> Maybe.withDefault (BackendTask.succeed Nothing)
+                            |> BackendTask.map
                                 (\maybeUserSession ->
                                     ( okSessionThing
                                     , maybeUserSession
@@ -284,7 +284,7 @@ data routeParams =
             )
 
 
-allForms : Form.ServerForms String (DataSource (Combined String Action))
+allForms : Form.ServerForms String (BackendTask (Combined String Action))
 allForms =
     logoutForm
         |> Form.toServerForm
@@ -292,7 +292,7 @@ allForms =
         |> Form.combineServer LogIn form
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
         (Request.oneOf
@@ -301,9 +301,9 @@ action routeParams =
         )
         Request.requestTime
         |> MySession.withSession
-            (\( resolveFormDataSource, requestTime ) session ->
-                resolveFormDataSource
-                    |> DataSource.andThen
+            (\( resolveFormBackendTask, requestTime ) session ->
+                resolveFormBackendTask
+                    |> BackendTask.andThen
                         (\usernameResult ->
                             let
                                 okSession =
@@ -318,13 +318,13 @@ action routeParams =
                                         , sentLink = False
                                         }
                                     )
-                                        |> DataSource.succeed
+                                        |> BackendTask.succeed
 
                                 Ok ( _, Logout ) ->
                                     ( Session.empty
                                     , Route.redirectTo Route.Login
                                     )
-                                        |> DataSource.succeed
+                                        |> BackendTask.succeed
 
                                 Ok ( _, LogIn emailAddress ) ->
                                     ( okSession
@@ -333,7 +333,7 @@ action routeParams =
                                       }
                                         |> Server.Response.render
                                     )
-                                        |> DataSource.succeed
+                                        |> BackendTask.succeed
                         )
             )
 
@@ -425,10 +425,10 @@ sendFake =
     False
 
 
-sendEmailDataSource : EmailAddress -> EnvVariables -> DataSource (Result SendGrid.Error ())
-sendEmailDataSource recipient env =
+sendEmailBackendTask : EmailAddress -> EnvVariables -> BackendTask (Result SendGrid.Error ())
+sendEmailBackendTask recipient env =
     emailToMagicLink recipient env.siteUrl
-        |> DataSource.andThen
+        |> BackendTask.andThen
             (\magicLinkString ->
                 let
                     message : NonemptyString
@@ -439,7 +439,7 @@ sendEmailDataSource recipient env =
                     message
                         |> String.Nonempty.toString
                         |> log
-                        |> DataSource.map Ok
+                        |> BackendTask.map Ok
 
                 else
                     let
@@ -459,45 +459,45 @@ sendEmailDataSource recipient env =
                                     }
                                     |> sendEmail env.sendGridKey
                             )
-                        |> Maybe.withDefault (DataSource.fail "Expected a valid sender email address.")
+                        |> Maybe.withDefault (BackendTask.fail "Expected a valid sender email address.")
             )
 
 
 sendEmail :
     String
     -> SendGrid.Email
-    -> DataSource (Result SendGrid.Error ())
+    -> BackendTask (Result SendGrid.Error ())
 sendEmail apiKey_ email_ =
-    DataSource.Http.uncachedRequest
+    BackendTask.Http.requestWithOptions
         { method = "POST"
         , headers = [ ( "Authorization", "Bearer " ++ apiKey_ ) ]
         , url = SendGrid.sendGridApiUrl
-        , body = SendGrid.encodeSendEmail email_ |> DataSource.Http.jsonBody
+        , body = SendGrid.encodeSendEmail email_ |> BackendTask.Http.jsonBody
         }
-        DataSource.Http.expectStringResponse
-        |> DataSource.map
+        BackendTask.Http.expectStringResponse
+        |> BackendTask.map
             (\response ->
                 case response of
-                    DataSource.Http.BadUrl_ url ->
+                    BackendTask.Http.BadUrl_ url ->
                         SendGrid.BadUrl url |> Err
 
-                    DataSource.Http.Timeout_ ->
+                    BackendTask.Http.Timeout_ ->
                         Err SendGrid.Timeout
 
-                    DataSource.Http.NetworkError_ ->
+                    BackendTask.Http.NetworkError_ ->
                         Err SendGrid.NetworkError
 
-                    DataSource.Http.BadStatus_ metadata body ->
+                    BackendTask.Http.BadStatus_ metadata body ->
                         SendGrid.decodeBadStatus metadata body |> Err
 
-                    DataSource.Http.GoodStatus_ _ _ ->
+                    BackendTask.Http.GoodStatus_ _ _ ->
                         Ok ()
             )
 
 
-parseMagicHash : String -> DataSource ( String, Time.Posix )
+parseMagicHash : String -> BackendTask ( String, Time.Posix )
 parseMagicHash magicHash =
-    DataSource.Port.get "decrypt"
+    BackendTask.Port.get "decrypt"
         (Encode.string magicHash)
         (Decode.string
             |> Decode.map
@@ -509,12 +509,12 @@ parseMagicHash magicHash =
                     >> Result.mapError Decode.errorToString
                 )
         )
-        |> DataSource.andThen DataSource.fromResult
+        |> BackendTask.andThen BackendTask.fromResult
 
 
-parseMagicHashIfNotExpired : String -> DataSource (Maybe String)
+parseMagicHashIfNotExpired : String -> BackendTask (Maybe String)
 parseMagicHashIfNotExpired magicHash =
-    DataSource.map2
+    BackendTask.map2
         (\( email, expiresAt ) currentTime ->
             let
                 isExpired : Bool
@@ -531,8 +531,8 @@ parseMagicHashIfNotExpired magicHash =
         now
 
 
-log : String -> DataSource ()
+log : String -> BackendTask ()
 log message =
-    DataSource.Port.get "log"
+    BackendTask.Port.get "log"
         (Encode.string message)
         (Decode.succeed ())

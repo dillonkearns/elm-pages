@@ -74,25 +74,25 @@ mockData request =
         |> Just
 
 
-type alias DataSourceSimulator =
+type alias BackendTaskSimulator =
     Pages.StaticHttp.Request.Request -> Maybe RequestsAndPending.Response
 
 
 start :
     String
-    -> DataSourceSimulator
+    -> BackendTaskSimulator
     ->
         ProgramTest.ProgramTest
             (Platform.Model Main.Model Main.PageData Shared.Data)
             (Platform.Msg Main.Msg Main.PageData Shared.Data)
             (Platform.Effect Main.Msg Main.PageData Shared.Data)
-start initialPath dataSourceSimulator =
+start initialPath backendTaskSimulator =
     let
         resolvedSharedData : Shared.Data
         resolvedSharedData =
             Pages.StaticHttpRequest.mockResolve
                 Shared.template.data
-                dataSourceSimulator
+                backendTaskSimulator
                 |> expectOk
 
         flagsWithData =
@@ -126,14 +126,14 @@ start initialPath dataSourceSimulator =
         initialRouteNotFoundReason =
             Pages.StaticHttpRequest.mockResolve
                 (config.handleRoute initialRoute)
-                dataSourceSimulator
+                backendTaskSimulator
                 |> expectOk
 
         newDataMock : Result Pages.StaticHttpRequest.Error (PageServerResponse.PageServerResponse Main.PageData)
         newDataMock =
             Pages.StaticHttpRequest.mockResolve
                 (Main.config.data initialRoute)
-                dataSourceSimulator
+                backendTaskSimulator
 
         responseSketchData : Main.PageData
         responseSketchData =
@@ -158,15 +158,15 @@ start initialPath dataSourceSimulator =
                 Platform.view Main.config model
         }
         |> ProgramTest.withBaseUrl ("https://localhost:1234" ++ initialPath)
-        |> ProgramTest.withSimulatedEffects (perform dataSourceSimulator)
+        |> ProgramTest.withSimulatedEffects (perform backendTaskSimulator)
         |> ProgramTest.start flagsWithData
 
 
 perform :
-    DataSourceSimulator
+    BackendTaskSimulator
     -> Platform.Effect userMsg Main.PageData Shared.Data
     -> ProgramTest.SimulatedEffect (Platform.Msg userMsg Main.PageData Shared.Data)
-perform dataSourceSimulator effect =
+perform backendTaskSimulator effect =
     case effect of
         Platform.NoEffect ->
             SimulatedEffect.Cmd.none
@@ -182,7 +182,7 @@ perform dataSourceSimulator effect =
 
         Platform.Batch effects ->
             effects
-                |> List.map (perform dataSourceSimulator)
+                |> List.map (perform backendTaskSimulator)
                 |> SimulatedEffect.Cmd.batch
 
         Platform.FetchPageData maybeRequestInfo url toMsg ->
@@ -195,7 +195,7 @@ perform dataSourceSimulator effect =
                 newDataMock =
                     Pages.StaticHttpRequest.mockResolve
                         (Main.config.data newRoute)
-                        dataSourceSimulator
+                        backendTaskSimulator
 
                 responseSketchData : ResponseSketch.ResponseSketch Main.PageData shared
                 responseSketchData =

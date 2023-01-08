@@ -174,9 +174,9 @@ async function start(options) {
       console.log("Watching port-data-source...");
     })
     .catch((error) => {
-      const portDataSourceFileFound =
+      const portBackendTaskFileFound =
         globby.sync("./port-data-source.*").length > 0;
-      if (portDataSourceFileFound) {
+      if (portBackendTaskFileFound) {
         // don't present error if there are no files matching port-data-source
         // if there are files matching port-data-source, warn the user in case something went wrong loading it
         console.error("Failed to start port-data-source watcher", error);
@@ -282,18 +282,18 @@ async function start(options) {
       // TODO use similar logic in the workers? Or don't use cache at all?
       // const changedPathRelative = path.relative(process.cwd(), pathThatChanged);
       //
-      // Object.keys(global.staticHttpCache).forEach((dataSourceKey) => {
-      //   if (dataSourceKey.includes(`file://${changedPathRelative}`)) {
-      //     delete global.staticHttpCache[dataSourceKey];
+      // Object.keys(global.staticHttpCache).forEach((backendTaskKey) => {
+      //   if (backendTaskKey.includes(`file://${changedPathRelative}`)) {
+      //     delete global.staticHttpCache[backendTaskKey];
       //   } else if (
       //     (eventName === "add" ||
       //       eventName === "unlink" ||
       //       eventName === "change" ||
       //       eventName === "addDir" ||
       //       eventName === "unlinkDir") &&
-      //     dataSourceKey.startsWith("glob://")
+      //     backendTaskKey.startsWith("glob://")
       //   ) {
-      //     delete global.staticHttpCache[dataSourceKey];
+      //     delete global.staticHttpCache[backendTaskKey];
       //   }
       // });
       clients.forEach((client) => {

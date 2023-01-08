@@ -174,7 +174,7 @@ dynamically). In this API you opt into exposing a cookie you set to JavaScript t
 
 In general if you can accomplish your goal using HttpOnly cookies (i.e. not using `makeVisibleToJavaScript`) then
 it's a good practice. With server-rendered `elm-pages` applications you can often manage your session state by pulling
-in session data from cookies in a `DataSource` (which is resolved server-side before it ever reaches the browser).
+in session data from cookies in a `BackendTask` (which is resolved server-side before it ever reaches the browser).
 
 -}
 makeVisibleToJavaScript : Options -> Options

@@ -1,4 +1,4 @@
-module DataSource.Internal.Glob exposing
+module BackendTask.Internal.Glob exposing
     ( Glob(..)
     , extractMatches
     , run

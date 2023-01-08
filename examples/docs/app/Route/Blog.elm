@@ -1,8 +1,10 @@
 module Route.Blog exposing (ActionData, Data, Model, Msg, route)
 
 import Article
-import DataSource
+import BackendTask exposing (BackendTask)
+import BuildError exposing (BuildError)
 import Date
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -33,9 +35,10 @@ route =
             }
 
 
-data : DataSource.DataSource Data
+data : BackendTask Throwable Data
 data =
     Article.allMetadata
+        |> BackendTask.throw
 
 
 type alias Data =

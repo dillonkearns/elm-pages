@@ -1,7 +1,7 @@
 module Route.Index exposing (Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
-import DataSource.Http
+import BackendTask exposing (BackendTask)
+import BackendTask.Http
 import Head
 import Head.Seo as Seo
 import Html
@@ -41,11 +41,11 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed Data
-        |> DataSource.andMap
-            (DataSource.Http.get "https://example.com/message"
+    BackendTask.succeed Data
+        |> BackendTask.andMap
+            (BackendTask.Http.get "https://example.com/message"
                 (Decode.field "message" Decode.string)
             )
 

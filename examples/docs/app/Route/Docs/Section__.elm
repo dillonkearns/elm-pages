@@ -1,11 +1,12 @@
 module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, route)
 
+import BackendTask exposing (BackendTask)
+import BackendTask.File
+import BackendTask.Glob as Glob exposing (Glob)
 import Css
 import Css.Global
-import DataSource exposing (DataSource)
-import DataSource.File
-import DataSource.Glob as Glob exposing (Glob)
 import DocsSection exposing (Section)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Heroicon
@@ -54,33 +55,34 @@ route =
             }
 
 
-pages : DataSource (List RouteParams)
+pages : BackendTask Throwable (List RouteParams)
 pages =
     DocsSection.all
-        |> DataSource.map
+        |> BackendTask.map
             (List.map
                 (\section ->
                     { section = Just section.slug }
                 )
             )
-        |> DataSource.map
+        |> BackendTask.map
             (\sections ->
                 { section = Nothing } :: sections
             )
 
 
-data : RouteParams -> DataSource Data
+data : RouteParams -> BackendTask Throwable Data
 data routeParams =
-    DataSource.map4 Data
+    BackendTask.map4 Data
         (pageBody routeParams)
         (previousAndNextData routeParams)
         (routeParams.section
             |> Maybe.withDefault "what-is-elm-pages"
             |> findBySlug
             |> Glob.expectUniqueMatch
-            |> DataSource.map filePathToEditUrl
+            |> BackendTask.map filePathToEditUrl
+            |> BackendTask.throw
         )
-        (routeParams |> filePathDataSource |> DataSource.andThen MarkdownCodec.titleAndDescription)
+        (routeParams |> filePathBackendTask |> BackendTask.andThen MarkdownCodec.titleAndDescription)
 
 
 filePathToEditUrl : String -> String
@@ -88,10 +90,10 @@ filePathToEditUrl filePath =
     "https://github.com/dillonkearns/elm-pages/edit/master/examples/docs/" ++ filePath
 
 
-previousAndNextData : RouteParams -> DataSource { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
+previousAndNextData : RouteParams -> BackendTask Throwable { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
 previousAndNextData current =
     DocsSection.all
-        |> DataSource.andThen
+        |> BackendTask.andThen
             (\sections ->
                 let
                     index : Int
@@ -100,42 +102,44 @@ previousAndNextData current =
                             |> List.Extra.findIndex (\section -> Just section.slug == current.section)
                             |> Maybe.withDefault 0
                 in
-                DataSource.map2 (\title previousAndNext -> { title = title, previousAndNext = previousAndNext })
+                BackendTask.map2 (\title previousAndNext -> { title = title, previousAndNext = previousAndNext })
                     (List.Extra.getAt index sections
-                        |> maybeDataSource titleForSection
-                        |> DataSource.map (Result.fromMaybe "Couldn't find section")
-                        |> DataSource.andThen DataSource.fromResult
-                        |> DataSource.map .title
+                        |> maybeBackendTask titleForSection
+                        |> BackendTask.map (Result.fromMaybe (Exception.fromString "Couldn't find section"))
+                        |> BackendTask.andThen BackendTask.fromResult
+                        |> BackendTask.map .title
                     )
-                    (DataSource.map2 Tuple.pair
+                    (BackendTask.map2 Tuple.pair
                         (List.Extra.getAt (index - 1) sections
-                            |> maybeDataSource titleForSection
+                            |> maybeBackendTask titleForSection
                         )
                         (List.Extra.getAt (index + 1) sections
-                            |> maybeDataSource titleForSection
+                            |> maybeBackendTask titleForSection
                         )
                     )
             )
 
 
-maybeDataSource : (a -> DataSource b) -> Maybe a -> DataSource (Maybe b)
-maybeDataSource fn maybe =
+maybeBackendTask : (a -> BackendTask error b) -> Maybe a -> BackendTask error (Maybe b)
+maybeBackendTask fn maybe =
     case maybe of
         Just just ->
-            fn just |> DataSource.map Just
+            fn just |> BackendTask.map Just
 
         Nothing ->
-            DataSource.succeed Nothing
+            BackendTask.succeed Nothing
 
 
-titleForSection : Section -> DataSource NextPrevious.Item
+titleForSection : Section -> BackendTask Throwable NextPrevious.Item
 titleForSection section =
     Glob.expectUniqueMatch (findBySlug section.slug)
-        |> DataSource.andThen
+        |> BackendTask.throw
+        |> BackendTask.andThen
             (\filePath ->
-                DataSource.File.bodyWithoutFrontmatter filePath
-                    |> DataSource.andThen markdownBodyDecoder2
-                    |> DataSource.map
+                BackendTask.File.bodyWithoutFrontmatter filePath
+                    |> BackendTask.throw
+                    |> BackendTask.andThen markdownBody
+                    |> BackendTask.map
                         (\blocks ->
                             List.Extra.findMap
                                 (\block ->
@@ -152,11 +156,11 @@ titleForSection section =
                                 blocks
                         )
             )
-        |> DataSource.andThen
+        |> BackendTask.andThen
             (\maybeTitle ->
                 maybeTitle
-                    |> Result.fromMaybe "Expected to find an H1 heading in this markdown."
-                    |> DataSource.fromResult
+                    |> Result.fromMaybe (Exception.fromString "Expected to find an H1 heading in this markdown.")
+                    |> BackendTask.fromResult
             )
 
 
@@ -281,8 +285,8 @@ view maybeUrl sharedModel static =
     }
 
 
-filePathDataSource : RouteParams -> DataSource String
-filePathDataSource routeParams =
+filePathBackendTask : RouteParams -> BackendTask Throwable String
+filePathBackendTask routeParams =
     let
         slug : String
         slug =
@@ -290,13 +294,14 @@ filePathDataSource routeParams =
                 |> Maybe.withDefault "what-is-elm-pages"
     in
     Glob.expectUniqueMatch (findBySlug slug)
+        |> BackendTask.throw
 
 
-pageBody : RouteParams -> DataSource (List Block)
+pageBody : RouteParams -> BackendTask Throwable (List Block)
 pageBody routeParams =
     routeParams
-        |> filePathDataSource
-        |> DataSource.andThen
+        |> filePathBackendTask
+        |> BackendTask.andThen
             (MarkdownCodec.withoutFrontmatter TailwindMarkdownRenderer.renderer)
 
 
@@ -311,9 +316,9 @@ findBySlug slug =
         |> Glob.match (Glob.literal ".md")
 
 
-markdownBodyDecoder2 : String -> DataSource (List Block)
-markdownBodyDecoder2 rawBody =
+markdownBody : String -> BackendTask Throwable (List Block)
+markdownBody rawBody =
     rawBody
         |> Markdown.Parser.parse
-        |> Result.mapError (\_ -> "Markdown parsing error")
-        |> DataSource.fromResult
+        |> Result.mapError (\_ -> Exception.fromString "Markdown parsing error")
+        |> BackendTask.fromResult

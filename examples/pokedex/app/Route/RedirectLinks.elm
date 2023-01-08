@@ -1,6 +1,6 @@
 module Route.RedirectLinks exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Head
 import Head.Seo as Seo
 import Html
@@ -42,9 +42,9 @@ type alias ActionData =
     {}
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed {}
+    BackendTask.succeed {}
 
 
 head :

@@ -1,10 +1,11 @@
 module Route.Slide.Number_ exposing (ActionData, Data, Model, Msg, route)
 
+import BackendTask exposing (BackendTask)
+import BackendTask.File
 import Browser.Events
 import Browser.Navigation
-import DataSource
-import DataSource.File
 import Effect
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -43,7 +44,7 @@ route =
             List.range 1 3
                 |> List.map String.fromInt
                 |> List.map RouteParams
-                |> DataSource.succeed
+                |> BackendTask.succeed
         , data = data
         }
         |> RouteBuilder.buildWithLocalState
@@ -88,15 +89,16 @@ toDirection string =
             Nothing
 
 
-data : RouteParams -> DataSource.DataSource Data
+data : RouteParams -> BackendTask Throwable Data
 data routeParams =
-    DataSource.map Data
+    BackendTask.map Data
         (slideBody routeParams)
 
 
-slideBody : RouteParams -> DataSource.DataSource String
+slideBody : RouteParams -> BackendTask Throwable String
 slideBody route_ =
-    DataSource.File.bodyWithoutFrontmatter "slides.md"
+    BackendTask.File.bodyWithoutFrontmatter "slides.md"
+        |> BackendTask.throw
 
 
 head :

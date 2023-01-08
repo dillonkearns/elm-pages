@@ -2,9 +2,9 @@
 description: TODO
 ---
 
-# `DataSource`s
+# `BackendTask`s
 
-It doesn't matter _where_ a `DataSource` came from.
+It doesn't matter _where_ a `BackendTask` came from.
 
 For example, if you have
 
@@ -14,43 +14,43 @@ type alias Author =
     , avatarUrl : String
     }
 
-authors : DataSource (List Author)
+authors : BackendTask (List Author)
 ```
 
 It makes no difference where that data came from. In fact, let's define it as hardcoded data:
 
 ```elm
-hardcodedAuthors : DataSource (List Author)
+hardcodedAuthors : BackendTask (List Author)
 hardcodedAuthors =
-    DataSource.succeed [
+    BackendTask.succeed [
         { name = "Dillon Kearns"
         , avatarUrl = "/avatars/dillon.jpg"
         }
     ]
 ```
 
-We could swap that out to get the data from another source at any time. Like this HTTP DataSource.
+We could swap that out to get the data from another source at any time. Like this HTTP BackendTask.
 
 ```elm
-authorsFromCms : DataSource (List Author)
+authorsFromCms : BackendTask (List Author)
 authorsFromCms =
-    DataSource.Http.get (Secrets.succeed "mycms.com/authors")
+    BackendTask.Http.get (Secrets.succeed "mycms.com/authors")
         authorsDecoder
 ```
 
 Notice that the type signature hasn't changed. The end result will be data that is available when our page loads.
 
-In fact, let's combine our library of authors from 3 different `DataSource`s.
+In fact, let's combine our library of authors from 3 different `BackendTask`s.
 
 ```elm
-authorsFromFile : DataSource (List Author)
+authorsFromFile : BackendTask (List Author)
 authorsFromFile =
-    DataSource.File.jsonFile "data/authors.json"
+    BackendTask.File.jsonFile "data/authors.json"
         authorsDecoder
 
-allAuthors : DataSource (List Author)
+allAuthors : BackendTask (List Author)
 allAuthors =
-    DataSource.map3 (\authors1 authors2 authors3 ->
+    BackendTask.map3 (\authors1 authors2 authors3 ->
         List.concat [ authors1, authors2, authors3 ]
     )
     authorsFromFile
@@ -58,11 +58,11 @@ allAuthors =
     hardcodedAuthors
 ```
 
-So how does the data get there? Let's take a look at the lifecycle of a DataSource.
+So how does the data get there? Let's take a look at the lifecycle of a BackendTask.
 
-## The `DataSource` Lifecycle
+## The `BackendTask` Lifecycle
 
-A `DataSource` is split between two phases:
+A `BackendTask` is split between two phases:
 
 1. Build step - build up the data for a given page
 2. Decode the data - it's available without reading files or making HTTP requests from the build step
@@ -82,11 +82,11 @@ For example, the GitHub API returns back dozens of fields in this API response, 
 
 ```elm
 import OptimizedDecoder
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 
-staticData : DataSource Int
+staticData : BackendTask Int
 staticData =
-    DataSource.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+    BackendTask.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (OptimizedDecoder.field "stargazers_count" OptimizedDecoder.int)
 ```
 

@@ -1,14 +1,14 @@
 module Manifest exposing (config)
 
+import BackendTask exposing (BackendTask)
 import Cloudinary
-import DataSource exposing (DataSource)
 import MimeType
 import Pages.Manifest as Manifest
 import Pages.Url
 import Route
 
 
-config : DataSource Manifest.Config
+config : BackendTask error Manifest.Config
 config =
     Manifest.init
         { name = "elm-pages"
@@ -22,7 +22,7 @@ config =
             ]
         }
         |> Manifest.withShortName "elm-pages"
-        |> DataSource.succeed
+        |> BackendTask.succeed
 
 
 tagline : String

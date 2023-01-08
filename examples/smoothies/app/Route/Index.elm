@@ -4,7 +4,7 @@ import Api.Scalar exposing (Uuid(..))
 import Data.Cart as Cart exposing (Cart)
 import Data.Smoothies as Smoothie exposing (Smoothie)
 import Data.User as User exposing (User)
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -104,7 +104,7 @@ head static =
     Seo.Common.tags
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.succeed ()
         |> MySession.expectSessionDataOrRedirect (Session.get "userId")
@@ -113,9 +113,9 @@ data routeParams =
                     Smoothie.selection
                     (User.selection userId)
                     (Cart.selection userId)
-                    |> Request.Hasura.dataSource
-                    |> DataSource.map Response.render
-                    |> DataSource.map (Tuple.pair session)
+                    |> Request.Hasura.backendTask
+                    |> BackendTask.map Response.render
+                    |> BackendTask.map (Tuple.pair session)
             )
 
 
@@ -193,26 +193,26 @@ oneOfParsers =
         |> Form.combine (\( uuid, int ) -> SetQuantity uuid int) setQuantityForm
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.formData oneOfParsers
         |> MySession.expectSessionDataOrRedirect (Session.get "userId" >> Maybe.map Uuid)
             (\userId parsedAction session ->
                 case parsedAction of
                     Ok Signout ->
-                        DataSource.succeed (Route.redirectTo Route.Login)
-                            |> DataSource.map (Tuple.pair Session.empty)
+                        BackendTask.succeed (Route.redirectTo Route.Login)
+                            |> BackendTask.map (Tuple.pair Session.empty)
 
                     Ok (SetQuantity itemId quantity) ->
                         (Cart.addItemToCart quantity userId itemId
-                            |> Request.Hasura.mutationDataSource
-                            |> DataSource.map
+                            |> Request.Hasura.mutationBackendTask
+                            |> BackendTask.map
                                 (\_ -> Response.render {})
                         )
-                            |> DataSource.map (Tuple.pair session)
+                            |> BackendTask.map (Tuple.pair session)
 
                     Err error ->
-                        DataSource.succeed
+                        BackendTask.succeed
                             ( session
                             , Response.errorPage (ErrorPage.internalError "Unexpected form data format.")
                             )

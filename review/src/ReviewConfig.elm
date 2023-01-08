@@ -63,7 +63,7 @@ config =
      , NoModuleOnExposedNames.rule
         |> Rule.ignoreErrorsForFiles
             [ -- Glob module ignored because of https://github.com/sparksp/elm-review-imports/issues/3#issuecomment-854262659
-              "src/DataSource/Glob.elm"
+              "src/BackendTask/Glob.elm"
             , "src/ApiRoute.elm"
             ]
      , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
@@ -79,7 +79,7 @@ config =
      , NoMissingTypeExpose.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Seo.elm"
-            , "src/DataSource/Glob.elm" -- incorrect result,
+            , "src/BackendTask/Glob.elm" -- incorrect result,
             , "src/Pages/Internal/Platform/GeneratorApplication.elm"
             , "src/Pages/Internal/Platform/Effect.elm"
             , "src/Pages/Internal/Platform/Cli.elm"
@@ -164,7 +164,7 @@ noUnusedRules =
     , NoUnused.Patterns.rule
     , NoUnused.Variables.rule
         |> Rule.ignoreErrorsForFiles
-            [ "src/DataSource/Glob.elm"
+            [ "src/BackendTask/Glob.elm"
             ]
     ]
 

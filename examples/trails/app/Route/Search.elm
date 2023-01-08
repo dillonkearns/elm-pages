@@ -4,7 +4,7 @@ import Api.InputObject
 import Api.Object
 import Api.Object.Trails
 import Api.Query
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import Graphql.Operation exposing (RootQuery)
@@ -101,7 +101,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (DataSource (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.expectForm
@@ -109,9 +109,9 @@ data routeParams =
                 field "q"
                     |> Request.map
                         (\query ->
-                            Request.Hasura.dataSource ""
+                            Request.Hasura.backendTask ""
                                 (search query)
-                                |> DataSource.map
+                                |> BackendTask.map
                                     (\results ->
                                         Response.render
                                             { results =
@@ -123,11 +123,11 @@ data routeParams =
                                     )
                         )
             )
-        , Request.succeed (DataSource.succeed (Response.render { results = Nothing }))
+        , Request.succeed (BackendTask.succeed (Response.render { results = Nothing }))
         ]
 
 
-action : RouteParams -> Request.Parser (DataSource (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
 action routeParams =
     Request.skip "No action."
 

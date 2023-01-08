@@ -15,18 +15,18 @@ when your page is pre-rendered (or server-rendered, in the case of your server-r
 which has some helper functions for defining OpenGraph and Twitter tags.
 
 One of the unique benefits of using `elm-pages` is that all of your routes (both pre-rendered and server-rendered) fully
-render the HTML of your page. That includes the full initial `view` (with the DataSource resolved, and the `Model` from `init`).
+render the HTML of your page. That includes the full initial `view` (with the BackendTask resolved, and the `Model` from `init`).
 The HTML response also includes all of the `Head` tags, which are defined in two places:
 
 1.  `app/Site.elm` - there is a `head` definition in `Site.elm` where you define global head tags that will be included on every rendered page.
 
-2.  In each Route Module - there is a `head` function where you have access to both the resolved `DataSource` and the `RouteParams` for the page and can return head tags based on that.
+2.  In each Route Module - there is a `head` function where you have access to both the resolved `BackendTask` and the `RouteParams` for the page and can return head tags based on that.
 
 Here is a common set of global head tags that we can define in `Site.elm`:
 
     module Site exposing (canonicalUrl, config)
 
-    import DataSource exposing (DataSource)
+    import BackendTask exposing (BackendTask)
     import Head
     import MimeType
     import SiteConfig exposing (SiteConfig)
@@ -37,7 +37,7 @@ Here is a common set of global head tags that we can define in `Site.elm`:
     , head = head
     }
 
-    head : DataSource (List Head.Tag)
+    head : BackendTask (List Head.Tag)
     head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
@@ -49,13 +49,13 @@ Here is a common set of global head tags that we can define in `Site.elm`:
     , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
     , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
     ]
-    |> DataSource.succeed
+    |> BackendTask.succeed
 
-And here is a `head` function for a Route Module for a blog post. Note that we have access to our `DataSource` Data and
+And here is a `head` function for a Route Module for a blog post. Note that we have access to our `BackendTask` Data and
 are using it to populate article metadata like the article's image, publish date, etc.
 
     import Article
-    import DataSource
+    import BackendTask
     import Date
     import Head
     import Head.Seo

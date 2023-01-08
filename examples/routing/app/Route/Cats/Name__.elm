@@ -1,6 +1,7 @@
 module Route.Cats.Name__ exposing (ActionData, Data, Model, Msg, route)
 
-import DataSource
+import BackendTask exposing (BackendTask)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
@@ -38,9 +39,9 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource.DataSource (List RouteParams)
+pages : BackendTask Throwable (List RouteParams)
 pages =
-    DataSource.succeed
+    BackendTask.succeed
         [ { name = Just "larry"
           }
         , { name = Nothing
@@ -48,9 +49,9 @@ pages =
         ]
 
 
-data : RouteParams -> DataSource.DataSource Data
+data : RouteParams -> BackendTask Throwable Data
 data routeParams =
-    DataSource.succeed {}
+    BackendTask.succeed {}
 
 
 head :

@@ -1,11 +1,12 @@
 module MySession exposing (..)
 
+import BackendTask exposing (BackendTask)
+import BackendTask.Env as Env
 import Codec
-import DataSource exposing (DataSource)
-import DataSource.Env as Env
+import Exception exposing (Throwable)
 import Route
 import Server.Request exposing (Parser)
-import Server.Response as Response exposing (Response)
+import Server.Response exposing (Response)
 import Server.Session as Session
 import Server.SetCookie as SetCookie
 
@@ -18,9 +19,9 @@ cookieOptions =
 
 
 withSession :
-    (request -> Result Session.NotLoadedReason Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Result Session.NotLoadedReason Session.Session -> BackendTask Throwable ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data errorPage))
+    -> Parser (BackendTask Throwable (Response data errorPage))
 withSession =
     Session.withSession
         { name = "mysession"
@@ -30,9 +31,9 @@ withSession =
 
 
 withSessionOrRedirect :
-    (request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> BackendTask Throwable ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data errorPage))
+    -> Parser (BackendTask Throwable (Response data errorPage))
 withSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
@@ -43,7 +44,7 @@ withSessionOrRedirect toRequest handler =
             sessionResult
                 |> Result.map (toRequest request)
                 |> Result.withDefault
-                    (DataSource.succeed
+                    (BackendTask.succeed
                         ( Session.empty
                         , Route.redirectTo Route.Login
                         )
@@ -52,15 +53,17 @@ withSessionOrRedirect toRequest handler =
         handler
 
 
-secrets : DataSource (List String)
+secrets : BackendTask Throwable (List String)
 secrets =
-    Env.expect "SESSION_SECRET" |> DataSource.map List.singleton
+    Env.expect "SESSION_SECRET"
+        |> BackendTask.throw
+        |> BackendTask.map List.singleton
 
 
 expectSessionOrRedirect :
-    (request -> Session.Session -> DataSource ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> BackendTask Throwable ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (DataSource (Response data errorPage))
+    -> Parser (BackendTask Throwable (Response data errorPage))
 expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
@@ -71,7 +74,7 @@ expectSessionOrRedirect toRequest handler =
             sessionResult
                 |> Result.map (toRequest request)
                 |> Result.withDefault
-                    (DataSource.succeed
+                    (BackendTask.succeed
                         ( Session.empty
                         , Route.redirectTo Route.Login
                         )
