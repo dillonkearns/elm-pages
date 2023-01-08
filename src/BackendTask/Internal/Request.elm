@@ -17,7 +17,8 @@ request ({ name, body, expect } as params) =
         , method = "GET"
         , headers = []
         , body = body
-        , options = Nothing
+        , timeoutInMs = Nothing
+        , retries = Nothing
         }
         expect
         |> BackendTask.onError

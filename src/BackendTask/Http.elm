@@ -3,10 +3,11 @@ module BackendTask.Http exposing
     , post
     , Expect, expectString, expectJson, expectBytes, expectWhatever
     , Error(..)
-    , RequestDetails, request
-    , withMetadata, Metadata
+    , request
     , Body, emptyBody, stringBody, jsonBody, bytesBody
-    , CacheStrategy(..), Options
+    , getWithOptions
+    , CacheStrategy(..)
+    , withMetadata, Metadata
     )
 
 {-| `BackendTask.Http` requests are an alternative to doing Elm HTTP requests the traditional way using the `elm/http` package.
@@ -56,12 +57,7 @@ in [this article introducing BackendTask.Http requests and some concepts around 
 
 ## General Requests
 
-@docs RequestDetails, request
-
-
-## With Metadata
-
-@docs withMetadata, Metadata
+@docs request
 
 
 ## Building a BackendTask.Http Request Body
@@ -75,7 +71,16 @@ and describe your use case!
 
 ## Caching Options
 
-@docs CacheStrategy, Options
+`elm-pages` performs GET requests using a local HTTP cache by default.
+
+@docs getWithOptions
+
+@docs CacheStrategy
+
+
+## Including HTTP Metadata
+
+@docs withMetadata, Metadata
 
 -}
 
@@ -151,14 +156,15 @@ getJson :
     -> Json.Decode.Decoder a
     -> BackendTask (Catchable Error) a
 getJson url decoder =
-    request
+    getWithOptions
         { url = url
-        , method = "GET"
+        , expect = expectJson decoder
         , headers = []
-        , body = emptyBody
-        , options = Nothing
+        , timeoutInMs = Nothing
+        , retries = Nothing
+        , cacheStrategy = Nothing
+        , cachePath = Nothing
         }
-        (expectJson decoder)
 
 
 {-| -}
@@ -167,14 +173,48 @@ get :
     -> Expect a
     -> BackendTask (Catchable Error) a
 get url expect =
-    request
+    getWithOptions
         { url = url
-        , method = "GET"
+        , expect = expect
         , headers = []
-        , body = emptyBody
-        , options = Nothing
+        , timeoutInMs = Nothing
+        , retries = Nothing
+        , cacheStrategy = Nothing
+        , cachePath = Nothing
         }
-        expect
+
+
+{-| Perform a GET request, with some additional options for the HTTP request, including options for caching behavior.
+-}
+getWithOptions :
+    { url : String
+    , expect : Expect a
+    , headers : List ( String, String )
+    , cacheStrategy : Maybe CacheStrategy
+    , retries : Maybe Int
+    , timeoutInMs : Maybe Int
+    , cachePath : Maybe String
+    }
+    -> BackendTask (Catchable Error) a
+getWithOptions request__ =
+    let
+        request_ : HashRequest.Request
+        request_ =
+            { url = request__.url
+            , headers = request__.headers
+            , body = emptyBody
+            , method = "GET"
+            , cacheOptions =
+                { cacheStrategy = request__.cacheStrategy
+                , retries = request__.retries
+                , timeoutInMs = request__.timeoutInMs
+                , cachePath = request__.cachePath
+                }
+                    |> encodeOptions
+                    |> Just
+            }
+    in
+    requestRaw request_ request__.expect
 
 
 {-| -}
@@ -189,20 +229,10 @@ post url body expect =
         , method = "POST"
         , headers = []
         , body = body
-        , options = Nothing
+        , retries = Nothing
+        , timeoutInMs = Nothing
         }
         expect
-
-
-{-| The full details to perform a BackendTask.Http request.
--}
-type alias RequestDetails =
-    { url : String
-    , method : String
-    , headers : List ( String, String )
-    , body : Body
-    , options : Maybe Options
-    }
 
 
 {-| Analogous to the `Expect` type in the `elm/http` package. This represents how you will process the data that comes
@@ -323,7 +353,13 @@ expectToString expect =
 
 {-| -}
 request :
-    RequestDetails
+    { url : String
+    , method : String
+    , headers : List ( String, String )
+    , body : Body
+    , retries : Maybe Int
+    , timeoutInMs : Maybe Int
+    }
     -> Expect a
     -> BackendTask (Catchable Error) a
 request request__ expect =
@@ -334,7 +370,14 @@ request request__ expect =
             , headers = request__.headers
             , method = request__.method
             , body = request__.body
-            , cacheOptions = request__.options |> Maybe.map encodeOptions
+            , cacheOptions =
+                { cacheStrategy = Nothing -- cache strategy only applies to GET and HEAD, need to use getWithOptions to customize
+                , cachePath = Nothing
+                , retries = request__.retries
+                , timeoutInMs = request__.timeoutInMs
+                }
+                    |> encodeOptions
+                    |> Just
             }
     in
     requestRaw request_ expect
@@ -342,53 +385,51 @@ request request__ expect =
 
 {-| -}
 type CacheStrategy
-    = UseGlobalDefault
-    | IgnoreCache -- 'no-store'
+    = IgnoreCache -- 'no-store'
     | ForceRevalidate -- 'no-cache'
     | ForceReload -- 'reload'
     | ForceCache -- 'force-cache'
     | ErrorUnlessCached -- 'only-if-cached'
 
 
-encodeOptions : Options -> Encode.Value
+encodeOptions :
+    { cacheStrategy : Maybe CacheStrategy
+    , cachePath : Maybe String
+    , retries : Maybe Int
+    , timeoutInMs : Maybe Int
+    }
+    -> Encode.Value
 encodeOptions options =
     Encode.object
         ([ ( "cache"
-           , (case options.cacheStrategy of
-                UseGlobalDefault ->
-                    Nothing
+           , options.cacheStrategy
+                |> Maybe.map
+                    (\cacheStrategy ->
+                        case cacheStrategy of
+                            IgnoreCache ->
+                                "no-store"
 
-                IgnoreCache ->
-                    Just "no-store"
+                            ForceRevalidate ->
+                                "no-cache"
 
-                ForceRevalidate ->
-                    Just "no-cache"
+                            ForceReload ->
+                                "reload"
 
-                ForceReload ->
-                    Just "reload"
+                            ForceCache ->
+                                "force-cache"
 
-                ForceCache ->
-                    Just "force-cache"
-
-                ErrorUnlessCached ->
-                    Just "only-if-cached"
-             )
+                            ErrorUnlessCached ->
+                                "only-if-cached"
+                    )
                 |> Maybe.map Encode.string
            )
-         , ( "retry", Encode.int options.retries |> Just )
+         , ( "retry", options.retries |> Maybe.map Encode.int )
          , ( "timeout", options.timeoutInMs |> Maybe.map Encode.int )
+         , ( "cachePath", options.cachePath |> Maybe.map Encode.string )
          ]
             |> List.filterMap
                 (\( a, b ) -> b |> Maybe.map (Tuple.pair a))
         )
-
-
-{-| -}
-type alias Options =
-    { cacheStrategy : CacheStrategy
-    , retries : Int
-    , timeoutInMs : Maybe Int
-    }
 
 
 {-| Build a `BackendTask.Http` request (analogous to [Http.request](https://package.elm-lang.org/packages/elm/http/latest/Http#request)).
