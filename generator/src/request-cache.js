@@ -1,37 +1,5 @@
 const path = require("path");
-const objectHash = require("object-hash");
 const kleur = require("kleur");
-
-/**
- * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
- * This uses SHA1 hashes. They are uni-directional hashes, which works for this use case. Most importantly,
- * they're unique enough and can be expressed in a case-insensitive way so it works on Windows filesystems.
- * And they are 40 hex characters, so the length won't be too long no matter what the request payload.
- * @param {Object} request
- */
-function requestToString(request) {
-  return objectHash(request);
-}
-/**
- * @param {Object} request
- */
-function fullPath(portsHash, request, hasFsAccess) {
-  const requestWithPortHash =
-    request.url === "elm-pages-internal://port"
-      ? { portsHash, ...request }
-      : request;
-  if (hasFsAccess) {
-    return path.join(
-      process.cwd(),
-      // TODO use parameter or something other than global for this `global.isRunningGenerator` condition
-      ".elm-pages",
-      "http-response-cache",
-      requestToString(requestWithPortHash)
-    );
-  } else {
-    return path.join("/", requestToString(requestWithPortHash));
-  }
-}
 
 /** @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: JSON}} Response */
 
@@ -47,11 +15,8 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
     cachePath: "./.elm-pages/http-cache",
     cache: mode === "build" ? "no-cache" : "default",
   });
-  const { fs } = require("./request-cache-fs.js")(hasFsAccess);
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
-    const portsHash = (portsFile && portsFile.match(/-([^-]+)\.js$/)[1]) || "";
-    const responsePath = fullPath(portsHash, request, hasFsAccess);
 
     let portBackendTask = {};
     let portBackendTaskImportError = null;
@@ -217,15 +182,6 @@ function toRequest(elmRequest) {
     headers,
     body: toBody(elmRequest.body),
   };
-}
-/**
- * @param {string} file
- */
-function checkFileExists(fs, file) {
-  return fs.promises
-    .access(file, fs.constants.F_OK)
-    .then(() => true)
-    .catch(() => false);
 }
 /**
  * @param {Body} body
