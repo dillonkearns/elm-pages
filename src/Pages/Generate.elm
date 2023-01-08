@@ -101,10 +101,8 @@ preRender input =
         , pages =
             input.pages
                 |> Elm.withType
-                    (Elm.Annotation.namedWith [ "BackendTask" ]
-                        "BackendTask"
-                        [ Elm.Annotation.list <| Elm.Annotation.named [] "RouteParams"
-                        ]
+                    (throwableTask
+                        (Elm.Annotation.list <| Elm.Annotation.named [] "RouteParams")
                     )
                 |> Just
         , head = input.head
@@ -163,10 +161,8 @@ buildNoState definitions builder_ =
                     , msg = Alias Elm.Annotation.unit
                     , data = builder.data |> Tuple.first
                     , actionData =
-                        Elm.Annotation.namedWith [ "BackendTask" ]
-                            "BackendTask"
-                            [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
-                            ]
+                        throwableTask
+                            (Elm.Annotation.list (Elm.Annotation.named [] "RouteParams"))
                             |> Alias
                     }
                 }
@@ -224,10 +220,8 @@ buildWithLocalState definitions builder_ =
                     , msg = definitions.msg
                     , data = builder.data |> Tuple.first
                     , actionData =
-                        Elm.Annotation.namedWith [ "BackendTask" ]
-                            "BackendTask"
-                            [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
-                            ]
+                        throwableTask
+                            (Elm.Annotation.list (Elm.Annotation.named [] "RouteParams"))
                             |> Alias
                     }
                 }
@@ -285,10 +279,8 @@ buildWithSharedState definitions builder_ =
                     , msg = definitions.msg
                     , data = builder.data |> Tuple.first
                     , actionData =
-                        Elm.Annotation.namedWith [ "BackendTask" ]
-                            "BackendTask"
-                            [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
-                            ]
+                        throwableTask
+                            (Elm.Annotation.list (Elm.Annotation.named [] "RouteParams"))
                             |> Alias
                     }
                 }
@@ -439,10 +431,7 @@ userFunction moduleName definitions =
                                 |> Elm.withType
                                     (case definitions.action of
                                         Pages _ ->
-                                            Elm.Annotation.namedWith [ "BackendTask" ]
-                                                "BackendTask"
-                                                [ Elm.Annotation.named [] "Data"
-                                                ]
+                                            throwableTask (Elm.Annotation.named [] "Data")
 
                                         Action _ ->
                                             myType "Data"
@@ -464,10 +453,7 @@ userFunction moduleName definitions =
                                         |> Elm.withType
                                             (case definitions.action of
                                                 Pages _ ->
-                                                    Elm.Annotation.namedWith [ "BackendTask" ]
-                                                        "BackendTask"
-                                                        [ Elm.Annotation.named [] "Data"
-                                                        ]
+                                                    throwableTask (Elm.Annotation.named [] "Data")
 
                                                 Action _ ->
                                                     myType "Data"
@@ -556,10 +542,8 @@ userFunction moduleName definitions =
                                 { data =
                                     dataFn.call []
                                         |> Elm.withType
-                                            (Elm.Annotation.namedWith [ "BackendTask" ]
-                                                "BackendTask"
-                                                [ Elm.Annotation.named [] "Data"
-                                                ]
+                                            (throwableTask
+                                                (Elm.Annotation.named [] "Data")
                                             )
                                 , head = headFn.call
                                 }
@@ -571,11 +555,7 @@ userFunction moduleName definitions =
                                     \routeParams ->
                                         dataFn.call [ routeParams ]
                                             |> Elm.withType
-                                                (Elm.Annotation.namedWith [ "BackendTask" ]
-                                                    "BackendTask"
-                                                    [ Elm.Annotation.named [] "Data"
-                                                    ]
-                                                )
+                                                (throwableTask (Elm.Annotation.named [] "Data"))
                                 , head = headFn.call
                                 }
                     )
@@ -646,14 +626,13 @@ myType : String -> Elm.Annotation.Annotation
 myType dataType =
     Elm.Annotation.namedWith [ "Server", "Request" ]
         "Parser"
-        [ Elm.Annotation.namedWith [ "BackendTask" ]
-            "BackendTask"
-            [ Elm.Annotation.namedWith [ "Server", "Response" ]
+        [ throwableTask
+            (Elm.Annotation.namedWith [ "Server", "Response" ]
                 "Response"
                 [ Elm.Annotation.named [] dataType
                 , Elm.Annotation.named [ "ErrorPage" ] "ErrorPage"
                 ]
-            ]
+            )
         ]
 
 
@@ -688,10 +667,8 @@ serverRender_ serverRenderArg =
                                     (Elm.Annotation.namedWith
                                         [ "Server", "Request" ]
                                         "Parser"
-                                        [ Elm.Annotation.namedWith
-                                            [ "BackendTask" ]
-                                            "BackendTask"
-                                            [ Elm.Annotation.namedWith
+                                        [ throwableTask
+                                            (Elm.Annotation.namedWith
                                                 [ "Server", "Response" ]
                                                 "Response"
                                                 [ Elm.Annotation.var "data"
@@ -700,7 +677,7 @@ serverRender_ serverRenderArg =
                                                     "ErrorPage"
                                                     []
                                                 ]
-                                            ]
+                                            )
                                         ]
                                     )
                               )
@@ -710,10 +687,8 @@ serverRender_ serverRenderArg =
                                     (Elm.Annotation.namedWith
                                         [ "Server", "Request" ]
                                         "Parser"
-                                        [ Elm.Annotation.namedWith
-                                            [ "BackendTask" ]
-                                            "BackendTask"
-                                            [ Elm.Annotation.namedWith
+                                        [ throwableTask
+                                            (Elm.Annotation.namedWith
                                                 [ "Server", "Response" ]
                                                 "Response"
                                                 [ Elm.Annotation.var "action"
@@ -722,7 +697,7 @@ serverRender_ serverRenderArg =
                                                     "ErrorPage"
                                                     []
                                                 ]
-                                            ]
+                                            )
                                         ]
                                     )
                               )
@@ -785,19 +760,11 @@ preRender_ serverRenderArg =
                             [ ( "data"
                               , Elm.Annotation.function
                                     [ Elm.Annotation.var "routeParams" ]
-                                    (Elm.Annotation.namedWith
-                                        [ "BackendTask" ]
-                                        "BackendTask"
-                                        [ Elm.Annotation.var "data"
-                                        ]
-                                    )
+                                    (throwableTask (Elm.Annotation.var "data"))
                               )
                             , ( "pages"
-                              , Elm.Annotation.namedWith
-                                    [ "BackendTask" ]
-                                    "BackendTask"
-                                    [ Elm.Annotation.list (Elm.Annotation.named [] "RouteParams")
-                                    ]
+                              , throwableTask
+                                    (Elm.Annotation.list (Elm.Annotation.named [] "RouteParams"))
                               )
                             , ( "head"
                               , Elm.Annotation.function
@@ -849,11 +816,7 @@ single_ serverRenderArg =
                     (Elm.Annotation.function
                         [ Elm.Annotation.record
                             [ ( "data"
-                              , Elm.Annotation.namedWith
-                                    [ "BackendTask" ]
-                                    "BackendTask"
-                                    [ Elm.Annotation.var "data"
-                                    ]
+                              , throwableTask (Elm.Annotation.var "data")
                               )
                             , ( "head"
                               , Elm.Annotation.function
@@ -1242,4 +1205,13 @@ buildNoState_ buildNoStateArg buildNoStateArg0 =
                 )
             ]
         , buildNoStateArg0
+        ]
+
+
+throwableTask : Elm.Annotation.Annotation -> Elm.Annotation.Annotation
+throwableTask dataType =
+    Elm.Annotation.namedWith [ "BackendTask" ]
+        "BackendTask"
+        [ Elm.Annotation.named [ "Exception" ] "Throwable"
+        , dataType
         ]
