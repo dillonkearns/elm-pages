@@ -245,7 +245,8 @@ all =
                         , method = "GET"
                         , headers = []
                         , body = BackendTask.Http.emptyBody
-                        , options = Nothing
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
                         }
                         (BackendTask.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
@@ -264,7 +265,8 @@ all =
                         , method = "GET"
                         , headers = []
                         , body = BackendTask.Http.emptyBody
-                        , options = Nothing
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
                         }
                         BackendTask.Http.expectString
                         |> BackendTask.throw
@@ -287,7 +289,8 @@ all =
                         , method = "GET"
                         , headers = []
                         , body = BackendTask.Http.emptyBody
-                        , options = Nothing
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
                         }
                         BackendTask.Http.expectString
                         |> BackendTask.throw
@@ -322,7 +325,8 @@ String was not uppercased"""
                         , url = "https://api.github.com/repos/dillonkearns/elm-pages"
                         , headers = []
                         , body = BackendTask.Http.emptyBody
-                        , options = Nothing
+                        , retries = Nothing
+                        , timeoutInMs = Nothing
                         }
                         (BackendTask.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
