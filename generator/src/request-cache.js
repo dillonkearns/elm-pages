@@ -243,11 +243,12 @@ function jsonResponse(json) {
 
 async function safeFetch(fetch, url, options) {
   try {
+    console.log("@@@safeFetch start", options);
     return await fetch(url, options);
   } catch (error) {
     console.log("@@@safeFetch error", error);
     if ("code" in error && code === "ENOENT") {
-      return await fetch(url, { cachePath: undefined, ...options });
+      return await fetch(url, { cache: "no-store", ...options });
     } else {
       throw error;
     }
