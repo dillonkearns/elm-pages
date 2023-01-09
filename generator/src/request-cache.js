@@ -97,7 +97,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
     } else {
       try {
         console.time(`fetch ${request.url}`);
-        const response = await fetch(request.url, {
+        const response = await safeFetch(fetch, request.url, {
           method: request.method,
           body: request.body,
           headers: {
@@ -239,6 +239,19 @@ function requireUncached(mode, filePath) {
  */
 function jsonResponse(json) {
   return { bodyKind: "json", body: json };
+}
+
+async function safeFetch(fetch, url, options) {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    console.log("@@@safeFetch error", error);
+    if ("code" in error && code === "ENOENT") {
+      return await fetch(url, { cachePath: undefined, ...options });
+    } else {
+      throw error;
+    }
+  }
 }
 
 module.exports = { lookupOrPerform };
