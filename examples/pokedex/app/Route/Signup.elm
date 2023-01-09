@@ -4,6 +4,7 @@ import BackendTask exposing (BackendTask)
 import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Form
 import Form.Field as Field
 import Form.FieldView
@@ -56,25 +57,25 @@ route =
             }
 
 
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask Throwable (Response ActionData ErrorPage))
 action _ =
-    MySession.withSession
-        (Request.formData (form |> Form.initCombined identity)
-            |> Request.map (Result.mapError (\error -> "Errors"))
-            |> Request.andThen Request.fromResult
-        )
-        (\( first, email ) maybeSession ->
-            let
-                session : Session
-                session =
-                    maybeSession |> Result.toMaybe |> Maybe.andThen identity |> Maybe.withDefault Session.empty
-            in
-            validate session
-                { email = email
-                , first = first
-                }
-                |> BackendTask.succeed
-        )
+    (Request.formData (form |> Form.initCombined identity)
+        |> Request.map (Result.mapError (\error -> "Errors"))
+        |> Request.andThen Request.fromResult
+    )
+        |> MySession.withSession
+            (\( first, email ) maybeSession ->
+                let
+                    session : Session
+                    session =
+                        maybeSession |> Result.withDefault Session.empty
+                in
+                validate session
+                    { email = email
+                    , first = first
+                    }
+                    |> BackendTask.succeed
+            )
 
 
 validate : Session -> { first : String, email : String } -> ( Session, Response ActionData ErrorPage )
@@ -213,26 +214,26 @@ type ActionData
         }
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
-    MySession.withSession
-        (Request.succeed ())
-        (\() sessionResult ->
-            let
-                session : Session
-                session =
-                    sessionResult |> Result.toMaybe |> Maybe.andThen identity |> Maybe.withDefault Session.empty
+    Request.succeed ()
+        |> MySession.withSession
+            (\() sessionResult ->
+                let
+                    session : Session
+                    session =
+                        sessionResult |> Result.withDefault Session.empty
 
-                flashMessage : Maybe String
-                flashMessage =
-                    session |> Session.get "message"
-            in
-            ( Session.empty
-            , Response.render
-                { flashMessage = flashMessage |> Maybe.map Ok }
+                    flashMessage : Maybe String
+                    flashMessage =
+                        session |> Session.get "message"
+                in
+                ( Session.empty
+                , Response.render
+                    { flashMessage = flashMessage |> Maybe.map Ok }
+                )
+                    |> BackendTask.succeed
             )
-                |> BackendTask.succeed
-        )
 
 
 head :

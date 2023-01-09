@@ -3,6 +3,7 @@ module Route.Index exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.Env as Env
 import BackendTask.Http
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
@@ -46,14 +47,15 @@ type alias ActionData =
     {}
 
 
-data : BackendTask Data
+data : BackendTask Throwable Data
 data =
     BackendTask.map2 Data
-        (BackendTask.Http.get
+        (BackendTask.Http.getJson
             "https://pokeapi.co/api/v2/pokemon/?limit=100&offset=0"
             (Decode.field "results"
                 (Decode.list (Decode.field "name" Decode.string))
             )
+            |> BackendTask.throw
         )
         (Env.get "HELLO")
 

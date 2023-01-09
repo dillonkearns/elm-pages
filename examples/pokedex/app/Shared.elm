@@ -1,7 +1,8 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
-import BackendTask
+import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
+import Exception exposing (Throwable)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages.Flags
@@ -79,7 +80,7 @@ subscriptions _ _ =
     Sub.none
 
 
-data : BackendTask.BackendTask Data
+data : BackendTask Throwable Data
 data =
     BackendTask.succeed ()
 
@@ -93,10 +94,10 @@ view :
     -> Model
     -> (Msg -> msg)
     -> View msg
-    -> { body : Html msg, title : String }
-view sharedData page model toMsg pageView =
+    -> { body : List (Html msg), title : String }
+view stars page model toMsg pageView =
     { body =
-        Html.div
+        [ Html.div
             []
             [ Html.nav
                 [ Attr.style "display" "flex"
@@ -116,5 +117,6 @@ view sharedData page model toMsg pageView =
                 ]
                 pageView.body
             ]
+        ]
     , title = pageView.title
     }

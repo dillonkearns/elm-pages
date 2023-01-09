@@ -269,6 +269,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
 import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
+import Exception exposing (Throwable)
 import Form.Field as Field exposing (Field(..))
 import Form.FieldStatus as FieldStatus exposing (FieldStatus)
 import Form.FieldView
@@ -681,7 +682,7 @@ toServerForm :
     ->
         Form
             error
-            { combine : Validation.Validation error (BackendTask backendTaskError (Validation.Validation error combined kind constraints)) kind constraints
+            { combine : Validation.Validation error (BackendTask Throwable (Validation.Validation error combined kind constraints)) kind constraints
             , view : viewFn
             }
             data
@@ -694,7 +695,7 @@ toServerForm (Form a b c) =
                 { result : Dict String (List error)
                 , isMatchCandidate : Bool
                 , combineAndView :
-                    { combine : Validation.Validation error (BackendTask backendTaskError (Validation.Validation error combined kind constraints)) kind constraints
+                    { combine : Validation.Validation error (BackendTask Throwable (Validation.Validation error combined kind constraints)) kind constraints
                     , view : viewFn
                     }
                 }

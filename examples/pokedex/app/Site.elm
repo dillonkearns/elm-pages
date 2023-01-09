@@ -1,6 +1,7 @@
 module Site exposing (canonicalUrl, config)
 
 import BackendTask exposing (BackendTask)
+import Exception exposing (Throwable)
 import Head
 import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
@@ -23,7 +24,7 @@ canonicalUrl =
     "https://elm-pages.com"
 
 
-head : BackendTask (List Head.Tag)
+head : BackendTask Throwable (List Head.Tag)
 head =
     [ Head.sitemapLink "/sitemap.xml"
     ]

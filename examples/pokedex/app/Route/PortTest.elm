@@ -2,6 +2,7 @@ module Route.PortTest exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Port
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html
@@ -45,10 +46,10 @@ type alias ActionData =
     {}
 
 
-data : BackendTask Data
+data : BackendTask Throwable Data
 data =
     BackendTask.succeed Data
-        |> BackendTask.andMap (BackendTask.Port.get "hello" (Encode.string "Jane") Decode.string)
+        |> BackendTask.andMap (BackendTask.Port.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.throw)
 
 
 head :

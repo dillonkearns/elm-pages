@@ -3,6 +3,7 @@ module Route.Hello exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Fetcher.Signup
 import Head
 import Head.Seo as Seo
@@ -103,7 +104,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     Request.succeed (BackendTask.succeed (Response.render Data))
 

@@ -2,6 +2,7 @@ module Route.FormEvent exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
+import Exception exposing (Throwable)
 import Form.FormData exposing (FormData)
 import FormDecoder
 import Head
@@ -86,7 +87,7 @@ type alias ActionData =
     {}
 
 
-data : BackendTask Data
+data : BackendTask Throwable Data
 data =
     BackendTask.succeed {}
 

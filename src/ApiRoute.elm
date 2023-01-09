@@ -199,7 +199,7 @@ single handler =
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Parser (BackendTask Never (Server.Response.Response Never Never))) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Parser (BackendTask Throwable (Server.Response.Response Never Never))) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
@@ -225,7 +225,6 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                                         case rendered of
                                             Just (Ok okRendered) ->
                                                 okRendered
-                                                    |> BackendTask.onError never
 
                                             Just (Err errors) ->
                                                 errors
@@ -233,13 +232,11 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                                                     |> Server.Response.plainText
                                                     |> Server.Response.withStatusCode 400
                                                     |> BackendTask.succeed
-                                                    |> BackendTask.onError never
 
                                             Nothing ->
                                                 Server.Response.plainText "No matching request handler"
                                                     |> Server.Response.withStatusCode 400
                                                     |> BackendTask.succeed
-                                                    |> BackendTask.onError never
                                     )
                         )
                     |> Maybe.map (BackendTask.map (Server.Response.toJson >> Just))

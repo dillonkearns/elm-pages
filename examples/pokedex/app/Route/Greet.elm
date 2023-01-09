@@ -3,6 +3,7 @@ module Route.Greet exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -42,7 +43,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.map2 (\a b -> Data a b Nothing)

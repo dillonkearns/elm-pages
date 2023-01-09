@@ -3,6 +3,7 @@ module Route.Secret exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.File
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html
@@ -55,7 +56,7 @@ type alias LoggedInInfo =
     }
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.expectCookie "username"
@@ -64,7 +65,7 @@ data routeParams =
                     username
                         |> LoggedInInfo
                         |> BackendTask.succeed
-                        |> BackendTask.andMap (BackendTask.File.rawFile "examples/pokedex/content/secret-note.txt")
+                        |> BackendTask.andMap (BackendTask.File.rawFile "examples/pokedex/content/secret-note.txt" |> BackendTask.throw)
                         |> BackendTask.map LoggedIn
                         |> BackendTask.map Response.render
                 )

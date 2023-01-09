@@ -1,8 +1,9 @@
 module Route.BasicAuth exposing (ActionData, Data, Model, Msg, route)
 
-import Base64
 import BackendTask exposing (BackendTask)
+import Base64
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Html exposing (div, text)
 import Pages.Msg
@@ -45,7 +46,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Parser (BackendTask (Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask Throwable (Response Data ErrorPage))
 data routeParams =
     withBasicAuth
         (\{ username, password } ->
@@ -100,9 +101,9 @@ parseAuth base64Auth =
 
 
 withBasicAuth :
-    ({ username : String, password : String } -> BackendTask Bool)
-    -> BackendTask (Response data ErrorPage)
-    -> Parser (BackendTask (Response data ErrorPage))
+    ({ username : String, password : String } -> BackendTask error Bool)
+    -> BackendTask error (Response data ErrorPage)
+    -> Parser (BackendTask error (Response data ErrorPage))
 withBasicAuth checkAuth successResponse =
     Request.optionalHeader "authorization"
         |> Request.map

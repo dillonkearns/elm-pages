@@ -6,6 +6,7 @@ module ColorHelpers exposing (..)
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html
@@ -19,10 +20,11 @@ import Shared
 import View exposing (View)
 
 
-data : routeParams -> BackendTask (Server.Response.Response Data ErrorPage)
+data : routeParams -> BackendTask Throwable (Server.Response.Response Data ErrorPage)
 data _ =
-    BackendTask.Http.get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
+    BackendTask.Http.getJson "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
         Decode.string
+        |> BackendTask.throw
         |> BackendTask.map Data
         |> BackendTask.map Server.Response.render
 

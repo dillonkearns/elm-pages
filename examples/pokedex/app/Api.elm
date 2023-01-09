@@ -3,6 +3,7 @@ module Api exposing (routes)
 import ApiRoute exposing (ApiRoute)
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
+import Exception exposing (Throwable)
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
@@ -16,7 +17,7 @@ import Site
 
 
 routes :
-    BackendTask (List Route)
+    BackendTask Throwable (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
@@ -113,9 +114,10 @@ noArgs : ApiRoute ApiRoute.Response
 noArgs =
     ApiRoute.succeed
         (Server.Request.succeed
-            (BackendTask.Http.get
+            (BackendTask.Http.getJson
                 "https://api.github.com/repos/dillonkearns/elm-pages"
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
+                |> BackendTask.throw
                 |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
@@ -135,9 +137,10 @@ noArgs =
 nonHybridRoute =
     ApiRoute.succeed
         (\repoName ->
-            BackendTask.Http.get
+            BackendTask.Http.getJson
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
+                |> BackendTask.throw
                 |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
@@ -161,14 +164,14 @@ nonHybridRoute =
 logout : ApiRoute ApiRoute.Response
 logout =
     ApiRoute.succeed
-        (MySession.withSession
-            (Server.Request.succeed ())
-            (\() sessionResult ->
-                BackendTask.succeed
-                    ( Session.empty
-                    , Route.redirectTo Route.Login
-                    )
-            )
+        (Server.Request.succeed ()
+            |> MySession.withSession
+                (\() sessionResult ->
+                    BackendTask.succeed
+                        ( Session.empty
+                        , Route.redirectTo Route.Login
+                        )
+                )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -181,9 +184,10 @@ repoStars =
     ApiRoute.succeed
         (\repoName ->
             Server.Request.succeed
-                (BackendTask.Http.get
+                (BackendTask.Http.getJson
                     ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                     (Json.Decode.field "stargazers_count" Json.Decode.int)
+                    |> BackendTask.throw
                     |> BackendTask.map
                         (\stars ->
                             Json.Encode.object
@@ -207,9 +211,10 @@ repoStars2 : ApiRoute ApiRoute.Response
 repoStars2 =
     ApiRoute.succeed
         (\repoName ->
-            BackendTask.Http.get
+            BackendTask.Http.getJson
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
+                |> BackendTask.throw
                 |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
@@ -236,9 +241,10 @@ repoStars2 =
 route1 =
     ApiRoute.succeed
         (\repoName ->
-            BackendTask.Http.get
+            BackendTask.Http.getJson
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
+                |> BackendTask.throw
                 |> BackendTask.map
                     (\stars ->
                         Json.Encode.object

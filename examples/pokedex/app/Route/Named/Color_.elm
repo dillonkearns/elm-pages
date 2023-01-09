@@ -1,7 +1,8 @@
 module Route.Named.Color_ exposing (ActionData, Data, Model, Msg, route)
 
-import ColorHelpers
 import BackendTask exposing (BackendTask)
+import ColorHelpers
+import Exception exposing (Throwable)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 
 
@@ -40,6 +41,6 @@ toCssVal routeParams =
     routeParams.color
 
 
-pages : BackendTask (List RouteParams)
+pages : BackendTask Throwable (List RouteParams)
 pages =
     BackendTask.succeed []

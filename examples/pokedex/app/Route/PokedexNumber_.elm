@@ -3,6 +3,7 @@ module Route.PokedexNumber_ exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import ErrorPage exposing (ErrorPage)
+import Exception exposing (Throwable)
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
@@ -39,12 +40,12 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : BackendTask (List RouteParams)
+pages : BackendTask Throwable (List RouteParams)
 pages =
     BackendTask.succeed []
 
 
-data : RouteParams -> BackendTask (Response Data ErrorPage)
+data : RouteParams -> BackendTask Throwable (Response Data ErrorPage)
 data { pokedexNumber } =
     let
         asNumber : Int
@@ -62,15 +63,16 @@ data { pokedexNumber } =
 
     else
         BackendTask.map2 Data
-            (BackendTask.Http.get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
+            (BackendTask.Http.getJson "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
                 Decode.string
             )
-            (BackendTask.Http.get ("https://pokeapi.co/api/v2/pokemon/" ++ pokedexNumber)
+            (BackendTask.Http.getJson ("https://pokeapi.co/api/v2/pokemon/" ++ pokedexNumber)
                 (Decode.map2 Pokemon
                     (Decode.field "forms" (Decode.index 0 (Decode.field "name" Decode.string)))
                     (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
                 )
             )
+            |> BackendTask.throw
             |> BackendTask.map Response.render
 
 
