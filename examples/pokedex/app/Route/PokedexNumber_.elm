@@ -84,7 +84,7 @@ get url decoder =
         , headers = []
         , timeoutInMs = Nothing
         , retries = Nothing
-        , cachePath = Just "/tmp"
+        , cachePath = Just "netlify-http-cache"
         , cacheStrategy = Nothing
         }
 
