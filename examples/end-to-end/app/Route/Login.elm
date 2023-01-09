@@ -57,7 +57,6 @@ action routeParams =
         |> MySession.withSession
             (\nameResultData session ->
                 nameResultData
-                    |> BackendTask.mapError Exception.fromString
                     |> BackendTask.map
                         (\nameResult ->
                             case nameResult of
