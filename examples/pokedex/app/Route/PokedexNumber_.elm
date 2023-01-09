@@ -63,10 +63,10 @@ data { pokedexNumber } =
 
     else
         BackendTask.map2 Data
-            (BackendTask.Http.getJson "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
+            (get "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
                 Decode.string
             )
-            (BackendTask.Http.getJson ("https://pokeapi.co/api/v2/pokemon/" ++ pokedexNumber)
+            (get ("https://pokeapi.co/api/v2/pokemon/" ++ pokedexNumber)
                 (Decode.map2 Pokemon
                     (Decode.field "forms" (Decode.index 0 (Decode.field "name" Decode.string)))
                     (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
@@ -74,6 +74,19 @@ data { pokedexNumber } =
             )
             |> BackendTask.throw
             |> BackendTask.map Response.render
+
+
+get : String -> Decode.Decoder value -> BackendTask (Exception.Catchable BackendTask.Http.Error) value
+get url decoder =
+    BackendTask.Http.getWithOptions
+        { url = url
+        , expect = BackendTask.Http.expectJson decoder
+        , headers = []
+        , timeoutInMs = Nothing
+        , retries = Nothing
+        , cachePath = Just "/tmp"
+        , cacheStrategy = Nothing
+        }
 
 
 type alias Pokemon =
