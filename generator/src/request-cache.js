@@ -1,5 +1,8 @@
 const path = require("path");
 const kleur = require("kleur");
+const fsPromises = require("fs/promises");
+
+const defaultHttpCachePath = "./.elm-pages/http-cache";
 
 /** @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: JSON}} Response */
 
@@ -12,7 +15,6 @@ const kleur = require("kleur");
  */
 function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
   const fetch = require("make-fetch-happen").defaults({
-    cachePath: "./.elm-pages/http-cache",
     cache: mode === "build" ? "no-cache" : "default",
   });
   return new Promise(async (resolve, reject) => {
@@ -242,16 +244,25 @@ function jsonResponse(json) {
 }
 
 async function safeFetch(fetch, url, options) {
-  try {
-    console.log("@@@safeFetch start", options);
+  const { cachePath, ...optionsWithoutCachePath } = options;
+  const cachePathWithDefault = cachePath || defaultHttpCachePath;
+  if (await canAccess(cachePathWithDefault)) {
     return await fetch(url, options);
-  } catch (error) {
-    console.log("@@@safeFetch error", error);
-    if ("code" in error && code === "ENOENT") {
-      return await fetch(url, { cache: "no-store", ...options });
-    } else {
-      throw error;
-    }
+  } else {
+    console.log(`@@@can't access ${cachePath} skipping cache storage`);
+    return await fetch(url, { cache: "no-store", ...optionsWithoutCachePath });
+  }
+}
+
+async function canAccess(filePath) {
+  try {
+    await fsPromises.access(
+      filePath,
+      fsPromises.constants.R_OK | fsPromises.constants.W_OK
+    );
+    return true;
+  } catch {
+    return false;
   }
 }
 
