@@ -283,7 +283,6 @@ function runElmApp(
       } else {
         fromElm = newThing;
       }
-      console.log("fromElm", JSON.stringify(fromElm, null, 2));
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
@@ -426,7 +425,6 @@ async function runHttpJob(
       hasFsAccess,
       useCache
     );
-    console.log("@@@lookupResponse", JSON.stringify(lookupResponse, null, 2));
 
     if (lookupResponse.kind === "cache-response-path") {
       const responseFilePath = lookupResponse.value;

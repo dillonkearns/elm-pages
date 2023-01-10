@@ -249,7 +249,6 @@ async function safeFetch(fetch, url, options) {
   if (await canAccess(cachePathWithDefault)) {
     return await fetch(url, options);
   } else {
-    console.log(`@@@can't access ${cachePath} skipping cache storage`);
     return await fetch(url, { cache: "no-store", ...optionsWithoutCachePath });
   }
 }
