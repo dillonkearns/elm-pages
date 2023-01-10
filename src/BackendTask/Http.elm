@@ -71,7 +71,22 @@ and describe your use case!
 
 ## Caching Options
 
-`elm-pages` performs GET requests using a local HTTP cache by default.
+`elm-pages` performs GET requests using a local HTTP cache by default. These requests are not performed using Elm's `elm/http`,
+but rather are performed in NodeJS. Under the hood it uses [the NPM package `make-fetch-happen`](https://github.com/npm/make-fetch-happen).
+Only GET requests made with `get`, `getJson`, or `getWithOptions` use local caching. Requests made with [`BackendTask.Http.request`](#request)
+are not cached, even if the method is set to `GET`.
+
+In dev mode, assets are cached more aggressively by default, whereas for a production build assets use a default to revalidate each cached response's freshness before using it (the `ForceRevalidate` [`CacheStrategy`](#CacheStrategy)).
+
+The default caching behavior for GET requests is to use a local cache in `.elm-pages/http-cache`. This uses the same caching behavior
+that browsers use to avoid re-downloading content when it hasn't changed. Servers can set HTTP response headers to explicitly control
+this caching behavior.
+
+  - [`cache-control` HTTP response headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control) let you set a length of time before considering an asset stale. This could mean that the server considers it acceptable for an asset to be somewhat outdated, or this could mean that the asset is guaranteed to be up-to-date until it is stale - those semantics are up to the server.
+  - `Last-Modified` and `ETag` HTTP response headers can be returned by the server allow [Conditional Requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Conditional_requests). Conditional Requests let us send back the `Last-Modified` timestamp or `etag` hash for assets that are in our local cache to the server to check if the asset is fresh, and skip re-downloading it if it is unchanged (or download a fresh one otherwise).
+
+It's important to note that depending on how the server sets these HTTP response headers, we may have outdated data - either because the server explicitly allows assets to become outdated with their cache-control headers, OR because cache-control headers are not set. When these headers aren't explicitly set, [clients are allowed to cache assets for 10% of the amount of time since it was last modified](https://httpwg.org/specs/rfc7234.html#heuristic.freshness).
+For production builds, the default caching will ignore both the implicit and explicit information about an asset's freshness and _always_ revalidate it before using a locally cached response.
 
 @docs getWithOptions
 
@@ -138,15 +153,16 @@ type alias Body =
     Body.Body
 
 
-{-| A simplified helper around [`BackendTask.Http.request`](#request), which builds up a BackendTask.Http GET request.
+{-| A simplified helper around [`BackendTask.Http.get`](#get), which builds up a BackendTask.Http GET request with `expectJson`.
 
     import BackendTask
     import BackendTask.Http
+    import Exception exposing (Catchable)
     import Json.Decode as Decode exposing (Decoder)
 
-    getRequest : BackendTask Int
+    getRequest : BackendTask (Catchable Error) Int
     getRequest =
-        BackendTask.Http.get
+        BackendTask.Http.getJson
             "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.field "stargazers_count" Decode.int)
 
@@ -167,7 +183,21 @@ getJson url decoder =
         }
 
 
-{-| -}
+{-| A simplified helper around [`BackendTask.Http.getWithOptions`](#getWithOptions), which builds up a GET request with
+the default retries, timeout, and HTTP caching options. If you need to configure those options or include HTTP request headers,
+use the more flexible `getWithOptions`.
+
+    import BackendTask
+    import BackendTask.Http
+    import Exception exposing (Catchable)
+
+    getRequest : BackendTask (Catchable Error) String
+    getRequest =
+        BackendTask.Http.get
+            "https://api.github.com/repos/dillonkearns/elm-pages"
+            BackendTask.Http.expectString
+
+-}
 get :
     String
     -> Expect a
@@ -185,6 +215,12 @@ get url expect =
 
 
 {-| Perform a GET request, with some additional options for the HTTP request, including options for caching behavior.
+
+  - `retries` - Default is 0. Will try performing request again if set to a number greater than 0.
+  - `timeoutInMs` - Default is no timeout.
+  - `cacheStrategy` - The [caching options are passed to the NPM package `make-fetch-happen`](https://github.com/npm/make-fetch-happen#opts-cache)
+  - `cachePath` - override the default directory for the local HTTP cache. This can be helpful if you want more granular control to clear some HTTP caches more or less frequently than others. Or you may want to preserve the local cache for some requests in your build server, but not store the cache for other requests.
+
 -}
 getWithOptions :
     { url : String
