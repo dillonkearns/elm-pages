@@ -14,7 +14,7 @@ module BackendTask.Port exposing
 import BackendTask
 import BackendTask.Http
 import BackendTask.Internal.Request
-import Exception exposing (Catchable)
+import Exception exposing (Exception)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import TerminalText
@@ -81,7 +81,7 @@ prefer to add ANSI color codes within the error string in an exception and it wi
 As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For example, avoid using `fs.readFileSync`, because blocking IO can slow down your elm-pages builds and dev server.
 
 -}
-get : String -> Encode.Value -> Decoder b -> BackendTask.BackendTask (Catchable Error) b
+get : String -> Encode.Value -> Decoder b -> BackendTask.BackendTask (Exception Error) b
 get portName input decoder =
     BackendTask.Internal.Request.request
         { name = "port"
@@ -97,7 +97,7 @@ get portName input decoder =
                     |> Decode.andThen
                         (\errorKind ->
                             if errorKind == "PortNotDefined" then
-                                Exception.Catchable (PortNotDefined { name = portName })
+                                Exception.Exception (PortNotDefined { name = portName })
                                     { title = "Port Error"
                                     , body =
                                         [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I expected to find a port named `"
@@ -114,7 +114,7 @@ get portName input decoder =
                                     |> Decode.map (Maybe.withDefault "")
                                     |> Decode.map
                                         (\incorrectPortType ->
-                                            Exception.Catchable ExportIsNotFunction
+                                            Exception.Exception ExportIsNotFunction
                                                 { title = "Port Error"
                                                 , body =
                                                     [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I found an export called `"
@@ -127,7 +127,7 @@ get portName input decoder =
                                         )
 
                             else if errorKind == "MissingPortsFile" then
-                                Exception.Catchable MissingPortsFile
+                                Exception.Exception MissingPortsFile
                                     { title = "Port Error"
                                     , body =
                                         [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I couldn't find your port-data-source file. Be sure to create a 'port-data-source.ts' or 'port-data-source.js' file."
@@ -142,7 +142,7 @@ get portName input decoder =
                                     |> Decode.map (Maybe.withDefault "")
                                     |> Decode.map
                                         (\errorMessage ->
-                                            Exception.Catchable
+                                            Exception.Exception
                                                 ErrorInPortsFile
                                                 { title = "Port Error"
                                                 , body =
@@ -160,7 +160,7 @@ get portName input decoder =
                                     |> Decode.map (Maybe.withDefault Encode.null)
                                     |> Decode.map
                                         (\portCallError ->
-                                            Exception.Catchable
+                                            Exception.Exception
                                                 (PortCallError portCallError)
                                                 { title = "Port Error"
                                                 , body =
@@ -173,7 +173,7 @@ get portName input decoder =
                                         )
 
                             else
-                                Exception.Catchable ErrorInPortsFile
+                                Exception.Exception ErrorInPortsFile
                                     { title = "Port Error"
                                     , body =
                                         [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I expected to find a port named `"

@@ -39,7 +39,7 @@ down into the final `Data` value, it won't end up in the client!
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
-import Exception exposing (Catchable)
+import Exception exposing (Exception)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import TerminalText
@@ -65,7 +65,7 @@ get envVariableName =
 
 {-| Get an environment variable, or a BackendTask failure if there is no environment variable matching that name.
 -}
-expect : String -> BackendTask (Catchable Error) String
+expect : String -> BackendTask (Exception Error) String
 expect envVariableName =
     envVariableName
         |> get
@@ -73,7 +73,7 @@ expect envVariableName =
             (\maybeValue ->
                 maybeValue
                     |> Result.fromMaybe
-                        (Exception.Catchable (MissingEnvVariable envVariableName)
+                        (Exception.Exception (MissingEnvVariable envVariableName)
                             { title = "Missing Env Variable"
                             , body =
                                 [ TerminalText.text "BackendTask.Env.expect was expecting a variable `"

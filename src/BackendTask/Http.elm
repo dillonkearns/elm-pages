@@ -104,7 +104,7 @@ import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
-import Exception exposing (Catchable)
+import Exception exposing (Exception)
 import Json.Decode
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as Body
@@ -157,10 +157,10 @@ type alias Body =
 
     import BackendTask
     import BackendTask.Http
-    import Exception exposing (Catchable)
+    import Exception exposing (Exception)
     import Json.Decode as Decode exposing (Decoder)
 
-    getRequest : BackendTask (Catchable Error) Int
+    getRequest : BackendTask (Exception Error) Int
     getRequest =
         BackendTask.Http.getJson
             "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -170,7 +170,7 @@ type alias Body =
 getJson :
     String
     -> Json.Decode.Decoder a
-    -> BackendTask (Catchable Error) a
+    -> BackendTask (Exception Error) a
 getJson url decoder =
     getWithOptions
         { url = url
@@ -189,9 +189,9 @@ use the more flexible `getWithOptions`.
 
     import BackendTask
     import BackendTask.Http
-    import Exception exposing (Catchable)
+    import Exception exposing (Exception)
 
-    getRequest : BackendTask (Catchable Error) String
+    getRequest : BackendTask (Exception Error) String
     getRequest =
         BackendTask.Http.get
             "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -201,7 +201,7 @@ use the more flexible `getWithOptions`.
 get :
     String
     -> Expect a
-    -> BackendTask (Catchable Error) a
+    -> BackendTask (Exception Error) a
 get url expect =
     getWithOptions
         { url = url
@@ -231,7 +231,7 @@ getWithOptions :
     , timeoutInMs : Maybe Int
     , cachePath : Maybe String
     }
-    -> BackendTask (Catchable Error) a
+    -> BackendTask (Exception Error) a
 getWithOptions request__ =
     let
         request_ : HashRequest.Request
@@ -258,7 +258,7 @@ post :
     String
     -> Body
     -> Expect a
-    -> BackendTask (Catchable Error) a
+    -> BackendTask (Exception Error) a
 post url body expect =
     request
         { url = url
@@ -397,7 +397,7 @@ request :
     , timeoutInMs : Maybe Int
     }
     -> Expect a
-    -> BackendTask (Catchable Error) a
+    -> BackendTask (Exception Error) a
 request request__ expect =
     let
         request_ : HashRequest.Request
@@ -475,7 +475,7 @@ with this as a low-level detail, or you can use functions like [BackendTask.Http
 requestRaw :
     HashRequest.Request
     -> Expect a
-    -> BackendTask (Catchable Error) a
+    -> BackendTask (Exception Error) a
 requestRaw request__ expect =
     let
         request_ : HashRequest.Request
@@ -573,7 +573,7 @@ requestRaw request__ expect =
                 |> BackendTask.fromResult
                 |> BackendTask.mapError
                     (\error ->
-                        Exception.Catchable error (errorToString error)
+                        Exception.Exception error (errorToString error)
                     )
         )
 

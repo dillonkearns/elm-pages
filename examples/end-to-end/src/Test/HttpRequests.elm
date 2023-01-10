@@ -2,7 +2,7 @@ module Test.HttpRequests exposing (all)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import Exception exposing (Catchable)
+import Exception exposing (Exception)
 import Expect
 import Json.Decode as Decode
 import Test exposing (Test)
@@ -112,7 +112,7 @@ all =
         |> BackendTask.map (Test.describe "BackendTask tests")
 
 
-test : String -> (Result error data -> Expect.Expectation) -> BackendTask (Catchable error) data -> BackendTask noError Test
+test : String -> (Result error data -> Expect.Expectation) -> BackendTask (Exception error) data -> BackendTask noError Test
 test name assert task =
     task
         |> BackendTask.toResult

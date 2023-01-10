@@ -76,7 +76,7 @@ data { pokedexNumber } =
             |> BackendTask.map Response.render
 
 
-get : String -> Decode.Decoder value -> BackendTask (Exception.Catchable BackendTask.Http.Error) value
+get : String -> Decode.Decoder value -> BackendTask (Exception.Exception BackendTask.Http.Error) value
 get url decoder =
     BackendTask.Http.getWithOptions
         { url = url

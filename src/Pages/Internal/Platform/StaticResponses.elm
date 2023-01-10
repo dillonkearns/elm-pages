@@ -2,7 +2,7 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), batchUpda
 
 import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
-import Exception exposing (Catchable(..), Throwable)
+import Exception exposing (Exception(..), Throwable)
 import Json.Decode as Decode
 import List.Extra
 import Pages.StaticHttp.Request as HashRequest
@@ -125,7 +125,7 @@ nextStep ({ allRawResponses, errors } as model) =
                 Just (Ok completed) ->
                     Finish completed
 
-                Just (Err (Catchable () buildError)) ->
+                Just (Err (Exception () buildError)) ->
                     FinishedWithErrors
                         [ { title = buildError.title |> String.toUpper
                           , path = "" -- TODO include path here

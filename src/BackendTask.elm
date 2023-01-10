@@ -86,7 +86,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 -}
 
-import Exception exposing (Catchable(..), Throwable)
+import Exception exposing (Exception(..), Throwable)
 import Json.Encode
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 
@@ -524,26 +524,26 @@ map9 combineFn request1 request2 request3 request4 request5 request6 request7 re
 
 
 {-| -}
-catch : BackendTask (Catchable error) value -> BackendTask error value
+catch : BackendTask (Exception error) value -> BackendTask error value
 catch ds =
     ds
         |> onError
             (\exception ->
                 case exception of
-                    Catchable error _ ->
+                    Exception error _ ->
                         fail error
             )
 
 
 {-| -}
-throw : BackendTask (Catchable error) data -> BackendTask Throwable data
+throw : BackendTask (Exception error) data -> BackendTask Throwable data
 throw backendTask =
     backendTask
         |> onError (Exception.throw >> fail)
 
 
 {-| -}
-toResult : BackendTask (Catchable error) data -> BackendTask noError (Result error data)
+toResult : BackendTask (Exception error) data -> BackendTask noError (Result error data)
 toResult backendTask =
     backendTask
         |> catch

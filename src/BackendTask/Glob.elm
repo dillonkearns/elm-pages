@@ -229,7 +229,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Glob exposing (Glob(..))
 import BackendTask.Internal.Request
-import Exception exposing (Catchable, Throwable)
+import Exception exposing (Exception, Throwable)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
@@ -1054,7 +1054,7 @@ so it's ideal to make this kind of assertion rather than having fallback behavio
 issues (like if we had instead ignored the case where there are two or more matching blog post files).
 
 -}
-expectUniqueMatch : Glob a -> BackendTask (Catchable String) a
+expectUniqueMatch : Glob a -> BackendTask (Exception String) a
 expectUniqueMatch glob =
     glob
         |> toBackendTask

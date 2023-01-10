@@ -1,37 +1,37 @@
-module Exception exposing (Throwable, Catchable(..), fromString, fromStringWithValue, throw)
+module Exception exposing (Throwable, Exception(..), fromString, fromStringWithValue, throw)
 
 {-|
 
-@docs Throwable, Catchable, fromString, fromStringWithValue, throw
+@docs Throwable, Exception, fromString, fromStringWithValue, throw
 
 -}
 
 
 {-| -}
 type alias Throwable =
-    Catchable ()
+    Exception ()
 
 
 {-| -}
-type Catchable error
-    = Catchable error { title : String, body : String }
+type Exception error
+    = Exception error { title : String, body : String }
 
 
 {-| -}
-fromString : String -> Catchable ()
+fromString : String -> Exception ()
 fromString string =
     fromStringWithValue string ()
 
 
 {-| -}
-fromStringWithValue : String -> value -> Catchable value
+fromStringWithValue : String -> value -> Exception value
 fromStringWithValue string value =
-    Catchable value { title = "Custom Error", body = string }
+    Exception value { title = "Custom Error", body = string }
 
 
 {-| -}
-throw : Catchable error -> Catchable ()
+throw : Exception error -> Exception ()
 throw exception =
     case exception of
-        Catchable _ string ->
-            Catchable () string
+        Exception _ string ->
+            Exception () string
