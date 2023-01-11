@@ -65,7 +65,7 @@ cacheRequestResolution request rawResponses =
     case request of
         Request urlList lookupFn ->
             if List.isEmpty urlList then
-                cacheRequestResolutionHelp urlList rawResponses (lookupFn Nothing rawResponses)
+                cacheRequestResolutionHelp rawResponses (lookupFn Nothing rawResponses)
 
             else
                 Incomplete urlList (Request [] lookupFn)
@@ -81,21 +81,19 @@ type Status error value
 
 
 cacheRequestResolutionHelp :
-    List Pages.StaticHttp.Request.Request
-    -> RequestsAndPending
+    RequestsAndPending
     -> RawRequest error value
     -> Status error value
-cacheRequestResolutionHelp foundUrls rawResponses request =
+cacheRequestResolutionHelp rawResponses request =
     case request of
         Request urlList lookupFn ->
-            if (urlList ++ foundUrls) |> List.isEmpty then
+            if urlList |> List.isEmpty then
                 cacheRequestResolutionHelp
-                    []
                     rawResponses
                     (lookupFn Nothing rawResponses)
 
             else
-                Incomplete (urlList ++ foundUrls)
+                Incomplete urlList
                     (Request [] lookupFn)
 
         ApiRoute value ->
