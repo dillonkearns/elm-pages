@@ -18,9 +18,10 @@ run =
                                 Script.log "-> 3"
                                     |> BackendTask.andThen
                                         (\_ ->
-                                            BackendTask.Http.get
+                                            BackendTask.Http.getJson
                                                 "https://api.github.com/repos/dillonkearns/elm-pages"
                                                 (Decode.field "stargazers_count" Decode.int)
+                                                |> BackendTask.throw
                                                 |> BackendTask.andThen
                                                     (\stars ->
                                                         Script.log (String.fromInt stars)
