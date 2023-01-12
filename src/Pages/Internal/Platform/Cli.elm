@@ -53,7 +53,6 @@ currentCompatibilityKey =
 type alias Model route =
     { staticResponses : BackendTask Throwable Effect
     , errors : List BuildError
-    , allRawResponses : RequestsAndPending
     , maybeRequestJson : RenderRequest route
     , isDevServer : Bool
     }
@@ -310,7 +309,6 @@ init site renderRequest config flags =
                           , path = ""
                           }
                         ]
-                    , allRawResponses = Json.Encode.object []
                     , maybeRequestJson = renderRequest
                     , isDevServer = False
                     }
@@ -325,7 +323,6 @@ init site renderRequest config flags =
                       , path = ""
                       }
                     ]
-                , allRawResponses = Json.Encode.object []
                 , maybeRequestJson = renderRequest
                 , isDevServer = False
                 }
@@ -763,12 +760,11 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
         initialModel =
             { staticResponses = staticResponsesNew
             , errors = []
-            , allRawResponses = Json.Encode.object []
             , maybeRequestJson = renderRequest
             , isDevServer = isDevServer
             }
     in
-    StaticResponses.nextStep initialModel
+    StaticResponses.nextStep (Json.Encode.object []) initialModel.staticResponses initialModel
         |> nextStepToEffect
             initialModel
 
@@ -777,7 +773,8 @@ updateAndSendPortIfDone :
     Model route
     -> ( Model route, Effect )
 updateAndSendPortIfDone model =
-    StaticResponses.nextStep
+    StaticResponses.nextStep (Json.Encode.object [])
+        model.staticResponses
         model
         |> nextStepToEffect model
 
@@ -790,15 +787,10 @@ update :
 update msg model =
     case msg of
         GotDataBatch batch ->
-            let
-                updatedModel : Model route
-                updatedModel =
-                    model
-                        |> StaticResponses.batchUpdate batch
-            in
-            StaticResponses.nextStep
-                updatedModel
-                |> nextStepToEffect updatedModel
+            StaticResponses.nextStep batch
+                model.staticResponses
+                model
+                |> nextStepToEffect model
 
         GotBuildError buildError ->
             let
@@ -809,7 +801,8 @@ update msg model =
                             buildError :: model.errors
                     }
             in
-            StaticResponses.nextStep
+            StaticResponses.nextStep (Json.Encode.object [])
+                updatedModel.staticResponses
                 updatedModel
                 |> nextStepToEffect updatedModel
 
@@ -821,27 +814,14 @@ nextStepToEffect :
 nextStepToEffect model nextStep =
     case nextStep of
         StaticResponses.Continue httpRequests updatedStaticResponsesModel ->
-            let
-                updatedModel : Model route
-                updatedModel =
-                    { model
-                        | staticResponses = updatedStaticResponsesModel
-                    }
-            in
-            if List.isEmpty httpRequests then
-                nextStepToEffect
-                    updatedModel
-                    (StaticResponses.nextStep
-                        updatedModel
-                    )
-
-            else
-                ( updatedModel
-                , (httpRequests
-                    |> List.map Effect.FetchHttp
-                  )
-                    |> Effect.Batch
-                )
+            ( { model
+                | staticResponses = updatedStaticResponsesModel
+              }
+            , (httpRequests
+                |> List.map Effect.FetchHttp
+              )
+                |> Effect.Batch
+            )
 
         StaticResponses.FinishedWithErrors errors ->
             ( model

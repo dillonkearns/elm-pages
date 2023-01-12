@@ -9,6 +9,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (NextStep(..))
 import Pages.Internal.StaticHttpBody exposing (Body(..))
+import Pages.Script as Script
 import Pages.StaticHttp.Request as Request exposing (Request)
 import RequestsAndPending exposing (ResponseBody)
 import Test exposing (Test, describe, test)
@@ -55,7 +56,56 @@ all =
                             )
                           ]
                         ]
+        , test "log" <|
+            \() ->
+                Script.log "Hello!"
+                    |> expectRequestChain ()
+                        [ [ ( log "Hello!"
+                            , Encode.object []
+                            )
+                          ]
+                        ]
+        , test "andThen log" <|
+            \() ->
+                BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
+                    (Decode.field "stargazers_count" Decode.int)
+                    |> BackendTask.throw
+                    |> BackendTask.andThen
+                        (\stars ->
+                            Script.log ("Stars: " ++ String.fromInt stars)
+                        )
+                    |> expectRequestChain ()
+                        [ [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                            , Encode.object
+                                [ ( "stargazers_count", Encode.int 123 )
+                                ]
+                            )
+                          ]
+                        , [ ( log "Stars: 123"
+                            , Encode.object []
+                            )
+                          ]
+                        ]
         ]
+
+
+log : String -> Request
+log message =
+    portRequest "log"
+        (Encode.object
+            [ ( "message", Encode.string message )
+            ]
+        )
+
+
+portRequest : String -> Encode.Value -> Request
+portRequest portName body =
+    { url = "elm-pages-internal://" ++ portName
+    , method = "GET"
+    , headers = []
+    , body = JsonBody body
+    , cacheOptions = Nothing
+    }
 
 
 get : String -> Request
@@ -87,9 +137,9 @@ expectRequestChain expectedValue expectedChain request =
                 )
         )
         []
-        { allRawResponses = Encode.object []
-        , staticResponses = request
-        , errors = []
+        request
+        (Encode.object [])
+        { errors = []
         }
 
 
@@ -98,15 +148,15 @@ expectRequestChainHelp :
     -> List (List Request)
     -> List (List ( Request, Encode.Value ))
     -> List (List Request)
+    -> BackendTask Throwable a
+    -> Encode.Value
     ->
-        { staticResponses : BackendTask Throwable a
-        , errors : List BuildError
-        , allRawResponses : Encode.Value
+        { errors : List BuildError
         }
     -> Expect.Expectation
-expectRequestChainHelp expectedValue fullExpectedChain expectedChain chainSoFar values =
+expectRequestChainHelp expectedValue fullExpectedChain expectedChain chainSoFar backendTask responses values =
     case
-        StaticResponses.nextStep values
+        StaticResponses.nextStep responses backendTask values
     of
         Finish actualFinalValue ->
             Expect.all
@@ -158,10 +208,9 @@ expectRequestChainHelp expectedValue fullExpectedChain expectedChain chainSoFar 
                         fullExpectedChain
                         rest
                         (requests :: chainSoFar)
-                        { allRawResponses = thing
-                        , staticResponses = rawRequest
-                        , errors = []
-                        }
+                        rawRequest
+                        thing
+                        { errors = [] }
 
                 _ ->
                     -- TODO give error because it's not complete but should be?

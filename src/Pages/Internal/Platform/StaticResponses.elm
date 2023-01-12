@@ -44,18 +44,19 @@ type NextStep route value
 
 
 nextStep :
-    { model
-        | staticResponses : BackendTask Throwable a
-        , errors : List BuildError
-        , allRawResponses : RequestsAndPending
-    }
+    RequestsAndPending
+    -> BackendTask Throwable a
+    ->
+        { model
+            | errors : List BuildError
+        }
     -> NextStep route a
-nextStep ({ allRawResponses, errors } as model) =
+nextStep allRawResponses staticResponses { errors } =
     let
         staticRequestsStatus : StaticHttpRequest.Status Throwable a
         staticRequestsStatus =
             allRawResponses
-                |> StaticHttpRequest.cacheRequestResolution model.staticResponses
+                |> StaticHttpRequest.cacheRequestResolution staticResponses
 
         ( ( pendingRequests, completedValue ), urlsToPerform, progressedBackendTask ) =
             case staticRequestsStatus of

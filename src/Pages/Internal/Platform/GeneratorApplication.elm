@@ -22,7 +22,6 @@ import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.Script
 import Pages.StaticHttp.Request
-import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
 
 
@@ -36,8 +35,6 @@ type alias Flags =
 type alias Model =
     { staticResponses : BackendTask Throwable ()
     , errors : List BuildError
-    , allRawResponses : RequestsAndPending
-    , done : Bool
     }
 
 
@@ -281,8 +278,6 @@ init execute flags =
                   , path = ""
                   }
                 ]
-            , allRawResponses = Encode.object []
-            , done = False
             }
 
 
@@ -299,11 +294,9 @@ initLegacy execute =
         initialModel =
             { staticResponses = staticResponses
             , errors = []
-            , allRawResponses = Encode.object []
-            , done = False
             }
     in
-    StaticResponses.nextStep initialModel
+    StaticResponses.nextStep (Encode.object []) initialModel.staticResponses initialModel
         |> nextStepToEffect
             initialModel
 
@@ -312,7 +305,8 @@ updateAndSendPortIfDone :
     Model
     -> ( Model, Effect )
 updateAndSendPortIfDone model =
-    StaticResponses.nextStep
+    StaticResponses.nextStep (Encode.object [])
+        model.staticResponses
         model
         |> nextStepToEffect model
 
@@ -325,15 +319,10 @@ update :
 update msg model =
     case msg of
         GotDataBatch batch ->
-            let
-                updatedModel : Model
-                updatedModel =
-                    model
-                        |> StaticResponses.batchUpdate batch
-            in
-            StaticResponses.nextStep
-                updatedModel
-                |> nextStepToEffect updatedModel
+            StaticResponses.nextStep batch
+                model.staticResponses
+                model
+                |> nextStepToEffect model
 
         GotBuildError buildError ->
             let
@@ -344,7 +333,8 @@ update msg model =
                             buildError :: model.errors
                     }
             in
-            StaticResponses.nextStep
+            StaticResponses.nextStep (Encode.object [])
+                updatedModel.staticResponses
                 updatedModel
                 |> nextStepToEffect updatedModel
 
@@ -356,28 +346,14 @@ nextStepToEffect :
 nextStepToEffect model nextStep =
     case nextStep of
         StaticResponses.Continue httpRequests updatedStaticResponsesModel ->
-            let
-                updatedModel : Model
-                updatedModel =
-                    { model
-                        | allRawResponses = Encode.object []
-                        , staticResponses = updatedStaticResponsesModel
-                    }
-            in
-            if List.isEmpty httpRequests then
-                nextStepToEffect
-                    updatedModel
-                    (StaticResponses.nextStep
-                        updatedModel
-                    )
-
-            else
-                ( updatedModel
-                , (httpRequests
-                    |> List.map Effect.FetchHttp
-                  )
-                    |> Effect.Batch
-                )
+            ( { model
+                | staticResponses = updatedStaticResponsesModel
+              }
+            , (httpRequests
+                |> List.map Effect.FetchHttp
+              )
+                |> Effect.Batch
+            )
 
         StaticResponses.Finish () ->
             ( model
