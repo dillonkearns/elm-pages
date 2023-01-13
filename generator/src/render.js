@@ -143,22 +143,10 @@ function runGeneratorAppHelp(
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
-        const args = fromElm.args[0];
-        if (mode === "build") {
-          global.staticHttpCache = args.staticHttpCache;
-        }
-
-        resolve({
-          kind: "api-response",
-          is404: args.is404,
-          statusCode: args.statusCode,
-          body: args.body,
-        });
+        // Finished successfully
+        process.exit(0);
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
-        if (mode === "build") {
-          global.staticHttpCache = args.staticHttpCache;
-        }
 
         if (isBytes) {
           resolve({
