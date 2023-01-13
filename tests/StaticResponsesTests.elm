@@ -178,11 +178,6 @@ expectRequestChainHelp expectedValue fullExpectedChain expectedChain chainSoFar 
                 |> Expect.fail
 
         Continue requests rawRequest ->
-            let
-                latestActualChainReversed : List (List Request)
-                latestActualChainReversed =
-                    requests :: chainSoFar
-            in
             case expectedChain of
                 first :: rest ->
                     let
@@ -214,7 +209,7 @@ expectRequestChainHelp expectedValue fullExpectedChain expectedChain chainSoFar 
 
                 _ ->
                     -- TODO give error because it's not complete but should be?
-                    latestActualChainReversed
+                    (requests :: chainSoFar)
                         |> List.reverse
                         |> List.map (List.map .url)
                         |> Expect.equal (fullExpectedChain |> List.map (List.map .url))

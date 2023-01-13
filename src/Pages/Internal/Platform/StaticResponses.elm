@@ -1,9 +1,8 @@
-module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), batchUpdate, empty, nextStep, renderApiRequest)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), empty, nextStep, renderApiRequest)
 
 import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
 import Exception exposing (Exception(..), Throwable)
-import Json.Decode as Decode
 import List.Extra
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -21,20 +20,6 @@ renderApiRequest :
     -> BackendTask Throwable response
 renderApiRequest request =
     request
-
-
-batchUpdate :
-    Decode.Value
-    ->
-        { model
-            | allRawResponses : Decode.Value
-        }
-    ->
-        { model
-            | allRawResponses : Decode.Value
-        }
-batchUpdate newEntries model =
-    { model | allRawResponses = newEntries }
 
 
 type NextStep route value
