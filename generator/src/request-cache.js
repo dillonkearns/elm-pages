@@ -83,7 +83,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
             resolve({
               kind: "response-json",
               value: jsonResponse({
-                "elm-pages-internal-error": "PortCallError",
+                "elm-pages-internal-error": "PortCallException",
                 error: portCallError,
               }),
             });
