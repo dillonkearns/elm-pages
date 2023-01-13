@@ -8,22 +8,23 @@ down into the final `Data` value, it won't end up in the client!
 
     import BackendTask exposing (BackendTask)
     import BackendTask.Env
+    import Exception exposing (Throwable)
 
     type alias EnvVariables =
         { sendGridKey : String
         , siteUrl : String
         }
 
-    sendEmail : Email -> BackendTask ()
+    sendEmail : Email -> BackendTask Throwable ()
     sendEmail email =
         BackendTask.map2 EnvVariables
-            (BackendTask.Env.expect "SEND_GRID_KEY")
+            (BackendTask.Env.expect "SEND_GRID_KEY" |> BackendTask.throw)
             (BackendTask.Env.get "BASE_URL"
                 |> BackendTask.map (Maybe.withDefault "http://localhost:1234")
             )
             |> BackendTask.andThen (sendEmailBackendTask email)
 
-    sendEmailBackendTask : Email -> EnvVariables -> BackendTask ()
+    sendEmailBackendTask : Email -> EnvVariables -> BackendTask Throwable ()
     sendEmailBackendTask email envVariables =
         Debug.todo "Not defined here"
 
@@ -50,7 +51,8 @@ type Error
     = MissingEnvVariable String
 
 
-{-| Get an environment variable, or Nothing if there is no environment variable matching that name.
+{-| Get an environment variable, or Nothing if there is no environment variable matching that name. This `BackendTask`
+will never fail, but instead will return `Nothing` if the environment variable is missing.
 -}
 get : String -> BackendTask error (Maybe String)
 get envVariableName =
@@ -63,7 +65,7 @@ get envVariableName =
         }
 
 
-{-| Get an environment variable, or a BackendTask failure if there is no environment variable matching that name.
+{-| Get an environment variable, or a BackendTask Exception if there is no environment variable matching that name.
 -}
 expect : String -> BackendTask (Exception Error) String
 expect envVariableName =
