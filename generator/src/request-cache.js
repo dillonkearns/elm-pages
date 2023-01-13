@@ -14,7 +14,7 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
  * @returns {Promise<Response>}
  */
 function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
-  const fetch = require("make-fetch-happen").defaults({
+  const makeFetchHappen = require("make-fetch-happen").defaults({
     cache: mode === "build" ? "no-cache" : "default",
   });
   return new Promise(async (resolve, reject) => {
@@ -99,7 +99,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
     } else {
       try {
         console.time(`fetch ${request.url}`);
-        const response = await safeFetch(fetch, request.url, {
+        const response = await safeFetch(makeFetchHappen, request.url, {
           method: request.method,
           body: request.body,
           headers: {
@@ -243,13 +243,19 @@ function jsonResponse(json) {
   return { bodyKind: "json", body: json };
 }
 
-async function safeFetch(fetch, url, options) {
+async function safeFetch(makeFetchHappen, url, options) {
   const { cachePath, ...optionsWithoutCachePath } = options;
   const cachePathWithDefault = cachePath || defaultHttpCachePath;
   if (await canAccess(cachePathWithDefault)) {
-    return await fetch(url, options);
+    return await makeFetchHappen(url, {
+      cachePath: cachePathWithDefault,
+      ...options,
+    });
   } else {
-    return await fetch(url, { cache: "no-store", ...optionsWithoutCachePath });
+    return await makeFetchHappen(url, {
+      cache: "no-store",
+      ...optionsWithoutCachePath,
+    });
   }
 }
 
