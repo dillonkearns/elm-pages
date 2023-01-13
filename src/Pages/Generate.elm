@@ -128,7 +128,7 @@ single input =
 
 {-| -}
 buildNoState :
-    { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    { view : { maybeUrl : Elm.Expression, sharedModel : Elm.Expression, app : Elm.Expression } -> Elm.Expression
     }
     -> Builder
     -> Elm.File
@@ -136,7 +136,13 @@ buildNoState definitions builder_ =
     case builder_ of
         ServerRender builder ->
             userFunction builder.moduleName
-                { view = \_ -> definitions.view
+                { view =
+                    \maybeUrl sharedModel _ app ->
+                        definitions.view
+                            { maybeUrl = maybeUrl
+                            , sharedModel = sharedModel
+                            , app = app
+                            }
                 , localState = Nothing
                 , data = builder.data |> Tuple.second
                 , action = builder.action |> Tuple.second |> Action
@@ -151,7 +157,13 @@ buildNoState definitions builder_ =
 
         PreRender builder ->
             userFunction builder.moduleName
-                { view = \_ -> definitions.view
+                { view =
+                    \maybeUrl sharedModel _ app ->
+                        definitions.view
+                            { maybeUrl = maybeUrl
+                            , sharedModel = sharedModel
+                            , app = app
+                            }
                 , localState = Nothing
                 , data = builder.data |> Tuple.second
                 , action = builder.pages |> Pages
@@ -170,10 +182,30 @@ buildNoState definitions builder_ =
 
 {-| -}
 buildWithLocalState :
-    { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-    , update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-    , init : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-    , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    { view :
+        { maybeUrl : Elm.Expression, sharedModel : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
+    , update :
+        { pageUrl : Elm.Expression
+        , sharedModel : Elm.Expression
+        , app : Elm.Expression
+        , msg : Elm.Expression
+        , model : Elm.Expression
+        }
+        -> Elm.Expression
+    , init :
+        { pageUrl : Elm.Expression
+        , sharedModel : Elm.Expression
+        , app : Elm.Expression
+        }
+        -> Elm.Expression
+    , subscriptions :
+        { maybePageUrl : Elm.Expression
+        , routeParams : Elm.Expression
+        , path : Elm.Expression
+        , sharedModel : Elm.Expression
+        , model : Elm.Expression
+        }
+        -> Elm.Expression
     , msg : Type
     , model : Type
     }
@@ -183,12 +215,41 @@ buildWithLocalState definitions builder_ =
     case builder_ of
         ServerRender builder ->
             userFunction builder.moduleName
-                { view = definitions.view
+                { view =
+                    \maybeUrl sharedModel model app ->
+                        definitions.view
+                            { maybeUrl = maybeUrl
+                            , sharedModel = sharedModel
+                            , model = model
+                            , app = app
+                            }
                 , localState =
                     Just
-                        { update = definitions.update
-                        , init = definitions.init
-                        , subscriptions = definitions.subscriptions
+                        { update =
+                            \pageUrl sharedModel app msg model ->
+                                definitions.update
+                                    { pageUrl = pageUrl
+                                    , sharedModel = sharedModel
+                                    , app = app
+                                    , msg = msg
+                                    , model = model
+                                    }
+                        , init =
+                            \pageUrl sharedModel app ->
+                                definitions.init
+                                    { pageUrl = pageUrl
+                                    , sharedModel = sharedModel
+                                    , app = app
+                                    }
+                        , subscriptions =
+                            \maybePageUrl routeParams path sharedModel model ->
+                                definitions.subscriptions
+                                    { maybePageUrl = maybePageUrl
+                                    , routeParams = routeParams
+                                    , path = path
+                                    , sharedModel = sharedModel
+                                    , model = model
+                                    }
                         , state = LocalState
                         }
                 , data = builder.data |> Tuple.second
@@ -204,12 +265,41 @@ buildWithLocalState definitions builder_ =
 
         PreRender builder ->
             userFunction builder.moduleName
-                { view = definitions.view
+                { view =
+                    \maybeUrl sharedModel model app ->
+                        definitions.view
+                            { maybeUrl = maybeUrl
+                            , sharedModel = sharedModel
+                            , model = model
+                            , app = app
+                            }
                 , localState =
                     Just
-                        { update = definitions.update
-                        , init = definitions.init
-                        , subscriptions = definitions.subscriptions
+                        { update =
+                            \pageUrl sharedModel app msg model ->
+                                definitions.update
+                                    { pageUrl = pageUrl
+                                    , sharedModel = sharedModel
+                                    , app = app
+                                    , msg = msg
+                                    , model = model
+                                    }
+                        , init =
+                            \pageUrl sharedModel app ->
+                                definitions.init
+                                    { pageUrl = pageUrl
+                                    , sharedModel = sharedModel
+                                    , app = app
+                                    }
+                        , subscriptions =
+                            \maybePageUrl routeParams path sharedModel model ->
+                                definitions.subscriptions
+                                    { maybePageUrl = maybePageUrl
+                                    , routeParams = routeParams
+                                    , path = path
+                                    , sharedModel = sharedModel
+                                    , model = model
+                                    }
                         , state = LocalState
                         }
                 , data = builder.data |> Tuple.second
@@ -229,10 +319,30 @@ buildWithLocalState definitions builder_ =
 
 {-| -}
 buildWithSharedState :
-    { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-    , update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-    , init : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-    , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    { view :
+        { maybeUrl : Elm.Expression, sharedModel : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
+    , update :
+        { pageUrl : Elm.Expression
+        , sharedModel : Elm.Expression
+        , app : Elm.Expression
+        , msg : Elm.Expression
+        , model : Elm.Expression
+        }
+        -> Elm.Expression
+    , init :
+        { pageUrl : Elm.Expression
+        , sharedModel : Elm.Expression
+        , app : Elm.Expression
+        }
+        -> Elm.Expression
+    , subscriptions :
+        { maybePageUrl : Elm.Expression
+        , routeParams : Elm.Expression
+        , path : Elm.Expression
+        , sharedModel : Elm.Expression
+        , model : Elm.Expression
+        }
+        -> Elm.Expression
     , msg : Type
     , model : Type
     }
@@ -242,12 +352,41 @@ buildWithSharedState definitions builder_ =
     case builder_ of
         ServerRender builder ->
             userFunction builder.moduleName
-                { view = definitions.view
+                { view =
+                    \maybeUrl sharedModel model app ->
+                        definitions.view
+                            { maybeUrl = maybeUrl
+                            , sharedModel = sharedModel
+                            , model = model
+                            , app = app
+                            }
                 , localState =
                     Just
-                        { update = definitions.update
-                        , init = definitions.init
-                        , subscriptions = definitions.subscriptions
+                        { update =
+                            \pageUrl sharedModel app msg model ->
+                                definitions.update
+                                    { pageUrl = pageUrl
+                                    , sharedModel = sharedModel
+                                    , app = app
+                                    , msg = msg
+                                    , model = model
+                                    }
+                        , init =
+                            \pageUrl sharedModel app ->
+                                definitions.init
+                                    { pageUrl = pageUrl
+                                    , sharedModel = sharedModel
+                                    , app = app
+                                    }
+                        , subscriptions =
+                            \maybePageUrl routeParams path sharedModel model ->
+                                definitions.subscriptions
+                                    { maybePageUrl = maybePageUrl
+                                    , routeParams = routeParams
+                                    , path = path
+                                    , sharedModel = sharedModel
+                                    , model = model
+                                    }
                         , state = SharedState
                         }
                 , data = builder.data |> Tuple.second
@@ -263,12 +402,41 @@ buildWithSharedState definitions builder_ =
 
         PreRender builder ->
             userFunction builder.moduleName
-                { view = definitions.view
+                { view =
+                    \maybeUrl sharedModel model app ->
+                        definitions.view
+                            { maybeUrl = maybeUrl
+                            , sharedModel = sharedModel
+                            , model = model
+                            , app = app
+                            }
                 , localState =
                     Just
-                        { update = definitions.update
-                        , init = definitions.init
-                        , subscriptions = definitions.subscriptions
+                        { update =
+                            \pageUrl sharedModel app msg model ->
+                                definitions.update
+                                    { pageUrl = pageUrl
+                                    , sharedModel = sharedModel
+                                    , app = app
+                                    , msg = msg
+                                    , model = model
+                                    }
+                        , init =
+                            \pageUrl sharedModel app ->
+                                definitions.init
+                                    { pageUrl = pageUrl
+                                    , sharedModel = sharedModel
+                                    , app = app
+                                    }
+                        , subscriptions =
+                            \maybePageUrl routeParams path sharedModel model ->
+                                definitions.subscriptions
+                                    { maybePageUrl = maybePageUrl
+                                    , routeParams = routeParams
+                                    , path = path
+                                    , sharedModel = sharedModel
+                                    , model = model
+                                    }
                         , state = SharedState
                         }
                 , data = builder.data |> Tuple.second

@@ -86,13 +86,13 @@ buildFile moduleName =
         }
         |> Pages.Generate.buildWithLocalState
             { view =
-                \maybeUrl sharedModel model app ->
+                \{ maybeUrl, sharedModel, model, app } ->
                     Gen.View.make_.view
                         { title = moduleName |> String.join "." |> Elm.string
                         , body = Elm.list [ Gen.Html.Styled.text "Here is your generated page!!!" ]
                         }
             , update =
-                \pageUrl sharedModel app msg model ->
+                \{ pageUrl, sharedModel, app, msg, model } ->
                     Elm.Case.custom msg
                         (Elm.Annotation.named [] "Msg")
                         [ Elm.Case.branch0 "NoOp"
@@ -103,13 +103,13 @@ buildFile moduleName =
                             )
                         ]
             , init =
-                \pageUrl sharedModel app ->
+                \{ pageUrl, sharedModel, app } ->
                     Elm.tuple (Elm.record [])
                         (Gen.Effect.none
                             |> Elm.withType effectType
                         )
             , subscriptions =
-                \maybePageUrl routeParams path sharedModel model ->
+                \{ maybePageUrl, routeParams, path, sharedModel, model } ->
                     Gen.Platform.Sub.none
             , model =
                 Alias (Elm.Annotation.record [])
