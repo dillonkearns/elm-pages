@@ -33,11 +33,12 @@ Here is the Elm code and corresponding JavaScript definition for getting an envi
     import Json.Encode
     import OptimizedDecoder as Decode
 
-    data : BackendTask String
+    data : BackendTask Throwable String
     data =
         BackendTask.Port.get "environmentVariable"
             (Json.Encode.string "EDITOR")
             Decode.string
+            |> BackendTask.throw
 
     -- will resolve to "VIM" if you run `EDITOR=vim elm-pages dev`
 
