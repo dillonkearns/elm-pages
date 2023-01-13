@@ -224,8 +224,11 @@ function htmlSanitize(str, type) {
   );
 }
 
-const parseHeader = (title, path) =>
-  `-- ${title.replace("-", " ")} --------------- ${path}`;
+function parseHeader(title, path) {
+  return `-- ${(title || "ERROR").replace("-", " ")} --------------- ${
+    path || ""
+  }`;
+}
 
 /*
   |-------------------------------------------------------------------------------
@@ -253,6 +256,14 @@ const parseConsoleErrors =
    * */
   (info) => {
     if (info.rule) {
+      if (info.details) {
+        return joinMessage(
+          info.details.reduce(consoleMsg, {
+            error: [consoleHeader(info.rule, path)],
+            style: [styleColor("blue")],
+          })
+        );
+      }
       return joinMessage(
         info.formatted.reduce(consoleMsg, {
           error: [consoleHeader(info.rule, path)],
@@ -313,6 +324,9 @@ const parseHtmlErrors = (path) => (info) => {
   if (info.rule) {
     return info.formatted.reduce(htmlMsg, htmlHeader(info.rule, path));
   } else {
+    if (info.details) {
+      return info.details.reduce(htmlMsg, htmlHeader(info.title, path));
+    }
     return info.message.reduce(htmlMsg, htmlHeader(info.title, path));
   }
 };

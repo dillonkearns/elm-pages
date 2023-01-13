@@ -13,11 +13,12 @@ const kleur = require("kleur");
  * @param {string} rule
  * @param {string} path
  * */
-const parseHeader = (rule, path) =>
-  kleur.cyan(
-    `-- ${rule.replace("-", " ")} --------------- ${path || ""}
+function parseHeader(rule, path) {
+  return kleur.cyan(
+    `-- ${(rule || "").replace("-", " ")} --------------- ${path || ""}
 `
   );
+}
 
 /**
  * parseMsg :: String|Object -> String
@@ -137,7 +138,10 @@ const restoreProblem =
         parseHeader(info.rule, path),
         ...info.formatted.map(parseMsg),
       ].join("");
+    } else if (typeof info.message === "string") {
+      return info.message;
     } else {
+      // console.log("info.message", info.message);
       return [
         parseHeader(info.title, path),
         ...info.message.map(parseMsg),
