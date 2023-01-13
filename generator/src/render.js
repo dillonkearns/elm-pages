@@ -653,9 +653,12 @@ function flushIfDone(app) {
 }
 
 function flushQueue(app) {
-  app.ports.gotBatchSub.send(Object.fromEntries(pendingBackendTaskResponses));
-  pendingBackendTaskResponses = new Map();
-  // console.log("@@@ FLUSHING", temp.length);
+  // TODO - could the case where flush is called with size 0 be avoided on the Elm side?
+  if (pendingBackendTaskResponses.size > 0) {
+    // console.log("@@@ FLUSHING", pendingBackendTaskResponses.size);
+    app.ports.gotBatchSub.send(Object.fromEntries(pendingBackendTaskResponses));
+    pendingBackendTaskResponses = new Map();
+  }
 }
 
 /**
