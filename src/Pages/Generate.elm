@@ -516,7 +516,7 @@ userFunction moduleName definitions =
                 )
             )
          , Elm.declaration "route"
-            (case definitions.action of
+            ((case definitions.action of
                 Action _ ->
                     serverRender_
                         { action =
@@ -536,7 +536,7 @@ userFunction moduleName definitions =
                         }
 
                 Pages _ ->
-                    (case actionFn of
+                    case actionFn of
                         Nothing ->
                             single_
                                 { data =
@@ -558,40 +558,40 @@ userFunction moduleName definitions =
                                                 (throwableTask (Elm.Annotation.named [] "Data"))
                                 , head = headFn.call
                                 }
-                    )
-                        |> (case localDefinitions of
-                                Just local ->
-                                    buildWithLocalState_
-                                        { view = viewFn.call
-                                        , update = local.updateFn.call
-                                        , init = local.initFn.call
-                                        , subscriptions = local.subscriptionsFn.call
-                                        , state = local.state
-                                        }
-                                        >> Elm.withType
-                                            (Elm.Annotation.namedWith [ "RouteBuilder" ]
-                                                "StatefulRoute"
-                                                [ localType "RouteParams"
-                                                , localType "Data"
-                                                , localType "ActionData"
-                                                , localType "Model"
-                                                , localType "Msg"
-                                                ]
-                                            )
+             )
+                |> (case localDefinitions of
+                        Just local ->
+                            buildWithLocalState_
+                                { view = viewFn.call
+                                , update = local.updateFn.call
+                                , init = local.initFn.call
+                                , subscriptions = local.subscriptionsFn.call
+                                , state = local.state
+                                }
+                                >> Elm.withType
+                                    (Elm.Annotation.namedWith [ "RouteBuilder" ]
+                                        "StatefulRoute"
+                                        [ localType "RouteParams"
+                                        , localType "Data"
+                                        , localType "ActionData"
+                                        , localType "Model"
+                                        , localType "Msg"
+                                        ]
+                                    )
 
-                                Nothing ->
-                                    buildNoState_
-                                        { view = viewFn.call Elm.unit
-                                        }
-                                        >> Elm.withType
-                                            (Elm.Annotation.namedWith [ "RouteBuilder" ]
-                                                "StatelessRoute"
-                                                [ localType "RouteParams"
-                                                , localType "Data"
-                                                , localType "ActionData"
-                                                ]
-                                            )
-                           )
+                        Nothing ->
+                            buildNoState_
+                                { view = viewFn.call Elm.unit
+                                }
+                                >> Elm.withType
+                                    (Elm.Annotation.namedWith [ "RouteBuilder" ]
+                                        "StatelessRoute"
+                                        [ localType "RouteParams"
+                                        , localType "Data"
+                                        , localType "ActionData"
+                                        ]
+                                    )
+                   )
             )
          ]
             ++ (case localDefinitions of
