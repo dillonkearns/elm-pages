@@ -3,7 +3,7 @@
     "name": "dillonkearns/elm-pages-v3-beta",
     "summary": "A statically typed site generator.",
     "license": "BSD-3-Clause",
-    "version": "6.0.0",
+    "version": "7.0.0",
     "exposed-modules": [
         "Head",
         "Head.Seo",
@@ -79,8 +79,8 @@
         "vito/elm-ansi": "10.0.1 <= v < 11.0.0"
     },
     "test-dependencies": {
+        "avh4/elm-program-test": "4.0.0 <= v < 5.0.0",
         "elm-explorations/test": "2.0.1 <= v < 3.0.0",
-        "the-sett/elm-pretty-printer": "3.0.0 <= v < 4.0.0",
-        "avh4/elm-program-test": "4.0.0 <= v < 5.0.0"
+        "the-sett/elm-pretty-printer": "3.0.0 <= v < 4.0.0"
     }
 }
