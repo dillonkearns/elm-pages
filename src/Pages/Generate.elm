@@ -500,11 +500,22 @@ userFunction moduleName definitions =
                             |> Just
                         )
                         ( "sharedModel"
-                        , Nothing
+                        , Just (Elm.Annotation.named [ "Shared" ] "Model")
                         )
                         ( "model", Just (Elm.Annotation.named [] "Model") )
                         ( "app", Just appType )
-                        definitions.view
+                        (\maybeUrl sharedModel model app ->
+                            definitions.view maybeUrl sharedModel model app
+                                |> Elm.withType
+                                    (Elm.Annotation.namedWith [ "View" ]
+                                        "View"
+                                        [ Elm.Annotation.namedWith [ "Pages", "Msg" ]
+                                            "Msg"
+                                            [ localType "Msg"
+                                            ]
+                                        ]
+                                    )
+                        )
 
                 Nothing ->
                     let
@@ -522,7 +533,7 @@ userFunction moduleName definitions =
                                     |> Just
                                 )
                                 ( "sharedModel"
-                                , Nothing
+                                , Just (Elm.Annotation.named [ "Shared" ] "Model")
                                 )
                                 ( "app", Just appType )
                                 (definitions.view Elm.unit)
@@ -554,7 +565,7 @@ userFunction moduleName definitions =
                                     |> Elm.Annotation.named [ "Pages", "PageUrl" ]
                                     |> Just
                                 )
-                                ( "sharedModel", Nothing )
+                                ( "sharedModel", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "app", Just appType )
                                 ( "msg", Just (Elm.Annotation.named [] "Msg") )
                                 ( "model", Just (Elm.Annotation.named [] "Model") )
@@ -567,9 +578,16 @@ userFunction moduleName definitions =
                                     |> Elm.Annotation.maybe
                                     |> Just
                                 )
-                                ( "sharedModel", Nothing )
+                                ( "sharedModel", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "app", Just appType )
-                                localState.init
+                                (\pageUrl sharedModel app ->
+                                    localState.init pageUrl sharedModel app
+                                        |> Elm.withType
+                                            (Elm.Annotation.tuple
+                                                (localType "Model")
+                                                effectType
+                                            )
+                                )
                         , subscriptionsFn =
                             Elm.Declare.fn5
                                 "subscriptions"
@@ -579,11 +597,14 @@ userFunction moduleName definitions =
                                     |> Elm.Annotation.maybe
                                     |> Just
                                 )
-                                ( "routeParams", Nothing )
-                                ( "path", Nothing )
-                                ( "sharedModel", Nothing )
-                                ( "model", Nothing )
-                                localState.subscriptions
+                                ( "routeParams", "RouteParams" |> Elm.Annotation.named [] |> Just )
+                                ( "path", Elm.Annotation.namedWith [ "Path" ] "Path" [] |> Just )
+                                ( "sharedModel", Just (Elm.Annotation.named [ "Shared" ] "Model") )
+                                ( "model", localType "Model" |> Just )
+                                (\maybePageUrl routeParams path sharedModel model ->
+                                    localState.subscriptions maybePageUrl routeParams path sharedModel model
+                                        |> Elm.withType (Elm.Annotation.namedWith [] "Sub" [ localType "Msg" ])
+                                )
                         , state = localState.state
                         }
                     )
@@ -1108,11 +1129,11 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                                         ]
                                     ]
                                     (Elm.Annotation.tuple
-                                        (Elm.Annotation.var "model")
+                                        (Elm.Annotation.named [] "Model")
                                         (Elm.Annotation.namedWith
                                             [ "Effect" ]
                                             "Effect"
-                                            [ Elm.Annotation.var "msg" ]
+                                            [ Elm.Annotation.named [] "Msg" ]
                                         )
                                     )
                               )
@@ -1126,30 +1147,30 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                                     , Elm.Annotation.namedWith
                                         [ "RouteBuilder" ]
                                         "StaticPayload"
-                                        [ Elm.Annotation.var "data"
-                                        , Elm.Annotation.var "action"
-                                        , Elm.Annotation.var "routeParams"
+                                        [ localType "Data"
+                                        , localType "ActionData"
+                                        , localType "RouteParams"
                                         ]
-                                    , Elm.Annotation.var "msg"
-                                    , Elm.Annotation.var "model"
+                                    , Elm.Annotation.named [] "Msg"
+                                    , Elm.Annotation.named [] "Model"
                                     ]
                                     (case buildWithLocalStateArg.state of
                                         LocalState ->
                                             Elm.Annotation.tuple
-                                                (Elm.Annotation.var "model")
+                                                (localType "Model")
                                                 (Elm.Annotation.namedWith
                                                     [ "Effect" ]
                                                     "Effect"
-                                                    [ Elm.Annotation.var "msg" ]
+                                                    [ localType "Msg" ]
                                                 )
 
                                         SharedState ->
                                             Elm.Annotation.triple
-                                                (Elm.Annotation.var "model")
+                                                (localType "Model")
                                                 (Elm.Annotation.namedWith
                                                     [ "Effect" ]
                                                     "Effect"
-                                                    [ Elm.Annotation.var "msg" ]
+                                                    [ localType "Msg" ]
                                                 )
                                                 (Elm.Annotation.maybe (Elm.Annotation.named [ "Shared" ] "Msg"))
                                     )
@@ -1167,25 +1188,25 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                                     , Elm.Annotation.namedWith [ "Shared" ] "Model" []
                                     , Elm.Annotation.var "model"
                                     ]
-                                    (Elm.Annotation.namedWith [] "Sub" [ Elm.Annotation.var "msg" ])
+                                    (Elm.Annotation.namedWith [] "Sub" [ localType "Msg" ])
                               )
                             ]
                         , Elm.Annotation.namedWith
                             [ "RouteBuilder" ]
                             "Builder"
-                            [ Elm.Annotation.var "routeParams"
-                            , Elm.Annotation.var "data"
-                            , Elm.Annotation.var "action"
+                            [ localType "RouteParams"
+                            , localType "Data"
+                            , localType "ActionData"
                             ]
                         ]
                         (Elm.Annotation.namedWith
                             [ "RouteBuilder" ]
                             "StatefulRoute"
-                            [ Elm.Annotation.var "routeParams"
-                            , Elm.Annotation.var "data"
-                            , Elm.Annotation.var "action"
-                            , Elm.Annotation.var "model"
-                            , Elm.Annotation.var "msg"
+                            [ localType "RouteParams"
+                            , localType "Data"
+                            , localType "ActionData"
+                            , localType "Model"
+                            , localType "Msg"
                             ]
                         )
                     )
@@ -1317,9 +1338,9 @@ buildNoState_ buildNoStateArg buildNoStateArg0 =
                                     , Elm.Annotation.namedWith
                                         [ "RouteBuilder" ]
                                         "StaticPayload"
-                                        [ Elm.Annotation.var "data"
-                                        , Elm.Annotation.var "action"
-                                        , Elm.Annotation.var "routeParams"
+                                        [ Elm.Annotation.named [] "Data"
+                                        , Elm.Annotation.named [] "ActionData"
+                                        , Elm.Annotation.named [] "RouteParams"
                                         ]
                                     ]
                                     (Elm.Annotation.namedWith
@@ -1336,17 +1357,17 @@ buildNoState_ buildNoStateArg buildNoStateArg0 =
                         , Elm.Annotation.namedWith
                             [ "RouteBuilder" ]
                             "Builder"
-                            [ Elm.Annotation.var "routeParams"
-                            , Elm.Annotation.var "data"
-                            , Elm.Annotation.var "action"
+                            [ Elm.Annotation.named [] "RouteParams"
+                            , Elm.Annotation.named [] "Data"
+                            , Elm.Annotation.named [] "ActionData"
                             ]
                         ]
                         (Elm.Annotation.namedWith
                             [ "RouteBuilder" ]
                             "StatefulRoute"
-                            [ Elm.Annotation.var "routeParams"
-                            , Elm.Annotation.var "data"
-                            , Elm.Annotation.var "action"
+                            [ Elm.Annotation.named [] "RouteParams"
+                            , Elm.Annotation.named [] "Data"
+                            , Elm.Annotation.named [] "ActionData"
                             , Elm.Annotation.record []
                             , Elm.Annotation.unit
                             ]
@@ -1374,6 +1395,14 @@ buildNoState_ buildNoStateArg buildNoStateArg0 =
             ]
         , buildNoStateArg0
         ]
+
+
+effectType : Elm.Annotation.Annotation
+effectType =
+    Elm.Annotation.namedWith
+        [ "Effect" ]
+        "Effect"
+        [ Elm.Annotation.named [] "Msg" ]
 
 
 throwableTask : Elm.Annotation.Annotation -> Elm.Annotation.Annotation
