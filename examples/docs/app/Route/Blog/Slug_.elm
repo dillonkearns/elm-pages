@@ -7,7 +7,7 @@ import Cloudinary
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
 import DateOrDateTime
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -53,7 +53,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : BackendTask Throwable (List RouteParams)
+pages : BackendTask FatalError (List RouteParams)
 pages =
     Article.blogPostsGlob
         |> BackendTask.map
@@ -241,7 +241,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> BackendTask Throwable Data
+data : RouteParams -> BackendTask FatalError Data
 data routeParams =
     MarkdownCodec.withFrontmatter Data
         frontmatterDecoder

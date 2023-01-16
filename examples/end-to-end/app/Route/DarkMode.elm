@@ -6,7 +6,7 @@ import BackendTask exposing (BackendTask)
 import Css
 import Effect
 import ErrorPage
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.Validation as Validation
@@ -102,7 +102,7 @@ sessionOptions =
 
 data :
     RouteParams
-    -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response Data ErrorPage.ErrorPage))
+    -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
 data routeParams =
     Server.Request.succeed ()
         |> Session.withSession sessionOptions
@@ -128,7 +128,7 @@ data routeParams =
 
 action :
     RouteParams
-    -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response ActionData ErrorPage.ErrorPage))
+    -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage))
 action routeParams =
     Server.Request.formData
         (form

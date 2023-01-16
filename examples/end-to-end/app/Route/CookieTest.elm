@@ -2,7 +2,7 @@ module Route.CookieTest exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Html.Styled exposing (text)
 import Pages.Msg
@@ -44,7 +44,7 @@ type alias Data =
     { darkMode : Maybe String }
 
 
-data : RouteParams -> Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.expectCookie "dark-mode"

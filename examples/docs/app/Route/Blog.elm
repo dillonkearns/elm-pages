@@ -4,7 +4,7 @@ import Article
 import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
 import Date
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -35,7 +35,7 @@ route =
             }
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     Article.allMetadata
         |> BackendTask.throw

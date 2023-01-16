@@ -2,7 +2,7 @@ module Route.FileUpload exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html
@@ -47,7 +47,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask Throwable (Server.Response.Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.expectMultiPartFormPost

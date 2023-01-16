@@ -1,11 +1,11 @@
 module SiteConfig exposing (SiteConfig)
 
 import BackendTask exposing (BackendTask)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 
 
 type alias SiteConfig =
     { canonicalUrl : String
-    , head : BackendTask Throwable (List Head.Tag)
+    , head : BackendTask FatalError (List Head.Tag)
     }

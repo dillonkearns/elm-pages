@@ -2,15 +2,16 @@ module Test.HttpRequests exposing (all)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import Exception exposing (Exception)
 import Expect
+import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Test exposing (Test)
 
 
-all : BackendTask error Test
+all : BackendTask FatalError Test
 all =
     [ BackendTask.Http.get "http://httpstat.us/500" (BackendTask.Http.expectWhatever ())
+        |> BackendTask.mapError .recoverable
         |> test "http 500 error"
             (\result ->
                 case result of
@@ -27,6 +28,7 @@ all =
                         Expect.fail "Expected HTTP error, got Ok"
             )
     , BackendTask.Http.get "http://httpstat.us/404" (BackendTask.Http.expectWhatever ())
+        |> BackendTask.mapError .recoverable
         |> test "http 404 error"
             (\result ->
                 case result of
@@ -43,6 +45,7 @@ all =
                         Expect.fail "Expected HTTP error, got Ok"
             )
     , BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.field "stargazers_count" Decode.int)
+        |> BackendTask.mapError .recoverable
         |> test "200 JSON"
             (\result ->
                 case result of
@@ -53,6 +56,7 @@ all =
                         Expect.pass
             )
     , BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (Decode.field "this-field-doesn't-exist" Decode.int)
+        |> BackendTask.mapError .recoverable
         |> test "JSON decoding error"
             (\result ->
                 case result of
@@ -74,6 +78,7 @@ all =
             BackendTask.Http.expectJson
                 (Decode.field "this-field-doesn't-exist" Decode.int)
         }
+        |> BackendTask.mapError .recoverable
         |> test "cache options"
             (\result ->
                 case result of
@@ -112,7 +117,7 @@ all =
         |> BackendTask.map (Test.describe "BackendTask tests")
 
 
-test : String -> (Result error data -> Expect.Expectation) -> BackendTask (Exception error) data -> BackendTask noError Test
+test : String -> (Result error data -> Expect.Expectation) -> BackendTask error data -> BackendTask noError Test
 test name assert task =
     task
         |> BackendTask.toResult

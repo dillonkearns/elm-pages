@@ -89,7 +89,7 @@ module Server.Request exposing
 import BackendTask exposing (BackendTask)
 import CookieParser
 import Dict exposing (Dict)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form
 import Form.Validation as Validation
 import FormData
@@ -882,8 +882,8 @@ fileField_ name =
 
 {-| -}
 formDataWithServerValidation :
-    Form.ServerForms error (BackendTask Throwable (Validation.Validation error combined kind constraints))
-    -> Parser (BackendTask Throwable (Result (Form.Response error) ( Form.Response error, combined )))
+    Form.ServerForms error (BackendTask FatalError (Validation.Validation error combined kind constraints))
+    -> Parser (BackendTask FatalError (Result (Form.Response error) ( Form.Response error, combined )))
 formDataWithServerValidation formParsers =
     rawFormData
         |> andThen

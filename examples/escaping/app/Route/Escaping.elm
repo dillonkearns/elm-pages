@@ -4,7 +4,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.File
 import Css exposing (..)
 import Css.Global
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
@@ -48,7 +48,7 @@ type alias Data =
     String
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     BackendTask.File.rawFile "unsafe-script-tag.txt"
         |> BackendTask.throw

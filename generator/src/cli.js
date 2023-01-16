@@ -270,7 +270,7 @@ function generatorWrapperFile(moduleName) {
 
 import Bytes
 import BackendTask exposing (BackendTask)
-import Exception
+import FatalError
 import Cli.Program as Program
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -278,7 +278,7 @@ import Pages.Internal.Platform.GeneratorApplication
 import ${moduleName}
 
 
-main : Program.StatefulProgram Pages.Internal.Platform.GeneratorApplication.Model Pages.Internal.Platform.GeneratorApplication.Msg (BackendTask Exception.Throwable ()) Pages.Internal.Platform.GeneratorApplication.Flags
+main : Program.StatefulProgram Pages.Internal.Platform.GeneratorApplication.Model Pages.Internal.Platform.GeneratorApplication.Msg (BackendTask FatalError.FatalError ()) Pages.Internal.Platform.GeneratorApplication.Flags
 main =
     Pages.Internal.Platform.GeneratorApplication.app
         { data = ${moduleName}.run

@@ -1,7 +1,7 @@
 module Route.SPLAT__ exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Html.Styled exposing (text)
 import Pages.Msg
@@ -39,7 +39,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : RouteParams -> BackendTask Throwable Data
+data : RouteParams -> BackendTask FatalError Data
 data routeParams =
     BackendTask.succeed {}
 

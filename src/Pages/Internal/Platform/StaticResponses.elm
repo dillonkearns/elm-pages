@@ -2,7 +2,7 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), empty, ne
 
 import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
-import Exception exposing (Exception(..), Throwable)
+import FatalError exposing (FatalError, Recoverable)
 import List.Extra
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -10,27 +10,27 @@ import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText
 
 
-empty : a -> BackendTask Throwable a
+empty : a -> BackendTask FatalError a
 empty a =
     BackendTask.succeed a
 
 
 renderApiRequest :
-    BackendTask Throwable response
-    -> BackendTask Throwable response
+    BackendTask FatalError response
+    -> BackendTask FatalError response
 renderApiRequest request =
     request
 
 
 type NextStep route value
-    = Continue (List HashRequest.Request) (StaticHttpRequest.RawRequest Throwable value)
+    = Continue (List HashRequest.Request) (StaticHttpRequest.RawRequest FatalError value)
     | Finish value
     | FinishedWithErrors (List BuildError)
 
 
 nextStep :
     RequestsAndPending
-    -> BackendTask Throwable a
+    -> BackendTask FatalError a
     ->
         { model
             | errors : List BuildError
@@ -38,7 +38,7 @@ nextStep :
     -> NextStep route a
 nextStep allRawResponses staticResponses { errors } =
     let
-        staticRequestsStatus : StaticHttpRequest.Status Throwable a
+        staticRequestsStatus : StaticHttpRequest.Status FatalError a
         staticRequestsStatus =
             allRawResponses
                 |> StaticHttpRequest.cacheRequestResolution staticResponses
@@ -63,7 +63,7 @@ nextStep allRawResponses staticResponses { errors } =
                 StaticHttpRequest.HasPermanentError _ ->
                     ( ( False, Nothing )
                     , []
-                    , BackendTask.fail (Exception.fromString "TODO this shouldn't happen")
+                    , BackendTask.fail (FatalError.fromString "TODO this shouldn't happen")
                     )
     in
     if pendingRequests then
@@ -111,7 +111,7 @@ nextStep allRawResponses staticResponses { errors } =
                 Just (Ok completed) ->
                     Finish completed
 
-                Just (Err (Exception () buildError)) ->
+                Just (Err buildError) ->
                     FinishedWithErrors
                         [ { title = buildError.title |> String.toUpper
                           , path = "" -- TODO include path here

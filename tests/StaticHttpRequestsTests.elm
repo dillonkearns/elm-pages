@@ -7,8 +7,8 @@ import Bytes.Decode
 import Bytes.Encode
 import Codec
 import Dict
-import Exception exposing (Throwable)
 import Expect
+import FatalError exposing (FatalError)
 import Html
 import Json.Decode as JD exposing (Decoder)
 import Json.Encode as Encode
@@ -302,7 +302,7 @@ all =
                                 else
                                     Err "String was not uppercased"
                             )
-                        |> BackendTask.andThen (\result -> result |> Result.mapError Exception.fromString |> BackendTask.fromResult)
+                        |> BackendTask.andThen (\result -> result |> Result.mapError FatalError.fromString |> BackendTask.fromResult)
                     )
                     |> simulateHttp
                         (get "https://example.com/file.txt")
@@ -417,14 +417,14 @@ type Route
     = Route String
 
 
-start : List ( List String, BackendTask Throwable a ) -> ProgramTest (Model Route) Msg Effect
+start : List ( List String, BackendTask FatalError a ) -> ProgramTest (Model Route) Msg Effect
 start pages =
     startWithHttpCache [] pages
 
 
 startWithHttpCache :
     List ( Request.Request, String )
-    -> List ( List String, BackendTask Throwable a )
+    -> List ( List String, BackendTask FatalError a )
     -> ProgramTest (Model Route) Msg Effect
 startWithHttpCache =
     startLowLevel []
@@ -433,7 +433,7 @@ startWithHttpCache =
 startLowLevel :
     List (ApiRoute.ApiRoute ApiRoute.Response)
     -> List ( Request.Request, String )
-    -> List ( List String, BackendTask Throwable a )
+    -> List ( List String, BackendTask FatalError a )
     -> ProgramTest (Model Route) Msg Effect
 startLowLevel apiRoutes _ pages =
     let
@@ -499,12 +499,12 @@ site =
     }
 
 
-startSimple : List String -> BackendTask Throwable a -> ProgramTest (Model Route) Msg Effect
+startSimple : List String -> BackendTask FatalError a -> ProgramTest (Model Route) Msg Effect
 startSimple route backendTasks =
     startWithRoutes route [ route ] [] [ ( route, backendTasks ) ]
 
 
-config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, BackendTask Throwable a ) -> ProgramConfig Msg () Route () () () Effect mappedMsg ()
+config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, BackendTask FatalError a ) -> ProgramConfig Msg () Route () () () Effect mappedMsg ()
 config apiRoutes pages =
     { toJsPort = toJsPort
     , fromJsPort = fromJsPort
@@ -525,7 +525,7 @@ config apiRoutes pages =
     , data =
         \_ (Route pageRoute) ->
             let
-                thing : Maybe (BackendTask Throwable a)
+                thing : Maybe (BackendTask FatalError a)
                 thing =
                     pages
                         |> Dict.fromList
@@ -545,7 +545,7 @@ config apiRoutes pages =
     , view =
         \_ _ _ page _ _ _ _ ->
             let
-                thing : Maybe (BackendTask Throwable a)
+                thing : Maybe (BackendTask FatalError a)
                 thing =
                     pages
                         |> Dict.fromList
@@ -579,7 +579,7 @@ config apiRoutes pages =
     , notFoundRoute = Route "not-found"
     , internalError = \_ -> ()
     , errorPageToData = \_ -> ()
-    , action = \_ _ -> BackendTask.fail (Exception.fromString "No action.")
+    , action = \_ _ -> BackendTask.fail (FatalError.fromString "No action.")
     , encodeAction = \_ -> Bytes.Encode.signedInt8 0
     }
 
@@ -588,7 +588,7 @@ startWithRoutes :
     List String
     -> List (List String)
     -> List ( Request.Request, String )
-    -> List ( List String, BackendTask Throwable a )
+    -> List ( List String, BackendTask FatalError a )
     -> ProgramTest (Model Route) Msg Effect
 startWithRoutes pageToLoad _ _ pages =
     let

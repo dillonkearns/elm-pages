@@ -3,7 +3,7 @@ module Route.Form exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import Date exposing (Date)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
@@ -185,7 +185,7 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Parser (BackendTask Throwable (Server.Response.Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage))
 data routeParams =
     Data
         |> Server.Response.render
@@ -193,7 +193,7 @@ data routeParams =
         |> Request.succeed
 
 
-action : RouteParams -> Parser (BackendTask Throwable (Server.Response.Response ActionData ErrorPage))
+action : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response ActionData ErrorPage))
 action routeParams =
     Request.formData (form |> Form.initCombined identity)
         |> Request.map

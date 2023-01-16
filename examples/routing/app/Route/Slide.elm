@@ -1,7 +1,7 @@
 module Route.Slide exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask
-import Exception
+import FatalError
 import Head
 import Head.Seo as Seo
 import Pages.Msg

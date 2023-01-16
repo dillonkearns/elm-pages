@@ -2,7 +2,7 @@ module Site exposing (config)
 
 import BackendTask exposing (BackendTask)
 import Cloudinary
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import MimeType
 import Pages.Manifest as Manifest
@@ -23,14 +23,14 @@ type alias Data =
     }
 
 
-data : BackendTask.BackendTask Throwable Data
+data : BackendTask.BackendTask FatalError Data
 data =
     BackendTask.map Data
         --(StaticFile.request "site-name.txt" StaticFile.body)
         (BackendTask.succeed "site-name")
 
 
-head : BackendTask Throwable (List Head.Tag)
+head : BackendTask FatalError (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")

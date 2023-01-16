@@ -2,7 +2,7 @@ module Route.Showcase exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import Css
-import Exception exposing (Exception, Throwable)
+import FatalError exposing (FatalError, Recoverable)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
@@ -40,7 +40,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     Showcase.staticRequest
 

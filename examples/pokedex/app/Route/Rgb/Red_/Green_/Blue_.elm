@@ -2,7 +2,7 @@ module Route.Rgb.Red_.Green_.Blue_ exposing (ActionData, Data, Model, Msg, route
 
 import BackendTask exposing (BackendTask)
 import ColorHelpers
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 
 
@@ -28,7 +28,7 @@ route =
         |> RouteBuilder.buildNoState { view = ColorHelpers.view toCssVal }
 
 
-pages : BackendTask Throwable (List RouteParams)
+pages : BackendTask FatalError (List RouteParams)
 pages =
     BackendTask.succeed []
 

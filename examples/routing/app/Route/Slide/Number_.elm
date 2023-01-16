@@ -5,7 +5,7 @@ import BackendTask.File
 import Browser.Events
 import Browser.Navigation
 import Effect
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -89,13 +89,13 @@ toDirection string =
             Nothing
 
 
-data : RouteParams -> BackendTask Throwable Data
+data : RouteParams -> BackendTask FatalError Data
 data routeParams =
     BackendTask.map Data
         (slideBody routeParams)
 
 
-slideBody : RouteParams -> BackendTask Throwable String
+slideBody : RouteParams -> BackendTask FatalError String
 slideBody route_ =
     BackendTask.File.bodyWithoutFrontmatter "slides.md"
         |> BackendTask.throw

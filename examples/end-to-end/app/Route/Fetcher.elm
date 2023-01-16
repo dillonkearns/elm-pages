@@ -7,7 +7,7 @@ import BackendTask.Port
 import Dict
 import Effect
 import ErrorPage
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView as FieldView
@@ -94,7 +94,7 @@ type alias ActionData =
 
 data :
     RouteParams
-    -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response Data ErrorPage.ErrorPage))
+    -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
 data routeParams =
     Server.Request.succeed
         (BackendTask.Port.get "getItems"
@@ -117,7 +117,7 @@ type Action
 
 action :
     RouteParams
-    -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response ActionData ErrorPage.ErrorPage))
+    -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage))
 action routeParams =
     Server.Request.formData
         forms

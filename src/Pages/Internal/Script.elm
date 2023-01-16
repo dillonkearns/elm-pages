@@ -2,7 +2,7 @@ module Pages.Internal.Script exposing (Script(..))
 
 import BackendTask exposing (BackendTask)
 import Cli.Program as Program
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Html exposing (Html)
 
 
@@ -13,5 +13,5 @@ type Script
           -> Html Never
           -> String
          )
-         -> Program.Config (BackendTask Throwable ())
+         -> Program.Config (BackendTask FatalError ())
         )

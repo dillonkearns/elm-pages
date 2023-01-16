@@ -3,7 +3,7 @@ module TableOfContents exposing (..)
 import BackendTask exposing (BackendTask)
 import BackendTask.File
 import Css
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import List.Extra
@@ -14,8 +14,8 @@ import Tailwind.Utilities as Tw
 
 
 backendTask :
-    BackendTask Throwable (List { file | filePath : String, slug : String })
-    -> BackendTask Throwable (TableOfContents Data)
+    BackendTask FatalError (List { file | filePath : String, slug : String })
+    -> BackendTask FatalError (TableOfContents Data)
 backendTask docFiles =
     docFiles
         |> BackendTask.map
@@ -32,13 +32,13 @@ backendTask docFiles =
         |> BackendTask.resolve
 
 
-headingsDecoder : String -> String -> BackendTask Throwable (Entry Data)
+headingsDecoder : String -> String -> BackendTask FatalError (Entry Data)
 headingsDecoder slug rawBody =
     rawBody
         |> Markdown.Parser.parse
-        |> Result.mapError (\_ -> Exception.fromString "Markdown parsing error")
+        |> Result.mapError (\_ -> FatalError.fromString "Markdown parsing error")
         |> Result.map gatherHeadings
-        |> Result.andThen (nameAndTopLevel slug >> Result.mapError Exception.fromString)
+        |> Result.andThen (nameAndTopLevel slug >> Result.mapError FatalError.fromString)
         |> BackendTask.fromResult
 
 

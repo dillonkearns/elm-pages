@@ -173,7 +173,7 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
 -}
 
 import BackendTask exposing (BackendTask)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Json.Decode as Decode
@@ -192,14 +192,14 @@ type alias ApiRoute response =
 {-| Same as [`preRender`](#preRender), but for an ApiRoute that has no dynamic segments. This is just a bit simpler because
 since there are no dynamic segments, you don't need to provide a BackendTask with the list of dynamic segments to pre-render because there is only a single possible route.
 -}
-single : ApiRouteBuilder (BackendTask Throwable String) (List String) -> ApiRoute Response
+single : ApiRouteBuilder (BackendTask FatalError String) (List String) -> ApiRoute Response
 single handler =
     handler
         |> preRender (\constructor -> BackendTask.succeed [ constructor ])
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Parser (BackendTask Throwable (Server.Response.Response Never Never))) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Parser (BackendTask FatalError (Server.Response.Response Never Never))) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
@@ -218,7 +218,7 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                                 |> BackendTask.onError
                                     (\stringError ->
                                         -- TODO make error with title and better context/formatting
-                                        Exception.fromString stringError |> BackendTask.fail
+                                        FatalError.fromString stringError |> BackendTask.fail
                                     )
                                 |> BackendTask.andThen
                                     (\rendered ->
@@ -260,10 +260,10 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
 
 
 {-| -}
-preRenderWithFallback : (constructor -> BackendTask Throwable (List (List String))) -> ApiRouteBuilder (BackendTask Throwable (Server.Response.Response Never Never)) constructor -> ApiRoute Response
+preRenderWithFallback : (constructor -> BackendTask FatalError (List (List String))) -> ApiRouteBuilder (BackendTask FatalError (Server.Response.Response Never Never)) constructor -> ApiRoute Response
 preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
-        buildTimeRoutes__ : BackendTask Throwable (List String)
+        buildTimeRoutes__ : BackendTask FatalError (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> BackendTask.map (List.map toString)
@@ -302,15 +302,15 @@ encodeStaticFileBody fileBody =
 
 
 {-| -}
-preRender : (constructor -> BackendTask Throwable (List (List String))) -> ApiRouteBuilder (BackendTask Throwable String) constructor -> ApiRoute Response
+preRender : (constructor -> BackendTask FatalError (List (List String))) -> ApiRouteBuilder (BackendTask FatalError String) constructor -> ApiRoute Response
 preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
-        buildTimeRoutes__ : BackendTask Throwable (List String)
+        buildTimeRoutes__ : BackendTask FatalError (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> BackendTask.map (List.map toString)
 
-        preBuiltMatches : BackendTask Throwable (List (List String))
+        preBuiltMatches : BackendTask FatalError (List (List String))
         preBuiltMatches =
             buildUrls (constructor [])
     in
@@ -323,7 +323,7 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
                     matches =
                         Internal.ApiRoute.pathToMatches path fullHandler
 
-                    routeFound : BackendTask Throwable Bool
+                    routeFound : BackendTask FatalError Bool
                     routeFound =
                         preBuiltMatches
                             |> BackendTask.map (List.member matches)
@@ -431,19 +431,19 @@ capture (ApiRouteBuilder patterns pattern previousHandler toString constructor) 
 
 {-| For internal use by generated code. Not so useful in user-land.
 -}
-getBuildTimeRoutes : ApiRoute response -> BackendTask Throwable (List String)
+getBuildTimeRoutes : ApiRoute response -> BackendTask FatalError (List String)
 getBuildTimeRoutes (ApiRoute handler) =
     handler.buildTimeRoutes
 
 
 {-| Include head tags on every page's HTML.
 -}
-withGlobalHeadTags : BackendTask Throwable (List Head.Tag) -> ApiRoute response -> ApiRoute response
+withGlobalHeadTags : BackendTask FatalError (List Head.Tag) -> ApiRoute response -> ApiRoute response
 withGlobalHeadTags globalHeadTags (ApiRoute handler) =
     ApiRoute { handler | globalHeadTags = Just globalHeadTags }
 
 
 {-| -}
-getGlobalHeadTagsBackendTask : ApiRoute response -> Maybe (BackendTask Throwable (List Head.Tag))
+getGlobalHeadTagsBackendTask : ApiRoute response -> Maybe (BackendTask FatalError (List Head.Tag))
 getGlobalHeadTagsBackendTask (ApiRoute handler) =
     handler.globalHeadTags

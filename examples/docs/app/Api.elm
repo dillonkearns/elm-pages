@@ -4,7 +4,7 @@ import ApiRoute
 import Article
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Html exposing (Html)
 import Json.Decode as Decode
@@ -21,7 +21,7 @@ import Time
 
 
 routes :
-    BackendTask Throwable (List Route)
+    BackendTask FatalError (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
@@ -105,7 +105,7 @@ routes getStaticRoutes htmlToString =
     ]
 
 
-postsBackendTask : BackendTask Throwable (List Rss.Item)
+postsBackendTask : BackendTask FatalError (List Rss.Item)
 postsBackendTask =
     Article.allMetadata
         |> BackendTask.map
@@ -136,7 +136,7 @@ rss :
     , builtAt : Time.Posix
     , indexPage : List String
     }
-    -> BackendTask Throwable (List Rss.Item)
+    -> BackendTask FatalError (List Rss.Item)
     -> ApiRoute.ApiRoute ApiRoute.Response
 rss options itemsRequest =
     ApiRoute.succeed

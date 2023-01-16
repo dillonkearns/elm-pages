@@ -74,7 +74,7 @@ rule =
 
 finalEvaluation : Context -> List (Rule.Error {})
 finalEvaluation context =
-    case Dict.get [ "Exception" ] context.importContext of
+    case Dict.get [ "FatalError" ] context.importContext of
         Nothing ->
             let
                 importAddRange : { start : { row : Int, column : Int }, end : { row : Int, column : Int } }
@@ -86,7 +86,7 @@ finalEvaluation context =
                 , details = [ "" ]
                 }
                 importAddRange
-                [ Review.Fix.insertAt importAddRange.end "\nimport Exception\n"
+                [ Review.Fix.insertAt importAddRange.end "\nimport FatalError\n"
                 ]
             ]
 
@@ -128,7 +128,7 @@ declarationVisitor node context =
         exceptionFromString : String
         exceptionFromString =
             "("
-                ++ referenceFunction context.importContext ( [ "Exception" ], "fromString" )
+                ++ referenceFunction context.importContext ( [ "FatalError" ], "fromString" )
                 ++ " \"\")"
     in
     case Node.value node of
@@ -168,7 +168,7 @@ declarationVisitor node context =
                                                 -- TODO need to replace `action` as well
                                                 [ ("data = "
                                                     ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                    -- TODO add `import Exception` if not present (and use alias if present)
+                                                    -- TODO add `import FatalError` if not present (and use alias if present)
                                                     ++ " "
                                                     ++ exceptionFromString
                                                     ++ "\n    "
@@ -221,7 +221,7 @@ expressionVisitor node context =
                                     exceptionFromString : String
                                     exceptionFromString =
                                         "("
-                                            ++ referenceFunction context.importContext ( [ "Exception" ], "fromString" )
+                                            ++ referenceFunction context.importContext ( [ "FatalError" ], "fromString" )
                                             ++ " \"\")"
                                 in
                                 [ Rule.errorWithFix

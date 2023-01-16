@@ -2,7 +2,7 @@ module Route.Hello exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Pages.Msg
@@ -45,7 +45,7 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.succeed (BackendTask.succeed (Response.render Data))
 

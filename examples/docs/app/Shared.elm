@@ -3,7 +3,7 @@ module Shared exposing (Data, Model, Msg, template)
 import BackendTask exposing (BackendTask)
 import DocsSection
 import Effect exposing (Effect)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Html exposing (Html)
 import Html.Styled
 import Pages.Flags
@@ -86,7 +86,7 @@ subscriptions _ _ =
     Sub.none
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     TableOfContents.backendTask DocsSection.all
 

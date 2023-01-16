@@ -3,7 +3,7 @@ module Route.Time exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html
@@ -96,7 +96,7 @@ type alias Request =
 --                            |> BackendTask.map PageServerResponse.RenderPage
 
 
-data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.succeed ()
         |> Request.map

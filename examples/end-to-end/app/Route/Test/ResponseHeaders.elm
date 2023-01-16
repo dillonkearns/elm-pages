@@ -4,7 +4,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.File
 import BuildError exposing (BuildError)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Html.Styled exposing (div, text)
 import Pages.Msg
@@ -47,7 +47,7 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.succeed
         (BackendTask.succeed Data

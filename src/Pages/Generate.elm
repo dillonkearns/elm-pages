@@ -1409,6 +1409,6 @@ throwableTask : Elm.Annotation.Annotation -> Elm.Annotation.Annotation
 throwableTask dataType =
     Elm.Annotation.namedWith [ "BackendTask" ]
         "BackendTask"
-        [ Elm.Annotation.named [ "Exception" ] "Throwable"
+        [ Elm.Annotation.named [ "FatalError" ] "FatalError"
         , dataType
         ]

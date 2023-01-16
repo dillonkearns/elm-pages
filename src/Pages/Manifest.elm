@@ -68,7 +68,7 @@ import BackendTask exposing (BackendTask)
 import Color exposing (Color)
 import Color.Convert
 import Dict exposing (Dict)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Json.Encode as Encode
 import LanguageTag exposing (LanguageTag, emptySubtags)
@@ -345,7 +345,7 @@ nonEmptyList list =
 
 {-| A generator for Api.elm to include a manifest.json.
 -}
-generator : String -> BackendTask Throwable Config -> ApiRoute.ApiRoute ApiRoute.Response
+generator : String -> BackendTask FatalError Config -> ApiRoute.ApiRoute ApiRoute.Response
 generator canonicalSiteUrl config =
     ApiRoute.succeed
         (config

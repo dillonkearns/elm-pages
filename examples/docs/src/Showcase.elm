@@ -4,7 +4,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Env as Env
 import BackendTask.Http
 import BuildError exposing (BuildError)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 
@@ -39,7 +39,7 @@ entryDecoder =
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
-staticRequest : BackendTask Throwable (List Entry)
+staticRequest : BackendTask FatalError (List Entry)
 staticRequest =
     Env.expect "AIRTABLE_TOKEN"
         |> BackendTask.throw

@@ -7,7 +7,7 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import Bytes.Encode
 import Dict exposing (Dict)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form.FormData exposing (FormData)
 import Head
 import Html exposing (Html)
@@ -49,9 +49,9 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> ( userModel, effect )
     , update : Pages.FormState.PageFormState -> Dict String (Pages.Transition.FetcherState actionData) -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
-    , sharedData : BackendTask Throwable sharedData
-    , data : Decode.Value -> route -> BackendTask Throwable (PageServerResponse pageData errorPage)
-    , action : Decode.Value -> route -> BackendTask Throwable (PageServerResponse actionData errorPage)
+    , sharedData : BackendTask FatalError sharedData
+    , data : Decode.Value -> route -> BackendTask FatalError (PageServerResponse pageData errorPage)
+    , action : Decode.Value -> route -> BackendTask FatalError (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
         Pages.FormState.PageFormState
@@ -69,8 +69,8 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
             { view : userModel -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
             , head : List Head.Tag
             }
-    , handleRoute : route -> BackendTask Throwable (Maybe NotFoundReason)
-    , getStaticRoutes : BackendTask Throwable (List route)
+    , handleRoute : route -> BackendTask FatalError (Maybe NotFoundReason)
+    , getStaticRoutes : BackendTask FatalError (List route)
     , urlToRoute : Url -> route
     , routeToPath : route -> List String
     , site : Maybe SiteConfig
@@ -102,7 +102,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , encodeResponse : ResponseSketch pageData actionData sharedData -> Bytes.Encode.Encoder
     , encodeAction : actionData -> Bytes.Encode.Encoder
     , decodeResponse : Bytes.Decode.Decoder (ResponseSketch pageData actionData sharedData)
-    , globalHeadTags : Maybe ((Maybe { indent : Int, newLines : Bool } -> Html Never -> String) -> BackendTask Throwable (List Head.Tag))
+    , globalHeadTags : Maybe ((Maybe { indent : Int, newLines : Bool } -> Html Never -> String) -> BackendTask FatalError (List Head.Tag))
     , cmdToEffect : Cmd userMsg -> effect
     , perform :
         { fetchRouteData :

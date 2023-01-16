@@ -9,7 +9,7 @@ module Internal.ApiRoute exposing
     )
 
 import BackendTask exposing (BackendTask)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Json.Decode
 import Pattern exposing (Pattern)
@@ -46,12 +46,12 @@ tryMatchDone path (ApiRoute handler) =
 type ApiRoute response
     = ApiRoute
         { regex : Regex
-        , matchesToResponse : Json.Decode.Value -> String -> BackendTask Throwable (Maybe response)
-        , buildTimeRoutes : BackendTask Throwable (List String)
-        , handleRoute : String -> BackendTask Throwable Bool
+        , matchesToResponse : Json.Decode.Value -> String -> BackendTask FatalError (Maybe response)
+        , buildTimeRoutes : BackendTask FatalError (List String)
+        , handleRoute : String -> BackendTask FatalError Bool
         , pattern : Pattern
         , kind : String
-        , globalHeadTags : Maybe (BackendTask Throwable (List Head.Tag))
+        , globalHeadTags : Maybe (BackendTask FatalError (List Head.Tag))
         }
 
 

@@ -3,7 +3,7 @@ module Route.PokedexNumber_ exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
@@ -40,12 +40,12 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-pages : BackendTask Throwable (List RouteParams)
+pages : BackendTask FatalError (List RouteParams)
 pages =
     BackendTask.succeed []
 
 
-data : RouteParams -> BackendTask Throwable (Response Data ErrorPage)
+data : RouteParams -> BackendTask FatalError (Response Data ErrorPage)
 data { pokedexNumber } =
     let
         asNumber : Int
@@ -76,7 +76,7 @@ data { pokedexNumber } =
             |> BackendTask.map Response.render
 
 
-get : String -> Decode.Decoder value -> BackendTask (Exception.Exception BackendTask.Http.Error) value
+get : String -> Decode.Decoder value -> BackendTask (FatalError.Recoverable BackendTask.Http.Error) value
 get url decoder =
     BackendTask.Http.getWithOptions
         { url = url

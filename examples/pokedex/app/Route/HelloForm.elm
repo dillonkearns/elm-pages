@@ -3,7 +3,7 @@ module Route.HelloForm exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html
@@ -81,12 +81,12 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.succeed (BackendTask.succeed (Response.render Data))
 
 
-action : RouteParams -> Request.Parser (BackendTask Throwable (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action routeParams =
     Request.skip "No action."
 

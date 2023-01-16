@@ -3,8 +3,8 @@ module StaticResponsesTests exposing (all)
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BuildError exposing (BuildError)
-import Exception exposing (Throwable)
 import Expect
+import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Platform.StaticResponses as StaticResponses exposing (NextStep(..))
@@ -121,7 +121,7 @@ get url =
 expectRequestChain :
     a
     -> List (List ( Request, Encode.Value ))
-    -> BackendTask Throwable a
+    -> BackendTask FatalError a
     -> Expect.Expectation
 expectRequestChain expectedValue expectedChain request =
     expectRequestChainHelp expectedValue
@@ -148,7 +148,7 @@ expectRequestChainHelp :
     -> List (List Request)
     -> List (List ( Request, Encode.Value ))
     -> List (List Request)
-    -> BackendTask Throwable a
+    -> BackendTask FatalError a
     -> Encode.Value
     ->
         { errors : List BuildError

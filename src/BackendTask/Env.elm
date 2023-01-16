@@ -8,14 +8,14 @@ down into the final `Data` value, it won't end up in the client!
 
     import BackendTask exposing (BackendTask)
     import BackendTask.Env
-    import Exception exposing (Throwable)
+    import FatalError exposing (FatalError)
 
     type alias EnvVariables =
         { sendGridKey : String
         , siteUrl : String
         }
 
-    sendEmail : Email -> BackendTask Throwable ()
+    sendEmail : Email -> BackendTask FatalError ()
     sendEmail email =
         BackendTask.map2 EnvVariables
             (BackendTask.Env.expect "SEND_GRID_KEY" |> BackendTask.throw)
@@ -24,7 +24,7 @@ down into the final `Data` value, it won't end up in the client!
             )
             |> BackendTask.andThen (sendEmailBackendTask email)
 
-    sendEmailBackendTask : Email -> EnvVariables -> BackendTask Throwable ()
+    sendEmailBackendTask : Email -> EnvVariables -> BackendTask FatalError ()
     sendEmailBackendTask email envVariables =
         Debug.todo "Not defined here"
 
@@ -40,7 +40,7 @@ down into the final `Data` value, it won't end up in the client!
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
-import Exception exposing (Exception)
+import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import TerminalText
@@ -65,9 +65,9 @@ get envVariableName =
         }
 
 
-{-| Get an environment variable, or a BackendTask Exception if there is no environment variable matching that name.
+{-| Get an environment variable, or a BackendTask FatalError if there is no environment variable matching that name.
 -}
-expect : String -> BackendTask (Exception Error) String
+expect : String -> BackendTask { fatal : FatalError, recoverable : Error } String
 expect envVariableName =
     envVariableName
         |> get
@@ -75,7 +75,7 @@ expect envVariableName =
             (\maybeValue ->
                 maybeValue
                     |> Result.fromMaybe
-                        (Exception.Exception (MissingEnvVariable envVariableName)
+                        { fatal =
                             { title = "Missing Env Variable"
                             , body =
                                 [ TerminalText.text "BackendTask.Env.expect was expecting a variable `"
@@ -84,6 +84,7 @@ expect envVariableName =
                                 ]
                                     |> TerminalText.toString
                             }
-                        )
+                        , recoverable = MissingEnvVariable envVariableName
+                        }
                     |> BackendTask.fromResult
             )

@@ -15,7 +15,7 @@ all =
 import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
-import Exception
+import FatalError
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -70,7 +70,7 @@ data =
 import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
-import Exception
+import FatalError
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -100,7 +100,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
    single
        { head = head
-       , data = BackendTask.fail (Exception.fromString "")
+       , data = BackendTask.fail (FatalError.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
 
@@ -115,7 +115,7 @@ data =
                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
-import Exception
+import FatalError
 import BackendTask as DS
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
@@ -169,7 +169,7 @@ data =
                                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
-import Exception
+import FatalError
 import BackendTask as DS
 import RouteBuilder exposing (Page, StaticPayload, single)
 import Pages.PageUrl exposing (PageUrl)
@@ -200,7 +200,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
    single
        { head = head
-       , data = DS.fail (Exception.fromString "")
+       , data = DS.fail (FatalError.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
 
@@ -217,7 +217,7 @@ data =
 import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
-import Exception
+import FatalError
 import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -272,7 +272,7 @@ data =
 import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
-import Exception
+import FatalError
 import RouteBuilder exposing (Page, StaticPayload)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -301,7 +301,7 @@ type alias Data =
 route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
-        { data = \\_ -> BackendTask.fail (Exception.fromString "")
+        { data = \\_ -> BackendTask.fail (FatalError.fromString "")
         , head = head
         , pages = pages
         }
@@ -318,7 +318,7 @@ data =
                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
-import Exception
+import FatalError
 
 type alias Model =
     {}
@@ -355,7 +355,7 @@ route =
                                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
-import Exception
+import FatalError
 
 type alias Model =
     {}
@@ -390,7 +390,7 @@ route =
                                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
-import Exception
+import FatalError
 
 type alias Model =
     {}
@@ -419,7 +419,7 @@ route =
                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request
-import Exception
+import FatalError
 
 type alias Model =
     {}
@@ -456,7 +456,7 @@ route =
                                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request
-import Exception
+import FatalError
 
 type alias Model =
     {}
@@ -491,7 +491,7 @@ route =
                                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request
-import Exception
+import FatalError
 
 type alias Model =
     {}
@@ -520,7 +520,7 @@ route =
                 """module Route.Login exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
-import Exception
+import FatalError
 
 type alias Model =
     {}
@@ -549,7 +549,7 @@ route =
                 """module Route.Index exposing (Data, Model, Msg, route)
 
 import Server.Request as Request
-import Exception
+import FatalError
 
 import BackendTask exposing (BackendTask)
 import RouteBuilder exposing (Page, StaticPayload)
@@ -581,7 +581,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
    RouteBuilder.single
        { head = head
-       , data = BackendTask.fail (Exception.fromString "")
+       , data = BackendTask.fail (FatalError.fromString "")
        }
        |> RouteBuilder.buildNoState { view = view }
 
@@ -597,7 +597,7 @@ data =
                 """module Shared exposing (Data, Model, Msg, template)
 
 import Server.Request as Request
-import Exception
+import FatalError
 
 import Browser.Navigation
 import BackendTask
@@ -648,7 +648,7 @@ type alias Model =
                                 """module Shared exposing (Data, Model, Msg, template)
 
 import Server.Request as Request
-import Exception
+import FatalError
 
 import Browser.Navigation
 import BackendTask
@@ -669,7 +669,7 @@ template =
     { init = init
     , update = update
     , view = view
-    , data = BackendTask.fail (Exception.fromString "")
+    , data = BackendTask.fail (FatalError.fromString "")
     , subscriptions = subscriptions
     , onPageChange = Just OnPageChange
     }

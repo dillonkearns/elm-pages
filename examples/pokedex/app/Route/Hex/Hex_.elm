@@ -2,7 +2,7 @@ module Route.Hex.Hex_ exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import ColorHelpers
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 
 
@@ -41,6 +41,6 @@ toCssVal routeParams =
     "#" ++ routeParams.hex
 
 
-pages : BackendTask Throwable (List RouteParams)
+pages : BackendTask FatalError (List RouteParams)
 pages =
     BackendTask.succeed []

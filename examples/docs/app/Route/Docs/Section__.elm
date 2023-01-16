@@ -6,7 +6,7 @@ import BackendTask.Glob as Glob exposing (Glob)
 import Css
 import Css.Global
 import DocsSection exposing (Section)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Heroicon
@@ -55,7 +55,7 @@ route =
             }
 
 
-pages : BackendTask Throwable (List RouteParams)
+pages : BackendTask FatalError (List RouteParams)
 pages =
     DocsSection.all
         |> BackendTask.map
@@ -70,7 +70,7 @@ pages =
             )
 
 
-data : RouteParams -> BackendTask Throwable Data
+data : RouteParams -> BackendTask FatalError Data
 data routeParams =
     BackendTask.map4 Data
         (pageBody routeParams)
@@ -90,7 +90,7 @@ filePathToEditUrl filePath =
     "https://github.com/dillonkearns/elm-pages/edit/master/examples/docs/" ++ filePath
 
 
-previousAndNextData : RouteParams -> BackendTask Throwable { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
+previousAndNextData : RouteParams -> BackendTask FatalError { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
 previousAndNextData current =
     DocsSection.all
         |> BackendTask.andThen
@@ -105,7 +105,7 @@ previousAndNextData current =
                 BackendTask.map2 (\title previousAndNext -> { title = title, previousAndNext = previousAndNext })
                     (List.Extra.getAt index sections
                         |> maybeBackendTask titleForSection
-                        |> BackendTask.map (Result.fromMaybe (Exception.fromString "Couldn't find section"))
+                        |> BackendTask.map (Result.fromMaybe (FatalError.fromString "Couldn't find section"))
                         |> BackendTask.andThen BackendTask.fromResult
                         |> BackendTask.map .title
                     )
@@ -130,7 +130,7 @@ maybeBackendTask fn maybe =
             BackendTask.succeed Nothing
 
 
-titleForSection : Section -> BackendTask Throwable NextPrevious.Item
+titleForSection : Section -> BackendTask FatalError NextPrevious.Item
 titleForSection section =
     Glob.expectUniqueMatch (findBySlug section.slug)
         |> BackendTask.throw
@@ -159,7 +159,7 @@ titleForSection section =
         |> BackendTask.andThen
             (\maybeTitle ->
                 maybeTitle
-                    |> Result.fromMaybe (Exception.fromString "Expected to find an H1 heading in this markdown.")
+                    |> Result.fromMaybe (FatalError.fromString "Expected to find an H1 heading in this markdown.")
                     |> BackendTask.fromResult
             )
 
@@ -285,7 +285,7 @@ view maybeUrl sharedModel static =
     }
 
 
-filePathBackendTask : RouteParams -> BackendTask Throwable String
+filePathBackendTask : RouteParams -> BackendTask FatalError String
 filePathBackendTask routeParams =
     let
         slug : String
@@ -297,7 +297,7 @@ filePathBackendTask routeParams =
         |> BackendTask.throw
 
 
-pageBody : RouteParams -> BackendTask Throwable (List Block)
+pageBody : RouteParams -> BackendTask FatalError (List Block)
 pageBody routeParams =
     routeParams
         |> filePathBackendTask
@@ -316,9 +316,9 @@ findBySlug slug =
         |> Glob.match (Glob.literal ".md")
 
 
-markdownBody : String -> BackendTask Throwable (List Block)
+markdownBody : String -> BackendTask FatalError (List Block)
 markdownBody rawBody =
     rawBody
         |> Markdown.Parser.parse
-        |> Result.mapError (\_ -> Exception.fromString "Markdown parsing error")
+        |> Result.mapError (\_ -> FatalError.fromString "Markdown parsing error")
         |> BackendTask.fromResult

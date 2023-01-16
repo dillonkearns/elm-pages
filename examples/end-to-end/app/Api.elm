@@ -2,7 +2,7 @@ module Api exposing (routes)
 
 import ApiRoute exposing (ApiRoute)
 import BackendTask exposing (BackendTask)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.Validation as Validation
@@ -23,7 +23,7 @@ import Xml.Decode
 
 
 routes :
-    BackendTask Throwable (List Route)
+    BackendTask FatalError (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =

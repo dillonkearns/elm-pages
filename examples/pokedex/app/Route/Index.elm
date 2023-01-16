@@ -3,7 +3,7 @@ module Route.Index exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.Env as Env
 import BackendTask.Http
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html exposing (..)
@@ -47,7 +47,7 @@ type alias ActionData =
     {}
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     BackendTask.map2 Data
         (BackendTask.Http.getJson

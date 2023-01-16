@@ -3,7 +3,7 @@ module Route.Redirect exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form.FormData exposing (Method(..))
 import Head
 import Head.Seo as Seo
@@ -92,7 +92,7 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.acceptMethod ( Request.Post, [] )

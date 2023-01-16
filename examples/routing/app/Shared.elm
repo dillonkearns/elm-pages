@@ -2,7 +2,7 @@ module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Html exposing (Html)
 import Html.Styled
 import Pages.Flags
@@ -76,7 +76,7 @@ subscriptions _ _ =
     Sub.none
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     --BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
     --    (D.field "stargazers_count" D.int)

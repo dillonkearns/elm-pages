@@ -3,7 +3,7 @@ module MySession exposing (..)
 import BackendTask exposing (BackendTask)
 import BackendTask.Env as Env
 import Codec
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Route
 import Server.Request exposing (Parser)
 import Server.Response exposing (Response)
@@ -19,9 +19,9 @@ cookieOptions =
 
 
 withSession :
-    (request -> Result Session.NotLoadedReason Session.Session -> BackendTask Throwable ( Session.Session, Response data errorPage ))
+    (request -> Result Session.NotLoadedReason Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (BackendTask Throwable (Response data errorPage))
+    -> Parser (BackendTask FatalError (Response data errorPage))
 withSession =
     Session.withSession
         { name = "mysession"
@@ -31,9 +31,9 @@ withSession =
 
 
 withSessionOrRedirect :
-    (request -> Session.Session -> BackendTask Throwable ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (BackendTask Throwable (Response data errorPage))
+    -> Parser (BackendTask FatalError (Response data errorPage))
 withSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
@@ -53,7 +53,7 @@ withSessionOrRedirect toRequest handler =
         handler
 
 
-secrets : BackendTask Throwable (List String)
+secrets : BackendTask FatalError (List String)
 secrets =
     Env.expect "SESSION_SECRET"
         |> BackendTask.throw
@@ -61,9 +61,9 @@ secrets =
 
 
 expectSessionOrRedirect :
-    (request -> Session.Session -> BackendTask Throwable ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (BackendTask Throwable (Response data errorPage))
+    -> Parser (BackendTask FatalError (Response data errorPage))
 expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"

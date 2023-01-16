@@ -4,7 +4,7 @@ import BackendTask exposing (BackendTask)
 import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
@@ -57,7 +57,7 @@ route =
             }
 
 
-action : RouteParams -> Request.Parser (BackendTask Throwable (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action _ =
     (Request.formData (form |> Form.initCombined identity)
         |> Request.map (Result.mapError (\error -> "Errors"))
@@ -214,7 +214,7 @@ type ActionData
         }
 
 
-data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.succeed ()
         |> MySession.withSession

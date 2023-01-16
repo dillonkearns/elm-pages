@@ -3,7 +3,7 @@ module Api exposing (routes)
 import ApiRoute exposing (ApiRoute)
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Html exposing (Html)
 import Json.Decode
 import Json.Encode
@@ -17,7 +17,7 @@ import Site
 
 
 routes :
-    BackendTask Throwable (List Route)
+    BackendTask FatalError (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
     -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =

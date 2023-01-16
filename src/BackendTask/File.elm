@@ -51,7 +51,7 @@ plain old JSON in Elm.
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
-import Exception exposing (Exception)
+import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import TerminalText
 
@@ -141,7 +141,15 @@ It's common to parse the body with a markdown parser or other format.
                 )
 
 -}
-bodyWithFrontmatter : (String -> Decoder frontmatter) -> String -> BackendTask (Exception (FileReadError Decode.Error)) frontmatter
+bodyWithFrontmatter :
+    (String -> Decoder frontmatter)
+    -> String
+    ->
+        BackendTask
+            { fatal : FatalError
+            , recoverable : FileReadError Decode.Error
+            }
+            frontmatter
 bodyWithFrontmatter frontmatterDecoder filePath =
     read filePath
         (body
@@ -213,7 +221,15 @@ the [`BackendTask`](BackendTask) API along with [`BackendTask.Glob`](BackendTask
             |> BackendTask.resolve
 
 -}
-onlyFrontmatter : Decoder frontmatter -> String -> BackendTask (Exception (FileReadError Decode.Error)) frontmatter
+onlyFrontmatter :
+    Decoder frontmatter
+    -> String
+    ->
+        BackendTask
+            { fatal : FatalError
+            , recoverable : FileReadError Decode.Error
+            }
+            frontmatter
 onlyFrontmatter frontmatterDecoder filePath =
     read filePath
         (frontmatter frontmatterDecoder)
@@ -240,7 +256,14 @@ Hey there! This is my first post :)
 Then data will yield the value `"Hey there! This is my first post :)"`.
 
 -}
-bodyWithoutFrontmatter : String -> BackendTask (Exception (FileReadError decoderError)) String
+bodyWithoutFrontmatter :
+    String
+    ->
+        BackendTask
+            { fatal : FatalError
+            , recoverable : FileReadError decoderError
+            }
+            String
 bodyWithoutFrontmatter filePath =
     read filePath
         body
@@ -264,7 +287,7 @@ You could read a file called `hello.txt` in your root project directory like thi
         File.rawFile "hello.txt"
 
 -}
-rawFile : String -> BackendTask (Exception (FileReadError decoderError)) String
+rawFile : String -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } String
 rawFile filePath =
     read filePath (Decode.field "rawFile" Decode.string)
 
@@ -286,7 +309,15 @@ The Decode will strip off any unused JSON data.
             "elm.json"
 
 -}
-jsonFile : Decoder a -> String -> BackendTask (Exception (FileReadError Decode.Error)) a
+jsonFile :
+    Decoder a
+    -> String
+    ->
+        BackendTask
+            { fatal : FatalError
+            , recoverable : FileReadError Decode.Error
+            }
+            a
 jsonFile jsonFileDecoder filePath =
     rawFile filePath
         |> BackendTask.andThen
@@ -295,13 +326,15 @@ jsonFile jsonFileDecoder filePath =
                     |> Decode.decodeString jsonFileDecoder
                     |> Result.mapError
                         (\jsonDecodeError ->
-                            Exception.Exception (DecodingError jsonDecodeError)
+                            { fatal =
                                 { title = "JSON Decoding Error"
                                 , body =
                                     [ TerminalText.text (Decode.errorToString jsonDecodeError)
                                     ]
                                         |> TerminalText.toString
                                 }
+                            , recoverable = DecodingError jsonDecodeError
+                            }
                         )
                     |> BackendTask.fromResult
             )
@@ -314,7 +347,7 @@ body =
     Decode.field "withoutFrontmatter" Decode.string
 
 
-read : String -> Decoder a -> BackendTask (Exception (FileReadError error)) a
+read : String -> Decoder a -> BackendTask { fatal : FatalError, recoverable : FileReadError error } a
 read filePath decoder =
     BackendTask.Internal.Request.request
         { name = "read-file"
@@ -330,10 +363,16 @@ read filePath decoder =
         |> BackendTask.andThen BackendTask.fromResult
 
 
-errorDecoder : String -> Decoder (Exception (FileReadError decoding))
+errorDecoder :
+    String
+    ->
+        Decoder
+            { fatal : FatalError.FatalError
+            , recoverable : FileReadError decoding
+            }
 errorDecoder filePath =
     Decode.succeed
-        (Exception.Exception FileDoesntExist
+        { fatal =
             { title = "File Doesn't Exist"
             , body =
                 [ TerminalText.text "Couldn't find file at path `"
@@ -342,4 +381,5 @@ errorDecoder filePath =
                 ]
                     |> TerminalText.toString
             }
-        )
+        , recoverable = FileDoesntExist
+        }

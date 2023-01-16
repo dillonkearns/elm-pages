@@ -3,7 +3,7 @@ module Route.BasicAuth exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import Base64
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Html exposing (div, text)
 import Pages.Msg
@@ -46,7 +46,7 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     withBasicAuth
         (\{ username, password } ->

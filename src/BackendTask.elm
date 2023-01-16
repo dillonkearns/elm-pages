@@ -5,7 +5,7 @@ module BackendTask exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , catch, throw, mapError, onError, toResult
+    , throw, mapError, onError, toResult
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `BackendTask` that will be resolved **before** `init` is called. That means it is also available
@@ -80,13 +80,13 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 @docs map2, map3, map4, map5, map6, map7, map8, map9
 
 
-## Exception Handling
+## FatalError Handling
 
-@docs catch, throw, mapError, onError, toResult
+@docs throw, mapError, onError, toResult
 
 -}
 
-import Exception exposing (Exception(..), Throwable)
+import FatalError exposing (FatalError)
 import Json.Encode
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 
@@ -524,28 +524,14 @@ map9 combineFn request1 request2 request3 request4 request5 request6 request7 re
 
 
 {-| -}
-catch : BackendTask (Exception error) value -> BackendTask error value
-catch ds =
-    ds
-        |> onError
-            (\exception ->
-                case exception of
-                    Exception error _ ->
-                        fail error
-            )
-
-
-{-| -}
-throw : BackendTask (Exception error) data -> BackendTask Throwable data
+throw : BackendTask { error | fatal : FatalError } data -> BackendTask FatalError data
 throw backendTask =
-    backendTask
-        |> onError (Exception.throw >> fail)
+    mapError .fatal backendTask
 
 
 {-| -}
-toResult : BackendTask (Exception error) data -> BackendTask noError (Result error data)
+toResult : BackendTask error data -> BackendTask noError (Result error data)
 toResult backendTask =
     backendTask
-        |> catch
         |> andThen (Ok >> succeed)
         |> onError (Err >> succeed)

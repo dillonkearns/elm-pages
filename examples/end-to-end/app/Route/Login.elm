@@ -2,7 +2,7 @@ module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
@@ -51,7 +51,7 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-action : RouteParams -> Request.Parser (BackendTask Throwable (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action routeParams =
     Request.formDataWithServerValidation (form |> Form.initCombinedServer identity)
         |> MySession.withSession
@@ -161,7 +161,7 @@ form =
         |> Form.field "name" (Field.text |> Field.required "Required")
 
 
-data : RouteParams -> Request.Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ Request.succeed ()

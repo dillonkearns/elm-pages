@@ -12,7 +12,7 @@ import Bytes exposing (Bytes)
 import Bytes.Encode
 import Codec
 import Dict
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head exposing (Tag)
 import Html exposing (Html)
 import HtmlPrinter
@@ -51,7 +51,7 @@ currentCompatibilityKey =
 
 {-| -}
 type alias Model route =
-    { staticResponses : BackendTask Throwable Effect
+    { staticResponses : BackendTask FatalError Effect
     , errors : List BuildError
     , maybeRequestJson : RenderRequest route
     , isDevServer : Bool
@@ -376,11 +376,11 @@ initLegacy :
     -> ( Model route, Effect )
 initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { isDevServer } config =
     let
-        globalHeadTags : BackendTask Throwable (List Tag)
+        globalHeadTags : BackendTask FatalError (List Tag)
         globalHeadTags =
             (config.globalHeadTags |> Maybe.withDefault (\_ -> BackendTask.succeed [])) HtmlPrinter.htmlToString
 
-        staticResponsesNew : BackendTask Throwable Effect
+        staticResponsesNew : BackendTask FatalError Effect
         staticResponsesNew =
             StaticResponses.renderApiRequest
                 (case singleRequest of

@@ -10,7 +10,7 @@
         "ApiRoute",
         "Path",
         "Pages.PageUrl",
-        "Exception",
+        "FatalError",
         "QueryParams",
         "Pages.Url",
         "BackendTask",

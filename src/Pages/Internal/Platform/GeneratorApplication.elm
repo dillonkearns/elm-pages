@@ -11,7 +11,7 @@ import BuildError exposing (BuildError)
 import Cli.Program as Program exposing (FlagsIncludingArgv)
 import Codec
 import Dict
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import HtmlPrinter
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -33,7 +33,7 @@ type alias Flags =
 
 {-| -}
 type alias Model =
-    { staticResponses : BackendTask Throwable ()
+    { staticResponses : BackendTask FatalError ()
     , errors : List BuildError
     }
 
@@ -47,10 +47,10 @@ type Msg
 {-| -}
 app :
     GeneratorProgramConfig
-    -> Program.StatefulProgram Model Msg (BackendTask Throwable ()) Flags
+    -> Program.StatefulProgram Model Msg (BackendTask FatalError ()) Flags
 app config =
     let
-        cliConfig : Program.Config (BackendTask Throwable ())
+        cliConfig : Program.Config (BackendTask FatalError ())
         cliConfig =
             case config.data of
                 Pages.Internal.Script.Script theCliConfig ->
@@ -246,7 +246,7 @@ perform config effect =
 
 {-| -}
 init :
-    BackendTask Throwable ()
+    BackendTask FatalError ()
     -> FlagsIncludingArgv Flags
     -> ( Model, Effect )
 init execute flags =
@@ -282,11 +282,11 @@ init execute flags =
 
 
 initLegacy :
-    BackendTask Throwable ()
+    BackendTask FatalError ()
     -> ( Model, Effect )
 initLegacy execute =
     let
-        staticResponses : BackendTask Throwable ()
+        staticResponses : BackendTask FatalError ()
         staticResponses =
             StaticResponses.renderApiRequest execute
 

@@ -2,7 +2,7 @@ module MarkdownCodec exposing (isPlaceholder, noteTitle, titleAndDescription, wi
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File as StaticFile
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 import List.Extra
@@ -12,7 +12,7 @@ import Markdown.Renderer
 import MarkdownExtra
 
 
-isPlaceholder : String -> BackendTask Throwable (Maybe ())
+isPlaceholder : String -> BackendTask FatalError (Maybe ())
 isPlaceholder filePath =
     filePath
         |> StaticFile.bodyWithoutFrontmatter
@@ -20,7 +20,7 @@ isPlaceholder filePath =
         |> BackendTask.andThen
             (\rawContent ->
                 Markdown.Parser.parse rawContent
-                    |> Result.mapError (\_ -> Exception.fromString "Markdown error")
+                    |> Result.mapError (\_ -> FatalError.fromString "Markdown error")
                     |> Result.map
                         (\blocks ->
                             List.any
@@ -47,7 +47,7 @@ isPlaceholder filePath =
             )
 
 
-noteTitle : String -> BackendTask Throwable String
+noteTitle : String -> BackendTask FatalError String
 noteTitle filePath =
     titleFromFrontmatter filePath
         |> BackendTask.andThen
@@ -78,14 +78,14 @@ noteTitle filePath =
                                             (Result.fromMaybe <|
                                                 ("Expected to find an H1 heading for page " ++ filePath)
                                             )
-                                        |> Result.mapError Exception.fromString
+                                        |> Result.mapError FatalError.fromString
                                         |> BackendTask.fromResult
                                 )
                         )
             )
 
 
-titleAndDescription : String -> BackendTask Throwable { title : String, description : String }
+titleAndDescription : String -> BackendTask FatalError { title : String, description : String }
 titleAndDescription filePath =
     filePath
         |> StaticFile.onlyFrontmatter
@@ -130,7 +130,7 @@ titleAndDescription filePath =
                                                     )
                                             )
                                         |> Result.andThen (Result.fromMaybe <| "Expected to find an H1 heading for page " ++ filePath)
-                                        |> Result.mapError Exception.fromString
+                                        |> Result.mapError FatalError.fromString
                                         |> BackendTask.fromResult
                                 )
                         )
@@ -166,7 +166,7 @@ findDescription blocks =
         |> Maybe.withDefault ""
 
 
-titleFromFrontmatter : String -> BackendTask Throwable (Maybe String)
+titleFromFrontmatter : String -> BackendTask FatalError (Maybe String)
 titleFromFrontmatter filePath =
     StaticFile.onlyFrontmatter
         (Json.Decode.Extra.optionalField "title" Decode.string)
@@ -177,7 +177,7 @@ titleFromFrontmatter filePath =
 withoutFrontmatter :
     Markdown.Renderer.Renderer view
     -> String
-    -> BackendTask Throwable (List Block)
+    -> BackendTask FatalError (List Block)
 withoutFrontmatter renderer filePath =
     (filePath
         |> StaticFile.bodyWithoutFrontmatter
@@ -186,7 +186,7 @@ withoutFrontmatter renderer filePath =
             (\rawBody ->
                 rawBody
                     |> Markdown.Parser.parse
-                    |> Result.mapError (\_ -> Exception.fromString "Couldn't parse markdown.")
+                    |> Result.mapError (\_ -> FatalError.fromString "Couldn't parse markdown.")
                     |> BackendTask.fromResult
             )
     )
@@ -197,7 +197,7 @@ withoutFrontmatter renderer filePath =
                     -- we don't want to encode the HTML since it contains functions so it's not serializable
                     -- but we can at least make sure there are no errors turning it into HTML before encoding it
                     |> Result.map (\_ -> blocks)
-                    |> Result.mapError (\error -> Exception.fromString error)
+                    |> Result.mapError (\error -> FatalError.fromString error)
                     |> BackendTask.fromResult
             )
 
@@ -207,7 +207,7 @@ withFrontmatter :
     -> Decoder frontmatter
     -> Markdown.Renderer.Renderer view
     -> String
-    -> BackendTask Throwable value
+    -> BackendTask FatalError value
 withFrontmatter constructor frontmatterDecoder_ renderer filePath =
     BackendTask.map2 constructor
         (StaticFile.onlyFrontmatter
@@ -222,7 +222,7 @@ withFrontmatter constructor frontmatterDecoder_ renderer filePath =
                 (\rawBody ->
                     rawBody
                         |> Markdown.Parser.parse
-                        |> Result.mapError (\_ -> Exception.fromString "Couldn't parse markdown.")
+                        |> Result.mapError (\_ -> FatalError.fromString "Couldn't parse markdown.")
                         |> BackendTask.fromResult
                 )
             |> BackendTask.andThen
@@ -232,7 +232,7 @@ withFrontmatter constructor frontmatterDecoder_ renderer filePath =
                         -- we don't want to encode the HTML since it contains functions so it's not serializable
                         -- but we can at least make sure there are no errors turning it into HTML before encoding it
                         |> Result.map (\_ -> blocks)
-                        |> Result.mapError (\error -> Exception.fromString error)
+                        |> Result.mapError (\error -> FatalError.fromString error)
                         |> BackendTask.fromResult
                 )
         )

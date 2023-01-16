@@ -2,7 +2,7 @@ module Route.Counter exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html
@@ -85,7 +85,7 @@ type alias Data =
     {}
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     BackendTask.succeed Data
 

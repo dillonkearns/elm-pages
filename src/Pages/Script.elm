@@ -34,7 +34,7 @@ import BackendTask.Http
 import BackendTask.Internal.Request
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
-import Exception exposing (Exception, Throwable)
+import FatalError exposing (FatalError, Recoverable)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
@@ -52,7 +52,7 @@ type Error
 
 
 {-| -}
-writeFile : { path : String, body : String } -> BackendTask (Exception Error) ()
+writeFile : { path : String, body : String } -> BackendTask (Recoverable Error) ()
 writeFile { path, body } =
     BackendTask.Internal.Request.request
         { name = "write-file"
@@ -85,7 +85,7 @@ log message =
 
 
 {-| -}
-withoutCliOptions : BackendTask Throwable () -> Script
+withoutCliOptions : BackendTask FatalError () -> Script
 withoutCliOptions execute =
     Pages.Internal.Script.Script
         (\_ ->
@@ -100,7 +100,7 @@ withoutCliOptions execute =
 
 
 {-| -}
-withCliOptions : Program.Config cliOptions -> (cliOptions -> BackendTask Throwable ()) -> Script
+withCliOptions : Program.Config cliOptions -> (cliOptions -> BackendTask FatalError ()) -> Script
 withCliOptions config execute =
     Pages.Internal.Script.Script
         (\_ ->

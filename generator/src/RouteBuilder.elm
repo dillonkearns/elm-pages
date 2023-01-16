@@ -89,7 +89,7 @@ import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Http
 import Json.Decode
@@ -109,9 +109,9 @@ import View exposing (View)
 
 {-| -}
 type alias StatefulRoute routeParams data action model msg =
-    { data : Json.Decode.Value -> routeParams -> BackendTask Throwable (Server.Response.Response data ErrorPage)
-    , action : Json.Decode.Value -> routeParams -> BackendTask Throwable (Server.Response.Response action ErrorPage)
-    , staticRoutes : BackendTask Throwable (List routeParams)
+    { data : Json.Decode.Value -> routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
+    , action : Json.Decode.Value -> routeParams -> BackendTask FatalError (Server.Response.Response action ErrorPage)
+    , staticRoutes : BackendTask FatalError (List routeParams)
     , view :
         Maybe PageUrl
         -> Shared.Model
@@ -124,7 +124,7 @@ type alias StatefulRoute routeParams data action model msg =
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
     , update : PageUrl -> StaticPayload data action routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> model -> Shared.Model -> Sub msg
-    , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> BackendTask Throwable (Maybe NotFoundReason)
+    , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> BackendTask FatalError (Maybe NotFoundReason)
     , kind : String
     , onAction : Maybe (action -> msg)
     }
@@ -154,9 +154,9 @@ type alias StaticPayload data action routeParams =
 {-| -}
 type Builder routeParams data action
     = WithData
-        { data : Json.Decode.Value -> routeParams -> BackendTask Throwable (Server.Response.Response data ErrorPage)
-        , action : Json.Decode.Value -> routeParams -> BackendTask Throwable (Server.Response.Response action ErrorPage)
-        , staticRoutes : BackendTask Throwable (List routeParams)
+        { data : Json.Decode.Value -> routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
+        , action : Json.Decode.Value -> routeParams -> BackendTask FatalError (Server.Response.Response action ErrorPage)
+        , staticRoutes : BackendTask FatalError (List routeParams)
         , head :
             StaticPayload data action routeParams
             -> List Head.Tag
@@ -165,7 +165,7 @@ type Builder routeParams data action
             { moduleName : List String, routePattern : RoutePattern }
             -> (routeParams -> List ( String, String ))
             -> routeParams
-            -> BackendTask Throwable (Maybe NotFoundReason)
+            -> BackendTask FatalError (Maybe NotFoundReason)
         , kind : String
         }
 
@@ -292,14 +292,14 @@ buildWithSharedState config builderState =
 
 {-| -}
 single :
-    { data : BackendTask Throwable data
+    { data : BackendTask FatalError data
     , head : StaticPayload data action {} -> List Head.Tag
     }
     -> Builder {} data action
 single { data, head } =
     WithData
         { data = \_ _ -> data |> BackendTask.map Server.Response.render
-        , action = \_ _ -> BackendTask.fail (Exception.fromString "Internal Error - actions should never be called for statically generated pages.")
+        , action = \_ _ -> BackendTask.fail (FatalError.fromString "Internal Error - actions should never be called for statically generated pages.")
         , staticRoutes = BackendTask.succeed [ {} ]
         , head = head
         , serverless = False
@@ -310,15 +310,15 @@ single { data, head } =
 
 {-| -}
 preRender :
-    { data : routeParams -> BackendTask Throwable data
-    , pages : BackendTask Throwable (List routeParams)
+    { data : routeParams -> BackendTask FatalError data
+    , pages : BackendTask FatalError (List routeParams)
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
 preRender { data, head, pages } =
     WithData
         { data = \_ -> data >> BackendTask.map Server.Response.render
-        , action = \_ _ -> BackendTask.fail (Exception.fromString "Internal Error - actions should never be called for statically generated pages.")
+        , action = \_ _ -> BackendTask.fail (FatalError.fromString "Internal Error - actions should never be called for statically generated pages.")
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -348,15 +348,15 @@ preRender { data, head, pages } =
 
 {-| -}
 preRenderWithFallback :
-    { data : routeParams -> BackendTask Throwable (Server.Response.Response data ErrorPage)
-    , pages : BackendTask Throwable (List routeParams)
+    { data : routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
+    , pages : BackendTask FatalError (List routeParams)
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
 preRenderWithFallback { data, head, pages } =
     WithData
         { data = \_ -> data
-        , action = \_ _ -> BackendTask.fail (Exception.fromString "Internal Error - actions should never be called for statically generated pages.")
+        , action = \_ _ -> BackendTask.fail (FatalError.fromString "Internal Error - actions should never be called for statically generated pages.")
         , staticRoutes = pages
         , head = head
         , serverless = False
@@ -369,8 +369,8 @@ preRenderWithFallback { data, head, pages } =
 
 {-| -}
 serverRender :
-    { data : routeParams -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response data ErrorPage))
-    , action : routeParams -> Server.Request.Parser (BackendTask Throwable (Server.Response.Response action ErrorPage))
+    { data : routeParams -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response data ErrorPage))
+    , action : routeParams -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response action ErrorPage))
     , head : StaticPayload data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
@@ -386,7 +386,7 @@ serverRender { data, action, head } =
                                 |> Result.mapError Json.Decode.errorToString
                                 |> BackendTask.fromResult
                                 -- TODO include title and better error context and formatting
-                                |> BackendTask.onError (\error -> BackendTask.fail (Exception.fromString error))
+                                |> BackendTask.onError (\error -> BackendTask.fail (FatalError.fromString error))
                        )
                 )
                     |> BackendTask.andThen
@@ -397,7 +397,7 @@ serverRender { data, action, head } =
 
                                 Err error ->
                                     Server.Request.errorsToString error
-                                        |> Exception.fromString
+                                        |> FatalError.fromString
                                         |> BackendTask.fail
                         )
         , action =
@@ -410,7 +410,7 @@ serverRender { data, action, head } =
                                 |> Result.mapError Json.Decode.errorToString
                                 |> BackendTask.fromResult
                                 -- TODO include title and better error context and formatting
-                                |> BackendTask.onError (\error -> BackendTask.fail (Exception.fromString error))
+                                |> BackendTask.onError (\error -> BackendTask.fail (FatalError.fromString error))
                        )
                 )
                     |> BackendTask.andThen
@@ -421,7 +421,7 @@ serverRender { data, action, head } =
 
                                 Err error ->
                                     Server.Request.errorsToString error
-                                        |> Exception.fromString
+                                        |> FatalError.fromString
                                         |> BackendTask.fail
                         )
         , staticRoutes = BackendTask.succeed []

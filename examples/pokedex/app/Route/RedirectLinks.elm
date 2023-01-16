@@ -1,7 +1,7 @@
 module Route.RedirectLinks exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html
@@ -43,7 +43,7 @@ type alias ActionData =
     {}
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     BackendTask.succeed {}
 

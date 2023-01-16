@@ -3,7 +3,7 @@ module Route.FileData exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.File
 import BuildError exposing (BuildError)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
@@ -46,7 +46,7 @@ type alias Data =
     }
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     "my-json-data.json"
         |> BackendTask.File.jsonFile (Decode.field "greeting" Decode.string)

@@ -7,7 +7,7 @@ import Date exposing (Date)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldStatus as FieldStatus
@@ -210,7 +210,7 @@ validateCapitalized string =
         ( Nothing, [ "Needs to be capitalized" ] )
 
 
-form : Form.DoneForm String (BackendTask Throwable (Combined String User)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (BackendTask FatalError (Combined String User)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
@@ -446,7 +446,7 @@ form =
             )
 
 
-isValidDob : Date -> BackendTask Throwable (Maybe String)
+isValidDob : Date -> BackendTask FatalError (Maybe String)
 isValidDob birthDate =
     if birthDate == Date.fromCalendarDate 1969 Time.Jul 20 then
         BackendTask.succeed (Just "No way, that's when the moon landing happened!")
@@ -545,7 +545,7 @@ route =
             }
 
 
-action : RouteParams -> Parser (BackendTask Throwable (Response ActionData ErrorPage))
+action : RouteParams -> Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action routeParams =
     Request.formDataWithServerValidation (form |> Form.initCombined identity)
         |> Request.map
@@ -596,7 +596,7 @@ type alias ActionData =
     }
 
 
-data : RouteParams -> Parser (BackendTask Throwable (Response Data ErrorPage))
+data : RouteParams -> Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
         [ {}

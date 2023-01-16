@@ -3,7 +3,7 @@ module Route.Index exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.File
 import BackendTask.Port
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (a, div, text)
@@ -49,7 +49,7 @@ type alias Data =
     }
 
 
-data : BackendTask Throwable Data
+data : BackendTask FatalError Data
 data =
     BackendTask.map2 Data
         (BackendTask.File.rawFile "greeting.txt" |> BackendTask.throw)

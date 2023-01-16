@@ -1,7 +1,7 @@
 module Site exposing (config)
 
 import BackendTask exposing (BackendTask)
-import Exception exposing (Throwable)
+import FatalError exposing (FatalError)
 import Head
 import Pages.Manifest as Manifest
 import Route
@@ -19,7 +19,7 @@ config =
     }
 
 
-head : BackendTask Throwable (List Head.Tag)
+head : BackendTask FatalError (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
