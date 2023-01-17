@@ -65,7 +65,7 @@ data routeParams =
                     username
                         |> LoggedInInfo
                         |> BackendTask.succeed
-                        |> BackendTask.andMap (BackendTask.File.rawFile "examples/pokedex/content/secret-note.txt" |> BackendTask.throw)
+                        |> BackendTask.andMap (BackendTask.File.rawFile "examples/pokedex/content/secret-note.txt" |> BackendTask.allowFatal)
                         |> BackendTask.map LoggedIn
                         |> BackendTask.map Response.render
                 )

@@ -22,7 +22,7 @@ all =
             \() ->
                 BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
                     (Decode.field "stargazers_count" Decode.int)
-                    |> BackendTask.throw
+                    |> BackendTask.allowFatal
                     |> expectRequestChain 123
                         [ [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                             , Encode.object
@@ -41,7 +41,7 @@ all =
                                 (Decode.field "stargazers_count" Decode.int)
                                 |> BackendTask.map (\graphqlStars -> elmPagesStars + graphqlStars)
                         )
-                    |> BackendTask.throw
+                    |> BackendTask.allowFatal
                     |> expectRequestChain 579
                         [ [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
                             , Encode.object
@@ -69,7 +69,7 @@ all =
             \() ->
                 BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
                     (Decode.field "stargazers_count" Decode.int)
-                    |> BackendTask.throw
+                    |> BackendTask.allowFatal
                     |> BackendTask.andThen
                         (\stars ->
                             Script.log ("Stars: " ++ String.fromInt stars)

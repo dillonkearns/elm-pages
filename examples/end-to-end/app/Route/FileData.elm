@@ -50,7 +50,7 @@ data : BackendTask FatalError Data
 data =
     "my-json-data.json"
         |> BackendTask.File.jsonFile (Decode.field "greeting" Decode.string)
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
         |> BackendTask.map Data
 
 

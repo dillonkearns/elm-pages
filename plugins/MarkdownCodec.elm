@@ -16,7 +16,7 @@ isPlaceholder : String -> BackendTask FatalError (Maybe ())
 isPlaceholder filePath =
     filePath
         |> StaticFile.bodyWithoutFrontmatter
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
         |> BackendTask.andThen
             (\rawContent ->
                 Markdown.Parser.parse rawContent
@@ -56,7 +56,7 @@ noteTitle filePath =
                     |> Maybe.map BackendTask.succeed
                     |> Maybe.withDefault
                         (StaticFile.bodyWithoutFrontmatter filePath
-                            |> BackendTask.throw
+                            |> BackendTask.allowFatal
                             |> BackendTask.andThen
                                 (\rawContent ->
                                     Markdown.Parser.parse rawContent
@@ -93,7 +93,7 @@ titleAndDescription filePath =
                 (Json.Decode.Extra.optionalField "title" Decode.string)
                 (Json.Decode.Extra.optionalField "description" Decode.string)
             )
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
         |> BackendTask.andThen
             (\metadata ->
                 Maybe.map2 (\title description -> { title = title, description = description })
@@ -102,7 +102,7 @@ titleAndDescription filePath =
                     |> Maybe.map BackendTask.succeed
                     |> Maybe.withDefault
                         (StaticFile.bodyWithoutFrontmatter filePath
-                            |> BackendTask.throw
+                            |> BackendTask.allowFatal
                             |> BackendTask.andThen
                                 (\rawContent ->
                                     Markdown.Parser.parse rawContent
@@ -171,7 +171,7 @@ titleFromFrontmatter filePath =
     StaticFile.onlyFrontmatter
         (Json.Decode.Extra.optionalField "title" Decode.string)
         filePath
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
 
 
 withoutFrontmatter :
@@ -181,7 +181,7 @@ withoutFrontmatter :
 withoutFrontmatter renderer filePath =
     (filePath
         |> StaticFile.bodyWithoutFrontmatter
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
         |> BackendTask.andThen
             (\rawBody ->
                 rawBody
@@ -213,11 +213,11 @@ withFrontmatter constructor frontmatterDecoder_ renderer filePath =
         (StaticFile.onlyFrontmatter
             frontmatterDecoder_
             filePath
-            |> BackendTask.throw
+            |> BackendTask.allowFatal
         )
         (StaticFile.bodyWithoutFrontmatter
             filePath
-            |> BackendTask.throw
+            |> BackendTask.allowFatal
             |> BackendTask.andThen
                 (\rawBody ->
                     rawBody

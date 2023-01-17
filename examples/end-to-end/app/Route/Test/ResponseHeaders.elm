@@ -51,7 +51,7 @@ data : RouteParams -> Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.succeed
         (BackendTask.succeed Data
-            |> BackendTask.andMap (BackendTask.File.rawFile "greeting.txt" |> BackendTask.throw)
+            |> BackendTask.andMap (BackendTask.File.rawFile "greeting.txt" |> BackendTask.allowFatal)
             |> BackendTask.map Response.render
             |> BackendTask.map (Response.withHeader "x-powered-by" "my-framework")
         )

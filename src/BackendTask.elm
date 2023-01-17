@@ -5,7 +5,7 @@ module BackendTask exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , throw, mapError, onError, toResult
+    , allowFatal, mapError, onError, toResult
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `BackendTask` that will be resolved **before** `init` is called. That means it is also available
@@ -82,7 +82,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 ## FatalError Handling
 
-@docs throw, mapError, onError, toResult
+@docs allowFatal, mapError, onError, toResult
 
 -}
 
@@ -524,8 +524,8 @@ map9 combineFn request1 request2 request3 request4 request5 request6 request7 re
 
 
 {-| -}
-throw : BackendTask { error | fatal : FatalError } data -> BackendTask FatalError data
-throw backendTask =
+allowFatal : BackendTask { error | fatal : FatalError } data -> BackendTask FatalError data
+allowFatal backendTask =
     mapError .fatal backendTask
 
 

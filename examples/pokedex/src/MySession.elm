@@ -56,7 +56,7 @@ withSessionOrRedirect toRequest handler =
 secrets : BackendTask FatalError (List String)
 secrets =
     Env.expect "SESSION_SECRET"
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
         |> BackendTask.map List.singleton
 
 

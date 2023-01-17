@@ -52,8 +52,8 @@ type alias Data =
 data : BackendTask FatalError Data
 data =
     BackendTask.map2 Data
-        (BackendTask.File.rawFile "greeting.txt" |> BackendTask.throw)
-        (BackendTask.Port.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.throw)
+        (BackendTask.File.rawFile "greeting.txt" |> BackendTask.allowFatal)
+        (BackendTask.Port.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
 
 
 head :

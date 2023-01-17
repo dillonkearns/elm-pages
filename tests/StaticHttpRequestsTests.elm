@@ -35,7 +35,7 @@ all =
         [ test "initial requests are sent out" <|
             \() ->
                 startSimple []
-                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.allowFatal)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (JsonBody
@@ -46,7 +46,7 @@ all =
             \() ->
                 startSimple
                     [ "post-1" ]
-                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.allowFatal)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (JsonBody
@@ -57,7 +57,7 @@ all =
             [ test "single pages that are pre-rendered" <|
                 \() ->
                     startSimple [ "post-1" ]
-                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.throw)
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.allowFatal)
                         |> simulateHttp
                             (get "https://api.github.com/repos/dillonkearns/elm-pages")
                             (JsonBody
@@ -86,11 +86,11 @@ all =
                     (BackendTask.map2 Tuple.pair
                         (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
                             (JD.field "stargazer_count" JD.int)
-                            |> BackendTask.throw
+                            |> BackendTask.allowFatal
                         )
                         (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
                             (JD.field "language" JD.string)
-                            |> BackendTask.throw
+                            |> BackendTask.allowFatal
                         )
                     )
                     |> simulateHttp
@@ -108,11 +108,11 @@ all =
                 startSimple
                     [ "elm-pages" ]
                     (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.succeed ())
-                        |> BackendTask.throw
+                        |> BackendTask.allowFatal
                         |> BackendTask.andThen
                             (\_ ->
                                 BackendTask.Http.getJson "NEXT-REQUEST" (JD.succeed ())
-                                    |> BackendTask.throw
+                                    |> BackendTask.allowFatal
                             )
                     )
                     |> simulateHttp
@@ -231,7 +231,7 @@ all =
             \() ->
                 startSimple []
                     (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
-                        |> BackendTask.throw
+                        |> BackendTask.allowFatal
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -251,7 +251,7 @@ all =
                         (BackendTask.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
                         )
-                        |> BackendTask.throw
+                        |> BackendTask.allowFatal
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -269,7 +269,7 @@ all =
                         , timeoutInMs = Nothing
                         }
                         BackendTask.Http.expectString
-                        |> BackendTask.throw
+                        |> BackendTask.allowFatal
                     )
                     |> simulateHttp
                         { method = "GET"
@@ -293,7 +293,7 @@ all =
                         , timeoutInMs = Nothing
                         }
                         BackendTask.Http.expectString
-                        |> BackendTask.throw
+                        |> BackendTask.allowFatal
                         |> BackendTask.map
                             (\string ->
                                 if String.toUpper string == string then
@@ -331,7 +331,7 @@ String was not uppercased"""
                         (BackendTask.Http.expectJson
                             (JD.field "stargazer_count" JD.int)
                         )
-                        |> BackendTask.throw
+                        |> BackendTask.allowFatal
                     )
                     |> simulateHttp
                         (post "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -345,7 +345,7 @@ String was not uppercased"""
                             (\_ ->
                                 BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
                             )
-                        |> BackendTask.throw
+                        |> BackendTask.allowFatal
                     )
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
@@ -358,8 +358,8 @@ String was not uppercased"""
             \() ->
                 startSimple []
                     (BackendTask.map2 (\_ _ -> ())
-                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int) |> BackendTask.throw)
-                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int) |> BackendTask.throw)
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int) |> BackendTask.allowFatal)
+                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int) |> BackendTask.allowFatal)
                     )
                     |> simulateMultipleHttp
                         [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
@@ -382,8 +382,8 @@ String was not uppercased"""
             \() ->
                 startSimple []
                     (BackendTask.map2 (\_ _ -> ())
-                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.throw)
-                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.throw)
+                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.allowFatal)
+                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.allowFatal)
                     )
                     |> simulateHttp
                         (get "http://example.com")
@@ -392,7 +392,7 @@ String was not uppercased"""
         , test "an error is sent out for decoder failures" <|
             \() ->
                 startSimple [ "elm-pages" ]
-                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI.") |> BackendTask.throw)
+                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI.") |> BackendTask.allowFatal)
                     |> simulateHttp
                         (get "https://api.github.com/repos/dillonkearns/elm-pages")
                         (jsonBody """{ "stargazer_count": 86 }""")

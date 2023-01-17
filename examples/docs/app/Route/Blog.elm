@@ -38,7 +38,7 @@ route =
 data : BackendTask FatalError Data
 data =
     Article.allMetadata
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
 
 
 type alias Data =

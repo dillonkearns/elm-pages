@@ -72,7 +72,7 @@ data { pokedexNumber } =
                     (Decode.field "types" (Decode.list (Decode.field "type" (Decode.field "name" Decode.string))))
                 )
             )
-            |> BackendTask.throw
+            |> BackendTask.allowFatal
             |> BackendTask.map Response.render
 
 

@@ -117,7 +117,7 @@ noArgs =
             (BackendTask.Http.getJson
                 "https://api.github.com/repos/dillonkearns/elm-pages"
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
-                |> BackendTask.throw
+                |> BackendTask.allowFatal
                 |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
@@ -140,7 +140,7 @@ nonHybridRoute =
             BackendTask.Http.getJson
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
-                |> BackendTask.throw
+                |> BackendTask.allowFatal
                 |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
@@ -187,7 +187,7 @@ repoStars =
                 (BackendTask.Http.getJson
                     ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                     (Json.Decode.field "stargazers_count" Json.Decode.int)
-                    |> BackendTask.throw
+                    |> BackendTask.allowFatal
                     |> BackendTask.map
                         (\stars ->
                             Json.Encode.object
@@ -214,7 +214,7 @@ repoStars2 =
             BackendTask.Http.getJson
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
-                |> BackendTask.throw
+                |> BackendTask.allowFatal
                 |> BackendTask.map
                     (\stars ->
                         Json.Encode.object
@@ -244,7 +244,7 @@ route1 =
             BackendTask.Http.getJson
                 ("https://api.github.com/repos/dillonkearns/" ++ repoName)
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
-                |> BackendTask.throw
+                |> BackendTask.allowFatal
                 |> BackendTask.map
                     (\stars ->
                         Json.Encode.object

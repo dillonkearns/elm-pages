@@ -98,7 +98,7 @@ data routeParams =
 slideBody : RouteParams -> BackendTask FatalError String
 slideBody route_ =
     BackendTask.File.bodyWithoutFrontmatter "slides.md"
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
 
 
 head :

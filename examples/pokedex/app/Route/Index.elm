@@ -55,7 +55,7 @@ data =
             (Decode.field "results"
                 (Decode.list (Decode.field "name" Decode.string))
             )
-            |> BackendTask.throw
+            |> BackendTask.allowFatal
         )
         (Env.get "HELLO")
 

@@ -15,7 +15,7 @@ A `BackendTask.Port` will call an async JavaScript function with the given name 
 @docs get
 
 Here is the Elm code and corresponding JavaScript definition for getting an environment variable (or an `FatalError BackendTask.Port.Error` if it isn't found). In this example,
-we're using `BackendTask.throw` to let the framework treat that as an unexpected exception, but we could also handle the possible failures of the `FatalError` (see [`FatalError`](FatalError)).
+we're using `BackendTask.allowFatal` to let the framework treat that as an unexpected exception, but we could also handle the possible failures of the `FatalError` (see [`FatalError`](FatalError)).
 
     import BackendTask exposing (BackendTask)
     import BackendTask.Port
@@ -27,7 +27,7 @@ we're using `BackendTask.throw` to let the framework treat that as an unexpected
         BackendTask.Port.get "environmentVariable"
             (Json.Encode.string "EDITOR")
             Decode.string
-            |> BackendTask.throw
+            |> BackendTask.allowFatal
 
     -- will resolve to "VIM" if you run `EDITOR=vim elm-pages dev`
 

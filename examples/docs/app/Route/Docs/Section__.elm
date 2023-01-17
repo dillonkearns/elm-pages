@@ -80,7 +80,7 @@ data routeParams =
             |> findBySlug
             |> Glob.expectUniqueMatch
             |> BackendTask.map filePathToEditUrl
-            |> BackendTask.throw
+            |> BackendTask.allowFatal
         )
         (routeParams |> filePathBackendTask |> BackendTask.andThen MarkdownCodec.titleAndDescription)
 
@@ -133,11 +133,11 @@ maybeBackendTask fn maybe =
 titleForSection : Section -> BackendTask FatalError NextPrevious.Item
 titleForSection section =
     Glob.expectUniqueMatch (findBySlug section.slug)
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
         |> BackendTask.andThen
             (\filePath ->
                 BackendTask.File.bodyWithoutFrontmatter filePath
-                    |> BackendTask.throw
+                    |> BackendTask.allowFatal
                     |> BackendTask.andThen markdownBody
                     |> BackendTask.map
                         (\blocks ->
@@ -294,7 +294,7 @@ filePathBackendTask routeParams =
                 |> Maybe.withDefault "what-is-elm-pages"
     in
     Glob.expectUniqueMatch (findBySlug slug)
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
 
 
 pageBody : RouteParams -> BackendTask FatalError (List Block)

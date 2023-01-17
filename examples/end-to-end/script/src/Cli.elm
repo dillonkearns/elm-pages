@@ -32,7 +32,7 @@ run =
                 { path = "app/" ++ file.path
                 , body = file.contents
                 }
-                |> BackendTask.throw
+                |> BackendTask.allowFatal
         )
 
 

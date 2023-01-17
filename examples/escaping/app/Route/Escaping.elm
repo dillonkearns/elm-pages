@@ -51,7 +51,7 @@ type alias Data =
 data : BackendTask FatalError Data
 data =
     BackendTask.File.rawFile "unsafe-script-tag.txt"
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
 
 
 head :

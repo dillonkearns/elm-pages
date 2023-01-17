@@ -24,7 +24,7 @@ data : routeParams -> BackendTask FatalError (Server.Response.Response Data Erro
 data _ =
     BackendTask.Http.getJson "https://elm-pages-pokedex.netlify.app/.netlify/functions/time"
         Decode.string
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
         |> BackendTask.map Data
         |> BackendTask.map Server.Response.render
 

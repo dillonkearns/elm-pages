@@ -18,7 +18,7 @@ down into the final `Data` value, it won't end up in the client!
     sendEmail : Email -> BackendTask FatalError ()
     sendEmail email =
         BackendTask.map2 EnvVariables
-            (BackendTask.Env.expect "SEND_GRID_KEY" |> BackendTask.throw)
+            (BackendTask.Env.expect "SEND_GRID_KEY" |> BackendTask.allowFatal)
             (BackendTask.Env.get "BASE_URL"
                 |> BackendTask.map (Maybe.withDefault "http://localhost:1234")
             )

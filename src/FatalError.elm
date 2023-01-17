@@ -32,10 +32,10 @@ For example, if you wanted to handle possible errors to present them to the user
                             else
                                 -- we're only handling these expected error cases. In the case of an HTTP timeout,
                                 -- we'll let the error propagate as a FatalError
-                                BackendTask.fail error |> BackendTask.throw
+                                BackendTask.fail error |> BackendTask.allowFatal
 
                         _ ->
-                            BackendTask.fail error |> BackendTask.throw
+                            BackendTask.fail error |> BackendTask.allowFatal
                 )
 
 This can be a lot of work for all possible errors, though. If you don't expect this kind of error (it's an _exceptional_ case),
@@ -45,7 +45,7 @@ you can let the framework handle it if the error ever does unexpectedly occur.
     data routeParams =
         BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.field "description" Decode.string)
-            |> BackendTask.throw
+            |> BackendTask.allowFatal
 
 This is especially useful for pages generated at build-time (`RouteBuilder.preRender`) where you want the build
 to fail if anything unexpected happens. With pre-rendered routes, you know that these error cases won't

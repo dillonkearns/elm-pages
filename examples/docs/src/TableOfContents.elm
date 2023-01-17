@@ -25,7 +25,7 @@ backendTask docFiles =
                         (\section ->
                             BackendTask.File.bodyWithoutFrontmatter
                                 section.filePath
-                                |> BackendTask.throw
+                                |> BackendTask.allowFatal
                                 |> BackendTask.andThen (headingsDecoder section.slug)
                         )
             )

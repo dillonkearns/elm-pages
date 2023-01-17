@@ -100,7 +100,7 @@ data routeParams =
         (BackendTask.Port.get "getItems"
             Encode.null
             (Decode.list Decode.string)
-            |> BackendTask.throw
+            |> BackendTask.allowFatal
             |> BackendTask.map
                 (\items ->
                     Server.Response.render
@@ -128,7 +128,7 @@ action routeParams =
                         BackendTask.Port.get "addItem"
                             (Encode.string newItem)
                             (Decode.list Decode.string)
-                            |> BackendTask.throw
+                            |> BackendTask.allowFatal
                             |> BackendTask.map
                                 (\_ ->
                                     Server.Response.render ActionData
@@ -138,7 +138,7 @@ action routeParams =
                         BackendTask.Port.get "deleteAllItems"
                             Encode.null
                             (Decode.list Decode.string)
-                            |> BackendTask.throw
+                            |> BackendTask.allowFatal
                             |> BackendTask.map
                                 (\_ ->
                                     Server.Response.render ActionData

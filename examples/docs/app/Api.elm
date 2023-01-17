@@ -64,7 +64,7 @@ routes getStaticRoutes htmlToString =
                             ]
                             |> Json.Encode.encode 2
                     )
-                |> BackendTask.throw
+                |> BackendTask.allowFatal
         )
         |> ApiRoute.literal "repo"
         |> ApiRoute.slash
@@ -126,7 +126,7 @@ postsBackendTask =
                     }
                 )
             )
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
 
 
 rss :

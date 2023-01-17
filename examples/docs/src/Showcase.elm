@@ -42,7 +42,7 @@ entryDecoder =
 staticRequest : BackendTask FatalError (List Entry)
 staticRequest =
     Env.expect "AIRTABLE_TOKEN"
-        |> BackendTask.throw
+        |> BackendTask.allowFatal
         |> BackendTask.andThen
             (\airtableToken ->
                 BackendTask.Http.request
@@ -54,5 +54,5 @@ staticRequest =
                     , timeoutInMs = Nothing
                     }
                     (BackendTask.Http.expectJson decoder)
-                    |> BackendTask.throw
+                    |> BackendTask.allowFatal
             )
