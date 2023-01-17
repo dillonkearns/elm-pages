@@ -81,7 +81,7 @@ https://github.com/dillonkearns/elm-pages/projects
 You will see an error if the NPM and Elm package do not have a matching Compatibility Key. Usually it's best to upgrade to the latest version of both the Elm and NPM
 packages when you upgrade. However, in case you want to install versions that are behind the latest, the Compatibility Key is included here for reference.
 
-Current Compatibility Key: 5.
+Current Compatibility Key: 6.
 
 ## Contributors ✨
 
