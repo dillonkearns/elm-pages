@@ -97,7 +97,7 @@ data :
     -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
 data routeParams =
     Server.Request.succeed
-        (BackendTask.Custom.get "getItems"
+        (BackendTask.Custom.run "getItems"
             Encode.null
             (Decode.list Decode.string)
             |> BackendTask.allowFatal
@@ -125,7 +125,7 @@ action routeParams =
             (\formPost ->
                 case formPost of
                     Ok (AddItem newItem) ->
-                        BackendTask.Custom.get "addItem"
+                        BackendTask.Custom.run "addItem"
                             (Encode.string newItem)
                             (Decode.list Decode.string)
                             |> BackendTask.allowFatal
@@ -135,7 +135,7 @@ action routeParams =
                                 )
 
                     Ok DeleteAll ->
-                        BackendTask.Custom.get "deleteAllItems"
+                        BackendTask.Custom.run "deleteAllItems"
                             Encode.null
                             (Decode.list Decode.string)
                             |> BackendTask.allowFatal

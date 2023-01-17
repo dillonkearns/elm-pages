@@ -53,7 +53,7 @@ data : BackendTask FatalError Data
 data =
     BackendTask.map2 Data
         (BackendTask.File.rawFile "greeting.txt" |> BackendTask.allowFatal)
-        (BackendTask.Custom.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
+        (BackendTask.Custom.run "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
 
 
 head :

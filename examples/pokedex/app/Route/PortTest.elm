@@ -49,7 +49,7 @@ type alias ActionData =
 data : BackendTask FatalError Data
 data =
     BackendTask.succeed Data
-        |> BackendTask.andMap (BackendTask.Custom.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
+        |> BackendTask.andMap (BackendTask.Custom.run "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
 
 
 head :

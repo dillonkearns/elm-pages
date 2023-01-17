@@ -61,7 +61,7 @@ route =
 
 now : BackendTask Time.Posix
 now =
-    BackendTask.Custom.get "now"
+    BackendTask.Custom.run "now"
         Encode.null
         (Decode.int |> Decode.map Time.millisToPosix)
 
@@ -71,7 +71,7 @@ emailToMagicLink email baseUrl =
     now
         |> BackendTask.andThen
             (\now_ ->
-                BackendTask.Custom.get "encrypt"
+                BackendTask.Custom.run "encrypt"
                     (Encode.object
                         [ ( "text", Encode.string (EmailAddress.toString email) )
                         , ( "expiresAt", (Time.posixToMillis now_ + (1000 * 60 * 30)) |> Encode.int )
@@ -497,7 +497,7 @@ sendEmail apiKey_ email_ =
 
 parseMagicHash : String -> BackendTask ( String, Time.Posix )
 parseMagicHash magicHash =
-    BackendTask.Custom.get "decrypt"
+    BackendTask.Custom.run "decrypt"
         (Encode.string magicHash)
         (Decode.string
             |> Decode.map
@@ -533,6 +533,6 @@ parseMagicHashIfNotExpired magicHash =
 
 log : String -> BackendTask ()
 log message =
-    BackendTask.Custom.get "log"
+    BackendTask.Custom.run "log"
         (Encode.string message)
         (Decode.succeed ())

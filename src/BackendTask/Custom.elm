@@ -1,5 +1,5 @@
 module BackendTask.Custom exposing
-    ( get
+    ( run
     , Error(..)
     )
 
@@ -12,7 +12,7 @@ This means that you can call shell scripts, run NPM packages that are installed,
 
 A `BackendTask.Custom` will call an async JavaScript function with the given name from the definition in a file called `custom-backend-task.js` in your project's root directory. The function receives the input JSON value, and the Decoder is used to decode the return value of the async function.
 
-@docs get
+@docs run
 
 Here is the Elm code and corresponding JavaScript definition for getting an environment variable (or an `FatalError BackendTask.Custom.Error` if it isn't found). In this example,
 we're using `BackendTask.allowFatal` to let the framework treat that as an unexpected exception, but we could also handle the possible failures of the `FatalError` (see [`FatalError`](FatalError)).
@@ -24,7 +24,7 @@ we're using `BackendTask.allowFatal` to let the framework treat that as an unexp
 
     data : BackendTask FatalError String
     data =
-        BackendTask.Custom.get "environmentVariable"
+        BackendTask.Custom.run "environmentVariable"
             (Json.Encode.string "EDITOR")
             Decode.string
             |> BackendTask.allowFatal
@@ -85,12 +85,12 @@ import TerminalText
 
 
 {-| -}
-get :
+run :
     String
     -> Encode.Value
     -> Decoder b
     -> BackendTask.BackendTask { fatal : FatalError, recoverable : Error } b
-get portName input decoder =
+run portName input decoder =
     BackendTask.Internal.Request.request
         { name = "port"
         , body =
@@ -108,7 +108,7 @@ get portName input decoder =
                                 FatalError.recoverable
                                     { title = "Custom BackendTask Error"
                                     , body =
-                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I expected to find a port named `"
+                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.run. I expected to find a port named `"
                                         , TerminalText.yellow portName
                                         , TerminalText.text "` but I couldn't find it. Is the function exported in your custom-backend-task file?"
                                         ]
@@ -126,7 +126,7 @@ get portName input decoder =
                                             FatalError.recoverable
                                                 { title = "Custom BackendTask Error"
                                                 , body =
-                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I found an export called `"
+                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.run. I found an export called `"
                                                     , TerminalText.yellow portName
                                                     , TerminalText.text "` but I expected its type to be function, but instead its type was: "
                                                     , TerminalText.red incorrectType
@@ -140,7 +140,7 @@ get portName input decoder =
                                 FatalError.recoverable
                                     { title = "Custom BackendTask Error"
                                     , body =
-                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I couldn't find your custom-backend-task file. Be sure to create a 'custom-backend-task.ts' or 'custom-backend-task.js' file."
+                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.run. I couldn't find your custom-backend-task file. Be sure to create a 'custom-backend-task.ts' or 'custom-backend-task.js' file."
                                         ]
                                             |> TerminalText.toString
                                     }
@@ -156,7 +156,7 @@ get portName input decoder =
                                             FatalError.recoverable
                                                 { title = "Custom BackendTask Error"
                                                 , body =
-                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I couldn't import the port definitions file, because of this exception:\n\n"
+                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.run. I couldn't import the port definitions file, because of this exception:\n\n"
                                                     , TerminalText.red errorMessage
                                                     , TerminalText.text "\n\nAre there syntax errors or exceptions thrown during import?"
                                                     ]
@@ -174,7 +174,7 @@ get portName input decoder =
                                             FatalError.recoverable
                                                 { title = "Custom BackendTask Error"
                                                 , body =
-                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I was able to import the port definitions file, but when running it I encountered this exception:\n\n"
+                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.run. I was able to import the port definitions file, but when running it I encountered this exception:\n\n"
                                                     , TerminalText.red (Encode.encode 2 portCallError)
                                                     , TerminalText.text "\n\nYou could add a `try`/`catch` in your `custom-backend-task` JavaScript code to handle that error."
                                                     ]
@@ -187,7 +187,7 @@ get portName input decoder =
                                 FatalError.recoverable
                                     { title = "Custom BackendTask Error"
                                     , body =
-                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I expected to find a port named `"
+                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.run. I expected to find a port named `"
                                         , TerminalText.yellow portName
                                         , TerminalText.text "`."
                                         ]

@@ -93,7 +93,7 @@ If that isn't enough to get you the data you need to pull in to your site, then 
 ```elm
 data : BackendTask String
 data =
-    BackendTask.Custom.get "environmentVariable"
+    BackendTask.Custom.run "environmentVariable"
         (Json.Encode.string "EDITOR")
         Decode.string
 ```

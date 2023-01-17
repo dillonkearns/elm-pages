@@ -19,7 +19,7 @@ type alias Timestamps =
 
 data : String -> BackendTask Timestamps
 data filePath =
-    BackendTask.Custom.get "gitTimestamps"
+    BackendTask.Custom.run "gitTimestamps"
         (Json.Encode.string filePath)
         (Decode.string
             |> Decode.map (String.trim >> String.split "\n")

@@ -99,7 +99,7 @@ form =
 
 attemptLogIn : String -> String -> BackendTask (Maybe Uuid)
 attemptLogIn username password =
-    BackendTask.Custom.get "hashPassword"
+    BackendTask.Custom.run "hashPassword"
         (Json.Encode.string password)
         Json.Decode.string
         |> BackendTask.andThen
