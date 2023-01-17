@@ -1,8 +1,8 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
+import BackendTask.Custom
 import BackendTask.File
-import BackendTask.Port
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
@@ -53,7 +53,7 @@ data : BackendTask FatalError Data
 data =
     BackendTask.map2 Data
         (BackendTask.File.rawFile "greeting.txt" |> BackendTask.allowFatal)
-        (BackendTask.Port.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
+        (BackendTask.Custom.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
 
 
 head :

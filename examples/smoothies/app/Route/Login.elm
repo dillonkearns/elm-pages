@@ -3,7 +3,7 @@ module Route.Login exposing (ActionData, Data, Model, Msg, route)
 import Api.Scalar exposing (Uuid(..))
 import Data.User
 import BackendTask exposing (BackendTask)
-import BackendTask.Port
+import BackendTask.Custom
 import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import Form
@@ -99,7 +99,7 @@ form =
 
 attemptLogIn : String -> String -> BackendTask (Maybe Uuid)
 attemptLogIn username password =
-    BackendTask.Port.get "hashPassword"
+    BackendTask.Custom.get "hashPassword"
         (Json.Encode.string password)
         Json.Decode.string
         |> BackendTask.andThen

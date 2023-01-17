@@ -43,21 +43,21 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
             resolve({
               kind: "response-json",
               value: jsonResponse({
-                "elm-pages-internal-error": "PortNotDefined",
+                "elm-pages-internal-error": "CustomBackendTaskNotDefined",
               }),
             });
           } else if (portBackendTaskImportError === "missing") {
             resolve({
               kind: "response-json",
               value: jsonResponse({
-                "elm-pages-internal-error": "MissingPortsFile",
+                "elm-pages-internal-error": "MissingCustomBackendTaskFile",
               }),
             });
           } else {
             resolve({
               kind: "response-json",
               value: jsonResponse({
-                "elm-pages-internal-error": "ErrorInPortsFile",
+                "elm-pages-internal-error": "ErrorInCustomBackendTaskFile",
                 error:
                   (portBackendTaskImportError &&
                     portBackendTaskImportError.stack) ||
@@ -83,7 +83,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
             resolve({
               kind: "response-json",
               value: jsonResponse({
-                "elm-pages-internal-error": "PortCallException",
+                "elm-pages-internal-error": "CustomBackendTaskException",
                 error: portCallError,
               }),
             });
@@ -92,7 +92,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
       } catch (error) {
         console.trace(error);
         reject({
-          title: "BackendTask.Port Error",
+          title: "BackendTask.Custom Error",
           message: error.toString(),
         });
       }

@@ -2,9 +2,9 @@ module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
 import BackendTask exposing (BackendTask)
+import BackendTask.Custom
 import BackendTask.Env
 import BackendTask.Http
-import BackendTask.Port
 import Data.Session
 import Dict exposing (Dict)
 import EmailAddress exposing (EmailAddress)
@@ -61,7 +61,7 @@ route =
 
 now : BackendTask Time.Posix
 now =
-    BackendTask.Port.get "now"
+    BackendTask.Custom.get "now"
         Encode.null
         (Decode.int |> Decode.map Time.millisToPosix)
 
@@ -71,7 +71,7 @@ emailToMagicLink email baseUrl =
     now
         |> BackendTask.andThen
             (\now_ ->
-                BackendTask.Port.get "encrypt"
+                BackendTask.Custom.get "encrypt"
                     (Encode.object
                         [ ( "text", Encode.string (EmailAddress.toString email) )
                         , ( "expiresAt", (Time.posixToMillis now_ + (1000 * 60 * 30)) |> Encode.int )
@@ -497,7 +497,7 @@ sendEmail apiKey_ email_ =
 
 parseMagicHash : String -> BackendTask ( String, Time.Posix )
 parseMagicHash magicHash =
-    BackendTask.Port.get "decrypt"
+    BackendTask.Custom.get "decrypt"
         (Encode.string magicHash)
         (Decode.string
             |> Decode.map
@@ -533,6 +533,6 @@ parseMagicHashIfNotExpired magicHash =
 
 log : String -> BackendTask ()
 log message =
-    BackendTask.Port.get "log"
+    BackendTask.Custom.get "log"
         (Encode.string message)
         (Decode.succeed ())

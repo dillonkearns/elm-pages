@@ -16,7 +16,7 @@ A `BackendTask` lets you pull in data from:
   - Local files ([`BackendTask.File`](BackendTask-File))
   - HTTP requests ([`BackendTask.Http`](BackendTask-Http))
   - Globs, i.e. listing out local files based on a pattern like `content/*.txt` ([`BackendTask.Glob`](BackendTask-Glob))
-  - Ports, i.e. getting JSON data from running custom NodeJS, similar to a port in a vanilla Elm app except run at build-time in NodeJS, rather than at run-time in the browser ([`BackendTask.Port`](BackendTask-Port))
+  - Ports, i.e. getting JSON data from running custom NodeJS, similar to a port in a vanilla Elm app except run at build-time in NodeJS, rather than at run-time in the browser ([`BackendTask.Custom`](BackendTask-Custom))
   - Hardcoded data (`BackendTask.succeed "Hello!"`)
   - Or any combination of the above, using `BackendTask.map2`, `BackendTask.andThen`, or other combining/continuing helpers from this module
 

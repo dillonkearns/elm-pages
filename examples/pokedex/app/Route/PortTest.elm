@@ -1,7 +1,7 @@
 module Route.PortTest exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
-import BackendTask.Port
+import BackendTask.Custom
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
@@ -49,7 +49,7 @@ type alias ActionData =
 data : BackendTask FatalError Data
 data =
     BackendTask.succeed Data
-        |> BackendTask.andMap (BackendTask.Port.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
+        |> BackendTask.andMap (BackendTask.Custom.get "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
 
 
 head :

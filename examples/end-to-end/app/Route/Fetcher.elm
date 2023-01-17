@@ -3,7 +3,7 @@ module Route.Fetcher exposing (ActionData, Data, Model, Msg, RouteParams, route)
 {-| -}
 
 import BackendTask exposing (BackendTask)
-import BackendTask.Port
+import BackendTask.Custom
 import Dict
 import Effect
 import ErrorPage
@@ -97,7 +97,7 @@ data :
     -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
 data routeParams =
     Server.Request.succeed
-        (BackendTask.Port.get "getItems"
+        (BackendTask.Custom.get "getItems"
             Encode.null
             (Decode.list Decode.string)
             |> BackendTask.allowFatal
@@ -125,7 +125,7 @@ action routeParams =
             (\formPost ->
                 case formPost of
                     Ok (AddItem newItem) ->
-                        BackendTask.Port.get "addItem"
+                        BackendTask.Custom.get "addItem"
                             (Encode.string newItem)
                             (Decode.list Decode.string)
                             |> BackendTask.allowFatal
@@ -135,7 +135,7 @@ action routeParams =
                                 )
 
                     Ok DeleteAll ->
-                        BackendTask.Port.get "deleteAllItems"
+                        BackendTask.Custom.get "deleteAllItems"
                             Encode.null
                             (Decode.list Decode.string)
                             |> BackendTask.allowFatal

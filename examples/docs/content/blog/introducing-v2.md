@@ -76,7 +76,7 @@ routes =
         (Decode.list (blogPostDecoder |> Decode.map .slug |> Decode.map RouteParams))
 ```
 
-### BackendTask.Port
+### BackendTask.Custom
 
 The core built-in `BackendTask` modules let you pull in
 
@@ -88,12 +88,12 @@ The core built-in `BackendTask` modules let you pull in
 
 If that isn't enough to get you the data you need to pull in to your site, then there's an additional module that lets you build your own custom `BackendTask`.
 
-[`BackendTask.Port`](BackendTask-Port) lets you decode JSON data that you call from custom NodeJS functions. As with any `BackendTask`, you get this data in the build step and then it gets built in to your site, so these NodeJS functions, HTTP requests, file reads, etc. are not happening when a user opens a page in your live site that you built with `elm-pages build`.
+[`BackendTask.Custom`](BackendTask-Custom) lets you decode JSON data that you call from custom NodeJS functions. As with any `BackendTask`, you get this data in the build step and then it gets built in to your site, so these NodeJS functions, HTTP requests, file reads, etc. are not happening when a user opens a page in your live site that you built with `elm-pages build`.
 
 ```elm
 data : BackendTask String
 data =
-    BackendTask.Port.get "environmentVariable"
+    BackendTask.Custom.get "environmentVariable"
         (Json.Encode.string "EDITOR")
         Decode.string
 ```
