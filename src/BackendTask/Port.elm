@@ -78,7 +78,7 @@ to handle possible errors, but you can throw a JSON value and handle it in Elm i
 import BackendTask
 import BackendTask.Http
 import BackendTask.Internal.Request
-import FatalError exposing (FatalError, Recoverable)
+import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import TerminalText

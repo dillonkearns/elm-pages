@@ -2,7 +2,7 @@ module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), empty, ne
 
 import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
-import FatalError exposing (FatalError, Recoverable)
+import FatalError exposing (FatalError)
 import List.Extra
 import Pages.Internal.FatalError
 import Pages.StaticHttp.Request as HashRequest

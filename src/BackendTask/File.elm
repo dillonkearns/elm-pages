@@ -366,7 +366,7 @@ errorDecoder :
     String
     ->
         Decoder
-            { fatal : FatalError.FatalError
+            { fatal : FatalError
             , recoverable : FileReadError decoding
             }
 errorDecoder filePath =
