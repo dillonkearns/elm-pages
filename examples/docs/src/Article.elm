@@ -5,7 +5,7 @@ import BackendTask.File as File
 import BackendTask.Glob as Glob
 import Cloudinary
 import Date exposing (Date)
-import FatalError exposing (FatalError, Recoverable)
+import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Pages.Url exposing (Url)
 import Route
@@ -27,7 +27,10 @@ blogPostsGlob =
         |> Glob.toBackendTask
 
 
-allMetadata : BackendTask.BackendTask (Recoverable (File.FileReadError Decode.Error)) (List ( Route.Route, ArticleMetadata ))
+allMetadata :
+    BackendTask.BackendTask
+        { fatal : FatalError, recoverable : File.FileReadError Decode.Error }
+        (List ( Route.Route, ArticleMetadata ))
 allMetadata =
     blogPostsGlob
         |> BackendTask.map

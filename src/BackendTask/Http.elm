@@ -104,7 +104,7 @@ import Base64
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
-import FatalError exposing (FatalError, Recoverable)
+import FatalError exposing (FatalError)
 import Json.Decode
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as Body
@@ -170,7 +170,7 @@ type alias Body =
 getJson :
     String
     -> Json.Decode.Decoder a
-    -> BackendTask (Recoverable Error) a
+    -> BackendTask { fatal : FatalError, recoverable : Error } a
 getJson url decoder =
     getWithOptions
         { url = url
@@ -231,7 +231,7 @@ getWithOptions :
     , timeoutInMs : Maybe Int
     , cachePath : Maybe String
     }
-    -> BackendTask (Recoverable Error) a
+    -> BackendTask { fatal : FatalError, recoverable : Error } a
 getWithOptions request__ =
     let
         request_ : HashRequest.Request
@@ -258,7 +258,7 @@ post :
     String
     -> Body
     -> Expect a
-    -> BackendTask (Recoverable Error) a
+    -> BackendTask { fatal : FatalError, recoverable : Error } a
 post url body expect =
     request
         { url = url
@@ -397,7 +397,7 @@ request :
     , timeoutInMs : Maybe Int
     }
     -> Expect a
-    -> BackendTask (Recoverable Error) a
+    -> BackendTask { fatal : FatalError, recoverable : Error } a
 request request__ expect =
     let
         request_ : HashRequest.Request
@@ -475,7 +475,7 @@ with this as a low-level detail, or you can use functions like [BackendTask.Http
 requestRaw :
     HashRequest.Request
     -> Expect a
-    -> BackendTask (Recoverable Error) a
+    -> BackendTask { fatal : FatalError, recoverable : Error } a
 requestRaw request__ expect =
     let
         request_ : HashRequest.Request

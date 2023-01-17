@@ -34,7 +34,7 @@ import BackendTask.Http
 import BackendTask.Internal.Request
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
-import FatalError exposing (FatalError, Recoverable)
+import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
@@ -52,7 +52,7 @@ type Error
 
 
 {-| -}
-writeFile : { path : String, body : String } -> BackendTask (Recoverable Error) ()
+writeFile : { path : String, body : String } -> BackendTask { fatal : FatalError, recoverable : Error } ()
 writeFile { path, body } =
     BackendTask.Internal.Request.request
         { name = "write-file"

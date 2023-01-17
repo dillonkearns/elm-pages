@@ -1,7 +1,4 @@
-module FatalError exposing
-    ( FatalError, fromString, recoverable
-    , Recoverable
-    )
+module FatalError exposing (FatalError, fromString, recoverable)
 
 {-| The Elm language doesn't have the concept of exceptions or special control flow for errors. It just has
 Custom Types, and by convention types like `Result` and the `Err` variant are used to represent possible failure states
@@ -59,18 +56,9 @@ when these errors occur.
 
 @docs FatalError, fromString, recoverable
 
-@docs Recoverable
-
 -}
 
 import Pages.Internal.FatalError
-
-
-{-| -}
-type alias Recoverable error =
-    { fatal : FatalError
-    , recoverable : error
-    }
 
 
 {-| -}
@@ -94,7 +82,7 @@ fromString string =
 
 
 {-| -}
-recoverable : { title : String, body : String } -> value -> Recoverable value
+recoverable : { title : String, body : String } -> error -> { fatal : FatalError, recoverable : error }
 recoverable info value =
     { fatal = build info
     , recoverable = value

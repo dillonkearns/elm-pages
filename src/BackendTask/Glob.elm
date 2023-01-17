@@ -229,7 +229,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Glob exposing (Glob(..))
 import BackendTask.Internal.Request
-import FatalError exposing (FatalError, Recoverable)
+import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
@@ -1054,7 +1054,9 @@ so it's ideal to make this kind of assertion rather than having fallback behavio
 issues (like if we had instead ignored the case where there are two or more matching blog post files).
 
 -}
-expectUniqueMatch : Glob a -> BackendTask (Recoverable String) a
+expectUniqueMatch :
+    Glob a
+    -> BackendTask { fatal : FatalError, recoverable : String } a
 expectUniqueMatch glob =
     glob
         |> toBackendTask

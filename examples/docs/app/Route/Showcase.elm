@@ -2,7 +2,7 @@ module Route.Showcase exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import Css
-import FatalError exposing (FatalError, Recoverable)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
