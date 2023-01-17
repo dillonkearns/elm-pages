@@ -671,21 +671,13 @@ simulateEffects effect =
                 |> List.map simulateEffects
                 |> SimulatedEffect.Cmd.batch
 
-        Effect.FetchHttp unmasked ->
-            if unmasked.url |> String.startsWith "port://" then
-                let
-                    portName : String
-                    portName =
-                        String.dropLeft 7 unmasked.url
-                in
-                ToJsPayload.Port portName
-                    |> sendToJsPort
-                    |> SimulatedEffect.Cmd.map never
-
-            else
-                ToJsPayload.DoHttp (Request.hash unmasked) unmasked
-                    |> sendToJsPort
-                    |> SimulatedEffect.Cmd.map never
+        Effect.FetchHttp requests ->
+            requests
+                |> List.map
+                    (\request -> ( Request.hash request, request ))
+                |> ToJsPayload.DoHttp
+                |> sendToJsPort
+                |> SimulatedEffect.Cmd.map never
 
         Effect.SendSinglePage info ->
             SimulatedEffect.Cmd.batch
@@ -843,7 +835,7 @@ simulateHttp request response program =
             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
             (\actualPorts ->
                 case actualPorts of
-                    [ ToJsPayload.DoHttp _ _ ] ->
+                    [ ToJsPayload.DoHttp _ ] ->
                         Expect.pass
 
                     _ ->
@@ -863,7 +855,7 @@ simulateMultipleHttp requests program =
             (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
             (\actualPorts ->
                 case actualPorts of
-                    (ToJsPayload.DoHttp _ _) :: _ ->
+                    (ToJsPayload.DoHttp _) :: _ ->
                         -- TODO check count of HTTP requests, and check the URLs
                         Expect.pass
 
