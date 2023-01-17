@@ -37,14 +37,14 @@ async function ensureRequiredDirs() {
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
 }
 
-async function ensureRequiredExecutables() {
+async function ensureRequiredExecutables(options) {
   try {
     await which("elm");
   } catch (error) {
     throw "I couldn't find elm on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
   try {
-    await which("elm-optimize-level-2");
+    if (options.optimize === "2") { await which("elm-optimize-level-2") };
   } catch (error) {
     throw "I couldn't find elm-optimize-level-2 on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
@@ -58,7 +58,7 @@ async function ensureRequiredExecutables() {
 async function run(options) {
   try {
     await ensureRequiredDirs();
-    await ensureRequiredExecutables();
+    await ensureRequiredExecutables(options);
     // since init/update are never called in pre-renders, and DataSource.Http is called using undici
     // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
     XMLHttpRequest = {};
@@ -226,8 +226,10 @@ function elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd) {
 async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   if (options.debug) {
     await runElmMake(options, elmEntrypointPath, outputPath, cwd);
-  } else {
+  } else if (options.optimize === "2") {
     await elmOptimizeLevel2(elmEntrypointPath, outputPath, cwd);
+  } else {
+    await runElmMake(options, elmEntrypointPath, outputPath, cwd);
   }
 }
 
@@ -241,6 +243,7 @@ function runElmMake(options, elmEntrypointPath, outputPath, cwd) {
         "--output",
         outputPath,
         ...(options.debug ? ["--debug"] : []),
+        ...(options.optimize === "1" ? ["--optimize"] : []),
         "--report",
         "json",
       ],
