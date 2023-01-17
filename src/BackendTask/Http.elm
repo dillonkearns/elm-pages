@@ -573,7 +573,7 @@ requestRaw request__ expect =
                 |> BackendTask.fromResult
                 |> BackendTask.mapError
                     (\error ->
-                        FatalError.Recoverable (errorToString error) error
+                        FatalError.recoverable (errorToString error) error
                     )
         )
 

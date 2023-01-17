@@ -1066,14 +1066,14 @@ expectUniqueMatch glob =
 
                     [] ->
                         BackendTask.fail <|
-                            FatalError.fromStringWithValue
-                                ("No files matched the pattern: " ++ toPatternString glob)
+                            FatalError.recoverable
+                                { title = "Non-Unique Glob", body = "No files matched the pattern: " ++ toPatternString glob }
                                 ("No files matched the pattern: " ++ toPatternString glob)
 
                     _ ->
                         BackendTask.fail <|
-                            FatalError.fromStringWithValue
-                                "More than one file matched."
+                            FatalError.recoverable
+                                { title = "Non-Unique Glob", body = "Expected a unique match, but more than one file matched." }
                                 "More than one file matched."
             )
 

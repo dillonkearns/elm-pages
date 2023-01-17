@@ -4,6 +4,7 @@ import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
 import FatalError exposing (FatalError, Recoverable)
 import List.Extra
+import Pages.Internal.FatalError
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
 import RequestsAndPending exposing (RequestsAndPending)
@@ -111,7 +112,7 @@ nextStep allRawResponses staticResponses { errors } =
                 Just (Ok completed) ->
                     Finish completed
 
-                Just (Err buildError) ->
+                Just (Err (Pages.Internal.FatalError.FatalError buildError)) ->
                     FinishedWithErrors
                         [ { title = buildError.title |> String.toUpper
                           , path = "" -- TODO include path here

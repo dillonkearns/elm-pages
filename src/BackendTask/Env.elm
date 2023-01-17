@@ -75,7 +75,7 @@ expect envVariableName =
             (\maybeValue ->
                 maybeValue
                     |> Result.fromMaybe
-                        { fatal =
+                        (FatalError.recoverable
                             { title = "Missing Env Variable"
                             , body =
                                 [ TerminalText.text "BackendTask.Env.expect was expecting a variable `"
@@ -84,7 +84,7 @@ expect envVariableName =
                                 ]
                                     |> TerminalText.toString
                             }
-                        , recoverable = MissingEnvVariable envVariableName
-                        }
+                            (MissingEnvVariable envVariableName)
+                        )
                     |> BackendTask.fromResult
             )

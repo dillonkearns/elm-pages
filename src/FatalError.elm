@@ -1,5 +1,5 @@
 module FatalError exposing
-    ( FatalError, fromString, fromStringWithValue
+    ( FatalError, fromString, recoverable
     , Recoverable
     )
 
@@ -57,11 +57,13 @@ issue.
 In the case of server-rendered Routes (`RouteBuilder.serverRender`), `elm-pages` will show your 500 error page
 when these errors occur.
 
-@docs FatalError, fromString, fromStringWithValue
+@docs FatalError, fromString, recoverable
 
 @docs Recoverable
 
 -}
+
+import Pages.Internal.FatalError
 
 
 {-| -}
@@ -73,20 +75,27 @@ type alias Recoverable error =
 
 {-| -}
 type alias FatalError =
-    { title : String, body : String }
+    Pages.Internal.FatalError.FatalError
+
+
+{-| -}
+build : { title : String, body : String } -> FatalError
+build info =
+    Pages.Internal.FatalError.FatalError info
 
 
 {-| -}
 fromString : String -> FatalError
 fromString string =
-    { title = "Custom Error"
-    , body = string
-    }
+    build
+        { title = "Custom Error"
+        , body = string
+        }
 
 
 {-| -}
-fromStringWithValue : String -> value -> Recoverable value
-fromStringWithValue string value =
-    { fatal = { title = "Custom Error", body = string }
+recoverable : { title : String, body : String } -> value -> Recoverable value
+recoverable info value =
+    { fatal = build info
     , recoverable = value
     }

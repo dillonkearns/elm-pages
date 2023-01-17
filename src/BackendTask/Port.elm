@@ -105,7 +105,7 @@ get portName input decoder =
                     |> Decode.andThen
                         (\errorKind ->
                             if errorKind == "PortNotDefined" then
-                                { fatal =
+                                FatalError.recoverable
                                     { title = "Port Error"
                                     , body =
                                         [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I expected to find a port named `"
@@ -114,8 +114,7 @@ get portName input decoder =
                                         ]
                                             |> TerminalText.toString
                                     }
-                                , recoverable = PortNotDefined { name = portName }
-                                }
+                                    (PortNotDefined { name = portName })
                                     |> Decode.succeed
 
                             else if errorKind == "ExportIsNotFunction" then
@@ -124,7 +123,7 @@ get portName input decoder =
                                     |> Decode.map (Maybe.withDefault "")
                                     |> Decode.map
                                         (\incorrectPortType ->
-                                            FatalError.Recoverable
+                                            FatalError.recoverable
                                                 { title = "Port Error"
                                                 , body =
                                                     [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I found an export called `"
@@ -138,7 +137,7 @@ get portName input decoder =
                                         )
 
                             else if errorKind == "MissingPortsFile" then
-                                FatalError.Recoverable
+                                FatalError.recoverable
                                     { title = "Port Error"
                                     , body =
                                         [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I couldn't find your port-data-source file. Be sure to create a 'port-data-source.ts' or 'port-data-source.js' file."
@@ -154,7 +153,7 @@ get portName input decoder =
                                     |> Decode.map (Maybe.withDefault "")
                                     |> Decode.map
                                         (\errorMessage ->
-                                            FatalError.Recoverable
+                                            FatalError.recoverable
                                                 { title = "Port Error"
                                                 , body =
                                                     [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I couldn't import the port definitions file, because of this exception:\n\n"
@@ -172,7 +171,7 @@ get portName input decoder =
                                     |> Decode.map (Maybe.withDefault Encode.null)
                                     |> Decode.map
                                         (\portCallError ->
-                                            FatalError.Recoverable
+                                            FatalError.recoverable
                                                 { title = "Port Error"
                                                 , body =
                                                     [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I was able to import the port definitions file, but when running it I encountered this exception:\n\n"
@@ -185,7 +184,7 @@ get portName input decoder =
                                         )
 
                             else
-                                FatalError.Recoverable
+                                FatalError.recoverable
                                     { title = "Port Error"
                                     , body =
                                         [ TerminalText.text "Something went wrong in a call to BackendTask.Port.get. I expected to find a port named `"

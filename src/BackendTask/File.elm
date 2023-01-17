@@ -326,15 +326,14 @@ jsonFile jsonFileDecoder filePath =
                     |> Decode.decodeString jsonFileDecoder
                     |> Result.mapError
                         (\jsonDecodeError ->
-                            { fatal =
+                            FatalError.recoverable
                                 { title = "JSON Decoding Error"
                                 , body =
                                     [ TerminalText.text (Decode.errorToString jsonDecodeError)
                                     ]
                                         |> TerminalText.toString
                                 }
-                            , recoverable = DecodingError jsonDecodeError
-                            }
+                                (DecodingError jsonDecodeError)
                         )
                     |> BackendTask.fromResult
             )
@@ -372,7 +371,7 @@ errorDecoder :
             }
 errorDecoder filePath =
     Decode.succeed
-        { fatal =
+        (FatalError.recoverable
             { title = "File Doesn't Exist"
             , body =
                 [ TerminalText.text "Couldn't find file at path `"
@@ -381,5 +380,5 @@ errorDecoder filePath =
                 ]
                     |> TerminalText.toString
             }
-        , recoverable = FileDoesntExist
-        }
+            FileDoesntExist
+        )
