@@ -16,8 +16,6 @@ process.on("unhandledRejection", (error) => {
   console.error(error);
 });
 let foundErrors;
-let pendingBackendTaskResponses = new Map();
-let pendingBackendTaskCount;
 
 module.exports = { render, runGenerator };
 
@@ -44,8 +42,6 @@ async function render(
   const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(hasFsAccess);
   resetInMemoryFs();
   foundErrors = false;
-  pendingBackendTaskResponses = new Map();
-  pendingBackendTaskCount = 0;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   XMLHttpRequest = {};
@@ -74,8 +70,6 @@ async function runGenerator(cliOptions, portsFile, elmModule) {
   const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
   resetInMemoryFs();
   foundErrors = false;
-  pendingBackendTaskResponses = new Map();
-  pendingBackendTaskCount = 0;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   XMLHttpRequest = {};
@@ -166,33 +160,39 @@ function runGeneratorAppHelp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
-        const requestHash = fromElm.args[0];
-        const requestToPerform = fromElm.args[1];
-        if (
-          requestToPerform.url !== "elm-pages-internal://port" &&
-          requestToPerform.url.startsWith("elm-pages-internal://")
-        ) {
-          runInternalJob(
-            requestHash,
-            app,
-            mode,
-            requestToPerform,
-            fs,
-            hasFsAccess,
-            patternsToWatch
-          );
-        } else {
-          runHttpJob(
-            requestHash,
-            portsFile,
-            app,
-            mode,
-            requestToPerform,
-            fs,
-            hasFsAccess,
-            fromElm.args[1]
-          );
-        }
+        app.ports.gotBatchSub.send(
+          Object.fromEntries(
+            await Promise.all(
+              fromElm.args[0].map(([requestHash, requestToPerform]) => {
+                if (
+                  requestToPerform.url !== "elm-pages-internal://port" &&
+                  requestToPerform.url.startsWith("elm-pages-internal://")
+                ) {
+                  return runInternalJob(
+                    requestHash,
+                    app,
+                    mode,
+                    requestToPerform,
+                    fs,
+                    hasFsAccess,
+                    patternsToWatch
+                  );
+                } else {
+                  return runHttpJob(
+                    requestHash,
+                    portsFile,
+                    app,
+                    mode,
+                    requestToPerform,
+                    fs,
+                    hasFsAccess,
+                    requestToPerform
+                  );
+                }
+              })
+            )
+          )
+        );
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
         reject(fromElm.args[0].errorsJson);
@@ -309,33 +309,39 @@ function runElmApp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
-        const requestHash = fromElm.args[0];
-        const requestToPerform = fromElm.args[1];
-        if (
-          requestToPerform.url !== "elm-pages-internal://port" &&
-          requestToPerform.url.startsWith("elm-pages-internal://")
-        ) {
-          runInternalJob(
-            requestHash,
-            app,
-            mode,
-            requestToPerform,
-            fs,
-            hasFsAccess,
-            patternsToWatch
-          );
-        } else {
-          runHttpJob(
-            requestHash,
-            portsFile,
-            app,
-            mode,
-            requestToPerform,
-            fs,
-            hasFsAccess,
-            fromElm.args[1]
-          );
-        }
+        app.ports.gotBatchSub.send(
+          Object.fromEntries(
+            await Promise.all(
+              fromElm.args[0].map(([requestHash, requestToPerform]) => {
+                if (
+                  requestToPerform.url !== "elm-pages-internal://port" &&
+                  requestToPerform.url.startsWith("elm-pages-internal://")
+                ) {
+                  return runInternalJob(
+                    requestHash,
+                    app,
+                    mode,
+                    requestToPerform,
+                    fs,
+                    hasFsAccess,
+                    patternsToWatch
+                  );
+                } else {
+                  return runHttpJob(
+                    requestHash,
+                    portsFile,
+                    app,
+                    mode,
+                    requestToPerform,
+                    fs,
+                    hasFsAccess,
+                    requestToPerform
+                  );
+                }
+              })
+            )
+          )
+        );
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
         reject(fromElm.args[0].errorsJson);
@@ -404,7 +410,6 @@ async function runHttpJob(
   hasFsAccess,
   useCache
 ) {
-  pendingBackendTaskCount += 1;
   try {
     const lookupResponse = await lookupOrPerform(
       portsFile,
@@ -416,25 +421,29 @@ async function runHttpJob(
 
     if (lookupResponse.kind === "cache-response-path") {
       const responseFilePath = lookupResponse.value;
-      pendingBackendTaskResponses.set(requestHash, {
-        request: requestToPerform,
-        response: JSON.parse(
-          (await fs.promises.readFile(responseFilePath, "utf8")).toString()
-        ),
-      });
+      return [
+        requestHash,
+        {
+          request: requestToPerform,
+          response: JSON.parse(
+            (await fs.promises.readFile(responseFilePath, "utf8")).toString()
+          ),
+        },
+      ];
     } else if (lookupResponse.kind === "response-json") {
-      pendingBackendTaskResponses.set(requestHash, {
-        request: requestToPerform,
-        response: lookupResponse.value,
-      });
+      return [
+        requestHash,
+        {
+          request: requestToPerform,
+          response: lookupResponse.value,
+        },
+      ];
     } else {
       throw `Unexpected kind ${lookupResponse}`;
     }
   } catch (error) {
-    sendError(app, error);
-  } finally {
-    pendingBackendTaskCount -= 1;
-    flushIfDone(app);
+    console.log("@@@ERROR", error);
+    // sendError(app, error);
   }
 }
 
@@ -461,43 +470,29 @@ async function runInternalJob(
   patternsToWatch
 ) {
   try {
-    pendingBackendTaskCount += 1;
-
     if (requestToPerform.url === "elm-pages-internal://log") {
-      pendingBackendTaskResponses.set(
-        requestHash,
-        await runLogJob(requestToPerform)
-      );
+      return [requestHash, await runLogJob(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://read-file") {
-      pendingBackendTaskResponses.set(
+      return [
         requestHash,
-        await readFileJobNew(requestToPerform, patternsToWatch)
-      );
+        await readFileJobNew(requestToPerform, patternsToWatch),
+      ];
     } else if (requestToPerform.url === "elm-pages-internal://glob") {
-      pendingBackendTaskResponses.set(
-        requestHash,
-        await runGlobNew(requestToPerform, patternsToWatch)
-      );
+      return [requestHash, await runGlobNew(requestToPerform, patternsToWatch)];
     } else if (requestToPerform.url === "elm-pages-internal://env") {
-      pendingBackendTaskResponses.set(
-        requestHash,
-        await runEnvJob(requestToPerform, patternsToWatch)
-      );
+      return [requestHash, await runEnvJob(requestToPerform, patternsToWatch)];
     } else if (requestToPerform.url === "elm-pages-internal://encrypt") {
-      pendingBackendTaskResponses.set(
+      return [
         requestHash,
-        await runEncryptJob(requestToPerform, patternsToWatch)
-      );
+        await runEncryptJob(requestToPerform, patternsToWatch),
+      ];
     } else if (requestToPerform.url === "elm-pages-internal://decrypt") {
-      pendingBackendTaskResponses.set(
+      return [
         requestHash,
-        await runDecryptJob(requestToPerform, patternsToWatch)
-      );
+        await runDecryptJob(requestToPerform, patternsToWatch),
+      ];
     } else if (requestToPerform.url === "elm-pages-internal://write-file") {
-      pendingBackendTaskResponses.set(
-        requestHash,
-        await runWriteFileJob(requestToPerform)
-      );
+      return [requestHash, await runWriteFileJob(requestToPerform)];
     } else {
       throw `Unexpected internal BackendTask request format: ${kleur.yellow(
         JSON.stringify(2, null, requestToPerform)
@@ -505,9 +500,6 @@ async function runInternalJob(
     }
   } catch (error) {
     sendError(app, error);
-  } finally {
-    pendingBackendTaskCount -= 1;
-    flushIfDone(app);
   }
 }
 
@@ -626,27 +618,6 @@ async function runDecryptJob(req, patternsToWatch) {
         e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
     };
   }
-}
-
-function flushIfDone(app) {
-  if (foundErrors) {
-    pendingBackendTaskResponses = new Map();
-  } else if (pendingBackendTaskCount === 0) {
-    // console.log(
-    //   `Flushing ${pendingBackendTaskResponses.length} items in ${timeUntilThreshold}ms`
-    // );
-
-    flushQueue(app);
-  }
-}
-
-function flushQueue(app) {
-  // TODO - could the case where flush is called with size 0 be avoided on the Elm side?
-  // if (pendingBackendTaskResponses.size > 0) {
-  // console.log("@@@ FLUSHING", pendingBackendTaskResponses.size);
-  app.ports.gotBatchSub.send(Object.fromEntries(pendingBackendTaskResponses));
-  pendingBackendTaskResponses = new Map();
-  // }
 }
 
 /**

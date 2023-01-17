@@ -7,7 +7,7 @@ import Pages.StaticHttp.Request as StaticHttp
 
 type Effect
     = NoEffect
-    | FetchHttp StaticHttp.Request
+    | FetchHttp (List StaticHttp.Request)
     | Batch (List Effect)
     | SendSinglePage ToJsSuccessPayloadNewCombined
     | SendSinglePageNew Bytes ToJsSuccessPayloadNewCombined

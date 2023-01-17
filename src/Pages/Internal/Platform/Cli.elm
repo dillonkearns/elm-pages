@@ -209,8 +209,13 @@ perform site renderRequest config effect =
         Effect.Batch list ->
             flatten site renderRequest config list
 
-        Effect.FetchHttp unmasked ->
-            ToJsPayload.DoHttp (Pages.StaticHttp.Request.hash unmasked) unmasked
+        Effect.FetchHttp requests ->
+            requests
+                |> List.map
+                    (\request ->
+                        ( Pages.StaticHttp.Request.hash request, request )
+                    )
+                |> ToJsPayload.DoHttp
                 |> Codec.encoder (ToJsPayload.successCodecNew2 canonicalSiteUrl "")
                 |> config.toJsPort
                 |> Cmd.map never
@@ -817,10 +822,7 @@ nextStepToEffect model nextStep =
             ( { model
                 | staticResponses = updatedStaticResponsesModel
               }
-            , (httpRequests
-                |> List.map Effect.FetchHttp
-              )
-                |> Effect.Batch
+            , Effect.FetchHttp httpRequests
             )
 
         StaticResponses.FinishedWithErrors errors ->
