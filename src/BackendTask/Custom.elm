@@ -59,7 +59,7 @@ ${Object.keys(process.env).join("\n")}
 
 ## Performance
 
-As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For example, avoid using `fs.readFileSync`, because blocking IO can slow down your elm-pages builds and dev server. `elm-pages` performances all `BackendTask`'s in parallel whenever possible.
+As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For example, avoid using `fs.readFileSync`, because blocking IO can slow down your elm-pages builds and dev server. `elm-pages` performs all `BackendTask`'s in parallel whenever possible.
 So if you do `BackendTask.map2 Tuple.pair myHttpBackendTask myCustomBackendTask`, it will resolve those two in parallel. NodeJS performs best when you take advantage of its ability to do non-blocking I/O (file reads, HTTP requests, etc.). If you use `BackendTask.andThen`,
 it will need to resolve them in sequence rather than in parallel, but it's still best to avoid blocking IO operations in your Custom BackendTask definitions.
 
