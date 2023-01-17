@@ -143,9 +143,9 @@ async function run(options) {
 
     const portBackendTaskCompiled = esbuild
       .build({
-        entryPoints: ["./port-data-source"],
+        entryPoints: ["./custom-backend-task"],
         platform: "node",
-        outfile: ".elm-pages/compiled-ports/port-data-source.js",
+        outfile: ".elm-pages/compiled-ports/custom-backend-task.js",
         assetNames: "[name]-[hash]",
         chunkNames: "chunks/[name]-[hash]",
         outExtension: { ".js": ".js" },
@@ -161,11 +161,11 @@ async function run(options) {
       })
       .catch((error) => {
         const portBackendTaskFileFound =
-          globby.sync("./port-data-source.*").length > 0;
+          globby.sync("./custom-backend-task.*").length > 0;
         if (portBackendTaskFileFound) {
-          // don't present error if there are no files matching port-data-source
-          // if there are files matching port-data-source, warn the user in case something went wrong loading it
-          console.error("Failed to start port-data-source watcher", error);
+          // don't present error if there are no files matching custom-backend-task
+          // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
+          console.error("Failed to start custom-backend-task watcher", error);
         }
       });
     // TODO extract common code for compiling ports file?
@@ -617,7 +617,7 @@ async function runAdapter(adaptFn, processedIndexTemplate) {
       apiRoutePatterns: JSON.parse(
         await fsPromises.readFile("./dist/api-patterns.json", "utf-8")
       ),
-      portsFilePath: "./.elm-pages/compiled-ports/port-data-source.js",
+      portsFilePath: "./.elm-pages/compiled-ports/custom-backend-task.js",
       htmlTemplate: processedIndexTemplate,
     });
     console.log("Success - Adapter script complete");

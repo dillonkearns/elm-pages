@@ -19,10 +19,10 @@ export default async function run({
     renderFunctionFilePath,
     "./functions/server-render/elm-pages-cli.js"
   );
-  fs.copyFileSync(portsFilePath, "./functions/render/port-data-source.mjs");
+  fs.copyFileSync(portsFilePath, "./functions/render/custom-backend-task.mjs");
   fs.copyFileSync(
     portsFilePath,
-    "./functions/server-render/port-data-source.mjs"
+    "./functions/server-render/custom-backend-task.mjs"
   );
 
   fs.writeFileSync(
@@ -128,7 +128,7 @@ async function render(event, context) {
   global.staticHttpCache = {};
 
   const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
-  const compiledPortsFile = path.join(__dirname, "port-data-source.mjs");
+  const compiledPortsFile = path.join(__dirname, "custom-backend-task.mjs");
   const renderer = require("../../../../generator/src/render");
   const preRenderHtml = require("../../../../generator/src/pre-render-html");
   try {

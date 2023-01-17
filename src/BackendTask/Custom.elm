@@ -10,7 +10,7 @@ lifecycle of `BackendTask`'s.
 
 This means that you can call shell scripts, run NPM packages that are installed, or anything else you could do with NodeJS to perform custom side-effects, get some data, or both.
 
-A `BackendTask.Custom` will call an async JavaScript function with the given name from the definition in a file called `port-data-source.js` in your project's root directory. The function receives the input JSON value, and the Decoder is used to decode the return value of the async function.
+A `BackendTask.Custom` will call an async JavaScript function with the given name from the definition in a file called `custom-backend-task.js` in your project's root directory. The function receives the input JSON value, and the Decoder is used to decode the return value of the async function.
 
 @docs get
 
@@ -32,7 +32,7 @@ we're using `BackendTask.allowFatal` to let the framework treat that as an unexp
     -- will resolve to "VIM" if you run `EDITOR=vim elm-pages dev`
 
 ```javascript
-// port-data-source.js
+// custom-backend-task.js
 
 module.exports =
   /**
@@ -66,11 +66,11 @@ it will need to resolve them in sequence rather than in parallel, but it's still
 
 ## Error Handling
 
-There are a few different things that can go wrong when running a port-data-source. These possible errors are captured in the `BackendTask.Custom.Error` type.
+There are a few different things that can go wrong when running a custom-backend-task. These possible errors are captured in the `BackendTask.Custom.Error` type.
 
 @docs Error
 
-Any time you throw a JavaScript exception from a BackendTask.Custom definition, it will give you a `CustomBackendTaskException`. It's usually easier to add a `try`/`catch` in your JavaScript code in `port-data-source.js`
+Any time you throw a JavaScript exception from a BackendTask.Custom definition, it will give you a `CustomBackendTaskException`. It's usually easier to add a `try`/`catch` in your JavaScript code in `custom-backend-task.js`
 to handle possible errors, but you can throw a JSON value and handle it in Elm in the `CustomBackendTaskException` call error.
 
 -}
@@ -110,7 +110,7 @@ get portName input decoder =
                                     , body =
                                         [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I expected to find a port named `"
                                         , TerminalText.yellow portName
-                                        , TerminalText.text "` but I couldn't find it. Is the function exported in your port-data-source file?"
+                                        , TerminalText.text "` but I couldn't find it. Is the function exported in your custom-backend-task file?"
                                         ]
                                             |> TerminalText.toString
                                     }
@@ -140,7 +140,7 @@ get portName input decoder =
                                 FatalError.recoverable
                                     { title = "Custom BackendTask Error"
                                     , body =
-                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I couldn't find your port-data-source file. Be sure to create a 'port-data-source.ts' or 'port-data-source.js' file."
+                                        [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I couldn't find your custom-backend-task file. Be sure to create a 'custom-backend-task.ts' or 'custom-backend-task.js' file."
                                         ]
                                             |> TerminalText.toString
                                     }
@@ -176,7 +176,7 @@ get portName input decoder =
                                                 , body =
                                                     [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.get. I was able to import the port definitions file, but when running it I encountered this exception:\n\n"
                                                     , TerminalText.red (Encode.encode 2 portCallError)
-                                                    , TerminalText.text "\n\nYou could add a `try`/`catch` in your `port-data-source` JavaScript code to handle that error."
+                                                    , TerminalText.text "\n\nYou could add a `try`/`catch` in your `custom-backend-task` JavaScript code to handle that error."
                                                     ]
                                                         |> TerminalText.toString
                                                 }
