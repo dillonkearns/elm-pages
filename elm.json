@@ -3,7 +3,7 @@
     "name": "dillonkearns/elm-pages-v3-beta",
     "summary": "A statically typed site generator.",
     "license": "BSD-3-Clause",
-    "version": "9.0.0",
+    "version": "10.0.0",
     "exposed-modules": [
         "Head",
         "Head.Seo",
