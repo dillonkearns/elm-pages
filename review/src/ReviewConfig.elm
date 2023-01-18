@@ -101,6 +101,7 @@ config =
                                 , "src/Internal/ApiRoute.elm"
                                 , "src/Pages/StaticHttpRequest.elm"
                                 , "src/Pages/Internal/Platform/ToJsPayload.elm"
+                                , "src/Pages/Internal/Platform/Effect.elm"
                                 ]
                     )
            )
