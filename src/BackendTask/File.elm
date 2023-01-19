@@ -42,7 +42,7 @@ plain old JSON in Elm.
 @docs jsonFile, rawFile
 
 
-## Exceptions
+## FatalErrors
 
 @docs FileReadError
 
