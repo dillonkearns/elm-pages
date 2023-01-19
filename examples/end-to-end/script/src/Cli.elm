@@ -16,19 +16,19 @@ import Gen.Server.Request
 import Gen.Server.Response
 import Gen.View
 import Pages.Generate exposing (Type(..))
-import Pages.Script as Generator
+import Pages.Script as Script exposing (Script)
 
 
-run : Generator.Script
+run : Script
 run =
-    Generator.withCliOptions program
+    Script.withCliOptions program
         (\cliOptions ->
             let
                 file : Elm.File
                 file =
                     buildFile (cliOptions.moduleName |> String.split ".")
             in
-            Generator.writeFile
+            Script.writeFile
                 { path = "app/" ++ file.path
                 , body = file.contents
                 }
