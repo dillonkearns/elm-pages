@@ -55,7 +55,7 @@ program =
 
 moduleNameRegex : String
 moduleNameRegex =
-    "([A-Z][a-zA-Z0-9_]*)(\\.([A-Z][a-zA-Z_0-9_]*))*"
+    "^[A-Z][a-zA-Z0-9_]*(\\.([A-Z][a-zA-Z0-9_]*))*$"
 
 
 buildFile : List String -> Elm.File
