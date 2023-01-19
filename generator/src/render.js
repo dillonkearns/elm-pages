@@ -64,8 +64,14 @@ async function render(
  * @returns
  * @param {string[]} cliOptions
  * @param {any} portsFile
+ * @param {string} scriptModuleName
  */
-async function runGenerator(cliOptions, portsFile, elmModule) {
+async function runGenerator(
+  cliOptions,
+  portsFile,
+  elmModule,
+  scriptModuleName
+) {
   global.isRunningGenerator = true;
   const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
   resetInMemoryFs();
@@ -78,6 +84,7 @@ async function runGenerator(cliOptions, portsFile, elmModule) {
     portsFile,
     "",
     elmModule,
+    scriptModuleName,
     "production",
     "",
     fs,
@@ -95,12 +102,14 @@ async function runGenerator(cliOptions, portsFile, elmModule) {
  * @param {any} portsFile
  * @param {typeof import("fs") | import("memfs").IFs} fs
  * @param {boolean} hasFsAccess
+ * @param {string} scriptModuleName
  */
 function runGeneratorAppHelp(
   cliOptions,
   portsFile,
   basePath,
   elmModule,
+  scriptModuleName,
   mode,
   pagePath,
   fs,
@@ -116,7 +125,7 @@ function runGeneratorAppHelp(
     app = elmModule.Elm.Main.init({
       flags: {
         compatibilityKey,
-        argv: ["", "elm-pages run", ...cliOptions],
+        argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],
         versionMessage: "1.2.3",
       },
     });

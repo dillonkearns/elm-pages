@@ -172,7 +172,8 @@ async function main() {
         await renderer.runGenerator(
           unprocessedCliOptions,
           resolvedPortsPath,
-          requireElm("./script/elm-stuff/elm-pages/elm.js")
+          requireElm("./script/elm-stuff/elm-pages/elm.js"),
+          moduleName
         );
       } catch (error) {
         console.log(restoreColorSafe(error));
