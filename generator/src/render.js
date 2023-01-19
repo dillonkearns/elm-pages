@@ -116,7 +116,7 @@ function runGeneratorAppHelp(
     app = elmModule.Elm.Main.init({
       flags: {
         compatibilityKey,
-        argv: ["", "", ...cliOptions],
+        argv: ["", "elm-pages run", ...cliOptions],
         versionMessage: "1.2.3",
       },
     });
