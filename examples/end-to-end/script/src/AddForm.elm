@@ -142,7 +142,7 @@ formWithFields fields =
                                       , Elm.fn ( "formState", Nothing )
                                             (\formState ->
                                                 Elm.Let.letIn
-                                                    (\errors errorsView fieldView ->
+                                                    (\fieldView ->
                                                         Elm.list
                                                             ((params
                                                                 |> List.Extra.zip fields
@@ -157,37 +157,6 @@ formWithFields fields =
                                                                    ]
                                                             )
                                                     )
-                                                    |> Elm.Let.fn "errors"
-                                                        ( "field", Nothing )
-                                                        (\field ->
-                                                            formState
-                                                                |> Elm.get "errors"
-                                                                |> Gen.Form.errorsForField field
-                                                        )
-                                                    |> Elm.Let.fn "errorsView"
-                                                        ( "field", Nothing )
-                                                        (\field ->
-                                                            Elm.ifThen
-                                                                (Gen.List.call_.isEmpty (Elm.apply (Elm.val "errors") [ field ]))
-                                                                (Html.div [] [])
-                                                                (Html.div
-                                                                    []
-                                                                    [ Html.call_.ul (Elm.list [])
-                                                                        (Gen.List.call_.map
-                                                                            (Elm.fn ( "error", Nothing )
-                                                                                (\error ->
-                                                                                    Html.li
-                                                                                        [ Gen.Html.Styled.Attributes.style "color" "red"
-                                                                                        ]
-                                                                                        [ Html.call_.text error
-                                                                                        ]
-                                                                                )
-                                                                            )
-                                                                            (Elm.apply (Elm.val "errors") [ field ])
-                                                                        )
-                                                                    ]
-                                                                )
-                                                        )
                                                     |> Elm.Let.fn2 "fieldView"
                                                         ( "label", Elm.Annotation.string |> Just )
                                                         ( "field", Nothing )
@@ -196,7 +165,7 @@ formWithFields fields =
                                                                 [ Html.label []
                                                                     [ Html.call_.text (Elm.Op.append label (Elm.string " "))
                                                                     , field |> Gen.Form.FieldView.inputStyled []
-                                                                    , Elm.apply (Elm.val "errorsView") [ field ]
+                                                                    , errorsView.call (Elm.get "errors" formState) field
                                                                     ]
                                                                 ]
                                                         )
@@ -222,6 +191,57 @@ formWithFields fields =
                                     [ Elm.Annotation.named [] "Msg" ]
                                 ]
                             )
+                        ]
+                    )
+        )
+
+
+errorsView :
+    { declaration : Elm.Declaration
+    , call : Elm.Expression -> Elm.Expression -> Elm.Expression
+    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    }
+errorsView =
+    Elm.Declare.fn2 "errorsView"
+        --errorsView : Form.Errors String -> Validation.Field String parsed kind -> Html.Styled.Html (Pages.Msg.Msg Msg)
+        ( "errors", Elm.Annotation.namedWith [ "Form" ] "Errors" [ Elm.Annotation.string ] |> Just )
+        ( "field"
+        , Elm.Annotation.namedWith [ "Form", "Validation" ]
+            "Field"
+            [ Elm.Annotation.string
+            , Elm.Annotation.var "parsed"
+            , Elm.Annotation.var "kind"
+            ]
+            |> Just
+        )
+        (\errors field ->
+            Elm.ifThen
+                (Gen.List.call_.isEmpty (Gen.Form.errorsForField field errors))
+                (Html.div [] [])
+                (Html.div
+                    []
+                    [ Html.call_.ul (Elm.list [])
+                        (Gen.List.call_.map
+                            (Elm.fn ( "error", Nothing )
+                                (\error ->
+                                    Html.li
+                                        [ Gen.Html.Styled.Attributes.style "color" "red"
+                                        ]
+                                        [ Html.call_.text error
+                                        ]
+                                )
+                            )
+                            (Gen.Form.errorsForField field errors)
+                        )
+                    ]
+                )
+                |> Elm.withType
+                    (Elm.Annotation.namedWith [ "Html", "Styled" ]
+                        "Html"
+                        [ Elm.Annotation.namedWith
+                            [ "Pages", "Msg" ]
+                            "Msg"
+                            [ Elm.Annotation.named [] "Msg" ]
                         ]
                     )
         )
@@ -348,6 +368,7 @@ createFile moduleName fields =
                         )
                     |> Elm.Annotation.record
                 )
+            , errorsView.declaration
             ]
         |> Pages.Generate.buildWithLocalState
             { view =
@@ -359,7 +380,7 @@ createFile moduleName fields =
                                 [ Html.h2 [] [ Html.text "Form" ]
                                 , form.call []
                                     |> Gen.Form.toDynamicTransition "form"
-                                    |> Gen.Form.renderStyledHtml [] (Elm.get "errors") app Elm.unit
+                                    |> Gen.Form.renderStyledHtml [] (Elm.get "errors" >> Elm.just) app Elm.unit
                                 ]
                         }
             , update =
