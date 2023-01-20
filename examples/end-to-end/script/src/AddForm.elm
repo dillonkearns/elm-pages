@@ -276,20 +276,31 @@ createFile moduleName fields =
         , action =
             ( Alias
                 (Elm.Annotation.record
-                    [ ( "errors", Elm.Annotation.namedWith [ "Form" ] "Error" [ Elm.Annotation.string ] |> Elm.Annotation.maybe )
+                    [ ( "errors", Elm.Annotation.namedWith [ "Form" ] "Response" [ Elm.Annotation.string ] )
                     ]
                 )
             , \routeParams ->
                 Gen.Server.Request.formData (Gen.Form.initCombined Gen.Basics.call_.identity (form.call []))
                     |> Gen.Server.Request.call_.map
-                        (Elm.fn ( "parsedForm", Nothing )
-                            (\parsedForm ->
-                                Gen.Debug.toString parsedForm
-                                    |> Gen.Pages.Script.call_.log
-                                    |> Gen.BackendTask.call_.map
-                                        (Elm.fn ( "_", Nothing )
-                                            (\_ -> Gen.Server.Response.render (Elm.val "ActionData"))
-                                        )
+                        (Elm.fn ( "formData", Nothing )
+                            (\formData ->
+                                Elm.Case.tuple formData
+                                    "response"
+                                    "parsedForm"
+                                    (\response parsedForm ->
+                                        Gen.Debug.toString parsedForm
+                                            |> Gen.Pages.Script.call_.log
+                                            |> Gen.BackendTask.call_.map
+                                                (Elm.fn ( "_", Nothing )
+                                                    (\_ ->
+                                                        Gen.Server.Response.render
+                                                            (Elm.record
+                                                                [ ( "errors", response )
+                                                                ]
+                                                            )
+                                                    )
+                                                )
+                                    )
                             )
                         )
             )
