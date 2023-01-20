@@ -74,7 +74,13 @@ moduleNameRegex =
 
 
 type Kind
-    = Kind
+    = FieldInt
+    | FieldString
+    | FieldText
+    | FieldFloat
+    | FieldTime
+    | FieldDate
+    | FieldBool
 
 
 formWithFields :
@@ -89,8 +95,33 @@ formWithFields fields =
                     (\( fieldName, kind ) chain ->
                         chain
                             |> Gen.Form.field fieldName
-                                (Gen.Form.Field.text
-                                    |> Gen.Form.Field.required (Elm.string "Required")
+                                (case kind of
+                                    FieldString ->
+                                        Gen.Form.Field.text
+                                            |> Gen.Form.Field.required (Elm.string "Required")
+
+                                    FieldInt ->
+                                        Gen.Form.Field.int { invalid = \_ -> Elm.string "" }
+                                            |> Gen.Form.Field.required (Elm.string "Required")
+
+                                    FieldText ->
+                                        Gen.Form.Field.text
+                                            |> Gen.Form.Field.required (Elm.string "Required")
+
+                                    FieldFloat ->
+                                        Gen.Form.Field.float { invalid = \_ -> Elm.string "" }
+                                            |> Gen.Form.Field.required (Elm.string "Required")
+
+                                    FieldTime ->
+                                        Gen.Form.Field.time { invalid = \_ -> Elm.string "" }
+                                            |> Gen.Form.Field.required (Elm.string "Required")
+
+                                    FieldDate ->
+                                        Gen.Form.Field.date { invalid = \_ -> Elm.string "" }
+                                            |> Gen.Form.Field.required (Elm.string "Required")
+
+                                    FieldBool ->
+                                        Gen.Form.Field.checkbox
                                 )
                     )
                     (Gen.Form.init
@@ -135,33 +166,6 @@ formWithFields fields =
                                                     |> Elm.Let.fn "errorsView"
                                                         ( "field", Nothing )
                                                         (\field ->
-                                                            {-
-                                                               errorsView : Validation.Field String parsed kind -> Html msg
-                                                               errorsView field =
-                                                                   case
-                                                                       ( formState.submitAttempted
-                                                                       , errors field
-                                                                       )
-                                                                   of
-                                                                       ( _, first :: rest ) ->
-                                                                           Html.div []
-                                                                               [ Html.ul
-                                                                                   [ Attr.style "border" "solid red"
-                                                                                   ]
-                                                                                   (List.map
-                                                                                       (\error ->
-                                                                                           Html.li []
-                                                                                               [ Html.text error
-                                                                                               ]
-                                                                                       )
-                                                                                       (first :: rest)
-                                                                                   )
-                                                                               ]
-
-                                                                       _ ->
-                                                                           Html.div [] []
-
-                                                            -}
                                                             Elm.ifThen
                                                                 (Gen.List.call_.isEmpty (Elm.apply (Elm.val "errors") [ field ]))
                                                                 (Html.div [] [])
@@ -191,12 +195,8 @@ formWithFields fields =
                                                                 [ Html.label []
                                                                     [ Html.call_.text label -- TODO concat with ` ++ " "`
                                                                     , field |> Gen.Form.FieldView.inputStyled []
-
-                                                                    --, field |> errorsView
                                                                     , Elm.apply (Elm.val "errorsView") [ field ]
                                                                     ]
-
-                                                                --, -- TODO `errorsView field`
                                                                 ]
                                                         )
                                                     |> Elm.Let.toExpression
@@ -218,13 +218,32 @@ parseFields : String -> ( String, Kind )
 parseFields rawField =
     case String.split ":" rawField of
         [ fieldName ] ->
-            ( fieldName, Kind )
+            ( fieldName, FieldString )
 
         [ fieldName, fieldKind ] ->
-            ( fieldName, Kind )
+            ( fieldName
+            , case fieldKind of
+                "string" ->
+                    FieldString
+
+                "text" ->
+                    FieldText
+
+                "bool" ->
+                    FieldBool
+
+                "time" ->
+                    FieldTime
+
+                "date" ->
+                    FieldDate
+
+                _ ->
+                    FieldString
+            )
 
         _ ->
-            ( "ERROR", Kind )
+            ( "ERROR", FieldString )
 
 
 createFile : List String -> List ( String, Kind ) -> Elm.File
@@ -268,7 +287,33 @@ createFile moduleName fields =
             [ formWithFields fields |> .declaration
             , Elm.alias "ParsedForm"
                 (fields
-                    |> List.map (\( fieldName, kind ) -> ( fieldName, Elm.Annotation.string ))
+                    |> List.map
+                        (\( fieldName, kind ) ->
+                            ( fieldName
+                            , case kind of
+                                FieldString ->
+                                    Elm.Annotation.string
+
+                                FieldInt ->
+                                    Elm.Annotation.int
+
+                                FieldText ->
+                                    Elm.Annotation.string
+
+                                FieldFloat ->
+                                    Elm.Annotation.float
+
+                                FieldTime ->
+                                    Elm.Annotation.named [ "Time" ] "Posix"
+
+                                FieldDate ->
+                                    -- TODO fix type for DateTime
+                                    Elm.Annotation.string
+
+                                FieldBool ->
+                                    Elm.Annotation.bool
+                            )
+                        )
                     |> Elm.Annotation.record
                 )
             ]
