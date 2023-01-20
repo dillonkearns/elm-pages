@@ -183,6 +183,7 @@ greet =
                     |> Form.field "first" (Field.text |> Field.required "Required")
                     |> Form.initCombined identity
                 )
+                |> Request.map Tuple.second
                 |> Request.andThen
                     (\result ->
                         result

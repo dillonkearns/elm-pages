@@ -87,7 +87,7 @@ type alias Data =
 
 
 type alias ActionData =
-    {}
+    { formResponse : Form.Response String }
 
 
 sessionOptions =
@@ -135,7 +135,7 @@ action routeParams =
             |> Form.initCombined identity
         )
         |> Session.withSession sessionOptions
-            (\formPost sessionResult ->
+            (\( response, formPost ) sessionResult ->
                 let
                     setToDarkMode : Bool
                     setToDarkMode =
@@ -160,7 +160,7 @@ action routeParams =
                              else
                                 ""
                             )
-                    , Server.Response.render ActionData
+                    , Server.Response.render (ActionData response)
                     )
             )
 
@@ -219,7 +219,7 @@ view maybeUrl sharedModel model app =
             ]
             [ form
                 |> Form.toDynamicFetcher "dark-mode"
-                |> Form.renderStyledHtml [] Nothing app app.data.isDarkMode
+                |> Form.renderStyledHtml [] (.formResponse >> Just) app app.data.isDarkMode
             , Html.text <|
                 "Current mode: "
                     ++ (if app.data.isDarkMode then

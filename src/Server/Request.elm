@@ -903,7 +903,7 @@ formDataWithServerValidation formParsers =
                                         case ( maybeParsed, errors2 |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
                                             ( Just decodedFinal, Nothing ) ->
                                                 Ok
-                                                    ( Form.Response
+                                                    ( Pages.Internal.Form.Response
                                                         { fields = rawFormData_
                                                         , errors = Dict.empty
                                                         }
@@ -912,7 +912,7 @@ formDataWithServerValidation formParsers =
 
                                             ( _, maybeErrors ) ->
                                                 Err
-                                                    (Form.Response
+                                                    (Pages.Internal.Form.Response
                                                         { fields = rawFormData_
                                                         , errors =
                                                             maybeErrors
@@ -926,7 +926,7 @@ formDataWithServerValidation formParsers =
 
                     ( _, maybeErrors ) ->
                         Err
-                            (Form.Response
+                            (Pages.Internal.Form.Response
                                 { fields = rawFormData_
                                 , errors =
                                     maybeErrors
@@ -943,7 +943,7 @@ formDataWithServerValidation formParsers =
 {-| -}
 formData :
     Form.ServerForms error combined
-    -> Parser (Result { fields : List ( String, String ), errors : Dict String (List error) } combined)
+    -> Parser ( Form.Response error, Result { fields : List ( String, String ), errors : Dict String (List error) } combined )
 formData formParsers =
     rawFormData
         |> andThen
@@ -956,18 +956,25 @@ formData formParsers =
                 in
                 case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
                     ( Just decoded, Nothing ) ->
-                        Ok decoded
+                        ( Pages.Internal.Form.Response { fields = [], errors = Dict.empty }
+                        , Ok decoded
+                        )
                             |> succeed
 
                     ( _, maybeErrors ) ->
-                        Err
-                            { fields = rawFormData_
-                            , errors =
-                                maybeErrors
-                                    |> Maybe.map List.NonEmpty.toList
-                                    |> Maybe.withDefault []
-                                    |> Dict.fromList
-                            }
+                        let
+                            record =
+                                { fields = rawFormData_
+                                , errors =
+                                    maybeErrors
+                                        |> Maybe.map List.NonEmpty.toList
+                                        |> Maybe.withDefault []
+                                        |> Dict.fromList
+                                }
+                        in
+                        ( Pages.Internal.Form.Response record
+                        , Err record
+                        )
                             |> succeed
             )
 

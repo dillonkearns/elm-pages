@@ -122,7 +122,7 @@ action routeParams =
     Server.Request.formData
         forms
         |> Server.Request.map
-            (\formPost ->
+            (\( formResponse, formPost ) ->
                 case formPost of
                     Ok (AddItem newItem) ->
                         BackendTask.Custom.run "addItem"
@@ -240,11 +240,11 @@ view maybeUrl sharedModel model app =
         , form
             |> Form.toDynamicFetcher ("add-item-" ++ String.fromInt model.itemIndex)
             |> Form.withOnSubmit (\_ -> AddItemSubmitted)
-            |> Form.renderStyledHtml [] Nothing app ()
+            |> Form.renderStyledHtml [] (\_ -> Nothing) app ()
         , Html.div []
             [ deleteForm
                 |> Form.toDynamicFetcher "delete-all"
-                |> Form.renderStyledHtml [] Nothing app ()
+                |> Form.renderStyledHtml [] (\_ -> Nothing) app ()
             ]
         , optimisticItems
             |> List.map

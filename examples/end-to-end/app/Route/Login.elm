@@ -222,8 +222,7 @@ view maybeUrl sharedModel static =
         , form
             |> Form.toDynamicTransition "form"
             |> Form.renderStyledHtml []
-                --(static.action |> Maybe.map .errors |> Maybe.map (\(Form.Response response) -> response))
-                (.errors >> (\(Form.Response response) -> Just response))
+                (.errors >> Just)
                 static
                 ()
         ]

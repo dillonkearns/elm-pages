@@ -197,7 +197,7 @@ action : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response
 action routeParams =
     Request.formData (form |> Form.initCombined identity)
         |> Request.map
-            (\userResult ->
+            (\( formResponse, userResult ) ->
                 ActionData
                     (userResult
                         -- TODO nicer error handling
@@ -266,7 +266,7 @@ view maybeUrl sharedModel static =
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                Nothing
+                (\_ -> Nothing)
                 static
                 defaultUser
         ]
