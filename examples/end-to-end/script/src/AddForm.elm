@@ -305,11 +305,10 @@ createFile moduleName fields =
                                     Elm.Annotation.float
 
                                 FieldTime ->
-                                    Elm.Annotation.named [ "Time" ] "Posix"
+                                    Elm.Annotation.named [ "Form", "Field" ] "TimeOfDay"
 
                                 FieldDate ->
-                                    -- TODO fix type for DateTime
-                                    Elm.Annotation.string
+                                    Elm.Annotation.named [ "Date" ] "Date"
 
                                 FieldBool ->
                                     Elm.Annotation.bool
