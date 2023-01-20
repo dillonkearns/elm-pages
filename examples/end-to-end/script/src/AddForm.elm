@@ -348,7 +348,7 @@ createFile moduleName fields =
                                 [ Html.h2 [] [ Html.text "Form" ]
                                 , form.call []
                                     |> Gen.Form.toDynamicTransition "form"
-                                    |> Gen.Form.renderStyledHtml [] (Elm.get ".errors") app Elm.unit
+                                    |> Gen.Form.renderStyledHtml [] (Elm.get "errors") app Elm.unit
                                 ]
                         }
             , update =
