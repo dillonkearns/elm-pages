@@ -10,6 +10,7 @@ import Elm.Annotation
 import Elm.Case
 import Elm.Declare
 import Elm.Let
+import Elm.Op
 import Gen.BackendTask
 import Gen.Basics
 import Gen.Debug
@@ -193,7 +194,7 @@ formWithFields fields =
                                                         (\label field ->
                                                             Html.div []
                                                                 [ Html.label []
-                                                                    [ Html.call_.text label -- TODO concat with ` ++ " "`
+                                                                    [ Html.call_.text (Elm.Op.append label (Elm.string " "))
                                                                     , field |> Gen.Form.FieldView.inputStyled []
                                                                     , Elm.apply (Elm.val "errorsView") [ field ]
                                                                     ]
