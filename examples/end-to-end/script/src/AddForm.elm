@@ -205,6 +205,23 @@ formWithFields fields =
                                       )
                                     ]
                             )
+                            --form : Form.DoneForm String ParsedForm () (List (Html.Styled.Html (Pages.Msg.Msg Msg)))
+                            |> Elm.withType
+                                (Elm.Annotation.namedWith [ "Form" ]
+                                    "DoneForm"
+                                    [ Elm.Annotation.string
+                                    , Elm.Annotation.unit
+                                    , Elm.Annotation.list
+                                        (Elm.Annotation.namedWith [ "Html", "Styled" ]
+                                            "Html"
+                                            [ Elm.Annotation.namedWith
+                                                [ "Pages", "Msg" ]
+                                                "Msg"
+                                                [ Elm.Annotation.named [] "Msg" ]
+                                            ]
+                                        )
+                                    ]
+                                )
                         )
                     )
         )
@@ -257,7 +274,11 @@ createFile moduleName fields =
     Pages.Generate.serverRender
         { moduleName = moduleName
         , action =
-            ( Alias (Elm.Annotation.record [])
+            ( Alias
+                (Elm.Annotation.record
+                    [ ( "errors", Elm.Annotation.namedWith [ "Form" ] "Error" [ Elm.Annotation.string ] |> Elm.Annotation.maybe )
+                    ]
+                )
             , \routeParams ->
                 Gen.Server.Request.formData (Gen.Form.initCombined Gen.Basics.call_.identity (form.call []))
                     |> Gen.Server.Request.call_.map
@@ -324,10 +345,10 @@ createFile moduleName fields =
                         { title = moduleName |> String.join "." |> Elm.string
                         , body =
                             Elm.list
-                                [ Html.text "Here is your generated page!!!"
+                                [ Html.h2 [] [ Html.text "Form" ]
                                 , form.call []
                                     |> Gen.Form.toDynamicTransition "form"
-                                    |> Gen.Form.renderStyledHtml [] Elm.nothing app Elm.unit
+                                    |> Gen.Form.renderStyledHtml [] (Elm.get ".errors") app Elm.unit
                                 ]
                         }
             , update =

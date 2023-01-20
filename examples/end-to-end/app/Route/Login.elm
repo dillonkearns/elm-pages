@@ -8,13 +8,11 @@ import Form.Field as Field
 import Form.FieldView
 import Form.Validation as Validation exposing (Combined)
 import Head
-import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
 import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
@@ -224,7 +222,8 @@ view maybeUrl sharedModel static =
         , form
             |> Form.toDynamicTransition "form"
             |> Form.renderStyledHtml []
-                (static.action |> Maybe.map .errors |> Maybe.map (\(Form.Response response) -> response))
+                --(static.action |> Maybe.map .errors |> Maybe.map (\(Form.Response response) -> response))
+                (.errors >> (\(Form.Response response) -> Just response))
                 static
                 ()
         ]

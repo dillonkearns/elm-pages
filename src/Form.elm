@@ -13,6 +13,7 @@ module Form exposing
     , dynamic
     , AppContext
     , toServerForm, withOnSubmit
+    , Error
     -- subGroup
     )
 
@@ -264,6 +265,11 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 ## Submission
 
 @docs toServerForm, withOnSubmit
+
+
+## Persisting Errors
+
+@docs Error
 
 -}
 
@@ -798,13 +804,13 @@ type alias AppContext app actionData =
         | --, sharedData : Shared.Data
           --, routeParams : routeParams
           path : Path
+        , action : Maybe actionData
 
-        --, action : Maybe action
         --, submit :
         --    { fields : List ( String, String ), headers : List ( String, String ) }
         --    -> Pages.Fetcher.Fetcher (Result Http.Error action)
         , transition : Maybe Transition
-        , fetchers : Dict String (Pages.Transition.FetcherState actionData)
+        , fetchers : Dict String (Pages.Transition.FetcherState (Maybe actionData))
         , pageFormState :
             Dict String { fields : Dict String { value : String, status : FieldStatus }, submitAttempted : Bool }
     }
@@ -980,11 +986,7 @@ runOneOfServerSideHelp rawFormData firstFoundErrors (ServerForms parsers) =
 {-| -}
 renderHtml :
     List (Html.Attribute (Pages.Msg.Msg msg))
-    ->
-        Maybe
-            { fields : List ( String, String )
-            , errors : Dict String (List error)
-            }
+    -> (actionData -> Maybe (Error error))
     -> AppContext app actionData
     -> data
     ->
@@ -997,8 +999,8 @@ renderHtml :
             )
             msg
     -> Html (Pages.Msg.Msg msg)
-renderHtml attrs maybe app data (FinalForm options a b c) =
-    Html.Lazy.lazy6 renderHelper attrs maybe options app data (FormInternal a b c)
+renderHtml attrs accessError app data (FinalForm options a b c) =
+    Html.Lazy.lazy6 renderHelper attrs accessError options app data (FormInternal a b c)
 
 
 {-| -}
@@ -1181,11 +1183,7 @@ withOnSubmit onSubmit (FinalForm options a b c) =
 {-| -}
 renderStyledHtml :
     List (Html.Styled.Attribute (Pages.Msg.Msg msg))
-    ->
-        Maybe
-            { fields : List ( String, String )
-            , errors : Dict String (List error)
-            }
+    -> (actionData -> Maybe (Error error))
     -> AppContext app actionData
     -> data
     ->
@@ -1198,8 +1196,8 @@ renderStyledHtml :
             )
             msg
     -> Html.Styled.Html (Pages.Msg.Msg msg)
-renderStyledHtml attrs maybe app data (FinalForm options a b c) =
-    Html.Styled.Lazy.lazy6 renderStyledHelper attrs maybe options app data (FormInternal a b c)
+renderStyledHtml attrs accessError app data (FinalForm options a b c) =
+    Html.Styled.Lazy.lazy6 renderStyledHelper attrs accessError options app data (FormInternal a b c)
 
 
 {-| -}
@@ -1212,22 +1210,18 @@ type Response error
 
 renderHelper :
     List (Html.Attribute (Pages.Msg.Msg msg))
-    ->
-        Maybe
-            { fields : List ( String, String )
-            , errors : Dict String (List error)
-            }
+    -> (actionData -> Maybe (Error error))
     -> RenderOptions msg
     -> AppContext app actionData
     -> data
     -> FormInternal error (Validation.Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
     -> Html (Pages.Msg.Msg msg)
-renderHelper attrs maybe options formState data form =
+renderHelper attrs accessError options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
         { formId, hiddenInputs, children, isValid } =
-            helperValues toHiddenInput maybe options formState data form
+            helperValues toHiddenInput accessError options formState data form
 
         toHiddenInput : List (Html.Attribute (Pages.Msg.Msg msg)) -> Html (Pages.Msg.Msg msg)
         toHiddenInput hiddenAttrs =
@@ -1254,22 +1248,18 @@ renderHelper attrs maybe options formState data form =
 
 renderStyledHelper :
     List (Html.Styled.Attribute (Pages.Msg.Msg msg))
-    ->
-        Maybe
-            { fields : List ( String, String )
-            , errors : Dict String (List error)
-            }
+    -> (actionData -> Maybe (Error error))
     -> RenderOptions msg
     -> AppContext app actionData
     -> data
     -> FormInternal error (Validation.Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
     -> Html.Styled.Html (Pages.Msg.Msg msg)
-renderStyledHelper attrs maybe options formState data form =
+renderStyledHelper attrs accessError options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
         { formId, hiddenInputs, children, isValid } =
-            helperValues toHiddenInput maybe options formState data form
+            helperValues toHiddenInput accessError options formState data form
 
         toHiddenInput : List (Html.Attribute (Pages.Msg.Msg msg)) -> Html.Styled.Html (Pages.Msg.Msg msg)
         toHiddenInput hiddenAttrs =
@@ -1296,18 +1286,14 @@ renderStyledHelper attrs maybe options formState data form =
 
 helperValues :
     (List (Html.Attribute (Pages.Msg.Msg msg)) -> view)
-    ->
-        Maybe
-            { fields : List ( String, String )
-            , errors : Dict String (List error)
-            }
+    -> (actionData -> Maybe (Error error))
     -> RenderOptions msg
     -> AppContext app actionData
     -> data
     ---> Form error parsed data view
     -> FormInternal error (Validation.Validation error parsed named constraints) data (Context error data -> List view)
     -> { formId : String, hiddenInputs : List view, children : List view, isValid : Bool }
-helperValues toHiddenInput maybe options formState data (FormInternal fieldDefinitions parser toInitialValues) =
+helperValues toHiddenInput accessError options formState data (FormInternal fieldDefinitions parser toInitialValues) =
     let
         formId : String
         formId =
@@ -1324,7 +1310,8 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
             formState.pageFormState
                 |> Dict.get formId
                 |> Maybe.withDefault
-                    (maybe
+                    (formState.action
+                        |> Maybe.andThen accessError
                         |> Maybe.map
                             (\{ fields } ->
                                 { fields =
@@ -1364,7 +1351,8 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
                             |> Tuple.mapSecond
                                 (\errors1 ->
                                     mergeErrors errors1
-                                        (maybe
+                                        (formState.action
+                                            |> Maybe.andThen accessError
                                             |> Maybe.map .errors
                                             |> Maybe.withDefault Dict.empty
                                         )
@@ -1376,7 +1364,8 @@ helperValues toHiddenInput maybe options formState data (FormInternal fieldDefin
             formState.pageFormState
                 |> Dict.get formId
                 |> Maybe.withDefault
-                    (maybe
+                    (formState.action
+                        |> Maybe.andThen accessError
                         |> Maybe.map
                             (\{ fields } ->
                                 { fields =
@@ -1682,3 +1671,9 @@ addErrorsInternal name newErrors allErrors =
             (\errors ->
                 Just (newErrors ++ (errors |> Maybe.withDefault []))
             )
+
+
+type alias Error error =
+    { fields : List ( String, String )
+    , errors : Dict String (List error)
+    }
