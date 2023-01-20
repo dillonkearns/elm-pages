@@ -720,8 +720,8 @@ userFunction moduleName definitions =
                 )
     in
     Elm.file ("Route" :: moduleName)
-        ([ definitions.types.model |> typeToDeclaration "Model"
-         , definitions.types.msg |> typeToDeclaration "Msg"
+        ([ definitions.types.model |> typeToDeclaration "Model" |> Elm.expose
+         , definitions.types.msg |> typeToDeclaration "Msg" |> Elm.expose
          , Elm.alias "RouteParams"
             (Elm.Annotation.record
                 (RoutePattern.fromModuleName moduleName
@@ -730,6 +730,7 @@ userFunction moduleName definitions =
                     |> Maybe.withDefault []
                 )
             )
+            |> Elm.expose
          , Elm.declaration "route"
             ((case definitions.action of
                 Action _ ->
@@ -808,6 +809,7 @@ userFunction moduleName definitions =
                                     )
                    )
             )
+            |> Elm.expose
          ]
             ++ (case localDefinitions of
                     Just local ->
@@ -819,8 +821,8 @@ userFunction moduleName definitions =
                     Nothing ->
                         []
                )
-            ++ [ definitions.types.data |> typeToDeclaration "Data"
-               , definitions.types.actionData |> typeToDeclaration "ActionData"
+            ++ [ definitions.types.data |> typeToDeclaration "Data" |> Elm.expose
+               , definitions.types.actionData |> typeToDeclaration "ActionData" |> Elm.expose
                , dataFn.declaration
                , headFn.declaration
                , viewFn.declaration
