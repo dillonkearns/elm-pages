@@ -205,24 +205,24 @@ formWithFields fields =
                                       )
                                     ]
                             )
-                            --form : Form.DoneForm String ParsedForm () (List (Html.Styled.Html (Pages.Msg.Msg Msg)))
-                            |> Elm.withType
-                                (Elm.Annotation.namedWith [ "Form" ]
-                                    "DoneForm"
-                                    [ Elm.Annotation.string
-                                    , Elm.Annotation.unit
-                                    , Elm.Annotation.list
-                                        (Elm.Annotation.namedWith [ "Html", "Styled" ]
-                                            "Html"
-                                            [ Elm.Annotation.namedWith
-                                                [ "Pages", "Msg" ]
-                                                "Msg"
-                                                [ Elm.Annotation.named [] "Msg" ]
-                                            ]
-                                        )
-                                    ]
-                                )
                         )
+                    )
+                |> Elm.withType
+                    (Elm.Annotation.namedWith [ "Form" ]
+                        "DoneForm"
+                        [ Elm.Annotation.string
+                        , Elm.Annotation.named [] "ParsedForm"
+                        , Elm.Annotation.unit
+                        , Elm.Annotation.list
+                            (Elm.Annotation.namedWith [ "Html", "Styled" ]
+                                "Html"
+                                [ Elm.Annotation.namedWith
+                                    [ "Pages", "Msg" ]
+                                    "Msg"
+                                    [ Elm.Annotation.named [] "Msg" ]
+                                ]
+                            )
+                        ]
                     )
         )
 
