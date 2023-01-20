@@ -3,6 +3,7 @@ module Pages.Generate exposing
     , Type(..)
     , serverRender
     , preRender, single
+    , addDeclarations
     )
 
 {-| This module provides some functions for scaffolding code for a new Route Module. It uses [`elm-codegen`'s API](https://package.elm-lang.org/packages/mdgriffith/elm-codegen/latest/) for generating code.
@@ -26,6 +27,11 @@ Learn more about [the `elm-pages run` CLI command in its docs page](https://elm-
 ## Generating pre-rendered pages
 
 @docs preRender, single
+
+
+## Including Additional elm-codegen Declarations
+
+@docs addDeclarations
 
 -}
 
@@ -54,12 +60,14 @@ typeToDeclaration name type_ =
 {-| -}
 type Builder
     = ServerRender
+        (List Elm.Declaration)
         { data : ( Type, Elm.Expression -> Elm.Expression )
         , action : ( Type, Elm.Expression -> Elm.Expression )
         , head : Elm.Expression -> Elm.Expression
         , moduleName : List String
         }
     | PreRender
+        (List Elm.Declaration)
         { data : ( Type, Elm.Expression -> Elm.Expression )
         , pages : Maybe Elm.Expression
         , head : Elm.Expression -> Elm.Expression
@@ -76,7 +84,7 @@ serverRender :
     }
     -> Builder
 serverRender =
-    ServerRender
+    ServerRender []
 
 
 {-| -}
@@ -96,7 +104,7 @@ preRender input =
     --            |> Maybe.map RoutePattern.hasRouteParams
     --            |> Maybe.withDefault False
     --in
-    PreRender
+    PreRender []
         { data = input.data
         , pages =
             input.pages
@@ -118,7 +126,7 @@ single :
     }
     -> Builder
 single input =
-    PreRender
+    PreRender []
         { data = ( Tuple.first input.data, \_ -> Tuple.second input.data )
         , pages = Nothing
         , head = input.head
@@ -134,7 +142,7 @@ buildNoState :
     -> Elm.File
 buildNoState definitions builder_ =
     case builder_ of
-        ServerRender builder ->
+        ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
                     \maybeUrl sharedModel _ app ->
@@ -153,9 +161,10 @@ buildNoState definitions builder_ =
                     , data = builder.data |> Tuple.first
                     , actionData = builder.action |> Tuple.first
                     }
+                , declarations = declarations
                 }
 
-        PreRender builder ->
+        PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
                     \maybeUrl sharedModel _ app ->
@@ -177,7 +186,19 @@ buildNoState definitions builder_ =
                             (Elm.Annotation.list (Elm.Annotation.named [] "RouteParams"))
                             |> Alias
                     }
+                , declarations = declarations
                 }
+
+
+{-| -}
+addDeclarations : List Elm.Declaration -> Builder -> Builder
+addDeclarations declarations builder =
+    case builder of
+        ServerRender existingDeclarations record ->
+            ServerRender (existingDeclarations ++ declarations) record
+
+        PreRender existingDeclarations record ->
+            PreRender (existingDeclarations ++ declarations) record
 
 
 {-| -}
@@ -213,7 +234,7 @@ buildWithLocalState :
     -> Elm.File
 buildWithLocalState definitions builder_ =
     case builder_ of
-        ServerRender builder ->
+        ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
                     \maybeUrl sharedModel model app ->
@@ -261,9 +282,10 @@ buildWithLocalState definitions builder_ =
                     , data = builder.data |> Tuple.first
                     , actionData = builder.action |> Tuple.first
                     }
+                , declarations = declarations
                 }
 
-        PreRender builder ->
+        PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
                     \maybeUrl sharedModel model app ->
@@ -314,6 +336,7 @@ buildWithLocalState definitions builder_ =
                             (Elm.Annotation.list (Elm.Annotation.named [] "RouteParams"))
                             |> Alias
                     }
+                , declarations = declarations
                 }
 
 
@@ -350,7 +373,7 @@ buildWithSharedState :
     -> Elm.File
 buildWithSharedState definitions builder_ =
     case builder_ of
-        ServerRender builder ->
+        ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
                     \maybeUrl sharedModel model app ->
@@ -398,9 +421,10 @@ buildWithSharedState definitions builder_ =
                     , data = builder.data |> Tuple.first
                     , actionData = builder.action |> Tuple.first
                     }
+                , declarations = declarations
                 }
 
-        PreRender builder ->
+        PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
                     \maybeUrl sharedModel model app ->
@@ -451,6 +475,7 @@ buildWithSharedState definitions builder_ =
                             (Elm.Annotation.list (Elm.Annotation.named [] "RouteParams"))
                             |> Alias
                     }
+                , declarations = declarations
                 }
 
 
@@ -480,6 +505,7 @@ userFunction :
         , action : ActionOrPages
         , head : Elm.Expression -> Elm.Expression
         , types : { model : Type, msg : Type, data : Type, actionData : Type }
+        , declarations : List Elm.Declaration
         }
     -> Elm.File
 userFunction moduleName definitions =
@@ -803,6 +829,7 @@ userFunction moduleName definitions =
                 ]
                     |> List.filterMap identity
                )
+            ++ definitions.declarations
         )
 
 
