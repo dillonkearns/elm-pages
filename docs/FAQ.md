@@ -36,6 +36,15 @@ to a request, which means that you can do things like
 - If the session cookie is absent, redirect to the login page using an HTTP 301 response code
 - Load data dynmically at request-time, so every time the page is loaded you have the latest data (compared to statically built sites that have data from the time when the site was last built)
 
+## Why does elm-pages use BackendTask rather than just using Elm's `Task`?
+
+There's a very intentional design behind having `Task` and `BackendTask` be separate, though. One of the big reasons is that there are `Task`'s that wouldn't make sense in a backend context:
+
+- Browser DOM API, like focus, blur, getViewport. These don't exit in a backend, so making it possible to call those from BackendTask would be misleading: https://package.elm-lang.org/packages/elm/browser/latest/Browser-Dom
+- Get current Timezone (often on servers this is a foot-gun because you want to use UTC, though if you really wanted to get the timezone that the server or local machine is running in you can always define a BackendTask.Custom to do that)
+
+Other reasons include performance (BackendTask runs in parallel by default, whereas Elm Task runs sequentially by default [source: https://github.com/elm/core/blob/84f38891468e8e153fc85a9b63bdafd81b24664e/src/Task.elm#L139-L143] which is not ideal - possible to work around, but another foot-gun that we can avoid). And we can use Fetch instead of XHR to perform HTTP requests as well, which has some performance benefits (fetch can do JSON parsing in a more parallel way).
+
 ## Can you pass flags in to your `elm-pages` app?
 
 Yes, see the [Pages.Flags module](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Pages-Flags). Note that elm-pages apps have a different life-cycle than standard Elm applications because they pre-render pages (either at build-time for static routes, or at request-time for server-rendered routes). So for example, if you get the window dimensions from the flags and do responsive design based on that, then you'll see a flash after the client-side code takes over since you need to give a value to use at pre-render time (before the app has reached the user's browser so before there are any dimensions available). So that semantics of the flags are not quite intuitive there.So you have to explicitly say how to handle the case where you don't have access to flags.
