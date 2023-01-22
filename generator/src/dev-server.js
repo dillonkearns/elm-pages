@@ -40,6 +40,17 @@ const __dirname = path.dirname(__filename);
 export async function start(options) {
   let threadReadyQueue = [];
   let pool = [];
+
+  function restartPool() {
+    pool.forEach((thread) => thread.worker.terminate());
+    const poolSize = Math.max(1, cpuCount / 2 - 1);
+    pool = [];
+
+    for (let index = 0; index < poolSize; index++) {
+      pool.push(initWorker(options.base));
+    }
+  }
+
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
   const cpuCount = os.cpus().length;
 
@@ -252,6 +263,7 @@ export async function start(options) {
           }
         }
         elmMakeRunning = true;
+        restartPool();
         if (codegenError) {
           const errorJson = JSON.stringify({
             type: "compile-errors",

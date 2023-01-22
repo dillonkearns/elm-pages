@@ -43,11 +43,6 @@ async function run({ mode, pathname, serverRequest, portsFilePath }) {
 
 async function requireElm(mode) {
   let elmImportPath = compiledElmPath;
-  if (mode !== "build") {
-    const { mtimeMs } = await stat(compiledElmPath);
-    console.log({ mtimeMs });
-    elmImportPath = `${compiledElmPath}?time=${mtimeMs}`;
-  }
   const warnOriginal = console.warn;
   console.warn = function () {};
   const Elm = (await import(elmImportPath)).default;
