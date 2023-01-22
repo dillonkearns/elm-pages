@@ -60,6 +60,7 @@ route =
 action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action _ =
     (Request.formData (form |> Form.initCombined identity)
+        |> Request.map Tuple.second
         |> Request.map (Result.mapError (\error -> "Errors"))
         |> Request.andThen Request.fromResult
     )
@@ -270,7 +271,7 @@ view maybeUrl sharedModel model static =
             |> Form.toDynamicTransition "test1"
             |> Form.renderHtml []
                 -- TODO pass in server data
-                Nothing
+                (\_ -> Nothing)
                 static
                 ()
         ]
