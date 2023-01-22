@@ -1,38 +1,43 @@
-const path = require("path");
-const fs = require("fs");
-const which = require("which");
-const chokidar = require("chokidar");
-const { URL } = require("url");
-const {
+import * as path from "path";
+import * as fs from "fs";
+import { default as which } from "which";
+import * as chokidar from "chokidar";
+import { URL } from "url";
+import {
   compileElmForBrowser,
   runElmReview,
   compileCliApp,
-} = require("./compile-elm.js");
-const http = require("http");
-const https = require("https");
-const codegen = require("./codegen.js");
-const kleur = require("kleur");
-const serveStatic = require("serve-static");
-const connect = require("connect");
-const { restoreColorSafe } = require("./error-formatter");
-const { Worker, SHARE_ENV } = require("worker_threads");
-const os = require("os");
-const { ensureDirSync } = require("./file-helpers.js");
-const baseMiddleware = require("./basepath-middleware.js");
-const devcert = require("devcert");
-const busboy = require("busboy");
-const { createServer: createViteServer } = require("vite");
-const cliVersion = require("../../package.json").version;
-const esbuild = require("esbuild");
-const { merge_vite_configs } = require("./vite-utils.js");
-const { templateHtml } = require("./pre-render-html.js");
-const { resolveConfig } = require("./config.js");
-const globby = require("globby");
+} from "./compile-elm.js";
+import * as http from "http";
+import * as https from "https";
+import * as codegen from "./codegen.js";
+import * as kleur from "kleur/colors";
+import { default as serveStatic } from "serve-static";
+import { default as connect } from "connect";
+import { restoreColorSafe } from "./error-formatter.js";
+import { Worker, SHARE_ENV } from "worker_threads";
+import * as os from "os";
+import { ensureDirSync } from "./file-helpers.js";
+import { baseMiddleware } from "./basepath-middleware.js";
+import * as devcert from "devcert";
+import * as busboy from "busboy";
+import { createServer as createViteServer } from "vite";
+import * as esbuild from "esbuild";
+import { merge_vite_configs } from "./vite-utils.js";
+import { templateHtml } from "./pre-render-html.js";
+import { resolveConfig } from "./config.js";
+import { globbySync } from "globby";
+import * as packageJson from "../../package.json" assert { type: "json" };
+import { fileURLToPath } from "url";
+
+const cliVersion = packageJson.version;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
  */
-async function start(options) {
+export async function start(options) {
   let threadReadyQueue = [];
   let pool = [];
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
@@ -46,6 +51,7 @@ async function start(options) {
   const serveCachedFiles = serveStatic(".elm-pages/cache", { index: false });
   const generatedFilesDirectory = "elm-stuff/elm-pages/generated-files";
   fs.mkdirSync(generatedFilesDirectory, { recursive: true });
+
   const serveStaticCode = serveStatic(
     path.join(__dirname, "../static-code"),
     {}
@@ -175,7 +181,7 @@ async function start(options) {
     })
     .catch((error) => {
       const portBackendTaskFileFound =
-        globby.sync("./custom-backend-task.*").length > 0;
+        globbySync("./custom-backend-task.*").length > 0;
       if (portBackendTaskFileFound) {
         // don't present error if there are no files matching custom-backend-task
         // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
@@ -784,4 +790,3 @@ function paramsToObject(entries) {
   }
   return result;
 }
-module.exports = { start };

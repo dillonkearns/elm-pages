@@ -1,4 +1,6 @@
-const kleur = require("kleur");
+"use strict";
+
+import * as kleur from "kleur/colors";
 
 /* Thanks to elm-live for this code! 
    https://github.com/wking-io/elm-live/blob/e317b4914c471addea7243c47f28dcebe27a5d36/lib/src/build.js#L65
@@ -82,7 +84,7 @@ function toKleurColor(color) {
 /**
  * @param {RootObject} error
  * */
-const restoreColor = (error) => {
+export const restoreColor = (error) => {
   try {
     if (error.type === "compile-errors") {
       return error.errors
@@ -111,7 +113,7 @@ const restoreColor = (error) => {
  * @param {string} error
  * @returns {string}
  */
-function restoreColorSafe(error) {
+export function restoreColorSafe(error) {
   try {
     if (typeof error === "string") {
       const asJson = JSON.parse(error);
@@ -148,8 +150,6 @@ const restoreProblem =
       ].join("");
     }
   };
-
-module.exports = { restoreColor, restoreColorSafe };
 
 /** @typedef { CompilerError | ReportError | IElmReviewError } RootObject */
 

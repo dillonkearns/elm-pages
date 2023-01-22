@@ -1,4 +1,4 @@
-function elmPagesUiFile() {
+export function elmPagesUiFile() {
   return `module Pages exposing (builtAt)
 
 import Time
@@ -12,7 +12,6 @@ builtAt =
 `;
 }
 
-function elmPagesCliFile() {
+export function elmPagesCliFile() {
   return elmPagesUiFile();
 }
-module.exports = { elmPagesUiFile, elmPagesCliFile };

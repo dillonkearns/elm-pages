@@ -1,6 +1,6 @@
-const fs = require("fs");
+import * as fs from "fs";
 
-module.exports = async function () {
+export async function rewriteClientElmJson() {
   var elmJson = JSON.parse(
     (await fs.promises.readFile("./elm.json")).toString()
   );
@@ -9,11 +9,11 @@ module.exports = async function () {
 
   await writeFileIfChanged(
     "./elm-stuff/elm-pages/client/elm.json",
-    JSON.stringify(rewriteElmJson(elmJson))
+    JSON.stringify(rewriteClientElmJsonHelp(elmJson))
   );
-};
+}
 
-function rewriteElmJson(elmJson) {
+function rewriteClientElmJsonHelp(elmJson) {
   // The internal generated file will be at:
   // ./elm-stuff/elm-pages/
   // So, we need to take the existing elmJson and

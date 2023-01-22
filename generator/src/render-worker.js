@@ -1,9 +1,10 @@
-const renderer = require("../../generator/src/render");
-const path = require("path");
-const fs = require("./dir-helpers.js");
+import * as renderer from "../../generator/src/render.js";
+import * as path from "path";
+import * as fs from "./dir-helpers.js";
+import { readFileSync, writeFileSync } from "fs";
+import { stat } from "fs/promises";
+import { parentPort, threadId, workerData } from "worker_threads";
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
-const { parentPort, threadId, workerData } = require("worker_threads");
-let Elm;
 
 global.staticHttpCache = {};
 
@@ -13,7 +14,7 @@ async function run({ mode, pathname, serverRequest, portsFilePath }) {
     const renderResult = await renderer.render(
       portsFilePath,
       workerData.basePath,
-      requireElm(mode),
+      await requireElm(mode),
       mode,
       pathname,
       serverRequest,
@@ -42,20 +43,18 @@ async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.timeEnd(`${threadId} ${pathname}`);
 }
 
-function requireElm(mode) {
-  if (mode === "build") {
-    if (!Elm) {
-      const warnOriginal = console.warn;
-      console.warn = function () {};
-
-      Elm = require(compiledElmPath);
-      console.warn = warnOriginal;
-    }
-    return Elm;
-  } else {
-    delete require.cache[require.resolve(compiledElmPath)];
-    return require(compiledElmPath);
+async function requireElm(mode) {
+  let elmImportPath = compiledElmPath;
+  if (mode !== "build") {
+    const { mtimeMs } = await stat(compiledElmPath);
+    console.log({ mtimeMs });
+    elmImportPath = `${compiledElmPath}?time=${mtimeMs}`;
   }
+  const warnOriginal = console.warn;
+  console.warn = function () {};
+  const Elm = (await import(elmImportPath)).default;
+  console.warn = warnOriginal;
+  return Elm;
 }
 
 async function outputString(
@@ -67,13 +66,13 @@ async function outputString(
       const args = fromElm;
       const normalizedRoute = args.route.replace(/index$/, "");
       await fs.tryMkdir(`./dist/${normalizedRoute}`);
-      const template = await fs.readFileSync("./dist/template.html", "utf8");
-      fs.writeFileSync(
+      const template = readFileSync("./dist/template.html", "utf8");
+      writeFileSync(
         `dist/${normalizedRoute}/index.html`,
         renderTemplate(template, fromElm)
       );
       args.contentDatPayload &&
-        fs.writeFileSync(
+        writeFileSync(
           `dist/${normalizedRoute}/content.dat`,
           Buffer.from(args.contentDatPayload.buffer)
         );

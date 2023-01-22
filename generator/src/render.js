@@ -1,23 +1,21 @@
 // @ts-check
 
-const path = require("path");
-const mm = require("micromatch");
-const matter = require("gray-matter");
-const globby = require("globby");
-const fsPromises = require("fs").promises;
-const preRenderHtml = require("./pre-render-html.js");
-const { lookupOrPerform } = require("./request-cache.js");
-const kleur = require("kleur");
-const cookie = require("cookie-signature");
-const { compatibilityKey } = require("./compatibility-key.js");
-kleur.enabled = true;
+import * as path from "path";
+import { default as mm } from "micromatch";
+import { default as matter } from "gray-matter";
+import { globby } from "globby";
+import * as fsPromises from "fs/promises";
+import * as preRenderHtml from "./pre-render-html.js";
+import { lookupOrPerform } from "./request-cache.js";
+import * as kleur from "kleur/colors";
+import * as cookie from "cookie-signature";
+import { compatibilityKey } from "./compatibility-key.js";
+import * as fs from "fs";
 
 process.on("unhandledRejection", (error) => {
   console.error(error);
 });
 let foundErrors;
-
-module.exports = { render, runGenerator };
 
 /**
  *
@@ -29,7 +27,7 @@ module.exports = { render, runGenerator };
  * @param {boolean} hasFsAccess
  * @returns
  */
-async function render(
+export async function render(
   portsFile,
   basePath,
   elmModule,
@@ -39,12 +37,12 @@ async function render(
   addBackendTaskWatcher,
   hasFsAccess
 ) {
-  const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(hasFsAccess);
-  resetInMemoryFs();
+  // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(hasFsAccess);
+  // resetInMemoryFs();
   foundErrors = false;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-  XMLHttpRequest = {};
+  global.XMLHttpRequest = {};
   const result = await runElmApp(
     portsFile,
     basePath,
@@ -53,7 +51,6 @@ async function render(
     path,
     request,
     addBackendTaskWatcher,
-    fs,
     hasFsAccess
   );
   return result;
@@ -66,19 +63,19 @@ async function render(
  * @param {any} portsFile
  * @param {string} scriptModuleName
  */
-async function runGenerator(
+export async function runGenerator(
   cliOptions,
   portsFile,
   elmModule,
   scriptModuleName
 ) {
   global.isRunningGenerator = true;
-  const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
-  resetInMemoryFs();
+  // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
+  // resetInMemoryFs();
   foundErrors = false;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-  XMLHttpRequest = {};
+  global.XMLHttpRequest = {};
   const result = await runGeneratorAppHelp(
     cliOptions,
     portsFile,
@@ -87,7 +84,6 @@ async function runGenerator(
     scriptModuleName,
     "production",
     "",
-    fs,
     true
   );
   return result;
@@ -112,7 +108,6 @@ function runGeneratorAppHelp(
   scriptModuleName,
   mode,
   pagePath,
-  fs,
   hasFsAccess
 ) {
   const isDevServer = mode !== "build";
@@ -182,7 +177,6 @@ function runGeneratorAppHelp(
                     app,
                     mode,
                     requestToPerform,
-                    fs,
                     hasFsAccess,
                     patternsToWatch
                   );
@@ -193,7 +187,6 @@ function runGeneratorAppHelp(
                     app,
                     mode,
                     requestToPerform,
-                    fs,
                     hasFsAccess,
                     requestToPerform
                   );
@@ -236,7 +229,6 @@ function runElmApp(
   pagePath,
   request,
   addBackendTaskWatcher,
-  fs,
   hasFsAccess
 ) {
   const isDevServer = mode !== "build";
@@ -331,7 +323,6 @@ function runElmApp(
                     app,
                     mode,
                     requestToPerform,
-                    fs,
                     hasFsAccess,
                     patternsToWatch
                   );
@@ -342,7 +333,6 @@ function runElmApp(
                     app,
                     mode,
                     requestToPerform,
-                    fs,
                     hasFsAccess,
                     requestToPerform
                   );
@@ -415,7 +405,6 @@ async function runHttpJob(
   app,
   mode,
   requestToPerform,
-  fs,
   hasFsAccess,
   useCache
 ) {
@@ -474,7 +463,6 @@ async function runInternalJob(
   app,
   mode,
   requestToPerform,
-  fs,
   hasFsAccess,
   patternsToWatch
 ) {

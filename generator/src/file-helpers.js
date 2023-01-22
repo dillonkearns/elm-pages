@@ -1,7 +1,6 @@
-const fs = require("fs");
-module.exports = { ensureDirSync, deleteIfExists };
+import * as fs from "fs";
 
-function ensureDirSync(dirpath) {
+export function ensureDirSync(dirpath) {
   try {
     fs.mkdirSync(dirpath, { recursive: true });
   } catch (err) {
@@ -9,7 +8,7 @@ function ensureDirSync(dirpath) {
   }
 }
 
-function deleteIfExists(/** @type string */ filePath) {
+export function deleteIfExists(/** @type string */ filePath) {
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
   }

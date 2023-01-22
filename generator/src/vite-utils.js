@@ -4,7 +4,7 @@
  * @param {...import('vite').UserConfig} configs
  * @returns {import('vite').UserConfig}
  */
-function merge_vite_configs(...configs) {
+export function merge_vite_configs(...configs) {
   return deep_merge(
     ...configs.map((config) => ({
       ...config,
@@ -75,4 +75,3 @@ function merge_into(a, b) {
     }
   }
 }
-module.exports = { merge_vite_configs };

@@ -1,6 +1,7 @@
-const path = require("path");
-const kleur = require("kleur");
-const fsPromises = require("fs/promises");
+import * as path from "path";
+import * as fsPromises from "fs/promises";
+import * as kleur from "kleur/colors";
+import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 
 const defaultHttpCachePath = "./.elm-pages/http-cache";
 
@@ -13,8 +14,14 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
  * @param {boolean} hasFsAccess
  * @returns {Promise<Response>}
  */
-function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
-  const makeFetchHappen = require("make-fetch-happen").defaults({
+export function lookupOrPerform(
+  portsFile,
+  mode,
+  rawRequest,
+  hasFsAccess,
+  useCache
+) {
+  const makeFetchHappen = makeFetchHappenOriginal.defaults({
     cache: mode === "build" ? "no-cache" : "default",
   });
   return new Promise(async (resolve, reject) => {
@@ -29,7 +36,7 @@ function lookupOrPerform(portsFile, mode, rawRequest, hasFsAccess, useCache) {
       const portBackendTaskPath = path.resolve(portsFile);
       // On Windows, we need cannot use paths directly and instead must use a file:// URL.
       // portBackendTask = await require(url.pathToFileURL(portBackendTaskPath).href);
-      portBackendTask = require(portBackendTaskPath);
+      portBackendTask = await import(portBackendTaskPath);
     } catch (e) {
       portBackendTaskImportError = e;
     }
@@ -270,5 +277,3 @@ async function canAccess(filePath) {
     return false;
   }
 }
-
-module.exports = { lookupOrPerform };

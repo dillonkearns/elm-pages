@@ -1,17 +1,16 @@
-const globby = require("globby");
-const path = require("path");
-const mm = require("micromatch");
-const routeHelpers = require("./route-codegen-helpers");
-const { runElmCodegenInstall } = require("./elm-codegen");
-const { compileCliApp } = require("./compile-elm");
-const { restoreColorSafe } = require("./error-formatter");
+import { globbySync } from "globby";
+import * as path from "path";
+import { default as mm } from "micromatch";
+import * as routeHelpers from "./route-codegen-helpers.js";
+import { restoreColorSafe } from "./error-formatter.js";
+import { fileURLToPath } from "url";
 
 /**
  * @param {string} basePath
  * @param {'browser' | 'cli'} phase
  */
-async function generateTemplateModuleConnector(basePath, phase) {
-  const templates = globby.sync(["app/Route/**/*.elm"], {}).map((file) => {
+export async function generateTemplateModuleConnector(basePath, phase) {
+  const templates = globbySync(["app/Route/**/*.elm"], {}).map((file) => {
     const captures = mm.capture("app/Route/**/*.elm", file);
     if (captures) {
       return path.join(captures[0], captures[1]).split(path.sep);
@@ -63,10 +62,12 @@ async function generateTemplateModuleConnector(basePath, phase) {
 }
 
 async function runElmCodegenCli(templates, basePath, phase) {
-  const filePath = path.join(__dirname, `../../codegen/elm-pages-codegen.js`);
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const filePath = path.join(__dirname, `../../codegen/elm-pages-codegen.cjs`);
 
-  const promise = new Promise((resolve, reject) => {
-    const elmPagesCodegen = require(filePath).Elm.Generate;
+  const promise = new Promise(async (resolve, reject) => {
+    const elmPagesCodegen = (await import(filePath)).default.Elm.Generate;
 
     const app = elmPagesCodegen.init({
       flags: { templates: templates, basePath, phase },
@@ -91,7 +92,7 @@ async function runElmCodegenCli(templates, basePath, phase) {
  * @param {string[][]} templates
  * @returns
  */
-function sortTemplates(templates) {
+export function sortTemplates(templates) {
   return templates.sort((first, second) => {
     const a = sortScore(first);
     const b = sortScore(second);
@@ -230,5 +231,3 @@ submit toMsg options =
 function camelToKebab(input) {
   return input.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
-
-module.exports = { generateTemplateModuleConnector, sortTemplates };
