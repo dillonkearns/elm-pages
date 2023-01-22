@@ -19,18 +19,18 @@ export default async function run({
     renderFunctionFilePath,
     "./functions/server-render/elm-pages-cli.js"
   );
-  fs.copyFileSync(portsFilePath, "./functions/render/custom-backend-task.js");
+  fs.copyFileSync(portsFilePath, "./functions/render/custom-backend-task.mjs");
   fs.copyFileSync(
     portsFilePath,
-    "./functions/server-render/custom-backend-task.js"
+    "./functions/server-render/custom-backend-task.mjs"
   );
 
   fs.writeFileSync(
-    "./functions/render/index.js",
+    "./functions/render/index.mjs",
     rendererCode(true, htmlTemplate)
   );
   fs.writeFileSync(
-    "./functions/server-render/index.js",
+    "./functions/server-render/index.mjs",
     rendererCode(false, htmlTemplate)
   );
   // TODO rename functions/render to functions/fallback-render
@@ -128,12 +128,7 @@ export const handler = render;`
 async function render(event, context) {
   const requestTime = new Date();
   console.log(JSON.stringify(event));
-
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-
-  const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
-  const compiledPortsFile = path.join(__dirname, "custom-backend-task.js");
+  const compiledPortsFile = "./custom-backend-task.mjs";
 
   try {
     const basePath = "/";
@@ -143,7 +138,7 @@ async function render(event, context) {
     const renderResult = await renderer.render(
       compiledPortsFile,
       basePath,
-      (await import(path.resolve(compiledElmPath))).default,
+      (await import("./elm-pages-cli.js")).default,
       mode,
       event.path,
       await reqToJson(event, requestTime),

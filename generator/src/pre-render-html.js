@@ -2,8 +2,6 @@ import * as seo from "./seo-renderer.js";
 import * as packageJson from "../../package.json" assert { type: "json" };
 import * as path from "path";
 import { fileURLToPath } from "url";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const cliVersion = packageJson.version;
 
@@ -27,6 +25,8 @@ export function wrapHtml(basePath, fromElm, contentDatPayload) {
  * @param {(context: {cliVersion: string;}) => string} userHeadTagsTemplate
  */
 export function templateHtml(devMode, userHeadTagsTemplate) {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
   return /* html */ `<!DOCTYPE html>
 <!-- ROOT --><html lang="en">
   <head>
@@ -81,4 +81,3 @@ export function replaceTemplate(processedTemplate, info) {
     .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
     .replace(/<!-- ROOT -->\S*<html lang="en">/m, info.rootElement);
 }
-
