@@ -6,8 +6,6 @@ import { stat } from "fs/promises";
 import { parentPort, threadId, workerData } from "worker_threads";
 const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
 
-global.staticHttpCache = {};
-
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
   try {
