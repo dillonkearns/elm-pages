@@ -4,7 +4,6 @@ import * as fs from "./dir-helpers.js";
 import { readFileSync, writeFileSync } from "fs";
 import { stat } from "fs/promises";
 import { parentPort, threadId, workerData } from "worker_threads";
-const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
@@ -42,6 +41,10 @@ async function run({ mode, pathname, serverRequest, portsFilePath }) {
 }
 
 async function requireElm(mode) {
+  const compiledElmPath = path.join(
+    process.cwd(),
+    "elm-stuff/elm-pages/elm.cjs"
+  );
   let elmImportPath = compiledElmPath;
   const warnOriginal = console.warn;
   console.warn = function () {};

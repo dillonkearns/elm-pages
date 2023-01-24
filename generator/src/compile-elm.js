@@ -83,7 +83,7 @@ function _HtmlAsJson_toJson(html) {
 `;
 
   await fsPromises.writeFile(
-    readFrom,
+    readFrom.replace(/\.js$/, ".cjs"),
     elmFileContent
       .replace(
         /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
