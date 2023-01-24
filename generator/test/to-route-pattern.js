@@ -1,8 +1,6 @@
-var assert = require("assert");
-const {
-  toPathPattern,
-  toPathPatterns,
-} = require("../src/route-codegen-helpers.js");
+import * as assert from "assert";
+
+import { toPathPattern, toPathPatterns } from "../src/route-codegen-helpers.js";
 
 describe("toPathPattern", function () {
   it("index is normalized", function () {
