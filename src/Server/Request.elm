@@ -963,6 +963,7 @@ formData formParsers =
 
                     ( _, maybeErrors ) ->
                         let
+                            record : { fields : List ( String, String ), errors : Dict String (List error) }
                             record =
                                 { fields = rawFormData_
                                 , errors =
