@@ -13,7 +13,6 @@ module Form exposing
     , dynamic
     , AppContext
     , toServerForm, withOnSubmit
-    , Error
     -- subGroup
     )
 
@@ -265,11 +264,6 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 ## Submission
 
 @docs toServerForm, withOnSubmit
-
-
-## Persisting Errors
-
-@docs Error
 
 -}
 
@@ -1667,9 +1661,3 @@ addErrorsInternal name newErrors allErrors =
             (\errors ->
                 Just (newErrors ++ (errors |> Maybe.withDefault []))
             )
-
-
-type alias Error error =
-    { fields : List ( String, String )
-    , errors : Dict String (List error)
-    }
