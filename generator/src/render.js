@@ -11,6 +11,7 @@ import * as kleur from "kleur/colors";
 import * as cookie from "cookie-signature";
 import { compatibilityKey } from "./compatibility-key.js";
 import * as fs from "fs";
+import * as crypto from "node:crypto";
 
 process.on("unhandledRejection", (error) => {
   console.error(error);
@@ -468,6 +469,14 @@ async function runInternalJob(
       ];
     } else if (requestToPerform.url === "elm-pages-internal://glob") {
       return [requestHash, await runGlobNew(requestToPerform, patternsToWatch)];
+    } else if (requestToPerform.url === "elm-pages-internal://randomSeed") {
+      return [
+        requestHash,
+        jsonResponse(
+          requestToPerform,
+          crypto.getRandomValues(new Uint32Array(1))[0]
+        ),
+      ];
     } else if (requestToPerform.url === "elm-pages-internal://env") {
       return [requestHash, await runEnvJob(requestToPerform, patternsToWatch)];
     } else if (requestToPerform.url === "elm-pages-internal://encrypt") {

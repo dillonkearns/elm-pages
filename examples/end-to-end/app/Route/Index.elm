@@ -3,6 +3,7 @@ module Route.Index exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.File
+import BackendTask.Random
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
@@ -13,6 +14,7 @@ import Json.Encode as Encode
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import Random
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
 import View exposing (View)
@@ -46,14 +48,21 @@ route =
 type alias Data =
     { greeting : String
     , portGreeting : String
+    , randomTuple : ( Int, Float )
     }
 
 
 data : BackendTask FatalError Data
 data =
-    BackendTask.map2 Data
+    BackendTask.map3 Data
         (BackendTask.File.rawFile "greeting.txt" |> BackendTask.allowFatal)
         (BackendTask.Custom.run "hello" (Encode.string "Jane") Decode.string |> BackendTask.allowFatal)
+        (BackendTask.Random.generate generator)
+
+
+generator : Random.Generator ( Int, Float )
+generator =
+    Random.map2 Tuple.pair (Random.int 0 100) (Random.float 0 100)
 
 
 head :
@@ -87,6 +96,7 @@ view maybeUrl sharedModel static =
         [ text "This is the index page."
         , div [] [ text <| "Greeting: " ++ static.data.greeting ]
         , div [] [ text <| "Greeting: " ++ static.data.portGreeting ]
+        , div [] [ text <| "Random Data: " ++ Debug.toString static.data.randomTuple ]
         , div []
             [ a [ Attr.href "/test/response-headers" ] [ text "/test/response-headers" ]
             , a [ Attr.href "/test/basic-auth" ] [ text "/test/basic-auth" ]
