@@ -1,6 +1,7 @@
 {
   "name": "elm-pages",
-  "version": "3.0.0-beta.18",
+  "type": "module",
+  "version": "3.0.0-beta.19",
   "homepage": "https://elm-pages.com",
   "moduleResolution": "node",
   "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
@@ -10,7 +11,7 @@
     "test": "./test.sh",
     "test:snapshot": "(cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)",
     "cypress": "npm start & cypress run",
-    "build:generator": "elm-codegen install && (cd codegen && lamdera make Generate.elm --output elm-pages-codegen.js)",
+    "build:generator": "elm-codegen install && (cd codegen && lamdera make Generate.elm --output elm-pages-codegen.js && mv elm-pages-codegen.js elm-pages-codegen.cjs)",
     "review": "elm-review"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
@@ -26,7 +27,7 @@
   "dependencies": {
     "busboy": "^1.0.0",
     "chokidar": "^3.5.3",
-    "commander": "^9.5.0",
+    "commander": "^10.0.0",
     "connect": "^3.7.0",
     "cookie-signature": "^1.1.0",
     "cross-spawn": "7.0.3",
@@ -34,8 +35,8 @@
     "elm-doc-preview": "^5.0.5",
     "elm-hot": "^1.1.6",
     "esbuild": "^0.16.15",
-    "fs-extra": "^10.1.0",
-    "globby": "11.0.4",
+    "fs-extra": "^11.1.0",
+    "globby": "^13.1.3",
     "gray-matter": "^4.0.3",
     "jsesc": "^3.0.2",
     "kleur": "^4.1.5",
@@ -45,7 +46,7 @@
     "serve-static": "^1.15.0",
     "terser": "^5.16.1",
     "vite": "^4.0.4",
-    "which": "^2.0.2"
+    "which": "^3.0.0"
   },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.2",
@@ -54,7 +55,7 @@
     "@types/micromatch": "^4.0.2",
     "@types/node": "^18.11.9",
     "@types/serve-static": "^1.15.0",
-    "cypress": "^12.3.0",
+    "cypress": "^12.4.0",
     "elm-codegen": "^0.2.0",
     "elm-optimize-level-2": "^0.3.5",
     "elm-review": "^2.8.2",
@@ -70,7 +71,7 @@
     "generator/review/",
     "generator/dead-code-review/",
     "src/",
-    "codegen/elm-pages-codegen.js",
+    "codegen/elm-pages-codegen.cjs",
     "generator/template/",
     "generator/static-code/"
   ],

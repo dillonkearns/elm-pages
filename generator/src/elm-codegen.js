@@ -1,6 +1,6 @@
-const spawnCallback = require("cross-spawn").spawn;
+import { spawn as spawnCallback } from "cross-spawn";
 
-function runElmCodegenInstall() {
+export function runElmCodegenInstall() {
   return new Promise(async (resolve, reject) => {
     const subprocess = spawnCallback(`elm-codegen`, ["install"], {
       // ignore stdout
@@ -33,5 +33,3 @@ function runElmCodegenInstall() {
     });
   });
 }
-
-module.exports = { runElmCodegenInstall };

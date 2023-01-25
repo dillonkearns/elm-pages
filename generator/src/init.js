@@ -1,12 +1,15 @@
-const fs = require("fs");
-const copySync = require("fs-extra").copySync;
-const path = require("path");
-const kleur = require("kleur");
+import * as fs from "fs";
+import { copySync } from "fs-extra/esm";
+import * as path from "path";
+import * as kleur from "kleur/colors";
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * @param {string} name
  */
-async function run(name) {
+export async function run(name) {
   console.log("Creating " + name + " project...");
 
   const appRoot = path.resolve(name.toString());
@@ -36,5 +39,3 @@ async function run(name) {
     kleur.green("Project is successfully created in `" + appRoot + "`.")
   );
 }
-
-module.exports = { run };

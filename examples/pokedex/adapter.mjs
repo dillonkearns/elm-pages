@@ -19,18 +19,18 @@ export default async function run({
     renderFunctionFilePath,
     "./functions/server-render/elm-pages-cli.js"
   );
-  fs.copyFileSync(portsFilePath, "./functions/render/custom-backend-task.js");
+  fs.copyFileSync(portsFilePath, "./functions/render/custom-backend-task.mjs");
   fs.copyFileSync(
     portsFilePath,
-    "./functions/server-render/custom-backend-task.js"
+    "./functions/server-render/custom-backend-task.mjs"
   );
 
   fs.writeFileSync(
-    "./functions/render/index.js",
+    "./functions/render/index.mjs",
     rendererCode(true, htmlTemplate)
   );
   fs.writeFileSync(
-    "./functions/server-render/index.js",
+    "./functions/server-render/index.mjs",
     rendererCode(false, htmlTemplate)
   );
   // TODO rename functions/render to functions/fallback-render
@@ -103,18 +103,21 @@ function isServerSide(route) {
  * @param {string} htmlTemplate
  */
 function rendererCode(isOnDemand, htmlTemplate) {
-  return `const path = require("path");
-const busboy = require("busboy");
+  return `import * as path from "path";
+import * as busboy from "busboy";
+import { fileURLToPath } from "url";
+import * as renderer from "../../../../generator/src/render.js";
+import * as preRenderHtml from "../../../../generator/src/pre-render-html.js";
 const htmlTemplate = ${JSON.stringify(htmlTemplate)};
 
 ${
   isOnDemand
-    ? `const { builder } = require("@netlify/functions");
+    ? `import { builder } from "@netlify/functions";
 
-exports.handler = builder(render);`
+export const handler = builder(render);`
     : `
 
-exports.handler = render;`
+export const handler = render;`
 }
 
 
@@ -125,12 +128,8 @@ exports.handler = render;`
 async function render(event, context) {
   const requestTime = new Date();
   console.log(JSON.stringify(event));
-  global.staticHttpCache = {};
+  const compiledPortsFile = "./custom-backend-task.mjs";
 
-  const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
-  const compiledPortsFile = path.join(__dirname, "custom-backend-task.js");
-  const renderer = require("../../../../generator/src/render");
-  const preRenderHtml = require("../../../../generator/src/pre-render-html");
   try {
     const basePath = "/";
     const mode = "build";
@@ -139,7 +138,7 @@ async function render(event, context) {
     const renderResult = await renderer.render(
       compiledPortsFile,
       basePath,
-      require(compiledElmPath),
+      (await import("./elm-pages-cli.js")).default,
       mode,
       event.path,
       await reqToJson(event, requestTime),

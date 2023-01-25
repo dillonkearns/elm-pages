@@ -1,5 +1,7 @@
-const util = require("util");
-const fsSync = require("fs");
+import * as util from "util";
+import * as fsSync from "fs";
+import * as path from "path";
+
 const fs = {
   writeFile: util.promisify(fsSync.writeFile),
   writeFileSync: fsSync.writeFileSync,
@@ -15,14 +17,14 @@ const fs = {
 /**
  * @param {import("fs").PathLike} dirName
  */
-async function tryMkdir(dirName) {
+export async function tryMkdir(dirName) {
   const exists = await fs.exists(dirName);
   if (!exists) {
     await fs.mkdir(dirName, { recursive: true });
   }
 }
 
-function fileExists(file) {
+export function fileExists(file) {
   return fsSync.promises
     .access(file, fsSync.constants.F_OK)
     .then(() => true)
@@ -33,18 +35,16 @@ function fileExists(file) {
  * @param {string} filePath
  * @param {string} data
  */
-function writeFileSyncSafe(filePath, data) {
+export function writeFileSyncSafe(filePath, data) {
   fsSync.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, data);
 }
-
-const path = require("path");
 
 /**
  * @param {string} srcDirectory
  * @param {string} destDir
  */
-async function copyDirFlat(srcDirectory, destDir) {
+export async function copyDirFlat(srcDirectory, destDir) {
   const items = await fs.readdir(srcDirectory);
   items.forEach(function (childItemName) {
     copyDirNested(
@@ -58,7 +58,7 @@ async function copyDirFlat(srcDirectory, destDir) {
  * @param {string} src
  * @param {string} dest
  */
-async function copyDirNested(src, dest) {
+export async function copyDirNested(src, dest) {
   var exists = fsSync.existsSync(src);
   var stats = exists && fsSync.statSync(src);
   var isDirectory = exists && stats.isDirectory();
@@ -76,19 +76,3 @@ async function copyDirNested(src, dest) {
   }
 }
 
-module.exports = {
-  writeFile: fs.writeFile,
-  writeFileSync: fs.writeFileSync,
-  readFile: fs.readFile,
-  readFileSync: fsSync.readFileSync,
-  copyFile: fs.copyFile,
-  exists: fs.exists,
-  writeFileSyncSafe,
-  tryMkdir,
-  copyDirFlat,
-  copyDirNested,
-  rmSync: fs.rm,
-  rm: fs.rm,
-  existsSync: fs.existsSync,
-  fileExists: fileExists,
-};

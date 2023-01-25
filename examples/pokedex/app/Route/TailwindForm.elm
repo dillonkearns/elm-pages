@@ -563,7 +563,7 @@ action routeParams =
                                         }
                                         |> BackendTask.map Response.render
 
-                                Err (Form.Response error) ->
+                                Err error ->
                                     BackendTask.succeed
                                         { flashMessage = Err "Got errors"
                                         , user = defaultUser
@@ -592,7 +592,7 @@ type alias Data =
 type alias ActionData =
     { user : User
     , flashMessage : Result String String
-    , formResponse : Maybe { fields : List ( String, String ), errors : Dict String (List String) }
+    , formResponse : Maybe (Form.Response String)
     }
 
 
@@ -722,9 +722,9 @@ view maybeUrl sharedModel model static =
                 , form
                     |> Form.toDynamicTransition "test"
                     |> Form.renderStyledHtml []
-                        (static.action
-                            |> Maybe.andThen .formResponse
-                        )
+                        --static.action
+                        --    |> Maybe.andThen .formResponse
+                        (\_ -> Nothing)
                         static
                         ()
                 ]

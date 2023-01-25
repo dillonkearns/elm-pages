@@ -1,11 +1,9 @@
-module.exports = { gather };
-
 /** @typedef { { type: 'root'; keyValuePair: [string, string] } } RootTagModifier */
 
 /**
  * @param {( SeoTag | RootTagModifier )[]} tags
  */
-function gather(tags) {
+export function gather(tags) {
   const withoutRootModifiers = tags.flatMap((value) => {
     if (value.type === "root") {
       return [];

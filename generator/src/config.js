@@ -1,6 +1,6 @@
-const path = require("path");
+import * as path from "path";
 
-async function resolveConfig() {
+export async function resolveConfig() {
   const initialConfig = await await import(
     path.join(process.cwd(), "elm-pages.config.mjs")
   )
@@ -37,5 +37,3 @@ function defaultHeadTagsTemplate(context) {
 <meta name="generator" content="elm-pages v${context.cliVersion}" />
 `;
 }
-
-module.exports = { resolveConfig };

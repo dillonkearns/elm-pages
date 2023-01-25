@@ -1,24 +1,25 @@
-const fs = require("./dir-helpers.js");
-const fsPromises = require("fs").promises;
-
-const { runElmReview } = require("./compile-elm.js");
-const { restoreColorSafe } = require("./error-formatter");
-const path = require("path");
-const spawnCallback = require("cross-spawn").spawn;
-const codegen = require("./codegen.js");
-const terser = require("terser");
-const os = require("os");
-const { Worker, SHARE_ENV } = require("worker_threads");
-const { ensureDirSync } = require("./file-helpers.js");
-const { generateClientFolder } = require("./codegen.js");
-const which = require("which");
-const { build } = require("vite");
-const preRenderHtml = require("./pre-render-html.js");
-const esbuild = require("esbuild");
-const { createHash } = require("crypto");
-const { merge_vite_configs } = require("./vite-utils.js");
-const { resolveConfig } = require("./config.js");
-const globby = require("globby");
+import * as fs from "./dir-helpers.js";
+import * as fsPromises from "fs/promises";
+import { runElmReview } from "./compile-elm.js";
+import { restoreColorSafe } from "./error-formatter.js";
+import * as path from "path";
+import { spawn as spawnCallback } from "cross-spawn";
+import * as codegen from "./codegen.js";
+import * as terser from "terser";
+import * as os from "os";
+import { Worker, SHARE_ENV } from "worker_threads";
+import { ensureDirSync } from "./file-helpers.js";
+import { generateClientFolder } from "./codegen.js";
+import { default as which } from "which";
+import { build } from "vite";
+import * as preRenderHtml from "./pre-render-html.js";
+import * as esbuild from "esbuild";
+import { createHash } from "crypto";
+import { merge_vite_configs } from "./vite-utils.js";
+import { resolveConfig } from "./config.js";
+import { globbySync } from "globby";
+import { fileURLToPath } from "url";
+import { copyFile } from "fs/promises";
 
 let pool = [];
 let pagesReady;
@@ -65,7 +66,7 @@ async function ensureRequiredExecutables() {
   }
 }
 
-async function run(options) {
+export async function run(options) {
   try {
     await ensureRequiredDirs();
     await ensureRequiredExecutables();
@@ -110,7 +111,11 @@ async function run(options) {
       withoutExtension
     );
     const assetManifestPath = path.join(process.cwd(), "dist/manifest.json");
-    const manifest = require(assetManifestPath);
+    const manifest = (
+      await import(assetManifestPath, {
+        assert: { type: "json" },
+      })
+    ).default;
     const indexTemplate = await fsPromises.readFile(
       "dist/elm-stuff/elm-pages/index.html",
       "utf-8"
@@ -161,7 +166,7 @@ async function run(options) {
       })
       .catch((error) => {
         const portBackendTaskFileFound =
-          globby.sync("./custom-backend-task.*").length > 0;
+          globbySync("./custom-backend-task.*").length > 0;
         if (portBackendTaskFileFound) {
           // don't present error if there are no files matching custom-backend-task
           // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
@@ -170,7 +175,7 @@ async function run(options) {
       });
     // TODO extract common code for compiling ports file?
 
-    XMLHttpRequest = {};
+    global.XMLHttpRequest = {};
     const compileCli = compileCliApp(options);
     try {
       await compileCli;
@@ -207,6 +212,7 @@ async function run(options) {
       processedIndexTemplate
     );
   } catch (error) {
+    console.trace(error);
     if (error) {
       console.error(restoreColorSafe(error));
     }
@@ -220,6 +226,8 @@ async function run(options) {
  */
 function initWorker(basePath, whenDone) {
   return new Promise((resolve, reject) => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
     activeWorkers += 1;
     let newWorker = {
       worker: new Worker(path.join(__dirname, "./render-worker.js"), {
@@ -369,7 +377,7 @@ function elmOptimizeLevel2(outputPath, cwd) {
 
     subprocess.on("close", async (code) => {
       if (code === 0) {
-        await fs.copyFile(optimizedOutputPath, outputPath);
+        await copyFile(optimizedOutputPath, outputPath);
         resolve();
       } else {
         if (!buildError) {
@@ -539,7 +547,7 @@ async function runTerser(filePath) {
   }
 }
 
-async function compileCliApp(options) {
+export async function compileCliApp(options) {
   await spawnElmMake(
     // TODO should be --optimize, but there seems to be an issue with the html to JSON with --optimize
     options.debug ? "debug" : "optimize",
@@ -595,7 +603,7 @@ function _HtmlAsJson_toJson(html) {
 `;
 
   await fsPromises.writeFile(
-    ELM_FILE_PATH(),
+    ELM_FILE_PATH().replace(/\.js$/, ".cjs"),
     elmFileContent
       .replace(
         /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
@@ -671,5 +679,3 @@ function defaultPreloadForFile(file) {
  * @param {string} contentJsonString
  * @returns {string}
  */
-
-module.exports = { run, compileCliApp };

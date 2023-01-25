@@ -104,7 +104,7 @@ data routeParams =
     Request.oneOf
         [ Request.formData (form |> Form.initCombined identity)
             |> Request.map
-                (\formResult ->
+                (\( formResponse, formResult ) ->
                     BackendTask.succeed
                         (Response.render
                             { results =
@@ -209,7 +209,7 @@ view maybeUrl sharedModel model static =
             |> Form.withGetMethod
             |> Form.renderHtml []
                 -- TODO pass in server data
-                Nothing
+                (\_ -> Nothing)
                 static
                 ()
         , static.data.results

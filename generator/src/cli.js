@@ -1,25 +1,27 @@
 #!/usr/bin/env node
+"use strict";
 
-const build = require("./build.js");
-const dirHelpers = require("./dir-helpers.js");
-const dev = require("./dev-server.js");
-const init = require("./init.js");
-const codegen = require("./codegen.js");
-const fs = require("fs");
-const path = require("path");
-const { restoreColorSafe } = require("./error-formatter");
-const renderer = require("../../generator/src/render");
-const globby = require("globby");
-const esbuild = require("esbuild");
-const copyModifiedElmJson = require("./rewrite-elm-json.js");
-const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
+import * as build from "./build.js";
+import * as dev from "./dev-server.js";
+import * as init from "./init.js";
+import * as codegen from "./codegen.js";
+import * as fs from "fs";
+import * as path from "path";
+import { restoreColorSafe } from "./error-formatter.js";
+import * as renderer from "./render.js";
+import { globbySync } from "globby";
+import * as esbuild from "esbuild";
+import { rewriteElmJson } from "./rewrite-elm-json.js";
+import { ensureDirSync, deleteIfExists } from "./file-helpers.js";
 
-const commander = require("commander");
-const { runElmCodegenInstall } = require("./elm-codegen.js");
+import * as commander from "commander";
+import { runElmCodegenInstall } from "./elm-codegen.js";
+
 const Argument = commander.Argument;
 const Option = commander.Option;
 
-const packageVersion = require("../../package.json").version;
+import * as packageJson from "../../package.json" assert { type: "json" };
+const packageVersion = packageJson.version;
 
 async function main() {
   const program = new commander.Command();
@@ -124,7 +126,7 @@ async function main() {
           path.join("./script/elm-stuff/elm-pages/.elm-pages/Main.elm"),
           generatorWrapperFile(moduleName)
         );
-        await copyModifiedElmJson(
+        await rewriteElmJson(
           "./script/elm.json",
           "./script/elm-stuff/elm-pages/elm.json"
         );
@@ -151,7 +153,7 @@ async function main() {
           })
           .catch((error) => {
             const portBackendTaskFileFound =
-              globby.sync("./custom-backend-task.*").length > 0;
+              globbySync("./custom-backend-task.*").length > 0;
             if (portBackendTaskFileFound) {
               // don't present error if there are no files matching custom-backend-task
               // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
@@ -169,10 +171,14 @@ async function main() {
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
         await build.compileCliApp({ debug: "debug" });
         process.chdir("../");
+        fs.renameSync(
+          "./script/elm-stuff/elm-pages/elm.js",
+          "./script/elm-stuff/elm-pages/elm.cjs"
+        );
         await renderer.runGenerator(
           unprocessedCliOptions,
           resolvedPortsPath,
-          requireElm("./script/elm-stuff/elm-pages/elm.js"),
+          await requireElm("./script/elm-stuff/elm-pages/elm.cjs"),
           moduleName
         );
       } catch (error) {
@@ -187,7 +193,7 @@ async function main() {
     .option("--port <number>", "serve site at localhost:<port>", "8000")
     .action(async (options) => {
       await codegen.generate("/");
-      const DocServer = require("elm-doc-preview");
+      const DocServer = (await import("elm-doc-preview")).default;
       const server = new DocServer({
         port: options.port,
         browser: true,
@@ -257,11 +263,11 @@ function normalizeUrl(rawPagePath) {
 /**
  * @param {string} compiledElmPath
  */
-function requireElm(compiledElmPath) {
+async function requireElm(compiledElmPath) {
   const warnOriginal = console.warn;
   console.warn = function () {};
 
-  Elm = require(path.resolve(compiledElmPath));
+  let Elm = (await import(path.resolve(compiledElmPath))).default;
   console.warn = warnOriginal;
   return Elm;
 }

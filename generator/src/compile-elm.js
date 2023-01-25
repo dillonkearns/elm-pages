@@ -1,17 +1,21 @@
-const spawnCallback = require("cross-spawn").spawn;
-const fs = require("fs");
-const fsHelpers = require("./dir-helpers.js");
-const fsPromises = require("fs").promises;
-const path = require("path");
-const kleur = require("kleur");
-const { inject } = require("elm-hot");
-const pathToClientElm = path.join(
-  process.cwd(),
-  "elm-stuff/elm-pages/",
-  "browser-elm.js"
-);
+import { spawn as spawnCallback } from "cross-spawn";
+import * as fs from "fs";
+import * as fsHelpers from "./dir-helpers.js";
+import * as fsPromises from "fs/promises";
+import * as path from "path";
+import * as kleur from "kleur/colors";
+import { inject } from "elm-hot";
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-async function compileElmForBrowser(options) {
+export async function compileElmForBrowser(options) {
+  // TODO do I need to make sure this is run from the right cwd? Before it was run outside of this function in the global scope, need to make sure that doesn't change semantics.
+  const pathToClientElm = path.join(
+    process.cwd(),
+    "elm-stuff/elm-pages/",
+    "browser-elm.js"
+  );
   await runElm(options, "./.elm-pages/Main.elm", pathToClientElm);
   return fs.promises.writeFile(
     "./.elm-pages/cache/elm.js",
@@ -26,7 +30,7 @@ async function compileElmForBrowser(options) {
   );
 }
 
-async function compileCliApp(
+export async function compileCliApp(
   options,
   elmEntrypointPath,
   outputPath,
@@ -79,7 +83,7 @@ function _HtmlAsJson_toJson(html) {
 `;
 
   await fsPromises.writeFile(
-    readFrom,
+    readFrom.replace(/\.js$/, ".cjs"),
     elmFileContent
       .replace(
         /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
@@ -211,7 +215,7 @@ async function runElm(options, elmEntrypointPath, outputPath, cwd) {
 /**
  * @param {string} [ cwd ]
  */
-async function runElmReview(cwd) {
+export async function runElmReview(cwd) {
   const startTime = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
@@ -283,12 +287,6 @@ function elmOptimizeLevel2(outputPath, cwd) {
     });
   });
 }
-
-module.exports = {
-  compileElmForBrowser,
-  runElmReview,
-  compileCliApp,
-};
 
 /**
  * @param {number} start

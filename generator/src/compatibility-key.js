@@ -1,1 +1,1 @@
-module.exports = { compatibilityKey: 6 };
+export const compatibilityKey = 6;

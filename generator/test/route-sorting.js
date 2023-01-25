@@ -1,5 +1,6 @@
-var assert = require("assert");
-const { sortTemplates } = require("../src/generate-template-module-connector");
+import * as assert from "assert";
+
+import { sortTemplates } from "../src/generate-template-module-connector.js";
 describe("sort", function () {
   it("purely static comes before dynamic routes", function () {
     assert.deepStrictEqual(

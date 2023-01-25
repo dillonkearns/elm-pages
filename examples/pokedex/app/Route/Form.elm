@@ -39,7 +39,7 @@ type alias RouteParams =
 
 type alias ActionData =
     { user : Maybe User
-    , formResponse : Maybe { fields : List ( String, String ), errors : Dict String (List String) }
+    , formResponse : Form.Response String
     }
 
 
@@ -191,16 +191,16 @@ action : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response
 action routeParams =
     Request.formData (form |> Form.initCombined identity)
         |> Request.map
-            (\userResult ->
+            (\( response, userResult ) ->
                 (case userResult of
                     Ok user ->
                         { user = Just user
-                        , formResponse = Nothing
+                        , formResponse = response
                         }
 
                     Err error ->
                         { user = Nothing
-                        , formResponse = Just error
+                        , formResponse = response
                         }
                 )
                     |> Server.Response.render
@@ -270,7 +270,7 @@ view maybeUrl sharedModel app =
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                (app.action |> Maybe.andThen .formResponse)
+                (.formResponse >> Just)
                 app
                 defaultUser
         ]

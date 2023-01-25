@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "types": ["node"],
-    "module": "commonjs",
+    "module": "esnext",
     "checkJs": true,
     "allowJs": true,
     "target": "es5",

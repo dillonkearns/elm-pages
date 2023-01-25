@@ -1,11 +1,14 @@
-const seo = require("./seo-renderer.js");
-const cliVersion = require("../../package.json").version;
-const path = require("path");
+import * as seo from "./seo-renderer.js";
+import * as packageJson from "../../package.json" assert { type: "json" };
+import * as path from "path";
+import { fileURLToPath } from "url";
+
+const cliVersion = packageJson.version;
 
 /** @typedef { { head: any[]; errors: any[]; html: string; route: string; title: string; } } Arg */
 /** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
 
-function wrapHtml(basePath, fromElm, contentDatPayload) {
+export function wrapHtml(basePath, fromElm, contentDatPayload) {
   const seoData = seo.gather(fromElm.head);
   return {
     kind: "html-template",
@@ -21,7 +24,9 @@ function wrapHtml(basePath, fromElm, contentDatPayload) {
  * @param {boolean} devMode
  * @param {(context: {cliVersion: string;}) => string} userHeadTagsTemplate
  */
-function templateHtml(devMode, userHeadTagsTemplate) {
+export function templateHtml(devMode, userHeadTagsTemplate) {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
   return /* html */ `<!DOCTYPE html>
 <!-- ROOT --><html lang="en">
   <head>
@@ -65,7 +70,7 @@ function indent(snippet) {
 /**
  * @param {string} processedTemplate
  */
-function replaceTemplate(processedTemplate, info) {
+export function replaceTemplate(processedTemplate, info) {
   return processedTemplate
     .replace(
       /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
@@ -76,9 +81,3 @@ function replaceTemplate(processedTemplate, info) {
     .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
     .replace(/<!-- ROOT -->\S*<html lang="en">/m, info.rootElement);
 }
-
-module.exports = {
-  wrapHtml,
-  templateHtml,
-  replaceTemplate,
-};

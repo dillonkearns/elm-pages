@@ -1,21 +1,24 @@
-const fs = require("fs");
-const fsExtra = require("fs-extra");
-const copyModifiedElmJson = require("./rewrite-elm-json.js");
-const copyModifiedElmJsonClient = require("./rewrite-client-elm-json.js");
-const { elmPagesCliFile, elmPagesUiFile } = require("./elm-file-constants.js");
-const spawnCallback = require("cross-spawn").spawn;
-const which = require("which");
-const {
-  generateTemplateModuleConnector,
-} = require("./generate-template-module-connector.js");
-const path = require("path");
-const { ensureDirSync, deleteIfExists } = require("./file-helpers.js");
+import * as fs from "fs";
+import * as fsExtra from "fs-extra/esm";
+import { rewriteElmJson } from "./rewrite-elm-json.js";
+import { rewriteClientElmJson } from "./rewrite-client-elm-json.js";
+import { elmPagesCliFile, elmPagesUiFile } from "./elm-file-constants.js";
+import { spawn as spawnCallback } from "cross-spawn";
+import { default as which } from "which";
+import { generateTemplateModuleConnector } from "./generate-template-module-connector.js";
+
+import * as path from "path";
+import { ensureDirSync, deleteIfExists } from "./file-helpers.js";
+import { fileURLToPath } from "url";
 global.builtAt = new Date();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * @param {string} basePath
  */
-async function generate(basePath) {
+export async function generate(basePath) {
   const cliCode = await generateTemplateModuleConnector(basePath, "cli");
   const browserCode = await generateTemplateModuleConnector(
     basePath,
@@ -63,7 +66,7 @@ async function generate(basePath) {
       browserCode.fetcherModules
     ),
     // write modified elm.json to elm-stuff/elm-pages/
-    copyModifiedElmJson("./elm.json", "./elm-stuff/elm-pages/elm.json"),
+    rewriteElmJson("./elm.json", "./elm-stuff/elm-pages/elm.json"),
     // ...(await listFiles("./Pages/Internal")).map(copyToBoth),
   ]);
 }
@@ -85,7 +88,7 @@ async function newCopyBoth(modulePath) {
   );
 }
 
-async function generateClientFolder(basePath) {
+export async function generateClientFolder(basePath) {
   const browserCode = await generateTemplateModuleConnector(
     basePath,
     "browser"
@@ -97,7 +100,7 @@ async function generateClientFolder(basePath) {
   await newCopyBoth("SharedTemplate.elm");
   await newCopyBoth("SiteConfig.elm");
 
-  await copyModifiedElmJsonClient();
+  await rewriteClientElmJson();
   await fsExtra.copy("./app", "./elm-stuff/elm-pages/client/app", {
     recursive: true,
   });
@@ -230,5 +233,3 @@ async function listFiles(dir) {
 function merge(arrays) {
   return [].concat.apply([], arrays);
 }
-
-module.exports = { generate, generateClientFolder };
