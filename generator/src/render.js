@@ -477,6 +477,8 @@ async function runInternalJob(
           crypto.getRandomValues(new Uint32Array(1))[0]
         ),
       ];
+    } else if (requestToPerform.url === "elm-pages-internal://now") {
+      return [requestHash, jsonResponse(requestToPerform, Date.now())];
     } else if (requestToPerform.url === "elm-pages-internal://env") {
       return [requestHash, await runEnvJob(requestToPerform, patternsToWatch)];
     } else if (requestToPerform.url === "elm-pages-internal://encrypt") {

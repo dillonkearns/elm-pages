@@ -17,6 +17,7 @@
         "BackendTask.Glob",
         "BackendTask.Http",
         "BackendTask.Random",
+        "BackendTask.Time",
         "BackendTask.File",
         "BackendTask.Custom",
         "BackendTask.Env",
