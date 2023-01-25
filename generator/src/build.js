@@ -618,7 +618,7 @@ function _HtmlAsJson_toJson(html) {
 async function runAdapter(adaptFn, processedIndexTemplate) {
   try {
     await adaptFn({
-      renderFunctionFilePath: "./elm-stuff/elm-pages/elm.js",
+      renderFunctionFilePath: "./elm-stuff/elm-pages/elm.cjs",
       routePatterns: JSON.parse(
         await fsPromises.readFile("./dist/route-patterns.json", "utf-8")
       ),

@@ -13,11 +13,11 @@ export default async function run({
 
   fs.copyFileSync(
     renderFunctionFilePath,
-    "./functions/render/elm-pages-cli.js"
+    "./functions/render/elm-pages-cli.cjs"
   );
   fs.copyFileSync(
     renderFunctionFilePath,
-    "./functions/server-render/elm-pages-cli.js"
+    "./functions/server-render/elm-pages-cli.cjs"
   );
   fs.copyFileSync(portsFilePath, "./functions/render/custom-backend-task.mjs");
   fs.copyFileSync(
@@ -138,7 +138,7 @@ async function render(event, context) {
     const renderResult = await renderer.render(
       compiledPortsFile,
       basePath,
-      (await import("./elm-pages-cli.js")).default,
+      (await import("./elm-pages-cli.cjs")).default,
       mode,
       event.path,
       await reqToJson(event, requestTime),
