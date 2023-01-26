@@ -22,9 +22,16 @@ type Response error
     = Response
         { fields : List ( String, String )
         , errors : Dict String (List error)
+        , clientErrors : Dict String (List error)
         }
 
 
-unwrapResponse : Response error -> { fields : List ( String, String ), errors : Dict String (List error) }
+unwrapResponse :
+    Response error
+    ->
+        { fields : List ( String, String )
+        , errors : Dict String (List error)
+        , clientErrors : Dict String (List error)
+        }
 unwrapResponse (Response response) =
     response

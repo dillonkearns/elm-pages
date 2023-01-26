@@ -906,6 +906,7 @@ formDataWithServerValidation formParsers =
                                                     ( Pages.Internal.Form.Response
                                                         { fields = rawFormData_
                                                         , errors = Dict.empty
+                                                        , clientErrors = Dict.empty
                                                         }
                                                     , decodedFinal
                                                     )
@@ -914,11 +915,8 @@ formDataWithServerValidation formParsers =
                                                 Err
                                                     (Pages.Internal.Form.Response
                                                         { fields = rawFormData_
-                                                        , errors =
-                                                            maybeErrors
-                                                                |> Maybe.map List.NonEmpty.toList
-                                                                |> Maybe.withDefault []
-                                                                |> Dict.fromList
+                                                        , errors = errors2
+                                                        , clientErrors = errors
                                                         }
                                                     )
                                     )
@@ -933,6 +931,7 @@ formDataWithServerValidation formParsers =
                                         |> Maybe.map List.NonEmpty.toList
                                         |> Maybe.withDefault []
                                         |> Dict.fromList
+                                , clientErrors = Dict.empty
                                 }
                             )
                             |> BackendTask.succeed
@@ -943,7 +942,7 @@ formDataWithServerValidation formParsers =
 {-| -}
 formData :
     Form.ServerForms error combined
-    -> Parser ( Form.Response error, Result { fields : List ( String, String ), errors : Dict String (List error) } combined )
+    -> Parser ( Form.Response error, Result { fields : List ( String, String ), errors : Dict String (List error), clientErrors : Dict String (List error) } combined )
 formData formParsers =
     rawFormData
         |> andThen
@@ -956,17 +955,18 @@ formData formParsers =
                 in
                 case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
                     ( Just decoded, Nothing ) ->
-                        ( Pages.Internal.Form.Response { fields = [], errors = Dict.empty }
+                        ( Pages.Internal.Form.Response { fields = [], errors = Dict.empty, clientErrors = Dict.empty }
                         , Ok decoded
                         )
                             |> succeed
 
                     ( _, maybeErrors ) ->
                         let
-                            record : { fields : List ( String, String ), errors : Dict String (List error) }
+                            record : { fields : List ( String, String ), errors : Dict String (List error), clientErrors : Dict String (List error) }
                             record =
                                 { fields = rawFormData_
-                                , errors =
+                                , errors = Dict.empty
+                                , clientErrors =
                                     maybeErrors
                                         |> Maybe.map List.NonEmpty.toList
                                         |> Maybe.withDefault []
