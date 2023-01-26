@@ -39,6 +39,7 @@ type alias RouteParams =
 
 type alias ActionData =
     { user : User
+    , formResponse : Form.Response String
     }
 
 
@@ -204,6 +205,7 @@ action routeParams =
                         -- TODO wire up BackendTask server-side validation errors
                         |> Result.withDefault defaultUser
                     )
+                    formResponse
                     |> Server.Response.render
                     |> BackendTask.succeed
             )
@@ -253,7 +255,7 @@ view maybeUrl sharedModel static =
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                (\_ -> Nothing)
+                (.formResponse >> Just)
                 static
                 defaultUser
         ]
