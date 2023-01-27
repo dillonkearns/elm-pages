@@ -4,12 +4,13 @@ import * as fs from "./dir-helpers.js";
 import { readFileSync, writeFileSync } from "fs";
 import { stat } from "fs/promises";
 import { parentPort, threadId, workerData } from "worker_threads";
+import * as url from "url";
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
   try {
     const renderResult = await renderer.render(
-      portsFilePath,
+      await import(url.pathToFileURL(path.resolve(portsFilePath)).href),
       workerData.basePath,
       await requireElm(mode),
       mode,
