@@ -2,6 +2,7 @@
   "compilerOptions": {
     "types": ["node"],
     "module": "esnext",
+    "moduleResolution": "node",
     "checkJs": true,
     "allowJs": true,
     "target": "es5",
