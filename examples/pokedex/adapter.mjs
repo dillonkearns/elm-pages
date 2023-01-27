@@ -128,7 +128,7 @@ export const handler = render;`
 async function render(event, context) {
   const requestTime = new Date();
   console.log(JSON.stringify(event));
-  const compiledPortsFile = "./custom-backend-task.mjs";
+  const compiledPortsFile = "./functions/server-render/custom-backend-task.mjs";
 
   try {
     const basePath = "/";
@@ -181,7 +181,9 @@ async function render(event, context) {
       };
     }
   } catch (error) {
+    console.log('ERROR')
     console.error(error);
+    console.error(JSON.stringify(error, null, 2));
     return {
       body: \`<body><h1>Error</h1><pre>\${error.toString()}</pre></body>\`,
       statusCode: 500,
