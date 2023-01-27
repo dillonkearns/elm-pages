@@ -5,10 +5,7 @@ const prisma = new PrismaClient();
 
 export async function users() {
   try {
-    const users = await prisma.user.findMany({
-      include: { profile: true },
-    });
-    return users;
+    return await prisma.user.findMany();
   } catch (error) {
     console.trace(error);
     return ["PRISMA ERROR"];

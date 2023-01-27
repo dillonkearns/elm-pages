@@ -98,7 +98,7 @@ data routeParams =
     Server.Request.succeed
         (BackendTask.Custom.run "users"
             Encode.null
-            (Decode.list (Decode.field "" Decode.string))
+            (Decode.list (Decode.field "name" Decode.string))
             |> BackendTask.allowFatal
             |> BackendTask.map
                 (\users ->
