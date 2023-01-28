@@ -166,7 +166,7 @@ export async function start(options) {
       bundle: true,
       watch: true,
       logLevel: "silent",
-
+      packages: "external",
       outdir: ".elm-pages/compiled-ports",
       entryNames: "[dir]/[name]-[hash]",
 

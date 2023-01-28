@@ -145,7 +145,6 @@ export async function run(options) {
       );
     await fsPromises.writeFile("dist/template.html", processedIndexTemplate);
     await fsPromises.unlink(assetManifestPath);
-
     const portBackendTaskCompiled = esbuild
       .build({
         entryPoints: ["./custom-backend-task"],
@@ -158,7 +157,7 @@ export async function run(options) {
         bundle: true,
         watch: false,
         format: "esm",
-        external: ["@prisma/client"],
+        packages: "external",
         logLevel: "silent",
       })
       .then((result) => {
