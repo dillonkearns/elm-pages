@@ -13,6 +13,7 @@ import { globbySync } from "globby";
 import * as esbuild from "esbuild";
 import { rewriteElmJson } from "./rewrite-elm-json.js";
 import { ensureDirSync, deleteIfExists } from "./file-helpers.js";
+import * as url from "url";
 
 import * as commander from "commander";
 import { runElmCodegenInstall } from "./elm-codegen.js";
@@ -135,13 +136,14 @@ async function main() {
           .build({
             entryPoints: ["./custom-backend-task"],
             platform: "node",
-            outfile: ".elm-pages/compiled-ports/custom-backend-task.js",
+            outfile: ".elm-pages/compiled-ports/custom-backend-task.mjs",
             assetNames: "[name]-[hash]",
             chunkNames: "chunks/[name]-[hash]",
-            outExtension: { ".js": ".js" },
             metafile: true,
             bundle: true,
             watch: false,
+            format: "esm",
+            packages: "external",
             logLevel: "silent",
           })
           .then((result) => {
@@ -177,7 +179,7 @@ async function main() {
         );
         await renderer.runGenerator(
           unprocessedCliOptions,
-          resolvedPortsPath,
+          await import(url.pathToFileURL(path.resolve(portsPath)).href),
           await requireElm("./script/elm-stuff/elm-pages/elm.cjs"),
           moduleName
         );
