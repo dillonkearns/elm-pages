@@ -911,7 +911,7 @@ formDataWithServerValidation formParsers =
                                                     , decodedFinal
                                                     )
 
-                                            ( _, maybeErrors ) ->
+                                            _ ->
                                                 Err
                                                     (Pages.Internal.Form.Response
                                                         { fields = rawFormData_
