@@ -58,9 +58,6 @@ function toKleurColor(color) {
       case "33BBC8": {
         return "cyan";
       }
-      case "33BBC8": {
-        return "cyan";
-      }
       case "FFFF00": {
         return "yellow";
       }
