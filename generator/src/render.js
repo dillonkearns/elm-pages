@@ -1,16 +1,16 @@
 // @ts-check
 
-import * as path from "path";
+import * as path from "node:path";
 import { default as mm } from "micromatch";
 import { default as matter } from "gray-matter";
-import * as fsPromises from "fs/promises";
 import * as globby from "globby";
+import * as fsPromises from "node:fs/promises";
 import * as preRenderHtml from "./pre-render-html.js";
 import { lookupOrPerform } from "./request-cache.js";
 import * as kleur from "kleur/colors";
 import * as cookie from "cookie-signature";
 import { compatibilityKey } from "./compatibility-key.js";
-import * as fs from "fs";
+import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 
 process.on("unhandledRejection", (error) => {

@@ -1,6 +1,6 @@
 import kleur from "kleur";
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 
 kleur.enabled = true;
 

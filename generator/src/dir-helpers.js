@@ -1,6 +1,6 @@
-import * as util from "util";
-import * as fsSync from "fs";
-import * as path from "path";
+import * as util from "node:util";
+import * as fsSync from "node:fs";
+import * as path from "node:path";
 
 const fs = {
   writeFile: util.promisify(fsSync.writeFile),
@@ -75,4 +75,3 @@ export async function copyDirNested(src, dest) {
     fs.copyFile(src, dest);
   }
 }
-
