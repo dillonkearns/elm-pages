@@ -3,8 +3,8 @@
 import * as path from "path";
 import { default as mm } from "micromatch";
 import { default as matter } from "gray-matter";
-import { globby } from "globby";
 import * as fsPromises from "fs/promises";
+import * as globby from "globby";
 import * as preRenderHtml from "./pre-render-html.js";
 import { lookupOrPerform } from "./request-cache.js";
 import * as kleur from "kleur/colors";
@@ -549,7 +549,7 @@ async function runWriteFileJob(req) {
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
-    const matchedPaths = await globby(pattern, options);
+    const matchedPaths = await globby.globby(pattern, options);
     patternsToWatch.add(pattern);
 
     return jsonResponse(
