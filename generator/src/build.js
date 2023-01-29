@@ -357,7 +357,7 @@ async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
   return fileHash;
 }
 
-function elmOptimizeLevel2(outputPath, cwd) {
+export function elmOptimizeLevel2(outputPath, cwd) {
   return new Promise((resolve, reject) => {
     const optimizedOutputPath = outputPath + ".opt";
     const subprocess = spawnCallback(
