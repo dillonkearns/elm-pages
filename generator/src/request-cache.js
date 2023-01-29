@@ -41,7 +41,14 @@ export function lookupOrPerform(
       try {
         const { input, portName } = rawRequest.body.args[0];
 
-        if (portBackendTask && portBackendTask.__internalElmPagesError) {
+        if (portBackendTask === null) {
+          resolve({
+            kind: "response-json",
+            value: jsonResponse({
+              "elm-pages-internal-error": "MissingCustomBackendTaskFile",
+            }),
+          });
+        } else if (portBackendTask && portBackendTask.__internalElmPagesError) {
           resolve({
             kind: "response-json",
             value: jsonResponse({
