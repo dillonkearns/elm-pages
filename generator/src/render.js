@@ -12,6 +12,7 @@ import * as cookie from "cookie-signature";
 import { compatibilityKey } from "./compatibility-key.js";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
+import { restoreColorSafe } from "./error-formatter.js";
 
 process.on("unhandledRejection", (error) => {
   console.error(error);
@@ -77,17 +78,21 @@ export async function runGenerator(
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   global.XMLHttpRequest = {};
-  const result = await runGeneratorAppHelp(
-    cliOptions,
-    portsFile,
-    "",
-    elmModule,
-    scriptModuleName,
-    "production",
-    "",
-    true
-  );
-  return result;
+  try {
+    const result = await runGeneratorAppHelp(
+      cliOptions,
+      portsFile,
+      "",
+      elmModule,
+      scriptModuleName,
+      "production",
+      "",
+      true
+    );
+    return result;
+  } catch (error) {
+    console.log(restoreColorSafe(error));
+  }
 }
 /**
  * @param {string} basePath
