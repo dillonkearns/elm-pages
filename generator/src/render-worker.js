@@ -10,7 +10,9 @@ async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
   try {
     const renderResult = await renderer.render(
-      await import(url.pathToFileURL(path.resolve(portsFilePath)).href),
+      typeof portsFilePath === "string"
+        ? await import(url.pathToFileURL(path.resolve(portsFilePath)).href)
+        : portsFilePath,
       workerData.basePath,
       await requireElm(mode),
       mode,

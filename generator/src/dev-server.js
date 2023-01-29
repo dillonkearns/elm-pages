@@ -155,50 +155,53 @@ export async function start(options) {
       config.vite
     )
   );
-  esbuild
-    .build({
-      entryPoints: ["./custom-backend-task"],
-      platform: "node",
-      assetNames: "[name]-[hash]",
-      chunkNames: "chunks/[name]-[hash]",
-      outExtension: { ".js": ".js" },
-      metafile: true,
-      bundle: true,
-      watch: true,
-      logLevel: "silent",
-      packages: "external",
-      outdir: ".elm-pages/compiled-ports",
-      entryNames: "[dir]/[name]-[hash]",
 
-      plugins: [
-        {
-          name: "example",
-          setup(build) {
-            build.onEnd((result) => {
-              try {
-                global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+  const ctx = await esbuild.context({
+    entryPoints: ["./custom-backend-task"],
+    platform: "node",
+    assetNames: "[name]-[hash]",
+    chunkNames: "chunks/[name]-[hash]",
+    outExtension: { ".js": ".mjs" },
+    format: "esm",
+    metafile: true,
+    bundle: true,
+    packages: "external",
+    logLevel: "silent",
+    outdir: ".elm-pages/compiled-ports",
+    entryNames: "[dir]/[name]-[hash]",
 
-                clients.forEach((client) => {
-                  client.response.write(`data: content.dat\n\n`);
-                });
-              } catch (e) {}
-            });
-          },
+    plugins: [
+      {
+        name: "example",
+        setup(build) {
+          build.onEnd(async (result) => {
+            try {
+              global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+
+              clients.forEach((client) => {
+                client.response.write(`data: content.dat\n\n`);
+              });
+            } catch (e) {
+              const messages = (
+                await esbuild.formatMessages(result.errors, {
+                  kind: "error",
+                  color: true,
+                })
+              ).join("\n");
+              global.portsFilePath = {
+                __internalElmPagesError: messages,
+              };
+
+              clients.forEach((client) => {
+                client.response.write(`data: content.dat\n\n`);
+              });
+            }
+          });
         },
-      ],
-    })
-    .then((result) => {
-      console.log("Watching custom-backend-task...");
-    })
-    .catch((error) => {
-      const portBackendTaskFileFound =
-        globbySync("./custom-backend-task.*").length > 0;
-      if (portBackendTaskFileFound) {
-        // don't present error if there are no files matching custom-backend-task
-        // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
-        console.error("Failed to start custom-backend-task watcher", error);
-      }
-    });
+      },
+    ],
+  });
+  await ctx.watch();
 
   const app = connect()
     .use(timeMiddleware())

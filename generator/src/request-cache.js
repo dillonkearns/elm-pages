@@ -41,7 +41,15 @@ export function lookupOrPerform(
       try {
         const { input, portName } = rawRequest.body.args[0];
 
-        if (!portBackendTask[portName]) {
+        if (portBackendTask && portBackendTask.__internalElmPagesError) {
+          resolve({
+            kind: "response-json",
+            value: jsonResponse({
+              "elm-pages-internal-error": "ErrorInCustomBackendTaskFile",
+              error: portBackendTask.__internalElmPagesError,
+            }),
+          });
+        } else if (portBackendTask && !portBackendTask[portName]) {
           if (portBackendTaskImportError === null) {
             resolve({
               kind: "response-json",
