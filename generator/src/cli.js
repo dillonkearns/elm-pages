@@ -143,7 +143,6 @@ async function main() {
             chunkNames: "chunks/[name]-[hash]",
             metafile: true,
             bundle: true,
-            watch: false,
             format: "esm",
             packages: "external",
             logLevel: "silent",

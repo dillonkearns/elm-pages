@@ -155,7 +155,6 @@ export async function run(options) {
         outExtension: { ".js": ".js" },
         metafile: true,
         bundle: true,
-        watch: false,
         format: "esm",
         packages: "external",
         logLevel: "silent",
