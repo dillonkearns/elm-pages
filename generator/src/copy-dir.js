@@ -1,5 +1,5 @@
-const util = require("util");
-const fsSync = require("fs");
+const util = require("node:util");
+const fsSync = require("node:fs");
 const fs = {
   writeFile: util.promisify(fsSync.writeFile),
   mkdir: util.promisify(fsSync.mkdir),

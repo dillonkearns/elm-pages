@@ -1,15 +1,18 @@
 import * as renderer from "../../generator/src/render.js";
-import * as path from "path";
+import * as path from "node:path";
 import * as fs from "./dir-helpers.js";
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { stat } from "fs/promises";
-import { parentPort, threadId, workerData } from "worker_threads";
+import { parentPort, threadId, workerData } from "node:worker_threads";
+import * as url from "url";
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
   try {
     const renderResult = await renderer.render(
-      portsFilePath,
+      typeof portsFilePath === "string"
+        ? await import(url.pathToFileURL(path.resolve(portsFilePath)).href)
+        : portsFilePath,
       workerData.basePath,
       await requireElm(mode),
       mode,

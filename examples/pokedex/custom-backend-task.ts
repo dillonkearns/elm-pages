@@ -1,6 +1,16 @@
 import kleur from "kleur";
-import something from './something.ts'
-kleur.enabled = true;
+import something from "./something.ts";
+import { PrismaClient } from "@prisma/client";
+const prisma = new PrismaClient();
+
+export async function users() {
+  try {
+    return await prisma.user.findMany();
+  } catch (error) {
+    console.trace(error);
+    return ["PRISMA ERROR"];
+  }
+}
 
 export async function environmentVariable(name) {
   const result = process.env[name];

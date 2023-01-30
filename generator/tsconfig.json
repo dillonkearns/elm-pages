@@ -1,12 +1,10 @@
 {
   "compilerOptions": {
     "types": ["node"],
-    "module": "esnext",
+    "moduleResolution": "node",
     "checkJs": true,
     "allowJs": true,
-    "target": "es5",
     "strict": true,
-    "sourceMap": false,
     "resolveJsonModule": true,
     "lib": ["es2015", "es2017.object", "esnext", "dom"]
   },

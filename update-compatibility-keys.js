@@ -1,6 +1,6 @@
 #!/usr/bin/node
 
-const fs = require("fs");
+const fs = require("node:fs");
 
 const currentCompatibilityKey = 6;
 

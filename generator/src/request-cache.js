@@ -10,7 +10,7 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
 /**
  * @param {string} mode
  * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body;}} rawRequest
- * @param {string} portsFile
+ * @param {Record<string, unknown>} portsFile
  * @param {boolean} hasFsAccess
  * @returns {Promise<Response>}
  */
@@ -27,16 +27,12 @@ export function lookupOrPerform(
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
 
-    let portBackendTask = {};
+    let portBackendTask = portsFile;
     let portBackendTaskImportError = null;
     try {
       if (portsFile === undefined) {
         throw "missing";
       }
-      const portBackendTaskPath = path.resolve(portsFile);
-      // On Windows, we need cannot use paths directly and instead must use a file:// URL.
-      // portBackendTask = await require(url.pathToFileURL(portBackendTaskPath).href);
-      portBackendTask = await import(portBackendTaskPath);
     } catch (e) {
       portBackendTaskImportError = e;
     }
@@ -45,7 +41,22 @@ export function lookupOrPerform(
       try {
         const { input, portName } = rawRequest.body.args[0];
 
-        if (!portBackendTask[portName]) {
+        if (portBackendTask === null) {
+          resolve({
+            kind: "response-json",
+            value: jsonResponse({
+              "elm-pages-internal-error": "MissingCustomBackendTaskFile",
+            }),
+          });
+        } else if (portBackendTask && portBackendTask.__internalElmPagesError) {
+          resolve({
+            kind: "response-json",
+            value: jsonResponse({
+              "elm-pages-internal-error": "ErrorInCustomBackendTaskFile",
+              error: portBackendTask.__internalElmPagesError,
+            }),
+          });
+        } else if (portBackendTask && !portBackendTask[portName]) {
           if (portBackendTaskImportError === null) {
             resolve({
               kind: "response-json",

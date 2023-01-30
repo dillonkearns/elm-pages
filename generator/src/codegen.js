@@ -1,4 +1,4 @@
-import * as fs from "fs";
+import * as fs from "node:fs";
 import * as fsExtra from "fs-extra/esm";
 import { rewriteElmJson } from "./rewrite-elm-json.js";
 import { rewriteClientElmJson } from "./rewrite-client-elm-json.js";

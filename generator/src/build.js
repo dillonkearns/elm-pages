@@ -145,18 +145,18 @@ export async function run(options) {
       );
     await fsPromises.writeFile("dist/template.html", processedIndexTemplate);
     await fsPromises.unlink(assetManifestPath);
-
     const portBackendTaskCompiled = esbuild
       .build({
         entryPoints: ["./custom-backend-task"],
         platform: "node",
-        outfile: ".elm-pages/compiled-ports/custom-backend-task.js",
+        outfile: ".elm-pages/compiled-ports/custom-backend-task.mjs",
         assetNames: "[name]-[hash]",
         chunkNames: "chunks/[name]-[hash]",
         outExtension: { ".js": ".js" },
         metafile: true,
         bundle: true,
-        watch: false,
+        format: "esm",
+        packages: "external",
         logLevel: "silent",
       })
       .then((result) => {
@@ -356,7 +356,7 @@ async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
   return fileHash;
 }
 
-function elmOptimizeLevel2(outputPath, cwd) {
+export function elmOptimizeLevel2(outputPath, cwd) {
   return new Promise((resolve, reject) => {
     const optimizedOutputPath = outputPath + ".opt";
     const subprocess = spawnCallback(
@@ -625,7 +625,7 @@ async function runAdapter(adaptFn, processedIndexTemplate) {
       apiRoutePatterns: JSON.parse(
         await fsPromises.readFile("./dist/api-patterns.json", "utf-8")
       ),
-      portsFilePath: "./.elm-pages/compiled-ports/custom-backend-task.js",
+      portsFilePath: "./.elm-pages/compiled-ports/custom-backend-task.mjs",
       htmlTemplate: processedIndexTemplate,
     });
     console.log("Success - Adapter script complete");
