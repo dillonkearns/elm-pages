@@ -27,7 +27,6 @@ import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Script as Script
 import Pages.Url
-import Request.Hasura
 import Route
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import SendGrid
@@ -215,13 +214,15 @@ data routeParams =
                                 (\emailIfValid ->
                                     case maybeSessionId of
                                         Just sessionId ->
-                                            Data.Session.get sessionId
-                                                |> Request.Hasura.backendTask
+                                            BackendTask.Custom.run
+                                                "getEmailBySessionId"
+                                                (Encode.string sessionId)
+                                                (Decode.maybe Decode.string)
+                                                |> BackendTask.allowFatal
                                                 |> BackendTask.map
                                                     (\maybeUserSession ->
                                                         ( okSessionThing
                                                         , maybeUserSession
-                                                            |> Maybe.map .emailAddress
                                                             |> Data
                                                             |> Server.Response.render
                                                         )
@@ -230,24 +231,27 @@ data routeParams =
                                         Nothing ->
                                             case emailIfValid of
                                                 Just confirmedEmail ->
-                                                    Data.Session.findOrCreateUser confirmedEmail
-                                                        |> Request.Hasura.mutationBackendTask
+                                                    BackendTask.Time.now
                                                         |> BackendTask.andThen
-                                                            (\userId ->
-                                                                BackendTask.Time.now
-                                                                    |> BackendTask.andThen
-                                                                        (\now_ ->
-                                                                            let
-                                                                                expirationTime : Time.Posix
-                                                                                expirationTime =
-                                                                                    Time.millisToPosix (Time.posixToMillis now_ + (1000 * 60 * 30))
-                                                                            in
-                                                                            Data.Session.create expirationTime userId
-                                                                                |> Request.Hasura.mutationBackendTask
-                                                                        )
+                                                            (\now_ ->
+                                                                let
+                                                                    expirationTime : Time.Posix
+                                                                    expirationTime =
+                                                                        Time.millisToPosix (Time.posixToMillis now_ + (1000 * 60 * 30))
+                                                                in
+                                                                BackendTask.Custom.run "findOrCreateUserAndSession"
+                                                                    (Encode.object
+                                                                        [ ( "confirmedEmail"
+                                                                          , Encode.string confirmedEmail
+                                                                          )
+                                                                        , ( "expirationTime", expirationTime |> Time.posixToMillis |> Encode.int )
+                                                                        ]
+                                                                    )
+                                                                    Decode.string
+                                                                    |> BackendTask.allowFatal
                                                             )
                                                         |> BackendTask.map
-                                                            (\(Uuid sessionId) ->
+                                                            (\sessionId ->
                                                                 ( okSessionThing
                                                                     |> Session.insert "sessionId" sessionId
                                                                 , Route.Visibility__ { visibility = Nothing }
@@ -267,13 +271,19 @@ data routeParams =
 
                     Nothing ->
                         maybeSessionId
-                            |> Maybe.map (Data.Session.get >> Request.Hasura.backendTask)
+                            |> Maybe.map
+                                (\sessionId ->
+                                    BackendTask.Custom.run
+                                        "getEmailBySessionId"
+                                        (Encode.string sessionId)
+                                        (Decode.maybe Decode.string)
+                                )
                             |> Maybe.withDefault (BackendTask.succeed Nothing)
+                            |> BackendTask.allowFatal
                             |> BackendTask.map
-                                (\maybeUserSession ->
+                                (\maybeEmail ->
                                     ( okSessionThing
-                                    , maybeUserSession
-                                        |> Maybe.map .emailAddress
+                                    , maybeEmail
                                         |> Data
                                         |> Server.Response.render
                                     )

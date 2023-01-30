@@ -2,6 +2,7 @@ module Route.Visibility__ exposing (ActionData, Data, Model, Msg, route)
 
 import Api.Scalar exposing (Uuid(..))
 import BackendTask exposing (BackendTask)
+import BackendTask.Custom
 import Data.Session
 import Data.Todo
 import Dict exposing (Dict)
@@ -18,6 +19,8 @@ import Html.Attributes exposing (..)
 import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy, lazy2)
 import Icon
+import Json.Decode as Decode
+import Json.Encode as Encode
 import LoadingSpinner
 import MySession
 import Pages.Msg
@@ -214,17 +217,15 @@ data routeParams =
             (\parsedSession requestTime session ->
                 case visibilityFromRouteParams routeParams of
                     Just visibility ->
-                        Data.Todo.findAllBySession parsedSession
-                            |> Request.Hasura.backendTask
+                        BackendTask.Custom.run "getTodosBySession"
+                            (Encode.string parsedSession)
+                            (Decode.list todoDecoder)
+                            |> BackendTask.allowFatal
                             |> BackendTask.map
                                 (\todos ->
                                     ( session
                                     , Response.render
-                                        { entries =
-                                            todos
-                                                -- TODO add error handling for Nothing case
-                                                |> Maybe.withDefault []
-                                                |> List.map toOptimisticTodo
+                                        { entries = todos |> List.map toOptimisticTodo
                                         , visibility = visibility
                                         , requestTime = requestTime
                                         }
@@ -238,6 +239,21 @@ data routeParams =
                                 |> Route.redirectTo
                             )
             )
+
+
+type alias Todo =
+    { description : String
+    , completed : Bool
+    , id : Uuid
+    }
+
+
+todoDecoder : Decode.Decoder Todo
+todoDecoder =
+    Decode.map3 Todo
+        (Decode.field "title" Decode.string)
+        (Decode.field "complete" Decode.bool)
+        (Decode.field "id" (Decode.string |> Decode.map Uuid))
 
 
 action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
