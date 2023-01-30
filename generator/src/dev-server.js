@@ -143,10 +143,11 @@ export async function start(options) {
     merge_vite_configs(
       {
         server: {
-          middlewareMode: "ssr",
+          middlewareMode: true,
           base: options.base,
           port: options.port,
         },
+        appType: "custom",
         configFile: false,
         root: process.cwd(),
         base: options.base,
