@@ -1,8 +1,13 @@
-module BackendTask.Random exposing (generate)
+module BackendTask.Random exposing
+    ( generate
+    , int32
+    )
 
 {-|
 
 @docs generate
+
+@docs int32
 
 -}
 
