@@ -2,6 +2,7 @@ module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import BackendTask
 import Effect exposing (Effect)
+import FatalError exposing (FatalError)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages.Flags
@@ -75,7 +76,7 @@ subscriptions _ _ =
     Sub.none
 
 
-data : BackendTask.BackendTask Data
+data : BackendTask.BackendTask FatalError Data
 data =
     BackendTask.succeed ()
 

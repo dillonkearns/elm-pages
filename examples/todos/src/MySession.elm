@@ -3,6 +3,7 @@ module MySession exposing (..)
 import BackendTask exposing (BackendTask)
 import BackendTask.Env as Env
 import Codec
+import FatalError exposing (FatalError)
 import Route
 import Server.Request exposing (Parser)
 import Server.Response exposing (Response)
@@ -18,25 +19,25 @@ cookieOptions =
 
 
 withSession :
-    (request -> Result Session.NotLoadedReason Session.Session -> BackendTask ( Session.Session, Response data errorPage ))
+    (request -> Result Session.NotLoadedReason Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (BackendTask (Response data errorPage))
+    -> Parser (BackendTask FatalError (Response data errorPage))
 withSession =
     Session.withSession
         { name = "mysession"
-        , secrets = Env.expect "SESSION_SECRET" |> BackendTask.map List.singleton
+        , secrets = secrets
         , options = cookieOptions
         }
 
 
 withSessionOrRedirect :
-    (request -> Session.Session -> BackendTask ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (BackendTask (Response data errorPage))
+    -> Parser (BackendTask FatalError (Response data errorPage))
 withSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
-        , secrets = Env.expect "SESSION_SECRET" |> BackendTask.map List.singleton
+        , secrets = secrets
         , options = cookieOptions
         }
         (\request sessionResult ->
@@ -52,14 +53,21 @@ withSessionOrRedirect toRequest handler =
         handler
 
 
+secrets : BackendTask FatalError (List String)
+secrets =
+    Env.expect "SESSION_SECRET"
+        |> BackendTask.allowFatal
+        |> BackendTask.map List.singleton
+
+
 expectSessionOrRedirect :
-    (request -> Session.Session -> BackendTask ( Session.Session, Response data errorPage ))
+    (request -> Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (BackendTask (Response data errorPage))
+    -> Parser (BackendTask FatalError (Response data errorPage))
 expectSessionOrRedirect toRequest handler =
     Session.withSession
         { name = "mysession"
-        , secrets = Env.expect "SESSION_SECRET" |> BackendTask.map List.singleton
+        , secrets = secrets
         , options = cookieOptions
         }
         (\request sessionResult ->
@@ -77,9 +85,9 @@ expectSessionOrRedirect toRequest handler =
 
 expectSessionDataOrRedirect :
     (Session.Session -> Maybe parsedSession)
-    -> (parsedSession -> request -> Session.Session -> BackendTask ( Session.Session, Response data errorPage ))
+    -> (parsedSession -> request -> Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
     -> Parser request
-    -> Parser (BackendTask (Response data errorPage))
+    -> Parser (BackendTask FatalError (Response data errorPage))
 expectSessionDataOrRedirect parseSessionData handler toRequest =
     toRequest
         |> expectSessionOrRedirect

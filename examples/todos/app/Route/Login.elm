@@ -5,10 +5,12 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Env
 import BackendTask.Http
+import BackendTask.Time
 import Data.Session
 import Dict exposing (Dict)
 import EmailAddress exposing (EmailAddress)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
@@ -23,6 +25,7 @@ import List.Nonempty
 import MySession
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
+import Pages.Script as Script
 import Pages.Url
 import Request.Hasura
 import Route
@@ -59,16 +62,9 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-now : BackendTask Time.Posix
-now =
-    BackendTask.Custom.run "now"
-        Encode.null
-        (Decode.int |> Decode.map Time.millisToPosix)
-
-
-emailToMagicLink : EmailAddress -> String -> BackendTask String
+emailToMagicLink : EmailAddress -> String -> BackendTask FatalError String
 emailToMagicLink email baseUrl =
-    now
+    BackendTask.Time.now
         |> BackendTask.andThen
             (\now_ ->
                 BackendTask.Custom.run "encrypt"
@@ -86,6 +82,7 @@ emailToMagicLink email baseUrl =
                             )
                     )
             )
+        |> BackendTask.allowFatal
 
 
 type alias EnvVariables =
@@ -94,7 +91,7 @@ type alias EnvVariables =
     }
 
 
-form : Form.DoneForm String (BackendTask (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (BackendTask FatalError (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
 form =
     Form.init
         (\fieldEmail ->
@@ -102,7 +99,7 @@ form =
                 Validation.succeed
                     (\email ->
                         BackendTask.map2 EnvVariables
-                            (BackendTask.Env.expect "TODOS_SEND_GRID_KEY")
+                            (BackendTask.Env.expect "TODOS_SEND_GRID_KEY" |> BackendTask.allowFatal)
                             (BackendTask.Env.get "BASE_URL"
                                 |> BackendTask.map (Maybe.withDefault "http://localhost:1234")
                             )
@@ -195,7 +192,7 @@ globalErrors formState =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.queryParam "magic"
         |> MySession.withSession
@@ -237,7 +234,7 @@ data routeParams =
                                                         |> Request.Hasura.mutationBackendTask
                                                         |> BackendTask.andThen
                                                             (\userId ->
-                                                                now
+                                                                BackendTask.Time.now
                                                                     |> BackendTask.andThen
                                                                         (\now_ ->
                                                                             let
@@ -284,7 +281,7 @@ data routeParams =
             )
 
 
-allForms : Form.ServerForms String (BackendTask (Combined String Action))
+allForms : Form.ServerForms String (BackendTask FatalError (Combined String Action))
 allForms =
     logoutForm
         |> Form.toServerForm
@@ -292,7 +289,7 @@ allForms =
         |> Form.combineServer LogIn form
 
 
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
         (Request.oneOf
@@ -311,7 +308,7 @@ action routeParams =
                                         |> Result.withDefault Session.empty
                             in
                             case usernameResult of
-                                Err (Form.Response error) ->
+                                Err error ->
                                     ( okSession
                                     , Server.Response.render
                                         { maybeError = Just error
@@ -369,11 +366,7 @@ type alias Data =
 
 
 type alias ActionData =
-    { maybeError :
-        Maybe
-            { fields : List ( String, String )
-            , errors : Dict String (List String)
-            }
+    { maybeError : Maybe (Form.Response String)
     , sentLink : Bool
     }
 
@@ -399,7 +392,7 @@ view _ sharedModel app =
                                 , logoutForm
                                     |> Form.toDynamicTransition "logout"
                                     |> Form.renderHtml []
-                                        Nothing
+                                        (\_ -> Nothing)
                                         app
                                         ()
                                 ]
@@ -409,12 +402,7 @@ view _ sharedModel app =
                     ]
                 , form
                     |> Form.toDynamicTransition "login"
-                    |> Form.renderHtml []
-                        (app.action
-                            |> Maybe.andThen .maybeError
-                        )
-                        app
-                        ()
+                    |> Form.renderHtml [] .maybeError app ()
                 ]
         ]
     }
@@ -425,7 +413,7 @@ sendFake =
     False
 
 
-sendEmailBackendTask : EmailAddress -> EnvVariables -> BackendTask (Result SendGrid.Error ())
+sendEmailBackendTask : EmailAddress -> EnvVariables -> BackendTask FatalError (Result SendGrid.Error ())
 sendEmailBackendTask recipient env =
     emailToMagicLink recipient env.siteUrl
         |> BackendTask.andThen
@@ -438,7 +426,7 @@ sendEmailBackendTask recipient env =
                 if sendFake then
                     message
                         |> String.Nonempty.toString
-                        |> log
+                        |> Script.log
                         |> BackendTask.map Ok
 
                 else
@@ -459,43 +447,46 @@ sendEmailBackendTask recipient env =
                                     }
                                     |> sendEmail env.sendGridKey
                             )
-                        |> Maybe.withDefault (BackendTask.fail "Expected a valid sender email address.")
+                        |> Maybe.withDefault (BackendTask.fail (FatalError.fromString "Expected a valid sender email address."))
             )
 
 
 sendEmail :
     String
     -> SendGrid.Email
-    -> BackendTask (Result SendGrid.Error ())
+    -> BackendTask noError (Result SendGrid.Error ())
 sendEmail apiKey_ email_ =
-    BackendTask.Http.requestWithOptions
+    BackendTask.Http.request
         { method = "POST"
         , headers = [ ( "Authorization", "Bearer " ++ apiKey_ ) ]
         , url = SendGrid.sendGridApiUrl
         , body = SendGrid.encodeSendEmail email_ |> BackendTask.Http.jsonBody
+        , retries = Nothing
+        , timeoutInMs = Nothing
         }
-        BackendTask.Http.expectStringResponse
-        |> BackendTask.map
+        (BackendTask.Http.expectWhatever ())
+        |> BackendTask.mapError
             (\response ->
-                case response of
-                    BackendTask.Http.BadUrl_ url ->
-                        SendGrid.BadUrl url |> Err
+                case response.recoverable of
+                    BackendTask.Http.BadUrl url ->
+                        SendGrid.BadUrl url
 
-                    BackendTask.Http.Timeout_ ->
-                        Err SendGrid.Timeout
+                    BackendTask.Http.Timeout ->
+                        SendGrid.Timeout
 
-                    BackendTask.Http.NetworkError_ ->
-                        Err SendGrid.NetworkError
+                    BackendTask.Http.NetworkError ->
+                        SendGrid.NetworkError
 
-                    BackendTask.Http.BadStatus_ metadata body ->
-                        SendGrid.decodeBadStatus metadata body |> Err
+                    BackendTask.Http.BadStatus metadata body ->
+                        SendGrid.decodeBadStatus metadata body
 
-                    BackendTask.Http.GoodStatus_ _ _ ->
-                        Ok ()
+                    BackendTask.Http.BadBody maybeError string ->
+                        SendGrid.BadUrl ""
             )
+        |> BackendTask.toResult
 
 
-parseMagicHash : String -> BackendTask ( String, Time.Posix )
+parseMagicHash : String -> BackendTask FatalError ( String, Time.Posix )
 parseMagicHash magicHash =
     BackendTask.Custom.run "decrypt"
         (Encode.string magicHash)
@@ -509,10 +500,11 @@ parseMagicHash magicHash =
                     >> Result.mapError Decode.errorToString
                 )
         )
-        |> BackendTask.andThen BackendTask.fromResult
+        |> BackendTask.allowFatal
+        |> BackendTask.andThen (BackendTask.fromResult >> BackendTask.mapError FatalError.fromString)
 
 
-parseMagicHashIfNotExpired : String -> BackendTask (Maybe String)
+parseMagicHashIfNotExpired : String -> BackendTask FatalError (Maybe String)
 parseMagicHashIfNotExpired magicHash =
     BackendTask.map2
         (\( email, expiresAt ) currentTime ->
@@ -528,11 +520,4 @@ parseMagicHashIfNotExpired magicHash =
                 Just email
         )
         (parseMagicHash magicHash)
-        now
-
-
-log : String -> BackendTask ()
-log message =
-    BackendTask.Custom.run "log"
-        (Encode.string message)
-        (Decode.succeed ())
+        BackendTask.Time.now

@@ -7,6 +7,7 @@ import Data.Todo
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView as FieldView
@@ -157,7 +158,7 @@ update pageUrl sharedModel static msg model =
             ( { model | nextId = currentTime }, Effect.none )
 
 
-performAction : Time.Posix -> Action -> Uuid -> BackendTask (Response ActionData ErrorPage)
+performAction : Time.Posix -> Action -> Uuid -> BackendTask FatalError (Response ActionData ErrorPage)
 performAction requestTime actionInput userId =
     case actionInput of
         Add newItemDescription ->
@@ -206,7 +207,7 @@ performAction requestTime actionInput userId =
                 |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
+data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.requestTime
         |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
@@ -239,13 +240,13 @@ data routeParams =
             )
 
 
-action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
+action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
         Request.requestTime
         (Request.formData allForms)
         |> MySession.withSession
-            (\( requestTime, formResult ) session ->
+            (\( requestTime, ( formResponse, formResult ) ) session ->
                 case formResult of
                     Ok actionInput ->
                         actionInput
@@ -265,8 +266,8 @@ action routeParams =
 
 withUserSession :
     Result x Session
-    -> (Uuid -> BackendTask (Response ActionData ErrorPage))
-    -> BackendTask ( Session, Response ActionData ErrorPage )
+    -> (Uuid -> BackendTask FatalError (Response ActionData ErrorPage))
+    -> BackendTask FatalError ( Session, Response ActionData ErrorPage )
 withUserSession cookieSession continue =
     let
         okSession : Session
@@ -501,7 +502,7 @@ view maybeUrl sharedModel model app =
                         [ class "create-form"
                         , hidden (not (List.isEmpty failedAddItemActions))
                         ]
-                        Nothing
+                        (\_ -> Nothing)
                         app
                         Nothing
                 , div []
@@ -512,7 +513,7 @@ view maybeUrl sharedModel model app =
                                     |> Form.toDynamicFetcher key
                                     |> Form.withOnSubmit (\_ -> NewItemSubmitted)
                                     |> Form.renderHtml [ class "create-form", hidden (index /= 0) ]
-                                        Nothing
+                                        (\_ -> Nothing)
                                         app
                                         (Just createFetcherErrors)
                             )
@@ -745,7 +746,7 @@ viewEntries app visibility entries =
         ]
         [ toggleAllForm
             |> Form.toDynamicFetcher "toggle-all"
-            |> Form.renderHtml [] Nothing app { allCompleted = allCompleted }
+            |> Form.renderHtml [] (\_ -> Nothing) app { allCompleted = allCompleted }
         , Keyed.ul [ class "todo-list" ] <|
             List.map (viewKeyedEntry app) (List.filter isVisible entries)
         ]
@@ -771,17 +772,17 @@ viewEntry app todo =
             [ class "view" ]
             [ checkItemForm
                 |> Form.toDynamicFetcher ("toggle-" ++ uuidToString todo.id)
-                |> Form.renderHtml [] Nothing app todo
+                |> Form.renderHtml [] (\_ -> Nothing) app todo
             , editItemForm
                 |> Form.toDynamicFetcher ("edit-" ++ uuidToString todo.id)
-                |> Form.renderHtml [] Nothing app todo
+                |> Form.renderHtml [] (\_ -> Nothing) app todo
             , if todo.isSaving then
                 LoadingSpinner.view
 
               else
                 deleteItemForm
                     |> Form.toDynamicFetcher ("delete-" ++ uuidToString todo.id)
-                    |> Form.renderHtml [] Nothing app todo
+                    |> Form.renderHtml [] (\_ -> Nothing) app todo
             ]
         ]
 
@@ -877,7 +878,7 @@ viewControlsClear : StaticPayload Data ActionData RouteParams -> Int -> Html (Pa
 viewControlsClear app entriesCompleted =
     clearCompletedForm
         |> Form.toDynamicFetcher "clear-completed"
-        |> Form.renderHtml [] Nothing app { entriesCompleted = entriesCompleted }
+        |> Form.renderHtml [] (\_ -> Nothing) app { entriesCompleted = entriesCompleted }
 
 
 infoFooter : Html msg

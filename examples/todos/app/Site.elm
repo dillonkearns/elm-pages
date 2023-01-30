@@ -1,6 +1,7 @@
 module Site exposing (canonicalUrl, config)
 
 import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
 import Head
 import Route
 import SiteConfig exposing (SiteConfig)
@@ -22,7 +23,7 @@ canonicalUrl =
     "https://elm-pages.com"
 
 
-head : BackendTask (List Head.Tag)
+head : BackendTask FatalError (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
