@@ -525,15 +525,6 @@ view maybeUrl sharedModel model app =
                 , viewControls app optimisticVisibility optimisticEntities
                 ]
             , infoFooter
-
-            --, pre [ style "white-space" "break-spaces" ]
-            --    [ text
-            --        (app.fetchers
-            --            |> Dict.toList
-            --            |> List.map Debug.toString
-            --            |> String.join "\n"
-            --        )
-            --    ]
             ]
         ]
     }
