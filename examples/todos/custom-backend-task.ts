@@ -174,8 +174,9 @@ export async function findOrCreateUserAndSession({
         sessions: { create: { expirationDate } },
       },
       update: { sessions: { create: { expirationDate } } },
-      // TODO should this be descending? Or is `asc` correct?
-      include: { sessions: { take: 1, orderBy: { createdAt: "asc" } } },
+      include: {
+        sessions: { take: 1, orderBy: { createdAt: "desc" } },
+      },
     });
     return result.sessions[0].id;
   } catch (e) {
