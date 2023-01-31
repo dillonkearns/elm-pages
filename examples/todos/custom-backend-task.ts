@@ -63,9 +63,10 @@ export async function updateTodo({ sessionId, todoId, description }) {
 }
 
 export async function deleteTodo({ sessionId, todoId }) {
-  await prisma.todo.delete({
+  await prisma.todo.deleteMany({
     where: {
       id: todoId,
+      user: whereSession(sessionId),
     },
   });
 }
