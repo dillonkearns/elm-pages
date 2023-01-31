@@ -11,3 +11,4 @@
 
 [functions]
   included_files = ["content/**"]
+  node_bundler = "esbuild"
