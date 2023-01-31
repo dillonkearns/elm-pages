@@ -161,52 +161,79 @@ update pageUrl sharedModel static msg model =
             ( { model | nextId = currentTime }, Effect.none )
 
 
-performAction : Time.Posix -> Action -> Uuid -> BackendTask FatalError (Response ActionData ErrorPage)
-performAction requestTime actionInput userId =
+performAction : Time.Posix -> Action -> String -> BackendTask FatalError (Response ActionData ErrorPage)
+performAction requestTime actionInput sessionId =
     case actionInput of
         Add newItemDescription ->
             if newItemDescription |> String.contains "error" then
                 BackendTask.succeed (Response.render { errors = Just "Cannot contain the word error" })
 
             else
-                Data.Todo.create requestTime userId newItemDescription
-                    |> Request.Hasura.mutationBackendTask
+                BackendTask.Custom.run "createTodo"
+                    (Encode.object
+                        [ ( "sessionId", sessionId |> Encode.string )
+                        , ( "requestTime", requestTime |> Time.posixToMillis |> Encode.int )
+                        , ( "description", newItemDescription |> Encode.string )
+                        ]
+                    )
+                    (Decode.succeed ())
+                    |> BackendTask.allowFatal
                     |> BackendTask.map (\_ -> Response.render { errors = Nothing })
 
         UpdateEntry ( itemId, newDescription ) ->
-            Data.Todo.update
-                { userId = userId
-                , todoId = Uuid itemId
-                , newDescription = newDescription
-                }
-                |> Request.Hasura.mutationBackendTask
+            BackendTask.Custom.run "updateTodo"
+                (Encode.object
+                    [ ( "sessionId", sessionId |> Encode.string )
+                    , ( "todoId", itemId |> Encode.string )
+                    , ( "description", newDescription |> Encode.string )
+                    ]
+                )
+                (Decode.succeed ())
+                |> BackendTask.allowFatal
                 |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
         Delete itemId ->
-            Data.Todo.delete
-                { userId = userId
-                , itemId = Uuid itemId
-                }
-                |> Request.Hasura.mutationBackendTask
+            BackendTask.Custom.run "deleteTodo"
+                (Encode.object
+                    [ ( "sessionId", sessionId |> Encode.string )
+                    , ( "todoId", itemId |> Encode.string )
+                    ]
+                )
+                (Decode.succeed ())
+                |> BackendTask.allowFatal
                 |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
         DeleteComplete ->
-            Data.Todo.clearCompletedTodos userId
-                |> Request.Hasura.mutationBackendTask
+            BackendTask.Custom.run "clearCompletedTodos"
+                (Encode.object
+                    [ ( "sessionId", sessionId |> Encode.string )
+                    ]
+                )
+                (Decode.succeed ())
+                |> BackendTask.allowFatal
                 |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
         Check ( newCompleteValue, itemId ) ->
-            Data.Todo.setCompleteTo
-                { userId = userId
-                , itemId = Uuid itemId
-                , newCompleteValue = newCompleteValue
-                }
-                |> Request.Hasura.mutationBackendTask
+            BackendTask.Custom.run "setTodoCompletion"
+                (Encode.object
+                    [ ( "sessionId", sessionId |> Encode.string )
+                    , ( "todoId", itemId |> Encode.string )
+                    , ( "complete", newCompleteValue |> Encode.bool )
+                    ]
+                )
+                (Decode.succeed ())
+                |> BackendTask.allowFatal
                 |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
         CheckAll toggleTo ->
-            Data.Todo.toggleAllTo userId toggleTo
-                |> Request.Hasura.mutationBackendTask
+            BackendTask.Custom.run "checkAllTodos"
+                (Encode.object
+                    [ ( "sessionId", sessionId |> Encode.string )
+                    , ( "toggleTo", toggleTo |> Encode.bool )
+                    ]
+                )
+                (Decode.succeed ())
+                |> BackendTask.allowFatal
                 |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
 
@@ -263,57 +290,21 @@ action routeParams =
         (Request.formData allForms)
         |> MySession.withSession
             (\( requestTime, ( formResponse, formResult ) ) session ->
+                let
+                    okSession : Session
+                    okSession =
+                        session
+                            |> Result.withDefault Session.empty
+                in
                 case formResult of
                     Ok actionInput ->
-                        actionInput
-                            |> performAction requestTime
-                            |> withUserSession session
+                        (okSession |> Session.get "sessionId" |> Maybe.withDefault "")
+                            |> performAction requestTime actionInput
+                            |> BackendTask.map (Tuple.pair okSession)
 
                     Err _ ->
-                        let
-                            okSession : Session
-                            okSession =
-                                session
-                                    |> Result.withDefault Session.empty
-                        in
                         BackendTask.succeed ( okSession, Response.render { errors = Nothing } )
             )
-
-
-withUserSession :
-    Result x Session
-    -> (Uuid -> BackendTask FatalError (Response ActionData ErrorPage))
-    -> BackendTask FatalError ( Session, Response ActionData ErrorPage )
-withUserSession cookieSession continue =
-    let
-        okSession : Session
-        okSession =
-            cookieSession
-                |> Result.withDefault Session.empty
-    in
-    okSession
-        |> Session.get "sessionId"
-        |> Maybe.map Data.Session.get
-        |> Maybe.map Request.Hasura.backendTask
-        |> Maybe.map
-            (BackendTask.andThen
-                (\maybeUserSession ->
-                    let
-                        maybeUserId : Maybe Uuid
-                        maybeUserId =
-                            maybeUserSession
-                                |> Maybe.map .id
-                    in
-                    case maybeUserId of
-                        Nothing ->
-                            BackendTask.succeed ( okSession, Response.render { errors = Nothing } )
-
-                        Just userId ->
-                            continue userId
-                                |> BackendTask.map (Tuple.pair okSession)
-                )
-            )
-        |> Maybe.withDefault (BackendTask.succeed ( okSession, Response.render { errors = Nothing } ))
 
 
 visibilityFromRouteParams : RouteParams -> Maybe Visibility
