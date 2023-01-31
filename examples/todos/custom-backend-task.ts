@@ -185,9 +185,9 @@ export async function findOrCreateUserAndSession({
   }
 }
 
-/* Encrypt/decrypt code source: https://github.com/kentcdodds/kentcdodds.com/blob/43130b0d9033219920a46bb8a4f009781afa02f1/app/utils/encryption.server.ts */
+/* Encrypt/decrypt code source: https://github.com/kentcdodds/kentcdodds.com/blob/fe107c6d284012a72cc98f076479bfd6dbe7fb02/app/utils/encryption.server.ts */
 
-const algorithm = "aes-256-ctr";
+const algorithm = "aes-256-gcm";
 
 let secret = "not-at-all-secret";
 if (process.env.MAGIC_LINK_SECRET) {
@@ -197,28 +197,30 @@ if (process.env.MAGIC_LINK_SECRET) {
 }
 
 const ENCRYPTION_KEY = crypto.scryptSync(secret, "salt", 32);
-
-const IV_LENGTH = 16;
+const IV_LENGTH = 12;
+const UTF8 = "utf8";
+const HEX = "hex";
 
 export function encrypt(text: string) {
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(algorithm, ENCRYPTION_KEY, iv);
-  const encrypted = Buffer.concat([cipher.update(text), cipher.final()]);
-  return `${iv.toString("hex")}:${encrypted.toString("hex")}`;
+  let encrypted = cipher.update(text, UTF8, HEX);
+  encrypted += cipher.final(HEX);
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString(HEX)}:${authTag.toString(HEX)}:${encrypted}`;
 }
 
 export function decrypt(text: string) {
-  const [ivPart, encryptedPart] = text.split(":");
-  if (!ivPart || !encryptedPart) {
+  const [ivPart, authTagPart, encryptedText] = text.split(":");
+  if (!ivPart || !authTagPart || !encryptedText) {
     throw new Error("Invalid text.");
   }
 
-  const iv = Buffer.from(ivPart, "hex");
-  const encryptedText = Buffer.from(encryptedPart, "hex");
+  const iv = Buffer.from(ivPart, HEX);
+  const authTag = Buffer.from(authTagPart, HEX);
   const decipher = crypto.createDecipheriv(algorithm, ENCRYPTION_KEY, iv);
-  const decrypted = Buffer.concat([
-    decipher.update(encryptedText),
-    decipher.final(),
-  ]);
-  return decrypted.toString();
+  decipher.setAuthTag(authTag);
+  let decrypted = decipher.update(encryptedText, HEX, UTF8);
+  decrypted += decipher.final(UTF8);
+  return decrypted;
 }
