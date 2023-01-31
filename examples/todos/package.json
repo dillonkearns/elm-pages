@@ -1,5 +1,6 @@
 {
   "name": "elm-pages-example",
+  "type": "module",
   "version": "1.0.0",
   "description": "Example site built with elm-pages.",
   "scripts": {
