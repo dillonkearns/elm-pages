@@ -1,13 +1,10 @@
 module Route.Login exposing (ActionData, Data, Model, Msg, route)
 
-import Api.Scalar exposing (Uuid(..))
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Env
 import BackendTask.Http
 import BackendTask.Time
-import Data.Session
-import Dict exposing (Dict)
 import EmailAddress exposing (EmailAddress)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)

@@ -1,10 +1,7 @@
 module Route.Visibility__ exposing (ActionData, Data, Model, Msg, route)
 
-import Api.Scalar exposing (Uuid(..))
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
-import Data.Session
-import Data.Todo
 import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
@@ -27,7 +24,6 @@ import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition exposing (FetcherSubmitStatus(..))
 import Path
-import Request.Hasura
 import Route
 import RouteBuilder exposing (StatefulRoute, StaticPayload)
 import Server.Request as Request
@@ -69,7 +65,7 @@ type alias Entry =
     { description : String
     , completed : Bool
     , isSaving : Bool
-    , id : Uuid
+    , id : String
     }
 
 
@@ -94,7 +90,7 @@ type alias ActionData =
     }
 
 
-toOptimisticTodo : Data.Todo.Todo -> Entry
+toOptimisticTodo : Todo -> Entry
 toOptimisticTodo todo =
     { description = todo.description
     , completed = todo.completed
@@ -271,7 +267,7 @@ data routeParams =
 type alias Todo =
     { description : String
     , completed : Bool
-    , id : Uuid
+    , id : String
     }
 
 
@@ -280,7 +276,7 @@ todoDecoder =
     Decode.map3 Todo
         (Decode.field "title" Decode.string)
         (Decode.field "complete" Decode.bool)
-        (Decode.field "id" (Decode.string |> Decode.map Uuid))
+        (Decode.field "id" Decode.string)
 
 
 action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
@@ -374,7 +370,7 @@ view maybeUrl sharedModel model app =
                                 Just
                                     { description = description
                                     , completed = False
-                                    , id = Uuid ""
+                                    , id = ""
                                     , isSaving = True
                                     }
 
@@ -435,7 +431,7 @@ view maybeUrl sharedModel model app =
             (app.data.entries
                 |> List.filterMap
                     (\item ->
-                        if (isClearing && item.completed) || (deletingItems |> Set.member (uuidToString item.id)) then
+                        if (isClearing && item.completed) || (deletingItems |> Set.member item.id) then
                             Nothing
 
                         else
@@ -444,7 +440,7 @@ view maybeUrl sharedModel model app =
                                     Just { item | completed = justTogglingAllTo }
 
                                 Nothing ->
-                                    case togglingItems |> Dict.get (uuidToString item.id) of
+                                    case togglingItems |> Dict.get item.id of
                                         Just toggleTo ->
                                             Just { item | completed = toggleTo, isSaving = True }
 
@@ -598,7 +594,7 @@ editItemForm =
                     [ FieldView.input
                         [ class "edit-input"
                         , name "title"
-                        , id ("todo-" ++ uuidToString formState.data.id)
+                        , id ("todo-" ++ formState.data.id)
                         ]
                         description
                     ]
@@ -606,7 +602,7 @@ editItemForm =
         )
         |> Form.hiddenField "itemId"
             (Field.text
-                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
+                |> Field.withInitialValue (.id >> Form.Value.string)
                 |> Field.required "Must be present"
             )
         |> Form.field "description"
@@ -632,7 +628,7 @@ deleteItemForm =
         |> Form.hiddenField "todoId"
             (Field.text
                 |> Field.required "Must be present"
-                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
+                |> Field.withInitialValue (.id >> Form.Value.string)
             )
         |> Form.hiddenKind ( "kind", "delete" ) "Expected kind"
 
@@ -693,7 +689,7 @@ checkItemForm =
         |> Form.hiddenField "todoId"
             (Field.text
                 |> Field.required "Must be present"
-                |> Field.withInitialValue (.id >> uuidToString >> Form.Value.string)
+                |> Field.withInitialValue (.id >> Form.Value.string)
             )
         |> Form.hiddenField "complete"
             (Field.checkbox
@@ -765,7 +761,7 @@ viewEntries app visibility entries =
 
 viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Entry -> ( String, Html (Pages.Msg.Msg Msg) )
 viewKeyedEntry app todo =
-    ( uuidToString todo.id, lazy2 viewEntry app todo )
+    ( todo.id, lazy2 viewEntry app todo )
 
 
 viewEntry : StaticPayload Data ActionData RouteParams -> Entry -> Html (Pages.Msg.Msg Msg)
@@ -778,25 +774,20 @@ viewEntry app todo =
         [ div
             [ class "view" ]
             [ checkItemForm
-                |> Form.toDynamicFetcher ("toggle-" ++ uuidToString todo.id)
+                |> Form.toDynamicFetcher ("toggle-" ++ todo.id)
                 |> Form.renderHtml [] (\_ -> Nothing) app todo
             , editItemForm
-                |> Form.toDynamicFetcher ("edit-" ++ uuidToString todo.id)
+                |> Form.toDynamicFetcher ("edit-" ++ todo.id)
                 |> Form.renderHtml [] (\_ -> Nothing) app todo
             , if todo.isSaving then
                 LoadingSpinner.view
 
               else
                 deleteItemForm
-                    |> Form.toDynamicFetcher ("delete-" ++ uuidToString todo.id)
+                    |> Form.toDynamicFetcher ("delete-" ++ todo.id)
                     |> Form.renderHtml [] (\_ -> Nothing) app todo
             ]
         ]
-
-
-uuidToString : Uuid -> String
-uuidToString (Uuid uuid) =
-    uuid
 
 
 
