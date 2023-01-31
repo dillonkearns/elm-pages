@@ -1,9 +1,6 @@
-import kleur from "kleur";
 import crypto from "crypto";
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
-
-kleur.enabled = true;
 
 export async function checkAllTodos({ sessionId, toggleTo }) {
   await prisma.todo.updateMany({
