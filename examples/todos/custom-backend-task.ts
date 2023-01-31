@@ -221,12 +221,3 @@ export function decrypt(text: string) {
   ]);
   return decrypted.toString();
 }
-
-export function now() {
-  return Date.now();
-}
-
-export function log(message) {
-  console.log(message);
-  return null;
-}
