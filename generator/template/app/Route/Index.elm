@@ -1,14 +1,17 @@
-module Route.Index exposing (Data, Model, Msg, route)
+module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html
-import Html.Attributes as Attr
+import Html.Styled.Attributes as Attr
+import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import Route
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
 import View exposing (View)
 
@@ -25,7 +28,7 @@ type alias RouteParams =
     {}
 
 
-type alias Data =
+type alias ActionData =
     {}
 
 
@@ -38,9 +41,13 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-data : BackendTask Data
+type alias Data =
+    ()
+
+
+data : BackendTask FatalError Data
 data =
-    BackendTask.succeed Data
+    BackendTask.succeed ()
 
 
 head :
@@ -67,7 +74,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View Msg
+    -> View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel static =
     { title = "elm-pages is running"
     , body =

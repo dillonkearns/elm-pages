@@ -1,16 +1,17 @@
 module Api exposing (routes)
 
-import ApiRoute exposing (ApiRoute)
+import ApiRoute
 import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
 import Html exposing (Html)
 import Pages.Manifest as Manifest
 import Route exposing (Route)
 
 
 routes :
-    BackendTask (List Route)
+    BackendTask FatalError (List Route)
     -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
-    -> List (ApiRoute ApiRoute.Response)
+    -> List (ApiRoute.ApiRoute ApiRoute.Response)
 routes getStaticRoutes htmlToString =
     []
 

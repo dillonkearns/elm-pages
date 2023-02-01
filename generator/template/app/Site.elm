@@ -1,18 +1,21 @@
-module Site exposing (config)
+module Site exposing (canonicalUrl, config)
 
 import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
 import Head
+import MimeType
+import Pages.Url
 import SiteConfig exposing (SiteConfig)
 
 
 config : SiteConfig
 config =
-    { canonicalUrl = "https://elm-pages.com"
+    { canonicalUrl = canonicalUrl
     , head = head
     }
 
 
-head : BackendTask (List Head.Tag)
+head : BackendTask FatalError (List Head.Tag)
 head =
     [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
     , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
@@ -22,3 +25,8 @@ head =
     , Head.sitemapLink "/sitemap.xml"
     ]
         |> BackendTask.succeed
+
+
+canonicalUrl : String
+canonicalUrl =
+    "https://elm-pages.com"
