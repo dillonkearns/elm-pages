@@ -433,13 +433,17 @@ otherFile routes phaseString =
                                                                         (\thisActionData ->
                                                                             Elm.Case.custom thisActionData
                                                                                 Type.unit
-                                                                                [ destructureRouteVariant ActionData "justActionData" route
-                                                                                    |> Elm.Case.patternToBranch
-                                                                                        (\justActionData ->
-                                                                                            Elm.just justActionData
-                                                                                        )
-                                                                                , Elm.Pattern.ignore |> Elm.Case.patternToBranch (\() -> Elm.nothing)
-                                                                                ]
+                                                                                (ignoreBranchIfNeeded
+                                                                                    { primary =
+                                                                                        destructureRouteVariant ActionData "justActionData" route
+                                                                                            |> Elm.Case.patternToBranch
+                                                                                                (\justActionData ->
+                                                                                                    Elm.just justActionData
+                                                                                                )
+                                                                                    , otherwise = Elm.nothing
+                                                                                    }
+                                                                                    routes
+                                                                                )
                                                                         )
                                                                     |> Elm.Let.toExpression
                                                             )
@@ -826,14 +830,18 @@ otherFile routes phaseString =
                                                                                                 (\justActionData ->
                                                                                                     Elm.Case.custom justActionData
                                                                                                         Type.unit
-                                                                                                        [ route
-                                                                                                            |> destructureRouteVariant ActionData "thisActionData"
-                                                                                                            |> Elm.Case.patternToBranch
-                                                                                                                (\thisActionData ->
-                                                                                                                    Elm.just thisActionData
-                                                                                                                )
-                                                                                                        , Elm.Case.otherwise (\_ -> Elm.nothing)
-                                                                                                        ]
+                                                                                                        (ignoreBranchIfNeeded
+                                                                                                            { primary =
+                                                                                                                route
+                                                                                                                    |> destructureRouteVariant ActionData "thisActionData"
+                                                                                                                    |> Elm.Case.patternToBranch
+                                                                                                                        (\thisActionData ->
+                                                                                                                            Elm.just thisActionData
+                                                                                                                        )
+                                                                                                            , otherwise = Elm.nothing
+                                                                                                            }
+                                                                                                            routes
+                                                                                                        )
                                                                                                 )
                                                                                       )
                                                                                     , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
@@ -1189,17 +1197,18 @@ otherFile routes phaseString =
                                                                                                                             (\ad ->
                                                                                                                                 Elm.Case.custom ad
                                                                                                                                     Type.unit
-                                                                                                                                    [ route
-                                                                                                                                        |> destructureRouteVariant ActionData "justActionData"
-                                                                                                                                        |> Elm.Case.patternToBranch
-                                                                                                                                            (\justActionData ->
-                                                                                                                                                Elm.just justActionData
-                                                                                                                                            )
-                                                                                                                                    , Elm.Case.otherwise
-                                                                                                                                        (\_ ->
-                                                                                                                                            Elm.nothing
-                                                                                                                                        )
-                                                                                                                                    ]
+                                                                                                                                    (ignoreBranchIfNeeded
+                                                                                                                                        { primary =
+                                                                                                                                            route
+                                                                                                                                                |> destructureRouteVariant ActionData "justActionData"
+                                                                                                                                                |> Elm.Case.patternToBranch
+                                                                                                                                                    (\justActionData ->
+                                                                                                                                                        Elm.just justActionData
+                                                                                                                                                    )
+                                                                                                                                        , otherwise = Elm.nothing
+                                                                                                                                        }
+                                                                                                                                        routes
+                                                                                                                                    )
                                                                                                                             )
                                                                                                                 )
                                                                                                       )
@@ -2462,3 +2471,14 @@ make_ programConfig_args =
             "notFoundRoute"
             programConfig_args.notFoundRoute
         ]
+
+
+ignoreBranchIfNeeded info routes =
+    [ info.primary |> Just
+    , if List.length routes > 1 then
+        Elm.Pattern.ignore |> Elm.Case.patternToBranch (\() -> info.otherwise) |> Just
+
+      else
+        Nothing
+    ]
+        |> List.filterMap identity
