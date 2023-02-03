@@ -151,9 +151,17 @@ formWithFields fields =
                                                                         fieldView (Elm.string name) param
                                                                     )
                                                              )
-                                                                ++ [ Html.button []
-                                                                        [ Html.text "Submit"
-                                                                        ]
+                                                                ++ [ Elm.ifThen (formState |> Elm.get "isTransitioning")
+                                                                        (Html.button
+                                                                            [ Gen.Html.Styled.Attributes.disabled True
+                                                                            ]
+                                                                            [ Html.text "Submitting..."
+                                                                            ]
+                                                                        )
+                                                                        (Html.button []
+                                                                            [ Html.text "Submit"
+                                                                            ]
+                                                                        )
                                                                    ]
                                                             )
                                                     )
