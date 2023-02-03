@@ -1,11 +1,14 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
+import BackendTask.Custom
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html
 import Html.Styled.Attributes as Attr
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
@@ -42,12 +45,24 @@ route =
 
 
 type alias Data =
-    ()
+    { posts : List String
+    }
 
 
 data : BackendTask FatalError Data
 data =
-    BackendTask.succeed ()
+    BackendTask.succeed Data
+        |> BackendTask.andMap
+            (BackendTask.Custom.run "posts"
+                Encode.null
+                (Decode.list postDecoder)
+                |> BackendTask.allowFatal
+            )
+
+
+postDecoder : Decode.Decoder String
+postDecoder =
+    Decode.field "title" Decode.string
 
 
 head :
@@ -75,9 +90,11 @@ view :
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
     -> View (Pages.Msg.Msg Msg)
-view maybeUrl sharedModel static =
+view maybeUrl sharedModel app =
     { title = "Index page"
     , body =
-        [ Html.text "This is the index page."
+        [ app.data.posts
+            |> String.join ", "
+            |> Html.text
         ]
     }
