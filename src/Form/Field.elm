@@ -490,10 +490,11 @@ url (Field field _) =
 
 {-| -}
 textarea :
-    Field error parsed data Input { constraints | plainText : () }
+    { rows : Maybe Int, cols : Maybe Int }
+    -> Field error parsed data Input { constraints | plainText : () }
     -> Field error parsed data Input constraints
-textarea (Field field _) =
-    Field field (FieldView.Input FieldView.Textarea)
+textarea options (Field field _) =
+    Field field (FieldView.Input (FieldView.Textarea options))
 
 
 {-| -}

@@ -40,7 +40,7 @@ type InputType
     | Password
     | Email
     | Url
-    | Textarea
+    | Textarea { rows : Maybe Int, cols : Maybe Int }
 
 
 {-| -}
@@ -50,7 +50,7 @@ inputTypeToString inputType =
         Text ->
             "text"
 
-        Textarea ->
+        Textarea _ ->
             "text"
 
         Number ->
@@ -122,10 +122,15 @@ input attrs (Validation viewField fieldName _) =
             }
     in
     case rawField.kind of
-        ( Input Textarea, properties ) ->
+        ( Input (Textarea { rows, cols }), properties ) ->
             Html.textarea
                 (attrs
                     ++ toHtmlProperties properties
+                    ++ ([ rows |> Maybe.map Attr.rows
+                        , cols |> Maybe.map Attr.cols
+                        ]
+                            |> List.filterMap identity
+                       )
                     ++ [ Attr.value (rawField.value |> Maybe.withDefault "")
                        , Attr.name rawField.name
                        ]
@@ -170,10 +175,15 @@ inputStyled attrs (Validation viewField fieldName _) =
             }
     in
     case rawField.kind of
-        ( Input Textarea, properties ) ->
+        ( Input (Textarea { rows, cols }), properties ) ->
             Html.Styled.textarea
                 (attrs
                     ++ (toHtmlProperties properties |> List.map StyledAttr.fromUnstyled)
+                    ++ ([ rows |> Maybe.map StyledAttr.rows
+                        , cols |> Maybe.map StyledAttr.cols
+                        ]
+                            |> List.filterMap identity
+                       )
                     ++ ([ Attr.value (rawField.value |> Maybe.withDefault "")
                         , Attr.name rawField.name
                         ]
