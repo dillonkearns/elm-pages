@@ -8,7 +8,7 @@ module Route.Posts.New exposing (ActionData, Data, route, RouteParams, Msg, Mode
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
-import Date
+import Date exposing (Date)
 import Dict
 import Effect
 import ErrorPage
@@ -18,10 +18,12 @@ import Form.Field
 import Form.FieldView
 import Form.Validation
 import Head
-import Html
-import Html.Attributes
+import Html exposing (Html)
+import Html.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Markdown.Parser
+import Markdown.Renderer
 import Pages.Msg
 import Pages.PageUrl
 import Path
@@ -121,29 +123,62 @@ view :
 view maybeUrl sharedModel model app =
     { title = "Posts.New"
     , body =
-        [ Html.h2 [] [ Html.text "Form" ]
-        , app.action
-            |> Maybe.andThen .errorMessage
-            |> Maybe.map
-                (\errorMessage ->
-                    Html.p [ Html.Attributes.style "color" "red" ] [ Html.text errorMessage ]
-                )
-            |> Maybe.withDefault (Html.text "")
+        [ Html.div
+            [ Attr.style "display" "flex"
+            , Attr.style "flex" "row"
+            , Attr.class "hmmm"
+            ]
+            [ Html.div []
+                [ Html.h2
+                    []
+                    [ Html.text "Form" ]
+                , app.action
+                    |> Maybe.andThen .errorMessage
+                    |> Maybe.map
+                        (\errorMessage ->
+                            Html.p [ Attr.style "color" "red" ] [ Html.text errorMessage ]
+                        )
+                    |> Maybe.withDefault (Html.text "")
+                , Form.renderHtml
+                    []
+                    (\renderStyledHtmlUnpack -> Just renderStyledHtmlUnpack.errors)
+                    app
+                    ()
+                    (Form.toDynamicTransition "form" form)
+                ]
+            , postPreview app
+            ]
+        ]
+    }
+
+
+postPreview app =
+    Html.div []
+        [ Html.h1 []
+            [ app.pageFormState
+                |> Dict.get "form"
+                |> Maybe.andThen (.fields >> Dict.get "title")
+                |> Maybe.map .value
+                |> Maybe.withDefault ""
+                |> Html.text
+            ]
         , app.pageFormState
-            --|> Debug.toString
             |> Dict.get "form"
             |> Maybe.andThen (.fields >> Dict.get "body")
             |> Maybe.map .value
             |> Maybe.withDefault ""
-            |> Html.text
-        , Form.renderHtml
-            []
-            (\renderStyledHtmlUnpack -> Just renderStyledHtmlUnpack.errors)
-            app
-            ()
-            (Form.toDynamicTransition "form" form)
+            |> renderMarkdown
         ]
-    }
+
+
+renderMarkdown : String -> Html msg
+renderMarkdown markdown =
+    markdown
+        |> Markdown.Parser.parse
+        |> Result.withDefault []
+        |> Markdown.Renderer.render Markdown.Renderer.defaultHtmlRenderer
+        |> Result.withDefault []
+        |> Html.div []
 
 
 action :
@@ -190,10 +225,7 @@ form : Form.DoneForm String ParsedForm () (List (Html.Html (Pages.Msg.Msg Msg)))
 form =
     Form.field
         "publish"
-        (Form.Field.required
-            "Required"
-            (Form.Field.date { invalid = \_ -> "" })
-        )
+        (Form.Field.date { invalid = \_ -> "" })
         ((\title slug body publish ->
             { combine =
                 ParsedForm
@@ -235,7 +267,7 @@ form =
                     , fieldView "body" body
                     , fieldView "publish" publish
                     , if formState.isTransitioning then
-                        Html.button [ Html.Attributes.disabled True ]
+                        Html.button [ Attr.disabled True ]
                             [ Html.text "Submitting..."
                             ]
 
@@ -258,7 +290,11 @@ form =
 
 
 type alias ParsedForm =
-    { title : String, slug : String, body : String, publish : Date.Date }
+    { title : String
+    , slug : String
+    , body : String
+    , publish : Maybe Date
+    }
 
 
 errorsView :
@@ -275,7 +311,7 @@ errorsView errors field =
                 (List.map
                     (\error ->
                         Html.li
-                            [ Html.Attributes.style "color" "red" ]
+                            [ Attr.style "color" "red" ]
                             [ Html.text error ]
                     )
                     (Form.errorsForField field errors)
