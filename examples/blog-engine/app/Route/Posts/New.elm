@@ -6,9 +6,10 @@ module Route.Posts.New exposing (ActionData, Data, route, RouteParams, Msg, Mode
 
 -}
 
-import BackendTask
+import BackendTask exposing (BackendTask)
+import BackendTask.Custom
 import Date
-import Debug
+import Dict
 import Effect
 import ErrorPage
 import FatalError
@@ -19,11 +20,13 @@ import Form.Validation
 import Head
 import Html
 import Html.Attributes
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Pages.Msg
 import Pages.PageUrl
-import Pages.Script
 import Path
 import Platform.Sub
+import Route
 import RouteBuilder
 import Server.Request
 import Server.Response
@@ -92,7 +95,9 @@ type alias Data =
 
 
 type alias ActionData =
-    { errors : Form.Response String }
+    { errors : Form.Response String
+    , errorMessage : Maybe String
+    }
 
 
 data :
@@ -117,6 +122,20 @@ view maybeUrl sharedModel model app =
     { title = "Posts.New"
     , body =
         [ Html.h2 [] [ Html.text "Form" ]
+        , app.action
+            |> Maybe.andThen .errorMessage
+            |> Maybe.map
+                (\errorMessage ->
+                    Html.p [ Html.Attributes.style "color" "red" ] [ Html.text errorMessage ]
+                )
+            |> Maybe.withDefault (Html.text "")
+        , app.pageFormState
+            --|> Debug.toString
+            |> Dict.get "form"
+            |> Maybe.andThen (.fields >> Dict.get "body")
+            |> Maybe.map .value
+            |> Maybe.withDefault ""
+            |> Html.text
         , Form.renderHtml
             []
             (\renderStyledHtmlUnpack -> Just renderStyledHtmlUnpack.errors)
@@ -135,14 +154,34 @@ action routeParams =
         (\formData ->
             case formData of
                 ( formResponse, parsedForm ) ->
-                    BackendTask.map
-                        (\_ ->
-                            Server.Response.render
-                                { errors = formResponse }
-                        )
-                        (Pages.Script.log
-                            (Debug.toString parsedForm)
-                        )
+                    case parsedForm of
+                        Ok okForm ->
+                            BackendTask.Custom.run "createPost"
+                                (Encode.object
+                                    [ ( "slug", Encode.string okForm.slug )
+                                    , ( "title", Encode.string okForm.title )
+                                    , ( "body", Encode.string okForm.body )
+                                    ]
+                                )
+                                (Decode.oneOf
+                                    [ Decode.field "errorMessage" (Decode.string |> Decode.map Err)
+                                    , Decode.succeed (Ok ())
+                                    ]
+                                )
+                                |> BackendTask.allowFatal
+                                |> BackendTask.map
+                                    (\result ->
+                                        case result of
+                                            Ok () ->
+                                                Route.redirectTo Route.Index
+
+                                            Err errorMessage ->
+                                                Server.Response.render { errors = formResponse, errorMessage = Just errorMessage }
+                                    )
+
+                        Err errors ->
+                            Server.Response.render { errors = formResponse, errorMessage = Nothing }
+                                |> BackendTask.succeed
         )
         (Server.Request.formData (Form.initCombined Basics.identity form))
 
@@ -155,7 +194,7 @@ form =
             "Required"
             (Form.Field.date { invalid = \_ -> "" })
         )
-        ((\title slug markdown publish ->
+        ((\title slug body publish ->
             { combine =
                 ParsedForm
                     |> Form.Validation.succeed
@@ -173,7 +212,7 @@ form =
                                         Form.Validation.mapWithNever identity slug
                                 )
                         )
-                    |> Form.Validation.andMap markdown
+                    |> Form.Validation.andMap body
                     |> Form.Validation.andMap publish
             , view =
                 \formState ->
@@ -193,21 +232,33 @@ form =
                     in
                     [ fieldView "title" title
                     , fieldView "slug" slug
-                    , fieldView "markdown" markdown
+                    , fieldView "body" body
                     , fieldView "publish" publish
-                    , Html.button [] [ Html.text "Submit" ]
+                    , if formState.isTransitioning then
+                        Html.button [ Html.Attributes.disabled True ]
+                            [ Html.text "Submitting..."
+                            ]
+
+                      else
+                        Html.button []
+                            [ Html.text "Submit"
+                            ]
                     ]
             }
          )
             |> Form.init
             |> Form.field "title" (Form.Field.required "Required" Form.Field.text)
             |> Form.field "slug" (Form.Field.required "Required" Form.Field.text)
-            |> Form.field "markdown" (Form.Field.required "Required" Form.Field.text |> Form.Field.textarea)
+            |> Form.field "body"
+                (Form.Field.required "Required" Form.Field.text
+                    |> Form.Field.textarea
+                        { rows = Just 30, cols = Just 80 }
+                )
         )
 
 
 type alias ParsedForm =
-    { title : String, slug : String, markdown : String, publish : Date.Date }
+    { title : String, slug : String, body : String, publish : Date.Date }
 
 
 errorsView :

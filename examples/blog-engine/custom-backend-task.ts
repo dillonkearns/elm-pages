@@ -1,63 +1,49 @@
-import kleur from "kleur";
-import fs from "node:fs";
-import path from "node:path";
+import { PrismaClient } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/index.js";
 
-kleur.enabled = true;
+const prisma = new PrismaClient();
 
-export async function environmentVariable(name: string) {
-  const result = process.env[name];
-  if (result) {
-    return result;
-  } else {
-    throw `No environment variable called ${kleur
-      .yellow()
-      .underline(name)}\n\nAvailable:\n\n${Object.keys(process.env)
-      .slice(0, 5)
-      .join("\n")}`;
+export async function createPost({ slug, title, body }) {
+  try {
+    await prisma.post.create({
+      data: {
+        slug,
+        title,
+        body,
+      },
+    });
+  } catch (e) {
+    if (e instanceof PrismaClientKnownRequestError) {
+      console.log("MESSAGE:", e.message, e.meta, e.code, e.name);
+      console.dir(e);
+
+      return { errorMessage: e.message };
+
+      // specific error
+    } else {
+      console.trace(e);
+      throw e;
+    }
   }
 }
 
-export async function hello(name: string) {
-  await waitFor(1000);
-  return `147 ${name}!!`;
+export async function posts() {
+  return (await prisma.post.findMany()).map(transformDates);
 }
 
-function waitFor(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function addItem(name: string) {
-  let timeToWait = 0;
-  try {
-    timeToWait = parseInt(name);
-  } catch (e) {}
-
-  console.log("Adding ", name);
-  await fs.promises.writeFile(path.join(folder, name), "");
-  await waitFor(timeToWait);
-  return await listFiles();
-}
-const folder = "./items-list";
-
-async function listFiles(): Promise<string[]> {
-  return (await fs.promises.readdir(folder)).filter(
-    (file) => !file.startsWith(".")
+function transformDates(item) {
+  return Object.fromEntries(
+    Object.entries(item).map(([key, value]) => [key, transformValue(value)])
   );
 }
 
-export async function getItems() {
-  return await listFiles();
-}
-
-export async function deleteAllItems(name: string) {
-  for (const file of await listFiles()) {
-    await fs.promises.unlink(path.join(folder, file));
+function transformValue(value) {
+  //   if (typeof value === "bigint") {
+  //     obj[key] = toNumber(value);
+  //   }
+  if (value instanceof Date) {
+    return value.getMilliseconds();
+  } else {
+    return value;
   }
-
-  return await listFiles();
-}
-
-export async function log(message: string) {
-  console.log(message);
-  return null;
 }
