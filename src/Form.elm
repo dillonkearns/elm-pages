@@ -522,7 +522,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                             ( Just info.value, info.status )
 
                         Nothing ->
-                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, FieldStatus.NotVisited )
+                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue |> Maybe.andThen identity, FieldStatus.NotVisited )
 
                 thing : Pages.Internal.Form.ViewField kind
                 thing =
@@ -619,7 +619,7 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                             ( Just info.value, info.status )
 
                         Nothing ->
-                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue, FieldStatus.NotVisited )
+                            ( Maybe.map2 (|>) maybeData fieldParser.initialValue |> Maybe.andThen identity, FieldStatus.NotVisited )
 
                 thing : Pages.Internal.Form.ViewField Form.FieldView.Hidden
                 thing =
@@ -745,6 +745,7 @@ hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
 
                         Nothing ->
                             Maybe.map2 (|>) maybeData fieldParser.initialValue
+                                |> Maybe.andThen identity
 
                 myFn :
                     { result : Dict String (List error)
@@ -1013,7 +1014,7 @@ type FinalForm error parsed data view userMsg
             , view : view
             }
         )
-        (data -> List ( String, String ))
+        (data -> List ( String, Maybe String ))
 
 
 {-| -}
@@ -1293,7 +1294,14 @@ helperValues toHiddenInput accessResponse options formState data (FormInternal f
         initialValues : Dict String Form.FieldState
         initialValues =
             toInitialValues data
-                |> List.map (Tuple.mapSecond (\value -> { value = value, status = FieldStatus.NotVisited }))
+                |> List.filterMap
+                    (\( key, maybeValue ) ->
+                        maybeValue
+                            |> Maybe.map
+                                (\value ->
+                                    ( key, { value = value, status = FieldStatus.NotVisited } )
+                                )
+                    )
                 |> Dict.fromList
 
         part2 : Dict String Form.FieldState
@@ -1599,7 +1607,7 @@ type FormInternal error parsed data view
             , view : view
             }
         )
-        (data -> List ( String, String ))
+        (data -> List ( String, Maybe String ))
 
 
 {-| -}
@@ -1614,7 +1622,7 @@ type Form error combineAndView input
             , combineAndView : combineAndView
             }
         )
-        (input -> List ( String, String ))
+        (input -> List ( String, Maybe String ))
 
 
 type alias RenderOptions userMsg =

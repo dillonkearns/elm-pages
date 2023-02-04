@@ -3,7 +3,7 @@ module Form.Field exposing
     , select, range, OutsideRange(..)
     , date, time, TimeOfDay
     , Field(..), FieldInfo, exactValue
-    , required, withClientValidation, withInitialValue, map
+    , required, withClientValidation, withInitialValue, withOptionalInitialValue, map
     , email, password, search, telephone, url, textarea
     , withMax, withMin, withStep, withMinLength, withMaxLength
     , No, Yes
@@ -34,7 +34,7 @@ module Form.Field exposing
 
 ## Field Configuration
 
-@docs required, withClientValidation, withInitialValue, map
+@docs required, withClientValidation, withInitialValue, withOptionalInitialValue, map
 
 
 ## Text Field Display Options
@@ -67,7 +67,7 @@ type Field error parsed data kind constraints
 
 {-| -}
 type alias FieldInfo error parsed data =
-    { initialValue : Maybe (data -> String)
+    { initialValue : Maybe (data -> Maybe String)
     , decode : Maybe String -> ( Maybe parsed, List error )
     , properties : List ( String, Encode.Value )
     }
@@ -327,7 +327,7 @@ exactValue :
             }
 exactValue initialValue error =
     Field
-        { initialValue = Just (\_ -> initialValue)
+        { initialValue = Just (\_ -> Just initialValue)
         , decode =
             \rawValue ->
                 if rawValue == Just initialValue then
@@ -536,7 +536,7 @@ range info field =
         |> required info.missing
         |> withMin info.min (info.invalid BelowRange)
         |> withMax info.max (info.invalid AboveRange)
-        |> (\(Field innerField _) -> Field { innerField | initialValue = Just (info.initial >> Form.Value.toString) } (FieldView.Input FieldView.Range))
+        |> (\(Field innerField _) -> Field { innerField | initialValue = Just (info.initial >> Form.Value.toString >> Just) } (FieldView.Input FieldView.Range))
 
 
 {-| -}
@@ -577,7 +577,18 @@ withInitialValue toInitialValue (Field field kind) =
     Field
         { field
             | initialValue =
-                Just (toInitialValue >> Form.Value.toString)
+                Just (toInitialValue >> Form.Value.toString >> Just)
+        }
+        kind
+
+
+{-| -}
+withOptionalInitialValue : (data -> Maybe (Form.Value.Value valueType)) -> Field error value data kind { constraints | initial : valueType } -> Field error value data kind constraints
+withOptionalInitialValue toInitialValue (Field field kind) =
+    Field
+        { field
+            | initialValue =
+                Just (toInitialValue >> Maybe.map Form.Value.toString)
         }
         kind
 
