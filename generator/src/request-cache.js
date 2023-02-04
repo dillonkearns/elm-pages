@@ -203,15 +203,23 @@ export function lookupOrPerform(
 
 /**
  * @param {unknown} obj
+ * @returns {JSON}
  */
 function toElmJson(obj) {
-  if (typeof obj === "object") {
+  if (Array.isArray(obj)) {
+    return obj.map(toElmJson);
+  } else if (typeof obj === "object") {
     for (let key in obj) {
       const value = obj[key];
       if (typeof value === "undefined") {
         obj[key] = null;
       } else if (value instanceof Date) {
-        obj[key] = Math.floor(value.getTime());
+        obj[key] = {
+          "__elm-pages-normalized__": {
+            kind: "Date",
+            value: Math.floor(value.getTime()),
+          },
+        };
         // } else if (value instanceof Object) {
         //   toElmJson(obj);
       }

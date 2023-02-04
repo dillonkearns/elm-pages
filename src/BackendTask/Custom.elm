@@ -1,6 +1,7 @@
 module BackendTask.Custom exposing
     ( run
     , Error(..)
+    , timeDecoder, dateDecoder
     )
 
 {-| In a vanilla Elm application, ports let you either send or receive JSON data between your Elm application and the JavaScript context in the user's browser at runtime.
@@ -73,15 +74,25 @@ There are a few different things that can go wrong when running a custom-backend
 Any time you throw a JavaScript exception from a BackendTask.Custom definition, it will give you a `CustomBackendTaskException`. It's usually easier to add a `try`/`catch` in your JavaScript code in `custom-backend-task.js`
 to handle possible errors, but you can throw a JSON value and handle it in Elm in the `CustomBackendTaskException` call error.
 
+
+## Decoding JS Date Objects
+
+These decoders are for use with decoding JS values of type `Date`. If you have control over the format, it may be better to
+be more explicit with a [Rata Die](https://en.wikipedia.org/wiki/Rata_Die) number value or an ISO-8601 formatted date string instead.
+But often JavaScript libraries and core APIs will give you JS Date objects, so this can be useful for working with those.
+
+@docs timeDecoder, dateDecoder
+
 -}
 
-import BackendTask
+import BackendTask exposing (BackendTask)
 import BackendTask.Http
-import BackendTask.Internal.Request
+import Date
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import TerminalText
+import Time
 
 
 {-| -}
@@ -91,9 +102,8 @@ run :
     -> Decoder b
     -> BackendTask.BackendTask { fatal : FatalError, recoverable : Error } b
 run portName input decoder =
-    BackendTask.Internal.Request.request
-        { name = "port"
-        , body =
+    request
+        { body =
             Encode.object
                 [ ( "input", input )
                 , ( "portName", Encode.string portName )
@@ -231,3 +241,78 @@ type Error
     | CustomBackendTaskException Decode.Value
     | NonJsonException String
     | ExportIsNotFunction
+    | DecodeError Decode.Error
+
+
+{-| -}
+timeDecoder : Decoder Time.Posix
+timeDecoder =
+    Decode.field "__elm-pages-normalized__"
+        (Decode.field "kind" Decode.string
+            |> Decode.andThen
+                (\kind ->
+                    if kind == "Date" then
+                        Decode.field "value"
+                            (Decode.int |> Decode.map Time.millisToPosix)
+
+                    else
+                        Decode.fail <| "I was running BackendTask.Custom.timeDecoder and expecting an elm-pages normalized Object with kind \"Date\", but got kind \"" ++ kind ++ "\"."
+                )
+        )
+
+
+{-| The same as `timeDecoder`, but it converts the decoded `Time.Posix` value into a `Date` with `Date.fromPosix Time.utc`.
+
+JavaScript `Date` objects don't distinguish between values with only a date vs. values with both a date and a time. So be sure
+to use this decoder when you know the semantics represent a date with no associated time (or you're sure you don't care about the time).
+
+-}
+dateDecoder : Decoder Date.Date
+dateDecoder =
+    Decode.field "__elm-pages-normalized__"
+        (Decode.field "kind" Decode.string
+            |> Decode.andThen
+                (\kind ->
+                    if kind == "Date" then
+                        Decode.field "value"
+                            (Decode.int |> Decode.map (Time.millisToPosix >> Date.fromPosix Time.utc))
+
+                    else
+                        Decode.fail <| "I was running BackendTask.Custom.dateDecoder and expecting an elm-pages normalized Object with kind \"Date\", but got kind \"" ++ kind ++ "\"."
+                )
+        )
+
+
+request :
+    { body : BackendTask.Http.Body
+    , expect : BackendTask.Http.Expect a
+    }
+    -> BackendTask { fatal : FatalError, recoverable : Error } a
+request { body, expect } =
+    -- elm-review: known-unoptimized-recursion
+    BackendTask.Http.request
+        { url = "elm-pages-internal://port"
+        , method = "GET"
+        , headers = []
+        , body = body
+        , timeoutInMs = Nothing
+        , retries = Nothing
+        }
+        expect
+        |> BackendTask.onError
+            (\error ->
+                -- TODO avoid crash here, this should be handled as an internal error
+                --request params
+                case error.recoverable of
+                    BackendTask.Http.BadBody (Just jsonError) _ ->
+                        { recoverable = DecodeError jsonError
+                        , fatal = error.fatal
+                        }
+                            |> BackendTask.fail
+
+                    _ ->
+                        { recoverable = Error
+                        , fatal = error.fatal
+                        }
+                            |> BackendTask.fail
+            )
