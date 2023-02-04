@@ -9,9 +9,10 @@ datasource db {
 }
 
 model Post {
-        title String
-        slug  String @id
-        body  String
+        title   String
+        slug    String    @id
+        body    String
+        publish DateTime? @db.Date
 
         createdAt DateTime @default(now())
         updatedAt DateTime @updatedAt
