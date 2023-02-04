@@ -6,13 +6,12 @@ import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html
-import Html.Styled.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
+import Post exposing (Post)
 import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
@@ -45,7 +44,7 @@ route =
 
 
 type alias Data =
-    { posts : List String
+    { posts : List Post
     }
 
 
@@ -55,14 +54,9 @@ data =
         |> BackendTask.andMap
             (BackendTask.Custom.run "posts"
                 Encode.null
-                (Decode.list postDecoder)
+                (Decode.list Post.decoder)
                 |> BackendTask.allowFatal
             )
-
-
-postDecoder : Decode.Decoder String
-postDecoder =
-    Decode.field "title" Decode.string
 
 
 head :
@@ -94,7 +88,17 @@ view maybeUrl sharedModel app =
     { title = "Index page"
     , body =
         [ app.data.posts
-            |> String.join ", "
-            |> Html.text
+            |> List.map postView
+            |> Html.ul []
         ]
     }
+
+
+postView : Post -> Html.Html msg
+postView post =
+    Html.li []
+        [ Route.Posts__Slug___Edit { slug = post.slug }
+            |> Route.link []
+                [ Html.text post.title
+                ]
+        ]

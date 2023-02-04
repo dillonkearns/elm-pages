@@ -8,7 +8,6 @@ module Route.Posts.Slug_ exposing (ActionData, Data, route, RouteParams, Msg, Mo
 
 import BackendTask
 import BackendTask.Custom
-import Date exposing (Date)
 import Effect
 import ErrorPage
 import FatalError
@@ -23,12 +22,12 @@ import Pages.Msg
 import Pages.PageUrl
 import Path
 import Platform.Sub
+import Post
 import Route
 import RouteBuilder
 import Server.Request
 import Server.Response
 import Shared
-import Time
 import View
 
 
@@ -104,7 +103,7 @@ data routeParams =
     Server.Request.succeed
         (BackendTask.Custom.run "getPost"
             (Encode.string routeParams.slug)
-            (Decode.nullable postDecoder)
+            (Decode.nullable Post.decoder)
             |> BackendTask.allowFatal
             |> BackendTask.andThen
                 (\maybePost ->
@@ -132,28 +131,6 @@ data routeParams =
                                 |> BackendTask.succeed
                 )
         )
-
-
-type alias Post =
-    { title : String
-    , body : String
-    , slug : String
-    , publish : Maybe Date
-    }
-
-
-postDecoder : Decoder Post
-postDecoder =
-    Decode.map4 Post
-        (Decode.field "title" Decode.string)
-        (Decode.field "body" Decode.string)
-        (Decode.field "slug" Decode.string)
-        (Decode.field "publish"
-            (Decode.nullable
-                (Decode.int |> Decode.map (Time.millisToPosix >> Date.fromPosix Time.utc))
-            )
-        )
-        |> Decode.map (Debug.log "postDecoder")
 
 
 head : RouteBuilder.StaticPayload Data ActionData RouteParams -> List Head.Tag

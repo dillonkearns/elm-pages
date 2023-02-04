@@ -28,6 +28,7 @@ import Pages.PageUrl
 import Pages.Script
 import Path
 import Platform.Sub
+import Post
 import Route
 import RouteBuilder
 import Server.Request
@@ -110,20 +111,6 @@ type alias Post =
     }
 
 
-postDecoder : Decoder Post
-postDecoder =
-    Decode.map4 Post
-        (Decode.field "title" Decode.string)
-        (Decode.field "body" Decode.string)
-        (Decode.field "slug" Decode.string)
-        (Decode.field "publish"
-            (Decode.nullable
-                (Decode.int |> Decode.map (Time.millisToPosix >> Date.fromPosix Time.utc))
-            )
-        )
-        |> Decode.map (Debug.log "postDecoder")
-
-
 data :
     RouteParams
     -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
@@ -131,7 +118,7 @@ data routeParams =
     Server.Request.succeed
         (BackendTask.Custom.run "getPost"
             (Encode.string routeParams.slug)
-            (Decode.nullable postDecoder)
+            (Decode.nullable Post.decoder)
             |> BackendTask.allowFatal
             |> BackendTask.map
                 (\maybePost ->
