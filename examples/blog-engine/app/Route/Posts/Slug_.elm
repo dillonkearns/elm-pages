@@ -127,7 +127,7 @@ data routeParams =
                                 |> BackendTask.fromResult
 
                         Nothing ->
-                            Route.redirectTo Route.Index
+                            Server.Response.errorPage ErrorPage.NotFound
                                 |> BackendTask.succeed
                 )
         )
