@@ -95,16 +95,28 @@ export function lookupOrPerform(
           try {
             resolve({
               kind: "response-json",
-              value: jsonResponse(await portBackendTask[portName](input)),
+              value: jsonResponse(
+                toElmJson(await portBackendTask[portName](input))
+              ),
             });
           } catch (portCallError) {
-            resolve({
-              kind: "response-json",
-              value: jsonResponse({
-                "elm-pages-internal-error": "CustomBackendTaskException",
-                error: portCallError,
-              }),
-            });
+            try {
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "CustomBackendTaskException",
+                  error: JSON.parse(JSON.stringify(portCallError, null, 0)),
+                }),
+              });
+            } catch (jsonDecodeError) {
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "NonJsonException",
+                  error: portCallError.toString(),
+                }),
+              });
+            }
           }
         }
       } catch (error) {
@@ -187,6 +199,25 @@ export function lookupOrPerform(
       }
     }
   });
+}
+
+/**
+ * @param {unknown} obj
+ */
+function toElmJson(obj) {
+  if (typeof obj === "object") {
+    for (let key in obj) {
+      const value = obj[key];
+      if (typeof value === "undefined") {
+        obj[key] = null;
+      } else if (value instanceof Date) {
+        obj[key] = Math.floor(value.getTime());
+        // } else if (value instanceof Object) {
+        //   toElmJson(obj);
+      }
+    }
+  }
+  return obj;
 }
 
 /**

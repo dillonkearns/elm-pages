@@ -183,6 +183,24 @@ run portName input decoder =
                                                 (CustomBackendTaskException portCallError)
                                         )
 
+                            else if errorKind == "NonJsonException" then
+                                Decode.field "error" Decode.string
+                                    |> Decode.map
+                                        (\exceptionMessage ->
+                                            FatalError.recoverable
+                                                { title = "Custom BackendTask Error"
+                                                , body =
+                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.run. I was able to import the port definitions file, but when running it I encountered this exception:\n\n"
+
+                                                    --, TerminalText.red (Encode.encode 2 portCallError)
+                                                    , TerminalText.red exceptionMessage
+                                                    , TerminalText.text "\n\nYou could add a `try`/`catch` in your `custom-backend-task` JavaScript code to handle that error."
+                                                    ]
+                                                        |> TerminalText.toString
+                                                }
+                                                (NonJsonException exceptionMessage)
+                                        )
+
                             else
                                 FatalError.recoverable
                                     { title = "Custom BackendTask Error"
@@ -211,4 +229,5 @@ type Error
     | MissingCustomBackendTaskFile
     | CustomBackendTaskNotDefined { name : String }
     | CustomBackendTaskException Decode.Value
+    | NonJsonException String
     | ExportIsNotFunction
