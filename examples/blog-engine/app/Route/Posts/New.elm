@@ -196,6 +196,11 @@ action routeParams =
                                     [ ( "slug", Encode.string okForm.slug )
                                     , ( "title", Encode.string okForm.title )
                                     , ( "body", Encode.string okForm.body )
+                                    , ( "publish"
+                                      , okForm.publish
+                                            |> Maybe.map (Date.toIsoString >> Encode.string)
+                                            |> Maybe.withDefault Encode.null
+                                      )
                                     ]
                                 )
                                 (Decode.oneOf
@@ -208,7 +213,7 @@ action routeParams =
                                     (\result ->
                                         case result of
                                             Ok () ->
-                                                Route.redirectTo Route.Index
+                                                Route.redirectTo (Route.Posts__Slug___Edit { slug = okForm.slug })
 
                                             Err errorMessage ->
                                                 Server.Response.render { errors = formResponse, errorMessage = Just errorMessage }
