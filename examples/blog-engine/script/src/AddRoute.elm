@@ -10,7 +10,7 @@ import Elm.Annotation
 import Elm.Case
 import Gen.BackendTask
 import Gen.Effect
-import Gen.Html.Styled
+import Gen.Html
 import Gen.Platform.Sub
 import Gen.Server.Request
 import Gen.Server.Response
@@ -89,7 +89,7 @@ buildFile moduleName =
                 \{ maybeUrl, sharedModel, model, app } ->
                     Gen.View.make_.view
                         { title = moduleName |> String.join "." |> Elm.string
-                        , body = Elm.list [ Gen.Html.Styled.text "Here is your generated page!!!" ]
+                        , body = Elm.list [ Gen.Html.text "Here is your generated page!!!" ]
                         }
             , update =
                 \{ pageUrl, sharedModel, app, msg, model } ->

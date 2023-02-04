@@ -19,8 +19,8 @@ import Gen.Form
 import Gen.Form.Field
 import Gen.Form.FieldView
 import Gen.Form.Validation
-import Gen.Html.Styled as Html
-import Gen.Html.Styled.Attributes
+import Gen.Html as Html
+import Gen.Html.Attributes
 import Gen.List
 import Gen.Pages.Script
 import Gen.Platform.Sub
@@ -153,7 +153,7 @@ formWithFields fields =
                                                              )
                                                                 ++ [ Elm.ifThen (formState |> Elm.get "isTransitioning")
                                                                         (Html.button
-                                                                            [ Gen.Html.Styled.Attributes.disabled True
+                                                                            [ Gen.Html.Attributes.disabled True
                                                                             ]
                                                                             [ Html.text "Submitting..."
                                                                             ]
@@ -172,7 +172,7 @@ formWithFields fields =
                                                             Html.div []
                                                                 [ Html.label []
                                                                     [ Html.call_.text (Elm.Op.append label (Elm.string " "))
-                                                                    , field |> Gen.Form.FieldView.inputStyled []
+                                                                    , field |> Gen.Form.FieldView.input []
                                                                     , errorsView.call (Elm.get "errors" formState) field
                                                                     ]
                                                                 ]
@@ -191,7 +191,7 @@ formWithFields fields =
                         , Elm.Annotation.named [] "ParsedForm"
                         , Elm.Annotation.unit
                         , Elm.Annotation.list
-                            (Elm.Annotation.namedWith [ "Html", "Styled" ]
+                            (Elm.Annotation.namedWith [ "Html" ]
                                 "Html"
                                 [ Elm.Annotation.namedWith
                                     [ "Pages", "Msg" ]
@@ -211,7 +211,6 @@ errorsView :
     }
 errorsView =
     Elm.Declare.fn2 "errorsView"
-        --errorsView : Form.Errors String -> Validation.Field String parsed kind -> Html.Styled.Html (Pages.Msg.Msg Msg)
         ( "errors", Elm.Annotation.namedWith [ "Form" ] "Errors" [ Elm.Annotation.string ] |> Just )
         ( "field"
         , Elm.Annotation.namedWith [ "Form", "Validation" ]
@@ -233,7 +232,7 @@ errorsView =
                             (Elm.fn ( "error", Nothing )
                                 (\error ->
                                     Html.li
-                                        [ Gen.Html.Styled.Attributes.style "color" "red"
+                                        [ Gen.Html.Attributes.style "color" "red"
                                         ]
                                         [ Html.call_.text error
                                         ]
@@ -244,7 +243,7 @@ errorsView =
                     ]
                 )
                 |> Elm.withType
-                    (Elm.Annotation.namedWith [ "Html", "Styled" ]
+                    (Elm.Annotation.namedWith [ "Html" ]
                         "Html"
                         [ Elm.Annotation.namedWith
                             [ "Pages", "Msg" ]
@@ -388,7 +387,7 @@ createFile moduleName fields =
                                 [ Html.h2 [] [ Html.text "Form" ]
                                 , form.call []
                                     |> Gen.Form.toDynamicTransition "form"
-                                    |> Gen.Form.renderStyledHtml [] (Elm.get "errors" >> Elm.just) app Elm.unit
+                                    |> Gen.Form.renderHtml [] (Elm.get "errors" >> Elm.just) app Elm.unit
                                 ]
                         }
             , update =
