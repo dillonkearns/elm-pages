@@ -1,4 +1,4 @@
-module Route.Posts.Slug_.Edit exposing (ActionData, Data, route, RouteParams, Msg, Model)
+module Route.Admin.Slug_ exposing (ActionData, Data, route, RouteParams, Msg, Model)
 
 {-|
 
@@ -9,7 +9,6 @@ module Route.Posts.Slug_.Edit exposing (ActionData, Data, route, RouteParams, Ms
 import BackendTask
 import BackendTask.Custom
 import Date exposing (Date)
-import Debug
 import Effect
 import ErrorPage
 import FatalError
@@ -116,21 +115,33 @@ data :
     -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
 data routeParams =
     Server.Request.succeed
-        (BackendTask.Custom.run "getPost"
-            (Encode.string routeParams.slug)
-            (Decode.nullable Post.decoder)
-            |> BackendTask.allowFatal
-            |> BackendTask.map
-                (\maybePost ->
-                    case maybePost of
-                        Just post ->
-                            Server.Response.render
-                                { post = post
-                                }
+        (if routeParams.slug == "new" then
+            Server.Response.render
+                { post =
+                    { slug = ""
+                    , title = ""
+                    , body = ""
+                    , publish = Nothing
+                    }
+                }
+                |> BackendTask.succeed
 
-                        Nothing ->
-                            Route.redirectTo Route.Index
-                )
+         else
+            BackendTask.Custom.run "getPost"
+                (Encode.string routeParams.slug)
+                (Decode.nullable Post.decoder)
+                |> BackendTask.allowFatal
+                |> BackendTask.map
+                    (\maybePost ->
+                        case maybePost of
+                            Just post ->
+                                Server.Response.render
+                                    { post = post
+                                    }
+
+                            Nothing ->
+                                Server.Response.errorPage ErrorPage.NotFound
+                    )
         )
 
 
@@ -167,7 +178,18 @@ action routeParams =
         (\( formResponse, parsedForm ) ->
             case parsedForm of
                 Ok okForm ->
-                    BackendTask.Custom.run "updatePost"
+                    let
+                        createPost : Bool
+                        createPost =
+                            okForm.slug == "new"
+                    in
+                    BackendTask.Custom.run
+                        (if createPost then
+                            "createPost"
+
+                         else
+                            "updatePost"
+                        )
                         (Encode.object
                             [ ( "slug", Encode.string okForm.slug )
                             , ( "title", Encode.string okForm.title )
@@ -183,18 +205,14 @@ action routeParams =
                         |> BackendTask.allowFatal
                         |> BackendTask.map
                             (\() ->
-                                Server.Response.render
-                                    { errors = formResponse }
+                                Route.redirectTo
+                                    (Route.Admin__Slug_ { slug = okForm.slug })
                             )
 
                 Err invalidForm ->
-                    BackendTask.map
-                        (\parsed ->
-                            Server.Response.render
-                                { errors = formResponse }
-                        )
-                        (Pages.Script.log
-                            (Debug.toString parsedForm)
+                    BackendTask.succeed
+                        (Server.Response.render
+                            { errors = formResponse }
                         )
         )
         (Server.Request.formData (Form.initCombined Basics.identity form))
@@ -227,7 +245,10 @@ form =
                 , fieldView "body" body
                 , fieldView "publish" publish
                 , if formState.isTransitioning then
-                    Html.button [ Html.Attributes.disabled True ]
+                    Html.button
+                        [ Html.Attributes.disabled True
+                        , Html.Attributes.attribute "aria-busy" "true"
+                        ]
                         [ Html.text "Submitting..." ]
 
                   else
@@ -247,7 +268,7 @@ form =
             )
         |> Form.field "body"
             (Form.Field.required "Required" Form.Field.text
-                |> Form.Field.textarea { rows = Just 30, cols = Just 80 }
+                |> Form.Field.textarea { rows = Just 10, cols = Just 80 }
                 |> Form.Field.withInitialValue (.body >> Form.Value.string)
             )
         |> Form.field "publish"

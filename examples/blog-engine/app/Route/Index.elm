@@ -87,7 +87,8 @@ view :
 view maybeUrl sharedModel app =
     { title = "Index page"
     , body =
-        [ app.data.posts
+        [ Html.h1 [] [ Html.text "Posts" ]
+        , app.data.posts
             |> List.map postView
             |> Html.ul []
         ]
@@ -97,7 +98,7 @@ view maybeUrl sharedModel app =
 postView : Post -> Html.Html msg
 postView post =
     Html.li []
-        [ Route.Posts__Slug___Edit { slug = post.slug }
+        [ Route.Admin__Slug_ { slug = post.slug }
             |> Route.link []
                 [ Html.text post.title
                 ]

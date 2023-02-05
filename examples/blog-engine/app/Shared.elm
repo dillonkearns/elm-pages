@@ -4,6 +4,7 @@ import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
 import Html exposing (Html)
+import Html.Attributes as Attr
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
@@ -92,7 +93,10 @@ view :
     -> { body : List (Html msg), title : String }
 view stars page model toMsg pageView =
     { body =
-        [ Html.div [] pageView.body
+        [ Html.div
+            [ Attr.class "container"
+            ]
+            pageView.body
         ]
     , title = pageView.title
     }
