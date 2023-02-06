@@ -56,7 +56,24 @@ routes getStaticRoutes htmlToString =
     , requestPrinter
     , xmlDecoder
     , multipleContentTypes
+    , errorRoute
     ]
+
+
+errorRoute : ApiRoute ApiRoute.Response
+errorRoute =
+    ApiRoute.succeed
+        (\errorCode ->
+            Request.succeed
+                (Response.plainText ("Here is the error code you requested (" ++ errorCode ++ ")")
+                    |> Response.withStatusCode (String.toInt errorCode |> Maybe.withDefault 500)
+                    |> BackendTask.succeed
+                )
+        )
+        |> ApiRoute.literal "error-code"
+        |> ApiRoute.slash
+        |> ApiRoute.capture
+        |> ApiRoute.serverRender
 
 
 xmlDecoder : ApiRoute ApiRoute.Response

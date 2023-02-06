@@ -10,7 +10,7 @@ import Test exposing (Test)
 
 all : BackendTask FatalError Test
 all =
-    [ BackendTask.Http.get "http://httpstat.us/500" (BackendTask.Http.expectWhatever ())
+    [ BackendTask.Http.get "http://localhost:1234/error-code/500" (BackendTask.Http.expectWhatever ())
         |> BackendTask.mapError .recoverable
         |> test "http 500 error"
             (\result ->
@@ -27,7 +27,7 @@ all =
                     Ok () ->
                         Expect.fail "Expected HTTP error, got Ok"
             )
-    , BackendTask.Http.get "http://httpstat.us/404" (BackendTask.Http.expectWhatever ())
+    , BackendTask.Http.get "http://localhost:1234/error-code/404" (BackendTask.Http.expectWhatever ())
         |> BackendTask.mapError .recoverable
         |> test "http 404 error"
             (\result ->
