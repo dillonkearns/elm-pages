@@ -24,7 +24,7 @@ import Pages.Script as Script exposing (Script)
 
 type alias CliOptions =
     { moduleName : String
-    , rest : List String
+    , rest : List ( String, AddFormHelp.Kind )
     }
 
 
@@ -54,8 +54,7 @@ program =
                     (Option.requiredPositionalArg "module"
                         |> Option.validate (Cli.Validate.regex moduleNameRegex)
                     )
-                |> OptionsParser.withRestArgs
-                    (Option.restArgs "fields")
+                |> OptionsParser.withRestArgs AddFormHelp.restArgsParser
             )
 
 
@@ -64,8 +63,8 @@ moduleNameRegex =
     "^[A-Z][a-zA-Z0-9_]*(\\.([A-Z][a-zA-Z0-9_]*))*$"
 
 
-createFile : List String -> List String -> Elm.File
-createFile moduleName unparsedFields =
+createFile : List String -> List ( String, AddFormHelp.Kind ) -> Elm.File
+createFile moduleName fields =
     let
         formHelp :
             { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
@@ -73,7 +72,7 @@ createFile moduleName unparsedFields =
             , declarations : List Elm.Declaration
             }
         formHelp =
-            AddFormHelp.provide unparsedFields
+            AddFormHelp.provide fields
     in
     Pages.Generate.serverRender
         { moduleName = moduleName

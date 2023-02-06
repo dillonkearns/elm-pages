@@ -1,7 +1,8 @@
-module AddFormHelp exposing (Kind(..), parseFields, provide)
+module AddFormHelp exposing (Kind(..), parseField, provide, restArgsParser)
 
 {-| -}
 
+import Cli.Option
 import Elm
 import Elm.Annotation
 import Elm.Declare
@@ -15,6 +16,7 @@ import Gen.Html as Html
 import Gen.Html.Attributes
 import Gen.List
 import List.Extra
+import Result.Extra
 
 
 {-| -}
@@ -196,52 +198,60 @@ fieldToParam ( name, kind ) =
     ( name, Nothing )
 
 
-{-| -}
-parseFields : String -> ( String, Kind )
-parseFields rawField =
-    case String.split ":" rawField of
-        [ fieldName ] ->
-            ( fieldName, FieldString )
-
-        [ fieldName, fieldKind ] ->
-            ( fieldName
-            , case fieldKind of
-                "string" ->
-                    FieldString
-
-                "text" ->
-                    FieldText
-
-                "bool" ->
-                    FieldBool
-
-                "time" ->
-                    FieldTime
-
-                "date" ->
-                    FieldDate
-
-                _ ->
-                    FieldString
+restArgsParser : Cli.Option.Option (List String) (List ( String, Kind )) Cli.Option.RestArgsOption
+restArgsParser =
+    Cli.Option.restArgs "formFields"
+        |> Cli.Option.validateMap
+            (\items ->
+                items
+                    |> List.map parseField
+                    |> Result.Extra.combine
             )
 
+
+{-| -}
+parseField : String -> Result String ( String, Kind )
+parseField rawField =
+    case String.split ":" rawField of
+        [ fieldName ] ->
+            Ok ( fieldName, FieldString )
+
+        [ fieldName, fieldKind ] ->
+            (case fieldKind of
+                "string" ->
+                    Ok FieldString
+
+                "text" ->
+                    Ok FieldText
+
+                "bool" ->
+                    Ok FieldBool
+
+                "time" ->
+                    Ok FieldTime
+
+                "date" ->
+                    Ok FieldDate
+
+                invalidFieldKind ->
+                    Err ("I wasn't able to interpret the type of the field `" ++ fieldName ++ "` because it has an unexpected field type `" ++ invalidFieldKind ++ "`.")
+            )
+                |> Result.map (Tuple.pair fieldName)
+
         _ ->
-            ( "ERROR", FieldString )
+            Err ("Unexpected form field format: `" ++ rawField ++ "`. Must be in format `first` or `checkin:date`.")
 
 
 {-| -}
 provide :
-    List String
+    List ( String, Kind )
     ->
         { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
         , renderForm : Elm.Expression -> Elm.Expression
         , declarations : List Elm.Declaration
         }
-provide rawFields =
+provide fields =
     let
-        fields =
-            rawFields |> List.map parseFields
-
         form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
         form =
             formWithFields fields

@@ -1,4 +1,4 @@
-module Result.Extra exposing (isOk, merge)
+module Result.Extra exposing (combine, isOk, merge)
 
 
 isOk : Result x a -> Bool
@@ -19,3 +19,8 @@ merge r =
 
         Err rr ->
             rr
+
+
+combine : List (Result x a) -> Result x (List a)
+combine =
+    List.foldr (Result.map2 (::)) (Ok [])
