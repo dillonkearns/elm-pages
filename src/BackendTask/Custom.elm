@@ -100,7 +100,7 @@ run :
     String
     -> Encode.Value
     -> Decoder b
-    -> BackendTask.BackendTask { fatal : FatalError, recoverable : Error } b
+    -> BackendTask { fatal : FatalError, recoverable : Error } b
 run portName input decoder =
     request
         { body =
