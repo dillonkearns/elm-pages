@@ -60,6 +60,13 @@ export async function updatePost({ slug, title, body, publish }) {
   }
 }
 
+export async function deletePost({ slug }) {
+  await prisma.post.delete({
+    where: { slug },
+  });
+  return null;
+}
+
 export async function getPost(slug) {
   try {
     return await prisma.post.findFirst({
