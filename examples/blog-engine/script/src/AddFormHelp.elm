@@ -6,16 +6,9 @@ import Cli.Option
 import Elm
 import Elm.Annotation
 import Elm.Declare
-import Elm.Let
-import Elm.Op
 import Gen.Form
 import Gen.Form.Field
-import Gen.Form.FieldView
 import Gen.Form.Validation
-import Gen.Html as Html
-import Gen.Html.Attributes
-import Gen.List
-import List.Extra
 import Result.Extra
 
 
@@ -33,8 +26,14 @@ type Kind
 {-| -}
 formWithFields :
     List ( String, Kind )
+    ->
+        ({ formState : Elm.Expression
+         , params : List Elm.Expression
+         }
+         -> Elm.Expression
+        )
     -> { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
-formWithFields fields =
+formWithFields fields viewFn =
     Elm.Declare.function "form"
         []
         (\_ ->
@@ -88,43 +87,7 @@ formWithFields fields =
                                     , ( "view"
                                       , Elm.fn ( "formState", Nothing )
                                             (\formState ->
-                                                Elm.Let.letIn
-                                                    (\fieldView ->
-                                                        Elm.list
-                                                            ((params
-                                                                |> List.Extra.zip fields
-                                                                |> List.map
-                                                                    (\( ( name, kind ), param ) ->
-                                                                        fieldView (Elm.string name) param
-                                                                    )
-                                                             )
-                                                                ++ [ Elm.ifThen (formState |> Elm.get "isTransitioning")
-                                                                        (Html.button
-                                                                            [ Gen.Html.Attributes.disabled True
-                                                                            ]
-                                                                            [ Html.text "Submitting..."
-                                                                            ]
-                                                                        )
-                                                                        (Html.button []
-                                                                            [ Html.text "Submit"
-                                                                            ]
-                                                                        )
-                                                                   ]
-                                                            )
-                                                    )
-                                                    |> Elm.Let.fn2 "fieldView"
-                                                        ( "label", Elm.Annotation.string |> Just )
-                                                        ( "field", Nothing )
-                                                        (\label field ->
-                                                            Html.div []
-                                                                [ Html.label []
-                                                                    [ Html.call_.text (Elm.Op.append label (Elm.string " "))
-                                                                    , field |> Gen.Form.FieldView.input []
-                                                                    , errorsView.call (Elm.get "errors" formState) field
-                                                                    ]
-                                                                ]
-                                                        )
-                                                    |> Elm.Let.toExpression
+                                                viewFn { formState = formState, params = params }
                                             )
                                       )
                                     ]
@@ -138,56 +101,6 @@ formWithFields fields =
                         , Elm.Annotation.named [] "ParsedForm"
                         , Elm.Annotation.var "input"
                         , Elm.Annotation.named [] "Msg"
-                        ]
-                    )
-        )
-
-
-errorsView :
-    { declaration : Elm.Declaration
-    , call : Elm.Expression -> Elm.Expression -> Elm.Expression
-    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
-    }
-errorsView =
-    Elm.Declare.fn2 "errorsView"
-        ( "errors", Elm.Annotation.namedWith [ "Form" ] "Errors" [ Elm.Annotation.string ] |> Just )
-        ( "field"
-        , Elm.Annotation.namedWith [ "Form", "Validation" ]
-            "Field"
-            [ Elm.Annotation.string
-            , Elm.Annotation.var "parsed"
-            , Elm.Annotation.var "kind"
-            ]
-            |> Just
-        )
-        (\errors field ->
-            Elm.ifThen
-                (Gen.List.call_.isEmpty (Gen.Form.errorsForField field errors))
-                (Html.div [] [])
-                (Html.div
-                    []
-                    [ Html.call_.ul (Elm.list [])
-                        (Gen.List.call_.map
-                            (Elm.fn ( "error", Nothing )
-                                (\error ->
-                                    Html.li
-                                        [ Gen.Html.Attributes.style "color" "red"
-                                        ]
-                                        [ Html.call_.text error
-                                        ]
-                                )
-                            )
-                            (Gen.Form.errorsForField field errors)
-                        )
-                    ]
-                )
-                |> Elm.withType
-                    (Elm.Annotation.namedWith [ "Html" ]
-                        "Html"
-                        [ Elm.Annotation.namedWith
-                            [ "Pages", "Msg" ]
-                            "Msg"
-                            [ Elm.Annotation.named [] "Msg" ]
                         ]
                     )
         )
@@ -244,17 +157,23 @@ parseField rawField =
 
 {-| -}
 provide :
-    List ( String, Kind )
+    { fields : List ( String, Kind )
+    , view :
+        { formState : Elm.Expression
+        , params : List Elm.Expression
+        }
+        -> Elm.Expression
+    }
     ->
         { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
         , renderForm : Elm.Expression -> Elm.Expression
         , declarations : List Elm.Declaration
         }
-provide fields =
+provide { fields, view } =
     let
         form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
         form =
-            formWithFields fields
+            formWithFields fields view
     in
     { formHandlers =
         { declaration =
@@ -276,7 +195,7 @@ provide fields =
                 |> Gen.Form.toDynamicTransition "form"
                 |> Gen.Form.renderHtml [] (Elm.get "errors" >> Elm.just) app Elm.unit
     , declarations =
-        [ formWithFields fields |> .declaration
+        [ formWithFields fields view |> .declaration
         , Elm.customType "Action"
             [ Elm.variantWith "Action" [ Elm.Annotation.named [] "ParsedForm" ]
             ]
@@ -315,6 +234,5 @@ provide fields =
                     )
                 |> Elm.Annotation.record
             )
-        , errorsView.declaration
         ]
     }
