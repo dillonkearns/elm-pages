@@ -30,7 +30,7 @@ import Pages.Script as Script exposing (Script)
 
 
 type alias CliOptions =
-    { moduleName : String
+    { moduleName : List String
     , rest : List ( String, AddFormHelp.Kind )
     }
 
@@ -42,7 +42,7 @@ run =
             let
                 file : Elm.File
                 file =
-                    createFile (cliOptions.moduleName |> String.split ".") cliOptions.rest
+                    createFile cliOptions.moduleName cliOptions.rest
             in
             Script.writeFile
                 { path = "app/" ++ file.path

@@ -51,9 +51,14 @@ import Pages.Internal.RoutePattern as RoutePattern
 
 {-| A positional argument for elm-cli-options-parser that does a Regex validation to check that the module name is a valid Elm Route module name.
 -}
-moduleNameCliArg : Option.Option from String builderState -> Option.Option from String builderState
+moduleNameCliArg : Option.Option from String builderState -> Option.Option from (List String) builderState
 moduleNameCliArg =
-    Option.validate (Cli.Validate.regex moduleNameRegex)
+    Option.validate
+        (Cli.Validate.regex moduleNameRegex)
+        >> Option.map
+            (\rawModuleName ->
+                rawModuleName |> String.split "."
+            )
 
 
 moduleNameRegex : String
