@@ -6,23 +6,23 @@ import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import Elm
-import Elm.Annotation
+import Elm.Annotation as Type
 import Elm.Case
 import Elm.Declare
 import Elm.Let
 import Elm.Op
 import Gen.BackendTask
 import Gen.Debug
-import Gen.Effect
-import Gen.Form
-import Gen.Form.FieldView
+import Gen.Effect as Effect
+import Gen.Form as Form
+import Gen.Form.FieldView as FieldView
 import Gen.Html as Html
-import Gen.Html.Attributes
+import Gen.Html.Attributes as Attr
 import Gen.List
 import Gen.Pages.Script
 import Gen.Platform.Sub
-import Gen.Server.Request
-import Gen.Server.Response
+import Gen.Server.Request as Request
+import Gen.Server.Response as Response
 import Gen.View
 import List.Extra
 import Pages.Generate exposing (Type(..))
@@ -88,7 +88,7 @@ createFile moduleName fields =
                                      )
                                         ++ [ Elm.ifThen (formState |> Elm.get "isTransitioning")
                                                 (Html.button
-                                                    [ Gen.Html.Attributes.disabled True
+                                                    [ Attr.disabled True
                                                     ]
                                                     [ Html.text "Submitting..."
                                                     ]
@@ -101,13 +101,13 @@ createFile moduleName fields =
                                     )
                             )
                             |> Elm.Let.fn2 "fieldView"
-                                ( "label", Elm.Annotation.string |> Just )
+                                ( "label", Type.string |> Just )
                                 ( "field", Nothing )
                                 (\label field ->
                                     Html.div []
                                         [ Html.label []
                                             [ Html.call_.text (Elm.Op.append label (Elm.string " "))
-                                            , field |> Gen.Form.FieldView.input []
+                                            , field |> FieldView.input []
                                             , errorsView.call (Elm.get "errors" formState) field
                                             ]
                                         ]
@@ -119,10 +119,10 @@ createFile moduleName fields =
         { moduleName = moduleName
         , action =
             ( Alias
-                (Elm.Annotation.record
+                (Type.record
                     (case formHelpers of
                         Just _ ->
-                            [ ( "errors", Elm.Annotation.namedWith [ "Form" ] "Response" [ Elm.Annotation.string ] )
+                            [ ( "errors", Type.namedWith [ "Form" ] "Response" [ Type.string ] )
                             ]
 
                         Nothing ->
@@ -133,8 +133,8 @@ createFile moduleName fields =
                 formHelpers
                     |> Maybe.map
                         (\justFormHelp ->
-                            Gen.Server.Request.formData justFormHelp.formHandlers.value
-                                |> Gen.Server.Request.call_.map
+                            Request.formData justFormHelp.formHandlers.value
+                                |> Request.call_.map
                                     (Elm.fn ( "formData", Nothing )
                                         (\formData ->
                                             Elm.Case.tuple formData
@@ -146,7 +146,7 @@ createFile moduleName fields =
                                                         |> Gen.BackendTask.call_.map
                                                             (Elm.fn ( "_", Nothing )
                                                                 (\_ ->
-                                                                    Gen.Server.Response.render
+                                                                    Response.render
                                                                         (Elm.record
                                                                             [ ( "errors", response )
                                                                             ]
@@ -158,20 +158,20 @@ createFile moduleName fields =
                                     )
                         )
                     |> Maybe.withDefault
-                        (Gen.Server.Request.succeed
+                        (Request.succeed
                             (Gen.BackendTask.succeed
-                                (Gen.Server.Response.render
+                                (Response.render
                                     (Elm.record [])
                                 )
                             )
                         )
             )
         , data =
-            ( Alias (Elm.Annotation.record [])
+            ( Alias (Type.record [])
             , \routeParams ->
-                Gen.Server.Request.succeed
+                Request.succeed
                     (Gen.BackendTask.succeed
-                        (Gen.Server.Response.render
+                        (Response.render
                             (Elm.record [])
                         )
                     )
@@ -205,10 +205,10 @@ createFile moduleName fields =
             , update =
                 \{ pageUrl, sharedModel, app, msg, model } ->
                     Elm.Case.custom msg
-                        (Elm.Annotation.named [] "Msg")
+                        (Type.named [] "Msg")
                         [ Elm.Case.branch0 "NoOp"
                             (Elm.tuple model
-                                (Gen.Effect.none
+                                (Effect.none
                                     |> Elm.withType effectType
                                 )
                             )
@@ -216,14 +216,14 @@ createFile moduleName fields =
             , init =
                 \{ pageUrl, sharedModel, app } ->
                     Elm.tuple (Elm.record [])
-                        (Gen.Effect.none
+                        (Effect.none
                             |> Elm.withType effectType
                         )
             , subscriptions =
                 \{ maybePageUrl, routeParams, path, sharedModel, model } ->
                     Gen.Platform.Sub.none
             , model =
-                Alias (Elm.Annotation.record [])
+                Alias (Type.record [])
             , msg =
                 Custom [ Elm.variant "NoOp" ]
             }
@@ -236,19 +236,19 @@ errorsView :
     }
 errorsView =
     Elm.Declare.fn2 "errorsView"
-        ( "errors", Elm.Annotation.namedWith [ "Form" ] "Errors" [ Elm.Annotation.string ] |> Just )
+        ( "errors", Type.namedWith [ "Form" ] "Errors" [ Type.string ] |> Just )
         ( "field"
-        , Elm.Annotation.namedWith [ "Form", "Validation" ]
+        , Type.namedWith [ "Form", "Validation" ]
             "Field"
-            [ Elm.Annotation.string
-            , Elm.Annotation.var "parsed"
-            , Elm.Annotation.var "kind"
+            [ Type.string
+            , Type.var "parsed"
+            , Type.var "kind"
             ]
             |> Just
         )
         (\errors field ->
             Elm.ifThen
-                (Gen.List.call_.isEmpty (Gen.Form.errorsForField field errors))
+                (Gen.List.call_.isEmpty (Form.errorsForField field errors))
                 (Html.div [] [])
                 (Html.div
                     []
@@ -257,28 +257,28 @@ errorsView =
                             (Elm.fn ( "error", Nothing )
                                 (\error ->
                                     Html.li
-                                        [ Gen.Html.Attributes.style "color" "red"
+                                        [ Attr.style "color" "red"
                                         ]
                                         [ Html.call_.text error
                                         ]
                                 )
                             )
-                            (Gen.Form.errorsForField field errors)
+                            (Form.errorsForField field errors)
                         )
                     ]
                 )
                 |> Elm.withType
-                    (Elm.Annotation.namedWith [ "Html" ]
+                    (Type.namedWith [ "Html" ]
                         "Html"
-                        [ Elm.Annotation.namedWith
+                        [ Type.namedWith
                             [ "Pages", "Msg" ]
                             "Msg"
-                            [ Elm.Annotation.named [] "Msg" ]
+                            [ Type.named [] "Msg" ]
                         ]
                     )
         )
 
 
-effectType : Elm.Annotation.Annotation
+effectType : Type.Annotation
 effectType =
-    Elm.Annotation.namedWith [ "Effect" ] "Effect" [ Elm.Annotation.var "msg" ]
+    Type.namedWith [ "Effect" ] "Effect" [ Type.var "msg" ]
