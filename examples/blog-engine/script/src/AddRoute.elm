@@ -31,7 +31,7 @@ import Pages.Script as Script exposing (Script)
 
 type alias CliOptions =
     { moduleName : List String
-    , rest : List ( String, AddFormHelp.Kind )
+    , fields : List ( String, AddFormHelp.Kind )
     }
 
 
@@ -39,15 +39,9 @@ run : Script
 run =
     Script.withCliOptions program
         (\cliOptions ->
-            let
-                file : Elm.File
-                file =
-                    createFile cliOptions.moduleName cliOptions.rest
-            in
-            Script.writeFile
-                { path = "app/" ++ file.path
-                , body = file.contents
-                }
+            cliOptions
+                |> createFile
+                |> Script.writeFile
                 |> BackendTask.allowFatal
         )
 
@@ -62,8 +56,8 @@ program =
             )
 
 
-createFile : List String -> List ( String, AddFormHelp.Kind ) -> Elm.File
-createFile moduleName fields =
+createFile : CliOptions -> { path : String, body : String }
+createFile { moduleName, fields } =
     let
         formHelpers :
             Maybe

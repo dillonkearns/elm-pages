@@ -164,7 +164,7 @@ buildNoState :
     { view : { maybeUrl : Elm.Expression, sharedModel : Elm.Expression, app : Elm.Expression } -> Elm.Expression
     }
     -> Builder
-    -> Elm.File
+    -> { path : String, body : String }
 buildNoState definitions builder_ =
     case builder_ of
         ServerRender declarations builder ->
@@ -256,7 +256,7 @@ buildWithLocalState :
     , model : Type
     }
     -> Builder
-    -> Elm.File
+    -> { path : String, body : String }
 buildWithLocalState definitions builder_ =
     case builder_ of
         ServerRender declarations builder ->
@@ -395,7 +395,7 @@ buildWithSharedState :
     , model : Type
     }
     -> Builder
-    -> Elm.File
+    -> { path : String, body : String }
 buildWithSharedState definitions builder_ =
     case builder_ of
         ServerRender declarations builder ->
@@ -532,7 +532,7 @@ userFunction :
         , types : { model : Type, msg : Type, data : Type, actionData : Type }
         , declarations : List Elm.Declaration
         }
-    -> Elm.File
+    -> { path : String, body : String }
 userFunction moduleName definitions =
     let
         viewFn :
@@ -858,6 +858,11 @@ userFunction moduleName definitions =
                )
             ++ definitions.declarations
         )
+        |> (\{ path, contents } ->
+                { path = "app/" ++ path
+                , body = contents
+                }
+           )
 
 
 localType : String -> Elm.Annotation.Annotation
