@@ -194,22 +194,22 @@ run portName input decoder =
                                         )
 
                             else if errorKind == "NonJsonException" then
-                                Decode.field "error" Decode.string
-                                    |> Decode.map
-                                        (\exceptionMessage ->
-                                            FatalError.recoverable
-                                                { title = "Custom BackendTask Error"
-                                                , body =
-                                                    [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.run. I was able to import the port definitions file, but when running it I encountered this exception:\n\n"
-
-                                                    --, TerminalText.red (Encode.encode 2 portCallError)
-                                                    , TerminalText.red exceptionMessage
-                                                    , TerminalText.text "\n\nYou could add a `try`/`catch` in your `custom-backend-task` JavaScript code to handle that error."
-                                                    ]
-                                                        |> TerminalText.toString
-                                                }
-                                                (NonJsonException exceptionMessage)
-                                        )
+                                Decode.map2
+                                    (\exceptionMessage stackTrace ->
+                                        FatalError.recoverable
+                                            { title = "Custom BackendTask Error"
+                                            , body =
+                                                [ TerminalText.text "Something went wrong in a call to BackendTask.Custom.run. I was able to import the port definitions file, but when running it I encountered this exception:\n\n"
+                                                , TerminalText.red exceptionMessage
+                                                , TerminalText.text ("\n\n" ++ (stackTrace |> Maybe.withDefault "\n"))
+                                                , TerminalText.text "\n\nYou could add a `try`/`catch` in your `custom-backend-task` JavaScript code to handle that error."
+                                                ]
+                                                    |> TerminalText.toString
+                                            }
+                                            (NonJsonException exceptionMessage)
+                                    )
+                                    (Decode.field "error" Decode.string)
+                                    (Decode.field "stack" (Decode.nullable Decode.string))
 
                             else
                                 FatalError.recoverable

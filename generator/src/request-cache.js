@@ -100,6 +100,16 @@ export function lookupOrPerform(
               ),
             });
           } catch (portCallError) {
+            if (portCallError instanceof Error) {
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "NonJsonException",
+                  error: portCallError.message,
+                  stack: portCallError.stack || null,
+                }),
+              });
+            }
             try {
               resolve({
                 kind: "response-json",
