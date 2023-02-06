@@ -65,12 +65,13 @@ program =
 createFile : List String -> List ( String, AddFormHelp.Kind ) -> Elm.File
 createFile moduleName fields =
     let
-        formHelp :
-            { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
-            , renderForm : Elm.Expression -> Elm.Expression
-            , declarations : List Elm.Declaration
-            }
-        formHelp =
+        formHelpers :
+            Maybe
+                { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
+                , renderForm : Elm.Expression -> Elm.Expression
+                , declarations : List Elm.Declaration
+                }
+        formHelpers =
             AddFormHelp.provide
                 { fields = fields
                 , view =
@@ -119,31 +120,49 @@ createFile moduleName fields =
         , action =
             ( Alias
                 (Elm.Annotation.record
-                    [ ( "errors", Elm.Annotation.namedWith [ "Form" ] "Response" [ Elm.Annotation.string ] )
-                    ]
+                    (case formHelpers of
+                        Just _ ->
+                            [ ( "errors", Elm.Annotation.namedWith [ "Form" ] "Response" [ Elm.Annotation.string ] )
+                            ]
+
+                        Nothing ->
+                            []
+                    )
                 )
             , \routeParams ->
-                Gen.Server.Request.formData formHelp.formHandlers.value
-                    |> Gen.Server.Request.call_.map
-                        (Elm.fn ( "formData", Nothing )
-                            (\formData ->
-                                Elm.Case.tuple formData
-                                    "response"
-                                    "parsedForm"
-                                    (\response parsedForm ->
-                                        Gen.Debug.toString parsedForm
-                                            |> Gen.Pages.Script.call_.log
-                                            |> Gen.BackendTask.call_.map
-                                                (Elm.fn ( "_", Nothing )
-                                                    (\_ ->
-                                                        Gen.Server.Response.render
-                                                            (Elm.record
-                                                                [ ( "errors", response )
-                                                                ]
+                formHelpers
+                    |> Maybe.map
+                        (\justFormHelp ->
+                            Gen.Server.Request.formData justFormHelp.formHandlers.value
+                                |> Gen.Server.Request.call_.map
+                                    (Elm.fn ( "formData", Nothing )
+                                        (\formData ->
+                                            Elm.Case.tuple formData
+                                                "response"
+                                                "parsedForm"
+                                                (\response parsedForm ->
+                                                    Gen.Debug.toString parsedForm
+                                                        |> Gen.Pages.Script.call_.log
+                                                        |> Gen.BackendTask.call_.map
+                                                            (Elm.fn ( "_", Nothing )
+                                                                (\_ ->
+                                                                    Gen.Server.Response.render
+                                                                        (Elm.record
+                                                                            [ ( "errors", response )
+                                                                            ]
+                                                                        )
+                                                                )
                                                             )
-                                                    )
                                                 )
+                                        )
                                     )
+                        )
+                    |> Maybe.withDefault
+                        (Gen.Server.Request.succeed
+                            (Gen.BackendTask.succeed
+                                (Gen.Server.Response.render
+                                    (Elm.record [])
+                                )
                             )
                         )
             )
@@ -159,10 +178,12 @@ createFile moduleName fields =
             )
         , head = \app -> Elm.list []
         }
-        |> Pages.Generate.addDeclarations formHelp.declarations
         |> Pages.Generate.addDeclarations
-            [ errorsView.declaration
-            ]
+            (formHelpers
+                |> Maybe.map .declarations
+                |> Maybe.map ((::) errorsView.declaration)
+                |> Maybe.withDefault []
+            )
         |> Pages.Generate.buildWithLocalState
             { view =
                 \{ maybeUrl, sharedModel, model, app } ->
@@ -170,9 +191,16 @@ createFile moduleName fields =
                         { title = moduleName |> String.join "." |> Elm.string
                         , body =
                             Elm.list
-                                [ Html.h2 [] [ Html.text "Form" ]
-                                , formHelp.renderForm app -- TODO customize argument with `(Elm.get "errors" >> Elm.just)` and `Elm.unit`?
-                                ]
+                                (case formHelpers of
+                                    Just justFormHelp ->
+                                        [ Html.h2 [] [ Html.text "Form" ]
+                                        , justFormHelp.renderForm app -- TODO customize argument with `(Elm.get "errors" >> Elm.just)` and `Elm.unit`?
+                                        ]
+
+                                    Nothing ->
+                                        [ Html.h2 [] [ Html.text "New Page" ]
+                                        ]
+                                )
                         }
             , update =
                 \{ pageUrl, sharedModel, app, msg, model } ->

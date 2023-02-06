@@ -165,74 +165,80 @@ provide :
         -> Elm.Expression
     }
     ->
-        { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
-        , renderForm : Elm.Expression -> Elm.Expression
-        , declarations : List Elm.Declaration
-        }
+        Maybe
+            { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
+            , renderForm : Elm.Expression -> Elm.Expression
+            , declarations : List Elm.Declaration
+            }
 provide { fields, view } =
     let
         form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
         form =
             formWithFields fields view
     in
-    { formHandlers =
-        { declaration =
-            Elm.declaration "formHandlers"
-                (Gen.Form.call_.initCombined (Elm.val "Action") (form.call [])
-                    |> Elm.withType
-                        (Elm.Annotation.namedWith [ "Form" ]
-                            "ServerForms"
-                            [ Elm.Annotation.string
-                            , Elm.Annotation.named [] "Action"
-                            ]
+    if List.isEmpty fields then
+        Nothing
+
+    else
+        Just
+            { formHandlers =
+                { declaration =
+                    Elm.declaration "formHandlers"
+                        (Gen.Form.call_.initCombined (Elm.val "Action") (form.call [])
+                            |> Elm.withType
+                                (Elm.Annotation.namedWith [ "Form" ]
+                                    "ServerForms"
+                                    [ Elm.Annotation.string
+                                    , Elm.Annotation.named [] "Action"
+                                    ]
+                                )
                         )
-                )
-        , value = Elm.val "formHandlers"
-        }
-    , renderForm =
-        \app ->
-            form.call []
-                |> Gen.Form.toDynamicTransition "form"
-                |> Gen.Form.renderHtml [] (Elm.get "errors" >> Elm.just) app Elm.unit
-    , declarations =
-        [ formWithFields fields view |> .declaration
-        , Elm.customType "Action"
-            [ Elm.variantWith "Action" [ Elm.Annotation.named [] "ParsedForm" ]
-            ]
+                , value = Elm.val "formHandlers"
+                }
+            , renderForm =
+                \app ->
+                    form.call []
+                        |> Gen.Form.toDynamicTransition "form"
+                        |> Gen.Form.renderHtml [] (Elm.get "errors" >> Elm.just) app Elm.unit
+            , declarations =
+                [ formWithFields fields view |> .declaration
+                , Elm.customType "Action"
+                    [ Elm.variantWith "Action" [ Elm.Annotation.named [] "ParsedForm" ]
+                    ]
 
-        -- TODO customize formHandlers name?
-        , Elm.declaration "formHandlers" (Gen.Form.call_.initCombined (Elm.val "Action") (form.call []))
+                -- TODO customize formHandlers name?
+                , Elm.declaration "formHandlers" (Gen.Form.call_.initCombined (Elm.val "Action") (form.call []))
 
-        -- TODO customize ParsedForm name?
-        , Elm.alias "ParsedForm"
-            (fields
-                |> List.map
-                    (\( fieldName, kind ) ->
-                        ( fieldName
-                        , case kind of
-                            FieldString ->
-                                Elm.Annotation.string
+                -- TODO customize ParsedForm name?
+                , Elm.alias "ParsedForm"
+                    (fields
+                        |> List.map
+                            (\( fieldName, kind ) ->
+                                ( fieldName
+                                , case kind of
+                                    FieldString ->
+                                        Elm.Annotation.string
 
-                            FieldInt ->
-                                Elm.Annotation.int
+                                    FieldInt ->
+                                        Elm.Annotation.int
 
-                            FieldText ->
-                                Elm.Annotation.string
+                                    FieldText ->
+                                        Elm.Annotation.string
 
-                            FieldFloat ->
-                                Elm.Annotation.float
+                                    FieldFloat ->
+                                        Elm.Annotation.float
 
-                            FieldTime ->
-                                Elm.Annotation.named [ "Form", "Field" ] "TimeOfDay"
+                                    FieldTime ->
+                                        Elm.Annotation.named [ "Form", "Field" ] "TimeOfDay"
 
-                            FieldDate ->
-                                Elm.Annotation.named [ "Date" ] "Date"
+                                    FieldDate ->
+                                        Elm.Annotation.named [ "Date" ] "Date"
 
-                            FieldBool ->
-                                Elm.Annotation.bool
-                        )
+                                    FieldBool ->
+                                        Elm.Annotation.bool
+                                )
+                            )
+                        |> Elm.Annotation.record
                     )
-                |> Elm.Annotation.record
-            )
-        ]
-    }
+                ]
+            }
