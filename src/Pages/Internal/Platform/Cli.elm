@@ -444,259 +444,238 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
 
                                                                     _ ->
                                                                         Nothing
+
+                                                            maybeRedirectResponse : Maybe Effect
+                                                            maybeRedirectResponse =
+                                                                actionHeaders2
+                                                                    |> Maybe.andThen
+                                                                        (\responseMetadata ->
+                                                                            toRedirectResponse config
+                                                                                serverRequestPayload
+                                                                                includeHtml
+                                                                                responseMetadata
+                                                                                responseMetadata
+                                                                        )
                                                         in
-                                                        BackendTask.map3
-                                                            (\pageData sharedData tags ->
-                                                                let
-                                                                    renderedResult : Effect
-                                                                    renderedResult =
-                                                                        case pageData of
-                                                                            PageServerResponse.RenderPage responseInfo pageData_ ->
-                                                                                let
-                                                                                    currentPage : { path : Path, route : route }
-                                                                                    currentPage =
-                                                                                        { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
+                                                        case maybeRedirectResponse of
+                                                            Just redirectResponse ->
+                                                                redirectResponse
+                                                                    |> BackendTask.succeed
 
-                                                                                    maybeActionData : Maybe actionData
-                                                                                    maybeActionData =
-                                                                                        case something of
-                                                                                            Just (PageServerResponse.RenderPage _ actionThing) ->
-                                                                                                Just actionThing
-
-                                                                                            _ ->
-                                                                                                Nothing
-
-                                                                                    pageModel : userModel
-                                                                                    pageModel =
-                                                                                        config.init
-                                                                                            Pages.Flags.PreRenderFlags
-                                                                                            sharedData
-                                                                                            pageData_
-                                                                                            maybeActionData
-                                                                                            (Just
-                                                                                                { path =
-                                                                                                    { path = currentPage.path
-                                                                                                    , query = Nothing
-                                                                                                    , fragment = Nothing
-                                                                                                    }
-                                                                                                , metadata = currentPage.route
-                                                                                                , pageUrl = Nothing
-                                                                                                }
-                                                                                            )
-                                                                                            |> Tuple.first
-
-                                                                                    viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
-                                                                                    viewValue =
-                                                                                        (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData |> .view) pageModel
-
-                                                                                    responseMetadata : { statusCode : Int, headers : List ( String, String ) }
-                                                                                    responseMetadata =
-                                                                                        actionHeaders2 |> Maybe.withDefault responseInfo
-                                                                                in
-                                                                                (case isAction of
-                                                                                    Just actionRequestKind ->
+                                                            Nothing ->
+                                                                BackendTask.map3
+                                                                    (\pageData sharedData tags ->
+                                                                        let
+                                                                            renderedResult : Effect
+                                                                            renderedResult =
+                                                                                case pageData of
+                                                                                    PageServerResponse.RenderPage responseInfo pageData_ ->
                                                                                         let
-                                                                                            actionDataResult : Maybe (PageServerResponse actionData errorPage)
-                                                                                            actionDataResult =
-                                                                                                something
-                                                                                        in
-                                                                                        case actionDataResult of
-                                                                                            Just (PageServerResponse.RenderPage ignored2 actionData_) ->
-                                                                                                case actionRequestKind of
-                                                                                                    ActionResponseRequest ->
-                                                                                                        ( ignored2.headers
-                                                                                                        , ResponseSketch.HotUpdate pageData_ sharedData (Just actionData_)
-                                                                                                            |> config.encodeResponse
-                                                                                                            |> Bytes.Encode.encode
-                                                                                                        )
+                                                                                            currentPage : { path : Path, route : route }
+                                                                                            currentPage =
+                                                                                                { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
 
-                                                                                                    ActionOnlyRequest ->
-                                                                                                        ---- TODO need to encode action data when only that is requested (not ResponseSketch?)
-                                                                                                        ( ignored2.headers
-                                                                                                        , actionData_
-                                                                                                            |> config.encodeAction
-                                                                                                            |> Bytes.Encode.encode
-                                                                                                        )
+                                                                                            maybeActionData : Maybe actionData
+                                                                                            maybeActionData =
+                                                                                                case something of
+                                                                                                    Just (PageServerResponse.RenderPage _ actionThing) ->
+                                                                                                        Just actionThing
 
-                                                                                            _ ->
-                                                                                                ( responseMetadata.headers
-                                                                                                , Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
-                                                                                                )
+                                                                                                    _ ->
+                                                                                                        Nothing
 
-                                                                                    Nothing ->
-                                                                                        ( responseMetadata.headers
-                                                                                        , ResponseSketch.HotUpdate pageData_ sharedData Nothing
-                                                                                            |> config.encodeResponse
-                                                                                            |> Bytes.Encode.encode
-                                                                                        )
-                                                                                )
-                                                                                    |> (\( actionHeaders, byteEncodedPageData ) ->
-                                                                                            let
-                                                                                                rendered : { view : userModel -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }, head : List Tag }
-                                                                                                rendered =
-                                                                                                    config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData
-                                                                                            in
-                                                                                            PageServerResponse.toRedirect responseMetadata
-                                                                                                |> Maybe.map
-                                                                                                    (\{ location } ->
-                                                                                                        location
-                                                                                                            |> ResponseSketch.Redirect
-                                                                                                            |> config.encodeResponse
-                                                                                                            |> Bytes.Encode.encode
-                                                                                                    )
-                                                                                                -- TODO handle other cases besides redirects?
-                                                                                                |> Maybe.withDefault byteEncodedPageData
-                                                                                                |> (\encodedData ->
-                                                                                                        { route = currentPage.path |> Path.toRelative
-                                                                                                        , contentJson = Dict.empty
-                                                                                                        , html = viewValue.body |> bodyToString
-                                                                                                        , errors = []
-                                                                                                        , head = rendered.head ++ tags
-                                                                                                        , title = viewValue.title
-                                                                                                        , staticHttpCache = Dict.empty
-                                                                                                        , is404 = False
-                                                                                                        , statusCode =
-                                                                                                            case includeHtml of
-                                                                                                                RenderRequest.OnlyJson ->
-                                                                                                                    200
-
-                                                                                                                RenderRequest.HtmlAndJson ->
-                                                                                                                    responseMetadata.statusCode
-                                                                                                        , headers =
-                                                                                                            -- TODO should `responseInfo.headers` be used? Is there a problem in the case where there is both an action and data response in one? Do we need to make sure it is performed as two separate HTTP requests to ensure that the cookies are set correctly in that case?
-                                                                                                            actionHeaders
+                                                                                            pageModel : userModel
+                                                                                            pageModel =
+                                                                                                config.init
+                                                                                                    Pages.Flags.PreRenderFlags
+                                                                                                    sharedData
+                                                                                                    pageData_
+                                                                                                    maybeActionData
+                                                                                                    (Just
+                                                                                                        { path =
+                                                                                                            { path = currentPage.path
+                                                                                                            , query = Nothing
+                                                                                                            , fragment = Nothing
+                                                                                                            }
+                                                                                                        , metadata = currentPage.route
+                                                                                                        , pageUrl = Nothing
                                                                                                         }
-                                                                                                            |> ToJsPayload.PageProgress
-                                                                                                            |> Effect.SendSinglePageNew encodedData
-                                                                                                   )
-                                                                                       )
+                                                                                                    )
+                                                                                                    |> Tuple.first
 
-                                                                            PageServerResponse.ServerResponse serverResponse ->
-                                                                                --PageServerResponse.ServerResponse serverResponse
-                                                                                -- TODO handle error?
-                                                                                let
-                                                                                    responseMetadata : PageServerResponse.Response
-                                                                                    responseMetadata =
-                                                                                        case something of
-                                                                                            Just (PageServerResponse.ServerResponse responseThing) ->
-                                                                                                responseThing
+                                                                                            viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
+                                                                                            viewValue =
+                                                                                                (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData |> .view) pageModel
 
-                                                                                            _ ->
-                                                                                                serverResponse
-                                                                                in
-                                                                                PageServerResponse.toRedirect responseMetadata
-                                                                                    |> Maybe.map
-                                                                                        (\_ ->
-                                                                                            let
-                                                                                                ( _, byteEncodedPageData ) =
-                                                                                                    ( serverResponse.headers
-                                                                                                      --ignored1.headers
-                                                                                                    , PageServerResponse.toRedirect serverResponse
+                                                                                            responseMetadata : { statusCode : Int, headers : List ( String, String ) }
+                                                                                            responseMetadata =
+                                                                                                actionHeaders2 |> Maybe.withDefault responseInfo
+                                                                                        in
+                                                                                        (case isAction of
+                                                                                            Just actionRequestKind ->
+                                                                                                let
+                                                                                                    actionDataResult : Maybe (PageServerResponse actionData errorPage)
+                                                                                                    actionDataResult =
+                                                                                                        something
+                                                                                                in
+                                                                                                case actionDataResult of
+                                                                                                    Just (PageServerResponse.RenderPage ignored2 actionData_) ->
+                                                                                                        case actionRequestKind of
+                                                                                                            ActionResponseRequest ->
+                                                                                                                ( ignored2.headers
+                                                                                                                , ResponseSketch.HotUpdate pageData_ sharedData (Just actionData_)
+                                                                                                                    |> config.encodeResponse
+                                                                                                                    |> Bytes.Encode.encode
+                                                                                                                )
+
+                                                                                                            ActionOnlyRequest ->
+                                                                                                                ---- TODO need to encode action data when only that is requested (not ResponseSketch?)
+                                                                                                                ( ignored2.headers
+                                                                                                                , actionData_
+                                                                                                                    |> config.encodeAction
+                                                                                                                    |> Bytes.Encode.encode
+                                                                                                                )
+
+                                                                                                    _ ->
+                                                                                                        ( responseMetadata.headers
+                                                                                                        , Bytes.Encode.encode (Bytes.Encode.unsignedInt8 0)
+                                                                                                        )
+
+                                                                                            Nothing ->
+                                                                                                ( responseMetadata.headers
+                                                                                                , ResponseSketch.HotUpdate pageData_ sharedData Nothing
+                                                                                                    |> config.encodeResponse
+                                                                                                    |> Bytes.Encode.encode
+                                                                                                )
+                                                                                        )
+                                                                                            |> (\( actionHeaders, byteEncodedPageData ) ->
+                                                                                                    let
+                                                                                                        rendered : { view : userModel -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }, head : List Tag }
+                                                                                                        rendered =
+                                                                                                            config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData
+                                                                                                    in
+                                                                                                    PageServerResponse.toRedirect responseMetadata
                                                                                                         |> Maybe.map
                                                                                                             (\{ location } ->
                                                                                                                 location
                                                                                                                     |> ResponseSketch.Redirect
                                                                                                                     |> config.encodeResponse
+                                                                                                                    |> Bytes.Encode.encode
                                                                                                             )
                                                                                                         -- TODO handle other cases besides redirects?
-                                                                                                        |> Maybe.withDefault (Bytes.Encode.unsignedInt8 0)
-                                                                                                        |> Bytes.Encode.encode
+                                                                                                        |> Maybe.withDefault byteEncodedPageData
+                                                                                                        |> (\encodedData ->
+                                                                                                                { route = currentPage.path |> Path.toRelative
+                                                                                                                , contentJson = Dict.empty
+                                                                                                                , html = viewValue.body |> bodyToString
+                                                                                                                , errors = []
+                                                                                                                , head = rendered.head ++ tags
+                                                                                                                , title = viewValue.title
+                                                                                                                , staticHttpCache = Dict.empty
+                                                                                                                , is404 = False
+                                                                                                                , statusCode =
+                                                                                                                    case includeHtml of
+                                                                                                                        RenderRequest.OnlyJson ->
+                                                                                                                            200
+
+                                                                                                                        RenderRequest.HtmlAndJson ->
+                                                                                                                            responseMetadata.statusCode
+                                                                                                                , headers =
+                                                                                                                    -- TODO should `responseInfo.headers` be used? Is there a problem in the case where there is both an action and data response in one? Do we need to make sure it is performed as two separate HTTP requests to ensure that the cookies are set correctly in that case?
+                                                                                                                    actionHeaders
+                                                                                                                }
+                                                                                                                    |> ToJsPayload.PageProgress
+                                                                                                                    |> Effect.SendSinglePageNew encodedData
+                                                                                                           )
+                                                                                               )
+
+                                                                                    PageServerResponse.ServerResponse serverResponse ->
+                                                                                        --PageServerResponse.ServerResponse serverResponse
+                                                                                        -- TODO handle error?
+                                                                                        let
+                                                                                            responseMetadata : PageServerResponse.Response
+                                                                                            responseMetadata =
+                                                                                                case something of
+                                                                                                    Just (PageServerResponse.ServerResponse responseThing) ->
+                                                                                                        responseThing
+
+                                                                                                    _ ->
+                                                                                                        serverResponse
+                                                                                        in
+                                                                                        toRedirectResponse config serverRequestPayload includeHtml serverResponse responseMetadata
+                                                                                            |> Maybe.withDefault
+                                                                                                ({ body = serverResponse |> PageServerResponse.toJson
+                                                                                                 , staticHttpCache = Dict.empty
+                                                                                                 , statusCode = serverResponse.statusCode
+                                                                                                 }
+                                                                                                    |> ToJsPayload.SendApiResponse
+                                                                                                    |> Effect.SendSinglePage
+                                                                                                )
+
+                                                                                    PageServerResponse.ErrorPage error record ->
+                                                                                        let
+                                                                                            currentPage : { path : Path, route : route }
+                                                                                            currentPage =
+                                                                                                { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
+
+                                                                                            pageModel : userModel
+                                                                                            pageModel =
+                                                                                                config.init
+                                                                                                    Pages.Flags.PreRenderFlags
+                                                                                                    sharedData
+                                                                                                    pageData2
+                                                                                                    Nothing
+                                                                                                    (Just
+                                                                                                        { path =
+                                                                                                            { path = currentPage.path
+                                                                                                            , query = Nothing
+                                                                                                            , fragment = Nothing
+                                                                                                            }
+                                                                                                        , metadata = currentPage.route
+                                                                                                        , pageUrl = Nothing
+                                                                                                        }
                                                                                                     )
-                                                                                            in
-                                                                                            { route = serverRequestPayload.path |> Path.toRelative
-                                                                                            , contentJson = Dict.empty
-                                                                                            , html = "This is intentionally blank HTML"
-                                                                                            , errors = []
-                                                                                            , head = []
-                                                                                            , title = "This is an intentionally blank title"
-                                                                                            , staticHttpCache = Dict.empty
-                                                                                            , is404 = False
-                                                                                            , statusCode =
-                                                                                                case includeHtml of
-                                                                                                    RenderRequest.OnlyJson ->
-                                                                                                        -- if this is a redirect for a `content.dat`, we don't want to send an *actual* redirect status code because the redirect needs to be handled in Elm (not by the Browser)
-                                                                                                        200
+                                                                                                    |> Tuple.first
 
-                                                                                                    RenderRequest.HtmlAndJson ->
-                                                                                                        responseMetadata.statusCode
-                                                                                            , headers = responseMetadata.headers --serverResponse.headers
-                                                                                            }
-                                                                                                |> ToJsPayload.PageProgress
-                                                                                                |> Effect.SendSinglePageNew byteEncodedPageData
+                                                                                            pageData2 : pageData
+                                                                                            pageData2 =
+                                                                                                config.errorPageToData error
+
+                                                                                            viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
+                                                                                            viewValue =
+                                                                                                (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData2 Nothing |> .view) pageModel
+                                                                                        in
+                                                                                        (ResponseSketch.HotUpdate pageData2 sharedData Nothing
+                                                                                            |> config.encodeResponse
+                                                                                            |> Bytes.Encode.encode
                                                                                         )
-                                                                                    |> Maybe.withDefault
-                                                                                        ({ body = serverResponse |> PageServerResponse.toJson
-                                                                                         , staticHttpCache = Dict.empty
-                                                                                         , statusCode = serverResponse.statusCode
-                                                                                         }
-                                                                                            |> ToJsPayload.SendApiResponse
-                                                                                            |> Effect.SendSinglePage
-                                                                                        )
+                                                                                            |> (\encodedData ->
+                                                                                                    { route = currentPage.path |> Path.toRelative
+                                                                                                    , contentJson = Dict.empty
+                                                                                                    , html = viewValue.body |> bodyToString
+                                                                                                    , errors = []
+                                                                                                    , head = tags
+                                                                                                    , title = viewValue.title
+                                                                                                    , staticHttpCache = Dict.empty
+                                                                                                    , is404 = False
+                                                                                                    , statusCode =
+                                                                                                        case includeHtml of
+                                                                                                            RenderRequest.OnlyJson ->
+                                                                                                                200
 
-                                                                            PageServerResponse.ErrorPage error record ->
-                                                                                let
-                                                                                    currentPage : { path : Path, route : route }
-                                                                                    currentPage =
-                                                                                        { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
-
-                                                                                    pageModel : userModel
-                                                                                    pageModel =
-                                                                                        config.init
-                                                                                            Pages.Flags.PreRenderFlags
-                                                                                            sharedData
-                                                                                            pageData2
-                                                                                            Nothing
-                                                                                            (Just
-                                                                                                { path =
-                                                                                                    { path = currentPage.path
-                                                                                                    , query = Nothing
-                                                                                                    , fragment = Nothing
+                                                                                                            RenderRequest.HtmlAndJson ->
+                                                                                                                config.errorStatusCode error
+                                                                                                    , headers = record.headers
                                                                                                     }
-                                                                                                , metadata = currentPage.route
-                                                                                                , pageUrl = Nothing
-                                                                                                }
-                                                                                            )
-                                                                                            |> Tuple.first
-
-                                                                                    pageData2 : pageData
-                                                                                    pageData2 =
-                                                                                        config.errorPageToData error
-
-                                                                                    viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
-                                                                                    viewValue =
-                                                                                        (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData2 Nothing |> .view) pageModel
-                                                                                in
-                                                                                (ResponseSketch.HotUpdate pageData2 sharedData Nothing
-                                                                                    |> config.encodeResponse
-                                                                                    |> Bytes.Encode.encode
-                                                                                )
-                                                                                    |> (\encodedData ->
-                                                                                            { route = currentPage.path |> Path.toRelative
-                                                                                            , contentJson = Dict.empty
-                                                                                            , html = viewValue.body |> bodyToString
-                                                                                            , errors = []
-                                                                                            , head = tags
-                                                                                            , title = viewValue.title
-                                                                                            , staticHttpCache = Dict.empty
-                                                                                            , is404 = False
-                                                                                            , statusCode =
-                                                                                                case includeHtml of
-                                                                                                    RenderRequest.OnlyJson ->
-                                                                                                        200
-
-                                                                                                    RenderRequest.HtmlAndJson ->
-                                                                                                        config.errorStatusCode error
-                                                                                            , headers = record.headers
-                                                                                            }
-                                                                                                |> ToJsPayload.PageProgress
-                                                                                                |> Effect.SendSinglePageNew encodedData
-                                                                                       )
-                                                                in
-                                                                renderedResult
-                                                            )
-                                                            (config.data (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter)
-                                                            config.sharedData
-                                                            globalHeadTags
+                                                                                                        |> ToJsPayload.PageProgress
+                                                                                                        |> Effect.SendSinglePageNew encodedData
+                                                                                               )
+                                                                        in
+                                                                        renderedResult
+                                                                    )
+                                                                    (config.data (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter)
+                                                                    config.sharedData
+                                                                    globalHeadTags
                                                     )
 
                                         Just notFoundReason ->
@@ -948,3 +927,51 @@ urlToRoute config url =
 
     else
         config.urlToRoute url
+
+
+toRedirectResponse :
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
+    -> { b | path : Path }
+    -> RenderRequest.IncludeHtml
+    -> { c | headers : List ( String, String ), statusCode : Int }
+    -> { response | statusCode : Int, headers : List ( String, String ) }
+    -> Maybe Effect
+toRedirectResponse config serverRequestPayload includeHtml serverResponse responseMetadata =
+    PageServerResponse.toRedirect responseMetadata
+        |> Maybe.map
+            (\_ ->
+                let
+                    ( _, byteEncodedPageData ) =
+                        ( serverResponse.headers
+                        , PageServerResponse.toRedirect serverResponse
+                            |> Maybe.map
+                                (\{ location } ->
+                                    location
+                                        |> ResponseSketch.Redirect
+                                        |> config.encodeResponse
+                                )
+                            |> Maybe.withDefault (Bytes.Encode.unsignedInt8 0)
+                            |> Bytes.Encode.encode
+                        )
+                in
+                { route = serverRequestPayload.path |> Path.toRelative
+                , contentJson = Dict.empty
+                , html = "This is intentionally blank HTML"
+                , errors = []
+                , head = []
+                , title = "This is an intentionally blank title"
+                , staticHttpCache = Dict.empty
+                , is404 = False
+                , statusCode =
+                    case includeHtml of
+                        RenderRequest.OnlyJson ->
+                            -- if this is a redirect for a `content.dat`, we don't want to send an *actual* redirect status code because the redirect needs to be handled in Elm (not by the Browser)
+                            200
+
+                        RenderRequest.HtmlAndJson ->
+                            responseMetadata.statusCode
+                , headers = responseMetadata.headers --serverResponse.headers
+                }
+                    |> ToJsPayload.PageProgress
+                    |> Effect.SendSinglePageNew byteEncodedPageData
+            )

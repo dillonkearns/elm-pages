@@ -311,11 +311,16 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UserMsg (Pages.Msg.Msg userMsg)
     | SetField { formId : String, name : String, value : String }
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
-    | FetcherComplete Bool String Int (Result Http.Error ( Maybe userMsg, Maybe actionData ))
+    | FetcherComplete Bool String Int (Result Http.Error ( Maybe userMsg, ActionDataOrRedirect actionData ))
     | FetcherStarted String Int FormData Time.Posix
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse Int (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
+
+
+type ActionDataOrRedirect action
+    = ActionResponse (Maybe action)
+    | RedirectResponse String
 
 
 {-| -}
@@ -427,35 +432,48 @@ update config appMsg model =
 
         FetcherComplete _ fetcherKey _ userMsgResult ->
             case userMsgResult of
-                Ok ( userMsg, maybeFetcherDoneActionData ) ->
-                    ( { model
-                        | inFlightFetchers =
-                            model.inFlightFetchers
-                                |> Dict.update fetcherKey
-                                    (Maybe.map
-                                        (\( transitionId, fetcherState ) ->
-                                            ( transitionId
-                                            , { fetcherState
-                                                | status =
-                                                    maybeFetcherDoneActionData
-                                                        |> Maybe.map Pages.Transition.FetcherReloading
-                                                        -- TODO remove this bad default, FetcherSubmitting is incorrect
-                                                        |> Maybe.withDefault Pages.Transition.FetcherSubmitting
-                                              }
+                Ok ( userMsg, actionOrRedirect ) ->
+                    case actionOrRedirect of
+                        ActionResponse maybeFetcherDoneActionData ->
+                            ( { model
+                                | inFlightFetchers =
+                                    model.inFlightFetchers
+                                        |> Dict.update fetcherKey
+                                            (Maybe.map
+                                                (\( transitionId, fetcherState ) ->
+                                                    ( transitionId
+                                                    , { fetcherState
+                                                        | status =
+                                                            maybeFetcherDoneActionData
+                                                                |> Maybe.map Pages.Transition.FetcherReloading
+                                                                -- TODO remove this bad default, FetcherSubmitting is incorrect
+                                                                |> Maybe.withDefault Pages.Transition.FetcherSubmitting
+                                                      }
+                                                    )
+                                                )
                                             )
-                                        )
-                                    )
-                      }
-                    , NoEffect
-                    )
-                        |> (case userMsg of
-                                Just justUserMsg ->
-                                    performUserMsg justUserMsg config
+                              }
+                            , NoEffect
+                            )
+                                |> (case userMsg of
+                                        Just justUserMsg ->
+                                            performUserMsg justUserMsg config
 
-                                Nothing ->
-                                    identity
-                           )
-                        |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
+                                        Nothing ->
+                                            identity
+                                   )
+                                |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
+
+                        RedirectResponse redirectTo ->
+                            ( { model
+                                | inFlightFetchers =
+                                    model.inFlightFetchers
+                                        |> Dict.remove fetcherKey
+                                , pendingRedirect = True
+                              }
+                            , NoEffect
+                            )
+                                |> startNewGetLoad (currentUrlWithPath redirectTo model) (UpdateCacheAndUrlNew False model.url Nothing)
 
                 Err _ ->
                     -- TODO how to handle error?
@@ -931,7 +949,7 @@ startFetcher fetcherKey transitionId options model =
                             Http.GoodStatus_ _ bytesBody ->
                                 ( options.decoder (Ok bytesBody)
                                     |> Just
-                                , Nothing
+                                , ActionResponse Nothing
                                 )
                                     |> Ok
 
@@ -988,20 +1006,23 @@ startFetcher2 config fromPageReload fetcherKey transitionId formData model =
                         case bytes of
                             Http.GoodStatus_ _ bytesBody ->
                                 let
-                                    decodedAction : Maybe actionData
+                                    decodedAction : ActionDataOrRedirect actionData
                                     decodedAction =
                                         case Bytes.Decode.decode config.decodeResponse bytesBody of
+                                            Just (ResponseSketch.Redirect redirectTo) ->
+                                                RedirectResponse redirectTo
+
                                             Just (ResponseSketch.RenderPage _ maybeAction) ->
-                                                maybeAction
+                                                ActionResponse maybeAction
 
                                             Just (ResponseSketch.HotUpdate _ _ maybeAction) ->
-                                                maybeAction
+                                                ActionResponse maybeAction
 
                                             Just (ResponseSketch.NotFound _) ->
-                                                Nothing
+                                                ActionResponse Nothing
 
                                             _ ->
-                                                Nothing
+                                                ActionResponse Nothing
                                 in
                                 -- TODO maybe have an optional way to pass the bytes through?
                                 Ok ( Nothing, decodedAction )
