@@ -26,7 +26,7 @@ import Pages.Msg
 import Pages.PageUrl
 import Path
 import Platform.Sub
-import Post
+import Post exposing (Post)
 import Route
 import RouteBuilder
 import Server.Request
@@ -98,14 +98,6 @@ type alias Data =
 
 type alias ActionData =
     { errors : Form.Response String }
-
-
-type alias Post =
-    { title : String
-    , body : String
-    , slug : String
-    , publish : Maybe Date
-    }
 
 
 data :
@@ -216,15 +208,15 @@ action routeParams =
         (Server.Request.formData (Form.initCombined Basics.identity form))
 
 
-form : Form.DoneForm String ParsedForm Post (List (Html.Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String Post Post (List (Html.Html (Pages.Msg.Msg Msg)))
 form =
     (\title slug body publish ->
         { combine =
-            ParsedForm
+            Post
                 |> Form.Validation.succeed
                 |> Form.Validation.andMap title
-                |> Form.Validation.andMap slug
                 |> Form.Validation.andMap body
+                |> Form.Validation.andMap slug
                 |> Form.Validation.andMap publish
         , view =
             \formState ->
@@ -274,10 +266,6 @@ form =
                 |> Form.Field.withOptionalInitialValue
                     (.publish >> Maybe.map Form.Value.date)
             )
-
-
-type alias ParsedForm =
-    { title : String, slug : String, body : String, publish : Maybe Date }
 
 
 errorsView :
