@@ -15,12 +15,12 @@ import Result.Extra
 {-| -}
 type Kind
     = FieldInt
-    | FieldString
     | FieldText
+    | FieldTextarea
     | FieldFloat
     | FieldTime
     | FieldDate
-    | FieldBool
+    | FieldCheckbox
 
 
 {-| -}
@@ -44,7 +44,7 @@ formWithFields elmCssView fields viewFn =
                         chain
                             |> Gen.Form.field fieldName
                                 (case kind of
-                                    FieldString ->
+                                    FieldText ->
                                         Gen.Form.Field.text
                                             |> Gen.Form.Field.required (Elm.string "Required")
 
@@ -52,9 +52,13 @@ formWithFields elmCssView fields viewFn =
                                         Gen.Form.Field.int { invalid = \_ -> Elm.string "" }
                                             |> Gen.Form.Field.required (Elm.string "Required")
 
-                                    FieldText ->
+                                    FieldTextarea ->
                                         Gen.Form.Field.text
                                             |> Gen.Form.Field.required (Elm.string "Required")
+                                            |> Gen.Form.Field.textarea
+                                                { rows = Elm.nothing
+                                                , cols = Elm.nothing
+                                                }
 
                                     FieldFloat ->
                                         Gen.Form.Field.float { invalid = \_ -> Elm.string "" }
@@ -68,7 +72,7 @@ formWithFields elmCssView fields viewFn =
                                         Gen.Form.Field.date { invalid = \_ -> Elm.string "" }
                                             |> Gen.Form.Field.required (Elm.string "Required")
 
-                                    FieldBool ->
+                                    FieldCheckbox ->
                                         Gen.Form.Field.checkbox
                                 )
                     )
@@ -133,18 +137,18 @@ parseField : String -> Result String ( String, Kind )
 parseField rawField =
     case String.split ":" rawField of
         [ fieldName ] ->
-            Ok ( fieldName, FieldString )
+            Ok ( fieldName, FieldText )
 
         [ fieldName, fieldKind ] ->
             (case fieldKind of
-                "string" ->
-                    Ok FieldString
-
                 "text" ->
                     Ok FieldText
 
-                "bool" ->
-                    Ok FieldBool
+                "textarea" ->
+                    Ok FieldTextarea
+
+                "checkbox" ->
+                    Ok FieldCheckbox
 
                 "time" ->
                     Ok FieldTime
@@ -219,13 +223,13 @@ provide { fields, view, elmCssView } =
                             (\( fieldName, kind ) ->
                                 ( fieldName
                                 , case kind of
-                                    FieldString ->
+                                    FieldText ->
                                         Elm.Annotation.string
 
                                     FieldInt ->
                                         Elm.Annotation.int
 
-                                    FieldText ->
+                                    FieldTextarea ->
                                         Elm.Annotation.string
 
                                     FieldFloat ->
@@ -237,7 +241,7 @@ provide { fields, view, elmCssView } =
                                     FieldDate ->
                                         Elm.Annotation.named [ "Date" ] "Date"
 
-                                    FieldBool ->
+                                    FieldCheckbox ->
                                         Elm.Annotation.bool
                                 )
                             )
