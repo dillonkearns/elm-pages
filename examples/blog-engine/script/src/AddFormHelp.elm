@@ -25,7 +25,8 @@ type Kind
 
 {-| -}
 formWithFields :
-    List ( String, Kind )
+    Bool
+    -> List ( String, Kind )
     ->
         ({ formState : Elm.Expression
          , params : List Elm.Expression
@@ -33,7 +34,7 @@ formWithFields :
          -> Elm.Expression
         )
     -> { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
-formWithFields fields viewFn =
+formWithFields elmCssView fields viewFn =
     Elm.Declare.function "form"
         []
         (\_ ->
@@ -96,7 +97,12 @@ formWithFields fields viewFn =
                     )
                 |> Elm.withType
                     (Elm.Annotation.namedWith [ "Form" ]
-                        "HtmlForm"
+                        (if elmCssView then
+                            "StyledHtmlForm"
+
+                         else
+                            "HtmlForm"
+                        )
                         [ Elm.Annotation.string
                         , Elm.Annotation.named [] "ParsedForm"
                         , Elm.Annotation.var "input"
@@ -158,6 +164,7 @@ parseField rawField =
 {-| -}
 provide :
     { fields : List ( String, Kind )
+    , elmCssView : Bool
     , view :
         { formState : Elm.Expression
         , params : List Elm.Expression
@@ -167,14 +174,14 @@ provide :
     ->
         Maybe
             { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
-            , renderForm : Elm.Expression -> Elm.Expression
+            , form : Elm.Expression
             , declarations : List Elm.Declaration
             }
-provide { fields, view } =
+provide { fields, view, elmCssView } =
     let
         form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
         form =
-            formWithFields fields view
+            formWithFields elmCssView fields view
     in
     if List.isEmpty fields then
         Nothing
@@ -195,13 +202,9 @@ provide { fields, view } =
                         )
                 , value = Elm.val "formHandlers"
                 }
-            , renderForm =
-                \app ->
-                    form.call []
-                        |> Gen.Form.toDynamicTransition "form"
-                        |> Gen.Form.renderHtml [] (Elm.get "errors" >> Elm.just) app Elm.unit
+            , form = form.call []
             , declarations =
-                [ formWithFields fields view |> .declaration
+                [ formWithFields elmCssView fields view |> .declaration
                 , Elm.customType "Action"
                     [ Elm.variantWith "Action" [ Elm.Annotation.named [] "ParsedForm" ]
                     ]

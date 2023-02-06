@@ -68,12 +68,13 @@ createFile moduleName fields =
         formHelpers :
             Maybe
                 { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
-                , renderForm : Elm.Expression -> Elm.Expression
+                , form : Elm.Expression
                 , declarations : List Elm.Declaration
                 }
         formHelpers =
             AddFormHelp.provide
                 { fields = fields
+                , elmCssView = False
                 , view =
                     \{ formState, params } ->
                         Elm.Let.letIn
@@ -194,7 +195,9 @@ createFile moduleName fields =
                                 (case formHelpers of
                                     Just justFormHelp ->
                                         [ Html.h2 [] [ Html.text "Form" ]
-                                        , justFormHelp.renderForm app -- TODO customize argument with `(Elm.get "errors" >> Elm.just)` and `Elm.unit`?
+                                        , justFormHelp.form
+                                            |> Form.toDynamicTransition "form"
+                                            |> Form.renderHtml [] (Elm.get "errors" >> Elm.just) app Elm.unit
                                         ]
 
                                     Nothing ->
