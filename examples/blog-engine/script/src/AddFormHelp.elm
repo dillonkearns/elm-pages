@@ -4,11 +4,10 @@ module AddFormHelp exposing (Kind(..), parseField, provide, restArgsParser)
 
 import Cli.Option
 import Elm
-import Elm.Annotation
+import Elm.Annotation as Type
 import Elm.Declare
 import Gen.Form
 import Gen.Form.Field
-import Gen.Form.Validation
 import Result.Extra
 
 
@@ -85,9 +84,9 @@ formWithFields elmCssView fields viewFn =
                                             |> List.foldl
                                                 (\fieldExpression chain ->
                                                     chain
-                                                        |> Gen.Form.Validation.andMap fieldExpression
+                                                        |> validationAndMap fieldExpression
                                                 )
-                                                (Gen.Form.Validation.succeed (Elm.val "ParsedForm"))
+                                                (validationSucceed (Elm.val "ParsedForm"))
                                       )
                                     , ( "view"
                                       , Elm.fn ( "formState", Nothing )
@@ -100,23 +99,23 @@ formWithFields elmCssView fields viewFn =
                         )
                     )
                 |> Elm.withType
-                    (Elm.Annotation.namedWith [ "Form" ]
+                    (Type.namedWith [ "Form" ]
                         (if elmCssView then
                             "StyledHtmlForm"
 
                          else
                             "HtmlForm"
                         )
-                        [ Elm.Annotation.string
-                        , Elm.Annotation.named [] "ParsedForm"
-                        , Elm.Annotation.var "input"
-                        , Elm.Annotation.named [] "Msg"
+                        [ Type.string
+                        , Type.named [] "ParsedForm"
+                        , Type.var "input"
+                        , Type.named [] "Msg"
                         ]
                     )
         )
 
 
-fieldToParam : ( String, Kind ) -> ( String, Maybe Elm.Annotation.Annotation )
+fieldToParam : ( String, Kind ) -> ( String, Maybe Type.Annotation )
 fieldToParam ( name, kind ) =
     ( name, Nothing )
 
@@ -197,10 +196,10 @@ provide { fields, view, elmCssView } =
                     Elm.declaration "formHandlers"
                         (Gen.Form.call_.initCombined (Elm.val "Action") (form.call [])
                             |> Elm.withType
-                                (Elm.Annotation.namedWith [ "Form" ]
+                                (Type.namedWith [ "Form" ]
                                     "ServerForms"
-                                    [ Elm.Annotation.string
-                                    , Elm.Annotation.named [] "Action"
+                                    [ Type.string
+                                    , Type.named [] "Action"
                                     ]
                                 )
                         )
@@ -210,7 +209,7 @@ provide { fields, view, elmCssView } =
             , declarations =
                 [ formWithFields elmCssView fields view |> .declaration
                 , Elm.customType "Action"
-                    [ Elm.variantWith "Action" [ Elm.Annotation.named [] "ParsedForm" ]
+                    [ Elm.variantWith "Action" [ Type.named [] "ParsedForm" ]
                     ]
 
                 -- TODO customize formHandlers name?
@@ -224,28 +223,86 @@ provide { fields, view, elmCssView } =
                                 ( fieldName
                                 , case kind of
                                     FieldText ->
-                                        Elm.Annotation.string
+                                        Type.string
 
                                     FieldInt ->
-                                        Elm.Annotation.int
+                                        Type.int
 
                                     FieldTextarea ->
-                                        Elm.Annotation.string
+                                        Type.string
 
                                     FieldFloat ->
-                                        Elm.Annotation.float
+                                        Type.float
 
                                     FieldTime ->
-                                        Elm.Annotation.named [ "Form", "Field" ] "TimeOfDay"
+                                        Type.named [ "Form", "Field" ] "TimeOfDay"
 
                                     FieldDate ->
-                                        Elm.Annotation.named [ "Date" ] "Date"
+                                        Type.named [ "Date" ] "Date"
 
                                     FieldCheckbox ->
-                                        Elm.Annotation.bool
+                                        Type.bool
                                 )
                             )
-                        |> Elm.Annotation.record
+                        |> Type.record
                     )
                 ]
             }
+
+
+validationAndMap : Elm.Expression -> Elm.Expression -> Elm.Expression
+validationAndMap andMapArg andMapArg0 =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form", "Validation" ]
+            , name = "andMap"
+            , annotation =
+                Just
+                    (Type.function
+                        [ Type.namedWith
+                            []
+                            "Validation"
+                            [ Type.var "error"
+                            , Type.var "a"
+                            , Type.var "named1"
+                            , Type.var "constraints1"
+                            ]
+                        , Type.namedWith
+                            []
+                            "Validation"
+                            [ Type.var "error"
+                            , Type.function [ Type.var "a" ] (Type.var "b")
+                            , Type.var "named2"
+                            , Type.var "constraints2"
+                            ]
+                        ]
+                        (Type.namedWith
+                            []
+                            "Combined"
+                            [ Type.var "error", Type.var "b" ]
+                        )
+                    )
+            }
+        )
+        [ andMapArg, andMapArg0 ]
+
+
+validationSucceed : Elm.Expression -> Elm.Expression
+validationSucceed succeedArg =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form", "Validation" ]
+            , name = "succeed"
+            , annotation =
+                Just
+                    (Type.function
+                        [ Type.var "parsed" ]
+                        (Type.namedWith
+                            []
+                            "Combined"
+                            [ Type.var "error", Type.var "parsed" ]
+                        )
+                    )
+            }
+        )
+        [ succeedArg ]
