@@ -1,5 +1,6 @@
 {
   "name": "elm-pages-example",
+  "type": "module",
   "version": "1.0.0",
   "description": "Example site built with elm-pages.",
   "scripts": {
@@ -27,5 +28,8 @@
   "dependencies": {
     "@prisma/client": "^4.9.0",
     "bcryptjs": "^2.4.3"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }
