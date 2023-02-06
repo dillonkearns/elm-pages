@@ -81,5 +81,9 @@ export async function getPost(slug) {
 }
 
 export async function posts() {
-  return await prisma.post.findMany();
+  return await prisma.post.findMany({
+    orderBy: {
+      title: "asc",
+    },
+  });
 }
