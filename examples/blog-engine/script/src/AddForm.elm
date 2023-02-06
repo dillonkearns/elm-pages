@@ -5,7 +5,6 @@ import BackendTask
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
-import Cli.Validate
 import Elm
 import Elm.Annotation
 import Elm.Case
@@ -58,17 +57,9 @@ program =
     Program.config
         |> Program.add
             (OptionsParser.build CliOptions
-                |> OptionsParser.with
-                    (Option.requiredPositionalArg "module"
-                        |> Option.validate (Cli.Validate.regex moduleNameRegex)
-                    )
+                |> OptionsParser.with (Option.requiredPositionalArg "module" |> Pages.Generate.moduleNameCliArg)
                 |> OptionsParser.withRestArgs AddFormHelp.restArgsParser
             )
-
-
-moduleNameRegex : String
-moduleNameRegex =
-    "^[A-Z][a-zA-Z0-9_]*(\\.([A-Z][a-zA-Z0-9_]*))*$"
 
 
 createFile : List String -> List ( String, AddFormHelp.Kind ) -> Elm.File

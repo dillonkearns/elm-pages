@@ -4,6 +4,7 @@ module Pages.Generate exposing
     , serverRender
     , preRender, single
     , addDeclarations
+    , moduleNameCliArg
     )
 
 {-| This module provides some functions for scaffolding code for a new Route Module. It uses [`elm-codegen`'s API](https://package.elm-lang.org/packages/mdgriffith/elm-codegen/latest/) for generating code.
@@ -33,12 +34,31 @@ Learn more about [the `elm-pages run` CLI command in its docs page](https://elm-
 
 @docs addDeclarations
 
+
+## CLI Options Parsing Helpers
+
+@docs moduleNameCliArg
+
 -}
 
+import Cli.Option as Option
+import Cli.Validate
 import Elm
 import Elm.Annotation
 import Elm.Declare
 import Pages.Internal.RoutePattern as RoutePattern
+
+
+{-| A positional argument for elm-cli-options-parser that does a Regex validation to check that the module name is a valid Elm Route module name.
+-}
+moduleNameCliArg : Option.Option from String builderState -> Option.Option from String builderState
+moduleNameCliArg =
+    Option.validate (Cli.Validate.regex moduleNameRegex)
+
+
+moduleNameRegex : String
+moduleNameRegex =
+    "^[A-Z][a-zA-Z0-9_]*(\\.([A-Z][a-zA-Z0-9_]*))*$"
 
 
 {-| -}
