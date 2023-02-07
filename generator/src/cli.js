@@ -176,7 +176,9 @@ async function main() {
         );
         await renderer.runGenerator(
           unprocessedCliOptions,
-          await import(url.pathToFileURL(path.resolve(portsPath)).href),
+          portsPath
+            ? await import(url.pathToFileURL(path.resolve(portsPath)).href)
+            : null,
           await requireElm("./script/elm-stuff/elm-pages/elm.cjs"),
           moduleName
         );
@@ -249,9 +251,17 @@ async function main() {
           "./script/elm-stuff/elm-pages/elm.js",
           "./script/elm-stuff/elm-pages/elm.cjs"
         );
-        const scriptRunner = `import * as customBackendTask from "${path.resolve(
-          "./custom-backend-task.ts"
-        )}";
+        // TODO allow no custom-backend-task
+        const portBackendTaskFileFound =
+          globbySync("./custom-backend-task.*").length > 0;
+
+        const scriptRunner = `${
+          portBackendTaskFileFound
+            ? `import * as customBackendTask from "${path.resolve(
+                "./custom-backend-task"
+              )}";`
+            : "const customBackendTask = {};"
+        }
 import * as renderer from "./render.js";
 import { default as Elm } from "${path.resolve(
           "./script/elm-stuff/elm-pages/elm.cjs"
