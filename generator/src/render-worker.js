@@ -4,7 +4,7 @@ import * as fs from "./dir-helpers.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { stat } from "fs/promises";
 import { parentPort, threadId, workerData } from "node:worker_threads";
-import * as url from "url";
+import * as url from "node:url";
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
@@ -49,6 +49,9 @@ async function requireElm(mode) {
     "elm-stuff/elm-pages/elm.cjs"
   );
   let elmImportPath = compiledElmPath;
+  let pathAsUrl = url.pathToFileURL(compiledElmPath);
+  const changedTime = (await stat(compiledElmPath)).mtimeMs;
+  pathAsUrl.searchParams.append("changed", `${changedTime}`);
   const warnOriginal = console.warn;
   console.warn = function () {};
   const Elm = (await import(elmImportPath)).default;
