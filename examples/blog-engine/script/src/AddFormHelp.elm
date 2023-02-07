@@ -6,6 +6,7 @@ import Cli.Option
 import Elm
 import Elm.Annotation as Type
 import Elm.Declare
+import List.Extra
 import Result.Extra
 
 
@@ -26,7 +27,7 @@ formWithFields :
     -> List ( String, Kind )
     ->
         ({ formState : Elm.Expression
-         , params : List Elm.Expression
+         , params : List { name : String, kind : Kind, param : Elm.Expression }
          }
          -> Elm.Expression
         )
@@ -89,7 +90,23 @@ formWithFields elmCssView fields viewFn =
                                     , ( "view"
                                       , Elm.fn ( "formState", Nothing )
                                             (\formState ->
-                                                viewFn { formState = formState, params = params }
+                                                let
+                                                    mappedParams : List { name : String, kind : Kind, param : Elm.Expression }
+                                                    mappedParams =
+                                                        params
+                                                            |> List.Extra.zip fields
+                                                            |> List.map
+                                                                (\( ( name, kind ), param ) ->
+                                                                    { name = name
+                                                                    , kind = kind
+                                                                    , param = param
+                                                                    }
+                                                                )
+                                                in
+                                                viewFn
+                                                    { formState = formState
+                                                    , params = mappedParams
+                                                    }
                                             )
                                       )
                                     ]
@@ -168,7 +185,7 @@ provide :
     , elmCssView : Bool
     , view :
         { formState : Elm.Expression
-        , params : List Elm.Expression
+        , params : List { name : String, kind : Kind, param : Elm.Expression }
         }
         -> Elm.Expression
     }

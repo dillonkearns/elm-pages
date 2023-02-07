@@ -24,7 +24,6 @@ import Gen.Platform.Sub
 import Gen.Server.Request as Request
 import Gen.Server.Response as Response
 import Gen.View
-import List.Extra
 import Pages.Generate exposing (Type(..))
 import Pages.Script as Script exposing (Script)
 
@@ -75,9 +74,8 @@ createFile { moduleName, fields } =
                             (\fieldView ->
                                 Elm.list
                                     ((params
-                                        |> List.Extra.zip fields
                                         |> List.map
-                                            (\( ( name, kind ), param ) ->
+                                            (\{ name, kind, param } ->
                                                 fieldView (Elm.string name) param
                                             )
                                      )
