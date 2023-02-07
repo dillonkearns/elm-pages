@@ -6,7 +6,6 @@ import Cli.Option
 import Elm
 import Elm.Annotation as Type
 import Elm.Declare
-import Gen.Form
 import Result.Extra
 
 
@@ -40,7 +39,7 @@ formWithFields elmCssView fields viewFn =
                 |> List.foldl
                     (\( fieldName, kind ) chain ->
                         chain
-                            |> Gen.Form.field fieldName
+                            |> formField fieldName
                                 (case kind of
                                     FieldText ->
                                         formFieldText
@@ -74,7 +73,7 @@ formWithFields elmCssView fields viewFn =
                                         formFieldCheckbox
                                 )
                     )
-                    (Gen.Form.init
+                    (formInit
                         (Elm.function (List.map fieldToParam fields)
                             (\params ->
                                 Elm.record
@@ -193,7 +192,7 @@ provide { fields, view, elmCssView } =
             { formHandlers =
                 { declaration =
                     Elm.declaration "formHandlers"
-                        (Gen.Form.call_.initCombined (Elm.val "Action") (form.call [])
+                        (initCombined (Elm.val "Action") (form.call [])
                             |> Elm.withType
                                 (Type.namedWith [ "Form" ]
                                     "ServerForms"
@@ -212,7 +211,7 @@ provide { fields, view, elmCssView } =
                     ]
 
                 -- TODO customize formHandlers name?
-                , Elm.declaration "formHandlers" (Gen.Form.call_.initCombined (Elm.val "Action") (form.call []))
+                , Elm.declaration "formHandlers" (initCombined (Elm.val "Action") (form.call []))
 
                 -- TODO customize ParsedForm name?
                 , Elm.alias "ParsedForm"
@@ -255,32 +254,7 @@ validationAndMap andMapArg andMapArg0 =
         (Elm.value
             { importFrom = [ "Form", "Validation" ]
             , name = "andMap"
-            , annotation =
-                Just
-                    (Type.function
-                        [ Type.namedWith
-                            []
-                            "Validation"
-                            [ Type.var "error"
-                            , Type.var "a"
-                            , Type.var "named1"
-                            , Type.var "constraints1"
-                            ]
-                        , Type.namedWith
-                            []
-                            "Validation"
-                            [ Type.var "error"
-                            , Type.function [ Type.var "a" ] (Type.var "b")
-                            , Type.var "named2"
-                            , Type.var "constraints2"
-                            ]
-                        ]
-                        (Type.namedWith
-                            []
-                            "Combined"
-                            [ Type.var "error", Type.var "b" ]
-                        )
-                    )
+            , annotation = Nothing
             }
         )
         [ andMapArg, andMapArg0 ]
@@ -292,16 +266,7 @@ validationSucceed succeedArg =
         (Elm.value
             { importFrom = [ "Form", "Validation" ]
             , name = "succeed"
-            , annotation =
-                Just
-                    (Type.function
-                        [ Type.var "parsed" ]
-                        (Type.namedWith
-                            []
-                            "Combined"
-                            [ Type.var "error", Type.var "parsed" ]
-                        )
-                    )
+            , annotation = Nothing
             }
         )
         [ succeedArg ]
@@ -424,3 +389,39 @@ formFieldFloat floatArg =
                 (Elm.functionReduced "floatUnpack" floatArg.invalid)
             ]
         ]
+
+
+formField : String -> Elm.Expression -> Elm.Expression -> Elm.Expression
+formField fieldArg fieldArg0 fieldArg1 =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form" ]
+            , name = "field"
+            , annotation = Nothing
+            }
+        )
+        [ Elm.string fieldArg, fieldArg0, fieldArg1 ]
+
+
+formInit : Elm.Expression -> Elm.Expression
+formInit initArg =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form" ]
+            , name = "init"
+            , annotation = Nothing
+            }
+        )
+        [ initArg ]
+
+
+initCombined =
+    \initCombinedArg initCombinedArg0 ->
+        Elm.apply
+            (Elm.value
+                { importFrom = [ "Form" ]
+                , name = "initCombined"
+                , annotation = Nothing
+                }
+            )
+            [ initCombinedArg, initCombinedArg0 ]
