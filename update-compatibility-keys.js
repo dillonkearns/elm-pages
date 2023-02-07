@@ -1,8 +1,11 @@
 #!/usr/bin/node
 
-const fs = require("node:fs");
+import * as fs from "node:fs";
 
 const currentCompatibilityKey = 6;
+const currentPackageVersion = JSON.parse(
+  fs.readFileSync("./package.json")
+).version;
 
 fs.writeFileSync(
   "src/Pages/Internal/Platform/CompatibilityKey.elm",
@@ -17,7 +20,9 @@ currentCompatibilityKey =
 
 fs.writeFileSync(
   "generator/src/compatibility-key.js",
-  `module.exports = { compatibilityKey: ${currentCompatibilityKey} };
+  `export const compatibilityKey = ${currentCompatibilityKey};
+
+export const packageVersion = "${currentPackageVersion}";
 `
 );
 
