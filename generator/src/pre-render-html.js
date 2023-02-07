@@ -1,9 +1,7 @@
 import * as seo from "./seo-renderer.js";
-import * as packageJson from "../../package.json" assert { type: "json" };
-import * as path from "path";
-import { fileURLToPath } from "url";
-
-const cliVersion = packageJson.version;
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import { packageVersion } from "./compatibility-key.js";
 
 /** @typedef { { head: any[]; errors: any[]; html: string; route: string; title: string; } } Arg */
 /** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
@@ -47,7 +45,7 @@ export function templateHtml(devMode, userHeadTagsTemplate) {
             "../static-code/elm-pages.js"
           )}" type="module"></script>`
     }
-    ${indent(userHeadTagsTemplate({ cliVersion }))}
+    ${indent(userHeadTagsTemplate({ cliVersion: packageVersion }))}
     <!-- PLACEHOLDER_HEAD_AND_DATA -->
   </head>
   <body>

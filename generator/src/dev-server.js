@@ -27,10 +27,8 @@ import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
 import { globbySync } from "globby";
-import * as packageJson from "../../package.json" assert { type: "json" };
 import { fileURLToPath } from "url";
 
-const cliVersion = packageJson.version;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

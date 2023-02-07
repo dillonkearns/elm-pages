@@ -17,14 +17,12 @@ import * as url from "url";
 
 import * as commander from "commander";
 import { runElmCodegenInstall } from "./elm-codegen.js";
+import { packageVersion } from "./compatibility-key.js";
 
 const Argument = commander.Argument;
 const Option = commander.Option;
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-import * as packageJson from "../../package.json" assert { type: "json" };
-const packageVersion = packageJson.version;
 
 async function main() {
   const program = new commander.Command();
