@@ -7,7 +7,6 @@ import Elm
 import Elm.Annotation as Type
 import Elm.Declare
 import Gen.Form
-import Gen.Form.Field
 import Result.Extra
 
 
@@ -44,35 +43,35 @@ formWithFields elmCssView fields viewFn =
                             |> Gen.Form.field fieldName
                                 (case kind of
                                     FieldText ->
-                                        Gen.Form.Field.text
-                                            |> Gen.Form.Field.required (Elm.string "Required")
+                                        formFieldText
+                                            |> formFieldRequired (Elm.string "Required")
 
                                     FieldInt ->
-                                        Gen.Form.Field.int { invalid = \_ -> Elm.string "" }
-                                            |> Gen.Form.Field.required (Elm.string "Required")
+                                        formFieldInt { invalid = \_ -> Elm.string "" }
+                                            |> formFieldRequired (Elm.string "Required")
 
                                     FieldTextarea ->
-                                        Gen.Form.Field.text
-                                            |> Gen.Form.Field.required (Elm.string "Required")
-                                            |> Gen.Form.Field.textarea
+                                        formFieldText
+                                            |> formFieldRequired (Elm.string "Required")
+                                            |> formFieldTextarea
                                                 { rows = Elm.nothing
                                                 , cols = Elm.nothing
                                                 }
 
                                     FieldFloat ->
-                                        Gen.Form.Field.float { invalid = \_ -> Elm.string "" }
-                                            |> Gen.Form.Field.required (Elm.string "Required")
+                                        formFieldFloat { invalid = \_ -> Elm.string "" }
+                                            |> formFieldRequired (Elm.string "Required")
 
                                     FieldTime ->
-                                        Gen.Form.Field.time { invalid = \_ -> Elm.string "" }
-                                            |> Gen.Form.Field.required (Elm.string "Required")
+                                        formFieldTime { invalid = \_ -> Elm.string "" }
+                                            |> formFieldRequired (Elm.string "Required")
 
                                     FieldDate ->
-                                        Gen.Form.Field.date { invalid = \_ -> Elm.string "" }
-                                            |> Gen.Form.Field.required (Elm.string "Required")
+                                        formFieldDate { invalid = \_ -> Elm.string "" }
+                                            |> formFieldRequired (Elm.string "Required")
 
                                     FieldCheckbox ->
-                                        Gen.Form.Field.checkbox
+                                        formFieldCheckbox
                                 )
                     )
                     (Gen.Form.init
@@ -306,3 +305,122 @@ validationSucceed succeedArg =
             }
         )
         [ succeedArg ]
+
+
+formFieldText : Elm.Expression
+formFieldText =
+    Elm.value
+        { importFrom = [ "Form", "Field" ]
+        , name = "text"
+        , annotation = Nothing
+        }
+
+
+formFieldRequired : Elm.Expression -> Elm.Expression -> Elm.Expression
+formFieldRequired requiredArg requiredArg0 =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form", "Field" ]
+            , name = "required"
+            , annotation = Nothing
+            }
+        )
+        [ requiredArg, requiredArg0 ]
+
+
+formFieldInt : { invalid : Elm.Expression -> Elm.Expression } -> Elm.Expression
+formFieldInt intArg =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form", "Field" ]
+            , name = "int"
+            , annotation =
+                Nothing
+            }
+        )
+        [ Elm.record
+            [ Tuple.pair
+                "invalid"
+                (Elm.functionReduced "intUnpack" intArg.invalid)
+            ]
+        ]
+
+
+formFieldTextarea :
+    { rows : Elm.Expression, cols : Elm.Expression }
+    -> Elm.Expression
+    -> Elm.Expression
+formFieldTextarea textareaArg textareaArg0 =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form", "Field" ]
+            , name = "textarea"
+            , annotation = Nothing
+            }
+        )
+        [ Elm.record
+            [ Tuple.pair "rows" textareaArg.rows
+            , Tuple.pair "cols" textareaArg.cols
+            ]
+        , textareaArg0
+        ]
+
+
+formFieldTime : { invalid : Elm.Expression -> Elm.Expression } -> Elm.Expression
+formFieldTime timeArg =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form", "Field" ]
+            , name = "time"
+            , annotation = Nothing
+            }
+        )
+        [ Elm.record
+            [ Tuple.pair
+                "invalid"
+                (Elm.functionReduced "timeUnpack" timeArg.invalid)
+            ]
+        ]
+
+
+formFieldDate : { invalid : Elm.Expression -> Elm.Expression } -> Elm.Expression
+formFieldDate dateArg =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form", "Field" ]
+            , name = "date"
+            , annotation = Nothing
+            }
+        )
+        [ Elm.record
+            [ Tuple.pair
+                "invalid"
+                (Elm.functionReduced "dateUnpack" dateArg.invalid)
+            ]
+        ]
+
+
+formFieldCheckbox : Elm.Expression
+formFieldCheckbox =
+    Elm.value
+        { importFrom = [ "Form", "Field" ]
+        , name = "checkbox"
+        , annotation = Nothing
+        }
+
+
+formFieldFloat : { invalid : Elm.Expression -> Elm.Expression } -> Elm.Expression
+formFieldFloat floatArg =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form", "Field" ]
+            , name = "float"
+            , annotation = Nothing
+            }
+        )
+        [ Elm.record
+            [ Tuple.pair
+                "invalid"
+                (Elm.functionReduced "floatUnpack" floatArg.invalid)
+            ]
+        ]
