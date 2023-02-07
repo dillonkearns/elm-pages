@@ -273,7 +273,7 @@ import FatalError exposing (FatalError)
 import Form.Field as Field exposing (Field(..))
 import Form.FieldStatus as FieldStatus exposing (FieldStatus)
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined)
+import Form.Validation exposing (Combined)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
@@ -333,7 +333,7 @@ dynamic :
      ->
         Form
             error
-            { combine : Validation.Validation error parsed named constraints1
+            { combine : Form.Validation.Validation error parsed named constraints1
             , view : subView
             }
             data
@@ -342,7 +342,7 @@ dynamic :
         Form
             error
             --((decider -> Validation error parsed named) -> combined)
-            ({ combine : decider -> Validation.Validation error parsed named constraints1
+            ({ combine : decider -> Form.Validation.Validation error parsed named constraints1
              , view : decider -> subView
              }
              -> combineAndView
@@ -503,7 +503,7 @@ Use [`Form.Field`](Form-Field) to define the field and its validations.
 field :
     String
     -> Field error parsed data kind constraints
-    -> Form error (Validation.Field error parsed kind -> combineAndView) data
+    -> Form error (Form.Validation.Field error parsed kind -> combineAndView) data
     -> Form error combineAndView data
 field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
     Form
@@ -531,13 +531,13 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                     , kind = ( kind, fieldParser.properties )
                     }
 
-                parsedField : Validation.Field error parsed kind
+                parsedField : Form.Validation.Field error parsed kind
                 parsedField =
                     Pages.Internal.Form.Validation (Just thing) (Just name) ( maybeParsed, Dict.empty )
 
                 myFn :
                     { result : Dict String (List error)
-                    , combineAndView : Validation.Field error parsed kind -> combineAndView
+                    , combineAndView : Form.Validation.Field error parsed kind -> combineAndView
                     , isMatchCandidate : Bool
                     }
                     ->
@@ -547,7 +547,7 @@ field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
                         }
                 myFn soFar =
                     let
-                        validationField : Validation.Field error parsed kind
+                        validationField : Form.Validation.Field error parsed kind
                         validationField =
                             parsedField
                     in
@@ -601,7 +601,7 @@ You define the field's validations the same way as for `field`, with the
 hiddenField :
     String
     -> Field error parsed data kind constraints
-    -> Form error (Validation.Field error parsed Form.FieldView.Hidden -> combineAndView) data
+    -> Form error (Form.Validation.Field error parsed Form.FieldView.Hidden -> combineAndView) data
     -> Form error combineAndView data
 hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues) =
     Form
@@ -628,13 +628,13 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                     , kind = ( Form.FieldView.Hidden, fieldParser.properties )
                     }
 
-                parsedField : Validation.Field error parsed Form.FieldView.Hidden
+                parsedField : Form.Validation.Field error parsed Form.FieldView.Hidden
                 parsedField =
                     Pages.Internal.Form.Validation (Just thing) (Just name) ( maybeParsed, Dict.empty )
 
                 myFn :
                     { result : Dict String (List error)
-                    , combineAndView : Validation.Field error parsed Form.FieldView.Hidden -> combineAndView
+                    , combineAndView : Form.Validation.Field error parsed Form.FieldView.Hidden -> combineAndView
                     , isMatchCandidate : Bool
                     }
                     ->
@@ -644,7 +644,7 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
                         }
                 myFn soFar =
                     let
-                        validationField : Validation.Field error parsed Form.FieldView.Hidden
+                        validationField : Form.Validation.Field error parsed Form.FieldView.Hidden
                         validationField =
                             parsedField
                     in
@@ -675,14 +675,14 @@ hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues
 toServerForm :
     Form
         error
-        { combine : Validation.Validation error combined kind constraints
+        { combine : Form.Validation.Validation error combined kind constraints
         , view : viewFn
         }
         data
     ->
         Form
             error
-            { combine : Validation.Validation error (BackendTask FatalError (Validation.Validation error combined kind constraints)) kind constraints
+            { combine : Form.Validation.Validation error (BackendTask FatalError (Form.Validation.Validation error combined kind constraints)) kind constraints
             , view : viewFn
             }
             data
@@ -695,7 +695,7 @@ toServerForm (Form a b c) =
                 { result : Dict String (List error)
                 , isMatchCandidate : Bool
                 , combineAndView :
-                    { combine : Validation.Validation error (BackendTask FatalError (Validation.Validation error combined kind constraints)) kind constraints
+                    { combine : Form.Validation.Validation error (BackendTask FatalError (Form.Validation.Validation error combined kind constraints)) kind constraints
                     , view : viewFn
                     }
                 }
@@ -707,7 +707,7 @@ toServerForm (Form a b c) =
                             { combine =
                                 thing.combineAndView.combine
                                     |> BackendTask.succeed
-                                    |> Validation.succeed2
+                                    |> Form.Validation.succeed2
                             , view = thing.combineAndView.view
                             }
                         , isMatchCandidate = thing.isMatchCandidate
@@ -786,10 +786,10 @@ type Errors error
 
 
 {-| -}
-errorsForField : Validation.Field error parsed kind -> Errors error -> List error
+errorsForField : Form.Validation.Field error parsed kind -> Errors error -> List error
 errorsForField field_ (Errors errorsDict) =
     errorsDict
-        |> Dict.get (Validation.fieldName field_)
+        |> Dict.get (Form.Validation.fieldName field_)
         |> Maybe.withDefault []
 
 
@@ -846,7 +846,7 @@ parse :
     String
     -> AppContext app actionData
     -> data
-    -> Form error { info | combine : Validation.Validation error parsed named constraints } data
+    -> Form error { info | combine : Form.Validation.Validation error parsed named constraints } data
     -> ( Maybe parsed, Dict String (List error) )
 parse formId app data (Form _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -885,7 +885,7 @@ insertIfNonempty key values dict =
 {-| -}
 runServerSide :
     List ( String, String )
-    -> Form error (Validation.Validation error parsed kind constraints) data
+    -> Form error (Form.Validation.Validation error parsed kind constraints) data
     -> ( Bool, ( Maybe parsed, Dict String (List error) ) )
 runServerSide rawFormData (Form _ parser _) =
     let
@@ -987,7 +987,7 @@ renderHtml :
     ->
         FinalForm
             error
-            (Validation.Validation error parsed named constraints)
+            (Form.Validation.Validation error parsed named constraints)
             data
             (Context error data
              -> List (Html (Pages.Msg.Msg msg))
@@ -1023,14 +1023,14 @@ toDynamicFetcher :
     ->
         Form
             error
-            { combine : Validation.Validation error parsed field constraints
+            { combine : Form.Validation.Validation error parsed field constraints
             , view : Context error data -> view
             }
             data
     ->
         FinalForm
             error
-            (Validation.Validation error parsed field constraints)
+            (Form.Validation.Validation error parsed field constraints)
             data
             (Context error data -> view)
             userMsg
@@ -1096,14 +1096,14 @@ toDynamicTransition :
     ->
         Form
             error
-            { combine : Validation.Validation error parsed field constraints
+            { combine : Form.Validation.Validation error parsed field constraints
             , view : Context error data -> view
             }
             data
     ->
         FinalForm
             error
-            (Validation.Validation error parsed field constraints)
+            (Form.Validation.Validation error parsed field constraints)
             data
             (Context error data -> view)
             userMsg
@@ -1124,7 +1124,7 @@ toDynamicTransition name (Form a b c) =
                 { result : Dict String (List error)
                 , isMatchCandidate : Bool
                 , combineAndView :
-                    { combine : Validation.Validation error parsed field constraints
+                    { combine : Form.Validation.Validation error parsed field constraints
                     , view : Context error data -> view
                     }
                 }
@@ -1134,7 +1134,7 @@ toDynamicTransition name (Form a b c) =
                  -> FormState
                  ->
                     { result :
-                        ( Validation.Validation error parsed field constraints
+                        ( Form.Validation.Validation error parsed field constraints
                         , Dict String (List error)
                         )
                     , isMatchCandidate : Bool
@@ -1148,7 +1148,7 @@ toDynamicTransition name (Form a b c) =
                         { result : Dict String (List error)
                         , isMatchCandidate : Bool
                         , combineAndView :
-                            { combine : Validation.Validation error parsed field constraints
+                            { combine : Form.Validation.Validation error parsed field constraints
                             , view : Context error data -> view
                             }
                         }
@@ -1184,7 +1184,7 @@ renderStyledHtml :
     ->
         FinalForm
             error
-            (Validation.Validation error parsed named constraints)
+            (Form.Validation.Validation error parsed named constraints)
             data
             (Context error data
              -> List (Html.Styled.Html (Pages.Msg.Msg msg))
@@ -1206,7 +1206,7 @@ renderHelper :
     -> RenderOptions msg
     -> AppContext app actionData
     -> data
-    -> FormInternal error (Validation.Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
+    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
     -> Html (Pages.Msg.Msg msg)
 renderHelper attrs accessResponse options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -1244,7 +1244,7 @@ renderStyledHelper :
     -> RenderOptions msg
     -> AppContext app actionData
     -> data
-    -> FormInternal error (Validation.Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
+    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
     -> Html.Styled.Html (Pages.Msg.Msg msg)
 renderStyledHelper attrs accessResponse options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
@@ -1283,7 +1283,7 @@ helperValues :
     -> AppContext app actionData
     -> data
     ---> Form error parsed data view
-    -> FormInternal error (Validation.Validation error parsed named constraints) data (Context error data -> List view)
+    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List view)
     -> { formId : String, hiddenInputs : List view, children : List view, isValid : Bool }
 helperValues toHiddenInput accessResponse options formState data (FormInternal fieldDefinitions parser toInitialValues) =
     let
@@ -1330,18 +1330,18 @@ helperValues toHiddenInput accessResponse options formState data (FormInternal f
                 |> Dict.union part2
 
         parsed :
-            { result : ( Validation.Validation error parsed named constraints, Dict String (List error) )
+            { result : ( Form.Validation.Validation error parsed named constraints, Dict String (List error) )
             , isMatchCandidate : Bool
             , view : Context error data -> List view
             }
         parsed =
             parser (Just data) thisFormState
 
-        withoutServerErrors : Validation.Validation error parsed named constraints
+        withoutServerErrors : Form.Validation.Validation error parsed named constraints
         withoutServerErrors =
             parsed |> mergeResults
 
-        withServerErrors : Validation.Validation error parsed named constraints
+        withServerErrors : Form.Validation.Validation error parsed named constraints
         withServerErrors =
             mergeResults
                 { parsed
@@ -1486,7 +1486,7 @@ initCombined :
         Form
             error
             { combineAndView
-                | combine : Validation.Validation error parsed kind constraints
+                | combine : Form.Validation.Validation error parsed kind constraints
             }
             input
     -> ServerForms error combined
@@ -1499,13 +1499,13 @@ initCombined mapFn (Form _ parseFn _) =
                     foo :
                         { result : Dict String (List error)
                         , isMatchCandidate : Bool
-                        , combineAndView : { combineAndView | combine : Validation.Validation error parsed kind constraints }
+                        , combineAndView : { combineAndView | combine : Form.Validation.Validation error parsed kind constraints }
                         }
                     foo =
                         parseFn Nothing formState
                 in
                 { result = foo.result
-                , combineAndView = foo.combineAndView.combine |> Validation.mapWithNever mapFn
+                , combineAndView = foo.combineAndView.combine |> Form.Validation.mapWithNever mapFn
                 , isMatchCandidate = foo.isMatchCandidate
                 }
             )
@@ -1520,7 +1520,7 @@ combine :
         Form
             error
             { combineAndView
-                | combine : Validation.Validation error parsed kind constraints
+                | combine : Form.Validation.Validation error parsed kind constraints
             }
             input
     -> ServerForms error combined
@@ -1534,13 +1534,13 @@ combine mapFn (Form _ parseFn _) (ServerForms serverForms) =
                             foo :
                                 { result : Dict String (List error)
                                 , isMatchCandidate : Bool
-                                , combineAndView : { combineAndView | combine : Validation.Validation error parsed kind constraints }
+                                , combineAndView : { combineAndView | combine : Form.Validation.Validation error parsed kind constraints }
                                 }
                             foo =
                                 parseFn Nothing formState
                         in
                         { result = foo.result
-                        , combineAndView = foo.combineAndView.combine |> Validation.mapWithNever mapFn
+                        , combineAndView = foo.combineAndView.combine |> Form.Validation.mapWithNever mapFn
                         , isMatchCandidate = foo.isMatchCandidate
                         }
                     )
@@ -1556,12 +1556,12 @@ initCombinedServer :
         Form
             error
             { combineAndView
-                | combine : Combined error (BackendTask backendTaskError (Validation.Validation error parsed kind constraints))
+                | combine : Combined error (BackendTask backendTaskError (Form.Validation.Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (BackendTask backendTaskError (Validation.Validation error combined kind constraints))
+    -> ServerForms error (BackendTask backendTaskError (Form.Validation.Validation error combined kind constraints))
 initCombinedServer mapFn serverForms =
-    initCombined (BackendTask.map (Validation.map mapFn)) serverForms
+    initCombined (BackendTask.map (Form.Validation.map mapFn)) serverForms
 
 
 {-| -}
@@ -1572,13 +1572,13 @@ combineServer :
             error
             { combineAndView
                 | combine :
-                    Combined error (BackendTask backendTaskError (Validation.Validation error parsed kind constraints))
+                    Combined error (BackendTask backendTaskError (Form.Validation.Validation error parsed kind constraints))
             }
             input
-    -> ServerForms error (BackendTask backendTaskError (Validation.Validation error combined kind constraints))
-    -> ServerForms error (BackendTask backendTaskError (Validation.Validation error combined kind constraints))
+    -> ServerForms error (BackendTask backendTaskError (Form.Validation.Validation error combined kind constraints))
+    -> ServerForms error (BackendTask backendTaskError (Form.Validation.Validation error combined kind constraints))
 combineServer mapFn a b =
-    combine (BackendTask.map (Validation.map mapFn)) a b
+    combine (BackendTask.map (Form.Validation.map mapFn)) a b
 
 
 {-| -}
