@@ -18,7 +18,7 @@ import Form.FieldView
 import Form.Validation
 import Form.Value
 import Head
-import Html
+import Html exposing (Html)
 import Html.Attributes
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -88,7 +88,7 @@ subscriptions :
     -> Model
     -> Sub Msg
 subscriptions maybePageUrl routeParams path sharedModel model =
-    Platform.Sub.none
+    Sub.none
 
 
 type alias Data =
@@ -147,7 +147,12 @@ view :
     -> RouteBuilder.StaticPayload Data ActionData RouteParams
     -> View.View (Pages.Msg.Msg Msg)
 view maybeUrl sharedModel model app =
-    { title = "Posts.Slug_.Edit"
+    { title =
+        if app.routeParams.slug == "new" then
+            "Create Post"
+
+        else
+            "Edit Post"
     , body =
         [ Html.h2 [] [ Html.text "Form" ]
         , Form.renderHtml
@@ -156,6 +161,13 @@ view maybeUrl sharedModel model app =
             app
             app.data.post
             (Form.toDynamicTransition "form" form)
+        , if app.routeParams.slug == "new" then
+            Html.text ""
+
+          else
+            deleteForm
+                |> Form.toDynamicTransition "delete"
+                |> Form.renderHtml [] (\_ -> Nothing) app ()
         ]
     }
 
@@ -167,7 +179,20 @@ action routeParams =
     Server.Request.map
         (\( formResponse, parsedForm ) ->
             case parsedForm of
-                Ok okForm ->
+                Ok Delete ->
+                    BackendTask.Custom.run "deletePost"
+                        (Encode.object
+                            [ ( "slug", Encode.string routeParams.slug )
+                            ]
+                        )
+                        (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map
+                            (\() ->
+                                Route.redirectTo Route.Index
+                            )
+
+                Ok (CreateOrEdit okForm) ->
                     let
                         createPost : Bool
                         createPost =
@@ -205,10 +230,10 @@ action routeParams =
                             { errors = formResponse }
                         )
         )
-        (Server.Request.formData (Form.initCombined Basics.identity form))
+        (Server.Request.formData formHandlers)
 
 
-form : Form.DoneForm String Post Post (List (Html.Html (Pages.Msg.Msg Msg)))
+form : Form.HtmlForm String Post Post Msg
 form =
     (\title slug body publish ->
         { combine =
@@ -234,20 +259,12 @@ form =
                 , fieldView "slug" slug
                 , fieldView "body" body
                 , fieldView "publish" publish
-                , if formState.isTransitioning then
-                    Html.button
-                        [ Html.Attributes.disabled True
-                        , Html.Attributes.attribute "aria-busy" "true"
-                        ]
-                        [ Html.text "Submitting..." ]
-
-                  else
-                    Html.button []
-                        [ Html.text "Submit" ]
+                , buttonWithTransition [] "Submit" "Submitting..." formState
                 ]
         }
     )
         |> Form.init
+        |> Form.hiddenKind ( "kind", "create-or-edit" ) "Expected create-or-edit"
         |> Form.field "title"
             (Form.Field.required "Required" Form.Field.text
                 |> Form.Field.withInitialValue (.title >> Form.Value.string)
@@ -262,10 +279,57 @@ form =
                 |> Form.Field.withInitialValue (.body >> Form.Value.string)
             )
         |> Form.field "publish"
-            (Form.Field.date { invalid = \dateUnpack -> "" }
+            (Form.Field.date { invalid = \_ -> "Invalid date." }
                 |> Form.Field.withOptionalInitialValue
                     (.publish >> Maybe.map Form.Value.date)
             )
+
+
+type Action
+    = Delete
+    | CreateOrEdit Post
+
+
+formHandlers : Form.ServerForms String Action
+formHandlers =
+    deleteForm
+        |> Form.initCombined (\() -> Delete)
+        |> Form.combine CreateOrEdit form
+
+
+deleteForm : Form.HtmlForm String () input Msg
+deleteForm =
+    Form.init
+        { combine = Form.Validation.succeed ()
+        , view =
+            \formState ->
+                [ buttonWithTransition
+                    [ Html.Attributes.style "background-color" "red"
+                    , Html.Attributes.style "border" "red"
+                    ]
+                    "Delete"
+                    "Deleting..."
+                    formState
+                ]
+        }
+        |> Form.hiddenKind ( "kind", "delete" ) "Expected delete"
+
+
+buttonWithTransition : List (Html.Attribute msg) -> String -> String -> { a | isTransitioning : Bool } -> Html msg
+buttonWithTransition attributes initialText transitioningText formState =
+    if formState.isTransitioning then
+        Html.button
+            (attributes
+                ++ [ Html.Attributes.disabled True
+                   , Html.Attributes.attribute "aria-busy" "true"
+                   ]
+            )
+            [ Html.text transitioningText ]
+
+    else
+        Html.button
+            (attributes ++ [])
+            [ Html.text initialText ]
 
 
 errorsView :
