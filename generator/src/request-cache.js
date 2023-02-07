@@ -92,6 +92,7 @@ export function lookupOrPerform(
             }),
           });
         } else {
+          console.time(`BackendTask.Custom.run "${portName}"`);
           try {
             resolve({
               kind: "response-json",
@@ -128,6 +129,7 @@ export function lookupOrPerform(
               });
             }
           }
+          console.timeEnd(`BackendTask.Custom.run "${portName}"`);
         }
       } catch (error) {
         console.trace(error);
