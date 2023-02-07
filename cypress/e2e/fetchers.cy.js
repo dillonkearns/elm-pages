@@ -3,7 +3,9 @@
 context("fetchers", () => {
   it("add items to list", () => {
     cy.visit("/fetcher");
+    cy.contains("Ready");
     cy.get("#delete-all button").click();
+
     cy.contains("Deleting...");
     cy.contains("Ready");
 

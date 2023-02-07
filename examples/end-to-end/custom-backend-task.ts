@@ -50,6 +50,8 @@ export async function getItems() {
 }
 
 export async function deleteAllItems(name: string) {
+  // The cypress test gets confused and misses the "Deleting..." text if we finish too quickly
+  await waitFor(200);
   for (const file of await listFiles()) {
     await fs.promises.unlink(path.join(folder, file));
   }
