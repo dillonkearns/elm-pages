@@ -60,7 +60,7 @@ createFile { moduleName, fields } =
     let
         formHelpers :
             Maybe
-                { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
+                { formHandlers : Elm.Expression
                 , form : Elm.Expression
                 , declarations : List Elm.Declaration
                 }
@@ -79,7 +79,7 @@ createFile { moduleName, fields } =
                                                 fieldView (Elm.string name) param
                                             )
                                      )
-                                        ++ [ Elm.ifThen (formState |> Elm.get "isTransitioning")
+                                        ++ [ Elm.ifThen formState.isTransitioning
                                                 (Html.button
                                                     [ Attr.disabled True
                                                     ]
@@ -101,7 +101,7 @@ createFile { moduleName, fields } =
                                         [ Html.label []
                                             [ Html.call_.text (Elm.Op.append label (Elm.string " "))
                                             , field |> FieldView.input []
-                                            , errorsView.call (Elm.get "errors" formState) field
+                                            , errorsView.call formState.errors field
                                             ]
                                         ]
                                 )
@@ -126,7 +126,7 @@ createFile { moduleName, fields } =
                 formHelpers
                     |> Maybe.map
                         (\justFormHelp ->
-                            Request.formData justFormHelp.formHandlers.value
+                            Request.formData justFormHelp.formHandlers
                                 |> Request.call_.map
                                     (Elm.fn ( "formData", Nothing )
                                         (\formData ->

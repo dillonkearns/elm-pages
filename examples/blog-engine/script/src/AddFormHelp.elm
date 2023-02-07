@@ -21,12 +21,21 @@ type Kind
     | FieldCheckbox
 
 
+type alias Context =
+    { errors : Elm.Expression
+    , isTransitioning : Elm.Expression
+    , submitAttempted : Elm.Expression
+    , data : Elm.Expression
+    , expression : Elm.Expression
+    }
+
+
 {-| -}
 formWithFields :
     Bool
     -> List ( String, Kind )
     ->
-        ({ formState : Elm.Expression
+        ({ formState : Context
          , params : List { name : String, kind : Kind, param : Elm.Expression }
          }
          -> Elm.Expression
@@ -104,7 +113,13 @@ formWithFields elmCssView fields viewFn =
                                                                 )
                                                 in
                                                 viewFn
-                                                    { formState = formState
+                                                    { formState =
+                                                        { errors = formState |> Elm.get "errors"
+                                                        , isTransitioning = formState |> Elm.get "isTransitioning"
+                                                        , submitAttempted = formState |> Elm.get "submitAttempted"
+                                                        , data = formState |> Elm.get "data"
+                                                        , expression = formState
+                                                        }
                                                     , params = mappedParams
                                                     }
                                             )
@@ -184,14 +199,14 @@ provide :
     { fields : List ( String, Kind )
     , elmCssView : Bool
     , view :
-        { formState : Elm.Expression
+        { formState : Context
         , params : List { name : String, kind : Kind, param : Elm.Expression }
         }
         -> Elm.Expression
     }
     ->
         Maybe
-            { formHandlers : { declaration : Elm.Declaration, value : Elm.Expression }
+            { formHandlers : Elm.Expression
             , form : Elm.Expression
             , declarations : List Elm.Declaration
             }
@@ -200,35 +215,40 @@ provide { fields, view, elmCssView } =
         form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
         form =
             formWithFields elmCssView fields view
+
+        formHandlersDeclaration :
+            { declaration : Elm.Declaration
+            , call : List Elm.Expression -> Elm.Expression
+            , callFrom : List String -> List Elm.Expression -> Elm.Expression
+            }
+        formHandlersDeclaration =
+            -- TODO customizable formHandlers name?
+            Elm.Declare.function "formHandlers"
+                []
+                (\_ ->
+                    initCombined (Elm.val "Action") (form.call [])
+                        |> Elm.withType
+                            (Type.namedWith [ "Form" ]
+                                "ServerForms"
+                                [ Type.string
+                                , Type.named [] "Action"
+                                ]
+                            )
+                )
     in
     if List.isEmpty fields then
         Nothing
 
     else
         Just
-            { formHandlers =
-                { declaration =
-                    Elm.declaration "formHandlers"
-                        (initCombined (Elm.val "Action") (form.call [])
-                            |> Elm.withType
-                                (Type.namedWith [ "Form" ]
-                                    "ServerForms"
-                                    [ Type.string
-                                    , Type.named [] "Action"
-                                    ]
-                                )
-                        )
-                , value = Elm.val "formHandlers"
-                }
+            { formHandlers = formHandlersDeclaration.call []
             , form = form.call []
             , declarations =
                 [ formWithFields elmCssView fields view |> .declaration
                 , Elm.customType "Action"
                     [ Elm.variantWith "Action" [ Type.named [] "ParsedForm" ]
                     ]
-
-                -- TODO customize formHandlers name?
-                , Elm.declaration "formHandlers" (initCombined (Elm.val "Action") (form.call []))
+                , formHandlersDeclaration.declaration
 
                 -- TODO customize ParsedForm name?
                 , Elm.alias "ParsedForm"
@@ -432,13 +452,13 @@ formInit initArg =
         [ initArg ]
 
 
-initCombined =
-    \initCombinedArg initCombinedArg0 ->
-        Elm.apply
-            (Elm.value
-                { importFrom = [ "Form" ]
-                , name = "initCombined"
-                , annotation = Nothing
-                }
-            )
-            [ initCombinedArg, initCombinedArg0 ]
+initCombined : Elm.Expression -> Elm.Expression -> Elm.Expression
+initCombined initCombinedArg initCombinedArg0 =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Form" ]
+            , name = "initCombined"
+            , annotation = Nothing
+            }
+        )
+        [ initCombinedArg, initCombinedArg0 ]
