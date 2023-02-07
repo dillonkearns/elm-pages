@@ -1,6 +1,15 @@
-module AddFormHelp exposing (Kind(..), parseField, provide, restArgsParser)
+module Scaffold.Form exposing
+    ( Kind(..), provide, restArgsParser
+    , Context
+    )
 
-{-| -}
+{-|
+
+@docs Kind, provide, restArgsParser
+
+@docs Context
+
+-}
 
 import Cli.Option
 import Elm
@@ -21,6 +30,7 @@ type Kind
     | FieldCheckbox
 
 
+{-| -}
 type alias Context =
     { errors : Elm.Expression
     , isTransitioning : Elm.Expression
@@ -150,6 +160,7 @@ fieldToParam ( name, kind ) =
     ( name, Nothing )
 
 
+{-| -}
 restArgsParser : Cli.Option.Option (List String) (List ( String, Kind )) Cli.Option.RestArgsOption
 restArgsParser =
     Cli.Option.restArgs "formFields"
@@ -161,7 +172,6 @@ restArgsParser =
             )
 
 
-{-| -}
 parseField : String -> Result String ( String, Kind )
 parseField rawField =
     case String.split ":" rawField of

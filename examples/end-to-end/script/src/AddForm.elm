@@ -28,7 +28,7 @@ import Gen.Server.Request
 import Gen.Server.Response
 import Gen.View
 import List.Extra
-import Pages.Generate exposing (Type(..))
+import Pages.Route exposing (Type(..))
 import Pages.Script as Script exposing (Script)
 
 
@@ -291,7 +291,7 @@ createFile moduleName fields =
         form =
             formWithFields fields
     in
-    Pages.Generate.serverRender
+    Pages.Route.serverRender
         { moduleName = moduleName
         , action =
             ( Alias
@@ -336,7 +336,7 @@ createFile moduleName fields =
             )
         , head = \app -> Elm.list []
         }
-        |> Pages.Generate.addDeclarations
+        |> Pages.Route.addDeclarations
             [ formWithFields fields |> .declaration
             , Elm.alias "ParsedForm"
                 (fields
@@ -370,7 +370,7 @@ createFile moduleName fields =
                 )
             , errorsView.declaration
             ]
-        |> Pages.Generate.buildWithLocalState
+        |> Pages.Route.buildWithLocalState
             { view =
                 \{ maybeUrl, sharedModel, model, app } ->
                     Gen.View.make_.view

@@ -15,7 +15,7 @@ import Gen.Platform.Sub
 import Gen.Server.Request
 import Gen.Server.Response
 import Gen.View
-import Pages.Generate exposing (Type(..))
+import Pages.Route exposing (Type(..))
 import Pages.Script as Script exposing (Script)
 
 
@@ -60,7 +60,7 @@ moduleNameRegex =
 
 buildFile : List String -> Elm.File
 buildFile moduleName =
-    Pages.Generate.serverRender
+    Pages.Route.serverRender
         { moduleName = moduleName
         , action =
             ( Alias (Elm.Annotation.record [])
@@ -84,7 +84,7 @@ buildFile moduleName =
             )
         , head = \app -> Elm.list []
         }
-        |> Pages.Generate.buildWithLocalState
+        |> Pages.Route.buildWithLocalState
             { view =
                 \{ maybeUrl, sharedModel, model, app } ->
                     Gen.View.make_.view

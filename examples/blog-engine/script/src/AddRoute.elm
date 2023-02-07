@@ -1,6 +1,5 @@
 module AddRoute exposing (run)
 
-import AddFormHelp
 import BackendTask
 import Cli.Option as Option
 import Cli.OptionsParser as OptionsParser
@@ -24,13 +23,14 @@ import Gen.Platform.Sub
 import Gen.Server.Request as Request
 import Gen.Server.Response as Response
 import Gen.View
-import Pages.Generate exposing (Type(..))
 import Pages.Script as Script exposing (Script)
+import Scaffold.Form
+import Scaffold.Route exposing (Type(..))
 
 
 type alias CliOptions =
     { moduleName : List String
-    , fields : List ( String, AddFormHelp.Kind )
+    , fields : List ( String, Scaffold.Form.Kind )
     }
 
 
@@ -50,8 +50,8 @@ program =
     Program.config
         |> Program.add
             (OptionsParser.build CliOptions
-                |> OptionsParser.with (Option.requiredPositionalArg "module" |> Pages.Generate.moduleNameCliArg)
-                |> OptionsParser.withRestArgs AddFormHelp.restArgsParser
+                |> OptionsParser.with (Option.requiredPositionalArg "module" |> Scaffold.Route.moduleNameCliArg)
+                |> OptionsParser.withRestArgs Scaffold.Form.restArgsParser
             )
 
 
@@ -65,7 +65,7 @@ createFile { moduleName, fields } =
                 , declarations : List Elm.Declaration
                 }
         formHelpers =
-            AddFormHelp.provide
+            Scaffold.Form.provide
                 { fields = fields
                 , elmCssView = False
                 , view =
@@ -108,7 +108,7 @@ createFile { moduleName, fields } =
                             |> Elm.Let.toExpression
                 }
     in
-    Pages.Generate.serverRender
+    Scaffold.Route.serverRender
         { moduleName = moduleName
         , action =
             ( Alias
@@ -171,13 +171,13 @@ createFile { moduleName, fields } =
             )
         , head = \app -> Elm.list []
         }
-        |> Pages.Generate.addDeclarations
+        |> Scaffold.Route.addDeclarations
             (formHelpers
                 |> Maybe.map .declarations
                 |> Maybe.map ((::) errorsView.declaration)
                 |> Maybe.withDefault []
             )
-        |> Pages.Generate.buildWithLocalState
+        |> Scaffold.Route.buildWithLocalState
             { view =
                 \{ maybeUrl, sharedModel, model, app } ->
                     Gen.View.make_.view

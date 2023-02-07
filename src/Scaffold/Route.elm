@@ -1,4 +1,4 @@
-module Pages.Generate exposing
+module Scaffold.Route exposing
     ( buildWithLocalState, buildWithSharedState, buildNoState, Builder
     , Type(..)
     , serverRender
