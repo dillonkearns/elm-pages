@@ -373,6 +373,7 @@ export async function start(options) {
       };
 
       readyThread.ready = false;
+      await pendingCliCompile;
       readyThread.used = true;
       readyThread.worker.postMessage({
         mode: "dev-server",
