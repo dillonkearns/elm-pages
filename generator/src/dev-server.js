@@ -273,26 +273,6 @@ export async function start(options) {
         if (needToRerunCodegen(eventName, pathThatChanged)) {
           try {
             await codegen.generate(options.base);
-            clientElmMakeProcess = compileElmForBrowser(options);
-            pendingCliCompile = compileCliApp(
-              options,
-              ".elm-pages/Main.elm",
-              path.join(process.cwd(), "elm-stuff/elm-pages/", "elm.js"),
-              // "elm.js",
-              "elm-stuff/elm-pages/",
-              path.join("elm-stuff/elm-pages/", "elm.js")
-            );
-
-            Promise.all([clientElmMakeProcess, pendingCliCompile])
-              .then(() => {
-                elmMakeRunning = false;
-              })
-              .catch(() => {
-                elmMakeRunning = false;
-              });
-            clients.forEach((client) => {
-              client.response.write(`data: elm.js\n\n`);
-            });
           } catch (error) {
             codegenError = error;
           }
