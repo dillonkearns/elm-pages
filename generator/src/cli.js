@@ -12,7 +12,7 @@ import * as renderer from "./render.js";
 import { globbySync } from "globby";
 import * as esbuild from "esbuild";
 import { rewriteElmJson } from "./rewrite-elm-json.js";
-import { ensureDirSync, deleteIfExists } from "./file-helpers.js";
+import { ensureDirSync } from "./file-helpers.js";
 import * as url from "url";
 
 import * as commander from "commander";
@@ -43,9 +43,6 @@ async function main() {
     )
     .description("run a full site build")
     .action(async (options) => {
-      if (!options.keepCache) {
-        clearHttpAndPortCache();
-      }
       options.base = normalizeUrl(options.base);
       await build.run(options);
     });
@@ -76,9 +73,6 @@ async function main() {
     .option("--base <basePath>", "serve site under a base path", "/")
     .option("--https", "uses a https server")
     .action(async (options) => {
-      if (!options.keepCache) {
-        clearHttpAndPortCache();
-      }
       options.base = normalizeUrl(options.base);
       await dev.start(options);
     });
@@ -332,25 +326,6 @@ function safeSubscribe(program, portName, subscribeFunction) {
   program.ports &&
     program.ports[portName] &&
     program.ports[portName].subscribe(subscribeFunction);
-}
-
-function clearHttpAndPortCache() {
-  const directory = ".elm-pages/http-response-cache";
-  if (fs.existsSync(directory)) {
-    fs.readdir(directory, (err, files) => {
-      if (err) {
-        throw err;
-      }
-
-      for (const file of files) {
-        fs.unlink(path.join(directory, file), (err) => {
-          if (err) {
-            throw err;
-          }
-        });
-      }
-    });
-  }
 }
 
 /**
