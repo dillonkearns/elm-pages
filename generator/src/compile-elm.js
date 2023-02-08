@@ -140,8 +140,7 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
         await fsPromises.unlink(outputPath, {
           force: true /* ignore errors if file doesn't exist */,
         });
-      } catch (e) {
-      }
+      } catch (e) {}
     }
     let commandOutput = "";
 
