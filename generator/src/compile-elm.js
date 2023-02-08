@@ -136,9 +136,12 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
       }
     );
     if (await fsHelpers.fileExists(outputPath)) {
-      await fsPromises.unlink(outputPath, {
-        force: true /* ignore errors if file doesn't exist */,
-      });
+      try {
+        await fsPromises.unlink(outputPath, {
+          force: true /* ignore errors if file doesn't exist */,
+        });
+      } catch (e) {
+      }
     }
     let commandOutput = "";
 
