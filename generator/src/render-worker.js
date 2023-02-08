@@ -48,13 +48,12 @@ async function requireElm(mode) {
     process.cwd(),
     "elm-stuff/elm-pages/elm.cjs"
   );
-  let elmImportPath = compiledElmPath;
   let pathAsUrl = url.pathToFileURL(compiledElmPath);
   const changedTime = (await stat(compiledElmPath)).mtimeMs;
   pathAsUrl.searchParams.append("changed", `${changedTime}`);
   const warnOriginal = console.warn;
   console.warn = function () {};
-  const Elm = (await import(elmImportPath)).default;
+  const Elm = (await import(pathAsUrl.toString())).default;
   console.warn = warnOriginal;
   return Elm;
 }
