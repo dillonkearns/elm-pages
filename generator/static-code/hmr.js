@@ -5,15 +5,69 @@ var eventSource = null;
 let updateAppContentJson = new Promise((resolve, reject) => resolve(() => {}));
 
 function connect(sendContentJsonPort, initialErrorPage) {
+  let reconnectFrequencySeconds = 1;
+  // reconnect logic based on: https://stackoverflow.com/a/61148682/383983
   // Listen for the server to tell us that an HMR update is available
-  eventSource = new EventSource("/stream");
-  window.reloadOnOk = initialErrorPage;
-  if (initialErrorPage) {
-    handleEvent(sendContentJsonPort, { data: "content.dat" });
+  function waitFunc() {
+    return reconnectFrequencySeconds * 1000;
   }
-  eventSource.onmessage = async function (evt) {
-    handleEvent(sendContentJsonPort, evt);
-  };
+  function tryToSetupFunc() {
+    setupEventSource();
+    reconnectFrequencySeconds *= 2;
+    if (reconnectFrequencySeconds >= 8) {
+      reconnectFrequencySeconds = 8;
+    }
+  }
+  function reconnectFunc() {
+    console.log(
+      `Attempting dev server reconnect in ${reconnectFrequencySeconds}...`
+    );
+    setTimeout(tryToSetupFunc, waitFunc());
+  }
+  function setupEventSource() {
+    eventSource = new EventSource("/stream");
+    window.reloadOnOk = initialErrorPage;
+
+    try {
+      if (initialErrorPage) {
+        handleEvent(sendContentJsonPort, { data: "content.dat" });
+      }
+    } catch (e) {}
+    eventSource.onopen = async function () {
+      hideError();
+      reconnectFrequencySeconds = 1;
+    };
+    eventSource.onerror = async function (evt) {
+      eventSource && eventSource.close();
+      reconnectFunc();
+
+      showReconnectBanner();
+    };
+    eventSource.onmessage = async function (evt) {
+      handleEvent(sendContentJsonPort, evt);
+    };
+  }
+
+  setupEventSource();
+}
+
+function showReconnectBanner() {
+  showError({
+    type: "compile-errors",
+    errors: [
+      {
+        path: "",
+        name: "",
+        problems: [
+          {
+            title: "",
+            // region: "",
+            message: ["Dev server is disconnected..."],
+          },
+        ],
+      },
+    ],
+  });
 }
 
 async function handleEvent(sendContentJsonPort, evt) {
