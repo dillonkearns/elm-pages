@@ -39,6 +39,37 @@ export async function start(options) {
   let threadReadyQueue = [];
   let pool = [];
 
+  function invalidatePool() {
+    pool.forEach((thread) => {
+      thread.stale = true;
+    });
+    restartIdleWorkersIfStale();
+  }
+
+  function restartIdleWorkersIfStale() {
+    pool.forEach((thread) => {
+      if (thread.stale && thread.ready) {
+        reinitThread(thread);
+      }
+    });
+  }
+
+  function reinitThread(thisThread) {
+    thisThread.worker && thisThread.worker.terminate();
+    // TODO remove event listeners to avoid memory leak?
+    // thread.worker.removeAllListeners("message");
+    // thread.worker.removeAllListeners("error");
+    thisThread.ready = false;
+    thisThread.stale = false;
+    thisThread.worker = new Worker(path.join(__dirname, "./render-worker.js"), {
+      env: SHARE_ENV,
+      workerData: { basePath: options.base },
+    });
+    thisThread.worker.once("online", () => {
+      thisThread.ready = true;
+    });
+  }
+
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
   const cpuCount = os.cpus().length;
 
@@ -232,6 +263,7 @@ export async function start(options) {
     if (pathThatChanged === "elm.json") {
       watchElmSourceDirs(false);
     } else if (pathThatChanged.endsWith(".elm")) {
+      invalidatePool();
       if (elmMakeRunning) {
       } else {
         let codegenError = null;
@@ -607,6 +639,7 @@ export async function start(options) {
   }
 
   function runPendingWork() {
+    restartIdleWorkersIfStale();
     const readyThreads = pool.filter((thread) => thread.ready);
     readyThreads.forEach((readyThread) => {
       const startTask = threadReadyQueue.shift();
