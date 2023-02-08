@@ -41,7 +41,9 @@ export async function start(options) {
 
   function invalidatePool() {
     pool.forEach((thread) => {
-      thread.stale = true;
+      if (thread.used) {
+        thread.stale = true;
+      }
     });
     restartIdleWorkersIfStale();
   }
@@ -61,6 +63,7 @@ export async function start(options) {
     // thread.worker.removeAllListeners("error");
     thisThread.ready = false;
     thisThread.stale = false;
+    thisThread.used = false;
     thisThread.worker = new Worker(path.join(__dirname, "./render-worker.js"), {
       env: SHARE_ENV,
       workerData: { basePath: options.base },
@@ -393,6 +396,7 @@ export async function start(options) {
       };
 
       readyThread.ready = false;
+      readyThread.used = true;
       readyThread.worker.postMessage({
         mode: "dev-server",
         pathname,
@@ -664,6 +668,7 @@ export async function start(options) {
         workerData: { basePath },
       }),
       ready: false,
+      used: false,
     };
     newWorker.worker.once("online", () => {
       newWorker.ready = true;
