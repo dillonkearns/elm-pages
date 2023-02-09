@@ -82,8 +82,7 @@ async function handleEvent(sendContentJsonPort, evt) {
 
     try {
       await fetchContentJson;
-      const elmJsResponse = await elmJsRequest;
-      thenApplyHmr(elmJsResponse);
+      thenApplyHmr(await elmJsRequest);
     } catch (errorJson) {
       if (typeof errorJson === "string") {
         errorJson = JSON.parse(errorJson);
@@ -170,8 +169,7 @@ var myDisposeCallback = function () {
 var module = {
   hot: {
     accept: async function () {
-      const sendInUpdatedContentJson = await updateAppContentJson;
-      sendInUpdatedContentJson();
+      (await updateAppContentJson)();
     },
 
     dispose: function (callback) {
