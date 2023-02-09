@@ -764,7 +764,86 @@ update config appMsg model =
                             _ ->
                                 ( model, NoEffect )
                     )
-                |> Result.withDefault ( model, NoEffect )
+                |> Result.withDefault
+                    (let
+                        pageDataResult : Maybe (InitKind sharedData pageData actionData errorPage)
+                        pageDataResult =
+                            case Bytes.Decode.decode config.decodeResponse pageDataBytes of
+                                Just (ResponseSketch.RenderPage _ _) ->
+                                    Nothing
+
+                                Just (ResponseSketch.HotUpdate pageData shared actionData) ->
+                                    OkPage shared pageData actionData
+                                        |> Just
+
+                                Just (ResponseSketch.NotFound notFound) ->
+                                    NotFound notFound
+                                        |> Just
+
+                                _ ->
+                                    Nothing
+                     in
+                     case pageDataResult of
+                        Just (OkPage sharedData pageData actionData) ->
+                            let
+                                urls : { currentUrl : Url, basePath : List String }
+                                urls =
+                                    { currentUrl = model.url
+                                    , basePath = config.basePath
+                                    }
+
+                                pagePath : Path
+                                pagePath =
+                                    urlsToPagePath urls
+
+                                userFlags : Pages.Flags.Flags
+                                userFlags =
+                                    model.userFlags
+                                        |> Decode.decodeValue
+                                            (Decode.field "userFlags" Decode.value)
+                                        |> Result.withDefault Json.Encode.null
+                                        |> Pages.Flags.BrowserFlags
+
+                                ( userModel, userCmd ) =
+                                    Just
+                                        { path =
+                                            { path = pagePath
+                                            , query = model.url.query
+                                            , fragment = model.url.fragment
+                                            }
+                                        , metadata = config.urlToRoute model.url
+                                        , pageUrl =
+                                            Just
+                                                { protocol = model.url.protocol
+                                                , host = model.url.host
+                                                , port_ = model.url.port_
+                                                , path = pagePath
+                                                , query = model.url.query |> Maybe.map QueryParams.fromString
+                                                , fragment = model.url.fragment
+                                                }
+                                        }
+                                        |> config.init userFlags sharedData pageData actionData
+
+                                cmd : Effect userMsg pageData actionData sharedData userEffect errorPage
+                                cmd =
+                                    UserCmd userCmd
+                            in
+                            ( { model
+                                | pageData =
+                                    Ok
+                                        { userModel = userModel
+                                        , sharedData = sharedData
+                                        , pageData = pageData
+                                        , actionData = actionData
+                                        }
+                                , notFound = Nothing
+                              }
+                            , cmd
+                            )
+
+                        _ ->
+                            ( model, NoEffect )
+                    )
 
         FetcherStarted fetcherKey transitionId fetcherData initiatedAt ->
             ( { model
