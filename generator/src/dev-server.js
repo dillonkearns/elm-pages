@@ -265,6 +265,11 @@ export async function start(options) {
   watcher.on("all", async function (eventName, pathThatChanged) {
     if (pathThatChanged === "elm.json") {
       watchElmSourceDirs(false);
+    } else if (
+      pathThatChanged.startsWith("app/Route") &&
+      !pathThatChanged.endsWith(".elm")
+    ) {
+      // this happens when a folder is created in app/Route. Ignore this case.
     } else if (pathThatChanged.endsWith(".elm")) {
       invalidatePool();
       if (elmMakeRunning) {
