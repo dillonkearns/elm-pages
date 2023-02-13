@@ -34,18 +34,18 @@
     "devcert": "^1.2.2",
     "elm-doc-preview": "^5.0.5",
     "elm-hot": "^1.1.6",
-    "esbuild": "^0.17.5",
+    "esbuild": "^0.17.8",
     "fs-extra": "^11.1.0",
     "globby": "^13.1.3",
     "gray-matter": "^4.0.3",
     "jsesc": "^3.0.2",
     "kleur": "^4.1.5",
-    "make-fetch-happen": "^11.0.2",
+    "make-fetch-happen": "^11.0.3",
     "memfs": "^3.4.7",
     "micromatch": "^4.0.5",
     "serve-static": "^1.15.0",
-    "terser": "^5.16.1",
-    "vite": "^4.0.4",
+    "terser": "^5.16.3",
+    "vite": "^4.1.1",
     "which": "^3.0.0"
   },
   "devDependencies": {
@@ -55,7 +55,7 @@
     "@types/micromatch": "^4.0.2",
     "@types/node": "^18.11.9",
     "@types/serve-static": "^1.15.0",
-    "cypress": "^12.4.0",
+    "cypress": "^12.5.1",
     "elm-codegen": "^0.2.0",
     "elm-optimize-level-2": "^0.3.5",
     "elm-review": "^2.8.2",
@@ -64,7 +64,7 @@
     "elm-verify-examples": "^5.2.0",
     "elmi-to-json": "^1.2.0",
     "mocha": "^10.2.0",
-    "typescript": "^4.9.3"
+    "typescript": "^4.9.5"
   },
   "files": [
     "generator/src/",
