@@ -455,11 +455,21 @@ formInit initArg =
     Elm.apply
         (Elm.value
             { importFrom = [ "Form" ]
-            , name = "init"
+            , name = "hiddenKind"
             , annotation = Nothing
             }
         )
-        [ initArg ]
+        [ Elm.tuple (Elm.string "kind") (Elm.string "regular")
+        , Elm.string "Expected kind."
+        , Elm.apply
+            (Elm.value
+                { importFrom = [ "Form" ]
+                , name = "init"
+                , annotation = Nothing
+                }
+            )
+            [ initArg ]
+        ]
 
 
 initCombined : Elm.Expression -> Elm.Expression -> Elm.Expression
