@@ -131,11 +131,12 @@ input attrs (Validation viewField fieldName _) =
                         ]
                             |> List.filterMap identity
                        )
-                    ++ [ Attr.value (rawField.value |> Maybe.withDefault "")
-                       , Attr.name rawField.name
+                    ++ [ Attr.name rawField.name
                        ]
                 )
-                []
+                [ -- textarea does not support the `value` attribute, but instead uses inner text for its form value
+                  Html.text (rawField.value |> Maybe.withDefault "")
+                ]
 
         ( Input inputType, properties ) ->
             Html.input
@@ -184,13 +185,14 @@ inputStyled attrs (Validation viewField fieldName _) =
                         ]
                             |> List.filterMap identity
                        )
-                    ++ ([ Attr.value (rawField.value |> Maybe.withDefault "")
-                        , Attr.name rawField.name
+                    ++ ([ Attr.name rawField.name
                         ]
                             |> List.map StyledAttr.fromUnstyled
                        )
                 )
-                []
+                [ -- textarea does not support the `value` attribute, but instead uses inner text for its form value
+                  Html.Styled.text (rawField.value |> Maybe.withDefault "")
+                ]
 
         ( Input inputType, properties ) ->
             Html.Styled.input
