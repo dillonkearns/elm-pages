@@ -170,6 +170,7 @@ export async function start(options) {
           port: options.port,
         },
         appType: "custom",
+        mode: "development",
         configFile: false,
         root: process.cwd(),
         base: options.base,
