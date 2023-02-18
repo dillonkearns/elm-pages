@@ -156,7 +156,7 @@ formWithFields elmCssView fields viewFn =
 
 
 fieldToParam : ( String, Kind ) -> ( String, Maybe Type.Annotation )
-fieldToParam ( name, kind ) =
+fieldToParam ( name, _ ) =
     ( name, Nothing )
 
 
@@ -221,35 +221,35 @@ provide :
             , declarations : List Elm.Declaration
             }
 provide { fields, view, elmCssView } =
-    let
-        form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
-        form =
-            formWithFields elmCssView fields view
-
-        formHandlersDeclaration :
-            { declaration : Elm.Declaration
-            , call : List Elm.Expression -> Elm.Expression
-            , callFrom : List String -> List Elm.Expression -> Elm.Expression
-            }
-        formHandlersDeclaration =
-            -- TODO customizable formHandlers name?
-            Elm.Declare.function "formHandlers"
-                []
-                (\_ ->
-                    initCombined (Elm.val "Action") (form.call [])
-                        |> Elm.withType
-                            (Type.namedWith [ "Form" ]
-                                "ServerForms"
-                                [ Type.string
-                                , Type.named [] "Action"
-                                ]
-                            )
-                )
-    in
     if List.isEmpty fields then
         Nothing
 
     else
+        let
+            form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
+            form =
+                formWithFields elmCssView fields view
+
+            formHandlersDeclaration :
+                { declaration : Elm.Declaration
+                , call : List Elm.Expression -> Elm.Expression
+                , callFrom : List String -> List Elm.Expression -> Elm.Expression
+                }
+            formHandlersDeclaration =
+                -- TODO customizable formHandlers name?
+                Elm.Declare.function "formHandlers"
+                    []
+                    (\_ ->
+                        initCombined (Elm.val "Action") (form.call [])
+                            |> Elm.withType
+                                (Type.namedWith [ "Form" ]
+                                    "ServerForms"
+                                    [ Type.string
+                                    , Type.named [] "Action"
+                                    ]
+                                )
+                    )
+        in
         Just
             { formHandlers = formHandlersDeclaration.call []
             , form = form.call []
