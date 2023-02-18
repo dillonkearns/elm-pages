@@ -1,16 +1,16 @@
 module Form.FieldView exposing
-    ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, toHtmlProperties, Hidden(..), select
-    , radioStyled, inputStyled
+    ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, toHtmlProperties, Hidden(..), select, valueButton
+    , radioStyled, inputStyled, valueButtonStyled
     )
 
 {-|
 
-@docs Input, InputType, Options, input, inputTypeToString, radio, toHtmlProperties, Hidden, select
+@docs Input, InputType, Options, input, inputTypeToString, radio, toHtmlProperties, Hidden, select, valueButton
 
 
 ## Html.Styled Helpers
 
-@docs radioStyled, inputStyled
+@docs radioStyled, inputStyled, valueButtonStyled
 
 -}
 
@@ -101,6 +101,90 @@ type Hidden
 {-| -}
 type Options a
     = Options (String -> Maybe a) (List String)
+
+
+{-| Gives you a submit button that will submit the form with a specific value for the given Field.
+-}
+valueButton :
+    String
+    -> List (Html.Attribute msg)
+    -> List (Html msg)
+    -> Form.Validation.Field error parsed Input
+    -> Html msg
+valueButton exactValue attrs children (Validation viewField fieldName _) =
+    let
+        justViewField : ViewField Input
+        justViewField =
+            expectViewField viewField
+
+        rawField : { name : String, value : Maybe String, kind : ( Input, List ( String, Encode.Value ) ) }
+        rawField =
+            { name = fieldName |> Maybe.withDefault ""
+            , value = Just exactValue --justViewField.value
+            , kind = justViewField.kind
+            }
+    in
+    case rawField.kind of
+        ( Input inputType, properties ) ->
+            Html.button
+                (attrs
+                    ++ toHtmlProperties properties
+                    ++ [ (case inputType of
+                            Checkbox ->
+                                Attr.checked ((rawField.value |> Maybe.withDefault "") == "on")
+
+                            _ ->
+                                Attr.value (rawField.value |> Maybe.withDefault "")
+                          -- TODO is this an okay default?
+                         )
+                       , Attr.name rawField.name
+                       , inputType |> inputTypeToString |> Attr.type_
+                       ]
+                )
+                children
+
+
+{-| Gives you a submit button that will submit the form with a specific value for the given Field.
+-}
+valueButtonStyled :
+    String
+    -> List (Html.Styled.Attribute msg)
+    -> List (Html.Styled.Html msg)
+    -> Form.Validation.Field error parsed Input
+    -> Html.Styled.Html msg
+valueButtonStyled exactValue attrs children (Validation viewField fieldName _) =
+    let
+        justViewField : ViewField Input
+        justViewField =
+            expectViewField viewField
+
+        rawField : { name : String, value : Maybe String, kind : ( Input, List ( String, Encode.Value ) ) }
+        rawField =
+            { name = fieldName |> Maybe.withDefault ""
+            , value = Just exactValue
+            , kind = justViewField.kind
+            }
+    in
+    case rawField.kind of
+        ( Input inputType, properties ) ->
+            Html.Styled.button
+                (attrs
+                    ++ (toHtmlProperties properties |> List.map StyledAttr.fromUnstyled)
+                    ++ ([ (case inputType of
+                            Checkbox ->
+                                Attr.checked ((rawField.value |> Maybe.withDefault "") == "on")
+
+                            _ ->
+                                Attr.value (rawField.value |> Maybe.withDefault "")
+                           -- TODO is this an okay default?
+                          )
+                        , Attr.name rawField.name
+                        , inputType |> inputTypeToString |> Attr.type_
+                        ]
+                            |> List.map StyledAttr.fromUnstyled
+                       )
+                )
+                children
 
 
 {-| -}
