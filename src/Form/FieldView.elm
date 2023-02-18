@@ -109,15 +109,15 @@ valueButton :
     String
     -> List (Html.Attribute msg)
     -> List (Html msg)
-    -> Form.Validation.Field error parsed Input
+    -> Form.Validation.Field error parsed kind
     -> Html msg
 valueButton exactValue attrs children (Validation viewField fieldName _) =
     let
-        justViewField : ViewField Input
+        justViewField : ViewField kind
         justViewField =
             expectViewField viewField
 
-        rawField : { name : String, value : Maybe String, kind : ( Input, List ( String, Encode.Value ) ) }
+        rawField : { name : String, value : Maybe String, kind : ( kind, List ( String, Encode.Value ) ) }
         rawField =
             { name = fieldName |> Maybe.withDefault ""
             , value = Just exactValue --justViewField.value
@@ -125,20 +125,12 @@ valueButton exactValue attrs children (Validation viewField fieldName _) =
             }
     in
     case rawField.kind of
-        ( Input inputType, properties ) ->
+        ( _, properties ) ->
             Html.button
                 (attrs
                     ++ toHtmlProperties properties
-                    ++ [ (case inputType of
-                            Checkbox ->
-                                Attr.checked ((rawField.value |> Maybe.withDefault "") == "on")
-
-                            _ ->
-                                Attr.value (rawField.value |> Maybe.withDefault "")
-                          -- TODO is this an okay default?
-                         )
+                    ++ [ Attr.value (rawField.value |> Maybe.withDefault "")
                        , Attr.name rawField.name
-                       , inputType |> inputTypeToString |> Attr.type_
                        ]
                 )
                 children
@@ -150,15 +142,15 @@ valueButtonStyled :
     String
     -> List (Html.Styled.Attribute msg)
     -> List (Html.Styled.Html msg)
-    -> Form.Validation.Field error parsed Input
+    -> Form.Validation.Field error parsed kind
     -> Html.Styled.Html msg
 valueButtonStyled exactValue attrs children (Validation viewField fieldName _) =
     let
-        justViewField : ViewField Input
+        justViewField : ViewField kind
         justViewField =
             expectViewField viewField
 
-        rawField : { name : String, value : Maybe String, kind : ( Input, List ( String, Encode.Value ) ) }
+        rawField : { name : String, value : Maybe String, kind : ( kind, List ( String, Encode.Value ) ) }
         rawField =
             { name = fieldName |> Maybe.withDefault ""
             , value = Just exactValue
@@ -166,20 +158,12 @@ valueButtonStyled exactValue attrs children (Validation viewField fieldName _) =
             }
     in
     case rawField.kind of
-        ( Input inputType, properties ) ->
+        ( _, properties ) ->
             Html.Styled.button
                 (attrs
                     ++ (toHtmlProperties properties |> List.map StyledAttr.fromUnstyled)
-                    ++ ([ (case inputType of
-                            Checkbox ->
-                                Attr.checked ((rawField.value |> Maybe.withDefault "") == "on")
-
-                            _ ->
-                                Attr.value (rawField.value |> Maybe.withDefault "")
-                           -- TODO is this an okay default?
-                          )
+                    ++ ([ Attr.value (rawField.value |> Maybe.withDefault "")
                         , Attr.name rawField.name
-                        , inputType |> inputTypeToString |> Attr.type_
                         ]
                             |> List.map StyledAttr.fromUnstyled
                        )
