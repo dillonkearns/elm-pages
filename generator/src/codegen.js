@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import * as fsExtra from "fs-extra/esm";
+import * as fsExtra from "fs-extra";
 import { rewriteElmJson } from "./rewrite-elm-json.js";
 import { rewriteClientElmJson } from "./rewrite-client-elm-json.js";
 import { elmPagesCliFile, elmPagesUiFile } from "./elm-file-constants.js";

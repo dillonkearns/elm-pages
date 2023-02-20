@@ -1,4 +1,4 @@
-import { globbySync } from "globby";
+import globby from "globby";
 import * as path from "path";
 import { default as mm } from "micromatch";
 import * as routeHelpers from "./route-codegen-helpers.js";
@@ -10,7 +10,7 @@ import { fileURLToPath } from "url";
  * @param {'browser' | 'cli'} phase
  */
 export async function generateTemplateModuleConnector(basePath, phase) {
-  const templates = globbySync(["app/Route/**/*.elm"], {}).map((file) => {
+  const templates = globby.sync(["app/Route/**/*.elm"], {}).map((file) => {
     const captures = mm.capture("app/Route/**/*.elm", file);
     if (captures) {
       return path.join(captures[0], captures[1]).split(path.sep);

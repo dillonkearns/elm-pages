@@ -1,5 +1,6 @@
 {
   "name": "elm-pages-escaping-example",
+  "type": "module",
   "version": "3.0.0-beta.3",
   "description": "Example site built with elm-pages.",
   "scripts": {

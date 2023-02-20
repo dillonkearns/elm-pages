@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { copySync } from "fs-extra/esm";
+import * as fsExtra from "fs-extra";
 import * as path from "path";
 import * as kleur from "kleur/colors";
 import { fileURLToPath } from "url";
@@ -17,7 +17,7 @@ export async function run(name) {
 
   if (!fs.existsSync(name)) {
     try {
-      copySync(template, appRoot);
+      fsExtra.copySync(template, appRoot);
       fs.renameSync(
         path.resolve(appRoot, "gitignore"),
         path.resolve(appRoot, ".gitignore")
