@@ -17,7 +17,7 @@ import * as esbuild from "esbuild";
 import { createHash } from "crypto";
 import { merge_vite_configs } from "./vite-utils.js";
 import { resolveConfig } from "./config.js";
-import globby from "globby";
+import * as globby from "globby";
 import { fileURLToPath } from "url";
 import { copyFile } from "fs/promises";
 
@@ -166,7 +166,7 @@ export async function run(options) {
       })
       .catch((error) => {
         const portBackendTaskFileFound =
-          globby.sync("./custom-backend-task.*").length > 0;
+          globby.globbySync("./custom-backend-task.*").length > 0;
         if (portBackendTaskFileFound) {
           // don't present error if there are no files matching custom-backend-task
           // if there are files matching custom-backend-task, warn the user in case something went wrong loading it

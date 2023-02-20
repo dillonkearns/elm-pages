@@ -9,7 +9,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { restoreColorSafe } from "./error-formatter.js";
 import * as renderer from "./render.js";
-import globby from "globby";
+import * as globby from "globby";
 import * as esbuild from "esbuild";
 import { rewriteElmJson } from "./rewrite-elm-json.js";
 import { ensureDirSync } from "./file-helpers.js";
@@ -148,7 +148,7 @@ async function main() {
           })
           .catch((error) => {
             const portBackendTaskFileFound =
-              globby.sync("./custom-backend-task.*").length > 0;
+              globby.globbySync("./custom-backend-task.*").length > 0;
             if (portBackendTaskFileFound) {
               // don't present error if there are no files matching custom-backend-task
               // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
@@ -247,7 +247,7 @@ async function main() {
         );
         // TODO allow no custom-backend-task
         const portBackendTaskFileFound =
-          globby.sync("./custom-backend-task.*").length > 0;
+          globby.globbySync("./custom-backend-task.*").length > 0;
 
         const scriptRunner = `${
           portBackendTaskFileFound

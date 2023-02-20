@@ -26,7 +26,7 @@ import * as esbuild from "esbuild";
 import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
-import globby from "globby";
+import * as globby from "globby";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -206,7 +206,7 @@ export async function start(options) {
               });
             } catch (e) {
               const portBackendTaskFileFound =
-                globby.sync("./custom-backend-task.*").length > 0;
+                globby.globbySync("./custom-backend-task.*").length > 0;
               if (portBackendTaskFileFound) {
                 // don't present error if there are no files matching custom-backend-task
                 // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
