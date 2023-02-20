@@ -416,7 +416,7 @@ async function spawnElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
       "function appendSubmitter (myFormData, event) { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
         (options.debug
           ? "_Json_wrap(Array.from(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event))))"
-          : "Array.from(new FormData(event.target))")
+          : "[...(appendSubmitter(new FormData(event.target), event))]")
     )
   );
 }
