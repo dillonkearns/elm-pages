@@ -1,4 +1,5 @@
 import * as assert from "assert";
+import { describe, it } from "vitest";
 
 import { sortTemplates } from "../src/generate-template-module-connector.js";
 describe("sort", function () {
