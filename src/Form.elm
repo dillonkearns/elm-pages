@@ -1386,7 +1386,21 @@ helperValues toHiddenInput accessResponse options formState data (FormInternal f
                     |> Errors
             , isTransitioning =
                 -- TODO instead of isTransitioning : Bool, it would be useful to get a custom type with the exact state
-                (formState.fetchers |> Dict.member formId)
+                (case formState.fetchers |> Dict.get formId of
+                    Just { status } ->
+                        case status of
+                            Pages.Transition.FetcherComplete _ ->
+                                False
+
+                            Pages.Transition.FetcherSubmitting ->
+                                True
+
+                            Pages.Transition.FetcherReloading _ ->
+                                True
+
+                    Nothing ->
+                        False
+                )
                     || (case formState.transition of
                             Just (Submitting formData) ->
                                 formData.id == Just formId
