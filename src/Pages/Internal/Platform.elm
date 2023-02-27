@@ -559,6 +559,9 @@ update config appMsg model =
                     , NoEffect
                     )
 
+                Pages.Msg.NoOp ->
+                    ( model, NoEffect )
+
         UpdateCacheAndUrlNew scrollToTopWhenDone urlWithoutRedirectResolution maybeUserMsg updateResult ->
             -- TODO remove all fetchers that are in the state `FetcherReloading` here -- I think that's the right logic?
             case

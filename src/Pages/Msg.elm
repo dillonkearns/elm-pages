@@ -25,6 +25,7 @@ type Msg userMsg
     | SubmitIfValid String FormData Bool
     | SubmitFetcher String FormData Bool (Maybe userMsg)
     | FormFieldEvent Json.Decode.Value
+    | NoOp
 
 
 {-| -}
@@ -77,3 +78,6 @@ map mapFn msg =
 
         FormFieldEvent value ->
             FormFieldEvent value
+
+        NoOp ->
+            NoOp
