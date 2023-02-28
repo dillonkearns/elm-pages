@@ -508,7 +508,7 @@ update config appMsg model =
                     , Submit fields
                     )
 
-                Pages.Internal.Msg.SubmitIfValid formId fields isValid ->
+                Pages.Internal.Msg.SubmitIfValid formId fields isValid maybeUserMsg ->
                     if isValid then
                         ( { model
                             -- TODO should I setSubmitAttempted here, too?
@@ -521,6 +521,13 @@ update config appMsg model =
                           }
                         , Submit fields
                         )
+                            |> (case maybeUserMsg of
+                                    Just justUserMsg ->
+                                        performUserMsg justUserMsg config
+
+                                    Nothing ->
+                                        identity
+                               )
 
                     else
                         ( { model

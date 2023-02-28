@@ -166,7 +166,7 @@ view maybeUrl sharedModel model static =
                 -- TODO should there be a helper function to easily invoke a form submission to a different route?
                 [ Attr.method "post"
                 , Attr.action "/logout"
-                , Pages.Msg.onSubmit |> Attr.fromUnstyled
+                , PagesMsg.onSubmit |> Attr.fromUnstyled
                 ]
                 [ Html.button [] [ Html.text "Logout" ] ]
             ]

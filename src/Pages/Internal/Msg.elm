@@ -17,7 +17,7 @@ import Json.Decode
 type Msg userMsg
     = UserMsg userMsg
     | Submit FormData
-    | SubmitIfValid String FormData Bool
+    | SubmitIfValid String FormData Bool (Maybe userMsg)
     | SubmitFetcher String FormData Bool (Maybe userMsg)
     | FormFieldEvent Json.Decode.Value
     | NoOp
@@ -31,10 +31,21 @@ onSubmit =
 
 
 {-| -}
-submitIfValid : String -> (List ( String, String ) -> Bool) -> Attribute (Msg userMsg)
-submitIfValid formId isValid =
+submitIfValid : Maybe ({ fields : List ( String, String ) } -> userMsg) -> String -> (List ( String, String ) -> Bool) -> Attribute (Msg userMsg)
+submitIfValid userMsg formId isValid =
     FormDecoder.formDataOnSubmit
-        |> Attr.map (\formData -> SubmitIfValid formId formData (isValid formData.fields))
+        |> Attr.map
+            (\formData ->
+                SubmitIfValid formId
+                    formData
+                    (isValid formData.fields)
+                    (userMsg
+                        |> Maybe.map
+                            (\toUserMsg ->
+                                toUserMsg { fields = formData.fields }
+                            )
+                    )
+            )
 
 
 {-| -}
@@ -65,8 +76,8 @@ map mapFn msg =
         Submit info ->
             Submit info
 
-        SubmitIfValid formId info isValid ->
-            SubmitIfValid formId info isValid
+        SubmitIfValid formId info isValid toUserMsg ->
+            SubmitIfValid formId info isValid (Maybe.map mapFn toUserMsg)
 
         SubmitFetcher formId info isValid toUserMsg ->
             SubmitFetcher formId info isValid (Maybe.map mapFn toUserMsg)

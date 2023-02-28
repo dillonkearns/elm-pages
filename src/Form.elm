@@ -1232,8 +1232,7 @@ renderHelper attrs accessResponse options formState data form =
                         Pages.Internal.Msg.fetcherOnSubmit options.onSubmit formId (\_ -> isValid)
 
                     TransitionStrategy ->
-                        -- TODO pass in options.onSubmit here
-                        Pages.Internal.Msg.submitIfValid formId (\_ -> isValid)
+                        Pages.Internal.Msg.submitIfValid options.onSubmit formId (\_ -> isValid)
                ]
             ++ attrs
         )
@@ -1271,7 +1270,7 @@ renderStyledHelper attrs accessResponse options formState data form =
 
                     TransitionStrategy ->
                         StyledAttr.fromUnstyled <|
-                            Pages.Internal.Msg.submitIfValid formId (\_ -> isValid)
+                            Pages.Internal.Msg.submitIfValid options.onSubmit formId (\_ -> isValid)
                ]
             ++ attrs
         )
