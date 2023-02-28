@@ -35,10 +35,10 @@ import Pages.Internal.Msg
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
-import Pages.Msg
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Pages.Transition
+import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
 import QueryParams
 import Task
@@ -54,7 +54,7 @@ type alias Program userModel userMsg pageData actionData sharedData errorPage =
 mainView :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Model userModel pageData actionData sharedData
-    -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
+    -> { title : String, body : List (Html (PagesMsg userMsg)) }
 mainView config model =
     case model.notFound of
         Just info ->
@@ -309,7 +309,7 @@ init config flags url key =
 type Msg userMsg pageData actionData sharedData errorPage
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
-    | UserMsg (Pages.Msg.Msg userMsg)
+    | UserMsg (PagesMsg userMsg)
     | SetField { formId : String, name : String, value : String }
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
     | FetcherComplete Bool String Int (Result Http.Error ( Maybe userMsg, ActionDataOrRedirect actionData ))

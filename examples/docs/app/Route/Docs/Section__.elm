@@ -18,7 +18,7 @@ import Markdown.Parser
 import Markdown.Renderer
 import MarkdownCodec
 import NextPrevious
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
@@ -203,7 +203,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = static.data.titles.title ++ " - elm-pages docs"
     , body =

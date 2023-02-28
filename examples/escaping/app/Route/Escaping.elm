@@ -11,7 +11,7 @@ import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Keyed as HtmlKeyed
 import Html.Styled.Lazy as HtmlLazy
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -78,7 +78,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = ""
     , body =

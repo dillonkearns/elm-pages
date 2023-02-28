@@ -12,7 +12,7 @@ import GroupName exposing (GroupName)
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -121,7 +121,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title = "Create Group"
     , body =

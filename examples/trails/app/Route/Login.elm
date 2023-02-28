@@ -8,7 +8,7 @@ import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
 import MySession
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
@@ -118,7 +118,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = "Login"
     , body =

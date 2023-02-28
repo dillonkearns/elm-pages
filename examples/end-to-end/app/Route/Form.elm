@@ -14,9 +14,9 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Styled
-import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
 import Server.Response
@@ -222,7 +222,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     let
         user : User

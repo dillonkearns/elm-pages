@@ -17,21 +17,18 @@ import Gen.Bytes.Encode
 import Gen.Dict
 import Gen.Head
 import Gen.Html
-import Gen.HtmlPrinter
 import Gen.Json.Decode
 import Gen.Json.Encode
 import Gen.List
 import Gen.Maybe
 import Gen.Pages.Fetcher
-import Gen.Pages.Flags
 import Gen.Pages.FormState
 import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.Platform.Cli
 import Gen.Pages.Internal.RoutePattern
-import Gen.Pages.Msg
-import Gen.Pages.ProgramConfig
 import Gen.Pages.Transition
+import Gen.PagesMsg
 import Gen.Path
 import Gen.Platform.Sub
 import Gen.QueryParams
@@ -291,14 +288,14 @@ otherFile routes phaseString =
                                                                                 , model |> Elm.get "global"
                                                                                 , Elm.fn ( "myMsg", Nothing )
                                                                                     (\myMsg ->
-                                                                                        Gen.Pages.Msg.fromMsg
+                                                                                        Gen.PagesMsg.fromMsg
                                                                                             (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
                                                                                     )
                                                                                 , Elm.apply
                                                                                     (Elm.value { importFrom = [ "View" ], name = "map", annotation = Nothing })
                                                                                     [ Elm.functionReduced "myMsg"
                                                                                         (\myMsg ->
-                                                                                            Gen.Pages.Msg.fromMsg
+                                                                                            Gen.PagesMsg.fromMsg
                                                                                                 (Elm.apply (Elm.val "MsgErrorPage____") [ myMsg ])
                                                                                         )
                                                                                     , Elm.apply
@@ -357,14 +354,14 @@ otherFile routes phaseString =
                                                                                                             , model |> Elm.get "global"
                                                                                                             , Elm.fn ( "myMsg", Nothing )
                                                                                                                 (\myMsg ->
-                                                                                                                    Gen.Pages.Msg.fromMsg
+                                                                                                                    Gen.PagesMsg.fromMsg
                                                                                                                         (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
                                                                                                                 )
                                                                                                             , Elm.apply
                                                                                                                 (Elm.value { importFrom = [ "View" ], name = "map", annotation = Nothing })
                                                                                                                 [ Elm.functionReduced
                                                                                                                     "innerPageMsg"
-                                                                                                                    (Gen.Pages.Msg.call_.map (route |> routeVariantExpression Msg))
+                                                                                                                    (Gen.PagesMsg.call_.map (route |> routeVariantExpression Msg))
                                                                                                                 , Elm.apply (route |> routeTemplateFunction "view")
                                                                                                                     [ maybePageUrl
                                                                                                                     , model |> Elm.get "global"
@@ -479,7 +476,7 @@ otherFile routes phaseString =
                                                     [ ( "title", Type.string )
                                                     , ( "body"
                                                       , Gen.Html.annotation_.html
-                                                            (Gen.Pages.Msg.annotation_.msg (Type.named [] "Msg"))
+                                                            (Gen.PagesMsg.annotation_.pagesMsg (Type.named [] "Msg"))
                                                             |> Type.list
                                                       )
                                                     ]

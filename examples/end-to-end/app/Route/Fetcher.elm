@@ -16,9 +16,9 @@ import Html.Styled as Html
 import Html.Styled.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Pages.Msg
 import Pages.PageUrl
 import Pages.Transition exposing (FetcherSubmitStatus(..))
+import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import RouteBuilder
 import Server.Request
@@ -196,7 +196,7 @@ view :
     -> sharedModel
     -> Model
     -> RouteBuilder.StaticPayload Data ActionData RouteParams
-    -> View.View (Pages.Msg.Msg Msg)
+    -> View.View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     let
         inFlight : List Action

@@ -664,7 +664,7 @@
 					"input",
 					"msg"
 				],
-				"type": "Form.Form error { combine : Form.Validation.Combined error parsed, view : Form.Context error input -> List.List (Html.Html (Pages.Msg.Msg msg)) } input"
+				"type": "Form.Form error { combine : Form.Validation.Combined error parsed, view : Form.Context error input -> List.List (Html.Html (PagesMsg msg)) } input"
 			},
 			{
 				"name": "StyledHtmlForm",
@@ -675,7 +675,7 @@
 					"data",
 					"msg"
 				],
-				"type": "Form.Form error { combine : Form.Validation.Combined error parsed, view : Form.Context error data -> List.List (Html.Styled.Html (Pages.Msg.Msg msg)) } data"
+				"type": "Form.Form error { combine : Form.Validation.Combined error parsed, view : Form.Context error data -> List.List (Html.Styled.Html (PagesMsg msg)) } data"
 			}
 		],
 		"values": [
@@ -737,12 +737,12 @@
 			{
 				"name": "renderHtml",
 				"comment": " ",
-				"type": "List.List (Html.Attribute (Pages.Msg.Msg msg)) -> Maybe.Maybe { fields : List.List ( String.String, String.String ), errors : Dict.Dict String.String (List.List error) } -> Form.AppContext app actionData -> data -> Form.FinalForm error (Pages.Internal.Form.Validation error parsed named constraints) data (Form.Context error data -> List.List (Html.Html (Pages.Msg.Msg msg))) msg -> Html.Html (Pages.Msg.Msg msg)"
+				"type": "List.List (Html.Attribute (PagesMsg msg)) -> Maybe.Maybe { fields : List.List ( String.String, String.String ), errors : Dict.Dict String.String (List.List error) } -> Form.AppContext app actionData -> data -> Form.FinalForm error (Pages.Internal.Form.Validation error parsed named constraints) data (Form.Context error data -> List.List (Html.Html (PagesMsg msg))) msg -> Html.Html (PagesMsg msg)"
 			},
 			{
 				"name": "renderStyledHtml",
 				"comment": " ",
-				"type": "List.List (Html.Styled.Attribute (Pages.Msg.Msg msg)) -> Maybe.Maybe { fields : List.List ( String.String, String.String ), errors : Dict.Dict String.String (List.List error) } -> Form.AppContext app actionData -> data -> Form.FinalForm error (Pages.Internal.Form.Validation error parsed named constraints) data (Form.Context error data -> List.List (Html.Styled.Html (Pages.Msg.Msg msg))) msg -> Html.Styled.Html (Pages.Msg.Msg msg)"
+				"type": "List.List (Html.Styled.Attribute (PagesMsg msg)) -> Maybe.Maybe { fields : List.List ( String.String, String.String ), errors : Dict.Dict String.String (List.List error) } -> Form.AppContext app actionData -> data -> Form.FinalForm error (Pages.Internal.Form.Validation error parsed named constraints) data (Form.Context error data -> List.List (Html.Styled.Html (PagesMsg msg))) msg -> Html.Styled.Html (PagesMsg msg)"
 			},
 			{
 				"name": "runOneOfServerSide",
@@ -1716,7 +1716,7 @@
 			{
 				"name": "listeners",
 				"comment": " ",
-				"type": "String.String -> List.List (Html.Attribute (Pages.Msg.Msg userMsg))"
+				"type": "String.String -> List.List (Html.Attribute (PagesMsg userMsg))"
 			},
 			{
 				"name": "setField",
@@ -1962,7 +1962,7 @@
 					[
 						"UserMsg",
 						[
-							"Pages.Msg.Msg userMsg"
+							"PagesMsg userMsg"
 						]
 					],
 					[
@@ -2791,22 +2791,22 @@
 			{
 				"name": "fetcherOnSubmit",
 				"comment": " ",
-				"type": "Maybe.Maybe ({ fields : List.List ( String.String, String.String ) } -> userMsg) -> String.String -> (List.List ( String.String, String.String ) -> Basics.Bool) -> Html.Attribute (Pages.Msg.Msg userMsg)"
+				"type": "Maybe.Maybe ({ fields : List.List ( String.String, String.String ) } -> userMsg) -> String.String -> (List.List ( String.String, String.String ) -> Basics.Bool) -> Html.Attribute (PagesMsg userMsg)"
 			},
 			{
 				"name": "map",
 				"comment": " ",
-				"type": "(a -> b) -> Pages.Msg.Msg a -> Pages.Msg.Msg b"
+				"type": "(a -> b) -> PagesMsg a -> PagesMsg b"
 			},
 			{
 				"name": "onSubmit",
 				"comment": " ",
-				"type": "Html.Attribute (Pages.Msg.Msg userMsg)"
+				"type": "Html.Attribute (PagesMsg userMsg)"
 			},
 			{
 				"name": "submitIfValid",
 				"comment": " ",
-				"type": "String.String -> (List.List ( String.String, String.String ) -> Basics.Bool) -> Html.Attribute (Pages.Msg.Msg userMsg)"
+				"type": "String.String -> (List.List ( String.String, String.String ) -> Basics.Bool) -> Html.Attribute (PagesMsg userMsg)"
 			}
 		],
 		"binops": []

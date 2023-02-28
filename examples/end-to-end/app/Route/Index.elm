@@ -13,9 +13,9 @@ import Html.Styled exposing (a, div, text)
 import Html.Styled.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import Random
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
@@ -94,7 +94,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel app =
     { title = "Index page"
     , body =

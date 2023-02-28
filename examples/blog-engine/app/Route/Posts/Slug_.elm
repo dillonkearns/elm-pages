@@ -18,8 +18,8 @@ import Json.Encode as Encode
 import Markdown.Block exposing (Block)
 import Markdown.Parser
 import Markdown.Renderer
-import Pages.Msg
 import Pages.PageUrl
+import PagesMsg exposing (PagesMsg)
 import Path
 import Platform.Sub
 import Post
@@ -143,7 +143,7 @@ view :
     -> Shared.Model
     -> Model
     -> RouteBuilder.StaticPayload Data ActionData RouteParams
-    -> View.View (Pages.Msg.Msg Msg)
+    -> View.View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title = "Posts.Slug_"
     , body =

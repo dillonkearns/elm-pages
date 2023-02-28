@@ -22,8 +22,8 @@ import Html exposing (Html)
 import Html.Attributes
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import Pages.Msg
 import Pages.PageUrl
+import PagesMsg exposing (PagesMsg)
 import Path
 import Platform.Sub
 import Post exposing (Post)
@@ -145,7 +145,7 @@ view :
     -> Shared.Model
     -> Model
     -> RouteBuilder.StaticPayload Data ActionData RouteParams
-    -> View.View (Pages.Msg.Msg Msg)
+    -> View.View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title =
         if app.routeParams.slug == "new" then
@@ -335,7 +335,7 @@ buttonWithTransition attributes initialText transitioningText formState =
 errorsView :
     Form.Errors String
     -> Form.Validation.Field String parsed kind
-    -> Html.Html (Pages.Msg.Msg Msg)
+    -> Html.Html (PagesMsg Msg)
 errorsView errors field =
     if List.isEmpty (Form.errorsForField field errors) then
         Html.div [] []

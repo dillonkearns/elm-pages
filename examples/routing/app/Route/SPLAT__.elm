@@ -4,7 +4,7 @@ import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
 import Head
 import Html.Styled exposing (text)
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
@@ -59,7 +59,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { body =
         [ Debug.toString static.routeParams |> text

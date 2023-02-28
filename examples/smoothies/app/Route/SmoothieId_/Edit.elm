@@ -15,7 +15,7 @@ import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition exposing (Transition(..))
 import Path exposing (Path)
@@ -312,7 +312,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     let
         pendingCreation : Maybe NewItem
@@ -364,7 +364,7 @@ view maybeUrl sharedModel model app =
     }
 
 
-pendingView : NewItem -> Html (Pages.Msg.Msg Msg)
+pendingView : NewItem -> Html (PagesMsg Msg)
 pendingView item =
     Html.div [ Attr.class "item" ]
         [ Html.div []

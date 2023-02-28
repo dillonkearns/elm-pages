@@ -6,7 +6,7 @@ import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (text)
 import Html.Styled.Attributes as Attr
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -74,7 +74,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = "Index page"
     , body =

@@ -7,9 +7,9 @@ import FatalError exposing (FatalError)
 import Form.FormData exposing (Method(..))
 import Head
 import Head.Seo as Seo
-import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
 import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -126,6 +126,6 @@ view :
     -> Shared.Model
     -> templateModel
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel model static =
     View.placeholder "Redirect"

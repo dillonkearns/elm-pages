@@ -18,7 +18,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Icon
 import MySession
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Request.Hasura
@@ -224,7 +224,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
     , body =
@@ -307,7 +307,7 @@ type QuantityChange
     | Decrement
 
 
-productView : StaticPayload Data ActionData RouteParams -> Dict String Cart.CartEntry -> Smoothie -> Html (Pages.Msg.Msg Msg)
+productView : StaticPayload Data ActionData RouteParams -> Dict String Cart.CartEntry -> Smoothie -> Html (PagesMsg Msg)
 productView app cart item =
     let
         quantityInCart : Int

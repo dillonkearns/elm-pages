@@ -22,10 +22,10 @@ import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
-import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.Transition
+import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
 import Url exposing (Url)
 
@@ -66,7 +66,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> pageData
         -> Maybe actionData
         ->
-            { view : userModel -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
+            { view : userModel -> { title : String, body : List (Html (PagesMsg userMsg)) }
             , head : List Head.Tag
             }
     , handleRoute : route -> BackendTask FatalError (Maybe NotFoundReason)

@@ -11,8 +11,8 @@ import Head
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import MySession
-import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
+import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request
@@ -83,7 +83,7 @@ type alias Data =
     }
 
 
-form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (PagesMsg Msg)))
 form =
     Form.init
         (\username ->
@@ -202,7 +202,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = "Login"
     , body =

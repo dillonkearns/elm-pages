@@ -27,10 +27,10 @@ import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.ResponseSketch as ResponseSketch
-import Pages.Msg
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request
+import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
 import RenderRequest exposing (RenderRequest)
 import RequestsAndPending exposing (RequestsAndPending)
@@ -503,7 +503,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                                     )
                                                                                                     |> Tuple.first
 
-                                                                                            viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
+                                                                                            viewValue : { title : String, body : List (Html (PagesMsg userMsg)) }
                                                                                             viewValue =
                                                                                                 (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData |> .view) pageModel
 
@@ -550,7 +550,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                         )
                                                                                             |> (\( actionHeaders, byteEncodedPageData ) ->
                                                                                                     let
-                                                                                                        rendered : { view : userModel -> { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }, head : List Tag }
+                                                                                                        rendered : { view : userModel -> { title : String, body : List (Html (PagesMsg userMsg)) }, head : List Tag }
                                                                                                         rendered =
                                                                                                             config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData
                                                                                                     in
@@ -641,7 +641,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                             pageData2 =
                                                                                                 config.errorPageToData error
 
-                                                                                            viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
+                                                                                            viewValue : { title : String, body : List (Html (PagesMsg userMsg)) }
                                                                                             viewValue =
                                                                                                 (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData2 Nothing |> .view) pageModel
                                                                                         in
@@ -854,7 +854,7 @@ render404Page config sharedData isDevServer path notFoundReason =
                 pathAndRoute =
                     { path = path, route = config.notFoundRoute }
 
-                viewValue : { title : String, body : List (Html (Pages.Msg.Msg userMsg)) }
+                viewValue : { title : String, body : List (Html (PagesMsg userMsg)) }
                 viewValue =
                     (config.view Dict.empty
                         Dict.empty

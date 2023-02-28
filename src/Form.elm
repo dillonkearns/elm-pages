@@ -283,8 +283,8 @@ import Html.Styled.Lazy
 import Pages.FormState as Form exposing (FormState)
 import Pages.Internal.Form exposing (Validation(..), unwrapResponse)
 import Pages.Internal.Msg
-import Pages.Msg
 import Pages.Transition exposing (Transition(..))
+import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
 
 
@@ -981,7 +981,7 @@ runOneOfServerSideHelp rawFormData firstFoundErrors (ServerForms parsers) =
 
 {-| -}
 renderHtml :
-    List (Html.Attribute (Pages.Msg.Msg msg))
+    List (Html.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> AppContext app actionData
     -> data
@@ -991,10 +991,10 @@ renderHtml :
             (Form.Validation.Validation error parsed named constraints)
             data
             (Context error data
-             -> List (Html (Pages.Msg.Msg msg))
+             -> List (Html (PagesMsg msg))
             )
             msg
-    -> Html (Pages.Msg.Msg msg)
+    -> Html (PagesMsg msg)
 renderHtml attrs accessResponse app data (FinalForm options a b c) =
     Html.Lazy.lazy6 renderHelper attrs accessResponse options app data (FormInternal a b c)
 
@@ -1178,7 +1178,7 @@ withOnSubmit onSubmit (FinalForm options a b c) =
 
 {-| -}
 renderStyledHtml :
-    List (Html.Styled.Attribute (Pages.Msg.Msg msg))
+    List (Html.Styled.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> AppContext app actionData
     -> data
@@ -1188,10 +1188,10 @@ renderStyledHtml :
             (Form.Validation.Validation error parsed named constraints)
             data
             (Context error data
-             -> List (Html.Styled.Html (Pages.Msg.Msg msg))
+             -> List (Html.Styled.Html (PagesMsg msg))
             )
             msg
-    -> Html.Styled.Html (Pages.Msg.Msg msg)
+    -> Html.Styled.Html (PagesMsg msg)
 renderStyledHtml attrs accessResponse app data (FinalForm options a b c) =
     Html.Styled.Lazy.lazy6 renderStyledHelper attrs accessResponse options app data (FormInternal a b c)
 
@@ -1202,13 +1202,13 @@ type alias Response error =
 
 
 renderHelper :
-    List (Html.Attribute (Pages.Msg.Msg msg))
+    List (Html.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> RenderOptions msg
     -> AppContext app actionData
     -> data
-    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List (Html (Pages.Msg.Msg msg)))
-    -> Html (Pages.Msg.Msg msg)
+    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List (Html (PagesMsg msg)))
+    -> Html (PagesMsg msg)
 renderHelper attrs accessResponse options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
@@ -1216,7 +1216,7 @@ renderHelper attrs accessResponse options formState data form =
         { formId, hiddenInputs, children, isValid } =
             helperValues toHiddenInput accessResponse options formState data form
 
-        toHiddenInput : List (Html.Attribute (Pages.Msg.Msg msg)) -> Html (Pages.Msg.Msg msg)
+        toHiddenInput : List (Html.Attribute (PagesMsg msg)) -> Html (PagesMsg msg)
         toHiddenInput hiddenAttrs =
             Html.input hiddenAttrs []
     in
@@ -1241,13 +1241,13 @@ renderHelper attrs accessResponse options formState data form =
 
 
 renderStyledHelper :
-    List (Html.Styled.Attribute (Pages.Msg.Msg msg))
+    List (Html.Styled.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> RenderOptions msg
     -> AppContext app actionData
     -> data
-    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg)))
-    -> Html.Styled.Html (Pages.Msg.Msg msg)
+    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (PagesMsg msg)))
+    -> Html.Styled.Html (PagesMsg msg)
 renderStyledHelper attrs accessResponse options formState data form =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
@@ -1255,7 +1255,7 @@ renderStyledHelper attrs accessResponse options formState data form =
         { formId, hiddenInputs, children, isValid } =
             helperValues toHiddenInput accessResponse options formState data form
 
-        toHiddenInput : List (Html.Attribute (Pages.Msg.Msg msg)) -> Html.Styled.Html (Pages.Msg.Msg msg)
+        toHiddenInput : List (Html.Attribute (PagesMsg msg)) -> Html.Styled.Html (PagesMsg msg)
         toHiddenInput hiddenAttrs =
             Html.Styled.input (hiddenAttrs |> List.map StyledAttr.fromUnstyled) []
     in
@@ -1279,7 +1279,7 @@ renderStyledHelper attrs accessResponse options formState data form =
 
 
 helperValues :
-    (List (Html.Attribute (Pages.Msg.Msg msg)) -> view)
+    (List (Html.Attribute (PagesMsg msg)) -> view)
     -> (actionData -> Maybe (Response error))
     -> RenderOptions msg
     -> AppContext app actionData
@@ -1478,7 +1478,7 @@ type alias HtmlForm error parsed input msg =
     Form
         error
         { combine : Combined error parsed
-        , view : Context error input -> List (Html (Pages.Msg.Msg msg))
+        , view : Context error input -> List (Html (PagesMsg msg))
         }
         input
 
@@ -1602,7 +1602,7 @@ type alias StyledHtmlForm error parsed data msg =
     Form
         error
         { combine : Combined error parsed
-        , view : Context error data -> List (Html.Styled.Html (Pages.Msg.Msg msg))
+        , view : Context error data -> List (Html.Styled.Html (PagesMsg msg))
         }
         data
 

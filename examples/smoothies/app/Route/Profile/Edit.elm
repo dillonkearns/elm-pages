@@ -17,7 +17,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
 import Pages.FormState
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path exposing (Path)
@@ -119,7 +119,7 @@ type alias Action =
     }
 
 
-formParser : Form.DoneForm String (BackendTask (Validation.Combined String Action)) Data (List (Html (Pages.Msg.Msg msg)))
+formParser : Form.DoneForm String (BackendTask (Validation.Combined String Action)) Data (List (Html (PagesMsg msg)))
 formParser =
     Form.init
         (\username name ->
@@ -261,7 +261,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
     , body =

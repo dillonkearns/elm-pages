@@ -17,7 +17,7 @@ import Html.Attributes as Attr
 import Json.Decode
 import Json.Encode
 import MySession
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Request.Hasura
@@ -58,7 +58,7 @@ type alias Login =
     }
 
 
-form : Form.DoneForm String (BackendTask (Combined String String)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (BackendTask (Combined String String)) data (List (Html (PagesMsg Msg)))
 form =
     Form.init
         (\username password ->
@@ -249,7 +249,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel app =
     { title = "Login"
     , body =

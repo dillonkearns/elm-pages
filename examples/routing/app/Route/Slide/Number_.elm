@@ -11,7 +11,7 @@ import Head.Seo as Seo
 import Html.Styled as Html
 import Html.Styled.Attributes exposing (css)
 import Json.Decode as Decode
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StaticPayload)
@@ -131,7 +131,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel model static =
     { title = "TODO title"
     , body =

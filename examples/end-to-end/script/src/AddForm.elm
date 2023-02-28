@@ -203,7 +203,7 @@ errorsView :
     }
 errorsView =
     Elm.Declare.fn2 "errorsView"
-        --errorsView : Form.Errors String -> Validation.Field String parsed kind -> Html.Styled.Html (Pages.Msg.Msg Msg)
+        --errorsView : Form.Errors String -> Validation.Field String parsed kind -> Html.Styled.Html (PagesMsg Msg)
         ( "errors", Elm.Annotation.namedWith [ "Form" ] "Errors" [ Elm.Annotation.string ] |> Just )
         ( "field"
         , Elm.Annotation.namedWith [ "Form", "Validation" ]

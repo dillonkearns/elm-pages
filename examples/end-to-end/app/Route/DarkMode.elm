@@ -14,8 +14,8 @@ import Form.Value as Value
 import Head
 import Html.Styled as Html
 import Html.Styled.Attributes exposing (css)
-import Pages.Msg
 import Pages.PageUrl
+import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import RouteBuilder
 import Server.Request
@@ -201,7 +201,7 @@ view :
     -> sharedModel
     -> Model
     -> RouteBuilder.StaticPayload Data ActionData RouteParams
-    -> View.View (Pages.Msg.Msg Msg)
+    -> View.View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title = "DarkMode"
     , body =

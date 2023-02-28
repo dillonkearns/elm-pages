@@ -6,7 +6,7 @@ import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Head
 import Html exposing (div, text)
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
@@ -70,7 +70,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = "Basic Auth Test"
     , body =

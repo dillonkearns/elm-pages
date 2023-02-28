@@ -5,8 +5,8 @@ import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Head
 import Html.Styled exposing (text)
-import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
+import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
@@ -68,7 +68,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = "Cookie test"
     , body =

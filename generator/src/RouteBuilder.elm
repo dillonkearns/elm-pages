@@ -97,7 +97,7 @@ import Pages.Fetcher
 import Pages.FormState
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition
 import Path exposing (Path)
@@ -117,7 +117,7 @@ type alias StatefulRoute routeParams data action model msg =
         -> Shared.Model
         -> model
         -> StaticPayload data action routeParams
-        -> View (Pages.Msg.Msg msg)
+        -> View (PagesMsg msg)
     , head :
         StaticPayload data action routeParams
         -> List Head.Tag
@@ -176,7 +176,7 @@ buildNoState :
         Maybe PageUrl
         -> Shared.Model
         -> StaticPayload data action routeParams
-        -> View (Pages.Msg.Msg ())
+        -> View (PagesMsg ())
     }
     -> Builder routeParams data action
     -> StatefulRoute routeParams data action {} ()
@@ -212,7 +212,7 @@ buildWithLocalState :
         -> Shared.Model
         -> model
         -> StaticPayload data action routeParams
-        -> View (Pages.Msg.Msg msg)
+        -> View (PagesMsg msg)
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
     , update : PageUrl -> Shared.Model -> StaticPayload data action routeParams -> msg -> model -> ( model, Effect msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg
@@ -258,7 +258,7 @@ buildWithSharedState :
         -> Shared.Model
         -> model
         -> StaticPayload data action routeParams
-        -> View (Pages.Msg.Msg msg)
+        -> View (PagesMsg msg)
     , init : Maybe PageUrl -> Shared.Model -> StaticPayload data action routeParams -> ( model, Effect msg )
     , update : PageUrl -> Shared.Model -> StaticPayload data action routeParams -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : Maybe PageUrl -> routeParams -> Path -> Shared.Model -> model -> Sub msg

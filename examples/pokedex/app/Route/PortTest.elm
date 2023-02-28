@@ -8,7 +8,7 @@ import Head.Seo as Seo
 import Html
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
@@ -63,7 +63,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = "Placeholder"
     , body = [ Html.text static.data.portGreeting ]

@@ -8,9 +8,9 @@ import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
 import Json.Decode as Decode
-import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
 import Shared
 import View exposing (View)
@@ -78,7 +78,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = "Index page"
     , body =

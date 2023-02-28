@@ -20,9 +20,9 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import LoadingSpinner
 import MySession
-import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition exposing (FetcherSubmitStatus(..))
+import PagesMsg exposing (PagesMsg)
 import Path
 import Route
 import RouteBuilder exposing (StatefulRoute, StaticPayload)
@@ -328,7 +328,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     let
         pendingFetchers : List Action
@@ -710,7 +710,7 @@ clearCompletedForm =
 -- VIEW ALL ENTRIES
 
 
-viewEntries : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (Pages.Msg.Msg Msg)
+viewEntries : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
 viewEntries app visibility entries =
     let
         isVisible todo =
@@ -750,12 +750,12 @@ viewEntries app visibility entries =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Entry -> ( String, Html (Pages.Msg.Msg Msg) )
+viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Entry -> ( String, Html (PagesMsg Msg) )
 viewKeyedEntry app todo =
     ( todo.id, lazy2 viewEntry app todo )
 
 
-viewEntry : StaticPayload Data ActionData RouteParams -> Entry -> Html (Pages.Msg.Msg Msg)
+viewEntry : StaticPayload Data ActionData RouteParams -> Entry -> Html (PagesMsg Msg)
 viewEntry app todo =
     li
         [ classList
@@ -785,7 +785,7 @@ viewEntry app todo =
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (Pages.Msg.Msg Msg)
+viewControls : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
 viewControls app visibility entries =
     let
         entriesCompleted =
@@ -804,7 +804,7 @@ viewControls app visibility entries =
         ]
 
 
-viewControlsCount : Int -> Html (Pages.Msg.Msg Msg)
+viewControlsCount : Int -> Html (PagesMsg Msg)
 viewControlsCount entriesLeft =
     let
         item_ =
@@ -827,7 +827,7 @@ type Visibility
     | Completed
 
 
-viewControlsFilters : Visibility -> Html (Pages.Msg.Msg Msg)
+viewControlsFilters : Visibility -> Html (PagesMsg Msg)
 viewControlsFilters visibility =
     ul
         [ class "filters" ]
@@ -852,7 +852,7 @@ visibilityToString visibility =
             "Completed"
 
 
-visibilitySwap : Maybe String -> Visibility -> Visibility -> Html (Pages.Msg.Msg Msg)
+visibilitySwap : Maybe String -> Visibility -> Visibility -> Html (PagesMsg Msg)
 visibilitySwap visibilityParam visibility actualVisibility =
     li
         []
@@ -863,7 +863,7 @@ visibilitySwap visibilityParam visibility actualVisibility =
         ]
 
 
-viewControlsClear : StaticPayload Data ActionData RouteParams -> Int -> Html (Pages.Msg.Msg Msg)
+viewControlsClear : StaticPayload Data ActionData RouteParams -> Int -> Html (PagesMsg Msg)
 viewControlsClear app entriesCompleted =
     clearCompletedForm
         |> Form.toDynamicFetcher "clear-completed"

@@ -25,7 +25,7 @@
         "Server.Session",
         "Server.SetCookie",
         "Server.Response",
-        "Pages.Msg",
+        "PagesMsg",
         "Pages.Manifest",
         "Pages.Manifest.Category",
         "Pages.Flags",

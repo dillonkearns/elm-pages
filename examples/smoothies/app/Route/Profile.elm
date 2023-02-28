@@ -11,7 +11,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
 import Pages.FormState
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition
 import Pages.Url
@@ -148,7 +148,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
     , body =
@@ -175,7 +175,7 @@ view maybeUrl sharedModel model app =
     }
 
 
-nameFormView : User -> Maybe Pages.Transition.Transition -> Html (Pages.Msg.Msg userMsg)
+nameFormView : User -> Maybe Pages.Transition.Transition -> Html (PagesMsg userMsg)
 nameFormView user maybeTransition =
     Html.form
         (Pages.FormState.listeners "test"

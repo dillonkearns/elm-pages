@@ -20,10 +20,10 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Nonempty
 import MySession
-import Pages.Msg
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Script as Script
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (StatelessRoute, StaticPayload)
 import SendGrid
@@ -87,7 +87,7 @@ type alias EnvVariables =
     }
 
 
-form : Form.DoneForm String (BackendTask FatalError (Combined String EmailAddress)) data (List (Html (Pages.Msg.Msg Msg)))
+form : Form.DoneForm String (BackendTask FatalError (Combined String EmailAddress)) data (List (Html (PagesMsg Msg)))
 form =
     Form.init
         (\fieldEmail ->
@@ -133,7 +133,7 @@ form =
         |> Form.hiddenKind ( "kind", "login" ) "Expected kind"
 
 
-logoutForm : Form.DoneForm String () data (List (Html (Pages.Msg.Msg Msg)))
+logoutForm : Form.DoneForm String () data (List (Html (PagesMsg Msg)))
 logoutForm =
     Form.init
         { combine =
@@ -382,7 +382,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view _ sharedModel app =
     { title = "Login"
     , body =

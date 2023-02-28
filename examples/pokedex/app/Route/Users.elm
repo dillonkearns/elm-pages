@@ -15,7 +15,7 @@ import Head
 import Html
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl
 import Path
 import Platform.Sub
@@ -119,7 +119,7 @@ view :
     -> Shared.Model
     -> Model
     -> RouteBuilder.StaticPayload Data ActionData RouteParams
-    -> View.View (Pages.Msg.Msg Msg)
+    -> View.View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title = "Users"
     , body =

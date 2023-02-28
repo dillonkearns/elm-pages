@@ -16,7 +16,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
 import Pages.FormState
-import Pages.Msg
+import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Request.Hasura
@@ -197,7 +197,7 @@ view :
     -> Shared.Model
     -> Model
     -> StaticPayload Data ActionData RouteParams
-    -> View (Pages.Msg.Msg Msg)
+    -> View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     let
         pendingCreation : Result (Dict String (List String)) NewItem
@@ -263,7 +263,7 @@ parseIgnoreErrors ( maybeParsed, fieldErrors ) =
             Err fieldErrors
 
 
-pendingView : NewItem -> Html (Pages.Msg.Msg Msg)
+pendingView : NewItem -> Html (PagesMsg Msg)
 pendingView item =
     Html.div [ Attr.class "item" ]
         [ Html.h2 [] [ Html.text "Preview" ]
