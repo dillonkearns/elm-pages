@@ -31,6 +31,7 @@ import Pages.ContentCache as ContentCache
 import Pages.Fetcher
 import Pages.Flags
 import Pages.FormState
+import Pages.Internal.Msg
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
@@ -491,11 +492,11 @@ update config appMsg model =
 
         UserMsg userMsg_ ->
             case userMsg_ of
-                Pages.Msg.UserMsg userMsg ->
+                Pages.Internal.Msg.UserMsg userMsg ->
                     ( model, NoEffect )
                         |> performUserMsg userMsg config
 
-                Pages.Msg.Submit fields ->
+                Pages.Internal.Msg.Submit fields ->
                     ( { model
                         | transition =
                             Just
@@ -507,7 +508,7 @@ update config appMsg model =
                     , Submit fields
                     )
 
-                Pages.Msg.SubmitIfValid formId fields isValid ->
+                Pages.Internal.Msg.SubmitIfValid formId fields isValid ->
                     if isValid then
                         ( { model
                             -- TODO should I setSubmitAttempted here, too?
@@ -530,7 +531,7 @@ update config appMsg model =
                         , NoEffect
                         )
 
-                Pages.Msg.SubmitFetcher fetcherKey fields isValid maybeUserMsg ->
+                Pages.Internal.Msg.SubmitFetcher fetcherKey fields isValid maybeUserMsg ->
                     if isValid then
                         -- TODO should I setSubmitAttempted here, too?
                         ( { model | nextTransitionKey = model.nextTransitionKey + 1 }
@@ -553,13 +554,13 @@ update config appMsg model =
                         , NoEffect
                         )
 
-                Pages.Msg.FormFieldEvent value ->
+                Pages.Internal.Msg.FormFieldEvent value ->
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`
                     ( { model | pageFormState = Pages.FormState.update value model.pageFormState }
                     , NoEffect
                     )
 
-                Pages.Msg.NoOp ->
+                Pages.Internal.Msg.NoOp ->
                     ( model, NoEffect )
 
         UpdateCacheAndUrlNew scrollToTopWhenDone urlWithoutRedirectResolution maybeUserMsg updateResult ->
@@ -980,7 +981,7 @@ perform config model effect =
                                     -- TODO need to get the fetcherId here
                                     -- TODO need to increment and pass in the transitionId
                                     startFetcher "TODO" -1 options model
-                            , fromPageMsg = Pages.Msg.UserMsg >> UserMsg
+                            , fromPageMsg = Pages.Internal.Msg.UserMsg >> UserMsg
                             , key = key
                             , setField = \info -> Task.succeed (SetField info) |> Task.perform identity
                             }
@@ -1091,6 +1092,7 @@ startFetcher2 config fromPageReload fetcherKey transitionId formData model =
                                     decodedAction : ActionDataOrRedirect actionData
                                     decodedAction =
                                         case Bytes.Decode.decode config.decodeResponse bytesBody of
+                                            -- @@@
                                             Just (ResponseSketch.Redirect redirectTo) ->
                                                 RedirectResponse redirectTo
 
@@ -1208,7 +1210,7 @@ application config =
                             [ config.subscriptions (model.url |> config.urlToRoute)
                                 (urls.currentUrl |> config.urlToRoute |> config.routeToPath |> Path.join)
                                 pageData.userModel
-                                |> Sub.map (Pages.Msg.UserMsg >> UserMsg)
+                                |> Sub.map (Pages.Internal.Msg.UserMsg >> UserMsg)
                             , config.hotReloadData
                                 |> Sub.map HotReloadCompleteNew
                             ]

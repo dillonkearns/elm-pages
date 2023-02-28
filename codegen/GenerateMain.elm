@@ -291,14 +291,14 @@ otherFile routes phaseString =
                                                                                 , model |> Elm.get "global"
                                                                                 , Elm.fn ( "myMsg", Nothing )
                                                                                     (\myMsg ->
-                                                                                        Gen.Pages.Msg.make_.userMsg
+                                                                                        Gen.Pages.Msg.fromMsg
                                                                                             (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
                                                                                     )
                                                                                 , Elm.apply
                                                                                     (Elm.value { importFrom = [ "View" ], name = "map", annotation = Nothing })
                                                                                     [ Elm.functionReduced "myMsg"
                                                                                         (\myMsg ->
-                                                                                            Gen.Pages.Msg.make_.userMsg
+                                                                                            Gen.Pages.Msg.fromMsg
                                                                                                 (Elm.apply (Elm.val "MsgErrorPage____") [ myMsg ])
                                                                                         )
                                                                                     , Elm.apply
@@ -357,7 +357,7 @@ otherFile routes phaseString =
                                                                                                             , model |> Elm.get "global"
                                                                                                             , Elm.fn ( "myMsg", Nothing )
                                                                                                                 (\myMsg ->
-                                                                                                                    Gen.Pages.Msg.make_.userMsg
+                                                                                                                    Gen.Pages.Msg.fromMsg
                                                                                                                         (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
                                                                                                                 )
                                                                                                             , Elm.apply

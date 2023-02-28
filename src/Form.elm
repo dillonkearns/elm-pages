@@ -282,6 +282,7 @@ import Html.Styled.Attributes as StyledAttr
 import Html.Styled.Lazy
 import Pages.FormState as Form exposing (FormState)
 import Pages.Internal.Form exposing (Validation(..), unwrapResponse)
+import Pages.Internal.Msg
 import Pages.Msg
 import Pages.Transition exposing (Transition(..))
 import Path exposing (Path)
@@ -1228,10 +1229,11 @@ renderHelper attrs accessResponse options formState data form =
                , Attr.action (Path.toAbsolute formState.path)
                , case options.submitStrategy of
                     FetcherStrategy ->
-                        Pages.Msg.fetcherOnSubmit options.onSubmit formId (\_ -> isValid)
+                        Pages.Internal.Msg.fetcherOnSubmit options.onSubmit formId (\_ -> isValid)
 
                     TransitionStrategy ->
-                        Pages.Msg.submitIfValid formId (\_ -> isValid)
+                        -- TODO pass in options.onSubmit here
+                        Pages.Internal.Msg.submitIfValid formId (\_ -> isValid)
                ]
             ++ attrs
         )
@@ -1265,11 +1267,11 @@ renderStyledHelper attrs accessResponse options formState data form =
                , case options.submitStrategy of
                     FetcherStrategy ->
                         StyledAttr.fromUnstyled <|
-                            Pages.Msg.fetcherOnSubmit options.onSubmit formId (\_ -> isValid)
+                            Pages.Internal.Msg.fetcherOnSubmit options.onSubmit formId (\_ -> isValid)
 
                     TransitionStrategy ->
                         StyledAttr.fromUnstyled <|
-                            Pages.Msg.submitIfValid formId (\_ -> isValid)
+                            Pages.Internal.Msg.submitIfValid formId (\_ -> isValid)
                ]
             ++ attrs
         )

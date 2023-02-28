@@ -1,83 +1,91 @@
 module Pages.Msg exposing
-    ( Msg(..)
-    , map, onSubmit, fetcherOnSubmit, submitIfValid
+    ( Msg
+    , fromMsg
+    , map, noOp
+    , onSubmit
     )
 
-{-|
+{-| In `elm-pages`, Route modules have their own `Msg` type which can be used like a normal TEA (The Elm Architecture) app.
+But the `Msg` defined in a `Route` module is wrapped in the `Pages.Msg.Msg` type.
 
 @docs Msg
 
-@docs map, onSubmit, fetcherOnSubmit, submitIfValid
+You can wrap your Route Module's `Msg` using `fromMsg`.
+
+@docs fromMsg
+
+@docs map, noOp
+
+@docs onSubmit
 
 -}
 
-import Form.FormData exposing (FormData)
-import FormDecoder
 import Html exposing (Attribute)
-import Html.Attributes as Attr
-import Json.Decode
+import Pages.Internal.Msg
 
 
 {-| -}
-type Msg userMsg
-    = UserMsg userMsg
-    | Submit FormData
-    | SubmitIfValid String FormData Bool
-    | SubmitFetcher String FormData Bool (Maybe userMsg)
-    | FormFieldEvent Json.Decode.Value
-    | NoOp
+type alias Msg userMsg =
+    Pages.Internal.Msg.Msg userMsg
 
 
-{-| -}
-onSubmit : Attribute (Msg userMsg)
-onSubmit =
-    FormDecoder.formDataOnSubmit
-        |> Attr.map Submit
+{-|
+
+    type Msg
+        = ToggleMenu
+
+    view :
+        Maybe PageUrl
+        -> Shared.Model
+        -> Model
+        -> StaticPayload Data ActionData RouteParams
+        -> View (Pages.Msg.Msg Msg)
+    view maybeUrl sharedModel model app =
+        { title = "My Page"
+        , view =
+            [ button
+                -- we need to wrap our Route module's `Msg` here so we have a `Pages.Msg.Msg Msg`
+                [ onClick (Pages.Msg.fromMsg ToggleMenu) ]
+                []
+
+            -- `Form.renderHtml` gives us `Html (Pages.Msg.Msg msg)`, so we don't need to wrap its Msg type
+            , logoutForm
+                |> Form.toDynamicTransition "logout"
+                |> Form.withOnSubmit (\_ -> NewItemSubmitted)
+                |> Form.renderHtml [] (\_ -> Nothing) app Nothing
+            ]
+        }
+
+-}
+fromMsg : userMsg -> Msg userMsg
+fromMsg userMsg =
+    Pages.Internal.Msg.UserMsg userMsg
 
 
-{-| -}
-submitIfValid : String -> (List ( String, String ) -> Bool) -> Attribute (Msg userMsg)
-submitIfValid formId isValid =
-    FormDecoder.formDataOnSubmit
-        |> Attr.map (\formData -> SubmitIfValid formId formData (isValid formData.fields))
+{-| A Msg that is handled by the elm-pages framework and does nothing. Helpful for when you don't want to register a callback.
 
+    import Browser.Dom as Dom
+    import Pages.Msg
+    import Task
 
-{-| -}
-fetcherOnSubmit : Maybe ({ fields : List ( String, String ) } -> userMsg) -> String -> (List ( String, String ) -> Bool) -> Attribute (Msg userMsg)
-fetcherOnSubmit userMsg formId isValid =
-    FormDecoder.formDataOnSubmit
-        |> Attr.map
-            (\formData ->
-                SubmitFetcher formId
-                    formData
-                    (isValid formData.fields)
-                    (userMsg
-                        |> Maybe.map
-                            (\toUserMsg ->
-                                toUserMsg { fields = formData.fields }
-                            )
-                    )
-            )
+    resetViewport : Cmd (Pages.Msg.Msg msg)
+    resetViewport =
+        Dom.setViewport 0 0
+            |> Task.perform (\() -> Pages.Msg.noOp)
+
+-}
+noOp : Msg userMsg
+noOp =
+    Pages.Internal.Msg.NoOp
 
 
 {-| -}
 map : (a -> b) -> Msg a -> Msg b
 map mapFn msg =
-    case msg of
-        UserMsg userMsg ->
-            UserMsg (mapFn userMsg)
+    Pages.Internal.Msg.map mapFn msg
 
-        Submit info ->
-            Submit info
 
-        SubmitIfValid formId info isValid ->
-            SubmitIfValid formId info isValid
-
-        SubmitFetcher formId info isValid toUserMsg ->
-            SubmitFetcher formId info isValid (Maybe.map mapFn toUserMsg)
-
-        FormFieldEvent value ->
-            FormFieldEvent value
-
-        NoOp ->
-            NoOp
+{-| -}
+onSubmit : Attribute (Msg userMsg)
+onSubmit =
+    Pages.Internal.Msg.onSubmit
