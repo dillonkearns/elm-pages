@@ -560,8 +560,8 @@ userFunction moduleName definitions =
                                 |> Elm.withType
                                     (Elm.Annotation.namedWith [ "View" ]
                                         "View"
-                                        [ Elm.Annotation.namedWith [ "Pages", "Msg" ]
-                                            "Msg"
+                                        [ Elm.Annotation.namedWith [ "PagesMsg" ]
+                                            "PagesMsg"
                                             [ localType "Msg"
                                             ]
                                         ]
@@ -1164,8 +1164,8 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                                         [ "View" ]
                                         "View"
                                         [ Elm.Annotation.namedWith
-                                            [ "Pages", "Msg" ]
-                                            "Msg"
+                                            [ "PagesMsg" ]
+                                            "PagesMsg"
                                             [ Elm.Annotation.var "msg" ]
                                         ]
                                     )
@@ -1406,8 +1406,8 @@ buildNoState_ buildNoStateArg buildNoStateArg0 =
                                         [ "View" ]
                                         "View"
                                         [ Elm.Annotation.namedWith
-                                            [ "Pages", "Msg" ]
-                                            "Msg"
+                                            [ "PagesMsg" ]
+                                            "PagesMsg"
                                             [ Elm.Annotation.unit ]
                                         ]
                                     )
