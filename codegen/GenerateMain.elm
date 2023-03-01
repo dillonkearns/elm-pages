@@ -30,7 +30,6 @@ import Gen.Pages.Internal.RoutePattern
 import Gen.Pages.Transition
 import Gen.PagesMsg
 import Gen.Path
-import Gen.Platform.Sub
 import Gen.QueryParams
 import Gen.Server.Response
 import Gen.String
@@ -123,7 +122,7 @@ otherFile routes phaseString =
             , gotBatchSub =
                 case phase of
                     Browser ->
-                        Gen.Platform.Sub.none
+                        subNone
 
                     Cli ->
                         applyIdentityTo (Elm.val "gotBatchSub")
@@ -515,7 +514,7 @@ otherFile routes phaseString =
                 ( "path", Type.named [ "Path" ] "Path" |> Just )
                 ( "model", Type.named [] "Model" |> Just )
                 (\route path model ->
-                    Gen.Platform.Sub.batch
+                    subBatch
                         [ Elm.apply
                             (Elm.value
                                 { importFrom = [ "Shared" ]
@@ -528,10 +527,10 @@ otherFile routes phaseString =
                             , model
                                 |> Elm.get "global"
                             ]
-                            |> Gen.Platform.Sub.call_.map (Elm.val "MsgGlobal")
+                            |> subMap (Elm.val "MsgGlobal")
                         , templateSubscriptions.call route path model
                         ]
-                        |> Elm.withType (Gen.Platform.Sub.annotation_.sub (Type.named [] "Msg"))
+                        |> Elm.withType (subType (Type.named [] "Msg"))
                 )
 
         onActionData :
@@ -585,8 +584,7 @@ otherFile routes phaseString =
                 ( "model", Type.named [] "Model" |> Just )
                 (\maybeRoute path model ->
                     Elm.Case.maybe maybeRoute
-                        { nothing =
-                            Gen.Platform.Sub.none
+                        { nothing = subNone
                         , just =
                             ( "justRoute"
                             , \justRoute ->
@@ -612,14 +610,14 @@ otherFile routes phaseString =
                                                             , templateModel
                                                             , model |> Elm.get "global"
                                                             ]
-                                                            |> Gen.Platform.Sub.call_.map (route |> routeVariantExpression Msg)
+                                                            |> subMap (route |> routeVariantExpression Msg)
                                                     )
-                                            , Elm.Case.otherwise (\_ -> Gen.Platform.Sub.none)
+                                            , Elm.Case.otherwise (\_ -> subNone)
                                             ]
                                     )
                             )
                         }
-                        |> Elm.withType (Gen.Platform.Sub.annotation_.sub (Type.named [] "Msg"))
+                        |> Elm.withType (subType (Type.named [] "Msg"))
                 )
 
         dataForRoute :
@@ -2479,3 +2477,56 @@ ignoreBranchIfNeeded info routes =
         Nothing
     ]
         |> List.filterMap identity
+
+
+subNone : Elm.Expression
+subNone =
+    Elm.value
+        { importFrom = [ "Platform", "Sub" ]
+        , name = "none"
+        , annotation = Just (subType (Type.var "msg"))
+        }
+
+
+subBatch : List Elm.Expression -> Elm.Expression
+subBatch batchArg =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Platform", "Sub" ]
+            , name = "batch"
+            , annotation =
+                Just
+                    (Type.function
+                        [ Type.list (subType (Type.var "msg"))
+                        ]
+                        (subType (Type.var "msg"))
+                    )
+            }
+        )
+        [ Elm.list batchArg ]
+
+
+subType : Type.Annotation -> Type.Annotation
+subType inner =
+    Type.namedWith [ "Platform", "Sub" ] "Sub" [ inner ]
+
+
+subMap : Elm.Expression -> Elm.Expression -> Elm.Expression
+subMap mapArg mapArg0 =
+    Elm.apply
+        (Elm.value
+            { importFrom = [ "Platform", "Sub" ]
+            , name = "map"
+            , annotation =
+                Just
+                    (Type.function
+                        [ Type.function
+                            [ Type.var "a" ]
+                            (Type.var "msg")
+                        , subType (Type.var "a")
+                        ]
+                        (subType (Type.var "msg"))
+                    )
+            }
+        )
+        [ mapArg, mapArg0 ]
