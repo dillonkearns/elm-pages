@@ -1,7 +1,6 @@
 module Route.Greet exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
-import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Head
@@ -9,10 +8,9 @@ import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatelessRoute)
 import Server.Request as Request exposing (Parser)
 import Server.Response exposing (Response)
 import Server.Session as Session
@@ -89,9 +87,9 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -120,18 +118,17 @@ type alias ActionData =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view shared app =
     { title = "Hello!"
     , body =
-        [ static.data.flashMessage
+        [ app.data.flashMessage
             |> Maybe.map (\message -> flashView (Ok message))
             |> Maybe.withDefault (Html.p [] [ Html.text "No flash" ])
-        , Html.text <| "Hello " ++ static.data.username ++ "!"
-        , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis static.data.requestTime)
+        , Html.text <| "Hello " ++ app.data.username ++ "!"
+        , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis app.data.requestTime)
         , Html.div []
             [ Html.form
                 [ Attr.method "post"

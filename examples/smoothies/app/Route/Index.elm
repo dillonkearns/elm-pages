@@ -23,7 +23,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Path exposing (Path)
 import Request.Hasura
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
 import Seo.Common
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
@@ -73,7 +73,7 @@ route =
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}, Effect.none )
@@ -82,7 +82,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
@@ -98,7 +98,7 @@ subscriptions maybePageUrl routeParams path sharedModel model =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.Common.tags
@@ -223,7 +223,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
@@ -307,7 +307,7 @@ type QuantityChange
     | Decrement
 
 
-productView : StaticPayload Data ActionData RouteParams -> Dict String Cart.CartEntry -> Smoothie -> Html (PagesMsg Msg)
+productView : App Data ActionData RouteParams -> Dict String Cart.CartEntry -> Smoothie -> Html (PagesMsg Msg)
 productView app cart item =
     let
         quantityInCart : Int

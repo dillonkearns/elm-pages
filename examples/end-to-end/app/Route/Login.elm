@@ -11,10 +11,9 @@ import Head
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import MySession
-import Pages.PageUrl exposing (PageUrl)
 import PagesMsg exposing (PagesMsg)
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
@@ -192,26 +191,25 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     []
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view shared app =
     { title = "Login"
     , body =
-        [ static.data.flashMessage
+        [ app.data.flashMessage
             |> Maybe.map (\message -> flashView (Ok message))
             |> Maybe.withDefault (Html.p [] [ Html.text "No flash" ])
         , Html.p []
             [ Html.text
-                (case static.data.username of
+                (case app.data.username of
                     Just username ->
                         "Hello " ++ username ++ "!"
 
@@ -223,7 +221,7 @@ view maybeUrl sharedModel static =
             |> Form.toDynamicTransition "form"
             |> Form.renderStyledHtml []
                 (.errors >> Just)
-                static
+                app
                 ()
         ]
     }

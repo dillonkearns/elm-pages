@@ -362,8 +362,7 @@ otherFile routes phaseString =
                                                                                                                     "innerPageMsg"
                                                                                                                     (Gen.PagesMsg.call_.map (route |> routeVariantExpression Msg))
                                                                                                                 , Elm.apply (route |> routeTemplateFunction "view")
-                                                                                                                    [ maybePageUrl
-                                                                                                                    , model |> Elm.get "global"
+                                                                                                                    [ model |> Elm.get "global"
                                                                                                                     , subModel
                                                                                                                     , Elm.record
                                                                                                                         [ ( "data", data )
@@ -371,6 +370,7 @@ otherFile routes phaseString =
                                                                                                                         , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                                                         , ( "action", Gen.Maybe.andThen actionDataOrNothing actionData )
                                                                                                                         , ( "path", page |> Elm.get "path" )
+                                                                                                                        , ( "url", maybePageUrl )
                                                                                                                         , ( "submit"
                                                                                                                           , Elm.functionReduced
                                                                                                                                 "fetcherArg"
@@ -415,6 +415,7 @@ otherFile routes phaseString =
                                                                                                 , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                                 , ( "action", Elm.nothing )
                                                                                                 , ( "path", page |> Elm.get "path" )
+                                                                                                , ( "url", Elm.nothing )
                                                                                                 , ( "submit", Elm.functionReduced "value" (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
                                                                                                 , ( "transition", Elm.nothing )
                                                                                                 , ( "fetchers", Gen.Dict.empty )
@@ -604,8 +605,7 @@ otherFile routes phaseString =
                                                                 }
                                                                 |> Elm.get "subscriptions"
                                                             )
-                                                            [ Elm.nothing -- TODO wire through value
-                                                            , maybeRouteParams |> Maybe.withDefault (Elm.record [])
+                                                            [ maybeRouteParams |> Maybe.withDefault (Elm.record [])
                                                             , path
                                                             , templateModel
                                                             , model |> Elm.get "global"
@@ -814,8 +814,7 @@ otherFile routes phaseString =
                                                                                     }
                                                                                     |> Elm.get "init"
                                                                                 )
-                                                                                [ Gen.Maybe.andThen (Elm.get "pageUrl") maybePagePath
-                                                                                , sharedModel
+                                                                                [ sharedModel
                                                                                 , Elm.record
                                                                                     [ ( "data", thisPageData )
                                                                                     , ( "sharedData", sharedData )
@@ -842,6 +841,9 @@ otherFile routes phaseString =
                                                                                     , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                     , ( "path"
                                                                                       , Elm.apply (Elm.val ".path") [ justRouteAndPath |> Gen.Tuple.second ]
+                                                                                      )
+                                                                                    , ( "url"
+                                                                                      , Gen.Maybe.andThen (Elm.get "pageUrl") maybePagePath
                                                                                       )
                                                                                     , ( "submit"
                                                                                       , Elm.apply
@@ -1174,13 +1176,13 @@ otherFile routes phaseString =
                                                                                                     }
                                                                                                     |> Elm.get "update"
                                                                                                 )
-                                                                                                [ pageUrl
-                                                                                                , Elm.record
+                                                                                                [ Elm.record
                                                                                                     [ ( "data", thisPageData )
                                                                                                     , ( "sharedData", sharedData )
                                                                                                     , ( "action", Elm.nothing )
                                                                                                     , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                                     , ( "path", justPage |> Elm.get "path" )
+                                                                                                    , ( "url", Elm.just pageUrl )
                                                                                                     , ( "submit", Elm.fn ( "options", Nothing ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
                                                                                                     , ( "transition", transition )
                                                                                                     , ( "fetchers"

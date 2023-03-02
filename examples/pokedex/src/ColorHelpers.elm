@@ -12,9 +12,8 @@ import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
 import Json.Decode as Decode
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StaticPayload)
+import RouteBuilder exposing (App)
 import Server.Response
 import Shared
 import View exposing (View)
@@ -29,8 +28,8 @@ data _ =
         |> BackendTask.map Server.Response.render
 
 
-head : (routeParams -> String) -> StaticPayload Data {} routeParams -> List Head.Tag
-head toCssValue static =
+head : (routeParams -> String) -> App Data {} routeParams -> List Head.Tag
+head toCssValue app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -42,7 +41,7 @@ head toCssValue static =
             }
         , description = ""
         , locale = Nothing
-        , title = toCssValue static.routeParams
+        , title = toCssValue app.routeParams
         }
         |> Seo.website
 
@@ -53,15 +52,14 @@ type alias Data =
 
 view :
     (routeParams -> String)
-    -> Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data {} routeParams
+    -> App Data {} routeParams
     -> View msg
-view toCssVal maybeUrl sharedModel static =
+view toCssVal shared app =
     let
         cssVal : String
         cssVal =
-            toCssVal static.routeParams
+            toCssVal app.routeParams
     in
     { title = "ColorHelpers: " ++ cssVal
     , body =
@@ -90,7 +88,7 @@ view toCssVal maybeUrl sharedModel static =
                     [ Html.text "Generated at:"
                     , Html.br []
                         []
-                    , Html.text static.data.time
+                    , Html.text app.data.time
                     ]
                 ]
             ]

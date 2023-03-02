@@ -2,18 +2,16 @@ module Route.Blog exposing (ActionData, Data, Model, Msg, route)
 
 import Article
 import BackendTask exposing (BackendTask)
-import BuildError exposing (BuildError)
 import Date
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
 import Route exposing (Route)
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import Tailwind.Breakpoints as Bp
 import Tailwind.Utilities as Tw
@@ -58,11 +56,10 @@ type alias Model =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData {}
+    Shared.Model
+    -> App Data ActionData {}
     -> View msg
-view maybeUrl sharedModel staticPayload =
+view shared app =
     { title = "elm-pages blog"
     , body =
         [ div
@@ -150,7 +147,7 @@ view maybeUrl sharedModel staticPayload =
                             ]
                         ]
                     ]
-                    (staticPayload.data
+                    (app.data
                         |> List.map
                             (\articleInfo ->
                                 blogCard articleInfo
@@ -162,8 +159,8 @@ view maybeUrl sharedModel staticPayload =
     }
 
 
-head : StaticPayload Data ActionData RouteParams -> List Head.Tag
-head staticPayload =
+head : App Data ActionData RouteParams -> List Head.Tag
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"

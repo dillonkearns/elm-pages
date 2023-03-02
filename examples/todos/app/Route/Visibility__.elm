@@ -25,7 +25,7 @@ import Pages.Transition exposing (FetcherSubmitStatus(..))
 import PagesMsg exposing (PagesMsg)
 import Path
 import Route
-import RouteBuilder exposing (StatefulRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
@@ -46,7 +46,7 @@ route =
         |> RouteBuilder.buildWithLocalState
             { view = view
             , update = update
-            , subscriptions = \_ _ _ _ _ -> Sub.none
+            , subscriptions = \_ _ _ _ -> Sub.none
             , init = init
             }
 
@@ -99,8 +99,8 @@ toOptimisticTodo todo =
     }
 
 
-init : Maybe PageUrl -> Shared.Model -> StaticPayload Data ActionData RouteParams -> ( Model, Effect Msg )
-init maybePageUrl sharedModel app =
+init : Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
+init shared app =
     ( { nextId = app.data.requestTime }
     , Effect.none
     )
@@ -136,13 +136,12 @@ type Action
 
 
 update :
-    PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update shared app msg model =
     case msg of
         NewItemSubmitted ->
             ( model
@@ -324,12 +323,11 @@ visibilityFromRouteParams { visibility } =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
+    Shared.Model
     -> Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
+view shared model app =
     let
         pendingFetchers : List Action
         pendingFetchers =
@@ -710,7 +708,7 @@ clearCompletedForm =
 -- VIEW ALL ENTRIES
 
 
-viewEntries : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
+viewEntries : App Data ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
 viewEntries app visibility entries =
     let
         isVisible todo =
@@ -750,12 +748,12 @@ viewEntries app visibility entries =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedEntry : StaticPayload Data ActionData RouteParams -> Entry -> ( String, Html (PagesMsg Msg) )
+viewKeyedEntry : App Data ActionData RouteParams -> Entry -> ( String, Html (PagesMsg Msg) )
 viewKeyedEntry app todo =
     ( todo.id, lazy2 viewEntry app todo )
 
 
-viewEntry : StaticPayload Data ActionData RouteParams -> Entry -> Html (PagesMsg Msg)
+viewEntry : App Data ActionData RouteParams -> Entry -> Html (PagesMsg Msg)
 viewEntry app todo =
     li
         [ classList
@@ -785,7 +783,7 @@ viewEntry app todo =
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : StaticPayload Data ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
+viewControls : App Data ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
 viewControls app visibility entries =
     let
         entriesCompleted =
@@ -863,7 +861,7 @@ visibilitySwap visibilityParam visibility actualVisibility =
         ]
 
 
-viewControlsClear : StaticPayload Data ActionData RouteParams -> Int -> Html (PagesMsg Msg)
+viewControlsClear : App Data ActionData RouteParams -> Int -> Html (PagesMsg Msg)
 viewControlsClear app entriesCompleted =
     clearCompletedForm
         |> Form.toDynamicFetcher "clear-completed"

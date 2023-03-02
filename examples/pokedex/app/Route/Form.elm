@@ -2,7 +2,6 @@ module Route.Form exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import Date exposing (Date)
-import Dict exposing (Dict)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Form
@@ -14,10 +13,9 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatelessRoute)
 import Server.Request as Request exposing (Parser)
 import Server.Response
 import Shared
@@ -209,7 +207,7 @@ action routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -229,11 +227,10 @@ head static =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel app =
+view shared app =
     let
         user : User
         user =

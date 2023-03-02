@@ -3,7 +3,6 @@ module Route.Slide.Number_ exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.File
 import Browser.Events
-import Browser.Navigation
 import Effect
 import FatalError exposing (FatalError)
 import Head
@@ -11,10 +10,9 @@ import Head.Seo as Seo
 import Html.Styled as Html
 import Html.Styled.Attributes exposing (css)
 import Json.Decode as Decode
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatefulRoute, StaticPayload)
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatefulRoute)
 import Shared
 import Tailwind.Utilities as Tw
 import View exposing (View)
@@ -49,9 +47,9 @@ route =
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
-            , init = \_ _ staticPayload -> ( (), Effect.none )
+            , init = \_ app -> ( (), Effect.none )
             , update =
-                \_ sharedModel static msg model ->
+                \shared app msg model ->
                     case msg of
                         OnKeyPress (Just direction) ->
                             ( model
@@ -61,7 +59,7 @@ route =
                         _ ->
                             ( model, Effect.none )
             , subscriptions =
-                \maybePageUrl routeParams path sharedModel model ->
+                \routeParams path shared model ->
                     Browser.Events.onKeyDown keyDecoder |> Sub.map OnKeyPress
             }
 
@@ -102,9 +100,9 @@ slideBody route_ =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -127,12 +125,11 @@ type alias Data =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
+    Shared.Model
     -> Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view shared model app =
     { title = "TODO title"
     , body =
         [ Html.div
@@ -143,8 +140,8 @@ view maybeUrl sharedModel model static =
                 , Tw.py_6
                 ]
             ]
-            ((static.data.body |> Html.text)
-                :: [ Html.text static.routeParams.number ]
+            ((app.data.body |> Html.text)
+                :: [ Html.text app.routeParams.number ]
             )
         ]
     }

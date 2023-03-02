@@ -20,12 +20,11 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Nonempty
 import MySession
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Script as Script
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Route
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatelessRoute)
 import SendGrid
 import Server.Request as Request
 import Server.Response exposing (Response)
@@ -348,7 +347,7 @@ type Action
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -379,11 +378,10 @@ type alias ActionData =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view _ sharedModel app =
+view shared app =
     { title = "Login"
     , body =
         [ if app.action |> Maybe.map .sentLink |> Maybe.withDefault False then

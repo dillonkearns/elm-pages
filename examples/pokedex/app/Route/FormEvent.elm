@@ -9,11 +9,10 @@ import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
-import RouteBuilder exposing (StatefulRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute)
 import Shared
 import View exposing (View)
 
@@ -46,22 +45,20 @@ route =
 
 
 init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init shared app =
     ( { formAsString = Nothing }, Effect.none )
 
 
 update :
-    PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update shared app msg model =
     case msg of
         OnSubmit formAsString ->
             ( { model | formAsString = Just (toString formAsString) }, Effect.none )
@@ -74,8 +71,8 @@ toString formAsString =
         |> String.join "\n"
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path shared model =
     Sub.none
 
 
@@ -93,9 +90,9 @@ data =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -113,12 +110,11 @@ head static =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
+    Shared.Model
     -> Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view shared model app =
     { title = "Placeholder"
     , body =
         [ Html.p []
@@ -170,4 +166,4 @@ exampleForm =
             ]
             [ Html.text "Submit" ]
         ]
-        |> Html.map (OnSubmit >> Pages.Msg.UserMsg)
+        |> Html.map (OnSubmit >> PagesMsg.fromMsg)

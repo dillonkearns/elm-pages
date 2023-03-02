@@ -19,10 +19,10 @@ import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Icon
-import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
@@ -541,7 +541,7 @@ route =
             { view = view
             , update = update
             , init = init
-            , subscriptions = \_ _ _ _ _ -> Sub.none
+            , subscriptions = \_ _ _ _ -> Sub.none
             }
 
 
@@ -574,14 +574,14 @@ action routeParams =
             )
 
 
-update : a -> b -> c -> Msg -> Model -> ( Model, Effect Msg )
-update _ _ _ msg model =
+update : a -> b -> Msg -> Model -> ( Model, Effect Msg )
+update _ _ msg model =
     case msg of
         MovedToTop ->
             ( model, Effect.none )
 
 
-init _ _ static =
+init _ app =
     ( {}, Effect.none )
 
 
@@ -607,9 +607,9 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -675,16 +675,15 @@ wrapSection children =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
+    Shared.Model
     -> Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view sharedModel model app =
     let
         user : User
         user =
-            static.action
+            app.action
                 |> Maybe.map .user
                 |> Maybe.withDefault defaultUser
     in
@@ -692,13 +691,13 @@ view maybeUrl sharedModel model static =
     , body =
         [ Html.div []
             [ Css.Global.global Tw.globalStyles
-            , static.action
+            , app.action
                 |> Maybe.map .flashMessage
                 |> Maybe.map flashView
                 |> Maybe.withDefault (Html.p [] [])
             , Html.p []
                 [ -- TODO should this be calling a function in Form and passing in the form, like `Form.isSubmitting form`?
-                  if static.transition /= Nothing then
+                  if app.transition /= Nothing then
                     Html.text "Submitting..."
 
                   else
@@ -715,17 +714,17 @@ view maybeUrl sharedModel model static =
                     ]
                 ]
                 [ Html.text
-                    (static.action
+                    (app.action
                         |> Maybe.andThen .formResponse
                         |> Debug.toString
                     )
                 , form
                     |> Form.toDynamicTransition "test"
                     |> Form.renderStyledHtml []
-                        --static.action
+                        --app.action
                         --    |> Maybe.andThen .formResponse
                         (\_ -> Nothing)
-                        static
+                        app
                         ()
                 ]
             ]

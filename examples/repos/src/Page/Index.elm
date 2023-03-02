@@ -3,7 +3,7 @@ module Page.Index exposing (Data, Model, Msg, page)
 import BackendTask exposing (BackendTask)
 import Head
 import Head.Seo as Seo
-import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, App)
 import Pages.Url
 import View exposing (View)
 
@@ -35,7 +35,7 @@ data =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -59,7 +59,7 @@ type alias Data =
 
 
 view :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> View Msg
 view static =
     View.placeholder "Index"

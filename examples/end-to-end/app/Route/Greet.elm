@@ -12,7 +12,7 @@ import MySession
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
@@ -48,27 +48,25 @@ route =
             { view = view
             , init = init
             , update = update
-            , subscriptions = \_ _ _ _ _ -> Sub.none
+            , subscriptions = \_ _ _ _ -> Sub.none
             }
 
 
 init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init shared app =
     ( {}, Effect.none )
 
 
 update :
-    PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update shared app msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -127,7 +125,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -147,12 +145,11 @@ head static =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
+    Shared.Model
     -> Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view shared model static =
     { title = "Hello!"
     , body =
         [ static.data.flashMessage

@@ -61,7 +61,7 @@ are using it to populate article metadata like the article's image, publish date
     import Head.Seo
     import Path
     import Route exposing (Route)
-    import RouteBuilder exposing (StatelessRoute, StaticPayload)
+    import RouteBuilder exposing (App, StatelessRoute)
 
     type alias RouteParams =
         { slug : String }
@@ -81,7 +81,7 @@ are using it to populate article metadata like the article's image, publish date
             |> RouteBuilder.buildNoState { view = view }
 
     head :
-        StaticPayload Data ActionData RouteParams
+        App Data ActionData RouteParams
         -> List Head.Tag
     head static =
         let

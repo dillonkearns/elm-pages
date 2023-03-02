@@ -16,12 +16,12 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
 import MySession
-import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
@@ -101,13 +101,12 @@ validate session { first, email } =
 
 
 init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init shared app =
     ( {}
-    , --static.submit
+    , --app.submit
       --   { headers = []
       --   , fields =
       --       -- TODO when you run a Fetcher and get back a Redirect, how should that be handled? Maybe instead of `Result Http.Error ActionData`,
@@ -178,13 +177,12 @@ required field =
 
 
 update :
-    PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update shared app msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -197,8 +195,8 @@ update pageUrl sharedModel static msg model =
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path shared model =
     Sub.none
 
 
@@ -238,23 +236,22 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     []
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
+    Shared.Model
     -> Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view shared model app =
     { title = "Signup"
     , body =
         [ Html.p []
-            [ case static.action of
+            [ case app.action of
                 Just (Success { email, first }) ->
                     Html.text <| "Hello " ++ first ++ "!"
 
@@ -266,13 +263,13 @@ view maybeUrl sharedModel model static =
                 _ ->
                     Html.text ""
             ]
-        , flashView static.data.flashMessage
+        , flashView app.data.flashMessage
         , form
             |> Form.toDynamicTransition "test1"
             |> Form.renderHtml []
                 -- TODO pass in server data
                 (\_ -> Nothing)
-                static
+                app
                 ()
         ]
     }

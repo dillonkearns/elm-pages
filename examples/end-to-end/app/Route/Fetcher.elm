@@ -23,6 +23,7 @@ import Platform.Sub
 import RouteBuilder
 import Server.Request
 import Server.Response
+import Shared
 import View
 
 
@@ -46,17 +47,16 @@ route =
         { view = view
         , init = init
         , update = update
-        , subscriptions = \_ _ _ _ _ -> Platform.Sub.none
+        , subscriptions = \_ _ _ _ -> Platform.Sub.none
         }
         (RouteBuilder.serverRender { data = data, action = action, head = \_ -> [] })
 
 
 init :
-    Maybe Pages.PageUrl.PageUrl
-    -> sharedModel
-    -> RouteBuilder.StaticPayload Data ActionData RouteParams
+    sharedModel
+    -> RouteBuilder.App Data ActionData RouteParams
     -> ( Model, Effect.Effect Msg )
-init pageUrl sharedModel app =
+init sharedModel app =
     ( { itemIndex = 0
       }
     , Effect.none
@@ -64,13 +64,12 @@ init pageUrl sharedModel app =
 
 
 update :
-    Pages.PageUrl.PageUrl
-    -> sharedModel
-    -> RouteBuilder.StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> RouteBuilder.App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect.Effect Msg )
-update pageUrl sharedModel app msg model =
+update shared app msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -192,12 +191,11 @@ deleteForm =
 
 
 view :
-    Maybe Pages.PageUrl.PageUrl
-    -> sharedModel
+    sharedModel
     -> Model
-    -> RouteBuilder.StaticPayload Data ActionData RouteParams
+    -> RouteBuilder.App Data ActionData RouteParams
     -> View.View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
+view sharedModel model app =
     let
         inFlight : List Action
         inFlight =

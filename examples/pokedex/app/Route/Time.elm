@@ -7,10 +7,9 @@ import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
@@ -107,9 +106,9 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -136,15 +135,14 @@ type alias ActionData =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view sharedModel app =
     { title = "Time"
     , body =
         [ Html.text
-            (static.data.request.language
+            (app.data.request.language
                 |> Maybe.withDefault "No language"
             )
         ]

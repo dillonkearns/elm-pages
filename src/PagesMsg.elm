@@ -40,7 +40,7 @@ type alias PagesMsg userMsg =
         Maybe PageUrl
         -> Shared.Model
         -> Model
-        -> StaticPayload Data ActionData RouteParams
+        -> App Data ActionData RouteParams
         -> View (PagesMsg Msg)
     view maybeUrl sharedModel model app =
         { title = "My Page"

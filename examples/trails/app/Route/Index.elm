@@ -12,7 +12,7 @@ import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Route
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, App)
 import Shared
 import View exposing (View)
 
@@ -52,7 +52,7 @@ data =
 
 
 head :
-    StaticPayload Data ActionData RouteParams ActionData
+    App Data ActionData RouteParams ActionData
     -> List Head.Tag
 head static =
     Seo.summary
@@ -74,7 +74,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams ActionData
+    -> App Data ActionData RouteParams ActionData
     -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = "Pokedex"

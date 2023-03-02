@@ -7,11 +7,10 @@ import Head
 import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css, href)
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import Path
-import RouteBuilder exposing (StatefulRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute)
 import Shared
 import Showcase
 import Tailwind.Breakpoints as Bp
@@ -54,11 +53,10 @@ type alias ActionData =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData {}
+    Shared.Model
+    -> App Data ActionData {}
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view sharedModel static =
     { title = "elm-pages blog"
     , body =
         [ div
@@ -90,8 +88,8 @@ view maybeUrl sharedModel static =
     }
 
 
-head : StaticPayload Data ActionData {} -> List Head.Tag
-head staticPayload =
+head : App Data ActionData RouteParams -> List Head.Tag
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"

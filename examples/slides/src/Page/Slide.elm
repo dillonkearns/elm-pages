@@ -3,7 +3,7 @@ module Page.Slide exposing (Data, Model, Msg, page)
 import BackendTask
 import Head
 import Head.Seo as Seo
-import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, App)
 import Shared
 import View exposing (View)
 
@@ -30,7 +30,7 @@ page =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -54,7 +54,7 @@ type alias Data =
 
 
 view :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> View Msg
 view static =
     { title = "TODO title"

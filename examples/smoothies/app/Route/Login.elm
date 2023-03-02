@@ -22,7 +22,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Request.Hasura
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
 import Server.Request as Request
 import Server.Response exposing (Response)
 import Server.Session as Session
@@ -215,7 +215,7 @@ render (Form.Response response) =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -248,7 +248,7 @@ type alias ActionData =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
 view maybeUrl sharedModel app =
     { title = "Login"

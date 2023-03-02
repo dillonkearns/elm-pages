@@ -16,7 +16,7 @@ import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
 import FatalError
-import RouteBuilder exposing (Page, StaticPayload, single)
+import RouteBuilder exposing (Page, App, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -71,7 +71,7 @@ import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
 import FatalError
-import RouteBuilder exposing (Page, StaticPayload, single)
+import RouteBuilder exposing (Page, App, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -117,7 +117,7 @@ data =
 import Server.Request as Request
 import FatalError
 import BackendTask as DS
-import RouteBuilder exposing (Page, StaticPayload, single)
+import RouteBuilder exposing (Page, App, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -171,7 +171,7 @@ data =
 import Server.Request as Request
 import FatalError
 import BackendTask as DS
-import RouteBuilder exposing (Page, StaticPayload, single)
+import RouteBuilder exposing (Page, App, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -218,7 +218,7 @@ import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
 import FatalError
-import RouteBuilder exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, App)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -273,7 +273,7 @@ import Server.Request as Request
 
 import BackendTask exposing (BackendTask)
 import FatalError
-import RouteBuilder exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, App)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path
@@ -552,7 +552,7 @@ import Server.Request as Request
 import FatalError
 
 import BackendTask exposing (BackendTask)
-import RouteBuilder exposing (Page, StaticPayload)
+import RouteBuilder exposing (Page, App)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import Path

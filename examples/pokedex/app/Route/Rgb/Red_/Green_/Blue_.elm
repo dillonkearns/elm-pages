@@ -3,7 +3,7 @@ module Route.Rgb.Red_.Green_.Blue_ exposing (ActionData, Data, Model, Msg, route
 import BackendTask exposing (BackendTask)
 import ColorHelpers
 import FatalError exposing (FatalError)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 
 
 type alias Model =

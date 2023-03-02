@@ -18,10 +18,9 @@ import Markdown.Parser
 import Markdown.Renderer
 import MarkdownCodec
 import NextPrevious
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import TableOfContents
 import Tailwind.Breakpoints as Bp
@@ -165,9 +164,9 @@ titleForSection section =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -175,14 +174,14 @@ head static =
             { url =
                 Pages.Url.external <|
                     "https://i.microlink.io/https%3A%2F%2Fcards.microlink.io%2F%3Fpreset%3Dcontentz%26title%3Delm-pages%2Bdocs%26description%3D"
-                        ++ Url.percentEncode static.data.titles.title
+                        ++ Url.percentEncode app.data.titles.title
             , alt = "elm-pages docs section title"
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = static.data.metadata.description
+        , description = app.data.metadata.description
         , locale = Nothing
-        , title = static.data.titles.title ++ " | elm-pages docs"
+        , title = app.data.titles.title ++ " | elm-pages docs"
         }
         |> Seo.website
 
@@ -200,12 +199,11 @@ type alias ActionData =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
-    { title = static.data.titles.title ++ " - elm-pages docs"
+view sharedModel app =
+    { title = app.data.titles.title ++ " - elm-pages docs"
     , body =
         [ Css.Global.global
             [ Css.Global.selector ".anchor-icon"
@@ -222,7 +220,7 @@ view maybeUrl sharedModel static =
                 , Tw.h_full
                 ]
             ]
-            [ TableOfContents.view sharedModel.showMobileMenu True static.routeParams.section static.sharedData
+            [ TableOfContents.view sharedModel.showMobileMenu True app.routeParams.section app.sharedData
             , Html.article
                 [ css
                     [ Tw.prose
@@ -249,17 +247,17 @@ view maybeUrl sharedModel static =
                         , Bp.xl [ Tw.pr_36 ]
                         ]
                     ]
-                    ((static.data.body
+                    ((app.data.body
                         |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                         |> Result.withDefault []
                      )
-                        ++ [ NextPrevious.view static.data.titles.previousAndNext
+                        ++ [ NextPrevious.view app.data.titles.previousAndNext
                            , Html.hr [] []
                            , Html.footer
                                 [ css [ Tw.text_right ]
                                 ]
                                 [ Html.a
-                                    [ Attr.href static.data.editUrl
+                                    [ Attr.href app.data.editUrl
                                     , Attr.rel "noopener"
                                     , Attr.target "_blank"
                                     , css

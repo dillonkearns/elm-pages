@@ -6,11 +6,10 @@ import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import MySession
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
@@ -67,9 +66,9 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -87,9 +86,8 @@ head static =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view shared app =
     View.placeholder "Logout"

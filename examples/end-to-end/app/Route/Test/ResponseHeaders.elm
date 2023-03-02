@@ -9,7 +9,7 @@ import Head
 import Html.Styled exposing (div, text)
 import Pages.PageUrl exposing (PageUrl)
 import PagesMsg exposing (PagesMsg)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
@@ -96,23 +96,22 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     []
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view shared app =
     { title = "Response Headers Test"
     , body =
         [ text "Response Headers Test"
         , div []
-            [ text static.data.greeting
+            [ text app.data.greeting
             ]
         ]
     }

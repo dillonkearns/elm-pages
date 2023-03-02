@@ -8,12 +8,11 @@ import Head.Seo as Seo
 import Html
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Post exposing (Post)
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Shared
 import View exposing (View)
 
@@ -60,7 +59,7 @@ data =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -80,11 +79,10 @@ head static =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel app =
+view sharedModel app =
     { title = "Index page"
     , body =
         [ Html.h1 [] [ Html.text "Posts" ]

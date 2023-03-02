@@ -2,7 +2,6 @@ module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
 import Article
 import BackendTask exposing (BackendTask)
-import BuildError exposing (BuildError)
 import Cloudinary
 import Data.Author as Author exposing (Author)
 import Date exposing (Date)
@@ -17,11 +16,10 @@ import Json.Decode.Extra
 import Markdown.Block
 import Markdown.Renderer
 import MarkdownCodec
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import Path
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import SiteOld
 import StructuredData
@@ -65,12 +63,11 @@ pages =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
-    { title = static.data.metadata.title
+view shared app =
+    { title = app.data.metadata.title
     , body =
         let
             author =
@@ -107,15 +104,15 @@ view maybeUrl sharedModel static =
                             , Tw.mb_8
                             ]
                         ]
-                        [ text static.data.metadata.title
+                        [ text app.data.metadata.title
                         ]
-                    , authorView author static.data
+                    , authorView author app.data
                     , div
                         [ css
                             [ Tw.prose
                             ]
                         ]
-                        (static.data.body
+                        (app.data.body
                             |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                             |> Result.withDefault []
                         )
@@ -127,7 +124,7 @@ view maybeUrl sharedModel static =
 
 
 authorView : Author -> Data -> Html msg
-authorView author static =
+authorView author app =
     div
         [ css
             [ Tw.flex
@@ -176,19 +173,19 @@ authorView author static =
                 [ time
                     [ Attr.datetime "2020-03-16"
                     ]
-                    [ text (static.metadata.published |> Date.format "MMMM ddd, yyyy") ]
+                    [ text (app.metadata.published |> Date.format "MMMM ddd, yyyy") ]
                 ]
             ]
         ]
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     let
         metadata =
-            static.data.metadata
+            app.data.metadata
     in
     Head.structuredData
         (StructuredData.article
@@ -196,7 +193,7 @@ head static =
             , description = metadata.description
             , author = StructuredData.person { name = Author.dillon.name }
             , publisher = StructuredData.person { name = Author.dillon.name }
-            , url = SiteOld.canonicalUrl ++ Path.toAbsolute static.path
+            , url = SiteOld.canonicalUrl ++ Path.toAbsolute app.path
             , imageUrl = metadata.image
             , datePublished = Date.toIsoString metadata.published
             , mainEntityOfPage =

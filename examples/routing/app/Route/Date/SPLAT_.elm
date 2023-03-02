@@ -5,8 +5,7 @@ import FatalError exposing (FatalError)
 import Head
 import Html.Styled exposing (text)
 import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Shared
 import View exposing (View)
 
@@ -55,9 +54,9 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     []
 
 
@@ -66,13 +65,12 @@ type alias Data =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view shared app =
     { body =
-        [ Debug.toString static.routeParams |> text
+        [ Debug.toString app.routeParams |> text
         ]
     , title = ""
     }

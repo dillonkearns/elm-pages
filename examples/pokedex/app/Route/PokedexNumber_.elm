@@ -9,10 +9,9 @@ import Head.Seo as Seo
 import Html exposing (..)
 import Html.Attributes exposing (src)
 import Json.Decode as Decode
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -96,15 +95,15 @@ type alias Pokemon =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages Pokedex"
         , image =
-            { url = static.routeParams |> pokemonImage |> Pages.Url.external
-            , alt = static.data.pokemon.name
+            { url = app.routeParams |> pokemonImage |> Pages.Url.external
+            , alt = app.data.pokemon.name
             , dimensions = Nothing
             , mimeType = Nothing
             }
@@ -112,9 +111,9 @@ head static =
         , locale = Nothing
         , title =
             "Pokedex #"
-                ++ static.routeParams.pokedexNumber
+                ++ app.routeParams.pokedexNumber
                 ++ " "
-                ++ static.data.pokemon.name
+                ++ app.data.pokemon.name
         }
         |> Seo.website
 
@@ -130,24 +129,23 @@ type alias ActionData =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
-    { title = static.data.pokemon.name
+view shared app =
+    { title = app.data.pokemon.name
     , body =
         [ h1
             []
-            [ text static.data.pokemon.name
+            [ text app.data.pokemon.name
             ]
-        , text (static.data.pokemon.abilities |> String.join ", ")
+        , text (app.data.pokemon.abilities |> String.join ", ")
         , img
-            [ static.routeParams |> pokemonImage |> src
+            [ app.routeParams |> pokemonImage |> src
             ]
             []
         , p []
-            [ text static.data.time
+            [ text app.data.time
             ]
         ]
     }

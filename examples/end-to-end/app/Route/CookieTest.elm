@@ -7,7 +7,7 @@ import Head
 import Html.Styled exposing (text)
 import Pages.PageUrl exposing (PageUrl)
 import PagesMsg exposing (PagesMsg)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request exposing (Parser)
 import Server.Response as Response exposing (Response)
 import Shared
@@ -58,18 +58,17 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     []
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view sharedModel static =
     { title = "Cookie test"
     , body =
         [ case static.data.darkMode of

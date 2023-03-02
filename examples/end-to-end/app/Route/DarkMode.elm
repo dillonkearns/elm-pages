@@ -22,6 +22,7 @@ import Server.Request
 import Server.Response
 import Server.Session as Session
 import Server.SetCookie as SetCookie
+import Shared
 import View
 
 
@@ -49,36 +50,33 @@ route =
 
 
 init :
-    Maybe Pages.PageUrl.PageUrl
-    -> sharedModel
-    -> RouteBuilder.StaticPayload Data ActionData RouteParams
+    sharedModel
+    -> RouteBuilder.App Data ActionData RouteParams
     -> ( {}, Effect.Effect Msg )
-init pageUrl sharedModel app =
+init sharedModel app =
     ( {}, Effect.none )
 
 
 update :
-    Pages.PageUrl.PageUrl
-    -> sharedModel
-    -> RouteBuilder.StaticPayload Data ActionData RouteParams
+    sharedModel
+    -> RouteBuilder.App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect.Effect Msg )
-update pageUrl sharedModel app msg model =
+update sharedModel app msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
 subscriptions :
-    Maybe Pages.PageUrl.PageUrl
-    -> routeParams
+    routeParams
     -> path
     -> sharedModel
     -> model
     -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
-    Platform.Sub.none
+subscriptions routeParams path sharedModel model =
+    Sub.none
 
 
 type alias Data =
@@ -165,7 +163,7 @@ action routeParams =
             )
 
 
-head : RouteBuilder.StaticPayload Data ActionData RouteParams -> List Head.Tag
+head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
 head app =
     []
 
@@ -197,12 +195,11 @@ form =
 
 
 view :
-    Maybe Pages.PageUrl.PageUrl
-    -> sharedModel
+    Shared.Model
     -> Model
-    -> RouteBuilder.StaticPayload Data ActionData RouteParams
+    -> RouteBuilder.App Data ActionData RouteParams
     -> View.View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
+view shared model app =
     { title = "DarkMode"
     , body =
         [ Html.div

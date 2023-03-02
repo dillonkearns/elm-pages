@@ -14,7 +14,7 @@ import Html.Styled.Lazy as HtmlLazy
 import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
 import Shared
 import View exposing (View)
 
@@ -55,7 +55,7 @@ data =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -77,7 +77,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
 view maybeUrl sharedModel static =
     { title = ""

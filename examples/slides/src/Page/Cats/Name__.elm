@@ -5,7 +5,7 @@ import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
-import RouteBuilder exposing (StatelessRoute, StatefulRoute, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, App)
 import Shared
 import View exposing (View)
 
@@ -48,7 +48,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -72,7 +72,7 @@ type alias Data =
 
 
 view :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> View Msg
 view static =
     { body =

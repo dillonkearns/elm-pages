@@ -3,7 +3,7 @@ module Route.Hex.Hex_ exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import ColorHelpers
 import FatalError exposing (FatalError)
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, App)
 
 
 type alias Model =

@@ -6,7 +6,7 @@ import Head.Seo as Seo
 import Html
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, App)
 import Shared
 import View exposing (View)
 
@@ -52,7 +52,7 @@ data routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -74,7 +74,7 @@ head static =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View Msg
 view maybeUrl sharedModel static =
     { title = "Placeholder - Blog.Slug_"

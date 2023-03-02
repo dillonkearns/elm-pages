@@ -161,7 +161,7 @@ single input =
 
 {-| -}
 buildNoState :
-    { view : { maybeUrl : Elm.Expression, sharedModel : Elm.Expression, app : Elm.Expression } -> Elm.Expression
+    { view : { sharedModel : Elm.Expression, app : Elm.Expression } -> Elm.Expression
     }
     -> Builder
     -> { path : String, body : String }
@@ -170,10 +170,9 @@ buildNoState definitions builder_ =
         ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \maybeUrl sharedModel _ app ->
+                    \sharedModel _ app ->
                         definitions.view
-                            { maybeUrl = maybeUrl
-                            , sharedModel = sharedModel
+                            { sharedModel = sharedModel
                             , app = app
                             }
                 , localState = Nothing
@@ -192,10 +191,9 @@ buildNoState definitions builder_ =
         PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \maybeUrl sharedModel _ app ->
+                    \sharedModel _ app ->
                         definitions.view
-                            { maybeUrl = maybeUrl
-                            , sharedModel = sharedModel
+                            { sharedModel = sharedModel
                             , app = app
                             }
                 , localState = Nothing
@@ -229,24 +227,21 @@ addDeclarations declarations builder =
 {-| -}
 buildWithLocalState :
     { view :
-        { maybeUrl : Elm.Expression, sharedModel : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
+        { sharedModel : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
     , update :
-        { pageUrl : Elm.Expression
-        , sharedModel : Elm.Expression
+        { sharedModel : Elm.Expression
         , app : Elm.Expression
         , msg : Elm.Expression
         , model : Elm.Expression
         }
         -> Elm.Expression
     , init :
-        { pageUrl : Elm.Expression
-        , sharedModel : Elm.Expression
+        { sharedModel : Elm.Expression
         , app : Elm.Expression
         }
         -> Elm.Expression
     , subscriptions :
-        { maybePageUrl : Elm.Expression
-        , routeParams : Elm.Expression
+        { routeParams : Elm.Expression
         , path : Elm.Expression
         , sharedModel : Elm.Expression
         , model : Elm.Expression
@@ -262,36 +257,32 @@ buildWithLocalState definitions builder_ =
         ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \maybeUrl sharedModel model app ->
+                    \sharedModel model app ->
                         definitions.view
-                            { maybeUrl = maybeUrl
-                            , sharedModel = sharedModel
+                            { sharedModel = sharedModel
                             , model = model
                             , app = app
                             }
                 , localState =
                     Just
                         { update =
-                            \pageUrl sharedModel app msg model ->
+                            \sharedModel app msg model ->
                                 definitions.update
-                                    { pageUrl = pageUrl
-                                    , sharedModel = sharedModel
+                                    { sharedModel = sharedModel
                                     , app = app
                                     , msg = msg
                                     , model = model
                                     }
                         , init =
-                            \pageUrl sharedModel app ->
+                            \sharedModel app ->
                                 definitions.init
-                                    { pageUrl = pageUrl
-                                    , sharedModel = sharedModel
+                                    { sharedModel = sharedModel
                                     , app = app
                                     }
                         , subscriptions =
-                            \maybePageUrl routeParams path sharedModel model ->
+                            \routeParams path sharedModel model ->
                                 definitions.subscriptions
-                                    { maybePageUrl = maybePageUrl
-                                    , routeParams = routeParams
+                                    { routeParams = routeParams
                                     , path = path
                                     , sharedModel = sharedModel
                                     , model = model
@@ -313,36 +304,32 @@ buildWithLocalState definitions builder_ =
         PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \maybeUrl sharedModel model app ->
+                    \sharedModel model app ->
                         definitions.view
-                            { maybeUrl = maybeUrl
-                            , sharedModel = sharedModel
+                            { sharedModel = sharedModel
                             , model = model
                             , app = app
                             }
                 , localState =
                     Just
                         { update =
-                            \pageUrl sharedModel app msg model ->
+                            \sharedModel app msg model ->
                                 definitions.update
-                                    { pageUrl = pageUrl
-                                    , sharedModel = sharedModel
+                                    { sharedModel = sharedModel
                                     , app = app
                                     , msg = msg
                                     , model = model
                                     }
                         , init =
-                            \pageUrl sharedModel app ->
+                            \sharedModel app ->
                                 definitions.init
-                                    { pageUrl = pageUrl
-                                    , sharedModel = sharedModel
+                                    { sharedModel = sharedModel
                                     , app = app
                                     }
                         , subscriptions =
-                            \maybePageUrl routeParams path sharedModel model ->
+                            \routeParams path sharedModel model ->
                                 definitions.subscriptions
-                                    { maybePageUrl = maybePageUrl
-                                    , routeParams = routeParams
+                                    { routeParams = routeParams
                                     , path = path
                                     , sharedModel = sharedModel
                                     , model = model
@@ -368,24 +355,21 @@ buildWithLocalState definitions builder_ =
 {-| -}
 buildWithSharedState :
     { view :
-        { maybeUrl : Elm.Expression, sharedModel : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
+        { sharedModel : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
     , update :
-        { pageUrl : Elm.Expression
-        , sharedModel : Elm.Expression
+        { sharedModel : Elm.Expression
         , app : Elm.Expression
         , msg : Elm.Expression
         , model : Elm.Expression
         }
         -> Elm.Expression
     , init :
-        { pageUrl : Elm.Expression
-        , sharedModel : Elm.Expression
+        { sharedModel : Elm.Expression
         , app : Elm.Expression
         }
         -> Elm.Expression
     , subscriptions :
-        { maybePageUrl : Elm.Expression
-        , routeParams : Elm.Expression
+        { routeParams : Elm.Expression
         , path : Elm.Expression
         , sharedModel : Elm.Expression
         , model : Elm.Expression
@@ -401,36 +385,32 @@ buildWithSharedState definitions builder_ =
         ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \maybeUrl sharedModel model app ->
+                    \sharedModel model app ->
                         definitions.view
-                            { maybeUrl = maybeUrl
-                            , sharedModel = sharedModel
+                            { sharedModel = sharedModel
                             , model = model
                             , app = app
                             }
                 , localState =
                     Just
                         { update =
-                            \pageUrl sharedModel app msg model ->
+                            \sharedModel app msg model ->
                                 definitions.update
-                                    { pageUrl = pageUrl
-                                    , sharedModel = sharedModel
+                                    { sharedModel = sharedModel
                                     , app = app
                                     , msg = msg
                                     , model = model
                                     }
                         , init =
-                            \pageUrl sharedModel app ->
+                            \sharedModel app ->
                                 definitions.init
-                                    { pageUrl = pageUrl
-                                    , sharedModel = sharedModel
+                                    { sharedModel = sharedModel
                                     , app = app
                                     }
                         , subscriptions =
-                            \maybePageUrl routeParams path sharedModel model ->
+                            \routeParams path sharedModel model ->
                                 definitions.subscriptions
-                                    { maybePageUrl = maybePageUrl
-                                    , routeParams = routeParams
+                                    { routeParams = routeParams
                                     , path = path
                                     , sharedModel = sharedModel
                                     , model = model
@@ -452,36 +432,32 @@ buildWithSharedState definitions builder_ =
         PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \maybeUrl sharedModel model app ->
+                    \sharedModel model app ->
                         definitions.view
-                            { maybeUrl = maybeUrl
-                            , sharedModel = sharedModel
+                            { sharedModel = sharedModel
                             , model = model
                             , app = app
                             }
                 , localState =
                     Just
                         { update =
-                            \pageUrl sharedModel app msg model ->
+                            \sharedModel app msg model ->
                                 definitions.update
-                                    { pageUrl = pageUrl
-                                    , sharedModel = sharedModel
+                                    { sharedModel = sharedModel
                                     , app = app
                                     , msg = msg
                                     , model = model
                                     }
                         , init =
-                            \pageUrl sharedModel app ->
+                            \sharedModel app ->
                                 definitions.init
-                                    { pageUrl = pageUrl
-                                    , sharedModel = sharedModel
+                                    { sharedModel = sharedModel
                                     , app = app
                                     }
                         , subscriptions =
-                            \maybePageUrl routeParams path sharedModel model ->
+                            \routeParams path sharedModel model ->
                                 definitions.subscriptions
-                                    { maybePageUrl = maybePageUrl
-                                    , routeParams = routeParams
+                                    { routeParams = routeParams
                                     , path = path
                                     , sharedModel = sharedModel
                                     , model = model
@@ -518,12 +494,12 @@ type ActionOrPages
 userFunction :
     List String
     ->
-        { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+        { view : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
         , localState :
             Maybe
-                { update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                , init : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                { update : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                , init : Elm.Expression -> Elm.Expression -> Elm.Expression
+                , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
                 , state : State
                 }
         , data : Elm.Expression -> Elm.Expression
@@ -537,26 +513,20 @@ userFunction moduleName definitions =
     let
         viewFn :
             { declaration : Elm.Declaration
-            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
             }
         viewFn =
             case definitions.localState of
                 Just _ ->
-                    Elm.Declare.fn4 "view"
-                        ( "maybeUrl"
-                        , "PageUrl"
-                            |> Elm.Annotation.named [ "Pages", "PageUrl" ]
-                            |> Elm.Annotation.maybe
-                            |> Just
-                        )
+                    Elm.Declare.fn3 "view"
                         ( "sharedModel"
                         , Just (Elm.Annotation.named [ "Shared" ] "Model")
                         )
                         ( "model", Just (Elm.Annotation.named [] "Model") )
                         ( "app", Just appType )
-                        (\maybeUrl sharedModel model app ->
-                            definitions.view maybeUrl sharedModel model app
+                        (\sharedModel model app ->
+                            definitions.view sharedModel model app
                                 |> Elm.withType
                                     (Elm.Annotation.namedWith [ "View" ]
                                         "View"
@@ -572,18 +542,12 @@ userFunction moduleName definitions =
                     let
                         viewDeclaration :
                             { declaration : Elm.Declaration
-                            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                            , call : Elm.Expression -> Elm.Expression -> Elm.Expression
+                            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
                             }
                         viewDeclaration =
-                            Elm.Declare.fn3 "view"
-                                ( "maybeUrl"
-                                , "PageUrl"
-                                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
-                                    |> Elm.Annotation.maybe
-                                    |> Just
-                                )
-                                ( "sharedModel"
+                            Elm.Declare.fn2 "view"
+                                ( "shared"
                                 , Just (Elm.Annotation.named [ "Shared" ] "Model")
                                 )
                                 ( "app", Just appType )
@@ -598,11 +562,11 @@ userFunction moduleName definitions =
             Maybe
                 { updateFn :
                     { declaration : Elm.Declaration
-                    , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                    , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
                     }
-                , initFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression }
-                , subscriptionsFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression }
+                , initFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression }
+                , subscriptionsFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression }
                 , state : State
                 }
         localDefinitions =
@@ -610,29 +574,18 @@ userFunction moduleName definitions =
                 |> Maybe.map
                     (\localState ->
                         { updateFn =
-                            Elm.Declare.fn5 "update"
-                                ( "pageUrl"
-                                , "PageUrl"
-                                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
-                                    |> Just
-                                )
+                            Elm.Declare.fn4 "update"
                                 ( "sharedModel", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "app", Just appType )
                                 ( "msg", Just (Elm.Annotation.named [] "Msg") )
                                 ( "model", Just (Elm.Annotation.named [] "Model") )
                                 localState.update
                         , initFn =
-                            Elm.Declare.fn3 "init"
-                                ( "pageUrl"
-                                , "PageUrl"
-                                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
-                                    |> Elm.Annotation.maybe
-                                    |> Just
-                                )
+                            Elm.Declare.fn2 "init"
                                 ( "sharedModel", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "app", Just appType )
-                                (\pageUrl sharedModel app ->
-                                    localState.init pageUrl sharedModel app
+                                (\sharedModel app ->
+                                    localState.init sharedModel app
                                         |> Elm.withType
                                             (Elm.Annotation.tuple
                                                 (localType "Model")
@@ -640,20 +593,14 @@ userFunction moduleName definitions =
                                             )
                                 )
                         , subscriptionsFn =
-                            Elm.Declare.fn5
+                            Elm.Declare.fn4
                                 "subscriptions"
-                                ( "maybePageUrl"
-                                , "PageUrl"
-                                    |> Elm.Annotation.named [ "Pages", "PageUrl" ]
-                                    |> Elm.Annotation.maybe
-                                    |> Just
-                                )
                                 ( "routeParams", "RouteParams" |> Elm.Annotation.named [] |> Just )
                                 ( "path", Elm.Annotation.namedWith [ "Path" ] "Path" [] |> Just )
                                 ( "sharedModel", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "model", localType "Model" |> Just )
-                                (\maybePageUrl routeParams path sharedModel model ->
-                                    localState.subscriptions maybePageUrl routeParams path sharedModel model
+                                (\routeParams path sharedModel model ->
+                                    localState.subscriptions routeParams path sharedModel model
                                         |> Elm.withType (Elm.Annotation.namedWith [] "Sub" [ localType "Msg" ])
                                 )
                         , state = localState.state
@@ -887,7 +834,7 @@ myType dataType =
 appType : Elm.Annotation.Annotation
 appType =
     Elm.Annotation.namedWith [ "RouteBuilder" ]
-        "StaticPayload"
+        "App"
         [ Elm.Annotation.named [] "Data"
         , Elm.Annotation.named [] "ActionData"
         , Elm.Annotation.named [] "RouteParams"
@@ -953,7 +900,7 @@ serverRender_ serverRenderArg =
                               , Elm.Annotation.function
                                     [ Elm.Annotation.namedWith
                                         [ "RouteBuilder" ]
-                                        "StaticPayload"
+                                        "App"
                                         [ Elm.Annotation.var "data"
                                         , Elm.Annotation.var "action"
                                         , Elm.Annotation.var "routeParams"
@@ -1018,7 +965,7 @@ preRender_ serverRenderArg =
                               , Elm.Annotation.function
                                     [ Elm.Annotation.namedWith
                                         [ "RouteBuilder" ]
-                                        "StaticPayload"
+                                        "App"
                                         [ Elm.Annotation.var "data"
                                         , Elm.Annotation.var "action"
                                         , Elm.Annotation.var "routeParams"
@@ -1070,7 +1017,7 @@ single_ serverRenderArg =
                               , Elm.Annotation.function
                                     [ Elm.Annotation.namedWith
                                         [ "RouteBuilder" ]
-                                        "StaticPayload"
+                                        "App"
                                         [ Elm.Annotation.var "data"
                                         , Elm.Annotation.var "action"
                                         , Elm.Annotation.var "routeParams"
@@ -1106,19 +1053,16 @@ buildWithLocalState_ :
         -> Elm.Expression
         -> Elm.Expression
         -> Elm.Expression
-        -> Elm.Expression
     , init :
-        Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+        Elm.Expression -> Elm.Expression -> Elm.Expression
     , update :
         Elm.Expression
         -> Elm.Expression
         -> Elm.Expression
         -> Elm.Expression
         -> Elm.Expression
-        -> Elm.Expression
     , subscriptions :
         Elm.Expression
-        -> Elm.Expression
         -> Elm.Expression
         -> Elm.Expression
         -> Elm.Expression
@@ -1144,17 +1088,11 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                         [ Elm.Annotation.record
                             [ ( "view"
                               , Elm.Annotation.function
-                                    [ Elm.Annotation.maybe
-                                        (Elm.Annotation.namedWith
-                                            [ "Pages", "PageUrl" ]
-                                            "PageUrl"
-                                            []
-                                        )
-                                    , Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                    [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
                                     , Elm.Annotation.var "model"
                                     , Elm.Annotation.namedWith
                                         [ "RouteBuilder" ]
-                                        "StaticPayload"
+                                        "App"
                                         [ Elm.Annotation.var "data"
                                         , Elm.Annotation.var "action"
                                         , Elm.Annotation.var "routeParams"
@@ -1172,16 +1110,10 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                               )
                             , ( "init"
                               , Elm.Annotation.function
-                                    [ Elm.Annotation.maybe
-                                        (Elm.Annotation.namedWith
-                                            [ "Pages", "PageUrl" ]
-                                            "PageUrl"
-                                            []
-                                        )
-                                    , Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                    [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
                                     , Elm.Annotation.namedWith
                                         [ "RouteBuilder" ]
-                                        "StaticPayload"
+                                        "App"
                                         [ Elm.Annotation.var "data"
                                         , Elm.Annotation.var "action"
                                         , Elm.Annotation.var "routeParams"
@@ -1198,14 +1130,10 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                               )
                             , ( "update"
                               , Elm.Annotation.function
-                                    [ Elm.Annotation.namedWith
-                                        [ "Pages", "PageUrl" ]
-                                        "PageUrl"
-                                        []
-                                    , Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                    [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
                                     , Elm.Annotation.namedWith
                                         [ "RouteBuilder" ]
-                                        "StaticPayload"
+                                        "App"
                                         [ localType "Data"
                                         , localType "ActionData"
                                         , localType "RouteParams"
@@ -1236,13 +1164,7 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                               )
                             , ( "subscriptions"
                               , Elm.Annotation.function
-                                    [ Elm.Annotation.maybe
-                                        (Elm.Annotation.namedWith
-                                            [ "Pages", "PageUrl" ]
-                                            "PageUrl"
-                                            []
-                                        )
-                                    , Elm.Annotation.var "routeParams"
+                                    [ Elm.Annotation.var "routeParams"
                                     , Elm.Annotation.namedWith [ "Path" ] "Path" []
                                     , Elm.Annotation.namedWith [ "Shared" ] "Model" []
                                     , Elm.Annotation.var "model"
@@ -1279,17 +1201,12 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                     (\functionReducedUnpack ->
                         Elm.functionReduced
                             "unpack"
-                            (\functionReducedUnpack0 ->
+                            (\functionReducedUnpack_2_1_2_0_2_2_0_1_0_2_0_0 ->
                                 Elm.functionReduced
                                     "unpack"
-                                    (\functionReducedUnpack_2_1_2_0_2_2_0_1_0_2_0_0 ->
-                                        Elm.functionReduced
-                                            "unpack"
-                                            (buildWithLocalStateArg.view
-                                                functionReducedUnpack
-                                                functionReducedUnpack0
-                                                functionReducedUnpack_2_1_2_0_2_2_0_1_0_2_0_0
-                                            )
+                                    (buildWithLocalStateArg.view
+                                        functionReducedUnpack
+                                        functionReducedUnpack_2_1_2_0_2_2_0_1_0_2_0_0
                                     )
                             )
                     )
@@ -1301,13 +1218,8 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                     (\functionReducedUnpack ->
                         Elm.functionReduced
                             "unpack"
-                            (\functionReducedUnpack0 ->
-                                Elm.functionReduced
-                                    "unpack"
-                                    (buildWithLocalStateArg.init
-                                        functionReducedUnpack
-                                        functionReducedUnpack0
-                                    )
+                            (buildWithLocalStateArg.init
+                                functionReducedUnpack
                             )
                     )
                 )
@@ -1318,21 +1230,16 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                     (\functionReducedUnpack ->
                         Elm.functionReduced
                             "unpack"
-                            (\functionReducedUnpack0 ->
+                            (\functionReducedUnpack_2_1_2_0_2_2_2_1_0_2_0_0 ->
                                 Elm.functionReduced
                                     "unpack"
-                                    (\functionReducedUnpack_2_1_2_0_2_2_2_1_0_2_0_0 ->
+                                    (\functionReducedUnpack_2_1_2_1_2_0_2_2_2_1_0_2_0_0 ->
                                         Elm.functionReduced
                                             "unpack"
-                                            (\functionReducedUnpack_2_1_2_1_2_0_2_2_2_1_0_2_0_0 ->
-                                                Elm.functionReduced
-                                                    "unpack"
-                                                    (buildWithLocalStateArg.update
-                                                        functionReducedUnpack
-                                                        functionReducedUnpack0
-                                                        functionReducedUnpack_2_1_2_0_2_2_2_1_0_2_0_0
-                                                        functionReducedUnpack_2_1_2_1_2_0_2_2_2_1_0_2_0_0
-                                                    )
+                                            (buildWithLocalStateArg.update
+                                                functionReducedUnpack
+                                                functionReducedUnpack_2_1_2_0_2_2_2_1_0_2_0_0
+                                                functionReducedUnpack_2_1_2_1_2_0_2_2_2_1_0_2_0_0
                                             )
                                     )
                             )
@@ -1345,21 +1252,16 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                     (\functionReducedUnpack ->
                         Elm.functionReduced
                             "unpack"
-                            (\functionReducedUnpack0 ->
+                            (\functionReducedUnpack_2_1_2_0_2_2_3_1_0_2_0_0 ->
                                 Elm.functionReduced
                                     "unpack"
-                                    (\functionReducedUnpack_2_1_2_0_2_2_3_1_0_2_0_0 ->
+                                    (\functionReducedUnpack_2_1_2_1_2_0_2_2_3_1_0_2_0_0 ->
                                         Elm.functionReduced
                                             "unpack"
-                                            (\functionReducedUnpack_2_1_2_1_2_0_2_2_3_1_0_2_0_0 ->
-                                                Elm.functionReduced
-                                                    "unpack"
-                                                    (buildWithLocalStateArg.subscriptions
-                                                        functionReducedUnpack
-                                                        functionReducedUnpack0
-                                                        functionReducedUnpack_2_1_2_0_2_2_3_1_0_2_0_0
-                                                        functionReducedUnpack_2_1_2_1_2_0_2_2_3_1_0_2_0_0
-                                                    )
+                                            (buildWithLocalStateArg.subscriptions
+                                                functionReducedUnpack
+                                                functionReducedUnpack_2_1_2_0_2_2_3_1_0_2_0_0
+                                                functionReducedUnpack_2_1_2_1_2_0_2_2_3_1_0_2_0_0
                                             )
                                     )
                             )
@@ -1372,7 +1274,7 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
 
 buildNoState_ :
     { view :
-        Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+        Elm.Expression -> Elm.Expression -> Elm.Expression
     }
     -> Elm.Expression
     -> Elm.Expression
@@ -1387,16 +1289,10 @@ buildNoState_ buildNoStateArg buildNoStateArg0 =
                         [ Elm.Annotation.record
                             [ ( "view"
                               , Elm.Annotation.function
-                                    [ Elm.Annotation.maybe
-                                        (Elm.Annotation.namedWith
-                                            [ "Pages", "PageUrl" ]
-                                            "PageUrl"
-                                            []
-                                        )
-                                    , Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                    [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
                                     , Elm.Annotation.namedWith
                                         [ "RouteBuilder" ]
-                                        "StaticPayload"
+                                        "App"
                                         [ Elm.Annotation.named [] "Data"
                                         , Elm.Annotation.named [] "ActionData"
                                         , Elm.Annotation.named [] "RouteParams"
@@ -1438,16 +1334,12 @@ buildNoState_ buildNoStateArg buildNoStateArg0 =
             [ Tuple.pair
                 "view"
                 (Elm.functionReduced
-                    "buildNoStateUnpack"
-                    (\functionReducedUnpack ->
+                    "unpack"
+                    (\functionReducedUnpack0 ->
                         Elm.functionReduced
                             "unpack"
-                            (\functionReducedUnpack0 ->
-                                Elm.functionReduced
-                                    "unpack"
-                                    (buildNoStateArg.view functionReducedUnpack
-                                        functionReducedUnpack0
-                                    )
+                            (buildNoStateArg.view
+                                functionReducedUnpack0
                             )
                     )
                 )

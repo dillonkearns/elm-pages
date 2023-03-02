@@ -10,14 +10,11 @@ import Form.FieldView
 import Form.Validation as Validation
 import Form.Value
 import Head
-import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Styled
-import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatelessRoute)
 import Server.Request as Request exposing (Parser)
 import Server.Response
 import Shared
@@ -212,28 +209,27 @@ action routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     []
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view shared app =
     let
         user : User
         user =
-            static.action
+            app.action
                 |> Maybe.map .user
                 |> Maybe.withDefault defaultUser
     in
     { title = "Form Example"
     , body =
-        [ static.action
+        [ app.action
             |> Maybe.map .user
             |> Maybe.map
                 (\user_ ->
@@ -256,7 +252,7 @@ view maybeUrl sharedModel static =
                 , Attr.style "gap" "20px"
                 ]
                 (.formResponse >> Just)
-                static
+                app
                 defaultUser
         ]
             |> List.map Html.Styled.fromUnstyled

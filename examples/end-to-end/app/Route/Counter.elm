@@ -11,7 +11,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Shared
 import View exposing (View)
 
@@ -49,22 +49,20 @@ route =
 
 
 init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init sharedModel app =
     ( { count = Nothing }, Effect.GetStargazers GotStargazers )
 
 
 update :
-    PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update shared app msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -76,8 +74,8 @@ update pageUrl sharedModel static msg model =
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
@@ -91,9 +89,9 @@ data =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -111,12 +109,11 @@ head static =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
+    Shared.Model
     -> Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view sharedModel model app =
     { title = "Counter"
     , body =
         [ case model.count of

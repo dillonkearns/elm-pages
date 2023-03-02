@@ -8,12 +8,11 @@ import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Link
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Path
 import Route exposing (Route)
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import SiteOld
 import Svg.Styled exposing (path, svg)
@@ -54,9 +53,9 @@ route =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -74,11 +73,10 @@ head static =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view shared app =
     { title = "elm-pages - a statically typed site generator"
     , body =
         [ landingView |> Html.map PagesMsg.fromMsg
@@ -147,13 +145,13 @@ data routeParams =
         (Decode.field "stargazer_count" Decode.int)
 
 view :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> View Msg
-view static =
-    { title = static.routeParams.name
+view app =
+    { title = app.routeParams.name
     , body =
-        [ h1 [] [ text static.routeParams.name ]
-        , p [] [ text ("Stars: " ++ String.fromInt static.data) ]
+        [ h1 [] [ text app.routeParams.name ]
+        , p [] [ text ("Stars: " ++ String.fromInt app.data) ]
         ]
     }""" )
             }
@@ -203,26 +201,26 @@ repo repoName =
             , svgIcon = "M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242z"
             , code =
                 ( "src/Page/Blog/Slug_.elm", """head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summaryLarge
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = static.data.image
-            , alt = static.data.description
+            { url = app.data.image
+            , alt = app.data.description
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = static.data.description
+        , description = app.data.description
         , locale = Nothing
-        , title = static.data.title
+        , title = app.data.title
         }
         |> Seo.article
             { tags = []
             , section = Nothing
-            , publishedTime = Just (Date.toIsoString static.data.published)
+            , publishedTime = Just (Date.toIsoString app.data.published)
             , modifiedTime = Nothing
             , expirationTime = Nothing
             }

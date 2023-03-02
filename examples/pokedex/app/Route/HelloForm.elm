@@ -8,11 +8,10 @@ import Head
 import Head.Seo as Seo
 import Html
 import Html.Attributes as Attr
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
@@ -47,29 +46,27 @@ route =
 
 
 init :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init sharedModel static =
     ( {}, Effect.none )
 
 
 update :
-    PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update sharedModel static msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
@@ -103,7 +100,7 @@ action routeParams =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -123,12 +120,11 @@ head static =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
+    Shared.Model
     -> Model
-    -> StaticPayload Data ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view sharedModel model static =
     { title = "Placeholder"
     , body =
         [ Html.form

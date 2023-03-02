@@ -59,35 +59,32 @@ route =
 
 
 init :
-    Maybe Pages.PageUrl.PageUrl
-    -> Shared.Model
-    -> RouteBuilder.StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> RouteBuilder.App Data ActionData RouteParams
     -> ( Model, Effect.Effect Msg )
-init pageUrl sharedModel app =
+init shared app =
     ( {}, Effect.none )
 
 
 update :
-    Pages.PageUrl.PageUrl
-    -> Shared.Model
-    -> RouteBuilder.StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> RouteBuilder.App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect.Effect msg )
-update pageUrl sharedModel app msg model =
+update shared app msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
 subscriptions :
-    Maybe Pages.PageUrl.PageUrl
-    -> RouteParams
+    RouteParams
     -> Path.Path
     -> Shared.Model
     -> Model
     -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions routeParams path shared model =
     Sub.none
 
 
@@ -135,18 +132,17 @@ data routeParams =
         )
 
 
-head : RouteBuilder.StaticPayload Data ActionData RouteParams -> List Head.Tag
+head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
 head app =
     []
 
 
 view :
-    Maybe Pages.PageUrl.PageUrl
-    -> Shared.Model
+    Shared.Model
     -> Model
-    -> RouteBuilder.StaticPayload Data ActionData RouteParams
+    -> RouteBuilder.App Data ActionData RouteParams
     -> View.View (PagesMsg Msg)
-view maybeUrl sharedModel model app =
+view shared model app =
     { title =
         if app.routeParams.slug == "new" then
             "Create Post"

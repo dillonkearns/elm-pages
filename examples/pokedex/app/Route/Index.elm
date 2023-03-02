@@ -8,12 +8,10 @@ import Head
 import Head.Seo as Seo
 import Html exposing (..)
 import Json.Decode as Decode exposing (Decoder)
-import Json.Encode
-import PagesMsg exposing (PagesMsg)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
+import PagesMsg exposing (PagesMsg)
 import Route
-import RouteBuilder exposing (StatelessRoute, StaticPayload)
+import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import View exposing (View)
 
@@ -61,9 +59,9 @@ data =
 
 
 head :
-    StaticPayload Data ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages Pokedex"
@@ -81,11 +79,10 @@ head static =
 
 
 view :
-    Maybe PageUrl
-    -> Shared.Model
-    -> StaticPayload Data ActionData RouteParams
+    Shared.Model
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view shared app =
     { title = "Pokedex"
     , body =
         [ ul []
@@ -100,7 +97,7 @@ view maybeUrl sharedModel static =
                             |> Route.link [] [ text name ]
                         ]
                 )
-                static.data.pokemon
+                app.data.pokemon
             )
         ]
     }
