@@ -61,7 +61,7 @@ data =
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
-head static =
+head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
@@ -82,7 +82,7 @@ view :
     Shared.Model
     -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view sharedModel app =
+view shared app =
     { title = "Index page"
     , body =
         [ Html.h1 [] [ Html.text "Posts" ]

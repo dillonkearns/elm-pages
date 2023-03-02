@@ -161,7 +161,7 @@ single input =
 
 {-| -}
 buildNoState :
-    { view : { sharedModel : Elm.Expression, app : Elm.Expression } -> Elm.Expression
+    { view : { shared : Elm.Expression, app : Elm.Expression } -> Elm.Expression
     }
     -> Builder
     -> { path : String, body : String }
@@ -170,9 +170,9 @@ buildNoState definitions builder_ =
         ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \sharedModel _ app ->
+                    \shared _ app ->
                         definitions.view
-                            { sharedModel = sharedModel
+                            { shared = shared
                             , app = app
                             }
                 , localState = Nothing
@@ -191,9 +191,9 @@ buildNoState definitions builder_ =
         PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \sharedModel _ app ->
+                    \shared _ app ->
                         definitions.view
-                            { sharedModel = sharedModel
+                            { shared = shared
                             , app = app
                             }
                 , localState = Nothing
@@ -227,23 +227,23 @@ addDeclarations declarations builder =
 {-| -}
 buildWithLocalState :
     { view :
-        { sharedModel : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
+        { shared : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
     , update :
-        { sharedModel : Elm.Expression
+        { shared : Elm.Expression
         , app : Elm.Expression
         , msg : Elm.Expression
         , model : Elm.Expression
         }
         -> Elm.Expression
     , init :
-        { sharedModel : Elm.Expression
+        { shared : Elm.Expression
         , app : Elm.Expression
         }
         -> Elm.Expression
     , subscriptions :
         { routeParams : Elm.Expression
         , path : Elm.Expression
-        , sharedModel : Elm.Expression
+        , shared : Elm.Expression
         , model : Elm.Expression
         }
         -> Elm.Expression
@@ -257,34 +257,34 @@ buildWithLocalState definitions builder_ =
         ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \sharedModel model app ->
+                    \shared model app ->
                         definitions.view
-                            { sharedModel = sharedModel
+                            { shared = shared
                             , model = model
                             , app = app
                             }
                 , localState =
                     Just
                         { update =
-                            \sharedModel app msg model ->
+                            \shared app msg model ->
                                 definitions.update
-                                    { sharedModel = sharedModel
+                                    { shared = shared
                                     , app = app
                                     , msg = msg
                                     , model = model
                                     }
                         , init =
-                            \sharedModel app ->
+                            \shared app ->
                                 definitions.init
-                                    { sharedModel = sharedModel
+                                    { shared = shared
                                     , app = app
                                     }
                         , subscriptions =
-                            \routeParams path sharedModel model ->
+                            \routeParams path shared model ->
                                 definitions.subscriptions
                                     { routeParams = routeParams
                                     , path = path
-                                    , sharedModel = sharedModel
+                                    , shared = shared
                                     , model = model
                                     }
                         , state = LocalState
@@ -304,34 +304,34 @@ buildWithLocalState definitions builder_ =
         PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \sharedModel model app ->
+                    \shared model app ->
                         definitions.view
-                            { sharedModel = sharedModel
+                            { shared = shared
                             , model = model
                             , app = app
                             }
                 , localState =
                     Just
                         { update =
-                            \sharedModel app msg model ->
+                            \shared app msg model ->
                                 definitions.update
-                                    { sharedModel = sharedModel
+                                    { shared = shared
                                     , app = app
                                     , msg = msg
                                     , model = model
                                     }
                         , init =
-                            \sharedModel app ->
+                            \shared app ->
                                 definitions.init
-                                    { sharedModel = sharedModel
+                                    { shared = shared
                                     , app = app
                                     }
                         , subscriptions =
-                            \routeParams path sharedModel model ->
+                            \routeParams path shared model ->
                                 definitions.subscriptions
                                     { routeParams = routeParams
                                     , path = path
-                                    , sharedModel = sharedModel
+                                    , shared = shared
                                     , model = model
                                     }
                         , state = LocalState
@@ -355,23 +355,23 @@ buildWithLocalState definitions builder_ =
 {-| -}
 buildWithSharedState :
     { view :
-        { sharedModel : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
+        { shared : Elm.Expression, model : Elm.Expression, app : Elm.Expression } -> Elm.Expression
     , update :
-        { sharedModel : Elm.Expression
+        { shared : Elm.Expression
         , app : Elm.Expression
         , msg : Elm.Expression
         , model : Elm.Expression
         }
         -> Elm.Expression
     , init :
-        { sharedModel : Elm.Expression
+        { shared : Elm.Expression
         , app : Elm.Expression
         }
         -> Elm.Expression
     , subscriptions :
         { routeParams : Elm.Expression
         , path : Elm.Expression
-        , sharedModel : Elm.Expression
+        , shared : Elm.Expression
         , model : Elm.Expression
         }
         -> Elm.Expression
@@ -385,34 +385,34 @@ buildWithSharedState definitions builder_ =
         ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \sharedModel model app ->
+                    \shared model app ->
                         definitions.view
-                            { sharedModel = sharedModel
+                            { shared = shared
                             , model = model
                             , app = app
                             }
                 , localState =
                     Just
                         { update =
-                            \sharedModel app msg model ->
+                            \shared app msg model ->
                                 definitions.update
-                                    { sharedModel = sharedModel
+                                    { shared = shared
                                     , app = app
                                     , msg = msg
                                     , model = model
                                     }
                         , init =
-                            \sharedModel app ->
+                            \shared app ->
                                 definitions.init
-                                    { sharedModel = sharedModel
+                                    { shared = shared
                                     , app = app
                                     }
                         , subscriptions =
-                            \routeParams path sharedModel model ->
+                            \routeParams path shared model ->
                                 definitions.subscriptions
                                     { routeParams = routeParams
                                     , path = path
-                                    , sharedModel = sharedModel
+                                    , shared = shared
                                     , model = model
                                     }
                         , state = SharedState
@@ -432,34 +432,34 @@ buildWithSharedState definitions builder_ =
         PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \sharedModel model app ->
+                    \shared model app ->
                         definitions.view
-                            { sharedModel = sharedModel
+                            { shared = shared
                             , model = model
                             , app = app
                             }
                 , localState =
                     Just
                         { update =
-                            \sharedModel app msg model ->
+                            \shared app msg model ->
                                 definitions.update
-                                    { sharedModel = sharedModel
+                                    { shared = shared
                                     , app = app
                                     , msg = msg
                                     , model = model
                                     }
                         , init =
-                            \sharedModel app ->
+                            \shared app ->
                                 definitions.init
-                                    { sharedModel = sharedModel
+                                    { shared = shared
                                     , app = app
                                     }
                         , subscriptions =
-                            \routeParams path sharedModel model ->
+                            \routeParams path shared model ->
                                 definitions.subscriptions
                                     { routeParams = routeParams
                                     , path = path
-                                    , sharedModel = sharedModel
+                                    , shared = shared
                                     , model = model
                                     }
                         , state = SharedState
@@ -520,13 +520,13 @@ userFunction moduleName definitions =
             case definitions.localState of
                 Just _ ->
                     Elm.Declare.fn3 "view"
-                        ( "sharedModel"
+                        ( "shared"
                         , Just (Elm.Annotation.named [ "Shared" ] "Model")
                         )
                         ( "model", Just (Elm.Annotation.named [] "Model") )
                         ( "app", Just appType )
-                        (\sharedModel model app ->
-                            definitions.view sharedModel model app
+                        (\shared model app ->
+                            definitions.view shared model app
                                 |> Elm.withType
                                     (Elm.Annotation.namedWith [ "View" ]
                                         "View"
@@ -575,17 +575,17 @@ userFunction moduleName definitions =
                     (\localState ->
                         { updateFn =
                             Elm.Declare.fn4 "update"
-                                ( "sharedModel", Just (Elm.Annotation.named [ "Shared" ] "Model") )
+                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "app", Just appType )
                                 ( "msg", Just (Elm.Annotation.named [] "Msg") )
                                 ( "model", Just (Elm.Annotation.named [] "Model") )
                                 localState.update
                         , initFn =
                             Elm.Declare.fn2 "init"
-                                ( "sharedModel", Just (Elm.Annotation.named [ "Shared" ] "Model") )
+                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "app", Just appType )
-                                (\sharedModel app ->
-                                    localState.init sharedModel app
+                                (\shared app ->
+                                    localState.init shared app
                                         |> Elm.withType
                                             (Elm.Annotation.tuple
                                                 (localType "Model")
@@ -597,10 +597,10 @@ userFunction moduleName definitions =
                                 "subscriptions"
                                 ( "routeParams", "RouteParams" |> Elm.Annotation.named [] |> Just )
                                 ( "path", Elm.Annotation.namedWith [ "Path" ] "Path" [] |> Just )
-                                ( "sharedModel", Just (Elm.Annotation.named [ "Shared" ] "Model") )
+                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "model", localType "Model" |> Just )
-                                (\routeParams path sharedModel model ->
-                                    localState.subscriptions routeParams path sharedModel model
+                                (\routeParams path shared model ->
+                                    localState.subscriptions routeParams path shared model
                                         |> Elm.withType (Elm.Annotation.namedWith [] "Sub" [ localType "Msg" ])
                                 )
                         , state = localState.state
