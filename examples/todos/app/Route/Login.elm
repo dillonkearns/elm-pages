@@ -86,7 +86,7 @@ type alias EnvVariables =
     }
 
 
-form : Form.DoneForm String (BackendTask FatalError (Combined String EmailAddress)) data (List (Html (PagesMsg Msg)))
+form : Form.DoneForm String (BackendTask FatalError (Combined String EmailAddress)) data (List (Html (PagesMsg Msg))) Msg
 form =
     Form.init
         (\fieldEmail ->
@@ -132,7 +132,7 @@ form =
         |> Form.hiddenKind ( "kind", "login" ) "Expected kind"
 
 
-logoutForm : Form.DoneForm String () data (List (Html (PagesMsg Msg)))
+logoutForm : Form.DoneForm String () data (List (Html (PagesMsg Msg))) Msg
 logoutForm =
     Form.init
         { combine =

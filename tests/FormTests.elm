@@ -185,6 +185,7 @@ all =
                             String
                             { combine : Combined String ( Date, Date ), view : a -> MyView }
                             data
+                            msg
                     checkinFormParser =
                         Form.init
                             (\checkin checkout ->
@@ -290,7 +291,7 @@ all =
             ]
         , describe "dependent parsing" <|
             let
-                linkForm : Form String { combine : Combined String PostAction, view : Form.Context String data -> MyView } data
+                linkForm : Form String { combine : Combined String PostAction, view : Form.Context String data -> MyView } data msg
                 linkForm =
                     Form.init
                         (\url ->
@@ -307,7 +308,7 @@ all =
                                 |> Field.url
                             )
 
-                postForm : Form String { combine : Combined String PostAction, view : Form.Context String data -> MyView } data
+                postForm : Form String { combine : Combined String PostAction, view : Form.Context String data -> MyView } data msg
                 postForm =
                     Form.init
                         (\title body ->
@@ -327,7 +328,7 @@ all =
                         |> Form.field "title" (Field.text |> Field.required "Required")
                         |> Form.field "body" Field.text
 
-                dependentParser : Form String { combine : Combined String PostAction, view : Form.Context String data -> MyView } data
+                dependentParser : Form String { combine : Combined String PostAction, view : Form.Context String data -> MyView } data msg
                 dependentParser =
                     Form.init
                         (\kind postForm_ ->

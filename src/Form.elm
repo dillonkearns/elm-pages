@@ -316,9 +316,15 @@ type alias Context error data =
 
 
 {-| -}
-init : combineAndView -> Form String combineAndView data
+init : combineAndView -> Form String combineAndView data msg
 init combineAndView =
-    Form []
+    Form
+        { submitStrategy = TransitionStrategy
+        , method = Post
+        , name = Nothing -- TODO require `name` argument in init?
+        , onSubmit = Nothing
+        }
+        []
         (\_ _ ->
             { result = Dict.empty
             , combineAndView = combineAndView
@@ -338,6 +344,7 @@ dynamic :
             , view : subView
             }
             data
+            msg
     )
     ->
         Form
@@ -349,13 +356,21 @@ dynamic :
              -> combineAndView
             )
             data
+            msg
     ->
         Form
             error
             combineAndView
             data
+            msg
 dynamic forms formBuilder =
-    Form []
+    Form
+        { submitStrategy = TransitionStrategy
+        , method = Post
+        , name = Nothing -- TODO require `name` argument in init?
+        , onSubmit = Nothing
+        }
+        []
         (\maybeData formState ->
             let
                 toParser :
@@ -367,7 +382,7 @@ dynamic forms formBuilder =
                         }
                 toParser decider =
                     case forms decider of
-                        Form _ parseFn _ ->
+                        Form _ _ parseFn _ ->
                             -- TODO need to include hidden form fields from `definitions` (should they be automatically rendered? Does that mean the view type needs to be hardcoded?)
                             parseFn maybeData formState
 
@@ -385,7 +400,7 @@ dynamic forms formBuilder =
                             }
                         newThing =
                             case formBuilder of
-                                Form _ parseFn _ ->
+                                Form _ _ parseFn _ ->
                                     parseFn maybeData formState
 
                         arg : { combine : decider -> Validation error parsed named constraints1, view : decider -> subView }
@@ -504,10 +519,10 @@ Use [`Form.Field`](Form-Field) to define the field and its validations.
 field :
     String
     -> Field error parsed data kind constraints
-    -> Form error (Form.Validation.Field error parsed kind -> combineAndView) data
-    -> Form error combineAndView data
-field name (Field fieldParser kind) (Form definitions parseFn toInitialValues) =
-    Form
+    -> Form error (Form.Validation.Field error parsed kind -> combineAndView) data msg
+    -> Form error combineAndView data msg
+field name (Field fieldParser kind) (Form renderOptions definitions parseFn toInitialValues) =
+    Form renderOptions
         (( name, RegularField )
             :: definitions
         )
@@ -602,10 +617,10 @@ You define the field's validations the same way as for `field`, with the
 hiddenField :
     String
     -> Field error parsed data kind constraints
-    -> Form error (Form.Validation.Field error parsed Form.FieldView.Hidden -> combineAndView) data
-    -> Form error combineAndView data
-hiddenField name (Field fieldParser _) (Form definitions parseFn toInitialValues) =
-    Form
+    -> Form error (Form.Validation.Field error parsed Form.FieldView.Hidden -> combineAndView) data msg
+    -> Form error combineAndView data msg
+hiddenField name (Field fieldParser _) (Form options definitions parseFn toInitialValues) =
+    Form options
         (( name, HiddenField )
             :: definitions
         )
@@ -680,6 +695,7 @@ toServerForm :
         , view : viewFn
         }
         data
+        msg
     ->
         Form
             error
@@ -687,7 +703,8 @@ toServerForm :
             , view : viewFn
             }
             data
-toServerForm (Form a b c) =
+            msg
+toServerForm (Form options a b c) =
     let
         mappedB :
             Maybe data
@@ -715,21 +732,21 @@ toServerForm (Form a b c) =
                         }
                    )
     in
-    Form a mappedB c
+    Form options a mappedB c
 
 
 {-| -}
 hiddenKind :
     ( String, String )
     -> error
-    -> Form error combineAndView data
-    -> Form error combineAndView data
-hiddenKind ( name, value ) error_ (Form definitions parseFn toInitialValues) =
+    -> Form error combineAndView data msg
+    -> Form error combineAndView data msg
+hiddenKind ( name, value ) error_ (Form options definitions parseFn toInitialValues) =
     let
         (Field fieldParser _) =
             Field.exactValue value error_
     in
-    Form
+    Form options
         (( name, HiddenField )
             :: definitions
         )
@@ -847,9 +864,9 @@ parse :
     String
     -> AppContext app actionData
     -> data
-    -> Form error { info | combine : Form.Validation.Validation error parsed named constraints } data
+    -> Form error { info | combine : Form.Validation.Validation error parsed named constraints } data msg
     -> ( Maybe parsed, Dict String (List error) )
-parse formId app data (Form _ parser _) =
+parse formId app data (Form _ _ parser _) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
@@ -886,9 +903,9 @@ insertIfNonempty key values dict =
 {-| -}
 runServerSide :
     List ( String, String )
-    -> Form error (Form.Validation.Validation error parsed kind constraints) data
+    -> Form error (Form.Validation.Validation error parsed kind constraints) data msg
     -> ( Bool, ( Maybe parsed, Dict String (List error) ) )
-runServerSide rawFormData (Form _ parser _) =
+runServerSide rawFormData (Form _ _ parser _) =
     let
         parsed :
             { result : Dict String (List error)
@@ -1000,11 +1017,11 @@ renderHtml attrs accessResponse app data (FinalForm options a b c) =
 
 
 {-| -}
-type FinalForm error parsed data view userMsg
+type FinalForm error parsed input view userMsg
     = FinalForm
         (RenderOptions userMsg)
         (List ( String, FieldDefinition ))
-        (Maybe data
+        (Maybe input
          -> FormState
          ->
             { result :
@@ -1015,7 +1032,7 @@ type FinalForm error parsed data view userMsg
             , view : view
             }
         )
-        (data -> List ( String, Maybe String ))
+        (input -> List ( String, Maybe String ))
 
 
 {-| -}
@@ -1028,6 +1045,7 @@ toDynamicFetcher :
             , view : Context error data -> view
             }
             data
+            userMsg
     ->
         FinalForm
             error
@@ -1035,16 +1053,8 @@ toDynamicFetcher :
             data
             (Context error data -> view)
             userMsg
-toDynamicFetcher name (Form a b c) =
+toDynamicFetcher name (Form renderOptions a b c) =
     let
-        options : { submitStrategy : SubmitStrategy, method : Method, name : Maybe String, onSubmit : Maybe a }
-        options =
-            { submitStrategy = FetcherStrategy
-            , method = Post
-            , name = Just name
-            , onSubmit = Nothing
-            }
-
         transformB :
             (Maybe data
              -> FormState
@@ -1088,7 +1098,8 @@ toDynamicFetcher name (Form a b c) =
                 , isMatchCandidate = foo.isMatchCandidate
                 }
     in
-    FinalForm options a (transformB b) c
+    -- TODO define `name` in Form pipeline before this? Make it non-Maybe?
+    FinalForm { renderOptions | name = Just name, submitStrategy = FetcherStrategy } a (transformB b) c
 
 
 {-| -}
@@ -1101,6 +1112,7 @@ toDynamicTransition :
             , view : Context error data -> view
             }
             data
+            userMsg
     ->
         FinalForm
             error
@@ -1108,16 +1120,8 @@ toDynamicTransition :
             data
             (Context error data -> view)
             userMsg
-toDynamicTransition name (Form a b c) =
+toDynamicTransition name (Form renderOptions a b c) =
     let
-        options : { submitStrategy : SubmitStrategy, method : Method, name : Maybe String, onSubmit : Maybe a }
-        options =
-            { submitStrategy = TransitionStrategy
-            , method = Post
-            , name = Just name
-            , onSubmit = Nothing
-            }
-
         transformB :
             (Maybe data
              -> FormState
@@ -1161,7 +1165,7 @@ toDynamicTransition name (Form a b c) =
                 , isMatchCandidate = foo.isMatchCandidate
                 }
     in
-    FinalForm options a (transformB b) c
+    FinalForm { renderOptions | name = Just name } a (transformB b) c
 
 
 {-| -}
@@ -1463,13 +1467,14 @@ helperValues toHiddenInput accessResponse options formState data (FormInternal f
 
 
 {-| -}
-type alias DoneForm error parsed data view =
+type alias DoneForm error parsed data view msg =
     Form
         error
         { combine : Combined error parsed
         , view : Context error data -> view
         }
         data
+        msg
 
 
 {-| -}
@@ -1480,6 +1485,7 @@ type alias HtmlForm error parsed input msg =
         , view : Context error input -> List (Html (PagesMsg msg))
         }
         input
+        msg
 
 
 {-| -}
@@ -1489,6 +1495,7 @@ type ServerForms error parsed
             (Form
                 error
                 (Combined error parsed)
+                Never
                 Never
             )
         )
@@ -1504,10 +1511,16 @@ initCombined :
                 | combine : Form.Validation.Validation error parsed kind constraints
             }
             input
+            msg
     -> ServerForms error combined
-initCombined mapFn (Form _ parseFn _) =
+initCombined mapFn (Form options _ parseFn _) =
     ServerForms
         [ Form
+            { onSubmit = Nothing
+            , submitStrategy = options.submitStrategy
+            , name = options.name
+            , method = options.method
+            }
             []
             (\_ formState ->
                 let
@@ -1538,12 +1551,19 @@ combine :
                 | combine : Form.Validation.Validation error parsed kind constraints
             }
             input
+            msg
     -> ServerForms error combined
     -> ServerForms error combined
-combine mapFn (Form _ parseFn _) (ServerForms serverForms) =
+combine mapFn (Form options _ parseFn _) (ServerForms serverForms) =
     ServerForms
         (serverForms
-            ++ [ Form []
+            ++ [ Form
+                    { onSubmit = Nothing
+                    , submitStrategy = options.submitStrategy
+                    , name = options.name
+                    , method = options.method
+                    }
+                    []
                     (\_ formState ->
                         let
                             foo :
@@ -1574,6 +1594,7 @@ initCombinedServer :
                 | combine : Combined error (BackendTask backendTaskError (Form.Validation.Validation error parsed kind constraints))
             }
             input
+            msg
     -> ServerForms error (BackendTask backendTaskError (Form.Validation.Validation error combined kind constraints))
 initCombinedServer mapFn serverForms =
     initCombined (BackendTask.map (Form.Validation.map mapFn)) serverForms
@@ -1590,6 +1611,7 @@ combineServer :
                     Combined error (BackendTask backendTaskError (Form.Validation.Validation error parsed kind constraints))
             }
             input
+            msg
     -> ServerForms error (BackendTask backendTaskError (Form.Validation.Validation error combined kind constraints))
     -> ServerForms error (BackendTask backendTaskError (Form.Validation.Validation error combined kind constraints))
 combineServer mapFn a b =
@@ -1604,6 +1626,7 @@ type alias StyledHtmlForm error parsed data msg =
         , view : Context error data -> List (Html.Styled.Html (PagesMsg msg))
         }
         data
+        msg
 
 
 {-| -}
@@ -1626,8 +1649,9 @@ type FormInternal error parsed data view
 
 
 {-| -}
-type Form error combineAndView input
+type Form error combineAndView input userMsg
     = Form
+        (RenderOptions userMsg)
         (List ( String, FieldDefinition ))
         (Maybe input
          -> FormState

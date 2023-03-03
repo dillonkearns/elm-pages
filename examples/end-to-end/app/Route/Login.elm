@@ -82,7 +82,7 @@ type alias Data =
     }
 
 
-form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (PagesMsg Msg)))
+form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (PagesMsg Msg))) Msg
 form =
     Form.init
         (\username ->

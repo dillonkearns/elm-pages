@@ -210,7 +210,7 @@ validateCapitalized string =
         ( Nothing, [ "Needs to be capitalized" ] )
 
 
-form : Form.DoneForm String (BackendTask FatalError (Combined String User)) data (List (Html (PagesMsg Msg)))
+form : Form.DoneForm String (BackendTask FatalError (Combined String User)) data (List (Html (PagesMsg Msg))) Msg
 form =
     Form.init
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->

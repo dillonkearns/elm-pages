@@ -151,12 +151,12 @@ view app shared model =
             "Edit Post"
     , body =
         [ Html.h2 [] [ Html.text "Form" ]
-        , Form.renderHtml
-            []
-            (\renderStyledHtmlUnpack -> Just renderStyledHtmlUnpack.errors)
-            app
-            app.data.post
-            (Form.toDynamicTransition "form" form)
+        , form
+            |> Form.toDynamicTransition "form"
+            |> Form.renderHtml [] (Just << .errors) app app.data.post
+
+        --, form
+        --    |> formRenderHtml "form" [] (Just << .errors) app app.data.post
         , if app.routeParams.slug == "new" then
             Html.text ""
 
@@ -166,6 +166,10 @@ view app shared model =
                 |> Form.renderHtml [] (\_ -> Nothing) app ()
         ]
     }
+
+
+formRenderHtml =
+    Debug.todo ""
 
 
 action :
