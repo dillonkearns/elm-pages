@@ -1069,50 +1069,6 @@ toDynamicTransition :
             data
             userMsg
 toDynamicTransition name (Form renderOptions a b c) =
-    --let
-    --    transformB :
-    --        (Maybe data
-    --         -> FormState
-    --         ->
-    --            { result : Dict String (List error)
-    --            , isMatchCandidate : Bool
-    --            , combineAndView :
-    --                { combine : Form.Validation.Validation error parsed field constraints
-    --                , view : Context error data -> view
-    --                }
-    --            }
-    --        )
-    --        ->
-    --            (Maybe data
-    --             -> FormState
-    --             ->
-    --                { result :
-    --                    ( Form.Validation.Validation error parsed field constraints
-    --                    , Dict String (List error)
-    --                    )
-    --                , isMatchCandidate : Bool
-    --                , view : Context error data -> view
-    --                }
-    --            )
-    --    transformB rawB =
-    --        \maybeData formState ->
-    --            let
-    --                foo :
-    --                    { result : Dict String (List error)
-    --                    , isMatchCandidate : Bool
-    --                    , combineAndView :
-    --                        { combine : Form.Validation.Validation error parsed field constraints
-    --                        , view : Context error data -> view
-    --                        }
-    --                    }
-    --                foo =
-    --                    rawB maybeData formState
-    --            in
-    --            { result = ( foo.combineAndView.combine, foo.result )
-    --            , view = foo.combineAndView.view
-    --            , isMatchCandidate = foo.isMatchCandidate
-    --            }
-    --in
     Form { renderOptions | name = Just name } a b c
 
 
