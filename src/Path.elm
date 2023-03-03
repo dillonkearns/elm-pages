@@ -40,20 +40,25 @@ import Pages.Internal.String exposing (chopEnd, chopStart)
 
 {-| The path portion of the URL, normalized to ensure that path segments are joined with `/`s in the right places (no doubled up or missing slashes).
 -}
-type Path
-    = Path String
+type alias Path =
+    List String
 
 
-{-| Create a Path from multiple path parts. Each part can either be a single path segment, like `blog`, or a
-multi-part path part, like `blog/post-1`.
+{-| Turn a Path to a relative URL.
 -}
-join : List String -> Path
+join : Path -> Path
 join parts =
     parts
         |> List.filter (\segment -> segment /= "/")
         |> List.map normalize
+
+
+{-| Turn a Path to a relative URL.
+-}
+toRelative : Path -> String
+toRelative parts =
+    join parts
         |> String.join "/"
-        |> Path
 
 
 {-| Create a Path from a path String.
@@ -66,28 +71,20 @@ join parts =
 fromString : String -> Path
 fromString path =
     path
-        |> normalize
-        |> Path
+        |> toSegments
 
 
 {-| -}
-toSegments : Path -> List String
-toSegments (Path path) =
+toSegments : String -> List String
+toSegments path =
     path |> String.split "/" |> List.filter ((/=) "")
 
 
 {-| Turn a Path to an absolute URL (with no trailing slash).
 -}
 toAbsolute : Path -> String
-toAbsolute (Path path) =
-    "/" ++ path
-
-
-{-| Turn a Path to a relative URL.
--}
-toRelative : Path -> String
-toRelative (Path path) =
-    path
+toAbsolute path =
+    "/" ++ toRelative path
 
 
 normalize : String -> String

@@ -148,7 +148,7 @@ linkInner currentPagePath linkTo name =
     let
         isCurrentPath : Bool
         isCurrentPath =
-            List.head (Path.toSegments currentPagePath) == Just linkTo
+            List.head currentPagePath == Just linkTo
     in
     span
         [ css

@@ -452,7 +452,7 @@ view shared model app =
         optimisticVisibility =
             case app.transition of
                 Just (Pages.Transition.Loading path _) ->
-                    case path |> Path.toSegments of
+                    case path of
                         [ "active" ] ->
                             Active
 
