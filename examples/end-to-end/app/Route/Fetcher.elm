@@ -236,8 +236,8 @@ view app sharedModel model =
         [ Html.p []
             [ Html.text <| String.fromInt model.itemIndex ]
         , form
-            |> Form.toDynamicFetcher ("add-item-" ++ String.fromInt model.itemIndex)
             |> Form.withOnSubmit (\_ -> AddItemSubmitted)
+            |> Form.toDynamicFetcher ("add-item-" ++ String.fromInt model.itemIndex)
             |> Form.renderStyledHtml [] (\_ -> Nothing) app ()
         , Html.div []
             [ deleteForm

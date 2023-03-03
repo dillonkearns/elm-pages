@@ -154,9 +154,6 @@ view app shared model =
         , form
             |> Form.toDynamicTransition "form"
             |> Form.renderHtml [] (Just << .errors) app app.data.post
-
-        --, form
-        --    |> formRenderHtml "form" [] (Just << .errors) app app.data.post
         , if app.routeParams.slug == "new" then
             Html.text ""
 
@@ -166,10 +163,6 @@ view app shared model =
                 |> Form.renderHtml [] (\_ -> Nothing) app ()
         ]
     }
-
-
-formRenderHtml =
-    Debug.todo ""
 
 
 action :

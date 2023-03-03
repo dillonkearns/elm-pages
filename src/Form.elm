@@ -5,7 +5,7 @@ module Form exposing
     , field, hiddenField, hiddenKind
     , Context
     , renderHtml, renderStyledHtml
-    , FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
+    , withGetMethod, toDynamicTransition, toDynamicFetcher
     , Errors, errorsForField
     , parse, runServerSide, runOneOfServerSide
     , ServerForms(..)
@@ -234,7 +234,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
 @docs renderHtml, renderStyledHtml
 
-@docs FinalForm, withGetMethod, toDynamicTransition, toDynamicFetcher
+@docs withGetMethod, toDynamicTransition, toDynamicFetcher
 
 
 ## Showing Errors
@@ -1001,38 +1001,29 @@ renderHtml :
     List (Html.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> AppContext app actionData
-    -> data
+    -> input
     ->
-        FinalForm
+        Form
             error
-            (Form.Validation.Validation error parsed named constraints)
-            data
-            (Context error data
-             -> List (Html (PagesMsg msg))
-            )
+            { combine : Form.Validation.Validation error parsed named constraints
+            , view : Context error input -> List (Html (PagesMsg msg))
+            }
+            input
             msg
     -> Html (PagesMsg msg)
-renderHtml attrs accessResponse app data (FinalForm options a b c) =
-    Html.Lazy.lazy6 renderHelper attrs accessResponse options app data (FormInternal a b c)
+renderHtml attrs accessResponse app data form =
+    Html.Lazy.lazy5 renderHelper attrs accessResponse app data form
 
 
-{-| -}
-type FinalForm error parsed input view userMsg
-    = FinalForm
-        (RenderOptions userMsg)
-        (List ( String, FieldDefinition ))
-        (Maybe input
-         -> FormState
-         ->
-            { result :
-                ( parsed
-                , Dict String (List error)
-                )
-            , isMatchCandidate : Bool
-            , view : view
-            }
-        )
-        (input -> List ( String, Maybe String ))
+
+{-
+   { combine : Form.Validation.Validation error parsed field constraints
+   , view : Context error data -> view
+   }
+   ->
+   (Form.Validation.Validation error parsed field constraints)
+       (Context error data -> view)
+-}
 
 
 {-| -}
@@ -1047,59 +1038,15 @@ toDynamicFetcher :
             data
             userMsg
     ->
-        FinalForm
+        Form
             error
-            (Form.Validation.Validation error parsed field constraints)
+            { combine : Form.Validation.Validation error parsed field constraints
+            , view : Context error data -> view
+            }
             data
-            (Context error data -> view)
             userMsg
 toDynamicFetcher name (Form renderOptions a b c) =
-    let
-        transformB :
-            (Maybe data
-             -> FormState
-             ->
-                { result : Dict String (List error)
-                , isMatchCandidate : Bool
-                , combineAndView :
-                    { combine : Validation error parsed field constraints
-                    , view : Context error data -> view
-                    }
-                }
-            )
-            ->
-                (Maybe data
-                 -> FormState
-                 ->
-                    { result :
-                        ( Validation error parsed field constraints
-                        , Dict String (List error)
-                        )
-                    , isMatchCandidate : Bool
-                    , view : Context error data -> view
-                    }
-                )
-        transformB rawB =
-            \maybeData formState ->
-                let
-                    foo :
-                        { result : Dict String (List error)
-                        , isMatchCandidate : Bool
-                        , combineAndView :
-                            { combine : Validation error parsed field constraints
-                            , view : Context error data -> view
-                            }
-                        }
-                    foo =
-                        rawB maybeData formState
-                in
-                { result = ( foo.combineAndView.combine, foo.result )
-                , view = foo.combineAndView.view
-                , isMatchCandidate = foo.isMatchCandidate
-                }
-    in
-    -- TODO define `name` in Form pipeline before this? Make it non-Maybe?
-    FinalForm { renderOptions | name = Just name, submitStrategy = FetcherStrategy } a (transformB b) c
+    Form { renderOptions | name = Just name, submitStrategy = FetcherStrategy } a b c
 
 
 {-| -}
@@ -1114,70 +1061,79 @@ toDynamicTransition :
             data
             userMsg
     ->
-        FinalForm
+        Form
             error
-            (Form.Validation.Validation error parsed field constraints)
+            { combine : Form.Validation.Validation error parsed field constraints
+            , view : Context error data -> view
+            }
             data
-            (Context error data -> view)
             userMsg
 toDynamicTransition name (Form renderOptions a b c) =
-    let
-        transformB :
-            (Maybe data
-             -> FormState
-             ->
-                { result : Dict String (List error)
-                , isMatchCandidate : Bool
-                , combineAndView :
-                    { combine : Form.Validation.Validation error parsed field constraints
-                    , view : Context error data -> view
-                    }
-                }
-            )
-            ->
-                (Maybe data
-                 -> FormState
-                 ->
-                    { result :
-                        ( Form.Validation.Validation error parsed field constraints
-                        , Dict String (List error)
-                        )
-                    , isMatchCandidate : Bool
-                    , view : Context error data -> view
-                    }
-                )
-        transformB rawB =
-            \maybeData formState ->
-                let
-                    foo :
-                        { result : Dict String (List error)
-                        , isMatchCandidate : Bool
-                        , combineAndView :
-                            { combine : Form.Validation.Validation error parsed field constraints
-                            , view : Context error data -> view
-                            }
-                        }
-                    foo =
-                        rawB maybeData formState
-                in
-                { result = ( foo.combineAndView.combine, foo.result )
-                , view = foo.combineAndView.view
-                , isMatchCandidate = foo.isMatchCandidate
-                }
-    in
-    FinalForm { renderOptions | name = Just name } a (transformB b) c
+    --let
+    --    transformB :
+    --        (Maybe data
+    --         -> FormState
+    --         ->
+    --            { result : Dict String (List error)
+    --            , isMatchCandidate : Bool
+    --            , combineAndView :
+    --                { combine : Form.Validation.Validation error parsed field constraints
+    --                , view : Context error data -> view
+    --                }
+    --            }
+    --        )
+    --        ->
+    --            (Maybe data
+    --             -> FormState
+    --             ->
+    --                { result :
+    --                    ( Form.Validation.Validation error parsed field constraints
+    --                    , Dict String (List error)
+    --                    )
+    --                , isMatchCandidate : Bool
+    --                , view : Context error data -> view
+    --                }
+    --            )
+    --    transformB rawB =
+    --        \maybeData formState ->
+    --            let
+    --                foo :
+    --                    { result : Dict String (List error)
+    --                    , isMatchCandidate : Bool
+    --                    , combineAndView :
+    --                        { combine : Form.Validation.Validation error parsed field constraints
+    --                        , view : Context error data -> view
+    --                        }
+    --                    }
+    --                foo =
+    --                    rawB maybeData formState
+    --            in
+    --            { result = ( foo.combineAndView.combine, foo.result )
+    --            , view = foo.combineAndView.view
+    --            , isMatchCandidate = foo.isMatchCandidate
+    --            }
+    --in
+    Form { renderOptions | name = Just name } a b c
 
 
 {-| -}
-withGetMethod : FinalForm error parsed data view userMsg -> FinalForm error parsed data view userMsg
-withGetMethod (FinalForm options a b c) =
-    FinalForm { options | method = Get } a b c
+withGetMethod : Form error combineAndView input userMsg -> Form error combineAndView input userMsg
+withGetMethod (Form options a b c) =
+    Form { options | method = Get } a b c
 
 
 {-| -}
-withOnSubmit : ({ fields : List ( String, String ) } -> userMsg) -> FinalForm error parsed data view userMsg -> FinalForm error parsed data view userMsg
-withOnSubmit onSubmit (FinalForm options a b c) =
-    FinalForm { options | onSubmit = Just onSubmit } a b c
+withOnSubmit : ({ fields : List ( String, String ) } -> userMsg) -> Form error combineAndView input oldMsg -> Form error combineAndView input userMsg
+withOnSubmit onSubmit (Form options a b c) =
+    Form
+        { onSubmit = Just onSubmit
+        , submitStrategy = options.submitStrategy
+        , name = options.name
+        , method = options.method
+        }
+        a
+        b
+        c
 
 
 {-| -}
@@ -1185,19 +1141,18 @@ renderStyledHtml :
     List (Html.Styled.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> AppContext app actionData
-    -> data
+    -> input
     ->
-        FinalForm
+        Form
             error
-            (Form.Validation.Validation error parsed named constraints)
-            data
-            (Context error data
-             -> List (Html.Styled.Html (PagesMsg msg))
-            )
+            { combine : Form.Validation.Validation error parsed field constraints
+            , view : Context error input -> List (Html.Styled.Html (PagesMsg msg))
+            }
+            input
             msg
     -> Html.Styled.Html (PagesMsg msg)
-renderStyledHtml attrs accessResponse app data (FinalForm options a b c) =
-    Html.Styled.Lazy.lazy6 renderStyledHelper attrs accessResponse options app data (FormInternal a b c)
+renderStyledHtml attrs accessResponse app data form =
+    Html.Styled.Lazy.lazy5 renderStyledHelper attrs accessResponse app data form
 
 
 {-| -}
@@ -1208,17 +1163,23 @@ type alias Response error =
 renderHelper :
     List (Html.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
-    -> RenderOptions msg
     -> AppContext app actionData
     -> data
-    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List (Html (PagesMsg msg)))
+    ->
+        Form
+            error
+            { combine : Form.Validation.Validation error parsed named constraints
+            , view : Context error data -> List (Html (PagesMsg msg))
+            }
+            data
+            msg
     -> Html (PagesMsg msg)
-renderHelper attrs accessResponse options formState data form =
+renderHelper attrs accessResponse formState data ((Form options _ _ _) as form) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
         { formId, hiddenInputs, children, isValid } =
-            helperValues toHiddenInput accessResponse options formState data form
+            helperValues toHiddenInput accessResponse formState data form
 
         toHiddenInput : List (Html.Attribute (PagesMsg msg)) -> Html (PagesMsg msg)
         toHiddenInput hiddenAttrs =
@@ -1246,17 +1207,23 @@ renderHelper attrs accessResponse options formState data form =
 renderStyledHelper :
     List (Html.Styled.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
-    -> RenderOptions msg
     -> AppContext app actionData
     -> data
-    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List (Html.Styled.Html (PagesMsg msg)))
+    ->
+        Form
+            error
+            { combine : Form.Validation.Validation error parsed field constraints
+            , view : Context error data -> List (Html.Styled.Html (PagesMsg msg))
+            }
+            data
+            msg
     -> Html.Styled.Html (PagesMsg msg)
-renderStyledHelper attrs accessResponse options formState data form =
+renderStyledHelper attrs accessResponse formState data ((Form options _ _ _) as form) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
         { formId, hiddenInputs, children, isValid } =
-            helperValues toHiddenInput accessResponse options formState data form
+            helperValues toHiddenInput accessResponse formState data form
 
         toHiddenInput : List (Html.Attribute (PagesMsg msg)) -> Html.Styled.Html (PagesMsg msg)
         toHiddenInput hiddenAttrs =
@@ -1284,13 +1251,18 @@ renderStyledHelper attrs accessResponse options formState data form =
 helperValues :
     (List (Html.Attribute (PagesMsg msg)) -> view)
     -> (actionData -> Maybe (Response error))
-    -> RenderOptions msg
     -> AppContext app actionData
     -> data
-    ---> Form error parsed data view
-    -> FormInternal error (Form.Validation.Validation error parsed named constraints) data (Context error data -> List view)
+    ->
+        Form
+            error
+            { combine : Form.Validation.Validation error parsed field constraints
+            , view : Context error data -> List view
+            }
+            data
+            msg
     -> { formId : String, hiddenInputs : List view, children : List view, isValid : Bool }
-helperValues toHiddenInput accessResponse options formState data (FormInternal fieldDefinitions parser toInitialValues) =
+helperValues toHiddenInput accessResponse formState data (Form options fieldDefinitions parser toInitialValues) =
     let
         formId : String
         formId =
@@ -1335,11 +1307,22 @@ helperValues toHiddenInput accessResponse options formState data (FormInternal f
                 |> Dict.union part2
 
         parsed :
-            { result : ( Form.Validation.Validation error parsed named constraints, Dict String (List error) )
+            { result : ( Form.Validation.Validation error parsed field constraints, Dict String (List error) )
             , isMatchCandidate : Bool
             , view : Context error data -> List view
             }
         parsed =
+            { isMatchCandidate = parsed1.isMatchCandidate
+            , view = parsed1.combineAndView.view
+            , result = ( parsed1.combineAndView.combine, parsed1.result )
+            }
+
+        parsed1 :
+            { result : Dict String (List error)
+            , isMatchCandidate : Bool
+            , combineAndView : { combine : Form.Validation.Validation error parsed field constraints, view : Context error data -> List view }
+            }
+        parsed1 =
             parser (Just data) thisFormState
 
         withoutServerErrors : Form.Validation.Validation error parsed named constraints
@@ -1627,25 +1610,6 @@ type alias StyledHtmlForm error parsed data msg =
         }
         data
         msg
-
-
-{-| -}
-type FormInternal error parsed data view
-    = FormInternal
-        -- TODO for renderCustom, pass them as an argument with all hidden fields that the user must render
-        (List ( String, FieldDefinition ))
-        (Maybe data
-         -> FormState
-         ->
-            { result :
-                ( parsed
-                , Dict String (List error)
-                )
-            , isMatchCandidate : Bool
-            , view : view
-            }
-        )
-        (data -> List ( String, Maybe String ))
 
 
 {-| -}
