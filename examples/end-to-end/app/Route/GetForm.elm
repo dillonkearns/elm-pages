@@ -116,10 +116,10 @@ head static =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view shared app =
+view app shared =
     { title = "GET Form Example"
     , body =
         [ form

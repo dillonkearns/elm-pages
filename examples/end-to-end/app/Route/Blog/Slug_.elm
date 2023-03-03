@@ -73,8 +73,8 @@ head static =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view sharedModel static =
+view static sharedModel =
     View.placeholder "Blog.Slug_"

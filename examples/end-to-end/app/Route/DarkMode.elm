@@ -50,20 +50,20 @@ route =
 
 
 init :
-    sharedModel
-    -> RouteBuilder.App Data ActionData RouteParams
-    -> ( {}, Effect.Effect Msg )
-init sharedModel app =
+    RouteBuilder.App Data ActionData RouteParams
+    -> Shared.Model
+    -> ( Model, Effect.Effect Msg )
+init app shared =
     ( {}, Effect.none )
 
 
 update :
-    sharedModel
-    -> RouteBuilder.App Data ActionData RouteParams
+    RouteBuilder.App Data ActionData RouteParams
+    -> Shared.Model
     -> Msg
     -> Model
     -> ( Model, Effect.Effect Msg )
-update sharedModel app msg model =
+update app shared msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -195,11 +195,11 @@ form =
 
 
 view :
-    Shared.Model
+    RouteBuilder.App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> RouteBuilder.App Data ActionData RouteParams
     -> View.View (PagesMsg Msg)
-view shared model app =
+view app shared model =
     { title = "DarkMode"
     , body =
         [ Html.div

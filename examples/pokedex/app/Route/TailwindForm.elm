@@ -675,11 +675,11 @@ wrapSection children =
 
 
 view :
-    Shared.Model
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view sharedModel model app =
+view app model sharedModel =
     let
         user : User
         user =

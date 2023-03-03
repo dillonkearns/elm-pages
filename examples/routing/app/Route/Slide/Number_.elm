@@ -125,11 +125,11 @@ type alias Data =
 
 
 view :
-    Shared.Model
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view shared model app =
+view app shared model =
     { title = "TODO title"
     , body =
         [ Html.div

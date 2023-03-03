@@ -199,10 +199,10 @@ type alias ActionData =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view sharedModel app =
+view app sharedModel =
     { title = app.data.titles.title ++ " - elm-pages docs"
     , body =
         [ Css.Global.global

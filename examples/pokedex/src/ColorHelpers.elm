@@ -52,10 +52,10 @@ type alias Data =
 
 view :
     (routeParams -> String)
-    -> Shared.Model
     -> App Data {} routeParams
+    -> Shared.Model
     -> View msg
-view toCssVal shared app =
+view toCssVal app shared =
     let
         cssVal : String
         cssVal =

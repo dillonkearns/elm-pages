@@ -49,10 +49,10 @@ route =
 
 
 init :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> ( Model, Effect Msg )
-init shared app =
+init app shared =
     ( {}
     , Fetcher.Signup.submit GotResponse
         { headers = []
@@ -66,12 +66,12 @@ init shared app =
 
 
 update :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update shared app msg model =
+update app shared msg model =
     case msg of
         NoOp ->
             ( model
@@ -127,11 +127,11 @@ head app =
 
 
 view :
-    Shared.Model
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view shared model app =
+view app shared model =
     { title = "Hello!"
     , body = [ Html.text "Hello" ]
     }

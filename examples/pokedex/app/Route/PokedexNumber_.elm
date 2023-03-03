@@ -129,10 +129,10 @@ type alias ActionData =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view shared app =
+view app shared =
     { title = app.data.pokemon.name
     , body =
         [ h1

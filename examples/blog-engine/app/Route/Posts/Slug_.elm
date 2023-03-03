@@ -53,20 +53,20 @@ route =
 
 
 init :
-    Shared.Model
-    -> RouteBuilder.App Data ActionData RouteParams
+    RouteBuilder.App Data ActionData RouteParams
+    -> Shared.Model
     -> ( Model, Effect.Effect Msg )
-init shared app =
+init app shared =
     ( {}, Effect.none )
 
 
 update :
-    Shared.Model
-    -> RouteBuilder.App Data ActionData RouteParams
+    RouteBuilder.App Data ActionData RouteParams
+    -> Shared.Model
     -> Msg
     -> Model
     -> ( Model, Effect.Effect msg )
-update shared app msg model =
+update app shared msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -134,11 +134,11 @@ head app =
 
 
 view :
-    Shared.Model
+    RouteBuilder.App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> RouteBuilder.App Data ActionData RouteParams
     -> View.View (PagesMsg Msg)
-view shared model app =
+view app shared model =
     { title = "Posts.Slug_"
     , body =
         [ Html.text "Here is your generated page!!!"

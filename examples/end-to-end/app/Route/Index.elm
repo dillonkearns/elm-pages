@@ -91,10 +91,10 @@ head static =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view shared app =
+view app shared =
     { title = "Index page"
     , body =
         [ text "This is the index page."

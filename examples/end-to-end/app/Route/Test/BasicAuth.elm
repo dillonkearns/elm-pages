@@ -67,10 +67,10 @@ head app =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view sharedModel app =
+view app shared =
     { title = "Basic Auth Test"
     , body =
         [ text "Basic Auth Test"

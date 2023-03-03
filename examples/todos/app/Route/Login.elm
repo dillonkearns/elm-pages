@@ -378,10 +378,10 @@ type alias ActionData =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view shared app =
+view app shared =
     { title = "Login"
     , body =
         [ if app.action |> Maybe.map .sentLink |> Maybe.withDefault False then

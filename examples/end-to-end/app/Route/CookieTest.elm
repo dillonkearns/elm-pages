@@ -65,10 +65,10 @@ head static =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view sharedModel static =
+view static sharedModel =
     { title = "Cookie test"
     , body =
         [ case static.data.darkMode of

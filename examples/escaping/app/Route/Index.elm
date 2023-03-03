@@ -6,10 +6,10 @@ import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (text)
 import Html.Styled.Attributes as Attr
-import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Shared
 import View exposing (View)
 
@@ -69,11 +69,10 @@ head static =
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel static =
+view app sharedModel =
     { title = "Index page"
     , body =
         [ text "This is the index page."

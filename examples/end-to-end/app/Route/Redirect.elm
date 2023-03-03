@@ -51,10 +51,10 @@ route =
 
 
 init :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> ( Model, Effect Msg )
-init shared app =
+init app shared =
     ( {}
     , Effect.FetchRouteData
         { data =
@@ -70,12 +70,12 @@ init shared app =
 
 
 update :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update shared app msg model =
+update app shared msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -120,9 +120,9 @@ head app =
 
 
 view :
-    Shared.Model
-    -> templateModel
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
+    -> Model
     -> View (PagesMsg Msg)
-view shared model app =
+view app shared model =
     View.placeholder "Redirect"

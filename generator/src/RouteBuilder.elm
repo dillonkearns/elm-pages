@@ -173,8 +173,8 @@ type Builder routeParams data action
 {-| -}
 buildNoState :
     { view :
-        Shared.Model
-        -> App data action routeParams
+        App data action routeParams
+        -> Shared.Model
         -> View (PagesMsg ())
     }
     -> Builder routeParams data action
@@ -182,7 +182,7 @@ buildNoState :
 buildNoState { view } builderState =
     case builderState of
         WithData record ->
-            { view = \shared model app -> view shared app
+            { view = \shared model app -> view app shared
             , head = record.head
             , data = record.data
             , action = record.action
@@ -207,12 +207,12 @@ withOnAction toMsg config =
 {-| -}
 buildWithLocalState :
     { view :
-        Shared.Model
+        App data action routeParams
+        -> Shared.Model
         -> model
-        -> App data action routeParams
         -> View (PagesMsg msg)
-    , init : Shared.Model -> App data action routeParams -> ( model, Effect msg )
-    , update : Shared.Model -> App data action routeParams -> msg -> model -> ( model, Effect msg )
+    , init : App data action routeParams -> Shared.Model -> ( model, Effect msg )
+    , update : App data action routeParams -> Shared.Model -> msg -> model -> ( model, Effect msg )
     , subscriptions : routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data action
@@ -222,17 +222,17 @@ buildWithLocalState config builderState =
         WithData record ->
             { view =
                 \model sharedModel app ->
-                    config.view model sharedModel app
+                    config.view app model sharedModel
             , head = record.head
             , data = record.data
             , action = record.action
             , staticRoutes = record.staticRoutes
-            , init = config.init
+            , init = \shared app -> config.init app shared
             , update =
                 \app msg model sharedModel ->
                     let
                         ( updatedModel, cmd ) =
-                            config.update sharedModel app msg model
+                            config.update app sharedModel msg model
                     in
                     ( updatedModel, cmd, Nothing )
             , subscriptions =
@@ -247,12 +247,12 @@ buildWithLocalState config builderState =
 {-| -}
 buildWithSharedState :
     { view :
-        Shared.Model
+        App data action routeParams
+        -> Shared.Model
         -> model
-        -> App data action routeParams
         -> View (PagesMsg msg)
-    , init : Shared.Model -> App data action routeParams -> ( model, Effect msg )
-    , update : Shared.Model -> App data action routeParams -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
+    , init : App data action routeParams -> Shared.Model -> ( model, Effect msg )
+    , update : App data action routeParams -> Shared.Model -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : routeParams -> Path -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data action
@@ -260,17 +260,17 @@ buildWithSharedState :
 buildWithSharedState config builderState =
     case builderState of
         WithData record ->
-            { view = config.view
+            { view = \shared model app -> config.view app shared model
             , head = record.head
             , data = record.data
             , action = record.action
             , staticRoutes = record.staticRoutes
-            , init = config.init
+            , init = \shared app -> config.init app shared
             , update =
                 \app msg model sharedModel ->
                     config.update
-                        sharedModel
                         app
+                        sharedModel
                         msg
                         model
             , subscriptions =

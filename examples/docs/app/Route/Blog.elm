@@ -56,10 +56,10 @@ type alias Model =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData {}
+    App Data ActionData {}
+    -> Shared.Model
     -> View msg
-view shared app =
+view app shared =
     { title = "elm-pages blog"
     , body =
         [ div

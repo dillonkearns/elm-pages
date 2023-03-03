@@ -20,10 +20,8 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import LoadingSpinner
 import MySession
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition exposing (FetcherSubmitStatus(..))
 import PagesMsg exposing (PagesMsg)
-import Path
 import Route
 import RouteBuilder exposing (App, StatefulRoute)
 import Server.Request as Request
@@ -99,8 +97,8 @@ toOptimisticTodo todo =
     }
 
 
-init : Shared.Model -> App Data ActionData RouteParams -> ( Model, Effect Msg )
-init shared app =
+init : App Data ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
+init app shared =
     ( { nextId = app.data.requestTime }
     , Effect.none
     )
@@ -136,12 +134,12 @@ type Action
 
 
 update :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update shared app msg model =
+update app shared msg model =
     case msg of
         NewItemSubmitted ->
             ( model
@@ -323,11 +321,11 @@ visibilityFromRouteParams { visibility } =
 
 
 view :
-    Shared.Model
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view shared model app =
+view app shared model =
     let
         pendingFetchers : List Action
         pendingFetchers =

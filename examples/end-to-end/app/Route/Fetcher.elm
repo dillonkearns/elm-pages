@@ -53,10 +53,10 @@ route =
 
 
 init :
-    sharedModel
-    -> RouteBuilder.App Data ActionData RouteParams
+    RouteBuilder.App Data ActionData RouteParams
+    -> Shared.Model
     -> ( Model, Effect.Effect Msg )
-init sharedModel app =
+init app shared =
     ( { itemIndex = 0
       }
     , Effect.none
@@ -64,12 +64,12 @@ init sharedModel app =
 
 
 update :
-    Shared.Model
-    -> RouteBuilder.App Data ActionData RouteParams
+    RouteBuilder.App Data ActionData RouteParams
+    -> Shared.Model
     -> Msg
     -> Model
     -> ( Model, Effect.Effect Msg )
-update shared app msg model =
+update app shared msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -191,11 +191,11 @@ deleteForm =
 
 
 view :
-    sharedModel
+    RouteBuilder.App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> RouteBuilder.App Data ActionData RouteParams
     -> View.View (PagesMsg Msg)
-view sharedModel model app =
+view app sharedModel model =
     let
         inFlight : List Action
         inFlight =

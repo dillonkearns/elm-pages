@@ -71,10 +71,10 @@ head app =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view sharedModel app =
+view app shared =
     { title = ""
     , body =
         [ Html.label [ Attr.for "note" ] []

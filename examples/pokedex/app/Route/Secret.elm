@@ -102,10 +102,10 @@ head app =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view shared app =
+view app shared =
     case app.data of
         LoggedIn loggedInInfo ->
             { title = "Secret"

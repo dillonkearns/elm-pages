@@ -53,10 +53,10 @@ type alias ActionData =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData {}
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view sharedModel static =
+view static sharedModel =
     { title = "elm-pages blog"
     , body =
         [ div

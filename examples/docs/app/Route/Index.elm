@@ -73,10 +73,10 @@ head app =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view shared app =
+view app shared =
     { title = "elm-pages - a statically typed site generator"
     , body =
         [ landingView |> Html.map PagesMsg.fromMsg

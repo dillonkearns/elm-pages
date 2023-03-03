@@ -78,10 +78,10 @@ type alias Data =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view shared app =
+view app shared =
     { body =
         [ text (app.routeParams.name |> Maybe.withDefault "NOTHING")
         ]

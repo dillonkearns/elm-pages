@@ -46,20 +46,20 @@ route =
 
 
 init :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> ( Model, Effect Msg )
-init sharedModel static =
+init static sharedModel =
     ( {}, Effect.none )
 
 
 update :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update sharedModel static msg model =
+update static sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -120,11 +120,11 @@ head static =
 
 
 view :
-    Shared.Model
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view sharedModel model static =
+view static sharedModel model =
     { title = "Placeholder"
     , body =
         [ Html.form

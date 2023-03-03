@@ -49,20 +49,20 @@ route =
 
 
 init :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> ( Model, Effect Msg )
-init sharedModel app =
+init app sharedModel =
     ( { count = Nothing }, Effect.GetStargazers GotStargazers )
 
 
 update :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update shared app msg model =
+update app shared msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -109,11 +109,11 @@ head app =
 
 
 view :
-    Shared.Model
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view sharedModel model app =
+view app sharedModel model =
     { title = "Counter"
     , body =
         [ case model.count of

@@ -53,20 +53,20 @@ route =
 
 
 init :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> ( Model, Effect Msg )
-init shared app =
+init app shared =
     ( {}, Effect.none )
 
 
 update :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update shared app msg model =
+update app shared msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
@@ -145,18 +145,18 @@ head static =
 
 
 view :
-    Shared.Model
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view shared model static =
+view app shared model =
     { title = "Hello!"
     , body =
-        [ static.data.flashMessage
+        [ app.data.flashMessage
             |> Maybe.map (\message -> flashView (Ok message))
             |> Maybe.withDefault (Html.p [] [ Html.text "No flash" ])
-        , Html.text <| "Hello " ++ static.data.username ++ "!"
-        , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis static.data.requestTime)
+        , Html.text <| "Hello " ++ app.data.username ++ "!"
+        , Html.text <| "Requested page at " ++ String.fromInt (Time.posixToMillis app.data.requestTime)
         , Html.div []
             [ Html.form
                 -- TODO use client-side form submission
