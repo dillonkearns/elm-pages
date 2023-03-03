@@ -1,9 +1,7 @@
 module QueryParams exposing
     ( QueryParams
-    , Parser
-    , andThen, fail, fromResult, fromString, optionalString, parse, string, strings, succeed
-    , map2, oneOf
-    , toDict, toString
+    , fromString
+    , toString
     )
 
 {-| Represents the query portion of a URL. You can use `toDict` or `toString` to turn it into basic types, or you can
@@ -35,144 +33,29 @@ import Url
 
 
 {-| -}
-type QueryParams
-    = QueryParams String
-
-
-{-| -}
-type Parser a
-    = Parser (Dict String (List String) -> Result String a)
-
-
-{-| -}
-succeed : a -> Parser a
-succeed value =
-    Parser (\_ -> Ok value)
-
-
-{-| -}
-fail : String -> Parser a
-fail errorMessage =
-    Parser (\_ -> Err errorMessage)
-
-
-{-| -}
-fromResult : Result String a -> Parser a
-fromResult result =
-    Parser (\_ -> result)
-
-
-{-| -}
-andThen : (a -> Parser b) -> Parser a -> Parser b
-andThen andThenFn (Parser parser) =
-    Parser
-        (\dict ->
-            case Result.map andThenFn (parser dict) of
-                Ok (Parser result) ->
-                    result dict
-
-                Err error ->
-                    Err error
-        )
-
-
-{-| -}
-oneOf : List (Parser a) -> Parser a
-oneOf parsers =
-    Parser
-        (tryParser parsers)
-
-
-{-| -}
-tryParser : List (Parser a) -> Dict String (List String) -> Result String a
-tryParser parsers dict =
-    case parsers of
-        [] ->
-            Err ""
-
-        (Parser nextParser) :: otherParsers ->
-            case nextParser dict of
-                Ok okValue ->
-                    Ok okValue
-
-                Err _ ->
-                    tryParser otherParsers dict
-
-
-{-| -}
-map2 : (a -> b -> combined) -> Parser a -> Parser b -> Parser combined
-map2 func (Parser a) (Parser b) =
-    Parser <|
-        \dict ->
-            Result.map2 func (a dict) (b dict)
-
-
-{-| -}
-optionalString : String -> Parser (Maybe String)
-optionalString key =
-    custom key
-        (\stringList ->
-            case stringList of
-                str :: _ ->
-                    Ok (Just str)
-
-                _ ->
-                    Ok Nothing
-        )
-
-
-{-| -}
-string : String -> Parser String
-string key =
-    custom key
-        (\stringList ->
-            case stringList of
-                [ str ] ->
-                    Ok str
-
-                _ ->
-                    Err ("Missing key " ++ key)
-        )
-
-
-{-| -}
-custom : String -> (List String -> Result String a) -> Parser a
-custom key customFn =
-    Parser <|
-        \dict ->
-            customFn (Maybe.withDefault [] (Dict.get key dict))
-
-
-{-| -}
-strings : String -> Parser (List String)
-strings key =
-    custom key
-        (\stringList -> Ok stringList)
-
-
-{-| -}
-fromString : String -> QueryParams
-fromString =
-    QueryParams
+type alias QueryParams =
+    Dict String (List String)
 
 
 {-| -}
 toString : QueryParams -> String
-toString (QueryParams queryParams) =
+toString queryParams =
     queryParams
+        |> Dict.toList
+        |> List.concatMap
+            (\( key, values ) ->
+                values
+                    |> List.map
+                        (\value ->
+                            key ++ "=" ++ value
+                        )
+            )
+        |> String.join "&"
 
 
 {-| -}
-parse : Parser a -> QueryParams -> Result String a
-parse (Parser queryParser) queryParams =
-    queryParams
-        |> toDict
-        |> queryParser
-
-
-{-| -}
-toDict : QueryParams -> Dict String (List String)
-toDict (QueryParams queryParams) =
+fromString : String -> Dict String (List String)
+fromString queryParams =
     prepareQuery (Just queryParams)
 
 

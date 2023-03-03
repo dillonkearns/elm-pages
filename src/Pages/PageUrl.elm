@@ -10,6 +10,7 @@ to parsing query params individually, which is why the structure of these types 
 
 -}
 
+import Dict exposing (Dict)
 import Path exposing (Path)
 import QueryParams exposing (QueryParams)
 import Url
@@ -21,7 +22,7 @@ type alias PageUrl =
     , host : String
     , port_ : Maybe Int
     , path : Path
-    , query : Maybe QueryParams
+    , query : Dict String (List String)
     , fragment : Maybe String
     }
 
@@ -33,6 +34,11 @@ toUrl url =
     , host = url.host
     , port_ = url.port_
     , path = url.path |> Path.toRelative
-    , query = url.query |> Maybe.map QueryParams.toString
+    , query =
+        if url.query |> Dict.isEmpty then
+            Nothing
+
+        else
+            url.query |> QueryParams.toString |> Just
     , fragment = url.fragment
     }

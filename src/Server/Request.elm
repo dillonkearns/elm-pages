@@ -651,7 +651,6 @@ expectQueryParam name =
                             maybeParamValue =
                                 queryString
                                     |> QueryParams.fromString
-                                    |> QueryParams.toDict
                                     |> Dict.get name
                                     |> Maybe.andThen List.head
                         in
@@ -690,7 +689,6 @@ findFirstQueryParam : String -> String -> Maybe String
 findFirstQueryParam name queryString =
     queryString
         |> QueryParams.fromString
-        |> QueryParams.toDict
         |> Dict.get name
         |> Maybe.andThen List.head
 
@@ -705,7 +703,6 @@ queryParams =
                     |> Url.fromString
                     |> Maybe.andThen .query
                     |> Maybe.map QueryParams.fromString
-                    |> Maybe.map QueryParams.toDict
                     |> Maybe.withDefault Dict.empty
             )
 

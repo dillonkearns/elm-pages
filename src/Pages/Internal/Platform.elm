@@ -226,7 +226,7 @@ init config flags url key =
                                 , host = url.host
                                 , port_ = url.port_
                                 , path = pagePath
-                                , query = url.query |> Maybe.map QueryParams.fromString
+                                , query = url.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
                                 , fragment = url.fragment
                                 }
                         }
@@ -829,7 +829,7 @@ update config appMsg model =
                                                 , host = model.url.host
                                                 , port_ = model.url.port_
                                                 , path = pagePath
-                                                , query = model.url.query |> Maybe.map QueryParams.fromString
+                                                , query = model.url.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
                                                 , fragment = model.url.fragment
                                                 }
                                         }

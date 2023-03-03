@@ -1069,7 +1069,7 @@ otherFile routes phaseString =
                                                                         , ( "host", record |> Elm.get "host" )
                                                                         , ( "port_", record |> Elm.get "port_" )
                                                                         , ( "path", record |> Elm.get "path" )
-                                                                        , ( "query", record |> Elm.get "query" |> Gen.Maybe.map Gen.QueryParams.call_.fromString )
+                                                                        , ( "query", record |> Elm.get "query" |> Gen.Maybe.map Gen.QueryParams.call_.fromString |> Gen.Maybe.withDefault Gen.Dict.empty )
                                                                         , ( "fragment", record |> Elm.get "fragment" )
                                                                         ]
                                                                         |> Elm.just
