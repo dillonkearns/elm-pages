@@ -551,7 +551,18 @@ userFunction moduleName definitions =
                                 ( "shared"
                                 , Just (Elm.Annotation.named [ "Shared" ] "Model")
                                 )
-                                (definitions.view Elm.unit)
+                                (\app shared ->
+                                    definitions.view app shared Elm.unit
+                                        |> Elm.withType
+                                            (Elm.Annotation.namedWith [ "View" ]
+                                                "View"
+                                                [ Elm.Annotation.namedWith [ "PagesMsg" ]
+                                                    "PagesMsg"
+                                                    [ localType "Msg"
+                                                    ]
+                                                ]
+                                            )
+                                )
                     in
                     { declaration = viewDeclaration.declaration
                     , call = \app shared _ -> viewDeclaration.call app shared
@@ -769,7 +780,7 @@ userFunction moduleName definitions =
 
                         Nothing ->
                             buildNoState_
-                                { view = viewFn.call Elm.unit
+                                { view = \app shared -> viewFn.call app shared Elm.unit
                                 }
                                 >> Elm.withType
                                     (Elm.Annotation.namedWith [ "RouteBuilder" ]
@@ -1104,7 +1115,7 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                                         [ Elm.Annotation.namedWith
                                             [ "PagesMsg" ]
                                             "PagesMsg"
-                                            [ Elm.Annotation.var "msg" ]
+                                            [ Elm.Annotation.named [] "Msg" ]
                                         ]
                                     )
                               )
@@ -1304,7 +1315,7 @@ buildNoState_ buildNoStateArg buildNoStateArg0 =
                                         [ Elm.Annotation.namedWith
                                             [ "PagesMsg" ]
                                             "PagesMsg"
-                                            [ Elm.Annotation.unit ]
+                                            [ Elm.Annotation.named [] "Msg" ]
                                         ]
                                     )
                               )
