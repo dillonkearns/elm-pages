@@ -1015,17 +1015,6 @@ renderHtml attrs accessResponse app data form =
     Html.Lazy.lazy5 renderHelper attrs accessResponse app data form
 
 
-
-{-
-   { combine : Form.Validation.Validation error parsed field constraints
-   , view : Context error data -> view
-   }
-   ->
-   (Form.Validation.Validation error parsed field constraints)
-       (Context error data -> view)
--}
-
-
 {-| -}
 toDynamicFetcher :
     String
