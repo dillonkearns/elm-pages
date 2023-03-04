@@ -151,15 +151,13 @@ view app shared model =
     , body =
         [ Html.h2 [] [ Html.text "Form" ]
         , form
-            |> Form.toDynamicTransition "form"
-            |> Form.renderHtml [] (Just << .errors) app app.data.post
+            |> Form.renderHtml "form" [] (Just << .errors) app app.data.post
         , if app.routeParams.slug == "new" then
             Html.text ""
 
           else
             deleteForm
-                |> Form.toDynamicTransition "delete"
-                |> Form.renderHtml [] (\_ -> Nothing) app ()
+                |> Form.renderHtml "delete" [] (\_ -> Nothing) app ()
         ]
     }
 

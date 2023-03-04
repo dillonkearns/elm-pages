@@ -16,7 +16,6 @@ import Html.Styled as Html
 import Html.Styled.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Pages.PageUrl
 import Pages.Transition exposing (FetcherSubmitStatus(..))
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
@@ -237,12 +236,15 @@ view app sharedModel model =
             [ Html.text <| String.fromInt model.itemIndex ]
         , form
             |> Form.withOnSubmit (\_ -> AddItemSubmitted)
-            |> Form.toDynamicFetcher ("add-item-" ++ String.fromInt model.itemIndex)
-            |> Form.renderStyledHtml [] (\_ -> Nothing) app ()
+            |> Form.renderStyledHtml ("add-item-" ++ String.fromInt model.itemIndex)
+                []
+                (\_ -> Nothing)
+                app
+                ()
         , Html.div []
             [ deleteForm
-                |> Form.toDynamicFetcher "delete-all"
-                |> Form.renderStyledHtml [] (\_ -> Nothing) app ()
+                |> Form.toDynamicFetcher
+                |> Form.renderStyledHtml "delete-all" [] (\_ -> Nothing) app ()
             ]
         , optimisticItems
             |> List.map

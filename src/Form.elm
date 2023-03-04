@@ -5,7 +5,7 @@ module Form exposing
     , field, hiddenField, hiddenKind
     , Context
     , renderHtml, renderStyledHtml
-    , withGetMethod, toDynamicTransition, toDynamicFetcher
+    , withGetMethod, toDynamicFetcher
     , Errors, errorsForField
     , parse, runServerSide, runOneOfServerSide
     , ServerForms(..)
@@ -176,8 +176,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
         { title = "Sign Up"
         , body =
             [ form
-                |> Form.toDynamicTransition "login"
-                |> Form.renderHtml [] Nothing app ()
+                |> Form.renderHtml "login" [] Nothing app ()
             ]
         }
 
@@ -234,7 +233,7 @@ Totally customizable. Uses [`Form.FieldView`](Form-FieldView) to render all of t
 
 @docs renderHtml, renderStyledHtml
 
-@docs withGetMethod, toDynamicTransition, toDynamicFetcher
+@docs withGetMethod, toDynamicFetcher
 
 
 ## Showing Errors
@@ -321,7 +320,6 @@ init combineAndView =
     Form
         { submitStrategy = TransitionStrategy
         , method = Post
-        , name = Nothing -- TODO require `name` argument in init?
         , onSubmit = Nothing
         }
         []
@@ -367,7 +365,6 @@ dynamic forms formBuilder =
     Form
         { submitStrategy = TransitionStrategy
         , method = Post
-        , name = Nothing -- TODO require `name` argument in init?
         , onSubmit = Nothing
         }
         []
@@ -998,7 +995,8 @@ runOneOfServerSideHelp rawFormData firstFoundErrors (ServerForms parsers) =
 
 {-| -}
 renderHtml :
-    List (Html.Attribute (PagesMsg msg))
+    String
+    -> List (Html.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> AppContext app actionData
     -> input
@@ -1011,13 +1009,19 @@ renderHtml :
             input
             msg
     -> Html (PagesMsg msg)
-renderHtml attrs accessResponse app data form =
-    Html.Lazy.lazy5 renderHelper attrs accessResponse app data form
+renderHtml formId attrs accessResponse app data form =
+    Html.Lazy.lazy6 renderHelper formId attrs accessResponse app data form
 
 
 {-| -}
 toDynamicFetcher :
-    String
+    Form
+        error
+        { combine : Form.Validation.Validation error parsed field constraints
+        , view : Context error data -> view
+        }
+        data
+        userMsg
     ->
         Form
             error
@@ -1026,39 +1030,8 @@ toDynamicFetcher :
             }
             data
             userMsg
-    ->
-        Form
-            error
-            { combine : Form.Validation.Validation error parsed field constraints
-            , view : Context error data -> view
-            }
-            data
-            userMsg
-toDynamicFetcher name (Form renderOptions a b c) =
-    Form { renderOptions | name = Just name, submitStrategy = FetcherStrategy } a b c
-
-
-{-| -}
-toDynamicTransition :
-    String
-    ->
-        Form
-            error
-            { combine : Form.Validation.Validation error parsed field constraints
-            , view : Context error data -> view
-            }
-            data
-            userMsg
-    ->
-        Form
-            error
-            { combine : Form.Validation.Validation error parsed field constraints
-            , view : Context error data -> view
-            }
-            data
-            userMsg
-toDynamicTransition name (Form renderOptions a b c) =
-    Form { renderOptions | name = Just name } a b c
+toDynamicFetcher (Form renderOptions a b c) =
+    Form { renderOptions | submitStrategy = FetcherStrategy } a b c
 
 
 {-| -}
@@ -1073,7 +1046,6 @@ withOnSubmit onSubmit (Form options a b c) =
     Form
         { onSubmit = Just onSubmit
         , submitStrategy = options.submitStrategy
-        , name = options.name
         , method = options.method
         }
         a
@@ -1083,7 +1055,8 @@ withOnSubmit onSubmit (Form options a b c) =
 
 {-| -}
 renderStyledHtml :
-    List (Html.Styled.Attribute (PagesMsg msg))
+    String
+    -> List (Html.Styled.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> AppContext app actionData
     -> input
@@ -1096,8 +1069,8 @@ renderStyledHtml :
             input
             msg
     -> Html.Styled.Html (PagesMsg msg)
-renderStyledHtml attrs accessResponse app data form =
-    Html.Styled.Lazy.lazy5 renderStyledHelper attrs accessResponse app data form
+renderStyledHtml formId attrs accessResponse app data form =
+    Html.Styled.Lazy.lazy6 renderStyledHelper formId attrs accessResponse app data form
 
 
 {-| -}
@@ -1106,7 +1079,8 @@ type alias Response error =
 
 
 renderHelper :
-    List (Html.Attribute (PagesMsg msg))
+    String
+    -> List (Html.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> AppContext app actionData
     -> data
@@ -1119,12 +1093,12 @@ renderHelper :
             data
             msg
     -> Html (PagesMsg msg)
-renderHelper attrs accessResponse formState data ((Form options _ _ _) as form) =
+renderHelper formId attrs accessResponse formState data ((Form options _ _ _) as form) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
-        { formId, hiddenInputs, children, isValid } =
-            helperValues toHiddenInput accessResponse formState data form
+        { hiddenInputs, children, isValid } =
+            helperValues formId toHiddenInput accessResponse formState data form
 
         toHiddenInput : List (Html.Attribute (PagesMsg msg)) -> Html (PagesMsg msg)
         toHiddenInput hiddenAttrs =
@@ -1150,7 +1124,8 @@ renderHelper attrs accessResponse formState data ((Form options _ _ _) as form) 
 
 
 renderStyledHelper :
-    List (Html.Styled.Attribute (PagesMsg msg))
+    String
+    -> List (Html.Styled.Attribute (PagesMsg msg))
     -> (actionData -> Maybe (Response error))
     -> AppContext app actionData
     -> data
@@ -1163,12 +1138,12 @@ renderStyledHelper :
             data
             msg
     -> Html.Styled.Html (PagesMsg msg)
-renderStyledHelper attrs accessResponse formState data ((Form options _ _ _) as form) =
+renderStyledHelper formId attrs accessResponse formState data ((Form options _ _ _) as form) =
     -- TODO Get transition context from `app` so you can check if the current form is being submitted
     -- TODO either as a transition or a fetcher? Should be easy enough to check for the `id` on either of those?
     let
-        { formId, hiddenInputs, children, isValid } =
-            helperValues toHiddenInput accessResponse formState data form
+        { hiddenInputs, children, isValid } =
+            helperValues formId toHiddenInput accessResponse formState data form
 
         toHiddenInput : List (Html.Attribute (PagesMsg msg)) -> Html.Styled.Html (PagesMsg msg)
         toHiddenInput hiddenAttrs =
@@ -1194,7 +1169,8 @@ renderStyledHelper attrs accessResponse formState data ((Form options _ _ _) as 
 
 
 helperValues :
-    (List (Html.Attribute (PagesMsg msg)) -> view)
+    String
+    -> (List (Html.Attribute (PagesMsg msg)) -> view)
     -> (actionData -> Maybe (Response error))
     -> AppContext app actionData
     -> data
@@ -1206,13 +1182,9 @@ helperValues :
             }
             data
             msg
-    -> { formId : String, hiddenInputs : List view, children : List view, isValid : Bool }
-helperValues toHiddenInput accessResponse formState data (Form options fieldDefinitions parser toInitialValues) =
+    -> { hiddenInputs : List view, children : List view, isValid : Bool }
+helperValues formId toHiddenInput accessResponse formState data (Form options fieldDefinitions parser toInitialValues) =
     let
-        formId : String
-        formId =
-            options.name |> Maybe.withDefault ""
-
         initialValues : Dict String Form.FieldState
         initialValues =
             toInitialValues data
@@ -1387,8 +1359,7 @@ helperValues toHiddenInput accessResponse formState data (Form options fieldDefi
                 _ ->
                     False
     in
-    { formId = formId
-    , hiddenInputs = hiddenInputs
+    { hiddenInputs = hiddenInputs
     , children = children
     , isValid = isValid
     }
@@ -1446,7 +1417,6 @@ initCombined mapFn (Form options _ parseFn _) =
         [ Form
             { onSubmit = Nothing
             , submitStrategy = options.submitStrategy
-            , name = options.name
             , method = options.method
             }
             []
@@ -1488,7 +1458,6 @@ combine mapFn (Form options _ parseFn _) (ServerForms serverForms) =
             ++ [ Form
                     { onSubmit = Nothing
                     , submitStrategy = options.submitStrategy
-                    , name = options.name
                     , method = options.method
                     }
                     []
@@ -1576,7 +1545,6 @@ type Form error combineAndView input userMsg
 type alias RenderOptions userMsg =
     { submitStrategy : SubmitStrategy
     , method : Method
-    , name : Maybe String
     , onSubmit : Maybe ({ fields : List ( String, String ) } -> userMsg)
     }
 
