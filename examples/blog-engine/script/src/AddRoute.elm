@@ -134,18 +134,40 @@ createFile { moduleName, fields } =
                                                 "response"
                                                 "parsedForm"
                                                 (\response parsedForm ->
-                                                    Gen.Debug.toString parsedForm
-                                                        |> Gen.Pages.Script.call_.log
-                                                        |> Gen.BackendTask.call_.map
-                                                            (Elm.fn ( "_", Nothing )
-                                                                (\_ ->
-                                                                    Response.render
-                                                                        (Elm.record
-                                                                            [ ( "errors", response )
-                                                                            ]
+                                                    Elm.Case.result parsedForm
+                                                        { err =
+                                                            ( "error"
+                                                            , \error ->
+                                                                Gen.Debug.toString error
+                                                                    |> Gen.Pages.Script.call_.log
+                                                                    |> Gen.BackendTask.call_.map
+                                                                        (Elm.fn ( "_", Nothing )
+                                                                            (\_ ->
+                                                                                Response.render
+                                                                                    (Elm.record
+                                                                                        [ ( "errors", response )
+                                                                                        ]
+                                                                                    )
+                                                                            )
                                                                         )
-                                                                )
                                                             )
+                                                        , ok =
+                                                            ( "okForm"
+                                                            , \okForm ->
+                                                                Gen.Debug.toString okForm
+                                                                    |> Gen.Pages.Script.call_.log
+                                                                    |> Gen.BackendTask.call_.map
+                                                                        (Elm.fn ( "_", Nothing )
+                                                                            (\_ ->
+                                                                                Response.render
+                                                                                    (Elm.record
+                                                                                        [ ( "errors", response )
+                                                                                        ]
+                                                                                    )
+                                                                            )
+                                                                        )
+                                                            )
+                                                        }
                                                 )
                                         )
                                     )
