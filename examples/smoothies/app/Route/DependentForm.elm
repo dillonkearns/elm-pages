@@ -129,8 +129,8 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.h2 [] [ Html.text "Example" ]
         , dependentParser
-            |> Form.toDynamicTransition "dependent-example"
-            |> Form.renderHtml []
+            |> Form.toDynamicTransition
+            |> Form.renderHtml "dependent-example" []
                 -- TODO pass in form response from ActionData
                 Nothing
                 app

@@ -218,8 +218,8 @@ view app shared =
                 )
             ]
         , form
-            |> Form.toDynamicTransition "form"
-            |> Form.renderStyledHtml []
+            |> Form.renderStyledHtml "form"
+                []
                 (.errors >> Just)
                 app
                 ()

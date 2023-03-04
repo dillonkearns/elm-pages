@@ -52,9 +52,8 @@ type alias PagesMsg userMsg =
 
             -- `Form.renderHtml` gives us `Html (PagesMsg msg)`, so we don't need to wrap its Msg type
             , logoutForm
-                |> Form.toDynamicTransition "logout"
                 |> Form.withOnSubmit (\_ -> NewItemSubmitted)
-                |> Form.renderHtml [] (\_ -> Nothing) app Nothing
+                |> Form.renderHtml "logout" [] (\_ -> Nothing) app Nothing
             ]
         }
 

@@ -264,7 +264,6 @@ view maybeUrl sharedModel app =
                 )
             ]
         , form
-            |> Form.toDynamicTransition "login"
-            |> Form.renderHtml [] app.action app ()
+            |> Form.renderHtml "login" [] app.action app ()
         ]
     }

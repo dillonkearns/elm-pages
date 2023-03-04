@@ -265,8 +265,8 @@ view app shared model =
             ]
         , flashView app.data.flashMessage
         , form
-            |> Form.toDynamicTransition "test1"
-            |> Form.renderHtml []
+            |> Form.renderHtml "test1"
+                []
                 -- TODO pass in server data
                 (\_ -> Nothing)
                 app

@@ -395,8 +395,9 @@ view app shared =
                             Html.div []
                                 [ Html.text <| "Hello! You are already logged in as " ++ username
                                 , logoutForm
-                                    |> Form.toDynamicTransition "logout"
-                                    |> Form.renderHtml []
+                                    |> Form.toDynamicTransition
+                                    |> Form.renderHtml "logout"
+                                        []
                                         (\_ -> Nothing)
                                         app
                                         ()
@@ -406,8 +407,7 @@ view app shared =
                             Html.text "You aren't logged in yet."
                     ]
                 , form
-                    |> Form.toDynamicTransition "login"
-                    |> Form.renderHtml [] .maybeError app ()
+                    |> Form.renderHtml "login" [] .maybeError app ()
                 ]
         ]
     }

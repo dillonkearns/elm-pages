@@ -210,8 +210,7 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.h2 [] [ Html.text "New item" ]
         , form
-            |> Form.toDynamicTransition "form"
-            |> Form.renderHtml
+            |> Form.renderHtml "form"
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"

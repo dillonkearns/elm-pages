@@ -279,8 +279,7 @@ view maybeUrl sharedModel model app =
             _ ->
                 Html.text "No errors"
         , formParser
-            |> Form.toDynamicTransition "edit-form"
-            |> Form.renderHtml
+            |> Form.renderHtml "edit-form"
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"

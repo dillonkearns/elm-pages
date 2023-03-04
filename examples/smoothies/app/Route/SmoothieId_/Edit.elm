@@ -340,8 +340,7 @@ view maybeUrl sharedModel model app =
     , body =
         [ Html.h2 [] [ Html.text "Update item" ]
         , form
-            |> Form.toDynamicTransition "form"
-            |> Form.renderHtml
+            |> Form.renderHtml "form"
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
@@ -354,8 +353,8 @@ view maybeUrl sharedModel model app =
             |> Maybe.map pendingView
             |> Maybe.withDefault (Html.div [] [])
         , deleteForm
-            |> Form.toDynamicTransition "delete-form"
-            |> Form.renderHtml []
+            |> Form.toDynamicTransition
+            |> Form.renderHtml "delete-form" []
                 -- TODO
                 Nothing
                 app

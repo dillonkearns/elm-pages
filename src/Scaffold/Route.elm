@@ -170,7 +170,7 @@ buildNoState definitions builder_ =
         ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \shared _ app ->
+                    \app shared _ ->
                         definitions.view
                             { shared = shared
                             , app = app
@@ -191,7 +191,7 @@ buildNoState definitions builder_ =
         PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \shared _ app ->
+                    \app shared _ ->
                         definitions.view
                             { shared = shared
                             , app = app
@@ -257,7 +257,7 @@ buildWithLocalState definitions builder_ =
         ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \shared model app ->
+                    \app shared model ->
                         definitions.view
                             { shared = shared
                             , model = model
@@ -266,7 +266,7 @@ buildWithLocalState definitions builder_ =
                 , localState =
                     Just
                         { update =
-                            \shared app msg model ->
+                            \app shared msg model ->
                                 definitions.update
                                     { shared = shared
                                     , app = app
@@ -274,7 +274,7 @@ buildWithLocalState definitions builder_ =
                                     , model = model
                                     }
                         , init =
-                            \shared app ->
+                            \app shared ->
                                 definitions.init
                                     { shared = shared
                                     , app = app
@@ -304,7 +304,7 @@ buildWithLocalState definitions builder_ =
         PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \shared model app ->
+                    \app shared model ->
                         definitions.view
                             { shared = shared
                             , model = model
@@ -313,7 +313,7 @@ buildWithLocalState definitions builder_ =
                 , localState =
                     Just
                         { update =
-                            \shared app msg model ->
+                            \app shared msg model ->
                                 definitions.update
                                     { shared = shared
                                     , app = app
@@ -321,7 +321,7 @@ buildWithLocalState definitions builder_ =
                                     , model = model
                                     }
                         , init =
-                            \shared app ->
+                            \app shared ->
                                 definitions.init
                                     { shared = shared
                                     , app = app
@@ -385,7 +385,7 @@ buildWithSharedState definitions builder_ =
         ServerRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \shared model app ->
+                    \app shared model ->
                         definitions.view
                             { shared = shared
                             , model = model
@@ -394,7 +394,7 @@ buildWithSharedState definitions builder_ =
                 , localState =
                     Just
                         { update =
-                            \shared app msg model ->
+                            \app shared msg model ->
                                 definitions.update
                                     { shared = shared
                                     , app = app
@@ -402,7 +402,7 @@ buildWithSharedState definitions builder_ =
                                     , model = model
                                     }
                         , init =
-                            \shared app ->
+                            \app shared ->
                                 definitions.init
                                     { shared = shared
                                     , app = app
@@ -432,7 +432,7 @@ buildWithSharedState definitions builder_ =
         PreRender declarations builder ->
             userFunction builder.moduleName
                 { view =
-                    \shared model app ->
+                    \app shared model ->
                         definitions.view
                             { shared = shared
                             , model = model
@@ -441,7 +441,7 @@ buildWithSharedState definitions builder_ =
                 , localState =
                     Just
                         { update =
-                            \shared app msg model ->
+                            \app shared msg model ->
                                 definitions.update
                                     { shared = shared
                                     , app = app
@@ -449,7 +449,7 @@ buildWithSharedState definitions builder_ =
                                     , model = model
                                     }
                         , init =
-                            \shared app ->
+                            \app shared ->
                                 definitions.init
                                     { shared = shared
                                     , app = app
@@ -520,13 +520,13 @@ userFunction moduleName definitions =
             case definitions.localState of
                 Just _ ->
                     Elm.Declare.fn3 "view"
+                        ( "app", Just appType )
                         ( "shared"
                         , Just (Elm.Annotation.named [ "Shared" ] "Model")
                         )
                         ( "model", Just (Elm.Annotation.named [] "Model") )
-                        ( "app", Just appType )
-                        (\shared model app ->
-                            definitions.view shared model app
+                        (\app shared model ->
+                            definitions.view app shared model
                                 |> Elm.withType
                                     (Elm.Annotation.namedWith [ "View" ]
                                         "View"
@@ -547,14 +547,14 @@ userFunction moduleName definitions =
                             }
                         viewDeclaration =
                             Elm.Declare.fn2 "view"
+                                ( "app", Just appType )
                                 ( "shared"
                                 , Just (Elm.Annotation.named [ "Shared" ] "Model")
                                 )
-                                ( "app", Just appType )
                                 (definitions.view Elm.unit)
                     in
                     { declaration = viewDeclaration.declaration
-                    , call = \_ -> viewDeclaration.call
+                    , call = \app shared _ -> viewDeclaration.call app shared
                     , callFrom = \a _ c d -> viewDeclaration.callFrom a c d
                     }
 
@@ -575,17 +575,17 @@ userFunction moduleName definitions =
                     (\localState ->
                         { updateFn =
                             Elm.Declare.fn4 "update"
-                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "app", Just appType )
+                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "msg", Just (Elm.Annotation.named [] "Msg") )
                                 ( "model", Just (Elm.Annotation.named [] "Model") )
                                 localState.update
                         , initFn =
                             Elm.Declare.fn2 "init"
-                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "app", Just appType )
+                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 (\shared app ->
-                                    localState.init shared app
+                                    localState.init app shared
                                         |> Elm.withType
                                             (Elm.Annotation.tuple
                                                 (localType "Model")

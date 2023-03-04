@@ -719,8 +719,9 @@ view app model sharedModel =
                         |> Debug.toString
                     )
                 , form
-                    |> Form.toDynamicTransition "test"
-                    |> Form.renderStyledHtml []
+                    |> Form.toDynamicTransition
+                    |> Form.renderStyledHtml "test"
+                        []
                         --app.action
                         --    |> Maybe.andThen .formResponse
                         (\_ -> Nothing)

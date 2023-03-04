@@ -493,11 +493,11 @@ view app shared model =
                 [ class "todoapp" ]
                 [ addItemForm
                     |> Form.toDynamicFetcher
+                    |> Form.withOnSubmit (\_ -> NewItemSubmitted)
+                    |> Form.renderHtml
                         ("new-item-"
                             ++ (model.nextId |> Time.posixToMillis |> String.fromInt)
                         )
-                    |> Form.withOnSubmit (\_ -> NewItemSubmitted)
-                    |> Form.renderHtml
                         [ class "create-form"
                         , hidden (not (List.isEmpty failedAddItemActions))
                         ]
@@ -509,9 +509,10 @@ view app shared model =
                         |> List.indexedMap
                             (\index ( key, createFetcherErrors ) ->
                                 addItemForm
-                                    |> Form.toDynamicFetcher key
+                                    |> Form.toDynamicFetcher
                                     |> Form.withOnSubmit (\_ -> NewItemSubmitted)
-                                    |> Form.renderHtml [ class "create-form", hidden (index /= 0) ]
+                                    |> Form.renderHtml key
+                                        [ class "create-form", hidden (index /= 0) ]
                                         (\_ -> Nothing)
                                         app
                                         (Just createFetcherErrors)
@@ -735,8 +736,8 @@ viewEntries app visibility entries =
         , style "visibility" cssVisibility
         ]
         [ toggleAllForm
-            |> Form.toDynamicFetcher "toggle-all"
-            |> Form.renderHtml [] (\_ -> Nothing) app { allCompleted = allCompleted }
+            |> Form.toDynamicFetcher
+            |> Form.renderHtml "toggle-all" [] (\_ -> Nothing) app { allCompleted = allCompleted }
         , Keyed.ul [ class "todo-list" ] <|
             List.map (viewKeyedEntry app) (List.filter isVisible entries)
         ]
@@ -761,18 +762,18 @@ viewEntry app todo =
         [ div
             [ class "view" ]
             [ checkItemForm
-                |> Form.toDynamicFetcher ("toggle-" ++ todo.id)
-                |> Form.renderHtml [] (\_ -> Nothing) app todo
+                |> Form.toDynamicFetcher
+                |> Form.renderHtml ("toggle-" ++ todo.id) [] (\_ -> Nothing) app todo
             , editItemForm
-                |> Form.toDynamicFetcher ("edit-" ++ todo.id)
-                |> Form.renderHtml [] (\_ -> Nothing) app todo
+                |> Form.toDynamicFetcher
+                |> Form.renderHtml ("edit-" ++ todo.id) [] (\_ -> Nothing) app todo
             , if todo.isSaving then
                 LoadingSpinner.view
 
               else
                 deleteItemForm
-                    |> Form.toDynamicFetcher ("delete-" ++ todo.id)
-                    |> Form.renderHtml [] (\_ -> Nothing) app todo
+                    |> Form.toDynamicFetcher
+                    |> Form.renderHtml ("delete-" ++ todo.id) [] (\_ -> Nothing) app todo
             ]
         ]
 
@@ -862,8 +863,8 @@ visibilitySwap visibilityParam visibility actualVisibility =
 viewControlsClear : App Data ActionData RouteParams -> Int -> Html (PagesMsg Msg)
 viewControlsClear app entriesCompleted =
     clearCompletedForm
-        |> Form.toDynamicFetcher "clear-completed"
-        |> Form.renderHtml [] (\_ -> Nothing) app { entriesCompleted = entriesCompleted }
+        |> Form.toDynamicFetcher
+        |> Form.renderHtml "clear-completed" [] (\_ -> Nothing) app { entriesCompleted = entriesCompleted }
 
 
 infoFooter : Html msg

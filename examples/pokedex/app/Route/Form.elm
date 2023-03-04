@@ -261,8 +261,7 @@ view app shared =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form
-            |> Form.toDynamicTransition "test1"
-            |> Form.renderHtml
+            |> Form.renderHtml "test1"
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"

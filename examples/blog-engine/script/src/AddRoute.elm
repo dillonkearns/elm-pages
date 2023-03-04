@@ -188,8 +188,7 @@ createFile { moduleName, fields } =
                                     Just justFormHelp ->
                                         [ Html.h2 [] [ Html.text "Form" ]
                                         , justFormHelp.form
-                                            |> Form.toDynamicTransition "form"
-                                            |> Form.renderHtml [] (Elm.get "errors" >> Elm.just) app Elm.unit
+                                            |> Form.renderHtml "form" [] (Elm.get "errors" >> Elm.just) app Elm.unit
                                         ]
 
                                     Nothing ->
@@ -266,8 +265,8 @@ errorsView =
                     (Type.namedWith [ "Html" ]
                         "Html"
                         [ Type.namedWith
-                            [ "Pages", "Msg" ]
-                            "Msg"
+                            [ "PagesMsg" ]
+                            "PagesMsg"
                             [ Type.named [] "Msg" ]
                         ]
                     )

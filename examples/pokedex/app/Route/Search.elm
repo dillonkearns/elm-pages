@@ -201,9 +201,9 @@ view static sharedModel model =
     , body =
         [ Html.h2 [] [ Html.text "Search" ]
         , form
-            |> Form.toDynamicTransition "test1"
             |> Form.withGetMethod
-            |> Form.renderHtml []
+            |> Form.renderHtml "test1"
+                []
                 -- TODO pass in server data
                 (\_ -> Nothing)
                 static

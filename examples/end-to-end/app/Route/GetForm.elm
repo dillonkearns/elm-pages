@@ -123,9 +123,8 @@ view app shared =
     { title = "GET Form Example"
     , body =
         [ form
-            |> Form.toDynamicTransition "user-form"
             |> Form.withGetMethod
-            |> Form.renderHtml
+            |> Form.renderHtml "user-form"
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
