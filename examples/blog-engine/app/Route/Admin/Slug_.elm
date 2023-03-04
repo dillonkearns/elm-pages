@@ -22,7 +22,6 @@ import Html exposing (Html)
 import Html.Attributes
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import Pages.PageUrl
 import PagesMsg exposing (PagesMsg)
 import Path
 import Platform.Sub
