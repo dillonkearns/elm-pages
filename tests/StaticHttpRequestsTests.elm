@@ -549,8 +549,7 @@ config apiRoutes pages =
                 thing =
                     pages
                         |> Dict.fromList
-                        |> Dict.get
-                            (page.path |> Path.toSegments)
+                        |> Dict.get page.path
             in
             case thing of
                 Just _ ->
