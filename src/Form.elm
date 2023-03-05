@@ -287,16 +287,6 @@ import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
 
 
-
---{-| -}
---type
---    ParseResult error decoded
---    -- TODO parse into both errors AND a decoded value
---    = Success decoded
---    | DecodedWithErrors (Dict String (List error)) decoded
---    | DecodeFailure (Dict String (List error))
-
-
 {-| -}
 initFormState : FormState
 initFormState =
