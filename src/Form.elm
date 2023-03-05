@@ -1412,31 +1412,37 @@ initCombined :
             input
             msg
     -> ServerForms error combined
-initCombined mapFn (Form options _ parseFn _) =
-    ServerForms
-        [ Form
-            { onSubmit = Nothing
-            , submitStrategy = options.submitStrategy
-            , method = options.method
+initCombined mapFn form =
+    ServerForms [ normalizeServerForm mapFn form ]
+
+
+normalizeServerForm :
+    (parsed -> combined)
+    -> Form error { combineAndView | combine : Form.Validation.Validation error parsed kind constraints } input msg
+    -> Form error (Combined error combined) Never Never
+normalizeServerForm mapFn (Form options _ parseFn _) =
+    Form
+        { onSubmit = Nothing
+        , submitStrategy = options.submitStrategy
+        , method = options.method
+        }
+        []
+        (\_ formState ->
+            let
+                parsed :
+                    { result : Dict String (List error)
+                    , isMatchCandidate : Bool
+                    , combineAndView : { combineAndView | combine : Form.Validation.Validation error parsed kind constraints }
+                    }
+                parsed =
+                    parseFn Nothing formState
+            in
+            { result = parsed.result
+            , combineAndView = parsed.combineAndView.combine |> Form.Validation.mapWithNever mapFn
+            , isMatchCandidate = parsed.isMatchCandidate
             }
-            []
-            (\_ formState ->
-                let
-                    foo :
-                        { result : Dict String (List error)
-                        , isMatchCandidate : Bool
-                        , combineAndView : { combineAndView | combine : Form.Validation.Validation error parsed kind constraints }
-                        }
-                    foo =
-                        parseFn Nothing formState
-                in
-                { result = foo.result
-                , combineAndView = foo.combineAndView.combine |> Form.Validation.mapWithNever mapFn
-                , isMatchCandidate = foo.isMatchCandidate
-                }
-            )
-            (\_ -> [])
-        ]
+        )
+        (\_ -> [])
 
 
 {-| -}
@@ -1452,33 +1458,8 @@ combine :
             msg
     -> ServerForms error combined
     -> ServerForms error combined
-combine mapFn (Form options _ parseFn _) (ServerForms serverForms) =
-    ServerForms
-        (serverForms
-            ++ [ Form
-                    { onSubmit = Nothing
-                    , submitStrategy = options.submitStrategy
-                    , method = options.method
-                    }
-                    []
-                    (\_ formState ->
-                        let
-                            foo :
-                                { result : Dict String (List error)
-                                , isMatchCandidate : Bool
-                                , combineAndView : { combineAndView | combine : Form.Validation.Validation error parsed kind constraints }
-                                }
-                            foo =
-                                parseFn Nothing formState
-                        in
-                        { result = foo.result
-                        , combineAndView = foo.combineAndView.combine |> Form.Validation.mapWithNever mapFn
-                        , isMatchCandidate = foo.isMatchCandidate
-                        }
-                    )
-                    (\_ -> [])
-               ]
-        )
+combine mapFn form (ServerForms serverForms) =
+    ServerForms (serverForms ++ [ normalizeServerForm mapFn form ])
 
 
 {-| -}
