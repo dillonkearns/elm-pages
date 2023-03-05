@@ -1183,7 +1183,7 @@ helperValues :
             data
             msg
     -> { hiddenInputs : List view, children : List view, isValid : Bool }
-helperValues formId toHiddenInput accessResponse formState data (Form options fieldDefinitions parser toInitialValues) =
+helperValues formId toHiddenInput accessResponse formState data (Form _ fieldDefinitions parser toInitialValues) =
     let
         initialValues : Dict String Form.FieldState
         initialValues =
