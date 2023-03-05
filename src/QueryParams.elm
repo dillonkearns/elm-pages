@@ -31,18 +31,8 @@ toString queryParams =
 
 {-| -}
 fromString : String -> Dict String (List String)
-fromString queryParams =
-    prepareQuery (Just queryParams)
-
-
-prepareQuery : Maybe String -> Dict String (List String)
-prepareQuery maybeQuery =
-    case maybeQuery of
-        Nothing ->
-            Dict.empty
-
-        Just qry ->
-            List.foldr addParam Dict.empty (String.split "&" qry)
+fromString query =
+    List.foldr addParam Dict.empty (String.split "&" query)
 
 
 addParam : String -> Dict String (List String) -> Dict String (List String)

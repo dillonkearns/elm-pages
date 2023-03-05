@@ -27,10 +27,10 @@ import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.Platform.Cli
 import Gen.Pages.Internal.RoutePattern
+import Gen.Pages.PageUrl
 import Gen.Pages.Transition
 import Gen.PagesMsg
 import Gen.Path
-import Gen.QueryParams
 import Gen.Server.Response
 import Gen.String
 import Gen.Tuple
@@ -1069,7 +1069,7 @@ otherFile routes phaseString =
                                                                         , ( "host", record |> Elm.get "host" )
                                                                         , ( "port_", record |> Elm.get "port_" )
                                                                         , ( "path", record |> Elm.get "path" )
-                                                                        , ( "query", record |> Elm.get "query" |> Gen.Maybe.map Gen.QueryParams.call_.fromString |> Gen.Maybe.withDefault Gen.Dict.empty )
+                                                                        , ( "query", record |> Elm.get "query" |> Gen.Maybe.map Gen.Pages.PageUrl.call_.parseQueryParams |> Gen.Maybe.withDefault Gen.Dict.empty )
                                                                         , ( "fragment", record |> Elm.get "fragment" )
                                                                         ]
                                                                         |> Elm.just

@@ -1,9 +1,14 @@
-module Pages.PageUrl exposing (PageUrl, toUrl)
+module Pages.PageUrl exposing
+    ( PageUrl, toUrl
+    , parseQueryParams
+    )
 
 {-| Same as a Url in `elm/url`, but slightly more structured. The path portion of the URL is parsed into a `List String` representing each segment, and
 the query params are parsed into a `Dict String (List String)`.
 
 @docs PageUrl, toUrl
+
+@docs parseQueryParams
 
 -}
 
@@ -39,3 +44,9 @@ toUrl url =
             url.query |> QueryParams.toString |> Just
     , fragment = url.fragment
     }
+
+
+{-| -}
+parseQueryParams : String -> Dict String (List String)
+parseQueryParams =
+    QueryParams.fromString
