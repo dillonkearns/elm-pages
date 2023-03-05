@@ -60,10 +60,10 @@ type alias Data =
 
 
 view :
-    Shared.Model
-    -> App Data ActionData RouteParams
+    App Data ActionData RouteParams
+    -> Shared.Model
     -> View (PagesMsg Msg)
-view sharedModel app =
+view app sharedModel =
     { title = "TODO title"
     , body = []
     }
