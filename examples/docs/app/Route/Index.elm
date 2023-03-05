@@ -18,6 +18,7 @@ import SiteOld
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Breakpoints as Bp
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import View exposing (View)
 import View.CodeTab as CodeTab
@@ -109,7 +110,7 @@ landingView =
 
                 --, Tw.bg_gradient_to_b
                 , Tw.bg_gradient_to_b
-                , Tw.from_gray_100
+                , Tw.from_color Theme.gray_100
                 ]
             ]
             []
@@ -321,15 +322,15 @@ firstSection info =
                                 , Tw.items_center
                                 , Tw.justify_center
                                 , Tw.bg_gradient_to_r
-                                , Tw.from_blue_600
-                                , Tw.to_blue_700
+                                , Tw.from_color Theme.blue_600
+                                , Tw.to_color Theme.blue_700
                                 ]
                             ]
                             [ svg
                                 [ SvgAttr.css
                                     [ Tw.h_6
                                     , Tw.w_6
-                                    , Tw.text_white
+                                    , Tw.text_color Theme.white
                                     ]
                                 , SvgAttr.fill "none"
                                 , SvgAttr.viewBox "0 0 24 24"
@@ -356,7 +357,7 @@ firstSection info =
                                 [ Tw.text_3xl
                                 , Tw.font_extrabold
                                 , Tw.tracking_tight
-                                , Tw.text_gray_900
+                                , Tw.text_color Theme.gray_900
                                 ]
                             ]
                             [ text info.heading ]
@@ -364,7 +365,7 @@ firstSection info =
                             [ css
                                 [ Tw.mt_4
                                 , Tw.text_lg
-                                , Tw.text_gray_500
+                                , Tw.text_color Theme.gray_500
                                 ]
                             ]
                             [ text info.body ]
@@ -379,18 +380,18 @@ firstSection info =
                                     , Tw.px_4
                                     , Tw.py_2
                                     , Tw.border
-                                    , Tw.border_transparent
+                                    , Tw.border_color Theme.transparent
                                     , Tw.text_base
                                     , Tw.font_medium
                                     , Tw.rounded_md
                                     , Tw.shadow_sm
-                                    , Tw.text_white
+                                    , Tw.text_color Theme.white
                                     , Tw.bg_gradient_to_r
-                                    , Tw.from_blue_600
-                                    , Tw.to_blue_700
+                                    , Tw.from_color Theme.blue_600
+                                    , Tw.to_color Theme.blue_700
                                     , Css.hover
-                                        [ Tw.from_blue_700
-                                        , Tw.to_blue_800
+                                        [ Tw.from_color Theme.blue_700
+                                        , Tw.to_color Theme.blue_800
                                         ]
                                     ]
                                 ]

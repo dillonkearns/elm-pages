@@ -10,6 +10,7 @@ import List.Extra
 import Markdown.Block as Block exposing (Block, Inline)
 import Markdown.Parser
 import Tailwind.Breakpoints as Bp
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 
 
@@ -196,7 +197,7 @@ surround showMobileMenu onDocsPage children =
     aside
         [ css
             [ Tw.h_screen
-            , Tw.bg_white
+            , Tw.bg_color Theme.white
             , Tw.flex_shrink_0
             , Tw.top_0
             , Tw.pt_16
@@ -226,7 +227,7 @@ surround showMobileMenu onDocsPage children =
         ]
         [ div
             [ css
-                [ Tw.border_gray_200
+                [ Tw.border_color Theme.gray_200
                 , Tw.w_full
                 , Tw.p_4
                 , Tw.pb_40
@@ -266,7 +267,7 @@ level1Entry current (Entry data children) =
     li
         [ css
             [ Tw.space_y_3
-            , Tw.text_gray_900
+            , Tw.text_color Theme.gray_900
             , Tw.rounded_lg
             ]
         ]
@@ -299,17 +300,17 @@ item isCurrent href body =
             , Tw.outline_none
             , if isCurrent then
                 Css.batch
-                    [ Tw.bg_gray_200
+                    [ Tw.bg_color Theme.gray_200
                     , Tw.font_semibold
                     ]
 
               else
                 Css.batch
                     [ Css.hover
-                        [ Tw.text_black
-                        , Tw.bg_gray_100
+                        [ Tw.text_color Theme.black
+                        , Tw.bg_color Theme.gray_100
                         ]
-                    , Tw.text_gray_500
+                    , Tw.text_color Theme.gray_500
                     ]
             ]
         ]

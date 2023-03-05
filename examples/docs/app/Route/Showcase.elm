@@ -14,6 +14,7 @@ import RouteBuilder exposing (App, StatefulRoute)
 import Shared
 import Showcase
 import Tailwind.Breakpoints as Bp
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import View exposing (View)
 
@@ -151,7 +152,7 @@ showcaseItem item =
                 , Tw.aspect_w_10
                 , Tw.aspect_h_7
                 , Tw.rounded_lg
-                , Tw.bg_gray_100
+                , Tw.bg_color Theme.gray_100
                 , Tw.overflow_hidden
 
                 --, Bp.focus-within
@@ -211,7 +212,7 @@ showcaseItem item =
                 , Tw.block
                 , Tw.text_sm
                 , Tw.font_medium
-                , Tw.text_gray_900
+                , Tw.text_color Theme.gray_900
                 , Tw.truncate
 
                 --, Tw.pointer_events_none
@@ -226,7 +227,7 @@ showcaseItem item =
                 [ Tw.block
                 , Tw.text_sm
                 , Tw.font_medium
-                , Tw.text_gray_500
+                , Tw.text_color Theme.gray_500
 
                 --, Tw.pointer_events_none
                 ]
@@ -273,7 +274,7 @@ topSection =
                     [ Tw.mt_4
                     , Tw.text_lg
                     , Tw.leading_6
-                    , Tw.text_gray_500
+                    , Tw.text_color Theme.gray_500
                     ]
                 ]
                 [ text "Check out some projects from the elm-pages community." ]
@@ -290,13 +291,13 @@ topSection =
                     , Tw.px_5
                     , Tw.py_3
                     , Tw.border
-                    , Tw.border_transparent
-                    , Tw.text_white
+                    , Tw.border_color Theme.transparent
+                    , Tw.text_color Theme.white
                     , Tw.font_medium
                     , Tw.rounded_md
-                    , Tw.bg_blue_800
+                    , Tw.bg_color Theme.blue_800
                     , Css.hover
-                        [ Tw.bg_blue_600
+                        [ Tw.bg_color Theme.blue_600
                         ]
                     , Bp.sm
                         [ Tw.w_auto

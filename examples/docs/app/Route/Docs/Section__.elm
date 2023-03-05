@@ -24,6 +24,7 @@ import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import TableOfContents
 import Tailwind.Breakpoints as Bp
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import Url
@@ -263,9 +264,9 @@ view app sharedModel =
                                     , css
                                         [ Tw.text_sm
                                         , Css.hover
-                                            [ Tw.text_gray_800 |> Css.important
+                                            [ Tw.text_color Theme.gray_800 |> Css.important
                                             ]
-                                        , Tw.text_gray_500 |> Css.important
+                                        , Tw.text_color Theme.gray_500 |> Css.important
                                         , Tw.flex
                                         , Tw.items_center
                                         , Tw.float_right

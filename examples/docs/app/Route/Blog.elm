@@ -14,6 +14,7 @@ import Route exposing (Route)
 import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import Tailwind.Breakpoints as Bp
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import View exposing (View)
 
@@ -65,7 +66,7 @@ view app shared =
         [ div
             [ css
                 [ Tw.relative
-                , Tw.bg_gray_100
+                , Tw.bg_color Theme.gray_100
                 , Tw.min_h_screen
                 , Tw.pt_16
                 , Tw.pb_20
@@ -113,7 +114,7 @@ view app shared =
                             [ Tw.text_3xl
                             , Tw.tracking_tight
                             , Tw.font_extrabold
-                            , Tw.text_gray_900
+                            , Tw.text_color Theme.gray_900
                             , Bp.sm
                                 [ Tw.text_4xl
                                 ]
@@ -126,7 +127,7 @@ view app shared =
                             , Tw.max_w_2xl
                             , Tw.mx_auto
                             , Tw.text_xl
-                            , Tw.text_gray_500
+                            , Tw.text_color Theme.gray_500
                             , Bp.sm
                                 [ Tw.mt_4
                                 ]
@@ -202,7 +203,7 @@ blogCard ( route_, info ) =
         [ div
             [ css
                 [ Tw.flex_1
-                , Tw.bg_white
+                , Tw.bg_color Theme.white
                 , Tw.p_6
                 , Tw.flex
                 , Tw.flex_col
@@ -224,7 +225,7 @@ blogCard ( route_, info ) =
                         [ css
                             [ Tw.text_xl
                             , Tw.font_semibold
-                            , Tw.text_gray_900
+                            , Tw.text_color Theme.gray_900
                             ]
                         ]
                         [ text info.title ]
@@ -232,7 +233,7 @@ blogCard ( route_, info ) =
                         [ css
                             [ Tw.mt_3
                             , Tw.text_base
-                            , Tw.text_gray_500
+                            , Tw.text_color Theme.gray_500
                             ]
                         ]
                         [ text info.description ]
@@ -252,7 +253,7 @@ blogCard ( route_, info ) =
                             [ Tw.flex
                             , Tw.space_x_1
                             , Tw.text_sm
-                            , Tw.text_gray_400
+                            , Tw.text_color Theme.gray_400
                             ]
                         ]
                         [ time

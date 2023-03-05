@@ -6,6 +6,7 @@ import Html.Styled.Attributes as Attr exposing (css)
 import Route
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 
 
@@ -84,12 +85,12 @@ linkStyle =
         , Tw.p_4
         , Tw.neg_m_4
         , Tw.no_underline |> Css.important
-        , Tw.text_gray_600 |> Css.important
+        , Tw.text_color Theme.gray_600 |> Css.important
         , Tw.flex
         , Tw.items_center
         , Tw.mr_2
         , Css.hover
-            [ Tw.text_blue_700 |> Css.important
+            [ Tw.text_color Theme.blue_700 |> Css.important
             ]
         ]
 

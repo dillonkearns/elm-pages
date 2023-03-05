@@ -8,6 +8,7 @@ import Path exposing (Path)
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Breakpoints as Bp
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 
 
@@ -17,7 +18,7 @@ view toggleMobileMenuMsg stars currentPath =
         [ css
             [ Tw.flex
             , Tw.items_center
-            , Tw.bg_white
+            , Tw.bg_color Theme.white
             , Tw.z_20
             , Tw.sticky
             , Tw.top_0
@@ -25,7 +26,7 @@ view toggleMobileMenuMsg stars currentPath =
             , Tw.right_0
             , Tw.h_16
             , Tw.border_b
-            , Tw.border_gray_200
+            , Tw.border_color Theme.gray_200
             , Tw.px_6
 
             --, Bp.dark
@@ -48,7 +49,7 @@ view toggleMobileMenuMsg stars currentPath =
             [ a
                 [ css
                     [ Tw.no_underline
-                    , Tw.text_current
+                    , Tw.text_color Theme.current
                     , Tw.flex
                     , Tw.items_center
                     , Css.hover
@@ -90,21 +91,21 @@ view toggleMobileMenuMsg stars currentPath =
                 , Tw.items_center
                 , Tw.px_1
                 , Tw.border
-                , Tw.border_gray_300
+                , Tw.border_color Theme.gray_300
                 , Tw.shadow_sm
                 , Tw.text_sm
                 , Tw.rounded_md
-                , Tw.text_gray_700
-                , Tw.bg_white
+                , Tw.text_color Theme.gray_700
+                , Tw.bg_color Theme.white
                 , Bp.md [ Tw.hidden ]
                 , Css.focus
                     [ Tw.outline_none
                     , Tw.ring_2
                     , Tw.ring_offset_2
-                    , Tw.ring_blue_500
+                    , Tw.ring_color Theme.blue_500
                     ]
                 , Css.hover
-                    [ Tw.bg_gray_50
+                    [ Tw.bg_color Theme.gray_50
                     ]
                 ]
             ]
@@ -156,17 +157,17 @@ linkInner currentPagePath linkTo name =
             , Tw.p_2
             , if isCurrentPath then
                 Css.batch
-                    [ Tw.text_blue_600
+                    [ Tw.text_color Theme.blue_600
                     , Css.hover
-                        [ Tw.text_blue_700
+                        [ Tw.text_color Theme.blue_700
                         ]
                     ]
 
               else
                 Css.batch
-                    [ Tw.text_gray_600
+                    [ Tw.text_color Theme.gray_600
                     , Css.hover
-                        [ Tw.text_gray_900
+                        [ Tw.text_color Theme.gray_900
                         ]
                     ]
             ]

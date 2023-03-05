@@ -24,6 +24,7 @@ import Shared
 import SiteOld
 import StructuredData
 import Tailwind.Breakpoints as Bp
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import View exposing (View)
@@ -153,7 +154,7 @@ authorView author app =
                     [ css
                         [ Tw.text_sm
                         , Tw.font_medium
-                        , Tw.text_gray_900
+                        , Tw.text_color Theme.gray_900
                         ]
                     ]
                     [ span
@@ -166,8 +167,8 @@ authorView author app =
                     [ Tw.flex
                     , Tw.space_x_1
                     , Tw.text_sm
-                    , Tw.text_gray_500
-                    , Tw.text_gray_400
+                    , Tw.text_color Theme.gray_500
+                    , Tw.text_color Theme.gray_400
                     ]
                 ]
                 [ time
