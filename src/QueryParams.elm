@@ -4,30 +4,6 @@ module QueryParams exposing
     , toString
     )
 
-{-| Represents the query portion of a URL. You can use `toDict` or `toString` to turn it into basic types, or you can
-parse it into a custom type using the other functions in this module.
-
-@docs QueryParams
-
-
-## Parsing
-
-@docs Parser
-
-@docs andThen, fail, fromResult, fromString, optionalString, parse, string, strings, succeed
-
-
-## Combining
-
-@docs map2, oneOf
-
-
-## Accessing as Built-In Types
-
-@docs toDict, toString
-
--}
-
 import Dict exposing (Dict)
 import Url
 
