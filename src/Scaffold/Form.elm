@@ -15,6 +15,7 @@ import Cli.Option
 import Elm
 import Elm.Annotation as Type
 import Elm.Declare
+import Elm.Op
 import List.Extra
 import Result.Extra
 
@@ -59,84 +60,88 @@ formWithFields elmCssView fields viewFn =
                 |> List.foldl
                     (\( fieldName, kind ) chain ->
                         chain
-                            |> formField fieldName
-                                (case kind of
-                                    FieldText ->
-                                        formFieldText
-                                            |> formFieldRequired (Elm.string "Required")
+                            |> Elm.Op.pipe
+                                (formField fieldName
+                                    (case kind of
+                                        FieldText ->
+                                            Elm.apply (formFieldRequired (Elm.string "Required")) [ formFieldText ]
 
-                                    FieldInt ->
-                                        formFieldInt { invalid = \_ -> Elm.string "" }
-                                            |> formFieldRequired (Elm.string "Required")
+                                        FieldInt ->
+                                            formFieldInt { invalid = \_ -> Elm.string "" }
+                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
 
-                                    FieldTextarea ->
-                                        formFieldText
-                                            |> formFieldRequired (Elm.string "Required")
-                                            |> formFieldTextarea
-                                                { rows = Elm.nothing
-                                                , cols = Elm.nothing
-                                                }
+                                        FieldTextarea ->
+                                            formFieldText
+                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
+                                                |> Elm.Op.pipe
+                                                    (formFieldTextarea
+                                                        { rows = Elm.nothing
+                                                        , cols = Elm.nothing
+                                                        }
+                                                    )
 
-                                    FieldFloat ->
-                                        formFieldFloat { invalid = \_ -> Elm.string "" }
-                                            |> formFieldRequired (Elm.string "Required")
+                                        FieldFloat ->
+                                            formFieldFloat { invalid = \_ -> Elm.string "" }
+                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
 
-                                    FieldTime ->
-                                        formFieldTime { invalid = \_ -> Elm.string "" }
-                                            |> formFieldRequired (Elm.string "Required")
+                                        FieldTime ->
+                                            formFieldTime { invalid = \_ -> Elm.string "" }
+                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
 
-                                    FieldDate ->
-                                        formFieldDate { invalid = \_ -> Elm.string "" }
-                                            |> formFieldRequired (Elm.string "Required")
+                                        FieldDate ->
+                                            formFieldDate { invalid = \_ -> Elm.string "" }
+                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
 
-                                    FieldCheckbox ->
-                                        formFieldCheckbox
+                                        FieldCheckbox ->
+                                            formFieldCheckbox
+                                    )
                                 )
                     )
-                    (formInit
-                        (Elm.function (List.map fieldToParam fields)
-                            (\params ->
-                                Elm.record
-                                    [ ( "combine"
-                                      , params
-                                            |> List.foldl
-                                                (\fieldExpression chain ->
-                                                    chain
-                                                        |> validationAndMap fieldExpression
-                                                )
-                                                (validationSucceed (Elm.val "ParsedForm"))
-                                      )
-                                    , ( "view"
-                                      , Elm.fn ( "formState", Nothing )
-                                            (\formState ->
-                                                let
-                                                    mappedParams : List { name : String, kind : Kind, param : Elm.Expression }
-                                                    mappedParams =
-                                                        params
-                                                            |> List.Extra.zip fields
-                                                            |> List.map
-                                                                (\( ( name, kind ), param ) ->
-                                                                    { name = name
-                                                                    , kind = kind
-                                                                    , param = param
-                                                                    }
-                                                                )
-                                                in
-                                                viewFn
-                                                    { formState =
-                                                        { errors = formState |> Elm.get "errors"
-                                                        , isTransitioning = formState |> Elm.get "isTransitioning"
-                                                        , submitAttempted = formState |> Elm.get "submitAttempted"
-                                                        , data = formState |> Elm.get "data"
-                                                        , expression = formState
-                                                        }
-                                                    , params = mappedParams
-                                                    }
+                    (Elm.function (List.map fieldToParam fields)
+                        (\params ->
+                            Elm.record
+                                [ ( "combine"
+                                  , params
+                                        |> List.foldl
+                                            (\fieldExpression chain ->
+                                                chain
+                                                    |> Elm.Op.pipe (validationAndMap fieldExpression)
                                             )
-                                      )
-                                    ]
-                            )
+                                            (Elm.val "ParsedForm"
+                                                |> Elm.Op.pipe validationSucceed
+                                            )
+                                  )
+                                , ( "view"
+                                  , Elm.fn ( "formState", Nothing )
+                                        (\formState ->
+                                            let
+                                                mappedParams : List { name : String, kind : Kind, param : Elm.Expression }
+                                                mappedParams =
+                                                    params
+                                                        |> List.Extra.zip fields
+                                                        |> List.map
+                                                            (\( ( name, kind ), param ) ->
+                                                                { name = name
+                                                                , kind = kind
+                                                                , param = param
+                                                                }
+                                                            )
+                                            in
+                                            viewFn
+                                                { formState =
+                                                    { errors = formState |> Elm.get "errors"
+                                                    , isTransitioning = formState |> Elm.get "isTransitioning"
+                                                    , submitAttempted = formState |> Elm.get "submitAttempted"
+                                                    , data = formState |> Elm.get "data"
+                                                    , expression = formState
+                                                    }
+                                                , params = mappedParams
+                                                }
+                                        )
+                                  )
+                                ]
                         )
+                        |> Elm.Op.pipe formInit
                     )
                 |> Elm.withType
                     (Type.namedWith [ "Form" ]
@@ -295,8 +300,8 @@ provide { fields, view, elmCssView } =
             }
 
 
-validationAndMap : Elm.Expression -> Elm.Expression -> Elm.Expression
-validationAndMap andMapArg andMapArg0 =
+validationAndMap : Elm.Expression -> Elm.Expression
+validationAndMap andMapArg =
     Elm.apply
         (Elm.value
             { importFrom = [ "Form", "Validation" ]
@@ -304,19 +309,16 @@ validationAndMap andMapArg andMapArg0 =
             , annotation = Nothing
             }
         )
-        [ andMapArg, andMapArg0 ]
+        [ andMapArg ]
 
 
-validationSucceed : Elm.Expression -> Elm.Expression
-validationSucceed succeedArg =
-    Elm.apply
-        (Elm.value
-            { importFrom = [ "Form", "Validation" ]
-            , name = "succeed"
-            , annotation = Nothing
-            }
-        )
-        [ succeedArg ]
+validationSucceed : Elm.Expression
+validationSucceed =
+    Elm.value
+        { importFrom = [ "Form", "Validation" ]
+        , name = "succeed"
+        , annotation = Nothing
+        }
 
 
 formFieldText : Elm.Expression
@@ -328,8 +330,8 @@ formFieldText =
         }
 
 
-formFieldRequired : Elm.Expression -> Elm.Expression -> Elm.Expression
-formFieldRequired requiredArg requiredArg0 =
+formFieldRequired : Elm.Expression -> Elm.Expression
+formFieldRequired requiredArg =
     Elm.apply
         (Elm.value
             { importFrom = [ "Form", "Field" ]
@@ -337,7 +339,7 @@ formFieldRequired requiredArg requiredArg0 =
             , annotation = Nothing
             }
         )
-        [ requiredArg, requiredArg0 ]
+        [ requiredArg ]
 
 
 formFieldInt : { invalid : Elm.Expression -> Elm.Expression } -> Elm.Expression
@@ -361,8 +363,7 @@ formFieldInt intArg =
 formFieldTextarea :
     { rows : Elm.Expression, cols : Elm.Expression }
     -> Elm.Expression
-    -> Elm.Expression
-formFieldTextarea textareaArg textareaArg0 =
+formFieldTextarea textareaArg =
     Elm.apply
         (Elm.value
             { importFrom = [ "Form", "Field" ]
@@ -374,7 +375,6 @@ formFieldTextarea textareaArg textareaArg0 =
             [ Tuple.pair "rows" textareaArg.rows
             , Tuple.pair "cols" textareaArg.cols
             ]
-        , textareaArg0
         ]
 
 
@@ -438,8 +438,8 @@ formFieldFloat floatArg =
         ]
 
 
-formField : String -> Elm.Expression -> Elm.Expression -> Elm.Expression
-formField fieldArg fieldArg0 fieldArg1 =
+formField : String -> Elm.Expression -> Elm.Expression
+formField fieldArg fieldArg0 =
     Elm.apply
         (Elm.value
             { importFrom = [ "Form" ]
@@ -447,29 +447,28 @@ formField fieldArg fieldArg0 fieldArg1 =
             , annotation = Nothing
             }
         )
-        [ Elm.string fieldArg, fieldArg0, fieldArg1 ]
+        [ Elm.string fieldArg, fieldArg0 ]
 
 
-formInit : Elm.Expression -> Elm.Expression
-formInit initArg =
-    Elm.apply
-        (Elm.value
-            { importFrom = [ "Form" ]
-            , name = "hiddenKind"
-            , annotation = Nothing
-            }
-        )
-        [ Elm.tuple (Elm.string "kind") (Elm.string "regular")
-        , Elm.string "Expected kind."
-        , Elm.apply
-            (Elm.value
-                { importFrom = [ "Form" ]
-                , name = "init"
-                , annotation = Nothing
-                }
+formInit : Elm.Expression
+formInit =
+    Elm.value
+        { importFrom = [ "Form" ]
+        , name = "init"
+        , annotation = Nothing
+        }
+        |> Elm.Op.pipe
+            (Elm.apply
+                (Elm.value
+                    { importFrom = [ "Form" ]
+                    , name = "hiddenKind"
+                    , annotation = Nothing
+                    }
+                )
+                [ Elm.tuple (Elm.string "kind") (Elm.string "regular")
+                , Elm.string "Expected kind."
+                ]
             )
-            [ initArg ]
-        ]
 
 
 initCombined : Elm.Expression -> Elm.Expression -> Elm.Expression
