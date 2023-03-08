@@ -64,7 +64,8 @@ formWithFields elmCssView fields viewFn =
                                 (formField fieldName
                                     (case kind of
                                         FieldText ->
-                                            Elm.apply (formFieldRequired (Elm.string "Required")) [ formFieldText ]
+                                            formFieldText
+                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
 
                                         FieldInt ->
                                             formFieldInt { invalid = \_ -> Elm.string "" }
