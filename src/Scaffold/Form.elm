@@ -15,6 +15,7 @@ import Cli.Option
 import Elm
 import Elm.Annotation as Type
 import Elm.Declare
+import Elm.Op
 import List.Extra
 import Result.Extra
 
@@ -59,38 +60,40 @@ formWithFields elmCssView fields viewFn =
                 |> List.foldl
                     (\( fieldName, kind ) chain ->
                         chain
-                            |> formField fieldName
-                                (case kind of
-                                    FieldText ->
-                                        formFieldText
-                                            |> formFieldRequired (Elm.string "Required")
+                            |> Elm.Op.pipe
+                                (formField fieldName
+                                    (case kind of
+                                        FieldText ->
+                                            formFieldText
+                                                |> formFieldRequired (Elm.string "Required")
 
-                                    FieldInt ->
-                                        formFieldInt { invalid = \_ -> Elm.string "" }
-                                            |> formFieldRequired (Elm.string "Required")
+                                        FieldInt ->
+                                            formFieldInt { invalid = \_ -> Elm.string "" }
+                                                |> formFieldRequired (Elm.string "Required")
 
-                                    FieldTextarea ->
-                                        formFieldText
-                                            |> formFieldRequired (Elm.string "Required")
-                                            |> formFieldTextarea
-                                                { rows = Elm.nothing
-                                                , cols = Elm.nothing
-                                                }
+                                        FieldTextarea ->
+                                            formFieldText
+                                                |> formFieldRequired (Elm.string "Required")
+                                                |> formFieldTextarea
+                                                    { rows = Elm.nothing
+                                                    , cols = Elm.nothing
+                                                    }
 
-                                    FieldFloat ->
-                                        formFieldFloat { invalid = \_ -> Elm.string "" }
-                                            |> formFieldRequired (Elm.string "Required")
+                                        FieldFloat ->
+                                            formFieldFloat { invalid = \_ -> Elm.string "" }
+                                                |> formFieldRequired (Elm.string "Required")
 
-                                    FieldTime ->
-                                        formFieldTime { invalid = \_ -> Elm.string "" }
-                                            |> formFieldRequired (Elm.string "Required")
+                                        FieldTime ->
+                                            formFieldTime { invalid = \_ -> Elm.string "" }
+                                                |> formFieldRequired (Elm.string "Required")
 
-                                    FieldDate ->
-                                        formFieldDate { invalid = \_ -> Elm.string "" }
-                                            |> formFieldRequired (Elm.string "Required")
+                                        FieldDate ->
+                                            formFieldDate { invalid = \_ -> Elm.string "" }
+                                                |> formFieldRequired (Elm.string "Required")
 
-                                    FieldCheckbox ->
-                                        formFieldCheckbox
+                                        FieldCheckbox ->
+                                            formFieldCheckbox
+                                    )
                                 )
                     )
                     (formInit
@@ -102,7 +105,7 @@ formWithFields elmCssView fields viewFn =
                                             |> List.foldl
                                                 (\fieldExpression chain ->
                                                     chain
-                                                        |> validationAndMap fieldExpression
+                                                        |> Elm.Op.pipe (validationAndMap fieldExpression)
                                                 )
                                                 (validationSucceed (Elm.val "ParsedForm"))
                                       )
@@ -295,8 +298,8 @@ provide { fields, view, elmCssView } =
             }
 
 
-validationAndMap : Elm.Expression -> Elm.Expression -> Elm.Expression
-validationAndMap andMapArg andMapArg0 =
+validationAndMap : Elm.Expression -> Elm.Expression
+validationAndMap andMapArg =
     Elm.apply
         (Elm.value
             { importFrom = [ "Form", "Validation" ]
@@ -304,7 +307,7 @@ validationAndMap andMapArg andMapArg0 =
             , annotation = Nothing
             }
         )
-        [ andMapArg, andMapArg0 ]
+        [ andMapArg ]
 
 
 validationSucceed : Elm.Expression -> Elm.Expression
@@ -438,8 +441,8 @@ formFieldFloat floatArg =
         ]
 
 
-formField : String -> Elm.Expression -> Elm.Expression -> Elm.Expression
-formField fieldArg fieldArg0 fieldArg1 =
+formField : String -> Elm.Expression -> Elm.Expression
+formField fieldArg fieldArg0 =
     Elm.apply
         (Elm.value
             { importFrom = [ "Form" ]
@@ -447,7 +450,7 @@ formField fieldArg fieldArg0 fieldArg1 =
             , annotation = Nothing
             }
         )
-        [ Elm.string fieldArg, fieldArg0, fieldArg1 ]
+        [ Elm.string fieldArg, fieldArg0 ]
 
 
 formInit : Elm.Expression -> Elm.Expression
