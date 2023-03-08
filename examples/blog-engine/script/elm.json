@@ -34,7 +34,7 @@
             "lamdera/codecs": "1.0.0",
             "lamdera/core": "1.0.0",
             "matheus23/elm-default-tailwind-modules": "2.0.3",
-            "mdgriffith/elm-codegen": "2.0.0",
+            "mdgriffith/elm-codegen": "2.1.0",
             "miniBill/elm-codec": "2.0.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "pablohirafuji/elm-syntax-highlight": "3.4.1",
