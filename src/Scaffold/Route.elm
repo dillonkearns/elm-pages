@@ -46,6 +46,7 @@ import Cli.Validate
 import Elm
 import Elm.Annotation
 import Elm.Declare
+import Elm.Op
 import Pages.Internal.RoutePattern as RoutePattern
 
 
@@ -1083,204 +1084,206 @@ buildWithLocalState_ :
     -> Elm.Expression
     -> Elm.Expression
 buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
-    Elm.apply
-        (Elm.value
-            { importFrom = [ "RouteBuilder" ]
-            , name =
-                case buildWithLocalStateArg.state of
-                    LocalState ->
-                        "buildWithLocalState"
+    Elm.Op.pipe
+        (Elm.apply
+            (Elm.value
+                { importFrom = [ "RouteBuilder" ]
+                , name =
+                    case buildWithLocalStateArg.state of
+                        LocalState ->
+                            "buildWithLocalState"
 
-                    SharedState ->
-                        "buildWithSharedState"
-            , annotation =
-                Just
-                    (Elm.Annotation.function
-                        [ Elm.Annotation.record
-                            [ ( "view"
-                              , Elm.Annotation.function
-                                    [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
-                                    , Elm.Annotation.var "model"
-                                    , Elm.Annotation.namedWith
-                                        [ "RouteBuilder" ]
-                                        "App"
-                                        [ Elm.Annotation.var "data"
-                                        , Elm.Annotation.var "action"
-                                        , Elm.Annotation.var "routeParams"
+                        SharedState ->
+                            "buildWithSharedState"
+                , annotation =
+                    Just
+                        (Elm.Annotation.function
+                            [ Elm.Annotation.record
+                                [ ( "view"
+                                  , Elm.Annotation.function
+                                        [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                        , Elm.Annotation.var "model"
+                                        , Elm.Annotation.namedWith
+                                            [ "RouteBuilder" ]
+                                            "App"
+                                            [ Elm.Annotation.var "data"
+                                            , Elm.Annotation.var "action"
+                                            , Elm.Annotation.var "routeParams"
+                                            ]
                                         ]
-                                    ]
-                                    (Elm.Annotation.namedWith
-                                        [ "View" ]
-                                        "View"
-                                        [ Elm.Annotation.namedWith
-                                            [ "PagesMsg" ]
-                                            "PagesMsg"
-                                            [ Elm.Annotation.named [] "Msg" ]
-                                        ]
-                                    )
-                              )
-                            , ( "init"
-                              , Elm.Annotation.function
-                                    [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
-                                    , Elm.Annotation.namedWith
-                                        [ "RouteBuilder" ]
-                                        "App"
-                                        [ Elm.Annotation.var "data"
-                                        , Elm.Annotation.var "action"
-                                        , Elm.Annotation.var "routeParams"
-                                        ]
-                                    ]
-                                    (Elm.Annotation.tuple
-                                        (Elm.Annotation.named [] "Model")
                                         (Elm.Annotation.namedWith
-                                            [ "Effect" ]
-                                            "Effect"
-                                            [ Elm.Annotation.named [] "Msg" ]
+                                            [ "View" ]
+                                            "View"
+                                            [ Elm.Annotation.namedWith
+                                                [ "PagesMsg" ]
+                                                "PagesMsg"
+                                                [ Elm.Annotation.named [] "Msg" ]
+                                            ]
                                         )
-                                    )
-                              )
-                            , ( "update"
-                              , Elm.Annotation.function
-                                    [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
-                                    , Elm.Annotation.namedWith
-                                        [ "RouteBuilder" ]
-                                        "App"
-                                        [ localType "Data"
-                                        , localType "ActionData"
-                                        , localType "RouteParams"
+                                  )
+                                , ( "init"
+                                  , Elm.Annotation.function
+                                        [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                        , Elm.Annotation.namedWith
+                                            [ "RouteBuilder" ]
+                                            "App"
+                                            [ Elm.Annotation.var "data"
+                                            , Elm.Annotation.var "action"
+                                            , Elm.Annotation.var "routeParams"
+                                            ]
                                         ]
-                                    , Elm.Annotation.named [] "Msg"
-                                    , Elm.Annotation.named [] "Model"
-                                    ]
-                                    (case buildWithLocalStateArg.state of
-                                        LocalState ->
-                                            Elm.Annotation.tuple
-                                                (localType "Model")
-                                                (Elm.Annotation.namedWith
-                                                    [ "Effect" ]
-                                                    "Effect"
-                                                    [ localType "Msg" ]
-                                                )
+                                        (Elm.Annotation.tuple
+                                            (Elm.Annotation.named [] "Model")
+                                            (Elm.Annotation.namedWith
+                                                [ "Effect" ]
+                                                "Effect"
+                                                [ Elm.Annotation.named [] "Msg" ]
+                                            )
+                                        )
+                                  )
+                                , ( "update"
+                                  , Elm.Annotation.function
+                                        [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                        , Elm.Annotation.namedWith
+                                            [ "RouteBuilder" ]
+                                            "App"
+                                            [ localType "Data"
+                                            , localType "ActionData"
+                                            , localType "RouteParams"
+                                            ]
+                                        , Elm.Annotation.named [] "Msg"
+                                        , Elm.Annotation.named [] "Model"
+                                        ]
+                                        (case buildWithLocalStateArg.state of
+                                            LocalState ->
+                                                Elm.Annotation.tuple
+                                                    (localType "Model")
+                                                    (Elm.Annotation.namedWith
+                                                        [ "Effect" ]
+                                                        "Effect"
+                                                        [ localType "Msg" ]
+                                                    )
 
-                                        SharedState ->
-                                            Elm.Annotation.triple
-                                                (localType "Model")
-                                                (Elm.Annotation.namedWith
-                                                    [ "Effect" ]
-                                                    "Effect"
-                                                    [ localType "Msg" ]
-                                                )
-                                                (Elm.Annotation.maybe (Elm.Annotation.named [ "Shared" ] "Msg"))
-                                    )
-                              )
-                            , ( "subscriptions"
-                              , Elm.Annotation.function
-                                    [ Elm.Annotation.var "routeParams"
-                                    , Elm.Annotation.namedWith [ "Path" ] "Path" []
-                                    , Elm.Annotation.namedWith [ "Shared" ] "Model" []
-                                    , Elm.Annotation.var "model"
-                                    ]
-                                    (Elm.Annotation.namedWith [] "Sub" [ localType "Msg" ])
-                              )
+                                            SharedState ->
+                                                Elm.Annotation.triple
+                                                    (localType "Model")
+                                                    (Elm.Annotation.namedWith
+                                                        [ "Effect" ]
+                                                        "Effect"
+                                                        [ localType "Msg" ]
+                                                    )
+                                                    (Elm.Annotation.maybe (Elm.Annotation.named [ "Shared" ] "Msg"))
+                                        )
+                                  )
+                                , ( "subscriptions"
+                                  , Elm.Annotation.function
+                                        [ Elm.Annotation.var "routeParams"
+                                        , Elm.Annotation.namedWith [ "Path" ] "Path" []
+                                        , Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                        , Elm.Annotation.var "model"
+                                        ]
+                                        (Elm.Annotation.namedWith [] "Sub" [ localType "Msg" ])
+                                  )
+                                ]
+                            , Elm.Annotation.namedWith
+                                [ "RouteBuilder" ]
+                                "Builder"
+                                [ localType "RouteParams"
+                                , localType "Data"
+                                , localType "ActionData"
+                                ]
                             ]
-                        , Elm.Annotation.namedWith
-                            [ "RouteBuilder" ]
-                            "Builder"
-                            [ localType "RouteParams"
-                            , localType "Data"
-                            , localType "ActionData"
-                            ]
-                        ]
-                        (Elm.Annotation.namedWith
-                            [ "RouteBuilder" ]
-                            "StatefulRoute"
-                            [ localType "RouteParams"
-                            , localType "Data"
-                            , localType "ActionData"
-                            , localType "Model"
-                            , localType "Msg"
-                            ]
+                            (Elm.Annotation.namedWith
+                                [ "RouteBuilder" ]
+                                "StatefulRoute"
+                                [ localType "RouteParams"
+                                , localType "Data"
+                                , localType "ActionData"
+                                , localType "Model"
+                                , localType "Msg"
+                                ]
+                            )
+                        )
+                }
+            )
+            [ Elm.record
+                [ Tuple.pair
+                    "view"
+                    (Elm.functionReduced
+                        "buildWithLocalStateUnpack"
+                        (\functionReducedUnpack ->
+                            Elm.functionReduced
+                                "unpack"
+                                (\functionReducedUnpack_2_1_2_0_2_2_0_1_0_2_0_0 ->
+                                    Elm.functionReduced
+                                        "unpack"
+                                        (buildWithLocalStateArg.view
+                                            functionReducedUnpack
+                                            functionReducedUnpack_2_1_2_0_2_2_0_1_0_2_0_0
+                                        )
+                                )
                         )
                     )
-            }
-        )
-        [ Elm.record
-            [ Tuple.pair
-                "view"
-                (Elm.functionReduced
-                    "buildWithLocalStateUnpack"
-                    (\functionReducedUnpack ->
-                        Elm.functionReduced
-                            "unpack"
-                            (\functionReducedUnpack_2_1_2_0_2_2_0_1_0_2_0_0 ->
-                                Elm.functionReduced
-                                    "unpack"
-                                    (buildWithLocalStateArg.view
-                                        functionReducedUnpack
-                                        functionReducedUnpack_2_1_2_0_2_2_0_1_0_2_0_0
-                                    )
-                            )
+                , Tuple.pair
+                    "init"
+                    (Elm.functionReduced
+                        "buildWithLocalStateUnpack"
+                        (\functionReducedUnpack ->
+                            Elm.functionReduced
+                                "unpack"
+                                (buildWithLocalStateArg.init
+                                    functionReducedUnpack
+                                )
+                        )
                     )
-                )
-            , Tuple.pair
-                "init"
-                (Elm.functionReduced
-                    "buildWithLocalStateUnpack"
-                    (\functionReducedUnpack ->
-                        Elm.functionReduced
-                            "unpack"
-                            (buildWithLocalStateArg.init
-                                functionReducedUnpack
-                            )
+                , Tuple.pair
+                    "update"
+                    (Elm.functionReduced
+                        "buildWithLocalStateUnpack"
+                        (\functionReducedUnpack ->
+                            Elm.functionReduced
+                                "unpack"
+                                (\functionReducedUnpack_2_1_2_0_2_2_2_1_0_2_0_0 ->
+                                    Elm.functionReduced
+                                        "unpack"
+                                        (\functionReducedUnpack_2_1_2_1_2_0_2_2_2_1_0_2_0_0 ->
+                                            Elm.functionReduced
+                                                "unpack"
+                                                (buildWithLocalStateArg.update
+                                                    functionReducedUnpack
+                                                    functionReducedUnpack_2_1_2_0_2_2_2_1_0_2_0_0
+                                                    functionReducedUnpack_2_1_2_1_2_0_2_2_2_1_0_2_0_0
+                                                )
+                                        )
+                                )
+                        )
                     )
-                )
-            , Tuple.pair
-                "update"
-                (Elm.functionReduced
-                    "buildWithLocalStateUnpack"
-                    (\functionReducedUnpack ->
-                        Elm.functionReduced
-                            "unpack"
-                            (\functionReducedUnpack_2_1_2_0_2_2_2_1_0_2_0_0 ->
-                                Elm.functionReduced
-                                    "unpack"
-                                    (\functionReducedUnpack_2_1_2_1_2_0_2_2_2_1_0_2_0_0 ->
-                                        Elm.functionReduced
-                                            "unpack"
-                                            (buildWithLocalStateArg.update
-                                                functionReducedUnpack
-                                                functionReducedUnpack_2_1_2_0_2_2_2_1_0_2_0_0
-                                                functionReducedUnpack_2_1_2_1_2_0_2_2_2_1_0_2_0_0
-                                            )
-                                    )
-                            )
+                , Tuple.pair
+                    "subscriptions"
+                    (Elm.functionReduced
+                        "buildWithLocalStateUnpack"
+                        (\functionReducedUnpack ->
+                            Elm.functionReduced
+                                "unpack"
+                                (\functionReducedUnpack_2_1_2_0_2_2_3_1_0_2_0_0 ->
+                                    Elm.functionReduced
+                                        "unpack"
+                                        (\functionReducedUnpack_2_1_2_1_2_0_2_2_3_1_0_2_0_0 ->
+                                            Elm.functionReduced
+                                                "unpack"
+                                                (buildWithLocalStateArg.subscriptions
+                                                    functionReducedUnpack
+                                                    functionReducedUnpack_2_1_2_0_2_2_3_1_0_2_0_0
+                                                    functionReducedUnpack_2_1_2_1_2_0_2_2_3_1_0_2_0_0
+                                                )
+                                        )
+                                )
+                        )
                     )
-                )
-            , Tuple.pair
-                "subscriptions"
-                (Elm.functionReduced
-                    "buildWithLocalStateUnpack"
-                    (\functionReducedUnpack ->
-                        Elm.functionReduced
-                            "unpack"
-                            (\functionReducedUnpack_2_1_2_0_2_2_3_1_0_2_0_0 ->
-                                Elm.functionReduced
-                                    "unpack"
-                                    (\functionReducedUnpack_2_1_2_1_2_0_2_2_3_1_0_2_0_0 ->
-                                        Elm.functionReduced
-                                            "unpack"
-                                            (buildWithLocalStateArg.subscriptions
-                                                functionReducedUnpack
-                                                functionReducedUnpack_2_1_2_0_2_2_3_1_0_2_0_0
-                                                functionReducedUnpack_2_1_2_1_2_0_2_2_3_1_0_2_0_0
-                                            )
-                                    )
-                            )
-                    )
-                )
+                ]
             ]
-        , buildWithLocalStateArg0
-        ]
+        )
+        buildWithLocalStateArg0
 
 
 buildNoState_ :
@@ -1290,73 +1293,75 @@ buildNoState_ :
     -> Elm.Expression
     -> Elm.Expression
 buildNoState_ buildNoStateArg buildNoStateArg0 =
-    Elm.apply
-        (Elm.value
-            { importFrom = [ "RouteBuilder" ]
-            , name = "buildNoState"
-            , annotation =
-                Just
-                    (Elm.Annotation.function
-                        [ Elm.Annotation.record
-                            [ ( "view"
-                              , Elm.Annotation.function
-                                    [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
-                                    , Elm.Annotation.namedWith
-                                        [ "RouteBuilder" ]
-                                        "App"
-                                        [ Elm.Annotation.named [] "Data"
-                                        , Elm.Annotation.named [] "ActionData"
-                                        , Elm.Annotation.named [] "RouteParams"
+    Elm.Op.pipe
+        (Elm.apply
+            (Elm.value
+                { importFrom = [ "RouteBuilder" ]
+                , name = "buildNoState"
+                , annotation =
+                    Just
+                        (Elm.Annotation.function
+                            [ Elm.Annotation.record
+                                [ ( "view"
+                                  , Elm.Annotation.function
+                                        [ Elm.Annotation.namedWith [ "Shared" ] "Model" []
+                                        , Elm.Annotation.namedWith
+                                            [ "RouteBuilder" ]
+                                            "App"
+                                            [ Elm.Annotation.named [] "Data"
+                                            , Elm.Annotation.named [] "ActionData"
+                                            , Elm.Annotation.named [] "RouteParams"
+                                            ]
                                         ]
-                                    ]
-                                    (Elm.Annotation.namedWith
-                                        [ "View" ]
-                                        "View"
-                                        [ Elm.Annotation.namedWith
-                                            [ "PagesMsg" ]
-                                            "PagesMsg"
-                                            [ Elm.Annotation.named [] "Msg" ]
-                                        ]
-                                    )
-                              )
+                                        (Elm.Annotation.namedWith
+                                            [ "View" ]
+                                            "View"
+                                            [ Elm.Annotation.namedWith
+                                                [ "PagesMsg" ]
+                                                "PagesMsg"
+                                                [ Elm.Annotation.named [] "Msg" ]
+                                            ]
+                                        )
+                                  )
+                                ]
+                            , Elm.Annotation.namedWith
+                                [ "RouteBuilder" ]
+                                "Builder"
+                                [ Elm.Annotation.named [] "RouteParams"
+                                , Elm.Annotation.named [] "Data"
+                                , Elm.Annotation.named [] "ActionData"
+                                ]
                             ]
-                        , Elm.Annotation.namedWith
-                            [ "RouteBuilder" ]
-                            "Builder"
-                            [ Elm.Annotation.named [] "RouteParams"
-                            , Elm.Annotation.named [] "Data"
-                            , Elm.Annotation.named [] "ActionData"
-                            ]
-                        ]
-                        (Elm.Annotation.namedWith
-                            [ "RouteBuilder" ]
-                            "StatefulRoute"
-                            [ Elm.Annotation.named [] "RouteParams"
-                            , Elm.Annotation.named [] "Data"
-                            , Elm.Annotation.named [] "ActionData"
-                            , Elm.Annotation.record []
-                            , Elm.Annotation.unit
-                            ]
+                            (Elm.Annotation.namedWith
+                                [ "RouteBuilder" ]
+                                "StatefulRoute"
+                                [ Elm.Annotation.named [] "RouteParams"
+                                , Elm.Annotation.named [] "Data"
+                                , Elm.Annotation.named [] "ActionData"
+                                , Elm.Annotation.record []
+                                , Elm.Annotation.unit
+                                ]
+                            )
+                        )
+                }
+            )
+            [ Elm.record
+                [ Tuple.pair
+                    "view"
+                    (Elm.functionReduced
+                        "unpack"
+                        (\functionReducedUnpack0 ->
+                            Elm.functionReduced
+                                "unpack"
+                                (buildNoStateArg.view
+                                    functionReducedUnpack0
+                                )
                         )
                     )
-            }
-        )
-        [ Elm.record
-            [ Tuple.pair
-                "view"
-                (Elm.functionReduced
-                    "unpack"
-                    (\functionReducedUnpack0 ->
-                        Elm.functionReduced
-                            "unpack"
-                            (buildNoStateArg.view
-                                functionReducedUnpack0
-                            )
-                    )
-                )
+                ]
             ]
-        , buildNoStateArg0
-        ]
+        )
+        buildNoStateArg0
 
 
 effectType : Elm.Annotation.Annotation
