@@ -6,7 +6,6 @@
         "../../src",
         ".elm-pages",
         "../../plugins",
-        "gen",
         "../todos/send-grid/src"
     ],
     "elm-version": "0.19.1",
