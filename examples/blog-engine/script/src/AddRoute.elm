@@ -11,12 +11,12 @@ import Elm.Declare
 import Elm.Let
 import Elm.Op
 import Gen.BackendTask
-import Gen.Debug
 import Gen.Effect as Effect
 import Gen.Form as Form
 import Gen.Form.FieldView as FieldView
 import Gen.Html as Html
 import Gen.Html.Attributes as Attr
+import Gen.Json.Encode
 import Gen.List
 import Gen.Pages.Script
 import Gen.Platform.Sub
@@ -138,8 +138,8 @@ createFile { moduleName, fields } =
                                                         { err =
                                                             ( "error"
                                                             , \error ->
-                                                                Gen.Debug.toString error
-                                                                    |> Gen.Pages.Script.call_.log
+                                                                "Form validations did not succeed!"
+                                                                    |> Gen.Pages.Script.log
                                                                     |> Gen.BackendTask.call_.map
                                                                         (Elm.fn ( "_", Nothing )
                                                                             (\_ ->
@@ -152,9 +152,10 @@ createFile { moduleName, fields } =
                                                                         )
                                                             )
                                                         , ok =
-                                                            ( "okForm"
-                                                            , \okForm ->
-                                                                Gen.Debug.toString okForm
+                                                            ( "validatedForm"
+                                                            , \validatedForm ->
+                                                                Scaffold.Form.recordEncoder validatedForm fields
+                                                                    |> Gen.Json.Encode.encode 2
                                                                     |> Gen.Pages.Script.call_.log
                                                                     |> Gen.BackendTask.call_.map
                                                                         (Elm.fn ( "_", Nothing )

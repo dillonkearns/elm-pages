@@ -1,6 +1,7 @@
 module Scaffold.Form exposing
     ( Kind(..), provide, restArgsParser
     , Context
+    , fieldEncoder, recordEncoder
     )
 
 {-|
@@ -8,6 +9,8 @@ module Scaffold.Form exposing
 @docs Kind, provide, restArgsParser
 
 @docs Context
+
+@docs fieldEncoder, recordEncoder
 
 -}
 
@@ -482,3 +485,76 @@ initCombined initCombinedArg initCombinedArg0 =
             }
         )
         [ initCombinedArg, initCombinedArg0 ]
+
+
+{-| Generate a JSON Encoder for the form fields. This can be helpful for sending the validated form data through a
+BackendTask.Custom or to an external API from your scaffolded Route Module code.
+-}
+recordEncoder : Elm.Expression -> List ( String, Kind ) -> Elm.Expression
+recordEncoder record fields =
+    fields
+        |> List.map
+            (\( field, kind ) ->
+                Elm.tuple
+                    (Elm.string field)
+                    (fieldEncoder record field kind)
+            )
+        |> Elm.list
+        |> List.singleton
+        |> Elm.apply
+            (Elm.value
+                { importFrom = [ "Json", "Encode" ]
+                , name = "object"
+                , annotation =
+                    Just
+                        (Type.function
+                            [ Type.list
+                                (Type.tuple
+                                    Type.string
+                                    (Type.namedWith [ "Json", "Encode" ] "Value" [])
+                                )
+                            ]
+                            (Type.namedWith [ "Json", "Encode" ] "Value" [])
+                        )
+                }
+            )
+
+
+{-| -}
+fieldEncoder : Elm.Expression -> String -> Kind -> Elm.Expression
+fieldEncoder record name kind =
+    Elm.apply
+        (case kind of
+            FieldInt ->
+                encoder "int"
+
+            FieldText ->
+                encoder "string"
+
+            FieldTextarea ->
+                encoder "string"
+
+            FieldFloat ->
+                encoder "float"
+
+            FieldTime ->
+                -- TODO fix time encoder
+                encoder "int"
+
+            FieldDate ->
+                -- TODO fix date encoder
+                encoder "int"
+
+            FieldCheckbox ->
+                encoder "bool"
+        )
+        [ Elm.get name record ]
+
+
+encoder : String -> Elm.Expression
+encoder name =
+    Elm.value
+        { importFrom = [ "Json", "Encode" ]
+        , name = name
+        , annotation = Nothing
+        }
