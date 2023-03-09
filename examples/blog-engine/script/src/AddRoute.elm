@@ -224,17 +224,12 @@ createFile { moduleName, fields } =
                         (Type.named [] "Msg")
                         [ Elm.Case.branch0 "NoOp"
                             (Elm.tuple model
-                                (Effect.none
-                                    |> Elm.withType effectType
-                                )
+                                Effect.none
                             )
                         ]
             , init =
                 \{ shared, app } ->
-                    Elm.tuple (Elm.record [])
-                        (Effect.none
-                            |> Elm.withType effectType
-                        )
+                    Elm.tuple (Elm.record []) Effect.none
             , subscriptions =
                 \{ routeParams, path, shared, model } ->
                     Gen.Platform.Sub.none
@@ -293,8 +288,3 @@ errorsView =
                         ]
                     )
         )
-
-
-effectType : Type.Annotation
-effectType =
-    Type.namedWith [ "Effect" ] "Effect" [ Type.var "msg" ]

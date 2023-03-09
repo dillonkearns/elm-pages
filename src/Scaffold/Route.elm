@@ -591,7 +591,14 @@ userFunction moduleName definitions =
                                 ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "msg", Just (Elm.Annotation.named [] "Msg") )
                                 ( "model", Just (Elm.Annotation.named [] "Model") )
-                                localState.update
+                                (\app shared msg model ->
+                                    localState.update app shared msg model
+                                        |> Elm.withType
+                                            (Elm.Annotation.tuple
+                                                (localType "Model")
+                                                effectType
+                                            )
+                                )
                         , initFn =
                             Elm.Declare.fn2 "init"
                                 ( "app", Just appType )
