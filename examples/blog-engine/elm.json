@@ -12,6 +12,7 @@
     "dependencies": {
         "direct": {
             "MartinSStewart/elm-nonempty-string": "2.0.0",
+            "NoRedInk/elm-json-decode-pipeline": "1.0.1",
             "avh4/elm-color": "1.0.0",
             "danfishgold/base64-bytes": "1.1.0",
             "danyx23/elm-mimetype": "4.0.1",
