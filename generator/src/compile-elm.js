@@ -6,6 +6,8 @@ import * as path from "path";
 import * as kleur from "kleur/colors";
 import { inject } from "elm-hot";
 import { fileURLToPath } from "url";
+import { rewriteElmJson } from "./rewrite-elm-json-help.js";
+import { ensureDirSync } from "./file-helpers.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -16,7 +18,22 @@ export async function compileElmForBrowser(options) {
     "elm-stuff/elm-pages/",
     "browser-elm.js"
   );
-  await runElm(options, "./.elm-pages/Main.elm", pathToClientElm);
+  const secretDir = path.join(process.cwd(), "elm-stuff/elm-pages/browser-elm");
+  await fsHelpers.tryMkdir(secretDir);
+  rewriteElmJson(process.cwd(), secretDir, function (elmJson) {
+    elmJson["source-directories"] = elmJson["source-directories"].map(
+      (item) => {
+        return "../../../" + item;
+      }
+    );
+    return elmJson;
+  });
+  await runElm(
+    options,
+    "../../../.elm-pages/Main.elm",
+    pathToClientElm,
+    secretDir
+  );
   return fs.promises.writeFile(
     "./.elm-pages/cache/elm.js",
     inject(await fs.promises.readFile(pathToClientElm, "utf-8")).replace(

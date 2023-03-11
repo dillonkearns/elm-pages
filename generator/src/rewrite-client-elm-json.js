@@ -27,6 +27,7 @@ function rewriteClientElmJsonHelp(elmJson) {
   elmJson["source-directories"] = elmJson["source-directories"].map((item) => {
     return "../../../" + item;
   });
+  elmJson["dependencies"]["direct"]["lamdera/codecs"] = "1.0.0";
   // 3. add our own secret My.elm module 😈
   elmJson["source-directories"].push(".elm-pages");
   elmJson["source-directories"].push("app");

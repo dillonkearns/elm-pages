@@ -35,8 +35,6 @@
             "elm-community/list-extra": "8.3.1",
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.0.1",
-            "lamdera/codecs": "1.0.0",
-            "lamdera/core": "1.0.0",
             "mdgriffith/elm-codegen": "2.0.0",
             "miniBill/elm-codec": "1.2.0",
             "noahzgordon/elm-color-extra": "1.0.2",

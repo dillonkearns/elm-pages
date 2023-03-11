@@ -309,6 +309,7 @@ init config flags url key =
 type Msg userMsg pageData actionData sharedData errorPage
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
+      -- TODO rename to PagesMsg
     | UserMsg (PagesMsg userMsg)
     | SetField { formId : String, name : String, value : String }
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
