@@ -30,7 +30,7 @@ jobs:
           path: |
             ~/.cache/Cypress
             node_modules
-          key: node_modules-node-v${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
+          key: node_modules-node-v${{ matrix.node }}-1-${{ hashFiles('package-lock.json') }}
 
       # Re-use ~/.elm between runs until elm.json, elm-tooling.json or
       # review/elm.json changes. The Elm compiler saves downloaded Elm packages
