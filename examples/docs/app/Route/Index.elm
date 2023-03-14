@@ -121,7 +121,7 @@ landingView =
             , buttonLink = Route.Docs__Section__ { section = Nothing }
             , svgIcon = "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
             , code =
-                ( "src/Page/Repo/Name_.elm", """module Route.Repo.Name_ exposing (Data, Model, Msg, route)
+                ( "app/Route/Repo/Name_.elm", """module Route.Repo.Name_ exposing (Data, Model, Msg, route)
                 
 type alias Data = Int
 type alias RouteParams = { name : String }
@@ -135,15 +135,16 @@ route =
         }
         |> RouteBuilder.buildNoState { view = view }
 
-pages : BackendTask (List RouteParams)
+pages : BackendTask error (List RouteParams)
 pages =
     BackendTask.succeed [ { name = "elm-pages" } ]
 
-data : RouteParams -> BackendTask Data
+data : RouteParams -> BackendTask FatalError Data
 data routeParams =
     BackendTask.Http.getJson
         (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
         (Decode.field "stargazer_count" Decode.int)
+    |> BackendTask.allowFatal
 
 view :
     App Data ActionData RouteParams
@@ -166,32 +167,33 @@ view app =
                 ( "src/Project.elm", """type alias Project =
     { name : String
     , description : String
-    , repo : Repo
+    , stars : Int
     }
 
 
-all : BackendTask (List Project)
+all : BackendTask FatalError (List Project)
 all =
     Glob.succeed
         (\\projectName filePath ->
-            BackendTask.map2 (Project projectName)
-                (BackendTask.File.rawFile filePath BackendTask.File.body)
-                (repo projectName)
+            BackendTask.map3 Project
+                (BackendTask.succeed projectName)
+                (BackendTask.File.rawFile filePath BackendTask.File.body |> BackendTask.allowFatal)
+                (stars projectName)
         )
         |> Glob.match (Glob.literal "projects/")
         |> Glob.capture Glob.wildcard
         |> Glob.match (Glob.literal ".txt")
         |> Glob.captureFilePath
         |> Glob.toBackendTask
+        |> BackendTask.allowFatal
         |> BackendTask.resolve
 
 
-repo : String -> BackendTask Repo
-repo repoName =
-    BackendTask.Http.getJson (Secrets.succeed ("https://api.github.com/repos/dillonkearns/" ++ repoName))
-        (OptimizedDecoder.map Repo
-            (OptimizedDecoder.field "stargazers_count" OptimizedDecoder.int)
-        )
+stars : String -> BackendTask Int
+stars repoName =
+    Decode.field "stargazers_count" Decode.int
+    |> BackendTask.Http.getJson ("https://api.github.com/repos/dillonkearns/" ++ repoName)
+    |> BackendTask.allowFatal
 """ )
             }
         , firstSection
