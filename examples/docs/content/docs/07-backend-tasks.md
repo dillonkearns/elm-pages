@@ -1,5 +1,5 @@
 ---
-description: TODO
+description: Understanding BackendTasks
 ---
 
 # `BackendTask`s
@@ -71,29 +71,3 @@ That means that when we run `elm-pages build`, then deploy the HTML and JSON out
 
 So when a user goes to your site, they won't hit your CMS directly. Instead, when they load the page it will include all of the data that we used for that specific page
 in the initial load. That's how `elm-pages` can skip the loading spinner for an HTTP data source - it builds the data into the page at build-time.
-
-## Optimized Decoders
-
-Often REST APIs will include a lot of data that you can use. But you might need just a couple of fields.
-
-When you write an `OptimizedDecoder`, `elm-pages` will only include the JSON data that you decoded when it builds that page.
-
-For example, the GitHub API returns back dozens of fields in this API response, but we only want one: the number of stargazers.
-
-```elm
-import OptimizedDecoder
-import BackendTask exposing (BackendTask)
-
-staticData : BackendTask Int
-staticData =
-    BackendTask.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-        (OptimizedDecoder.field "stargazers_count" OptimizedDecoder.int)
-```
-
-That means the data that gets built into the site will be:
-
-```json
-{ "stargazers_count": 123 }
-```
-
-At build-time, `elm-pages` performs this optimization, which means your users don't have to pay the cost of running it when your site loads in their browser - they get the best of both worlds with a smaller JSON payload, and a fast decoder!
