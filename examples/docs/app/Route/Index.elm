@@ -122,7 +122,7 @@ landingView =
             , svgIcon = "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
             , code =
                 ( "app/Route/Repo/Name_.elm", """module Route.Repo.Name_ exposing (Data, Model, Msg, route)
-                
+
 type alias Data = Int
 type alias RouteParams = { name : String }
 
@@ -203,7 +203,7 @@ stars repoName =
             , buttonLink = Route.Docs__Section__ { section = Nothing }
             , svgIcon = "M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242z"
             , code =
-                ( "src/Page/Blog/Slug_.elm", """head :
+                ( "app/Route/Blog/Slug_.elm", """head :
     App Data ActionData RouteParams
     -> List Head.Tag
 head app =
@@ -231,44 +231,238 @@ head app =
 """ )
             }
         , firstSection
-            { heading = "Optimized Data"
-            , body = "The OptimizedDecoder module is a drop-in replacement for vanilla decoders. Just by using that module, elm-pages will strip out any untouched JSON values from your BackendTask's."
-            , buttonText = "Learn about OptimizedDecoders"
+            { heading = "Full-Stack Elm"
+            , body = "With server-rendered routes, you can seamlessly pull in user-specific data from your backend and hydrate it into a dynamic Elm application. No API layer required. You can access incoming HTTP requests from your server-rendered routes, and even use the Session API to manage key-value pairs through signed cookies."
+            , buttonText = "Learn about server-rendered routes"
             , buttonLink = Route.Docs__Section__ { section = Nothing }
-            , svgIcon = "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+            , svgIcon = "M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"
             , code =
-                ( "src/Page/Blog/Slug_.elm", """import OptimizedDecoder
+                ( "app/Route/Feed.elm", """module Route.Feed exposing (ActionData, Data, Model, Msg, RouteParams, route)
 
-data : RouteParams -> BackendTask Data
+
+type alias RouteParams = {}
+
+
+type alias Data =
+    { user : User
+    , posts : List Post
+    }
+
+
+data :
+    RouteParams
+    -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
-    BackendTask.Http.getJson
-        (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
-        (OptimizedDecoder.field "stargazer_count" OptimizedDecoder.int)
+    withUserOrRedirect
+        (\\user ->
+            BackendTask.map (Data user)
+            (BackendTask.Custom.run "getPosts"
+                (Encode.string user.id)
+                (Decode.list postDecoder)
+                |> BackendTask.allowFatal
+            )
+                |> BackendTask.map Server.Response.render
+        )
+
+withUserOrRedirect :
+    (User -> BackendTask FatalError (Response Data ErrorPage))
+    -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
+withUserOrRedirect withUser =
+    Request.succeed ()
+        |> Session.withSession
+            { secrets =
+                BackendTask.Env.expect "SESSION_SECRET"
+                    |> BackendTask.allowFatal
+                    |> BackendTask.map List.singleton
+            , options = Server.SetCookie.initOptions
+            , name = "session"
+            }
+            (\\() sessionResult ->
+                let
+                    session =
+                        sessionResult
+                            |> Result.withDefault Session.empty
+                in
+                session
+                    |> Session.get "sessionId"
+                    |> Maybe.map getUserFromSession
+                    |> Maybe.map (BackendTask.andThen withUser)
+                    |> Maybe.withDefault (BackendTask.succeed (Route.redirectTo Route.Login))
+                    |> BackendTask.map (Tuple.pair session)
+            )
 
 
-{-
-Full API response from https://api.github.com/repos/dillonkearns/elm-pages
-{
-    "id": 198527910,
-    "node_id": "MDEwOlJlcG9zaXRvcnkxOTg1Mjc5MTA=",
-    "name": "elm-pages",
-    "full_name": "dillonkearns/elm-pages",
-    "private": false,
-    "owner": { ... },
-    .....
-    "stargazers_count": 394,
-    .....
-}
+view :
+    App Data ActionData RouteParams
+    -> Shared.Model
+    -> Model
+    -> View (PagesMsg Msg)
+view app shared model =
+    { title = "Feed"
+    , body =
+        [ navbarView app.data.user
+        , postsView app.data.posts
+        ]
+    }
+""" )
+            }
+        , firstSection
+            { heading = "Forms Without the Wiring"
+            , body = "elm-pages uses progressively enhanced web standards. The Web has had a way to send data to backends for decades, no need to re-invent the wheel! Just modernize it with some progressive enhancement. You define your Form and validations declaratively, and elm-pages gives you client-side validations and state with no Model/init/update wiring whatsoever. You can even derive pending/optimistic UI from the in-flight form submissions (which elm-pages manages and exposes to you for free as well!)."
+            , buttonText = "Learn about the Form API"
+            , buttonLink = Route.Docs__Section__ { section = Nothing }
+            , svgIcon = "M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M13.125 12h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125M20.625 12c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5M12 14.625v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 14.625c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m0 1.5v-1.5m0 0c0-.621.504-1.125 1.125-1.125m0 0h7.5"
+            , code =
+                ( "app/Route/Signup.elm", """module Route.Signup exposing (ActionData, Data, Model, Msg, RouteParams, route)
 
-Optimized data for initial page load:
 
-{
-    "stargazers_count": 394
-}
+type alias Data = {}
+type alias RouteParams = {}
+type alias ActionData = { errors : Form.Response String }
 
--}
 
-            """ )
+route : RouteBuilder.StatefulRoute RouteParams Data ActionData Model Msg
+route =
+    RouteBuilder.serverRender { data = data, action = action, head = head }
+        |> RouteBuilder.buildNoState { view = view }
+
+
+type alias ActionData =
+    { errors : Form.Response String }
+
+
+view :
+    App Data ActionData RouteParams
+    -> Shared.Model
+    -> View (PagesMsg Msg)
+view app shared =
+    { title = "Sign Up"
+    , body =
+        [ Html.h2 [] [ Html.text "Sign Up" ]
+        -- client-side validation wiring is managed by the framework
+        , Form.renderHtml "signup" [] (Just << .errors) app () signUpForm
+        ]
+    }
+
+
+data :
+    RouteParams
+    -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
+data routeParams =
+    Request.succeed (BackendTask.succeed (Response.render {}))
+
+
+head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
+head app =
+    []
+
+
+action :
+    RouteParams
+    -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
+action routeParams =
+    formHandlers
+        |> Request.formData
+        |> Request.map
+            (\\formData ->
+                case formData of
+                    ( response, parsedForm ) ->
+                        case parsedForm of
+                            Ok (SignUp okForm) ->
+                                BackendTask.Custom.run "createUser"
+                                    -- client-side validations run on the server, too,
+                                    -- so we know that the password and password-confirmation matched
+                                    (Encode.object
+                                        [ ( "username", Encode.string okForm.username )
+                                        , ( "password", Encode.string okForm.password )
+                                        ]
+                                    )
+                                    (Decode.succeed ())
+                                    |> BackendTask.allowFatal
+                                    |> BackendTask.map (\\() -> Response.render { errors = response })
+
+                            Err error ->
+                                "Error!"
+                                    |> Pages.Script.log
+                                    |> BackendTask.map (\\() -> Response.render { errors = response })
+            )
+
+
+errorsView :
+    Form.Errors String
+    -> Validation.Field String parsed kind
+    -> Html (PagesMsg Msg)
+errorsView errors field =
+    errors
+        |> Form.errorsForField field
+        |> List.map (\\error -> Html.li [ Html.Attributes.style "color" "red" ] [ Html.text error ])
+        |> Html.ul []
+
+
+signUpForm : Form.HtmlForm String SignUpForm input Msg
+signUpForm =
+    (\\username password passwordConfirmation ->
+        { combine =
+            Validation.succeed SignUpForm
+                |> Validation.andMap username
+                |> Validation.andMap
+                    (Validation.map2
+                        (\\passwordValue passwordConfirmationValue ->
+                            if passwordValue == passwordConfirmationValue then
+                                Validation.succeed passwordValue
+
+                            else
+                                Validation.fail "Must match password" passwordConfirmation
+                        )
+                        password
+                        passwordConfirmation
+                        |> Validation.andThen identity
+                    )
+        , view =
+            \\formState ->
+                let
+                    fieldView label field =
+                        Html.div []
+                            [ Html.label
+                                []
+                                [ Html.text (label ++ " ")
+                                , Form.FieldView.input [] field
+                                , errorsView formState.errors field
+                                ]
+                            ]
+                in
+                [ fieldView "username" username
+                , fieldView "Password" password
+                , fieldView "Password Confirmation" passwordConfirmation
+                , if formState.isTransitioning then
+                    Html.button
+                        [ Html.Attributes.disabled True ]
+                        [ Html.text "Signing Up..." ]
+
+                  else
+                    Html.button [] [ Html.text "Sign Up" ]
+                ]
+        }
+    )
+        |> Form.init
+        |> Form.hiddenKind ( "kind", "regular" ) "Expected kind."
+        |> Form.field "username" (Field.text |> Field.required "Required")
+        |> Form.field "password" (Field.text |> Field.password |> Field.required "Required")
+        |> Form.field "password-confirmation" (Field.text |> Field.password |> Field.required "Required")
+
+
+type Action
+    = SignUp SignUpForm
+
+
+type alias SignUpForm =
+    { username : String, password : String }
+
+
+formHandlers : Form.ServerForms String Action
+formHandlers =
+    Form.initCombined SignUp signUpForm
+""" )
             }
         ]
 
