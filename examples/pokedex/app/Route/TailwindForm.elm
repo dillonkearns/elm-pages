@@ -4,7 +4,6 @@ import BackendTask exposing (BackendTask)
 import Css exposing (Color)
 import Css.Global
 import Date exposing (Date)
-import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
@@ -19,7 +18,6 @@ import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Icon
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
@@ -719,7 +717,6 @@ view app model sharedModel =
                         |> Debug.toString
                     )
                 , form
-                    |> Form.toDynamicTransition
                     |> Form.renderStyledHtml "test"
                         []
                         --app.action
