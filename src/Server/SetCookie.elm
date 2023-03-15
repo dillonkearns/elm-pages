@@ -2,7 +2,7 @@ module Server.SetCookie exposing
     ( SetCookie
     , SameSite(..)
     , Options, initOptions
-    , withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
+    , withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withoutPath, withSameSite
     , toString
     )
 
@@ -29,7 +29,7 @@ You can learn more about the basics of cookies in the Web Platform in these help
 
 @docs Options, initOptions
 
-@docs withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withSameSite
+@docs withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withoutPath, withSameSite
 
 
 ## Internal
@@ -143,7 +143,7 @@ initOptions =
     { expiration = Nothing
     , visibleToJavaScript = False
     , maxAge = Nothing
-    , path = Nothing
+    , path = Just "/"
     , domain = Nothing
     , secure = True
     , sameSite = Nothing
@@ -197,6 +197,14 @@ withPath : String -> Options -> Options
 withPath path builder =
     { builder
         | path = Just path
+    }
+
+
+{-| -}
+withoutPath : Options -> Options
+withoutPath builder =
+    { builder
+        | path = Nothing
     }
 
 
