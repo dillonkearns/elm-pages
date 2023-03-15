@@ -21,6 +21,7 @@ import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Flags
+import Pages.Internal.FatalError
 import Pages.Internal.NotFoundReason as NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
@@ -676,6 +677,96 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                     (config.data (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter)
                                                                     config.sharedData
                                                                     globalHeadTags
+                                                    )
+                                                |> BackendTask.onError
+                                                    (\((Pages.Internal.FatalError.FatalError fatalError) as error) ->
+                                                        let
+                                                            isPreRendered : Bool
+                                                            isPreRendered =
+                                                                let
+                                                                    keys : Int
+                                                                    keys =
+                                                                        RenderRequest.maybeRequestPayload renderRequest |> Maybe.map (Decode.decodeValue (Decode.keyValuePairs Decode.value)) |> Maybe.withDefault (Ok []) |> Result.withDefault [] |> List.map Tuple.first |> List.length
+                                                                in
+                                                                -- TODO this is a bit hacky, would be nice to clean up the way of checking whether this is server-rendered or pre-rendered
+                                                                keys <= 1
+                                                        in
+                                                        if isDevServer || isPreRendered then
+                                                            -- we want to stop the build for pre-rendered routes, and give a dev server error popup in the dev server
+                                                            BackendTask.fail error
+
+                                                        else
+                                                            --only render the production ErrorPage in production server-rendered Routes
+                                                            config.sharedData
+                                                                |> BackendTask.andThen
+                                                                    (\justSharedData ->
+                                                                        let
+                                                                            errorPage : errorPage
+                                                                            errorPage =
+                                                                                config.internalError fatalError.body
+
+                                                                            dataThing : pageData
+                                                                            dataThing =
+                                                                                errorPage
+                                                                                    |> config.errorPageToData
+
+                                                                            statusCode : Int
+                                                                            statusCode =
+                                                                                config.errorStatusCode errorPage
+
+                                                                            byteEncodedPageData : Bytes
+                                                                            byteEncodedPageData =
+                                                                                ResponseSketch.HotUpdate
+                                                                                    dataThing
+                                                                                    justSharedData
+                                                                                    -- TODO remove shared action data
+                                                                                    Nothing
+                                                                                    |> config.encodeResponse
+                                                                                    |> Bytes.Encode.encode
+
+                                                                            pageModel : userModel
+                                                                            pageModel =
+                                                                                config.init
+                                                                                    Pages.Flags.PreRenderFlags
+                                                                                    justSharedData
+                                                                                    dataThing
+                                                                                    Nothing
+                                                                                    (Just
+                                                                                        { path =
+                                                                                            { path = currentPage.path
+                                                                                            , query = Nothing
+                                                                                            , fragment = Nothing
+                                                                                            }
+                                                                                        , metadata = currentPage.route
+                                                                                        , pageUrl = Nothing
+                                                                                        }
+                                                                                    )
+                                                                                    |> Tuple.first
+
+                                                                            currentPage : { path : Path, route : route }
+                                                                            currentPage =
+                                                                                { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
+
+                                                                            viewValue : { title : String, body : List (Html (PagesMsg userMsg)) }
+                                                                            viewValue =
+                                                                                (config.view Dict.empty Dict.empty Nothing currentPage Nothing justSharedData dataThing Nothing |> .view)
+                                                                                    pageModel
+                                                                        in
+                                                                        { route = Path.toAbsolute currentPage.path
+                                                                        , contentJson = Dict.empty
+                                                                        , html = viewValue.body |> bodyToString
+                                                                        , errors = []
+                                                                        , head = [] -- TODO render head tags --config.view Dict.empty Dict.empty Nothing pathAndRoute Nothing justSharedData pageData Nothing |> .head
+                                                                        , title = viewValue.title
+                                                                        , staticHttpCache = Dict.empty
+                                                                        , is404 = False
+                                                                        , statusCode = statusCode
+                                                                        , headers = []
+                                                                        }
+                                                                            |> ToJsPayload.PageProgress
+                                                                            |> Effect.SendSinglePageNew byteEncodedPageData
+                                                                            |> BackendTask.succeed
+                                                                    )
                                                     )
 
                                         Just notFoundReason ->
