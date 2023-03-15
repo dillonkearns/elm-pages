@@ -286,6 +286,13 @@ withUserOrRedirect withUser =
                     |> BackendTask.map (Tuple.pair session)
             )
 
+getUserFromSession : String -> BackendTask FatalError User
+getUserFromSession sessionId =
+    BackendTask.Custom.run "getUserFromSession"
+        (Encode.string sessionId)
+        userDecoder
+        |> BackendTask.allowFatal
+
 
 view :
     App Data ActionData RouteParams
