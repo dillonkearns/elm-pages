@@ -270,19 +270,14 @@ withUserOrRedirect :
 withUserOrRedirect withUser =
     Request.succeed ()
         |> Session.withSession
-            { secrets =
+            { name = "session"
+            , secrets =
                 BackendTask.Env.expect "SESSION_SECRET"
                     |> BackendTask.allowFatal
                     |> BackendTask.map List.singleton
-            , options = Server.SetCookie.initOptions
-            , name = "session"
+            , options = Nothing
             }
-            (\\() sessionResult ->
-                let
-                    session =
-                        sessionResult
-                            |> Result.withDefault Session.empty
-                in
+            (\\() session ->
                 session
                     |> Session.get "sessionId"
                     |> Maybe.map getUserFromSession

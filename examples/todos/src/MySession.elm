@@ -23,7 +23,7 @@ withSession :
     -> Parser request
     -> Parser (BackendTask FatalError (Response data errorPage))
 withSession =
-    Session.withSession
+    Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
         , options = cookieOptions
@@ -35,7 +35,7 @@ withSessionOrRedirect :
     -> Parser request
     -> Parser (BackendTask FatalError (Response data errorPage))
 withSessionOrRedirect toRequest handler =
-    Session.withSession
+    Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
         , options = cookieOptions
@@ -65,7 +65,7 @@ expectSessionOrRedirect :
     -> Parser request
     -> Parser (BackendTask FatalError (Response data errorPage))
 expectSessionOrRedirect toRequest handler =
-    Session.withSession
+    Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
         , options = cookieOptions

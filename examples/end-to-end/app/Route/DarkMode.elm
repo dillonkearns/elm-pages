@@ -14,14 +14,12 @@ import Form.Value as Value
 import Head
 import Html.Styled as Html
 import Html.Styled.Attributes exposing (css)
-import Pages.PageUrl
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import RouteBuilder
 import Server.Request
 import Server.Response
 import Server.Session as Session
-import Server.SetCookie as SetCookie
 import Shared
 import View
 
@@ -91,10 +89,7 @@ type alias ActionData =
 sessionOptions =
     { name = "darkMode"
     , secrets = BackendTask.succeed [ "test" ]
-    , options =
-        SetCookie.initOptions
-            |> SetCookie.withPath "/"
-            |> SetCookie.withSameSite SetCookie.Lax
+    , options = Nothing
     }
 
 
@@ -103,7 +98,7 @@ data :
     -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
 data routeParams =
     Server.Request.succeed ()
-        |> Session.withSession sessionOptions
+        |> Session.withSessionResult sessionOptions
             (\() sessionResult ->
                 let
                     session : Session.Session
@@ -132,7 +127,7 @@ action routeParams =
         (form
             |> Form.initCombined identity
         )
-        |> Session.withSession sessionOptions
+        |> Session.withSessionResult sessionOptions
             (\( response, formPost ) sessionResult ->
                 let
                     setToDarkMode : Bool

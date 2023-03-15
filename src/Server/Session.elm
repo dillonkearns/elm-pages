@@ -1,5 +1,5 @@
 module Server.Session exposing
-    ( withSession
+    ( withSession, withSessionResult
     , NotLoadedReason(..)
     , Session, empty, get, insert, remove, update, withFlash
     )
@@ -59,7 +59,7 @@ still be used to attempt to "unsign" the cookies. So if you have a single secret
         , secrets =
             BackendTask.map List.singleton
                 (Env.expect "SESSION_SECRET2022-09-01")
-        , options = cookieOptions
+        , options = Nothing
         }
 
 Then you add a second secret
@@ -71,7 +71,7 @@ Then you add a second secret
                 (\newSecret oldSecret -> [ newSecret, oldSecret ])
                 (Env.expect "SESSION_SECRET2022-12-01")
                 (Env.expect "SESSION_SECRET2022-09-01")
-        , options = cookieOptions
+        , options = Nothing
         }
 
 The new secret (`2022-12-01`) will be used to sign all requests. This API always re-signs using the newest secret in the list
@@ -89,14 +89,14 @@ it will invalidate all cookies signed with that. For example, if we remove our o
         , secrets =
             BackendTask.map List.singleton
                 (Env.expect "SESSION_SECRET2022-12-01")
-        , options = cookieOptions
+        , options = Nothing
         }
 
 And then a user makes a request but had a session signed with our old secret (`2022-09-01`), the session will be invalid
 (so `withSession` would parse the session for that request as `Nothing`). It's standard for cookies to have an expiration date,
 so there's nothing wrong with an old session expiring (and the browser will eventually delete old cookies), just be aware of that when rotating secrets.
 
-@docs withSession
+@docs withSession, withSessionResult
 
 @docs NotLoadedReason
 
@@ -243,12 +243,32 @@ flashPrefix =
 withSession :
     { name : String
     , secrets : BackendTask error (List String)
-    , options : SetCookie.Options
+    , options : Maybe SetCookie.Options
+    }
+    -> (request -> Session -> BackendTask error ( Session, Response data errorPage ))
+    -> Server.Request.Parser request
+    -> Server.Request.Parser (BackendTask error (Response data errorPage))
+withSession config toRequest userRequest =
+    withSessionResult config
+        (\request session ->
+            toRequest request
+                (session
+                    |> Result.withDefault empty
+                )
+        )
+        userRequest
+
+
+{-| -}
+withSessionResult :
+    { name : String
+    , secrets : BackendTask error (List String)
+    , options : Maybe SetCookie.Options
     }
     -> (request -> Result NotLoadedReason Session -> BackendTask error ( Session, Response data errorPage ))
     -> Server.Request.Parser request
     -> Server.Request.Parser (BackendTask error (Response data errorPage))
-withSession config toRequest userRequest =
+withSessionResult config toRequest userRequest =
     Server.Request.map2
         (\maybeSessionCookie userRequestData ->
             let
@@ -283,7 +303,7 @@ withSession config toRequest userRequest =
 encodeSessionUpdate :
     { name : String
     , secrets : BackendTask error (List String)
-    , options : SetCookie.Options
+    , options : Maybe SetCookie.Options
     }
     -> (c -> d -> BackendTask error ( Session, Response data errorPage ))
     -> c
@@ -298,7 +318,7 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
                     (\encoded ->
                         response
                             |> Server.Response.withSetCookieHeader
-                                (SetCookie.setCookie config.name encoded config.options)
+                                (SetCookie.setCookie config.name encoded (config.options |> Maybe.withDefault SetCookie.initOptions))
                     )
                     (sign config.secrets
                         (encodeNonExpiringPairs sessionUpdate)

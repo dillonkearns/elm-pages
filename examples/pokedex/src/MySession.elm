@@ -8,14 +8,6 @@ import Route
 import Server.Request exposing (Parser)
 import Server.Response exposing (Response)
 import Server.Session as Session
-import Server.SetCookie as SetCookie
-
-
-cookieOptions : SetCookie.Options
-cookieOptions =
-    SetCookie.initOptions
-        |> SetCookie.withPath "/"
-        |> SetCookie.withSameSite SetCookie.Lax
 
 
 withSession :
@@ -23,10 +15,10 @@ withSession :
     -> Parser request
     -> Parser (BackendTask FatalError (Response data errorPage))
 withSession =
-    Session.withSession
+    Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
-        , options = cookieOptions
+        , options = Nothing
         }
 
 
@@ -35,10 +27,10 @@ withSessionOrRedirect :
     -> Parser request
     -> Parser (BackendTask FatalError (Response data errorPage))
 withSessionOrRedirect toRequest handler =
-    Session.withSession
+    Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
-        , options = cookieOptions
+        , options = Nothing
         }
         (\request sessionResult ->
             sessionResult
@@ -65,10 +57,10 @@ expectSessionOrRedirect :
     -> Parser request
     -> Parser (BackendTask FatalError (Response data errorPage))
 expectSessionOrRedirect toRequest handler =
-    Session.withSession
+    Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
-        , options = cookieOptions
+        , options = Nothing
         }
         (\request sessionResult ->
             sessionResult
