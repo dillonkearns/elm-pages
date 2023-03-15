@@ -102,7 +102,7 @@ view error model =
             , title = "Invalid pokedex number"
             }
 
-        _ ->
+        NotFound ->
             { body =
                 [ Html.div []
                     [ Html.p [] [ Html.text "Page not found. Maybe try another URL?" ]
@@ -119,6 +119,16 @@ view error model =
                     ]
                 ]
             , title = "This is a NotFound Error"
+            }
+
+        InternalError errorMessage ->
+            { body =
+                [ Html.div []
+                    [ Html.h2 [] [ Html.text "Something's Not Right Here" ]
+                    , Html.p [] [ Html.text errorMessage ]
+                    ]
+                ]
+            , title = "Internal Server Error"
             }
 
 
