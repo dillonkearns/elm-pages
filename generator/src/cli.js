@@ -95,46 +95,11 @@ async function main() {
         options2.processedArgs.length,
         options2.args.length
       );
-      const { moduleName, projectDirectory, sourceDirectory } =
-        resolveInputPathOrModuleName(elmModulePath);
-      console.log({ moduleName, projectDirectory });
-      const splitModuleName = moduleName.split(".");
-      const expectedFilePath = path.join(
-        sourceDirectory,
-        `${splitModuleName.join("/")}.elm`
-      );
-      if (!fs.existsSync(expectedFilePath)) {
-        throw `I couldn't find a module named ${expectedFilePath}`;
-      }
       try {
-        // await codegen.generate("");
-        ensureDirSync(
-          path.join(process.cwd(), ".elm-pages", "http-response-cache")
-        );
-        if (fs.existsSync("./codegen/")) {
-          await runElmCodegenInstall();
-        }
+        await compileElmForScript(elmModulePath);
 
-        ensureDirSync(`${projectDirectory}/elm-stuff`);
-        ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
-        await fs.promises.writeFile(
-          path.join(
-            `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Main.elm`
-          ),
-          generatorWrapperFile(moduleName)
-        );
-        let executableName = "lamdera";
-        try {
-          await which("lamdera");
-        } catch (error) {
-          await which("elm");
-          executableName = "elm";
-        }
-        await rewriteElmJson(
-          `${projectDirectory}/elm.json`,
-          `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
-          { executableName }
-        );
+        const { moduleName, projectDirectory, sourceDirectory } =
+          resolveInputPathOrModuleName(elmModulePath);
 
         const portBackendTaskCompiled = esbuild
           .build({
@@ -172,6 +137,8 @@ async function main() {
 
         process.chdir(projectDirectory);
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
+
+        let executableName = await lamderaOrElmFallback();
         await build.compileCliApp({ debug: "debug", executableName });
         process.chdir("../");
         fs.renameSync(
@@ -210,64 +177,13 @@ async function main() {
       collect,
       []
     )
-    .action(async (moduleName, options, options2) => {
-      if (!/^[A-Z][a-zA-Z0-9_]*(\.[A-Z][a-zA-Z0-9_]*)*$/.test(moduleName)) {
-        throw `Invalid module name "${moduleName}", must be in the format of an Elm module`;
-      }
-      const splitModuleName = moduleName.split(".");
-      const expectedFilePath = path.join(
-        process.cwd(),
-        "script/src/",
-        `${splitModuleName.join("/")}.elm`
-      );
-      if (!fs.existsSync(expectedFilePath)) {
-        throw `I couldn't find a module named ${expectedFilePath}`;
-      }
+    .action(async (elmModulePath, options, options2) => {
+      await compileElmForScript(elmModulePath);
+
       try {
-        if (fs.existsSync("./codegen/")) {
-          await runElmCodegenInstall();
-        }
+        const { moduleName, projectDirectory, sourceDirectory } =
+          resolveInputPathOrModuleName(elmModulePath);
 
-        ensureDirSync("./script/elm-stuff");
-        ensureDirSync("./script/elm-stuff/elm-pages/.elm-pages");
-        await fs.promises.writeFile(
-          path.join("./script/elm-stuff/elm-pages/.elm-pages/Main.elm"),
-          generatorWrapperFile(moduleName)
-        );
-        let executableName = "lamdera";
-        try {
-          await which("lamdera");
-          executableName = "elm";
-        } catch (error) {
-          await which("elm");
-          console.log("Falling back to Elm");
-          executableName = "elm";
-        }
-        await rewriteElmJson(
-          "./script/elm.json",
-          "./script/elm-stuff/elm-pages/elm.json",
-          { executableName }
-        );
-
-        process.chdir("./script");
-        // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
-        console.log("Compiling...");
-        await build.compileCliApp({
-          debug: options.debug,
-          executableName,
-        });
-        process.chdir("../");
-        if (!options.debug) {
-          console.log("Running elm-optimize-level-2...");
-          await build.elmOptimizeLevel2(
-            "./script/elm-stuff/elm-pages/elm.js",
-            process.cwd()
-          );
-        }
-        fs.renameSync(
-          "./script/elm-stuff/elm-pages/elm.js",
-          "./script/elm-stuff/elm-pages/elm.cjs"
-        );
         // TODO allow no custom-backend-task
         const portBackendTaskFileFound =
           globby.globbySync("./custom-backend-task.*").length > 0;
@@ -415,6 +331,54 @@ port gotBatchSub : (Decode.Value -> msg) -> Sub msg
 }
 function collect(value, previous) {
   return previous.concat([value]);
+}
+
+async function compileElmForScript(elmModulePath) {
+  const { moduleName, projectDirectory, sourceDirectory } =
+    resolveInputPathOrModuleName(elmModulePath);
+  console.log({ moduleName, projectDirectory });
+  const splitModuleName = moduleName.split(".");
+  const expectedFilePath = path.join(
+    sourceDirectory,
+    `${splitModuleName.join("/")}.elm`
+  );
+  if (!fs.existsSync(expectedFilePath)) {
+    throw `I couldn't find a module named ${expectedFilePath}`;
+  }
+  // await codegen.generate("");
+  ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
+  if (fs.existsSync("./codegen/")) {
+    await runElmCodegenInstall();
+  }
+
+  ensureDirSync(`${projectDirectory}/elm-stuff`);
+  ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
+  await fs.promises.writeFile(
+    path.join(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Main.elm`),
+    generatorWrapperFile(moduleName)
+  );
+  let executableName = await lamderaOrElmFallback();
+  try {
+    await which("lamdera");
+  } catch (error) {
+    await which("elm");
+    executableName = "elm";
+  }
+  await rewriteElmJson(
+    `${projectDirectory}/elm.json`,
+    `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
+    { executableName }
+  );
+}
+
+async function lamderaOrElmFallback() {
+  try {
+    await which("lamdera");
+    return "lamdera";
+  } catch (error) {
+    await which("elm");
+    return "elm";
+  }
 }
 
 main();
