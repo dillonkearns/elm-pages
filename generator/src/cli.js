@@ -18,6 +18,7 @@ import { default as which } from "which";
 import * as commander from "commander";
 import { runElmCodegenInstall } from "./elm-codegen.js";
 import { packageVersion } from "./compatibility-key.js";
+import { resolveInputPathOrModuleName } from "./resolve-elm-module.js";
 
 const Argument = commander.Argument;
 const Option = commander.Option;
@@ -85,22 +86,21 @@ async function main() {
     });
 
   program
-    .command("run <moduleName>")
+    .command("run <elmModulePath>")
     .description("run an elm-pages script")
     .allowUnknownOption()
     .allowExcessArguments()
-    .action(async (moduleName, options, options2) => {
+    .action(async (elmModulePath, options, options2) => {
       const unprocessedCliOptions = options2.args.splice(
         options2.processedArgs.length,
         options2.args.length
       );
-      if (!/^[A-Z][a-zA-Z0-9_]*(\.[A-Z][a-zA-Z0-9_]*)*$/.test(moduleName)) {
-        throw `Invalid module name "${moduleName}", must be in the format of an Elm module`;
-      }
+      const { moduleName, projectDirectory, sourceDirectory } =
+        resolveInputPathOrModuleName(elmModulePath);
+      console.log({ moduleName, projectDirectory });
       const splitModuleName = moduleName.split(".");
       const expectedFilePath = path.join(
-        process.cwd(),
-        "script/src/",
+        sourceDirectory,
         `${splitModuleName.join("/")}.elm`
       );
       if (!fs.existsSync(expectedFilePath)) {
@@ -115,24 +115,24 @@ async function main() {
           await runElmCodegenInstall();
         }
 
-        ensureDirSync("./script/elm-stuff");
-        ensureDirSync("./script/elm-stuff/elm-pages/.elm-pages");
+        ensureDirSync(`${projectDirectory}/elm-stuff`);
+        ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
         await fs.promises.writeFile(
-          path.join("./script/elm-stuff/elm-pages/.elm-pages/Main.elm"),
+          path.join(
+            `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Main.elm`
+          ),
           generatorWrapperFile(moduleName)
         );
         let executableName = "lamdera";
         try {
           await which("lamdera");
-          executableName = "elm";
         } catch (error) {
           await which("elm");
-          console.log("Falling back to Elm");
           executableName = "elm";
         }
         await rewriteElmJson(
-          "./script/elm.json",
-          "./script/elm-stuff/elm-pages/elm.json",
+          `${projectDirectory}/elm.json`,
+          `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
           { executableName }
         );
 
@@ -170,20 +170,20 @@ async function main() {
           });
         const portsPath = await portBackendTaskCompiled;
 
-        process.chdir("./script");
+        process.chdir(projectDirectory);
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
         await build.compileCliApp({ debug: "debug", executableName });
         process.chdir("../");
         fs.renameSync(
-          "./script/elm-stuff/elm-pages/elm.js",
-          "./script/elm-stuff/elm-pages/elm.cjs"
+          `${projectDirectory}/elm-stuff/elm-pages/elm.js`,
+          `${projectDirectory}/elm-stuff/elm-pages/elm.cjs`
         );
         await renderer.runGenerator(
           unprocessedCliOptions,
           portsPath
             ? await import(url.pathToFileURL(path.resolve(portsPath)).href)
             : null,
-          await requireElm("./script/elm-stuff/elm-pages/elm.cjs"),
+          await requireElm(`${projectDirectory}/elm-stuff/elm-pages/elm.cjs`),
           moduleName
         );
       } catch (error) {
