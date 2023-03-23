@@ -446,8 +446,9 @@ function modeToOptions(mode) {
  */
 function runElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
   return new Promise(async (resolve, reject) => {
+    const executableName = options.executableName || "lamdera";
     const subprocess = spawnCallback(
-      `lamdera`,
+      executableName,
       [
         "make",
         elmEntrypointPath,

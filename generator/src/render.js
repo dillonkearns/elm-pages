@@ -133,7 +133,6 @@ function runGeneratorAppHelp(
 
     killApp = () => {
       app.ports.toJsPort.unsubscribe(portHandler);
-      app.ports.sendPageData.unsubscribe(portHandler);
       app.die();
       app = null;
       // delete require.cache[require.resolve(compiledElmPath)];
@@ -209,7 +208,6 @@ function runGeneratorAppHelp(
       }
     }
     app.ports.toJsPort.subscribe(portHandler);
-    app.ports.sendPageData.subscribe(portHandler);
   }).finally(() => {
     try {
       killApp();

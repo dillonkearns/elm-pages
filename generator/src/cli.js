@@ -14,7 +14,7 @@ import * as esbuild from "esbuild";
 import { rewriteElmJson } from "./rewrite-elm-json.js";
 import { ensureDirSync } from "./file-helpers.js";
 import * as url from "url";
-
+import { default as which } from "which";
 import * as commander from "commander";
 import { runElmCodegenInstall } from "./elm-codegen.js";
 import { packageVersion } from "./compatibility-key.js";
@@ -121,9 +121,19 @@ async function main() {
           path.join("./script/elm-stuff/elm-pages/.elm-pages/Main.elm"),
           generatorWrapperFile(moduleName)
         );
+        let executableName = "lamdera";
+        try {
+          await which("lamdera");
+          executableName = "elm";
+        } catch (error) {
+          await which("elm");
+          console.log("Falling back to Elm");
+          executableName = "elm";
+        }
         await rewriteElmJson(
           "./script/elm.json",
-          "./script/elm-stuff/elm-pages/elm.json"
+          "./script/elm-stuff/elm-pages/elm.json",
+          { executableName }
         );
 
         const portBackendTaskCompiled = esbuild
@@ -162,7 +172,7 @@ async function main() {
 
         process.chdir("./script");
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
-        await build.compileCliApp({ debug: "debug" });
+        await build.compileCliApp({ debug: "debug", executableName });
         process.chdir("../");
         fs.renameSync(
           "./script/elm-stuff/elm-pages/elm.js",
@@ -224,15 +234,28 @@ async function main() {
           path.join("./script/elm-stuff/elm-pages/.elm-pages/Main.elm"),
           generatorWrapperFile(moduleName)
         );
+        let executableName = "lamdera";
+        try {
+          await which("lamdera");
+          executableName = "elm";
+        } catch (error) {
+          await which("elm");
+          console.log("Falling back to Elm");
+          executableName = "elm";
+        }
         await rewriteElmJson(
           "./script/elm.json",
-          "./script/elm-stuff/elm-pages/elm.json"
+          "./script/elm-stuff/elm-pages/elm.json",
+          { executableName }
         );
 
         process.chdir("./script");
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
         console.log("Compiling...");
-        await build.compileCliApp({ debug: options.debug });
+        await build.compileCliApp({
+          debug: options.debug,
+          executableName,
+        });
         process.chdir("../");
         if (!options.debug) {
           console.log("Running elm-optimize-level-2...");
@@ -361,7 +384,6 @@ async function requireElm(compiledElmPath) {
 function generatorWrapperFile(moduleName) {
   return `port module Main exposing (main)
 
-import Bytes
 import BackendTask exposing (BackendTask)
 import FatalError
 import Cli.Program as Program
@@ -378,7 +400,7 @@ main =
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , gotBatchSub = gotBatchSub identity
-        , sendPageData = sendPageData
+        , sendPageData = \\_ -> Cmd.none
         }
 
 
@@ -389,9 +411,6 @@ port fromJsPort : (Decode.Value -> msg) -> Sub msg
 
 
 port gotBatchSub : (Decode.Value -> msg) -> Sub msg
-
-
-port sendPageData : { oldThing : Encode.Value, binaryPageData : Bytes.Bytes } -> Cmd msg
 `;
 }
 function collect(value, previous) {
