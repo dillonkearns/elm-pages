@@ -516,6 +516,7 @@ userFunction moduleName definitions =
             { declaration : Elm.Declaration
             , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
             , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+            , value : List String -> Elm.Expression
             }
         viewFn =
             case definitions.localState of
@@ -545,6 +546,7 @@ userFunction moduleName definitions =
                             { declaration : Elm.Declaration
                             , call : Elm.Expression -> Elm.Expression -> Elm.Expression
                             , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                            , value : List String -> Elm.Expression
                             }
                         viewDeclaration =
                             Elm.Declare.fn2 "view"
@@ -568,6 +570,7 @@ userFunction moduleName definitions =
                     { declaration = viewDeclaration.declaration
                     , call = \app shared _ -> viewDeclaration.call app shared
                     , callFrom = \a _ c d -> viewDeclaration.callFrom a c d
+                    , value = viewDeclaration.value
                     }
 
         localDefinitions :
@@ -576,9 +579,20 @@ userFunction moduleName definitions =
                     { declaration : Elm.Declaration
                     , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
                     , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                    , value : List String -> Elm.Expression
                     }
-                , initFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression }
-                , subscriptionsFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression }
+                , initFn :
+                    { declaration : Elm.Declaration
+                    , call : Elm.Expression -> Elm.Expression -> Elm.Expression
+                    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                    , value : List String -> Elm.Expression
+                    }
+                , subscriptionsFn :
+                    { declaration : Elm.Declaration
+                    , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
+                    , value : List String -> Elm.Expression
+                    }
                 , state : State
                 }
         localDefinitions =
@@ -626,7 +640,7 @@ userFunction moduleName definitions =
                         }
                     )
 
-        dataFn : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
+        dataFn : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         dataFn =
             case definitions.action of
                 Pages Nothing ->
@@ -669,7 +683,7 @@ userFunction moduleName definitions =
                                     Elm.unit
                         )
 
-        actionFn : Maybe { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
+        actionFn : Maybe { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         actionFn =
             case definitions.action of
                 Action action_ ->
@@ -699,7 +713,7 @@ userFunction moduleName definitions =
                                     (\_ -> justPagesExpression)
                             )
 
-        headFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression }
+        headFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         headFn =
             Elm.Declare.fn "head"
                 ( "app", Just appType )
