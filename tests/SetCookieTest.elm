@@ -13,6 +13,7 @@ all =
             \() ->
                 initOptions
                     |> nonSecure
+                    |> withoutPath
                     |> makeVisibleToJavaScript
                     |> setCookie "sessionId" "38afes7a8"
                     |> toString
@@ -21,6 +22,7 @@ all =
             \() ->
                 initOptions
                     |> nonSecure
+                    |> withoutPath
                     |> withExpiration (Time.millisToPosix 1445412480000)
                     |> makeVisibleToJavaScript
                     |> setCookie "id" "a3fWa"
@@ -29,6 +31,7 @@ all =
         , test "http-only, multiple values" <|
             \() ->
                 initOptions
+                    |> withoutPath
                     |> nonSecure
                     |> withExpiration (Time.millisToPosix 1445412480000)
                     |> setCookie "id" "a3fWa"
@@ -38,6 +41,7 @@ all =
             \() ->
                 initOptions
                     |> nonSecure
+                    |> withoutPath
                     |> withImmediateExpiration
                     |> makeVisibleToJavaScript
                     |> setCookie "id" "a3fWa"
@@ -58,6 +62,7 @@ all =
                     |> nonSecure
                     |> withMaxAge 123
                     |> makeVisibleToJavaScript
+                    |> withoutPath
                     |> setCookie "id" "a3fWa"
                     |> toString
                     |> Expect.equal "id=a3fWa; Max-Age=123"
@@ -65,6 +70,7 @@ all =
             \() ->
                 initOptions
                     |> nonSecure
+                    |> withoutPath
                     |> makeVisibleToJavaScript
                     |> setCookie "id" "This needs encoding & it uses url encoding"
                     |> toString
@@ -73,6 +79,7 @@ all =
             \() ->
                 initOptions
                     |> nonSecure
+                    |> withoutPath
                     |> withDomain "example.com"
                     |> makeVisibleToJavaScript
                     |> setCookie "id" "a3fWa"
@@ -82,6 +89,7 @@ all =
             \() ->
                 initOptions
                     |> makeVisibleToJavaScript
+                    |> withoutPath
                     |> setCookie "id" "a3fWa"
                     |> toString
                     |> Expect.equal "id=a3fWa; Secure"
@@ -90,6 +98,7 @@ all =
                 initOptions
                     |> nonSecure
                     |> withSameSite Strict
+                    |> withoutPath
                     |> makeVisibleToJavaScript
                     |> setCookie "id" "a3fWa"
                     |> toString
