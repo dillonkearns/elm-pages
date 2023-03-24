@@ -103,9 +103,11 @@ async function main() {
 
         const portBackendTaskCompiled = esbuild
           .build({
-            entryPoints: [path.join(projectDirectory, "./custom-backend-task")],
+            entryPoints: [
+              path.resolve(projectDirectory, "./custom-backend-task"),
+            ],
             platform: "node",
-            outfile: path.join(
+            outfile: path.resolve(
               projectDirectory,
               ".elm-pages/compiled-ports/custom-backend-task.mjs"
             ),
@@ -126,14 +128,13 @@ async function main() {
           })
           .catch((error) => {
             const portBackendTaskFileFound =
-              globby.globbySync("./custom-backend-task.*").length > 0;
+              globby.globbySync(
+                path.resolve(projectDirectory, "./custom-backend-task.*")
+              ).length > 0;
             if (portBackendTaskFileFound) {
               // don't present error if there are no files matching custom-backend-task
               // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
-              console.error(
-                "Failed to start custom-backend-task watcher",
-                error
-              );
+              console.error("Failed to load custom-backend-task file.", error);
             }
           });
         const portsPath = await portBackendTaskCompiled;
@@ -204,12 +205,12 @@ async function main() {
 
         const portBackendTaskFileFound =
           globby.globbySync(
-            path.join(projectDirectory, "custom-backend-task.*")
+            path.resolve(projectDirectory, "custom-backend-task.*")
           ).length > 0;
 
         const scriptRunner = `${
           portBackendTaskFileFound
-            ? `import * as customBackendTask from "${path.join(
+            ? `import * as customBackendTask from "${path.resolve(
                 projectDirectory,
                 "./custom-backend-task"
               )}";`

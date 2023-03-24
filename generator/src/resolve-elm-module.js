@@ -52,10 +52,11 @@ export function resolveInputPathOrModuleName(inputPathOrModuleName) {
   if (
     /^[A-Z][a-zA-Z0-9_]*(\.[A-Z][a-zA-Z0-9_]*)*$/.test(inputPathOrModuleName)
   ) {
+    const absolutePathForScript = path.resolve("./script/src");
     return {
       moduleName: inputPathOrModuleName,
-      projectDirectory: "./script",
-      sourceDirectory: "./script/src",
+      projectDirectory: path.resolve("./script"),
+      sourceDirectory: path.resolve("./script/src"),
     };
   } else {
     return getElmModuleName(inputPathOrModuleName);
