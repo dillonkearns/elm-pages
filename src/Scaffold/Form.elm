@@ -44,17 +44,7 @@ type alias Context =
     }
 
 
-{-| -}
-formWithFields :
-    Bool
-    -> List ( String, Kind )
-    ->
-        ({ formState : Context
-         , params : List { name : String, kind : Kind, param : Elm.Expression }
-         }
-         -> Elm.Expression
-        )
-    -> { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
+formWithFields : Bool -> List ( String, Kind ) -> ({ formState : { errors : Elm.Expression, isTransitioning : Elm.Expression, submitAttempted : Elm.Expression, data : Elm.Expression, expression : Elm.Expression }, params : List { name : String, kind : Kind, param : Elm.Expression } } -> Elm.Expression) -> { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
 formWithFields elmCssView fields viewFn =
     Elm.Declare.function "form"
         []
@@ -235,15 +225,11 @@ provide { fields, view, elmCssView } =
 
     else
         let
-            form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression }
+            form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
             form =
                 formWithFields elmCssView fields view
 
-            formHandlersDeclaration :
-                { declaration : Elm.Declaration
-                , call : List Elm.Expression -> Elm.Expression
-                , callFrom : List String -> List Elm.Expression -> Elm.Expression
-                }
+            formHandlersDeclaration : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
             formHandlersDeclaration =
                 -- TODO customizable formHandlers name?
                 Elm.Declare.function "formHandlers"
