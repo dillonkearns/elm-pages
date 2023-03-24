@@ -14,12 +14,13 @@ run =
     Script.withCliOptions program
         (\{ username, repo } ->
             BackendTask.Http.get
-                ("https://api.github.com/repos/dillonkearns/" ++ repo)
+                ("https://api.github.com/repos/" ++ username ++ "/" ++ repo)
                 (Decode.field "stargazers_count" Decode.int)
                 |> BackendTask.andThen
                     (\stars ->
                         Script.log (String.fromInt stars)
                     )
+                |> BackendTask.allowFatal
         )
 
 
