@@ -41,7 +41,9 @@ function getElmModuleName(inputPath) {
   }
 
   const relativePath = path.relative(matchingSourceDir, filePath);
-  const moduleName = relativePath.replace(path.extname(relativePath), "");
+  const moduleName = relativePath
+    .replace(path.extname(relativePath), "")
+    .replace("/", ".");
 
   return { projectDirectory, moduleName, sourceDirectory: matchingSourceDir };
 }

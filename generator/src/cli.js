@@ -103,9 +103,12 @@ async function main() {
 
         const portBackendTaskCompiled = esbuild
           .build({
-            entryPoints: ["./custom-backend-task"],
+            entryPoints: [path.join(projectDirectory, "./custom-backend-task")],
             platform: "node",
-            outfile: ".elm-pages/compiled-ports/custom-backend-task.mjs",
+            outfile: path.join(
+              projectDirectory,
+              ".elm-pages/compiled-ports/custom-backend-task.mjs"
+            ),
             assetNames: "[name]-[hash]",
             chunkNames: "chunks/[name]-[hash]",
             metafile: true,
@@ -135,16 +138,17 @@ async function main() {
           });
         const portsPath = await portBackendTaskCompiled;
 
+        const cwd = process.cwd();
         process.chdir(projectDirectory);
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
 
         let executableName = await lamderaOrElmFallback();
         await build.compileCliApp({ debug: "debug", executableName });
-        process.chdir("../");
         fs.renameSync(
           `${projectDirectory}/elm-stuff/elm-pages/elm.js`,
           `${projectDirectory}/elm-stuff/elm-pages/elm.cjs`
         );
+        process.chdir(cwd);
         await renderer.runGenerator(
           unprocessedCliOptions,
           portsPath
@@ -178,26 +182,43 @@ async function main() {
       []
     )
     .action(async (elmModulePath, options, options2) => {
+      const { moduleName, projectDirectory, sourceDirectory } =
+        resolveInputPathOrModuleName(elmModulePath);
       await compileElmForScript(elmModulePath);
+
+      const cwd = process.cwd();
+      process.chdir(projectDirectory);
+      // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
+
+      let executableName = await lamderaOrElmFallback();
+      await build.compileCliApp({ debug: options.debug, executableName });
+      fs.renameSync(
+        `${projectDirectory}/elm-stuff/elm-pages/elm.js`,
+        `${projectDirectory}/elm-stuff/elm-pages/elm.cjs`
+      );
+      process.chdir(cwd);
 
       try {
         const { moduleName, projectDirectory, sourceDirectory } =
           resolveInputPathOrModuleName(elmModulePath);
 
-        // TODO allow no custom-backend-task
         const portBackendTaskFileFound =
-          globby.globbySync("./custom-backend-task.*").length > 0;
+          globby.globbySync(
+            path.join(projectDirectory, "custom-backend-task.*")
+          ).length > 0;
 
         const scriptRunner = `${
           portBackendTaskFileFound
-            ? `import * as customBackendTask from "${path.resolve(
+            ? `import * as customBackendTask from "${path.join(
+                projectDirectory,
                 "./custom-backend-task"
               )}";`
             : "const customBackendTask = {};"
         }
 import * as renderer from "./render.js";
-import { default as Elm } from "${path.resolve(
-          "./script/elm-stuff/elm-pages/elm.cjs"
+import { default as Elm } from "${path.join(
+          projectDirectory,
+          "elm-stuff/elm-pages/elm.cjs"
         )}";
 
 await renderer.runGenerator(
@@ -217,9 +238,12 @@ await(async()=>{let{dirname:e}=await import("path"),{fileURLToPath:i}=await impo
           platform: "node",
           stdin: { contents: scriptRunner, resolveDir: __dirname },
           bundle: true,
-          outfile: options.output,
+          // TODO do I need to make the outfile joined with the current working directory?
+
+          outfile: path.resolve(cwd, options.output),
           external: ["node:*", ...options.external],
           minify: true,
+          absWorkingDir: projectDirectory,
           banner: { js: `#!/usr/bin/env node\n\n${ESM_REQUIRE_SHIM}` },
         });
       } catch (error) {
@@ -336,7 +360,6 @@ function collect(value, previous) {
 async function compileElmForScript(elmModulePath) {
   const { moduleName, projectDirectory, sourceDirectory } =
     resolveInputPathOrModuleName(elmModulePath);
-  console.log({ moduleName, projectDirectory });
   const splitModuleName = moduleName.split(".");
   const expectedFilePath = path.join(
     sourceDirectory,
