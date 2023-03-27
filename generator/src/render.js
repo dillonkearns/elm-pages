@@ -91,6 +91,7 @@ export async function runGenerator(
     );
     return result;
   } catch (error) {
+    process.exitCode = 1;
     console.log(restoreColorSafe(error));
   }
 }
