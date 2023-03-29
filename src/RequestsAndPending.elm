@@ -1,4 +1,4 @@
-module RequestsAndPending exposing (RawResponse, RequestsAndPending, Response(..), ResponseBody(..), bodyEncoder, get)
+module RequestsAndPending exposing (HttpError(..), RawResponse, RequestsAndPending, Response(..), ResponseBody(..), bodyEncoder, get)
 
 import Base64
 import Bytes exposing (Bytes)
@@ -101,11 +101,39 @@ responseDecoder =
         (Decode.field "url" Decode.string)
 
 
-get : String -> RequestsAndPending -> Maybe Response
+get : String -> RequestsAndPending -> Maybe (Result HttpError Response)
 get key requestsAndPending =
     Decode.decodeValue
         (Decode.field key
-            (Decode.field "response" decoder)
+            (Decode.field "response"
+                (Decode.oneOf
+                    [ Decode.field "elm-pages-internal-error" errorDecoder |> Decode.map Err
+                    , decoder |> Decode.map Ok
+                    ]
+                )
+            )
         )
         requestsAndPending
         |> Result.toMaybe
+
+
+type HttpError
+    = NetworkError
+    | Timeout
+
+
+errorDecoder : Decoder HttpError
+errorDecoder =
+    Decode.string
+        |> Decode.andThen
+            (\errorCode ->
+                case errorCode of
+                    "NetworkError" ->
+                        Decode.succeed NetworkError
+
+                    "Timeout" ->
+                        Decode.succeed Timeout
+
+                    _ ->
+                        Decode.fail "Unhandled error code."
+            )

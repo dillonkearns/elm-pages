@@ -202,12 +202,18 @@ export function lookupOrPerform(
           },
         });
       } catch (error) {
-        console.trace("@@@ request-cache2 HTTP error", error);
-        reject({
-          title: "BackendTask.Http Error",
-          message: `${kleur.yellow().underline(request.url)} ${error.toString()}
-`,
-        });
+        if (error.code === "ECONNREFUSED") {
+          resolve({
+            kind: "response-json",
+            value: { "elm-pages-internal-error": "NetworkError" },
+          });
+        } else {
+          console.trace("elm-pages unhandled HTTP error", error);
+          resolve({
+            kind: "response-json",
+            value: { "elm-pages-internal-error": "NetworkError" },
+          });
+        }
       }
     }
   });

@@ -494,19 +494,25 @@ requestRaw request__ expect =
         (\maybeMockResolver rawResponseDict ->
             (case maybeMockResolver of
                 Just mockResolver ->
-                    mockResolver request_
+                    mockResolver request_ |> Maybe.map Ok
 
                 Nothing ->
                     rawResponseDict |> RequestsAndPending.get (request_ |> HashRequest.hash)
             )
                 |> (\maybeResponse ->
                         case maybeResponse of
-                            Just rawResponse ->
+                            Just (Ok rawResponse) ->
                                 Ok rawResponse
 
                             Nothing ->
                                 --Err (Pages.StaticHttpRequest.UserCalledStaticHttpFail ("INTERNAL ERROR - expected request" ++ request_.url))
                                 Err (BadBody Nothing ("INTERNAL ERROR - expected request" ++ request_.url))
+
+                            Just (Err RequestsAndPending.NetworkError) ->
+                                Err NetworkError
+
+                            Just (Err RequestsAndPending.Timeout) ->
+                                Err Timeout
                    )
                 |> Result.andThen
                     (\(RequestsAndPending.Response maybeResponse body) ->
