@@ -207,6 +207,14 @@ export function lookupOrPerform(
             kind: "response-json",
             value: { "elm-pages-internal-error": "NetworkError" },
           });
+        } else if (
+          error.code === "ETIMEDOUT" ||
+          error.code === "ERR_SOCKET_TIMEOUT"
+        ) {
+          resolve({
+            kind: "response-json",
+            value: { "elm-pages-internal-error": "Timeout" },
+          });
         } else {
           console.trace("elm-pages unhandled HTTP error", error);
           resolve({
