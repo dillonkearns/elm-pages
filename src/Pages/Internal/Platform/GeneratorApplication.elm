@@ -291,13 +291,9 @@ initLegacy :
     -> ( Model, Effect )
 initLegacy execute =
     let
-        staticResponses : BackendTask FatalError ()
-        staticResponses =
-            StaticResponses.renderApiRequest execute
-
         initialModel : Model
         initialModel =
-            { staticResponses = staticResponses
+            { staticResponses = execute
             , errors = []
             }
     in
