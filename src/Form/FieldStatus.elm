@@ -1,36 +1,35 @@
-module Form.FieldStatus exposing (FieldStatus(..), fieldStatusToString)
-
-{-| elm-pages manages the client-side state of fields, including Status which you can use to determine when
-in the user's workflow to show validation errors.
-
-
-## Field Status
-
-@docs FieldStatus, fieldStatusToString
-
--}
+module Form.FieldStatus exposing
+    ( FieldStatus
+    , blurred
+    , changed
+    , focused
+    , notVisited
+    )
 
 
-{-| -}
-type FieldStatus
-    = NotVisited
-    | Focused
-    | Changed
-    | Blurred
+type alias FieldStatus =
+    Int
 
 
 {-| -}
-fieldStatusToString : FieldStatus -> String
-fieldStatusToString fieldStatus =
-    case fieldStatus of
-        NotVisited ->
-            "NotVisited"
+notVisited : Int
+notVisited =
+    0
 
-        Focused ->
-            "Focused"
 
-        Changed ->
-            "Changed"
+{-| -}
+focused : Int
+focused =
+    1
 
-        Blurred ->
-            "Blurred"
+
+{-| -}
+changed : Int
+changed =
+    2
+
+
+{-| -}
+blurred : Int
+blurred =
+    3

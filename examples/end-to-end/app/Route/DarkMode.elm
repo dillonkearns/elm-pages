@@ -9,10 +9,10 @@ import ErrorPage
 import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
+import Form.Handler
 import Form.Validation as Validation
-import Form.Value as Value
 import Head
-import Html.Styled as Html
+import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes exposing (css)
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
@@ -125,7 +125,7 @@ action :
 action routeParams =
     Server.Request.formData
         (form
-            |> Form.initCombined identity
+            |> Form.Handler.init identity
         )
         |> Session.withSessionResult sessionOptions
             (\( response, formPost ) sessionResult ->
@@ -165,7 +165,7 @@ head app =
 
 form : Form.StyledHtmlForm String Bool Bool Msg
 form =
-    Form.init
+    Form.form
         (\darkMode ->
             { combine =
                 Validation.succeed identity
@@ -210,8 +210,17 @@ view app shared model =
                 )
             ]
             [ form
-                |> Form.toDynamicFetcher
-                |> Form.renderStyledHtml "dark-mode" [] (.formResponse >> Just) app app.data.isDarkMode
+                --|> Form.toDynamicFetcher
+                |> Form.renderStyledHtml "dark-mode"
+                    []
+                    --(.formResponse >> Just)
+                    --app
+                    --app.data.isDarkMode
+                    { serverResponse = Nothing
+                    , submitting = False
+                    , state = Debug.todo ""
+                    }
+                    app.data.isDarkMode
             , Html.text <|
                 "Current mode: "
                     ++ (if app.data.isDarkMode then
@@ -223,3 +232,19 @@ view app shared model =
             ]
         ]
     }
+
+
+renderPagesForm : RouteBuilder.App Data ActionData RouteParams -> Bool -> Html (Form.Msg Msg)
+renderPagesForm app input =
+    form
+        --|> Form.toDynamicFetcher
+        |> Form.renderStyledHtml "dark-mode"
+            []
+            --(.formResponse >> Just)
+            --app
+            --app.data.isDarkMode
+            { serverResponse = Nothing
+            , submitting = False
+            , state = Debug.todo ""
+            }
+            input

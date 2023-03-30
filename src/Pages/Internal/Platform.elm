@@ -20,8 +20,8 @@ import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
+import Form
 import Form.FormData exposing (FormData, Method(..))
-import FormDecoder
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
@@ -30,7 +30,6 @@ import Json.Encode
 import Pages.ContentCache as ContentCache
 import Pages.Fetcher
 import Pages.Flags
-import Pages.FormState
 import Pages.Internal.Msg
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
@@ -311,7 +310,8 @@ type Msg userMsg pageData actionData sharedData errorPage
     | UrlChanged Url
       -- TODO rename to PagesMsg
     | UserMsg (PagesMsg userMsg)
-    | SetField { formId : String, name : String, value : String }
+      --| SetField { formId : String, name : String, value : String }
+    | FormMsg (Form.Msg (Msg userMsg pageData actionData sharedData errorPage))
     | UpdateCacheAndUrlNew Bool Url (Maybe userMsg) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ))
     | FetcherComplete Bool String Int (Result Http.Error ( Maybe userMsg, ActionDataOrRedirect actionData ))
     | FetcherStarted String Int FormData Time.Posix
@@ -344,7 +344,7 @@ type alias Model userModel pageData actionData sharedData =
     , transition : Maybe ( Int, Pages.Transition.Transition )
     , nextTransitionKey : Int
     , inFlightFetchers : Dict String ( Int, Pages.Transition.FetcherState actionData )
-    , pageFormState : Pages.FormState.PageFormState
+    , pageFormState : Form.Model
     , pendingRedirect : Bool
     , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
     }
@@ -373,6 +373,18 @@ update :
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 update config appMsg model =
     case appMsg of
+        FormMsg formMsg ->
+            let
+                -- TODO trigger formCmd
+                ( newModel, formCmd ) =
+                    Form.update formMsg model.pageFormState
+            in
+            ( { model
+                | pageFormState = newModel
+              }
+            , NoEffect
+            )
+
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
@@ -397,11 +409,6 @@ update config appMsg model =
                     ( model
                     , BrowserLoadUrl href
                     )
-
-        SetField info ->
-            ( { model | pageFormState = Pages.FormState.setField info model.pageFormState }
-            , NoEffect
-            )
 
         UrlChanged url ->
             case model.pendingData of
@@ -509,62 +516,66 @@ update config appMsg model =
                     , Submit fields
                     )
 
-                Pages.Internal.Msg.SubmitIfValid formId fields isValid maybeUserMsg ->
-                    if isValid then
-                        ( { model
-                            -- TODO should I setSubmitAttempted here, too?
-                            | transition =
-                                Just
-                                    ( -- TODO remove hardcoded number
-                                      -1
-                                    , Pages.Transition.Submitting fields
-                                    )
-                          }
-                        , Submit fields
-                        )
-                            |> (case maybeUserMsg of
-                                    Just justUserMsg ->
-                                        performUserMsg justUserMsg config
-
-                                    Nothing ->
-                                        identity
-                               )
-
-                    else
-                        ( { model
-                            | pageFormState =
-                                model.pageFormState
-                                    |> Pages.FormState.setSubmitAttempted formId
-                          }
-                        , NoEffect
-                        )
-
-                Pages.Internal.Msg.SubmitFetcher fetcherKey fields isValid maybeUserMsg ->
-                    if isValid then
-                        -- TODO should I setSubmitAttempted here, too?
-                        ( { model | nextTransitionKey = model.nextTransitionKey + 1 }
-                        , SubmitFetcher fetcherKey model.nextTransitionKey fields
-                        )
-                            |> (case maybeUserMsg of
-                                    Just justUserMsg ->
-                                        performUserMsg justUserMsg config
-
-                                    Nothing ->
-                                        identity
-                               )
-
-                    else
-                        ( { model
-                            | pageFormState =
-                                model.pageFormState
-                                    |> Pages.FormState.setSubmitAttempted fetcherKey
-                          }
-                        , NoEffect
-                        )
-
-                Pages.Internal.Msg.FormFieldEvent value ->
+                --Pages.Internal.Msg.SubmitIfValid formId fields isValid maybeUserMsg ->
+                --    if isValid then
+                --        ( { model
+                --            -- TODO should I setSubmitAttempted here, too?
+                --            | transition =
+                --                Just
+                --                    ( -- TODO remove hardcoded number
+                --                      -1
+                --                    , Pages.Transition.Submitting fields
+                --                    )
+                --          }
+                --        , Submit fields
+                --        )
+                --            |> (case maybeUserMsg of
+                --                    Just justUserMsg ->
+                --                        performUserMsg justUserMsg config
+                --
+                --                    Nothing ->
+                --                        identity
+                --               )
+                --
+                --    else
+                --        ( { model
+                --            | pageFormState =
+                --                model.pageFormState
+                --                    |> Pages.FormState.setSubmitAttempted formId
+                --          }
+                --        , NoEffect
+                --        )
+                --
+                --Pages.Internal.Msg.SubmitFetcher fetcherKey fields isValid maybeUserMsg ->
+                --    if isValid then
+                --        -- TODO should I setSubmitAttempted here, too?
+                --        ( { model | nextTransitionKey = model.nextTransitionKey + 1 }
+                --        , SubmitFetcher fetcherKey model.nextTransitionKey fields
+                --        )
+                --            |> (case maybeUserMsg of
+                --                    Just justUserMsg ->
+                --                        performUserMsg justUserMsg config
+                --
+                --                    Nothing ->
+                --                        identity
+                --               )
+                --
+                --    else
+                --        ( { model
+                --            | pageFormState =
+                --                model.pageFormState
+                --                    |> Pages.FormState.setSubmitAttempted fetcherKey
+                --          }
+                --        , NoEffect
+                --        )
+                Pages.Internal.Msg.FormMsg formMsg ->
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`
-                    ( { model | pageFormState = Pages.FormState.update value model.pageFormState }
+                    let
+                        ( formModel, formCmd ) =
+                            -- TODO use formCmd
+                            Form.update formMsg model.pageFormState
+                    in
+                    ( { model | pageFormState = formModel }
                     , NoEffect
                     )
 

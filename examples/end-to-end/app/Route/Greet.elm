@@ -163,7 +163,9 @@ view app shared model =
                 -- TODO should there be a helper function to easily invoke a form submission to a different route?
                 [ Attr.method "post"
                 , Attr.action "/logout"
-                , PagesMsg.onSubmit |> Attr.fromUnstyled
+
+                -- TODO remove this example? Or find a way to do it with the new API?
+                --, PagesMsg.onSubmit |> Attr.fromUnstyled
                 ]
                 [ Html.button [] [ Html.text "Logout" ] ]
             ]

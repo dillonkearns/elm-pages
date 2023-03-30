@@ -1,15 +1,21 @@
 module Form.Field exposing
-    ( text, checkbox, int, float
-    , select, range, OutsideRange(..)
+    ( Field
+    , text, checkbox, int, float
+    , select, OutsideRange(..)
     , date, time, TimeOfDay
-    , Field(..), FieldInfo, exactValue
-    , required, withClientValidation, withInitialValue, withOptionalInitialValue, map
+    , withInitialValue, withOptionalInitialValue
+    , exactValue
+    , required, withClientValidation, map
     , email, password, search, telephone, url, textarea
-    , withMax, withMin, withStep, withMinLength, withMaxLength
+    , range, withMin, withMax
+    , withMinLength, withMaxLength
+    , withStep, withFloatStep
     , No, Yes
     )
 
 {-|
+
+@docs Field
 
 
 ## Base Fields
@@ -19,7 +25,7 @@ module Form.Field exposing
 
 ## Multiple Choice Fields
 
-@docs select, range, OutsideRange
+@docs select, OutsideRange
 
 
 ## Date/Time Fields
@@ -27,14 +33,19 @@ module Form.Field exposing
 @docs date, time, TimeOfDay
 
 
+## Initial Values
+
+@docs withInitialValue, withOptionalInitialValue
+
+
 ## Other
 
-@docs Field, FieldInfo, exactValue
+@docs exactValue
 
 
 ## Field Configuration
 
-@docs required, withClientValidation, withInitialValue, withOptionalInitialValue, map
+@docs required, withClientValidation, map
 
 
 ## Text Field Display Options
@@ -44,7 +55,11 @@ module Form.Field exposing
 
 ## Numeric Field Options
 
-@docs withMax, withMin, withStep, withMinLength, withMaxLength
+@docs range, withMin, withMax
+
+@docs withMinLength, withMaxLength
+
+@docs withStep, withFloatStep
 
 
 ## Phantom Options
@@ -55,22 +70,15 @@ module Form.Field exposing
 
 import Date exposing (Date)
 import Dict exposing (Dict)
-import Form.FieldView as FieldView exposing (Input, Options(..))
-import Form.Value
+import Form.FieldView exposing (Input)
+import Internal.Field
+import Internal.Input exposing (Options(..))
 import Json.Encode as Encode
 
 
 {-| -}
-type Field error parsed data kind constraints
-    = Field (FieldInfo error parsed data) kind
-
-
-{-| -}
-type alias FieldInfo error parsed data =
-    { initialValue : Maybe (data -> Maybe String)
-    , decode : Maybe String -> ( Maybe parsed, List error )
-    , properties : List ( String, Encode.Value )
-    }
+type alias Field error parsed input initial kind constraints =
+    Internal.Field.Field error parsed input initial kind constraints
 
 
 {-| -}
@@ -90,16 +98,18 @@ required :
         Field
             error
             (Maybe parsed)
-            data
             kind
+            input
+            initial
             { constraints
                 | required : ()
                 , wasMapped : No
             }
-    -> Field error parsed data kind { constraints | wasMapped : No }
-required missingError (Field field kind) =
-    Field
+    -> Field error parsed kind input initial { constraints | wasMapped : No }
+required missingError (Internal.Field.Field field kind) =
+    Internal.Field.Field
         { initialValue = field.initialValue
+        , initialToString = field.initialToString
         , decode =
             \rawValue ->
                 let
@@ -118,6 +128,7 @@ required missingError (Field field kind) =
                     allErrors
                 )
         , properties = field.properties
+        , compare = field.compare
         }
         kind
 
@@ -127,18 +138,19 @@ text :
     Field
         error
         (Maybe String)
-        data
+        input
+        String
         Input
         { required : ()
         , plainText : ()
         , wasMapped : No
-        , initial : String
         , minlength : ()
         , maxlength : ()
         }
 text =
-    Field
-        { initialValue = Nothing
+    Internal.Field.Field
+        { initialValue = \_ -> Nothing
+        , initialToString = identity
         , decode =
             \rawValue ->
                 ( if rawValue == Just "" then
@@ -149,8 +161,9 @@ text =
                 , []
                 )
         , properties = []
+        , compare = Basics.compare
         }
-        (FieldView.Input FieldView.Text)
+        (Internal.Input.Input Internal.Input.Text)
 
 
 {-| -}
@@ -160,17 +173,19 @@ date :
         Field
             error
             (Maybe Date)
-            data
+            input
+            Date
             Input
             { min : Date
             , max : Date
             , required : ()
             , wasMapped : No
-            , initial : Date
+            , step : Int
             }
 date toError =
-    Field
-        { initialValue = Nothing
+    Internal.Field.Field
+        { initialValue = \_ -> Nothing
+        , initialToString = Date.toIsoString
         , decode =
             \rawString ->
                 if (rawString |> Maybe.withDefault "") == "" then
@@ -189,8 +204,14 @@ date toError =
                         Err error ->
                             ( Nothing, [ error ] )
         , properties = []
+        , compare =
+            \raw value ->
+                Result.map2 Date.compare
+                    (Ok value)
+                    (Date.fromIsoString raw)
+                    |> Result.withDefault LT
         }
-        (FieldView.Input FieldView.Date)
+        (Internal.Input.Input Internal.Input.Date)
 
 
 {-| -}
@@ -208,17 +229,18 @@ time :
         Field
             error
             (Maybe TimeOfDay)
-            data
+            input
+            TimeOfDay
             Input
-            { -- TODO support min/max
-              --min : ???,
-              --, max : ???,
-              required : ()
+            { min : TimeOfDay
+            , max : TimeOfDay
+            , required : ()
             , wasMapped : No
             }
 time toError =
-    Field
-        { initialValue = Nothing
+    Internal.Field.Field
+        { initialValue = \_ -> Nothing
+        , initialToString = timeOfDayToString
         , decode =
             \rawString ->
                 if (rawString |> Maybe.withDefault "") == "" then
@@ -237,13 +259,43 @@ time toError =
                         Err error ->
                             ( Nothing, [ error ] )
         , properties = []
+        , compare =
+            \raw value ->
+                parseTimeOfDay raw
+                    |> Result.map
+                        (\parsedRaw ->
+                            if parsedRaw.hours == value.hours then
+                                Basics.compare parsedRaw.minutes value.minutes
+
+                            else
+                                Basics.compare parsedRaw.hours value.hours
+                        )
+                    |> Result.withDefault LT
         }
-        (FieldView.Input FieldView.Time)
+        (Internal.Input.Input Internal.Input.Time)
+
+
+timeOfDayToString : TimeOfDay -> String
+timeOfDayToString { hours, minutes } =
+    paddedInt hours ++ ":" ++ paddedInt minutes
+
+
+paddedInt : Int -> String
+paddedInt intValue =
+    intValue
+        |> String.fromInt
+        |> String.padLeft 2 '0'
 
 
 parseTimeOfDay : String -> Result () { hours : Int, minutes : Int }
 parseTimeOfDay rawTimeOfDay =
     case rawTimeOfDay |> String.split ":" |> List.map String.toInt of
+        [ Just hours, Just minutes, Just _ ] ->
+            Ok
+                { hours = hours
+                , minutes = minutes
+                }
+
         [ Just hours, Just minutes ] ->
             Ok
                 { hours = hours
@@ -262,7 +314,8 @@ select :
         Field
             error
             (Maybe option)
-            data
+            input
+            option
             (Options option)
             { required : ()
             , wasMapped : No
@@ -277,8 +330,9 @@ select optionsMapping invalidError =
         fromString string =
             Dict.get string dict
     in
-    Field
-        { initialValue = Nothing
+    Internal.Field.Field
+        { initialValue = \_ -> Nothing
+        , initialToString = enumToString optionsMapping
         , decode =
             \rawValue ->
                 case rawValue of
@@ -306,8 +360,22 @@ select optionsMapping invalidError =
                                   ]
                                 )
         , properties = []
+        , compare =
+            \_ _ ->
+                -- min/max properties aren't allowed for this field type
+                EQ
         }
         (Options fromString (optionsMapping |> List.map Tuple.first))
+
+
+enumToString : List ( String, enum ) -> enum -> String
+enumToString optionsMapping a =
+    case optionsMapping |> List.filter (\( _, b ) -> b == a) |> List.head of
+        Just ( str, _ ) ->
+            str
+
+        Nothing ->
+            "Missing enum"
 
 
 {-| -}
@@ -318,16 +386,17 @@ exactValue :
         Field
             error
             String
-            data
+            input
+            Never
             Input
             { required : ()
             , plainText : ()
             , wasMapped : No
-            , initial : String
             }
 exactValue initialValue error =
-    Field
-        { initialValue = Just (\_ -> Just initialValue)
+    Internal.Field.Field
+        { initialValue = \_ -> Nothing
+        , initialToString = never
         , decode =
             \rawValue ->
                 if rawValue == Just initialValue then
@@ -336,8 +405,12 @@ exactValue initialValue error =
                 else
                     ( rawValue, [ error ] )
         , properties = []
+        , compare =
+            \_ _ ->
+                -- min/max properties aren't allowed for this field type
+                EQ
         }
-        (FieldView.Input FieldView.Text)
+        (Internal.Input.Input Internal.Input.Text)
 
 
 {-| -}
@@ -345,14 +418,21 @@ checkbox :
     Field
         error
         Bool
-        data
+        input
+        Bool
         Input
         { required : ()
-        , initial : Bool
         }
 checkbox =
-    Field
-        { initialValue = Nothing
+    Internal.Field.Field
+        { initialValue = \_ -> Nothing
+        , initialToString =
+            \bool ->
+                if bool then
+                    "on"
+
+                else
+                    ""
         , decode =
             \rawString ->
                 ( (rawString == Just "on")
@@ -360,8 +440,12 @@ checkbox =
                 , []
                 )
         , properties = []
+        , compare =
+            \_ _ ->
+                -- min/max properties aren't allowed for this field type
+                EQ
         }
-        (FieldView.Input FieldView.Checkbox)
+        (Internal.Input.Input Internal.Input.Checkbox)
 
 
 {-| -}
@@ -371,18 +455,19 @@ int :
         Field
             error
             (Maybe Int)
-            data
+            input
+            Int
             Input
             { min : Int
             , max : Int
             , required : ()
             , wasMapped : No
             , step : Int
-            , initial : Int
             }
 int toError =
-    Field
-        { initialValue = Nothing
+    Internal.Field.Field
+        { initialValue = \_ -> Nothing
+        , initialToString = String.fromInt
         , decode =
             \rawString ->
                 case rawString of
@@ -400,8 +485,16 @@ int toError =
                             Nothing ->
                                 ( Nothing, [ toError.invalid string ] )
         , properties = []
+        , compare =
+            \raw value ->
+                case String.toInt raw of
+                    Just parsed ->
+                        Basics.compare parsed value
+
+                    _ ->
+                        LT
         }
-        (FieldView.Input FieldView.Number)
+        (Internal.Input.Input Internal.Input.Number)
 
 
 {-| -}
@@ -411,17 +504,18 @@ float :
         Field
             error
             (Maybe Float)
-            data
+            input
+            Float
             Input
             { min : Float
             , max : Float
             , required : ()
             , wasMapped : No
-            , initial : Float
             }
 float toError =
-    Field
-        { initialValue = Nothing
+    Internal.Field.Field
+        { initialValue = \_ -> Nothing
+        , initialToString = String.fromFloat
         , decode =
             \rawString ->
                 case rawString of
@@ -439,62 +533,70 @@ float toError =
                             Nothing ->
                                 ( Nothing, [ toError.invalid string ] )
         , properties = []
+        , compare =
+            \raw value ->
+                case String.toFloat raw of
+                    Just parsed ->
+                        Basics.compare parsed value
+
+                    _ ->
+                        LT
         }
-        (FieldView.Input FieldView.Number)
+        (Internal.Input.Input Internal.Input.Number)
 
 
 {-| -}
 telephone :
-    Field error parsed data Input { constraints | plainText : () }
-    -> Field error parsed data Input constraints
-telephone (Field field _) =
-    Field field
-        (FieldView.Input FieldView.Tel)
+    Field error parsed input initial Input { constraints | plainText : () }
+    -> Field error parsed input initial Input constraints
+telephone (Internal.Field.Field field _) =
+    Internal.Field.Field field
+        (Internal.Input.Input Internal.Input.Tel)
 
 
 {-| -}
 search :
-    Field error parsed data Input { constraints | plainText : () }
-    -> Field error parsed data Input constraints
-search (Field field _) =
-    Field field
-        (FieldView.Input FieldView.Search)
+    Field error parsed input initial Input { constraints | plainText : () }
+    -> Field error parsed input initial Input constraints
+search (Internal.Field.Field field _) =
+    Internal.Field.Field field
+        (Internal.Input.Input Internal.Input.Search)
 
 
 {-| -}
 password :
-    Field error parsed data Input { constraints | plainText : () }
-    -> Field error parsed data Input constraints
-password (Field field _) =
-    Field field
-        (FieldView.Input FieldView.Password)
+    Field error parsed input initial Input { constraints | plainText : () }
+    -> Field error parsed input initial Input constraints
+password (Internal.Field.Field field _) =
+    Internal.Field.Field field
+        (Internal.Input.Input Internal.Input.Password)
 
 
 {-| -}
 email :
-    Field error parsed data Input { constraints | plainText : () }
-    -> Field error parsed data Input constraints
-email (Field field _) =
-    Field field
-        (FieldView.Input FieldView.Email)
+    Field error parsed input initial Input { constraints | plainText : () }
+    -> Field error parsed input initial Input constraints
+email (Internal.Field.Field field _) =
+    Internal.Field.Field field
+        (Internal.Input.Input Internal.Input.Email)
 
 
 {-| -}
 url :
-    Field error parsed data Input { constraints | plainText : () }
-    -> Field error parsed data Input constraints
-url (Field field _) =
-    Field field
-        (FieldView.Input FieldView.Url)
+    Field error parsed input initial Input { constraints | plainText : () }
+    -> Field error parsed input initial Input constraints
+url (Internal.Field.Field field _) =
+    Internal.Field.Field field
+        (Internal.Input.Input Internal.Input.Url)
 
 
 {-| -}
 textarea :
     { rows : Maybe Int, cols : Maybe Int }
-    -> Field error parsed data Input { constraints | plainText : () }
-    -> Field error parsed data Input constraints
-textarea options (Field field _) =
-    Field field (FieldView.Input (FieldView.Textarea options))
+    -> Field error parsed input initial Input { constraints | plainText : () }
+    -> Field error parsed input initial Input constraints
+textarea options (Internal.Field.Field field _) =
+    Internal.Field.Field field (Internal.Input.Input (Internal.Input.Textarea options))
 
 
 {-| -}
@@ -505,9 +607,8 @@ type OutsideRange
 
 {-| -}
 range :
-    { min : Form.Value.Value valueType
-    , max : Form.Value.Value valueType
-    , initial : data -> Form.Value.Value valueType
+    { min : numberInitial
+    , max : numberInitial
     , missing : error
     , invalid : OutsideRange -> error
     }
@@ -515,32 +616,34 @@ range :
         Field
             error
             (Maybe valueType)
-            data
+            input
+            numberInitial
             kind
             { constraints
                 | required : ()
-                , initial : valueType
-                , min : valueType
-                , max : valueType
+                , min : numberInitial
+                , max : numberInitial
                 , wasMapped : No
             }
     ->
         Field
             error
             valueType
-            data
+            input
+            numberInitial
             Input
             { constraints | wasMapped : No }
 range info field =
+    -- TODO set the default value (if not overridden) using this https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/range#value
     field
         |> required info.missing
         |> withMin info.min (info.invalid BelowRange)
         |> withMax info.max (info.invalid AboveRange)
-        |> (\(Field innerField _) -> Field { innerField | initialValue = Just (info.initial >> Form.Value.toString >> Just) } (FieldView.Input FieldView.Range))
+        |> (\(Internal.Field.Field innerField _) -> Internal.Field.Field innerField (Internal.Input.Input Internal.Input.Range))
 
 
 {-| -}
-map : (parsed -> mapped) -> Field error parsed data kind constraints -> Field error mapped data kind { constraints | wasMapped : Yes }
+map : (parsed -> mapped) -> Field error parsed input initial kind constraints -> Field error mapped input initial kind { constraints | wasMapped : Yes }
 map mapFn field_ =
     withClientValidation
         (\value -> ( Just (mapFn value), [] ))
@@ -548,10 +651,11 @@ map mapFn field_ =
 
 
 {-| -}
-withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error parsed data kind constraints -> Field error mapped data kind { constraints | wasMapped : Yes }
-withClientValidation mapFn (Field field kind) =
-    Field
+withClientValidation : (parsed -> ( Maybe mapped, List error )) -> Field error parsed input initial kind constraints -> Field error mapped input initial kind { constraints | wasMapped : Yes }
+withClientValidation mapFn (Internal.Field.Field field kind) =
+    Internal.Field.Field
         { initialValue = field.initialValue
+        , initialToString = field.initialToString
         , decode =
             \value ->
                 value
@@ -567,41 +671,17 @@ withClientValidation mapFn (Field field kind) =
                                         |> Tuple.mapSecond ((++) errors)
                        )
         , properties = field.properties
+        , compare = field.compare
         }
         kind
 
 
 {-| -}
-withInitialValue : (data -> Form.Value.Value valueType) -> Field error value data kind { constraints | initial : valueType } -> Field error value data kind constraints
-withInitialValue toInitialValue (Field field kind) =
-    Field
-        { field
-            | initialValue =
-                Just (toInitialValue >> Form.Value.toString >> Just)
-        }
-        kind
-
-
-{-| -}
-withOptionalInitialValue : (data -> Maybe (Form.Value.Value valueType)) -> Field error value data kind { constraints | initial : valueType } -> Field error value data kind constraints
-withOptionalInitialValue toInitialValue (Field field kind) =
-    Field
-        { field
-            | initialValue =
-                Just (toInitialValue >> Maybe.map Form.Value.toString)
-        }
-        kind
-
-
-
--- Input Properties
-
-
-{-| -}
-withMin : Form.Value.Value valueType -> error -> Field error parsed data kind { constraints | min : valueType } -> Field error parsed data kind constraints
-withMin min error (Field field kind) =
-    Field
+withMin : initial -> error -> Field error parsed input initial kind { constraints | min : initial } -> Field error parsed input initial kind constraints
+withMin min error (Internal.Field.Field field kind) =
+    Internal.Field.Field
         { initialValue = field.initialValue
+        , initialToString = field.initialToString
         , decode =
             \value ->
                 value
@@ -616,23 +696,25 @@ withMin min error (Field field kind) =
                                         ( Just okValue, errors )
 
                                     else
-                                        case Form.Value.compare (value |> Maybe.withDefault "") min of
+                                        case field.compare (value |> Maybe.withDefault "") min of
                                             LT ->
                                                 ( Just okValue, error :: errors )
 
                                             _ ->
                                                 ( Just okValue, errors )
                        )
-        , properties = ( "min", Encode.string (Form.Value.toString min) ) :: field.properties
+        , properties = ( "min", Encode.string (field.initialToString min) ) :: field.properties
+        , compare = field.compare
         }
         kind
 
 
 {-| -}
-withMinLength : Int -> error -> Field error parsed data kind { constraints | minlength : () } -> Field error parsed data kind constraints
-withMinLength minLength error (Field field kind) =
-    Field
+withMinLength : Int -> error -> Field error parsed input initial kind { constraints | minlength : () } -> Field error parsed input initial kind constraints
+withMinLength minLength error (Internal.Field.Field field kind) =
+    Internal.Field.Field
         { initialValue = field.initialValue
+        , initialToString = field.initialToString
         , decode =
             \value ->
                 value
@@ -650,15 +732,17 @@ withMinLength minLength error (Field field kind) =
                                         ( Just okValue, error :: errors )
                        )
         , properties = ( "minlength", Encode.string (String.fromInt minLength) ) :: field.properties
+        , compare = field.compare
         }
         kind
 
 
 {-| -}
-withMaxLength : Int -> error -> Field error parsed data kind { constraints | maxlength : () } -> Field error parsed data kind constraints
-withMaxLength maxLength error (Field field kind) =
-    Field
+withMaxLength : Int -> error -> Field error parsed input initial kind { constraints | maxlength : () } -> Field error parsed input initial kind constraints
+withMaxLength maxLength error (Internal.Field.Field field kind) =
+    Internal.Field.Field
         { initialValue = field.initialValue
+        , initialToString = field.initialToString
         , decode =
             \value ->
                 value
@@ -676,6 +760,7 @@ withMaxLength maxLength error (Field field kind) =
                                         ( Just okValue, error :: errors )
                        )
         , properties = ( "maxlength", Encode.string (String.fromInt maxLength) ) :: field.properties
+        , compare = field.compare
         }
         kind
 
@@ -686,10 +771,11 @@ isEmptyValue value =
 
 
 {-| -}
-withMax : Form.Value.Value valueType -> error -> Field error parsed data kind { constraints | max : valueType } -> Field error parsed data kind constraints
-withMax max error (Field field kind) =
-    Field
+withMax : initial -> error -> Field error parsed input initial kind { constraints | max : initial } -> Field error parsed input initial kind constraints
+withMax max error (Internal.Field.Field field kind) =
+    Internal.Field.Field
         { initialValue = field.initialValue
+        , initialToString = field.initialToString
         , decode =
             \value ->
                 value
@@ -704,26 +790,52 @@ withMax max error (Field field kind) =
                                         ( Just okValue, errors )
 
                                     else
-                                        case Form.Value.compare (value |> Maybe.withDefault "") max of
+                                        case field.compare (value |> Maybe.withDefault "") max of
                                             GT ->
                                                 ( Just okValue, error :: errors )
 
                                             _ ->
                                                 ( Just okValue, errors )
                        )
-        , properties = ( "max", Encode.string (Form.Value.toString max) ) :: field.properties
+        , properties = ( "max", Encode.string (field.initialToString max) ) :: field.properties
+        , compare = field.compare
         }
         kind
 
 
 {-| -}
-withStep : Form.Value.Value valueType -> Field msg error value view { constraints | step : valueType } -> Field msg error value view constraints
-withStep max field =
-    withStringProperty ( "step", Form.Value.toString max ) field
+withStep : Int -> Field error value input initial view { constraints | step : Int } -> Field error value input initial view constraints
+withStep step (Internal.Field.Field info kind) =
+    withStringProperty ( "step", String.fromInt step ) (Internal.Field.Field info kind)
 
 
-withStringProperty : ( String, String ) -> Field error parsed data kind constraints1 -> Field error parsed data kind constraints2
-withStringProperty ( key, value ) (Field field kind) =
-    Field
+{-| -}
+withFloatStep : Float -> Field error value input initial view { constraints | step : Float } -> Field error value input initial view constraints
+withFloatStep step (Internal.Field.Field info kind) =
+    withStringProperty ( "step", String.fromFloat step ) (Internal.Field.Field info kind)
+
+
+withStringProperty : ( String, String ) -> Field error parsed input initial kind constraints1 -> Field error parsed input initial kind constraints2
+withStringProperty ( key, value ) (Internal.Field.Field field kind) =
+    Internal.Field.Field
         { field | properties = ( key, Encode.string value ) :: field.properties }
+        kind
+
+
+{-| -}
+withInitialValue : (input -> initial) -> Field error value input initial kind constraints -> Field error value input initial kind constraints
+withInitialValue toInitialValue (Internal.Field.Field field kind) =
+    Internal.Field.Field
+        { field | initialValue = toInitialValue >> field.initialToString >> Just }
+        kind
+
+
+{-| -}
+withOptionalInitialValue : (input -> Maybe initial) -> Field error value input initial kind constraints -> Field error value input initial kind constraints
+withOptionalInitialValue toInitialValue (Internal.Field.Field field kind) =
+    Internal.Field.Field
+        { field
+            | initialValue =
+                toInitialValue >> Maybe.map field.initialToString
+        }
         kind

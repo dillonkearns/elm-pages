@@ -1,10 +1,12 @@
 module Form.Validation exposing
     ( Combined, Field, Validation
-    , andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, succeed2, withError, withErrorIf, withFallback
-    , value, fieldName, fieldStatus
+    , andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
+    , value, fieldName
+    , FieldStatus(..), fieldStatus, fieldStatusToString
+    , statusAtLeast
     , map3, map4, map5, map6, map7, map8, map9
+    , mapToCombined
     , global
-    , mapWithNever
     )
 
 {-|
@@ -14,27 +16,28 @@ module Form.Validation exposing
 
 @docs Combined, Field, Validation
 
-@docs andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, succeed2, withError, withErrorIf, withFallback
+@docs andMap, andThen, fail, fromMaybe, fromResult, map, map2, parseWithError, succeed, withError, withErrorIf, withFallback
 
 
 ## Field Metadata
 
-@docs value, fieldName, fieldStatus
+@docs value, fieldName
+
+@docs FieldStatus, fieldStatus, fieldStatusToString
+
+@docs statusAtLeast
 
 
 ## Mapping
 
 @docs map3, map4, map5, map6, map7, map8, map9
 
+@docs mapToCombined
+
 
 ## Global Validation
 
 @docs global
-
-
-## Temporary?
-
-@docs mapWithNever
 
 -}
 
@@ -71,6 +74,74 @@ fieldStatus (Pages.Internal.Form.Validation viewField _ _) =
     viewField
         |> expectViewField
         |> .status
+        |> statusFromRank
+
+
+{-| -}
+fieldStatusToString : FieldStatus -> String
+fieldStatusToString status =
+    case status of
+        NotVisited ->
+            "NotVisited"
+
+        Focused ->
+            "Focused"
+
+        Changed ->
+            "Changed"
+
+        Blurred ->
+            "Blurred"
+
+
+{-| -}
+statusAtLeast : FieldStatus -> Field error parsed kind -> Bool
+statusAtLeast status field =
+    (field |> fieldStatus |> statusRank) >= statusRank status
+
+
+{-| -}
+type FieldStatus
+    = NotVisited
+    | Focused
+    | Changed
+    | Blurred
+
+
+statusFromRank : Int -> FieldStatus
+statusFromRank int =
+    case int of
+        0 ->
+            NotVisited
+
+        1 ->
+            Focused
+
+        2 ->
+            Changed
+
+        3 ->
+            Blurred
+
+        _ ->
+            Blurred
+
+
+{-| -}
+statusRank : FieldStatus -> Int
+statusRank status =
+    case status of
+        NotVisited ->
+            0
+
+        Focused ->
+            1
+
+        Changed ->
+            2
+
+        Blurred ->
+            3
 
 
 expectViewField : Maybe (ViewField kind) -> ViewField kind
@@ -86,12 +157,6 @@ expectViewField viewField =
 {-| -}
 succeed : parsed -> Combined error parsed
 succeed parsed =
-    Pages.Internal.Form.Validation Nothing Nothing ( Just parsed, Dict.empty )
-
-
-{-| -}
-succeed2 : parsed -> Validation error parsed kind constraints
-succeed2 parsed =
     Pages.Internal.Form.Validation Nothing Nothing ( Just parsed, Dict.empty )
 
 
@@ -166,8 +231,8 @@ map mapFn (Pages.Internal.Form.Validation _ name ( maybeParsedA, errorsA )) =
 
 
 {-| -}
-mapWithNever : (parsed -> mapped) -> Validation error parsed named constraint -> Validation error mapped Never Never
-mapWithNever mapFn (Pages.Internal.Form.Validation _ name ( maybeParsedA, errorsA )) =
+mapToCombined : (parsed -> mapped) -> Validation error parsed named constraint -> Combined error mapped
+mapToCombined mapFn (Pages.Internal.Form.Validation _ name ( maybeParsedA, errorsA )) =
     Pages.Internal.Form.Validation Nothing name ( Maybe.map mapFn maybeParsedA, errorsA )
 
 

@@ -91,6 +91,7 @@ import CookieParser
 import Dict exposing (Dict)
 import FatalError exposing (FatalError)
 import Form
+import Form.Handler
 import Form.Validation as Validation
 import FormData
 import Internal.Request
@@ -879,7 +880,7 @@ fileField_ name =
 
 {-| -}
 formDataWithServerValidation :
-    Form.ServerForms error (BackendTask FatalError (Validation.Validation error combined kind constraints))
+    Form.Handler.Handler error (BackendTask FatalError (Validation.Validation error combined kind constraints))
     -> Parser (BackendTask FatalError (Result (Form.Response error) ( Form.Response error, combined )))
 formDataWithServerValidation formParsers =
     rawFormData
@@ -887,7 +888,7 @@ formDataWithServerValidation formParsers =
             (\rawFormData_ ->
                 let
                     ( maybeDecoded, errors ) =
-                        Form.runOneOfServerSide
+                        Form.Handler.run
                             rawFormData_
                             formParsers
                 in
@@ -938,7 +939,7 @@ formDataWithServerValidation formParsers =
 
 {-| -}
 formData :
-    Form.ServerForms error combined
+    Form.Handler.Handler error combined
     -> Parser ( Form.Response error, Result { fields : List ( String, String ), errors : Dict String (List error), clientErrors : Dict String (List error) } combined )
 formData formParsers =
     rawFormData
@@ -946,7 +947,7 @@ formData formParsers =
             (\rawFormData_ ->
                 let
                     ( maybeDecoded, errors ) =
-                        Form.runOneOfServerSide
+                        Form.Handler.run
                             rawFormData_
                             formParsers
                 in

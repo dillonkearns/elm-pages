@@ -8,6 +8,7 @@ import Bytes.Decode
 import Bytes.Encode
 import Dict exposing (Dict)
 import FatalError exposing (FatalError)
+import Form
 import Form.FormData exposing (FormData)
 import Head
 import Html exposing (Html)
@@ -17,7 +18,6 @@ import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
 import Pages.Fetcher
 import Pages.Flags
-import Pages.FormState
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
@@ -47,14 +47,14 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
                 , pageUrl : Maybe PageUrl
                 }
         -> ( userModel, effect )
-    , update : Pages.FormState.PageFormState -> Dict String (Pages.Transition.FetcherState actionData) -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
+    , update : Form.Model -> Dict String (Pages.Transition.FetcherState actionData) -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> Path -> userModel -> Sub userMsg
     , sharedData : BackendTask FatalError sharedData
     , data : Decode.Value -> route -> BackendTask FatalError (PageServerResponse pageData errorPage)
     , action : Decode.Value -> route -> BackendTask FatalError (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
-        Pages.FormState.PageFormState
+        Form.Model
         -> Dict String (Pages.Transition.FetcherState actionData)
         -> Maybe Pages.Transition.Transition
         ->

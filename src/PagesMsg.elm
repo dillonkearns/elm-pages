@@ -2,7 +2,6 @@ module PagesMsg exposing
     ( PagesMsg
     , fromMsg
     , map, noOp
-    , onSubmit
     )
 
 {-| In `elm-pages`, Route modules have their own `Msg` type which can be used like a normal TEA (The Elm Architecture) app.
@@ -20,7 +19,6 @@ You can wrap your Route Module's `Msg` using `fromMsg`.
 
 -}
 
-import Html exposing (Attribute)
 import Pages.Internal.Msg
 
 
@@ -84,9 +82,3 @@ noOp =
 map : (a -> b) -> PagesMsg a -> PagesMsg b
 map mapFn msg =
     Pages.Internal.Msg.map mapFn msg
-
-
-{-| -}
-onSubmit : Attribute (PagesMsg userMsg)
-onSubmit =
-    Pages.Internal.Msg.onSubmit

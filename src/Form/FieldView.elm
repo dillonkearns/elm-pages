@@ -1,16 +1,16 @@
 module Form.FieldView exposing
-    ( Input(..), InputType(..), Options(..), input, inputTypeToString, radio, toHtmlProperties, Hidden(..), select, valueButton
-    , radioStyled, inputStyled, valueButtonStyled
+    ( Input, Options, input, radio, Hidden, select, valueButton
+    , radioStyled, selectStyled, inputStyled, valueButtonStyled
     )
 
 {-|
 
-@docs Input, InputType, Options, input, inputTypeToString, radio, toHtmlProperties, Hidden, select, valueButton
+@docs Input, Options, input, radio, Hidden, select, valueButton
 
 
 ## Html.Styled Helpers
 
-@docs radioStyled, inputStyled, valueButtonStyled
+@docs radioStyled, selectStyled, inputStyled, valueButtonStyled
 
 -}
 
@@ -19,88 +19,25 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Styled
 import Html.Styled.Attributes as StyledAttr
+import Internal.Input
 import Json.Encode as Encode
 import Pages.Internal.Form exposing (Validation(..), ViewField)
 
 
 {-| -}
-type InputType
-    = Text
-    | Number
-      -- TODO should range have arguments for initial, min, and max?
-    | Range
-    | Radio
-      -- TODO should submit be a special type, or an Input type?
-      -- TODO have an option for a submit with a name/value?
-    | Date
-    | Time
-    | Checkbox
-    | Tel
-    | Search
-    | Password
-    | Email
-    | Url
-    | Textarea { rows : Maybe Int, cols : Maybe Int }
-
-
-{-| -}
-inputTypeToString : InputType -> String
-inputTypeToString inputType =
-    case inputType of
-        Text ->
-            "text"
-
-        Textarea _ ->
-            "text"
-
-        Number ->
-            "number"
-
-        Range ->
-            "range"
-
-        Radio ->
-            "radio"
-
-        Date ->
-            "date"
-
-        Time ->
-            "time"
-
-        Checkbox ->
-            "checkbox"
-
-        Tel ->
-            "tel"
-
-        Search ->
-            "search"
-
-        Password ->
-            "password"
-
-        Email ->
-            "email"
-
-        Url ->
-            "url"
-
-
-{-| -}
-type Input
-    = Input InputType
+type alias Input =
+    Internal.Input.Input
 
 
 {-| There are no render helpers for hidden fields because the `Form.renderHtml` helper functions automatically render hidden fields for you.
 -}
-type Hidden
-    = Hidden
+type alias Hidden =
+    Internal.Input.Hidden
 
 
 {-| -}
-type Options a
-    = Options (String -> Maybe a) (List String)
+type alias Options a =
+    Internal.Input.Options a
 
 
 {-| Gives you a submit button that will submit the form with a specific value for the given Field.
@@ -190,7 +127,7 @@ input attrs (Validation viewField fieldName _) =
             }
     in
     case rawField.kind of
-        ( Input (Textarea { rows, cols }), properties ) ->
+        ( Internal.Input.Input (Internal.Input.Textarea { rows, cols }), properties ) ->
             Html.textarea
                 (attrs
                     ++ toHtmlProperties properties
@@ -206,12 +143,12 @@ input attrs (Validation viewField fieldName _) =
                   Html.text (rawField.value |> Maybe.withDefault "")
                 ]
 
-        ( Input inputType, properties ) ->
+        ( Internal.Input.Input inputType, properties ) ->
             Html.input
                 (attrs
                     ++ toHtmlProperties properties
                     ++ [ (case inputType of
-                            Checkbox ->
+                            Internal.Input.Checkbox ->
                                 Attr.checked ((rawField.value |> Maybe.withDefault "") == "on")
 
                             _ ->
@@ -219,7 +156,7 @@ input attrs (Validation viewField fieldName _) =
                           -- TODO is this an okay default?
                          )
                        , Attr.name rawField.name
-                       , inputType |> inputTypeToString |> Attr.type_
+                       , inputType |> Internal.Input.inputTypeToString |> Attr.type_
                        ]
                 )
                 []
@@ -244,7 +181,7 @@ inputStyled attrs (Validation viewField fieldName _) =
             }
     in
     case rawField.kind of
-        ( Input (Textarea { rows, cols }), properties ) ->
+        ( Internal.Input.Input (Internal.Input.Textarea { rows, cols }), properties ) ->
             Html.Styled.textarea
                 (attrs
                     ++ (toHtmlProperties properties |> List.map StyledAttr.fromUnstyled)
@@ -262,12 +199,12 @@ inputStyled attrs (Validation viewField fieldName _) =
                   Html.Styled.text (rawField.value |> Maybe.withDefault "")
                 ]
 
-        ( Input inputType, properties ) ->
+        ( Internal.Input.Input inputType, properties ) ->
             Html.Styled.input
                 (attrs
                     ++ (toHtmlProperties properties |> List.map StyledAttr.fromUnstyled)
                     ++ ([ (case inputType of
-                            Checkbox ->
+                            Internal.Input.Checkbox ->
                                 Attr.checked ((rawField.value |> Maybe.withDefault "") == "on")
 
                             _ ->
@@ -275,7 +212,7 @@ inputStyled attrs (Validation viewField fieldName _) =
                            -- TODO is this an okay default?
                           )
                         , Attr.name rawField.name
-                        , inputType |> inputTypeToString |> Attr.type_
+                        , inputType |> Internal.Input.inputTypeToString |> Attr.type_
                         ]
                             |> List.map StyledAttr.fromUnstyled
                        )
@@ -308,7 +245,7 @@ select selectAttrs enumToOption (Validation viewField fieldName _) =
             , kind = justViewField.kind
             }
 
-        (Options parseValue possibleValues) =
+        (Internal.Input.Options parseValue possibleValues) =
             rawField.kind |> Tuple.first
     in
     Html.select
@@ -332,7 +269,79 @@ select selectAttrs enumToOption (Validation viewField fieldName _) =
                                 ( optionAttrs, content ) =
                                     enumToOption justParsed
                             in
-                            Html.option (Attr.value possibleValue :: optionAttrs) [ Html.text content ]
+                            Html.option
+                                (if rawField.value == Just possibleValue then
+                                    Attr.selected True :: Attr.value possibleValue :: optionAttrs
+
+                                 else
+                                    Attr.value possibleValue :: optionAttrs
+                                )
+                                [ Html.text content ]
+                                |> Just
+
+                        Nothing ->
+                            Nothing
+                )
+        )
+
+
+{-| -}
+selectStyled :
+    List (Html.Styled.Attribute msg)
+    ->
+        (parsed
+         ->
+            ( List (Html.Styled.Attribute msg)
+            , String
+            )
+        )
+    -> Form.Validation.Field error parsed2 (Options parsed)
+    -> Html.Styled.Html msg
+selectStyled selectAttrs enumToOption (Validation viewField fieldName _) =
+    let
+        justViewField : ViewField (Options parsed)
+        justViewField =
+            viewField |> expectViewField
+
+        rawField : { name : String, value : Maybe String, kind : ( Options parsed, List ( String, Encode.Value ) ) }
+        rawField =
+            { name = fieldName |> Maybe.withDefault ""
+            , value = justViewField.value
+            , kind = justViewField.kind
+            }
+
+        (Internal.Input.Options parseValue possibleValues) =
+            rawField.kind |> Tuple.first
+    in
+    Html.Styled.select
+        (selectAttrs
+            ++ [ StyledAttr.value (rawField.value |> Maybe.withDefault "")
+               , StyledAttr.name rawField.name
+               ]
+        )
+        (possibleValues
+            |> List.filterMap
+                (\possibleValue ->
+                    let
+                        parsed : Maybe parsed
+                        parsed =
+                            possibleValue
+                                |> parseValue
+                    in
+                    case parsed of
+                        Just justParsed ->
+                            let
+                                ( optionAttrs, content ) =
+                                    enumToOption justParsed
+                            in
+                            Html.Styled.option
+                                (if rawField.value == Just possibleValue then
+                                    StyledAttr.selected True :: StyledAttr.value possibleValue :: optionAttrs
+
+                                 else
+                                    StyledAttr.value possibleValue :: optionAttrs
+                                )
+                                [ Html.Styled.text content ]
                                 |> Just
 
                         Nothing ->
@@ -364,7 +373,7 @@ radio selectAttrs enumToOption (Validation viewField fieldName _) =
             , kind = justViewField.kind
             }
 
-        (Options parseValue possibleValues) =
+        (Internal.Input.Options parseValue possibleValues) =
             rawField.kind |> Tuple.first
     in
     Html.fieldset
@@ -441,7 +450,7 @@ radioStyled selectAttrs enumToOption (Validation viewField fieldName _) =
             , kind = justViewField.kind
             }
 
-        (Options parseValue possibleValues) =
+        (Internal.Input.Options parseValue possibleValues) =
             rawField.kind |> Tuple.first
     in
     Html.Styled.fieldset
@@ -487,7 +496,6 @@ radioStyled selectAttrs enumToOption (Validation viewField fieldName _) =
         )
 
 
-{-| -}
 toHtmlProperties : List ( String, Encode.Value ) -> List (Html.Attribute msg)
 toHtmlProperties properties =
     properties

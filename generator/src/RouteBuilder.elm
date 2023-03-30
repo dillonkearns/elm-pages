@@ -90,11 +90,11 @@ import Dict exposing (Dict)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
+import Form
 import Head
 import Http
 import Json.Decode
 import Pages.Fetcher
-import Pages.FormState
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
@@ -147,7 +147,7 @@ type alias App data action routeParams =
         -> Pages.Fetcher.Fetcher (Result Http.Error action)
     , transition : Maybe Pages.Transition.Transition
     , fetchers : Dict String (Pages.Transition.FetcherState (Maybe action))
-    , pageFormState : Pages.FormState.PageFormState
+    , pageFormState : Form.Model
     }
 
 

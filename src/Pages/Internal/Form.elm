@@ -1,4 +1,4 @@
-module Pages.Internal.Form exposing (Response(..), Validation(..), ViewField, unwrapResponse)
+module Pages.Internal.Form exposing (Validation(..), ViewField)
 
 import Dict exposing (Dict)
 import Form.FieldStatus exposing (FieldStatus)
@@ -15,23 +15,3 @@ type alias ViewField kind =
     , status : FieldStatus
     , kind : ( kind, List ( String, Encode.Value ) )
     }
-
-
-{-| -}
-type Response error
-    = Response
-        { fields : List ( String, String )
-        , errors : Dict String (List error)
-        , clientErrors : Dict String (List error)
-        }
-
-
-unwrapResponse :
-    Response error
-    ->
-        { fields : List ( String, String )
-        , errors : Dict String (List error)
-        , clientErrors : Dict String (List error)
-        }
-unwrapResponse (Response response) =
-    response
