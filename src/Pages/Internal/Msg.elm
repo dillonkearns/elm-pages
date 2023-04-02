@@ -14,6 +14,7 @@ module Pages.Internal.Msg exposing
 import Form
 import Html exposing (Attribute)
 import Html.Attributes as Attr
+import Internal.FieldEvent
 import Json.Decode
 
 
@@ -23,7 +24,7 @@ type Msg userMsg
     | Submit { valid : Bool, fields : List ( String, String ), id : String, msg : Maybe userMsg, useFetcher : Bool }
       --| SubmitIfValid String FormData Bool (Maybe userMsg)
       --| SubmitFetcher String FormData Bool (Maybe userMsg)
-    | FormMsg (Form.Msg userMsg)
+    | FormMsg (Internal.FieldEvent.Msg userMsg)
     | NoOp
 
 

@@ -9,8 +9,8 @@ import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView as FieldView
+import Form.Handler
 import Form.Validation as Validation
-import Form.Value
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed as Keyed
@@ -352,7 +352,7 @@ view app shared model =
 
                             _ ->
                                 allForms
-                                    |> Form.runOneOfServerSide payload.fields
+                                    |> Form.Handler.run payload.fields
                                     |> Tuple.first
                     )
 
@@ -471,7 +471,7 @@ view app shared model =
                     (\( key, { status, payload } ) ->
                         case
                             ( allForms
-                                |> Form.runOneOfServerSide payload.fields
+                                |> Form.Handler.run payload.fields
                                 |> Tuple.first
                             , status
                             )
@@ -531,20 +531,20 @@ view app shared model =
 -- FORMS
 
 
-allForms : Form.ServerForms String Action
+allForms : Form.Handler.Handler String Action
 allForms =
     editItemForm
-        |> Form.initCombined UpdateEntry
-        |> Form.combine Add addItemForm
-        |> Form.combine Check checkItemForm
-        |> Form.combine Delete deleteItemForm
-        |> Form.combine (\_ -> DeleteComplete) clearCompletedForm
-        |> Form.combine CheckAll toggleAllForm
+        |> Form.Handler.init UpdateEntry
+        |> Form.Handler.with Add addItemForm
+        |> Form.Handler.with Check checkItemForm
+        |> Form.Handler.with Delete deleteItemForm
+        |> Form.Handler.with (\_ -> DeleteComplete) clearCompletedForm
+        |> Form.Handler.with CheckAll toggleAllForm
 
 
 addItemForm : Form.HtmlForm String String (Maybe String) Msg
 addItemForm =
-    Form.init
+    Form.form
         (\description ->
             { combine =
                 Validation.succeed identity
@@ -571,7 +571,7 @@ addItemForm =
 
 editItemForm : Form.HtmlForm String ( String, String ) Entry Msg
 editItemForm =
-    Form.init
+    Form.form
         (\itemId description ->
             { combine =
                 Validation.succeed Tuple.pair
@@ -603,7 +603,7 @@ editItemForm =
 
 deleteItemForm : Form.HtmlForm String String Entry Msg
 deleteItemForm =
-    Form.init
+    Form.form
         (\todoId ->
             { combine =
                 Validation.succeed identity
@@ -623,7 +623,7 @@ deleteItemForm =
 
 toggleAllForm : Form.HtmlForm String Bool { allCompleted : Bool } Msg
 toggleAllForm =
-    Form.init
+    Form.form
         (\toggleTo ->
             { combine =
                 Validation.succeed identity
@@ -656,7 +656,7 @@ toggleAllForm =
 
 checkItemForm : Form.HtmlForm String ( Bool, String ) Entry Msg
 checkItemForm =
-    Form.init
+    Form.form
         (\todoId complete ->
             { combine =
                 Validation.succeed Tuple.pair
@@ -688,7 +688,7 @@ checkItemForm =
 
 clearCompletedForm : Form.HtmlForm String () { entriesCompleted : Int } Msg
 clearCompletedForm =
-    Form.init
+    Form.form
         { combine = Validation.succeed ()
         , view =
             \formState ->

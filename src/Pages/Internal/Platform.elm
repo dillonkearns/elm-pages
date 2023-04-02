@@ -510,10 +510,20 @@ update config appMsg model =
                             Just
                                 ( -- TODO remove hardcoded number
                                   -1
-                                , Pages.Transition.Submitting fields
+                                , Pages.Transition.Submitting
+                                    { fields = fields.fields
+                                    , method = Post -- TODO
+                                    , action = "" -- TODO
+                                    , id = Just fields.id
+                                    }
                                 )
                       }
-                    , Submit fields
+                    , Submit
+                        { fields = fields.fields
+                        , method = Post -- TODO
+                        , action = "" -- TODO
+                        , id = Just fields.id
+                        }
                     )
 
                 --Pages.Internal.Msg.SubmitIfValid formId fields isValid maybeUserMsg ->
@@ -1002,7 +1012,11 @@ perform config model effect =
                                     startFetcher "TODO" -1 options model
                             , fromPageMsg = Pages.Internal.Msg.UserMsg >> UserMsg
                             , key = key
-                            , setField = \info -> Task.succeed (SetField info) |> Task.perform identity
+                            , setField =
+                                \info ->
+                                    --Task.succeed (SetField info) |> Task.perform identity
+                                    -- TODO
+                                    Cmd.none
                             }
 
                 Nothing ->
@@ -1017,16 +1031,7 @@ startFetcher fetcherKey transitionId options model =
     let
         encodedBody : String
         encodedBody =
-            FormDecoder.encodeFormData
-                { fields = options.fields
-
-                -- TODO remove hardcoding
-                , action = ""
-
-                -- TODO remove hardcoding
-                , method = Post
-                , id = Nothing
-                }
+            encodeFormData options.fields
 
         formData : { method : Method, action : String, fields : List ( String, String ), id : Maybe String }
         formData =
@@ -1089,7 +1094,7 @@ startFetcher2 config fromPageReload fetcherKey transitionId formData model =
     let
         encodedBody : String
         encodedBody =
-            FormDecoder.encodeFormData formData
+            encodeFormData formData.fields
     in
     -- TODO make sure that `actionData` isn't updated in Model for fetchers
     Cmd.batch
@@ -1150,7 +1155,7 @@ startFetcher2 config fromPageReload fetcherKey transitionId formData model =
 
             -- TODO use formData.method to do either query params or POST body
             , url = formData.action |> Url.fromString |> Maybe.map (\{ path } -> Path.join [ path, "content.dat" ] |> Path.toAbsolute) |> Maybe.withDefault "/"
-            , method = formData.method |> FormDecoder.methodToString
+            , method = formData.method |> methodToString
             , timeout = Nothing
             }
         ]
@@ -1185,7 +1190,7 @@ appendFormQueryParams fields =
     )
         ++ (case fields.method of
                 Get ->
-                    "?" ++ FormDecoder.encodeFormData fields
+                    "?" ++ encodeFormData fields.fields
 
                 Post ->
                     ""
@@ -1309,7 +1314,7 @@ fetchRouteData transitionKey toMsg config url details =
                 |> Maybe.withDefault Get
     in
     Http.request
-        { method = details |> Maybe.map (.method >> FormDecoder.methodToString) |> Maybe.withDefault "GET"
+        { method = details |> Maybe.map (.method >> methodToString) |> Maybe.withDefault "GET"
         , headers = []
         , url =
             "/"
@@ -1332,7 +1337,7 @@ fetchRouteData transitionKey toMsg config url details =
 
                         Get ->
                             details
-                                |> Maybe.map FormDecoder.encodeFormData
+                                |> Maybe.map (.fields >> encodeFormData)
                                 |> Maybe.map (\encoded -> "?" ++ encoded)
                                 |> Maybe.withDefault ""
                    )
@@ -1354,7 +1359,7 @@ fetchRouteData transitionKey toMsg config url details =
                         urlEncodedFields : Maybe String
                         urlEncodedFields =
                             details
-                                |> Maybe.map FormDecoder.encodeFormData
+                                |> Maybe.map (.fields >> encodeFormData)
                     in
                     urlEncodedFields
                         |> Maybe.map (\encoded -> Http.stringBody "application/x-www-form-urlencoded" encoded)
@@ -1608,3 +1613,23 @@ loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg 
                 |> Url.toString
                 |> BrowserLoadUrl
             )
+
+
+methodToString : Method -> String
+methodToString method =
+    case method of
+        Get ->
+            "GET"
+
+        Post ->
+            "POST"
+
+
+encodeFormData : List ( String, String ) -> String
+encodeFormData fields =
+    fields
+        |> List.map
+            (\( name, value ) ->
+                Url.percentEncode name ++ "=" ++ Url.percentEncode value
+            )
+        |> String.join "&"

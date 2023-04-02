@@ -103,4 +103,14 @@ function find_anchor(node) {
   return /** @type {HTMLAnchorElement} */ (node);
 }
 
+Object.defineProperty(SubmitEvent.prototype, "fields", {
+  get: function fields() {
+    let formData = new FormData(this.currentTarget);
+    if (this.submitter?.name) {
+      formData.append(this.submitter.name, this.submitter.value);
+    }
+    return [...formData.entries()];
+  },
+});
+
 setup();

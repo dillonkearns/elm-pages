@@ -881,57 +881,49 @@ fileField_ name =
 {-| -}
 formDataWithServerValidation :
     Form.Handler.Handler error (BackendTask FatalError (Validation.Validation error combined kind constraints))
-    -> Parser (BackendTask FatalError (Result (Form.Response error) ( Form.Response error, combined )))
+    -> Parser (BackendTask FatalError (Result (Form.ServerResponse error) ( Form.ServerResponse error, combined )))
 formDataWithServerValidation formParsers =
     rawFormData
         |> andThen
             (\rawFormData_ ->
-                let
-                    ( maybeDecoded, errors ) =
-                        Form.Handler.run
-                            rawFormData_
-                            formParsers
-                in
-                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
-                    ( Just decoded, Nothing ) ->
+                case Form.Handler.run rawFormData_ formParsers of
+                    Form.Valid decoded ->
                         succeed
                             (decoded
                                 |> BackendTask.map
+                                    -- TODO not sure how to migrate this
                                     (\(Validation _ _ ( maybeParsed, errors2 )) ->
                                         case ( maybeParsed, errors2 |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
                                             ( Just decodedFinal, Nothing ) ->
                                                 Ok
-                                                    ( Pages.Internal.Form.Response
-                                                        { fields = rawFormData_
-                                                        , errors = Dict.empty
-                                                        , clientErrors = Dict.empty
-                                                        }
+                                                    ( { persisted =
+                                                            { fields = Just rawFormData_
+                                                            , clientSideErrors = Nothing
+                                                            }
+                                                      , serverSideErrors = Dict.empty
+                                                      }
                                                     , decodedFinal
                                                     )
 
                                             _ ->
                                                 Err
-                                                    (Pages.Internal.Form.Response
-                                                        { fields = rawFormData_
-                                                        , errors = errors2
-                                                        , clientErrors = errors
+                                                    { persisted =
+                                                        { fields = Just rawFormData_
+                                                        , clientSideErrors = Just errors2
                                                         }
-                                                    )
+                                                    , serverSideErrors = Dict.empty
+                                                    }
                                     )
                             )
 
-                    ( _, maybeErrors ) ->
+                    Form.Invalid maybeValue errors ->
                         Err
-                            (Pages.Internal.Form.Response
-                                { fields = rawFormData_
-                                , errors =
-                                    maybeErrors
-                                        |> Maybe.map List.NonEmpty.toList
-                                        |> Maybe.withDefault []
-                                        |> Dict.fromList
-                                , clientErrors = Dict.empty
+                            { persisted =
+                                { fields = Just rawFormData_
+                                , clientSideErrors = Just errors
                                 }
-                            )
+                            , serverSideErrors = Dict.empty
+                            }
                             |> BackendTask.succeed
                             |> succeed
             )
@@ -940,39 +932,31 @@ formDataWithServerValidation formParsers =
 {-| -}
 formData :
     Form.Handler.Handler error combined
-    -> Parser ( Form.Response error, Result { fields : List ( String, String ), errors : Dict String (List error), clientErrors : Dict String (List error) } combined )
+    -> Parser ( Form.ServerResponse error, Form.Validated error combined )
 formData formParsers =
     rawFormData
         |> andThen
             (\rawFormData_ ->
-                let
-                    ( maybeDecoded, errors ) =
-                        Form.Handler.run
-                            rawFormData_
-                            formParsers
-                in
-                case ( maybeDecoded, errors |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
-                    ( Just decoded, Nothing ) ->
-                        ( Pages.Internal.Form.Response { fields = [], errors = Dict.empty, clientErrors = Dict.empty }
-                        , Ok decoded
+                case Form.Handler.run rawFormData_ formParsers of
+                    (Form.Valid decoded) as validated ->
+                        ( { persisted =
+                                { fields = Just rawFormData_
+                                , clientSideErrors = Just Dict.empty
+                                }
+                          , serverSideErrors = Dict.empty
+                          }
+                        , validated
                         )
                             |> succeed
 
-                    ( _, maybeErrors ) ->
-                        let
-                            record : { fields : List ( String, String ), errors : Dict String (List error), clientErrors : Dict String (List error) }
-                            record =
-                                { fields = rawFormData_
-                                , errors = Dict.empty
-                                , clientErrors =
-                                    maybeErrors
-                                        |> Maybe.map List.NonEmpty.toList
-                                        |> Maybe.withDefault []
-                                        |> Dict.fromList
+                    (Form.Invalid maybeDecoded maybeErrors) as validated ->
+                        ( { persisted =
+                                { fields = Just rawFormData_
+                                , clientSideErrors = Just maybeErrors
                                 }
-                        in
-                        ( Pages.Internal.Form.Response record
-                        , Err record
+                          , serverSideErrors = Dict.empty
+                          }
+                        , validated
                         )
                             |> succeed
             )

@@ -1,7 +1,6 @@
 module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..), Status(..), cacheRequestResolution, mockResolve, toBuildError)
 
 import BuildError exposing (BuildError)
-import Dict
 import Json.Encode
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)

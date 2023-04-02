@@ -237,7 +237,7 @@ otherFile routes phaseString =
             }
         view =
             Elm.Declare.function "view"
-                [ ( "pageFormState", Gen.Pages.FormState.annotation_.pageFormState |> Just )
+                [ ( "pageFormState", Type.named [ "Form" ] "Model" |> Just )
                 , ( "fetchers"
                   , Gen.Dict.annotation_.dict Type.string
                         (Gen.Pages.Transition.annotation_.fetcherState (Type.named [] "ActionData"))
@@ -914,7 +914,7 @@ otherFile routes phaseString =
             }
         update =
             Elm.Declare.function "update"
-                [ ( "pageFormState", Type.named [ "Pages", "FormState" ] "PageFormState" |> Just )
+                [ ( "pageFormState", Type.named [ "Form" ] "Model" |> Just )
                 , ( "fetchers"
                   , Gen.Dict.annotation_.dict
                         Type.string
