@@ -245,6 +245,7 @@ errorsView :
     { declaration : Elm.Declaration
     , call : Elm.Expression -> Elm.Expression -> Elm.Expression
     , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
+    , value : List String -> Elm.Expression
     }
 errorsView =
     Elm.Declare.fn2 "errorsView"
