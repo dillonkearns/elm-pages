@@ -24,7 +24,7 @@ type Msg userMsg
     | Submit { valid : Bool, fields : List ( String, String ), id : String, msg : Maybe userMsg, useFetcher : Bool }
       --| SubmitIfValid String FormData Bool (Maybe userMsg)
       --| SubmitFetcher String FormData Bool (Maybe userMsg)
-    | FormMsg (Internal.FieldEvent.Msg userMsg)
+    | FormMsg (Internal.FieldEvent.Msg (Msg userMsg))
     | NoOp
 
 
@@ -90,7 +90,8 @@ map mapFn msg =
                 }
 
         FormMsg value ->
-            FormMsg (Form.mapMsg mapFn value)
+            FormMsg
+                (Form.mapMsg (map mapFn) value)
 
         NoOp ->
             NoOp

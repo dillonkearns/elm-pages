@@ -8,7 +8,7 @@ import Pages.FormState exposing (FormState)
 
 type Form error combineAndView parsed input userMsg
     = Form
-        (RenderOptions error parsed userMsg)
+        RenderOptions
         (List ( String, FieldDefinition ))
         (Maybe input
          -> FormState
@@ -21,9 +21,8 @@ type Form error combineAndView parsed input userMsg
         (input -> List ( String, Maybe String ))
 
 
-type alias RenderOptions error parsed userMsg =
+type alias RenderOptions =
     { method : Method
-    , onSubmit : Maybe ({ fields : List ( String, String ), parsed : ( Maybe parsed, Dict String (List error) ) } -> userMsg)
     }
 
 

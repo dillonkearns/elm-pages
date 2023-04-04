@@ -115,8 +115,7 @@ normalizeServerForm :
     -> Form error (Combined error combined) Never Never Never
 normalizeServerForm mapFn (Internal.Form.Form options _ parseFn _) =
     Internal.Form.Form
-        { onSubmit = Nothing
-        , method = options.method
+        { method = options.method
         }
         []
         (\_ formState ->

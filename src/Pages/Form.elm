@@ -26,30 +26,8 @@ renderHtml :
     -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Html (PagesMsg userMsg)) } parsed input (PagesMsg userMsg)
     -> Html.Html (PagesMsg userMsg)
 renderHtml formId attrs app input form_ =
-    (form_
-        |> Form.withOnSubmit
-            (\{ fields, parsed } ->
-                case parsed of
-                    Form.Valid _ ->
-                        Pages.Internal.Msg.Submit
-                            { useFetcher = False
-                            , fields = fields
-                            , msg = Nothing
-                            , id = formId
-                            , valid = True
-                            }
-
-                    Form.Invalid _ _ ->
-                        Pages.Internal.Msg.Submit
-                            { useFetcher = False
-                            , fields = fields
-                            , msg = Nothing
-                            , id = formId
-                            , valid = True
-                            }
-            )
-    )
-        |> Form.renderHtml Pages.Internal.Msg.FormMsg
+    form_
+        |> Form.renderHtml
             formId
             attrs
             { state = app.pageFormState
@@ -83,6 +61,29 @@ renderHtml formId attrs app input form_ =
                             Nothing ->
                                 False
                        )
+            , toMsg = Pages.Internal.Msg.FormMsg
+            , onSubmit =
+                Just
+                    (\{ fields, parsed } ->
+                        case parsed of
+                            Form.Valid _ ->
+                                Pages.Internal.Msg.Submit
+                                    { useFetcher = False -- TODO
+                                    , fields = fields
+                                    , msg = Nothing -- TODO
+                                    , id = formId
+                                    , valid = True
+                                    }
+
+                            Form.Invalid _ _ ->
+                                Pages.Internal.Msg.Submit
+                                    { useFetcher = False -- TODO
+                                    , fields = fields
+                                    , msg = Nothing -- TODO
+                                    , id = formId
+                                    , valid = False
+                                    }
+                    )
             }
             input
 

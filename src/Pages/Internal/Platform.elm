@@ -363,6 +363,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
     | UserCmd userEffect
     | CancelRequest Int
+    | RunCmd (Cmd (Msg userMsg pageData actionData sharedData errorPage))
 
 
 {-| -}
@@ -382,7 +383,7 @@ update config appMsg model =
             ( { model
                 | pageFormState = newModel
               }
-            , NoEffect
+            , RunCmd formCmd
             )
 
         LinkClicked urlRequest ->
@@ -582,11 +583,10 @@ update config appMsg model =
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`
                     let
                         ( formModel, formCmd ) =
-                            -- TODO use formCmd
                             Form.update formMsg model.pageFormState
                     in
                     ( { model | pageFormState = formModel }
-                    , NoEffect
+                    , RunCmd (Cmd.map UserMsg formCmd)
                     )
 
                 Pages.Internal.Msg.NoOp ->
@@ -930,6 +930,9 @@ perform config model effect =
     case effect of
         NoEffect ->
             Cmd.none
+
+        RunCmd cmd ->
+            cmd
 
         Batch effects ->
             effects
