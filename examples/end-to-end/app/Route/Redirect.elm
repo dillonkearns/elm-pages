@@ -56,16 +56,18 @@ init :
     -> ( Model, Effect Msg )
 init app shared =
     ( {}
-    , Effect.FetchRouteData
-        { data =
-            Just
-                { fields = []
-                , action = "/redirect"
-                , method = Post
-                , id = Nothing
-                }
-        , toMsg = \_ -> NoOp
-        }
+    , -- TODO
+      --Effect.FetchRouteData
+      --    { data =
+      --        Just
+      --            { fields = []
+      --            , action = "/redirect"
+      --            , method = Post
+      --            , id = Nothing
+      --            }
+      --    , toMsg = \_ -> NoOp
+      --    }
+      Effect.none
     )
 
 

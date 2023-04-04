@@ -6,11 +6,13 @@ import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
+import Form.Handler
 import Form.Validation as Validation
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Styled
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatelessRoute)
 import Server.Request as Request exposing (Parser)
@@ -40,9 +42,9 @@ type alias Filters =
     }
 
 
-form : Form.HtmlForm String Filters Filters Msg
+form : Form.HtmlForm String Filters Filters (PagesMsg Msg)
 form =
-    Form.init
+    Form.form
         (\page ->
             { combine =
                 Validation.succeed Filters
@@ -63,7 +65,7 @@ form =
         |> Form.field "page"
             (Field.int { invalid = \_ -> "" }
                 |> Field.map (Maybe.withDefault 1)
-             --|> Field.withInitialValue (.first >> Form.Value.string)
+             --|> Field.withInitialValue .first
             )
 
 
@@ -84,16 +86,16 @@ type alias Data =
 
 data : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage))
 data routeParams =
-    Request.formData (Form.initCombined identity form)
+    Request.formData (Form.Handler.init identity form)
         |> Request.map
             (\( formResponse, formResult ) ->
                 case formResult of
-                    Ok filters ->
+                    Form.Valid filters ->
                         Data filters
                             |> Server.Response.render
                             |> BackendTask.succeed
 
-                    Err _ ->
+                    Form.Invalid _ _ ->
                         Data { page = 1 }
                             |> Server.Response.render
                             |> BackendTask.succeed
@@ -124,12 +126,12 @@ view app shared =
     , body =
         [ form
             |> Form.withGetMethod
-            |> Form.renderHtml "user-form"
+            |> Pages.Form.renderHtml "user-form"
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                (\_ -> Nothing)
+                --(\_ -> Nothing)
                 app
                 app.data.filters
         , Html.h2 []

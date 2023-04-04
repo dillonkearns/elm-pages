@@ -7,12 +7,13 @@ import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
+import Form.Handler
 import Form.Validation as Validation
-import Form.Value
 import Head
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Styled
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatelessRoute)
 import Server.Request as Request exposing (Parser)
@@ -36,7 +37,7 @@ type alias RouteParams =
 
 type alias ActionData =
     { user : User
-    , formResponse : Form.Response String
+    , formResponse : Form.ServerResponse String
     }
 
 
@@ -61,9 +62,9 @@ defaultUser =
     }
 
 
-form : Form.HtmlForm String User User Msg
+form : Form.HtmlForm String User User (PagesMsg Msg)
 form =
-    Form.init
+    Form.form
         (\first last username email dob check ->
             { combine =
                 Validation.succeed User
@@ -119,7 +120,7 @@ form =
                     , fieldView "Image" dob
                     , Html.button []
                         [ Html.text
-                            (if formState.isTransitioning then
+                            (if formState.submitting then
                                 "Updating..."
 
                              else
@@ -132,17 +133,17 @@ form =
         |> Form.field "first"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (.first >> Form.Value.string)
+                |> Field.withInitialValue .first
             )
         |> Form.field "last"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (.last >> Form.Value.string)
+                |> Field.withInitialValue .last
             )
         |> Form.field "username"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (.username >> Form.Value.string)
+                |> Field.withInitialValue .username
              --|> Form.withServerValidation
              --    (\username ->
              --        if username == "asdf" then
@@ -155,14 +156,14 @@ form =
         |> Form.field "email"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (.email >> Form.Value.string)
+                |> Field.withInitialValue .email
             )
         |> Form.field "dob"
             (Field.date
                 { invalid = \_ -> "Invalid date"
                 }
                 |> Field.required "Required"
-                |> Field.withInitialValue (.birthDay >> Form.Value.date)
+                |> Field.withInitialValue .birthDay
              --|> Field.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date)
              --|> Field.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date)
             )
@@ -193,11 +194,12 @@ data routeParams =
 
 action : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response ActionData ErrorPage))
 action routeParams =
-    Request.formData (form |> Form.initCombined identity)
+    Request.formData (form |> Form.Handler.init identity)
         |> Request.map
             (\( formResponse, userResult ) ->
                 ActionData
                     (userResult
+                        |> Form.toResult
                         -- TODO nicer error handling
                         -- TODO wire up BackendTask server-side validation errors
                         |> Result.withDefault defaultUser
@@ -245,12 +247,13 @@ view app shared =
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]
         , form
-            |> Form.renderHtml "user-form"
+            |> Pages.Form.renderHtml "user-form"
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                (.formResponse >> Just)
+                -- TODO
+                --(.formResponse >> Just)
                 app
                 defaultUser
         ]

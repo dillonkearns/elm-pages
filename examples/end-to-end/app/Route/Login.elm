@@ -6,11 +6,13 @@ import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
+import Form.Handler
 import Form.Validation as Validation exposing (Combined)
 import Head
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import MySession
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
@@ -34,7 +36,7 @@ type alias RouteParams =
 
 
 type alias ActionData =
-    { errors : Form.Response String
+    { errors : Form.ServerResponse String
     }
 
 
@@ -50,7 +52,7 @@ route =
 
 action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithServerValidation (form |> Form.initCombinedServer identity)
+    Request.formDataWithServerValidation (form |> Form.Handler.init identity)
         |> MySession.withSession
             (\nameResultData session ->
                 nameResultData
@@ -82,9 +84,9 @@ type alias Data =
     }
 
 
-form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (PagesMsg Msg))) Msg
+form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (PagesMsg Msg))) (PagesMsg Msg)
 form =
-    Form.init
+    Form.form
         (\username ->
             { combine =
                 Validation.succeed identity
@@ -144,7 +146,7 @@ form =
                     in
                     [ fieldView "Username" username
                     , Html.button []
-                        [ (if formState.isTransitioning then
+                        [ (if formState.submitting then
                             "Logging in..."
 
                            else
@@ -218,9 +220,10 @@ view app shared =
                 )
             ]
         , form
-            |> Form.renderStyledHtml "form"
+            |> Pages.Form.renderStyledHtml "form"
                 []
-                (.errors >> Just)
+                -- TODO
+                --(.errors >> Just)
                 app
                 ()
         ]

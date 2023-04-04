@@ -11,11 +11,13 @@ import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView as FieldView
+import Form.Handler
 import Form.Validation as Validation
 import Html.Styled as Html
 import Html.Styled.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Pages.Form
 import Pages.Transition exposing (FetcherSubmitStatus(..))
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
@@ -122,7 +124,7 @@ action routeParams =
         |> Server.Request.map
             (\( formResponse, formPost ) ->
                 case formPost of
-                    Ok (AddItem newItem) ->
+                    Form.Valid (AddItem newItem) ->
                         BackendTask.Custom.run "addItem"
                             (Encode.string newItem)
                             (Decode.list Decode.string)
@@ -132,7 +134,7 @@ action routeParams =
                                     Server.Response.render ActionData
                                 )
 
-                    Ok DeleteAll ->
+                    Form.Valid DeleteAll ->
                         BackendTask.Custom.run "deleteAllItems"
                             Encode.null
                             (Decode.list Decode.string)
@@ -142,22 +144,22 @@ action routeParams =
                                     Server.Response.render ActionData
                                 )
 
-                    Err _ ->
+                    Form.Invalid _ _ ->
                         BackendTask.succeed
                             (Server.Response.render ActionData)
             )
 
 
-forms : Form.ServerForms String Action
+forms : Form.Handler.Handler String Action
 forms =
     form
-        |> Form.initCombined AddItem
-        |> Form.combine (\() -> DeleteAll) deleteForm
+        |> Form.Handler.init AddItem
+        |> Form.Handler.with (\() -> DeleteAll) deleteForm
 
 
-form : Form.StyledHtmlForm String String () Msg
+form : Form.StyledHtmlForm String String () (PagesMsg Msg)
 form =
-    Form.init
+    Form.form
         (\name ->
             { combine =
                 Validation.succeed identity
@@ -174,9 +176,9 @@ form =
         |> Form.field "name" (Field.text |> Field.required "Required")
 
 
-deleteForm : Form.StyledHtmlForm String () () Msg
+deleteForm : Form.StyledHtmlForm String () () (PagesMsg Msg)
 deleteForm =
-    Form.init
+    Form.form
         { combine =
             Validation.succeed ()
         , view =
@@ -208,8 +210,9 @@ view app sharedModel model =
 
                             _ ->
                                 forms
-                                    |> Form.runOneOfServerSide payload.fields
-                                    |> Tuple.first
+                                    |> Form.Handler.run payload.fields
+                                    |> Form.toResult
+                                    |> Result.toMaybe
                     )
 
         creatingItems : List String
@@ -235,16 +238,22 @@ view app sharedModel model =
         [ Html.p []
             [ Html.text <| String.fromInt model.itemIndex ]
         , form
-            |> Form.withOnSubmit (\_ -> AddItemSubmitted)
-            |> Form.renderStyledHtml ("add-item-" ++ String.fromInt model.itemIndex)
+            -- TODO
+            --|> Form.withOnSubmit (\_ -> AddItemSubmitted)
+            |> Pages.Form.renderStyledHtml ("add-item-" ++ String.fromInt model.itemIndex)
                 []
-                (\_ -> Nothing)
+                --(\_ -> Nothing)
                 app
                 ()
         , Html.div []
             [ deleteForm
-                |> Form.toDynamicFetcher
-                |> Form.renderStyledHtml "delete-all" [] (\_ -> Nothing) app ()
+                -- TODO
+                --|> Form.toDynamicFetcher
+                |> Pages.Form.renderStyledHtml "delete-all"
+                    []
+                    --(\_ -> Nothing)
+                    app
+                    ()
             ]
         , optimisticItems
             |> List.map

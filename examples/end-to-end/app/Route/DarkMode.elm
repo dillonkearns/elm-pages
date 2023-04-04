@@ -14,6 +14,7 @@ import Form.Validation as Validation
 import Head
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes exposing (css)
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import RouteBuilder
@@ -83,7 +84,7 @@ type alias Data =
 
 
 type alias ActionData =
-    { formResponse : Form.Response String }
+    { formResponse : Form.ServerResponse String }
 
 
 sessionOptions =
@@ -133,10 +134,10 @@ action routeParams =
                     setToDarkMode : Bool
                     setToDarkMode =
                         case formPost of
-                            Ok ok ->
+                            Form.Valid ok ->
                                 ok
 
-                            Err _ ->
+                            Form.Invalid _ _ ->
                                 False
 
                     session : Session.Session
@@ -163,7 +164,7 @@ head app =
     []
 
 
-form : Form.StyledHtmlForm String Bool Bool Msg
+form : Form.StyledHtmlForm String Bool Bool msg
 form =
     Form.form
         (\darkMode ->
@@ -174,7 +175,7 @@ form =
                 \info ->
                     [ Html.button []
                         [ Html.text <|
-                            if info.data then
+                            if info.input then
                                 "☀️ To Light Mode"
 
                             else
@@ -185,7 +186,7 @@ form =
         )
         |> Form.hiddenField "darkMode"
             (Field.checkbox
-                |> Field.withInitialValue (not >> Value.bool)
+                |> Field.withInitialValue not
             )
 
 
@@ -211,15 +212,10 @@ view app shared model =
             ]
             [ form
                 --|> Form.toDynamicFetcher
-                |> Form.renderStyledHtml "dark-mode"
+                |> Pages.Form.renderStyledHtml "dark-mode"
                     []
                     --(.formResponse >> Just)
-                    --app
-                    --app.data.isDarkMode
-                    { serverResponse = Nothing
-                    , submitting = False
-                    , state = Debug.todo ""
-                    }
+                    app
                     app.data.isDarkMode
             , Html.text <|
                 "Current mode: "
@@ -232,19 +228,3 @@ view app shared model =
             ]
         ]
     }
-
-
-renderPagesForm : RouteBuilder.App Data ActionData RouteParams -> Bool -> Html (Form.Msg Msg)
-renderPagesForm app input =
-    form
-        --|> Form.toDynamicFetcher
-        |> Form.renderStyledHtml "dark-mode"
-            []
-            --(.formResponse >> Just)
-            --app
-            --app.data.isDarkMode
-            { serverResponse = Nothing
-            , submitting = False
-            , state = Debug.todo ""
-            }
-            input

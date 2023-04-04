@@ -14,6 +14,7 @@ module Form exposing
     , ServerResponse
     ,  mapMsg
        -- subGroup
+      , toResult
 
     )
 
@@ -298,6 +299,16 @@ import Task
 type Validated error value
     = Valid value
     | Invalid (Maybe value) (Dict String (List error))
+
+
+toResult : Validated error value -> Result ( Maybe value, Dict String (List error) ) value
+toResult validated =
+    case validated of
+        Valid value ->
+            Ok value
+
+        Invalid maybeParsed errors ->
+            Err ( maybeParsed, errors )
 
 
 {-| -}

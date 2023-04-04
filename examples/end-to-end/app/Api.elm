@@ -1,12 +1,12 @@
 module Api exposing (routes)
 
---import Form.Validation as Validation
-
 import ApiRoute exposing (ApiRoute)
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
+import Form.Handler
+import Form.Validation as Validation
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -189,7 +189,7 @@ greet =
     ApiRoute.succeed
         (Request.oneOf
             [ Request.formData
-                (Form.init
+                (Form.form
                     (\bar ->
                         { combine =
                             Validation.succeed identity
@@ -199,12 +199,13 @@ greet =
                         }
                     )
                     |> Form.field "first" (Field.text |> Field.required "Required")
-                    |> Form.initCombined identity
+                    |> Form.Handler.init identity
                 )
                 |> Request.map Tuple.second
                 |> Request.andThen
-                    (\result ->
-                        result
+                    (\validated ->
+                        validated
+                            |> Form.toResult
                             |> Result.mapError (\_ -> "")
                             |> Request.fromResult
                     )
