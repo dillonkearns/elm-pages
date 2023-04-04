@@ -65,11 +65,12 @@ renderHtml formId attrs app input form_ =
             , toMsg = Pages.Internal.Msg.FormMsg
             , onSubmit =
                 Just
-                    (\{ fields, parsed } ->
+                    (\{ fields, action, parsed } ->
                         case parsed of
                             Form.Valid _ ->
                                 Pages.Internal.Msg.Submit
                                     { useFetcher = False -- TODO
+                                    , action = action
                                     , fields = fields
                                     , msg = Nothing -- TODO
                                     , id = formId
@@ -79,6 +80,7 @@ renderHtml formId attrs app input form_ =
                             Form.Invalid _ _ ->
                                 Pages.Internal.Msg.Submit
                                     { useFetcher = False -- TODO
+                                    , action = action
                                     , fields = fields
                                     , msg = Nothing -- TODO
                                     , id = formId
@@ -144,7 +146,7 @@ renderStyledHtml formId attrs app input form_ =
             , toMsg = Pages.Internal.Msg.FormMsg
             , onSubmit =
                 Just
-                    (\{ fields, parsed } ->
+                    (\{ fields, action, parsed } ->
                         case parsed of
                             Form.Valid _ ->
                                 Pages.Internal.Msg.Submit
@@ -153,6 +155,7 @@ renderStyledHtml formId attrs app input form_ =
                                     , msg = Nothing -- TODO
                                     , id = formId
                                     , valid = True
+                                    , action = action
                                     }
 
                             Form.Invalid _ _ ->
@@ -162,6 +165,7 @@ renderStyledHtml formId attrs app input form_ =
                                     , msg = Nothing -- TODO
                                     , id = formId
                                     , valid = False
+                                    , action = action
                                     }
                     )
             }

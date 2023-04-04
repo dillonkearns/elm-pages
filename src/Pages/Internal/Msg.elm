@@ -21,7 +21,7 @@ import Json.Decode
 {-| -}
 type Msg userMsg
     = UserMsg userMsg
-    | Submit { valid : Bool, fields : List ( String, String ), id : String, msg : Maybe userMsg, useFetcher : Bool }
+    | Submit { valid : Bool, action : String, fields : List ( String, String ), id : String, msg : Maybe userMsg, useFetcher : Bool }
       --| SubmitIfValid String FormData Bool (Maybe userMsg)
       --| SubmitFetcher String FormData Bool (Maybe userMsg)
     | FormMsg (Internal.FieldEvent.Msg (Msg userMsg))
@@ -84,6 +84,7 @@ map mapFn msg =
             Submit
                 { valid = info.valid
                 , fields = info.fields
+                , action = info.action
                 , id = info.id
                 , msg = Maybe.map mapFn info.msg
                 , useFetcher = info.useFetcher

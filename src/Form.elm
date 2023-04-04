@@ -782,7 +782,7 @@ type alias AppContext parsed msg mappedMsg error =
     , serverResponse : Maybe (ServerResponse error)
     , state : Model
     , toMsg : Msg msg -> mappedMsg
-    , onSubmit : Maybe ({ fields : List ( String, String ), parsed : Validated error parsed } -> mappedMsg)
+    , onSubmit : Maybe ({ fields : List ( String, String ), action : String, parsed : Validated error parsed } -> mappedMsg)
     }
 
 
@@ -884,7 +884,7 @@ renderHtml :
         , toMsg : Msg mappedMsg -> mappedMsg
         , onSubmit :
             Maybe
-                ({ fields : List ( String, String ), parsed : Validated error parsed }
+                ({ fields : List ( String, String ), action : String, parsed : Validated error parsed }
                  -> mappedMsg
                 )
         }
@@ -923,7 +923,7 @@ renderStyledHtml :
         , serverResponse : Maybe (ServerResponse error)
         , state : Model
         , toMsg : Msg mappedMsg -> mappedMsg
-        , onSubmit : Maybe ({ fields : List ( String, String ), parsed : Validated error parsed } -> mappedMsg)
+        , onSubmit : Maybe ({ fields : List ( String, String ), action : String, parsed : Validated error parsed } -> mappedMsg)
         }
     -> input
     ->
@@ -1012,6 +1012,7 @@ renderHelper formId attrs formState input ((Internal.Form.Form options _ _ _) as
                                             (\onSubmit ->
                                                 onSubmit
                                                     { fields = formDataThing.fields |> Maybe.withDefault fields
+                                                    , action = formDataThing.action
                                                     , parsed =
                                                         case parsed of
                                                             Just justParsed ->
@@ -1092,6 +1093,7 @@ renderStyledHelper formId attrs formState input ((Internal.Form.Form options _ _
                                             (\onSubmit ->
                                                 onSubmit
                                                     { fields = formDataThing.fields |> Maybe.withDefault fields
+                                                    , action = formDataThing.action
                                                     , parsed =
                                                         case parsed of
                                                             Just justParsed ->

@@ -506,79 +506,51 @@ update config appMsg model =
                         |> performUserMsg userMsg config
 
                 Pages.Internal.Msg.Submit fields ->
-                    ( { model
-                        | transition =
-                            Just
-                                ( -- TODO remove hardcoded number
-                                  -1
-                                , Pages.Transition.Submitting
-                                    { fields = fields.fields
-                                    , method = Post -- TODO
-                                    , action = "" -- TODO
-                                    , id = Just fields.id
-                                    }
-                                )
-                      }
-                    , Submit
-                        { fields = fields.fields
-                        , method = Post -- TODO
-                        , action = "" -- TODO
-                        , id = Just fields.id
-                        }
-                    )
+                    let
+                        payload : { fields : List ( String, String ), method : Method, action : String, id : Maybe String }
+                        payload =
+                            { fields = fields.fields
+                            , method = Post -- TODO
+                            , action = fields.action
+                            , id = Just fields.id
+                            }
+                    in
+                    if fields.valid then
+                        if fields.useFetcher then
+                            ( { model | nextTransitionKey = model.nextTransitionKey + 1 }
+                            , SubmitFetcher fields.id model.nextTransitionKey payload
+                            )
+                                |> (case fields.msg of
+                                        Just justUserMsg ->
+                                            performUserMsg justUserMsg config
 
-                --Pages.Internal.Msg.SubmitIfValid formId fields isValid maybeUserMsg ->
-                --    if isValid then
-                --        ( { model
-                --            -- TODO should I setSubmitAttempted here, too?
-                --            | transition =
-                --                Just
-                --                    ( -- TODO remove hardcoded number
-                --                      -1
-                --                    , Pages.Transition.Submitting fields
-                --                    )
-                --          }
-                --        , Submit fields
-                --        )
-                --            |> (case maybeUserMsg of
-                --                    Just justUserMsg ->
-                --                        performUserMsg justUserMsg config
-                --
-                --                    Nothing ->
-                --                        identity
-                --               )
-                --
-                --    else
-                --        ( { model
-                --            | pageFormState =
-                --                model.pageFormState
-                --                    |> Pages.FormState.setSubmitAttempted formId
-                --          }
-                --        , NoEffect
-                --        )
-                --
-                --Pages.Internal.Msg.SubmitFetcher fetcherKey fields isValid maybeUserMsg ->
-                --    if isValid then
-                --        -- TODO should I setSubmitAttempted here, too?
-                --        ( { model | nextTransitionKey = model.nextTransitionKey + 1 }
-                --        , SubmitFetcher fetcherKey model.nextTransitionKey fields
-                --        )
-                --            |> (case maybeUserMsg of
-                --                    Just justUserMsg ->
-                --                        performUserMsg justUserMsg config
-                --
-                --                    Nothing ->
-                --                        identity
-                --               )
-                --
-                --    else
-                --        ( { model
-                --            | pageFormState =
-                --                model.pageFormState
-                --                    |> Pages.FormState.setSubmitAttempted fetcherKey
-                --          }
-                --        , NoEffect
-                --        )
+                                        Nothing ->
+                                            identity
+                                   )
+
+                        else
+                            ( { model
+                                -- TODO should I setSubmitAttempted here, too?
+                                | transition =
+                                    Just
+                                        ( -- TODO remove hardcoded number
+                                          -1
+                                        , Pages.Transition.Submitting payload
+                                        )
+                              }
+                            , Submit payload
+                            )
+                                |> (case fields.msg of
+                                        Just justUserMsg ->
+                                            performUserMsg justUserMsg config
+
+                                        Nothing ->
+                                            identity
+                                   )
+
+                    else
+                        ( model, NoEffect )
+
                 Pages.Internal.Msg.FormMsg formMsg ->
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`
                     let
