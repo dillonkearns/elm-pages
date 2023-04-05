@@ -1,4 +1,4 @@
-module Pages.Form exposing (Options, options, renderHtml, renderStyledHtml, withInput, withOnSubmit, withParallel)
+module Pages.Form exposing (Options, options, renderHtml, renderStyledHtml, withInput, withOnSubmit, withParallel, withServerResponse)
 
 import Dict exposing (Dict)
 import Form
@@ -11,12 +11,13 @@ import PagesMsg exposing (PagesMsg)
 
 
 type alias Options error parsed input msg =
-    --{  serverResponse : Maybe (Form.ServerResponse error) }
+    -- TODO have a way to override path?
     --path : Path
     { id : String
     , input : input
     , parallel : Bool
     , onSubmit : Maybe (Form.Validated error parsed -> msg)
+    , serverResponse : Maybe (Form.ServerResponse error)
     }
 
 
@@ -26,6 +27,7 @@ options id =
     , input = ()
     , parallel = False
     , onSubmit = Nothing
+    , serverResponse = Nothing
     }
 
 
@@ -34,12 +36,18 @@ withParallel options_ =
     { options_ | parallel = True }
 
 
+withServerResponse : Maybe (Form.ServerResponse error) -> Options error parsed input msg -> Options error parsed input msg
+withServerResponse serverResponse options_ =
+    { options_ | serverResponse = serverResponse }
+
+
 withInput : input -> Options error parsed () msg -> Options error parsed input msg
 withInput input options_ =
     { id = options_.id
     , input = input
     , parallel = options_.parallel
     , onSubmit = options_.onSubmit
+    , serverResponse = options_.serverResponse
     }
 
 
@@ -49,6 +57,7 @@ withOnSubmit onSubmit options_ =
     , input = options_.input
     , parallel = options_.parallel
     , onSubmit = Just onSubmit
+    , serverResponse = options_.serverResponse
     }
 
 
@@ -72,7 +81,7 @@ renderHtml attrs options_ app form_ =
             options_.id
             attrs
             { state = app.pageFormState
-            , serverResponse = Nothing -- TODO
+            , serverResponse = options_.serverResponse
             , submitting =
                 (case app.fetchers |> Dict.get options_.id of
                     Just { status } ->
@@ -151,7 +160,7 @@ renderStyledHtml attrs options_ app form_ =
             options_.id
             attrs
             { state = app.pageFormState
-            , serverResponse = Nothing -- TODO
+            , serverResponse = options_.serverResponse
             , submitting =
                 (case app.fetchers |> Dict.get options_.id of
                     Just { status } ->

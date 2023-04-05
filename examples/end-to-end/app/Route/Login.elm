@@ -222,9 +222,9 @@ view app shared =
         , form
             |> Pages.Form.renderStyledHtml
                 []
-                (Pages.Form.options "form")
-                -- TODO
-                --(.errors >> Just)
+                (Pages.Form.options "form"
+                    |> Pages.Form.withServerResponse (app.action |> Maybe.map .errors)
+                )
                 app
         ]
     }
