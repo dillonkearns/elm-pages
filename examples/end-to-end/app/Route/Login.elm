@@ -220,12 +220,12 @@ view app shared =
                 )
             ]
         , form
-            |> Pages.Form.renderStyledHtml "form"
+            |> Pages.Form.renderStyledHtml
                 []
+                (Pages.Form.options "form")
                 -- TODO
                 --(.errors >> Just)
                 app
-                ()
         ]
     }
 

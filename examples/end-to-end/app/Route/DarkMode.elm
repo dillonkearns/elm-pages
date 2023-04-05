@@ -211,12 +211,14 @@ view app shared model =
                 )
             ]
             [ form
-                --|> Form.toDynamicFetcher
-                |> Pages.Form.renderStyledHtml "dark-mode"
+                |> Pages.Form.renderStyledHtml
                     []
                     --(.formResponse >> Just)
+                    (Pages.Form.options "dark-mode"
+                        |> Pages.Form.withInput app.data.isDarkMode
+                        |> Pages.Form.withParallel
+                    )
                     app
-                    app.data.isDarkMode
             , Html.text <|
                 "Current mode: "
                     ++ (if app.data.isDarkMode then

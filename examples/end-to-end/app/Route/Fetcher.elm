@@ -238,22 +238,22 @@ view app sharedModel model =
         [ Html.p []
             [ Html.text <| String.fromInt model.itemIndex ]
         , form
-            -- TODO
-            --|> Form.withOnSubmit (\_ -> AddItemSubmitted)
-            |> Pages.Form.renderStyledHtml ("add-item-" ++ String.fromInt model.itemIndex)
+            |> Pages.Form.renderStyledHtml
                 []
+                (Pages.Form.options ("add-item-" ++ String.fromInt model.itemIndex)
+                    |> Pages.Form.withOnSubmit (\_ -> AddItemSubmitted)
+                )
                 --(\_ -> Nothing)
                 app
-                ()
         , Html.div []
             [ deleteForm
-                -- TODO
-                --|> Form.toDynamicFetcher
-                |> Pages.Form.renderStyledHtml "delete-all"
+                |> Pages.Form.renderStyledHtml
                     []
+                    (Pages.Form.options "delete-all"
+                        |> Pages.Form.withParallel
+                    )
                     --(\_ -> Nothing)
                     app
-                    ()
             ]
         , optimisticItems
             |> List.map
