@@ -252,11 +252,11 @@ view app shared =
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                (Pages.Form.options "user-form"
-                    |> Pages.Form.withInput defaultUser
+                Pages.Form.Serial
+                (Form.options "user-form"
+                    |> Form.withInput defaultUser
+                    |> Form.withServerResponse (app.action |> Maybe.map .formResponse)
                 )
-                -- TODO
-                --(.formResponse >> Just)
                 app
         ]
             |> List.map Html.Styled.fromUnstyled

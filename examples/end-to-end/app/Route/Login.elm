@@ -84,7 +84,7 @@ type alias Data =
     }
 
 
-form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (PagesMsg Msg))) (PagesMsg Msg)
+form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (PagesMsg Msg)))
 form =
     Form.form
         (\username ->
@@ -222,8 +222,9 @@ view app shared =
         , form
             |> Pages.Form.renderStyledHtml
                 []
-                (Pages.Form.options "form"
-                    |> Pages.Form.withServerResponse (app.action |> Maybe.map .errors)
+                Pages.Form.Serial
+                (Form.options "form"
+                    |> Form.withServerResponse (app.action |> Maybe.map .errors)
                 )
                 app
         ]

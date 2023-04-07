@@ -549,6 +549,7 @@ update config appMsg model =
                                    )
 
                     else
+                        -- TODO should the user msg still be run if the form is invalid?
                         ( model, NoEffect )
 
                 Pages.Internal.Msg.FormMsg formMsg ->

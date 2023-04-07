@@ -211,12 +211,10 @@ view app shared model =
                 )
             ]
             [ form
-                |> Pages.Form.renderStyledHtml
-                    []
-                    --(.formResponse >> Just)
-                    (Pages.Form.options "dark-mode"
-                        |> Pages.Form.withInput app.data.isDarkMode
-                        |> Pages.Form.withParallel
+                |> Pages.Form.renderStyledHtml []
+                    Pages.Form.Parallel
+                    (Form.options "dark-mode"
+                        |> Form.withInput app.data.isDarkMode
                     )
                     app
             , Html.text <|

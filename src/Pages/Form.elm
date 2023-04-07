@@ -1,4 +1,4 @@
-module Pages.Form exposing (Options, options, renderHtml, renderStyledHtml, withInput, withOnSubmit, withParallel, withServerResponse)
+module Pages.Form exposing (Strategy(..), renderHtml, renderStyledHtml)
 
 import Dict exposing (Dict)
 import Form
@@ -10,60 +10,15 @@ import Pages.Transition
 import PagesMsg exposing (PagesMsg)
 
 
-type alias Options error parsed input msg =
-    -- TODO have a way to override path?
-    --path : Path
-    { id : String
-    , input : input
-    , parallel : Bool
-    , onSubmit : Maybe (Form.Validated error parsed -> msg)
-    , serverResponse : Maybe (Form.ServerResponse error)
-    }
-
-
-options : String -> Options error parsed () msg
-options id =
-    { id = id
-    , input = ()
-    , parallel = False
-    , onSubmit = Nothing
-    , serverResponse = Nothing
-    }
-
-
-withParallel : Options error parsed input msg -> Options error parsed input msg
-withParallel options_ =
-    { options_ | parallel = True }
-
-
-withServerResponse : Maybe (Form.ServerResponse error) -> Options error parsed input msg -> Options error parsed input msg
-withServerResponse serverResponse options_ =
-    { options_ | serverResponse = serverResponse }
-
-
-withInput : input -> Options error parsed () msg -> Options error parsed input msg
-withInput input options_ =
-    { id = options_.id
-    , input = input
-    , parallel = options_.parallel
-    , onSubmit = options_.onSubmit
-    , serverResponse = options_.serverResponse
-    }
-
-
-withOnSubmit : (Form.Validated error parsed -> msg) -> Options error parsed input previousMsg -> Options error parsed input msg
-withOnSubmit onSubmit options_ =
-    { id = options_.id
-    , input = options_.input
-    , parallel = options_.parallel
-    , onSubmit = Just onSubmit
-    , serverResponse = options_.serverResponse
-    }
+type Strategy
+    = Parallel
+    | Serial
 
 
 renderHtml :
     List (Html.Attribute (PagesMsg userMsg))
-    -> Options error parsed input userMsg
+    -> Strategy
+    -> Form.Options error parsed input userMsg
     ->
         { --path : Path
           --, url : Maybe PageUrl
@@ -73,15 +28,12 @@ renderHtml :
             , transition : Maybe Pages.Transition.Transition
             , fetchers : Dict String (Pages.Transition.FetcherState (Maybe action))
         }
-    -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Html (PagesMsg userMsg)) } parsed input (PagesMsg userMsg)
+    -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Html (PagesMsg userMsg)) } parsed input
     -> Html.Html (PagesMsg userMsg)
-renderHtml attrs options_ app form_ =
+renderHtml attrs strategy options_ app form_ =
     form_
         |> Form.renderHtml
-            options_.id
-            attrs
             { state = app.pageFormState
-            , serverResponse = options_.serverResponse
             , submitting =
                 (case app.fetchers |> Dict.get options_.id of
                     Just { status } ->
@@ -112,37 +64,46 @@ renderHtml attrs options_ app form_ =
                                 False
                        )
             , toMsg = Pages.Internal.Msg.FormMsg
+            }
+            { id = options_.id
+            , method = options_.method
+            , input = options_.input
+            , serverResponse = options_.serverResponse
             , onSubmit =
                 Just
-                    (\{ fields, action, parsed } ->
-                        case parsed of
+                    (\submission ->
+                        case submission.parsed of
                             Form.Valid _ ->
                                 Pages.Internal.Msg.Submit
-                                    { useFetcher = options_.parallel
-                                    , action = action
-                                    , fields = fields
-                                    , msg = options_.onSubmit |> Maybe.map (\onSubmit -> onSubmit parsed)
+                                    { useFetcher = strategy == Parallel
+                                    , action = submission.action
+                                    , fields = submission.fields
+                                    , msg =
+                                        options_.onSubmit
+                                            |> Maybe.map
+                                                (\onSubmit -> onSubmit submission)
                                     , id = options_.id
                                     , valid = True
                                     }
 
                             Form.Invalid _ _ ->
                                 Pages.Internal.Msg.Submit
-                                    { useFetcher = options_.parallel
-                                    , action = action
-                                    , fields = fields
-                                    , msg = options_.onSubmit |> Maybe.map (\onSubmit -> onSubmit parsed)
+                                    { useFetcher = strategy == Parallel
+                                    , action = submission.action
+                                    , fields = submission.fields
+                                    , msg = options_.onSubmit |> Maybe.map (\onSubmit -> onSubmit submission)
                                     , id = options_.id
                                     , valid = False
                                     }
                     )
             }
-            options_.input
+            attrs
 
 
 renderStyledHtml :
     List (Html.Styled.Attribute (PagesMsg userMsg))
-    -> Options error parsed input userMsg
+    -> Strategy
+    -> Form.Options error parsed input userMsg
     ->
         { --path : Path
           --, url : Maybe PageUrl
@@ -152,15 +113,13 @@ renderStyledHtml :
             , transition : Maybe Pages.Transition.Transition
             , fetchers : Dict String (Pages.Transition.FetcherState (Maybe action))
         }
-    -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Styled.Html (PagesMsg userMsg)) } parsed input (PagesMsg userMsg)
+    -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Styled.Html (PagesMsg userMsg)) } parsed input
     -> Html.Styled.Html (PagesMsg userMsg)
-renderStyledHtml attrs options_ app form_ =
+renderStyledHtml attrs strategy options_ app form_ =
     form_
         |> Form.renderStyledHtml
-            options_.id
-            attrs
             { state = app.pageFormState
-            , serverResponse = options_.serverResponse
+            , toMsg = Pages.Internal.Msg.FormMsg
             , submitting =
                 (case app.fetchers |> Dict.get options_.id of
                     Just { status } ->
@@ -190,30 +149,37 @@ renderStyledHtml attrs options_ app form_ =
                             Nothing ->
                                 False
                        )
-            , toMsg = Pages.Internal.Msg.FormMsg
+            }
+            { id = options_.id
+            , method = options_.method
+            , input = options_.input
+            , serverResponse = options_.serverResponse
             , onSubmit =
                 Just
-                    (\{ fields, action, parsed } ->
-                        case parsed of
+                    (\submission ->
+                        case submission.parsed of
                             Form.Valid _ ->
                                 Pages.Internal.Msg.Submit
-                                    { useFetcher = options_.parallel
-                                    , fields = fields
-                                    , msg = options_.onSubmit |> Maybe.map (\onSubmit -> onSubmit parsed)
+                                    { useFetcher = strategy == Parallel
+                                    , action = submission.action
+                                    , fields = submission.fields
+                                    , msg =
+                                        options_.onSubmit
+                                            |> Maybe.map
+                                                (\onSubmit -> onSubmit submission)
                                     , id = options_.id
                                     , valid = True
-                                    , action = action
                                     }
 
                             Form.Invalid _ _ ->
                                 Pages.Internal.Msg.Submit
-                                    { useFetcher = options_.parallel
-                                    , fields = fields
-                                    , msg = options_.onSubmit |> Maybe.map (\onSubmit -> onSubmit parsed)
+                                    { useFetcher = strategy == Parallel
+                                    , action = submission.action
+                                    , fields = submission.fields
+                                    , msg = options_.onSubmit |> Maybe.map (\onSubmit -> onSubmit submission)
                                     , id = options_.id
                                     , valid = False
-                                    , action = action
                                     }
                     )
             }
-            options_.input
+            attrs

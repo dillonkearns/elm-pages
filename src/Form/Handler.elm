@@ -32,7 +32,6 @@ type Handler error parsed
                 (Combined error parsed)
                 Never
                 Never
-                Never
             )
         )
 
@@ -48,7 +47,6 @@ init :
             }
             parsed
             input
-            msg
     -> Handler error combined
 init mapFn form =
     Handler [ normalizeServerForm mapFn form ]
@@ -65,7 +63,6 @@ with :
             }
             parsed
             input
-            msg
     -> Handler error combined
     -> Handler error combined
 with mapFn form (Handler serverForms) =
@@ -111,12 +108,10 @@ with mapFn form (Handler serverForms) =
 
 normalizeServerForm :
     (parsed -> combined)
-    -> Form error { combineAndView | combine : Validation error parsed kind constraints } parsed input msg
-    -> Form error (Combined error combined) Never Never Never
-normalizeServerForm mapFn (Internal.Form.Form options _ parseFn _) =
+    -> Form error { combineAndView | combine : Validation error parsed kind constraints } parsed input
+    -> Form error (Combined error combined) Never Never
+normalizeServerForm mapFn (Internal.Form.Form _ parseFn _) =
     Internal.Form.Form
-        { method = options.method
-        }
         []
         (\_ formState ->
             let
@@ -200,9 +195,9 @@ runOneOfServerSideHelp rawFormData firstFoundErrors (Handler parsers) =
 {-| -}
 runServerSide :
     List ( String, String )
-    -> Form error (Validation error parsed kind constraints) Never input msg
+    -> Form error (Validation error parsed kind constraints) Never input
     -> ( Bool, ( Maybe parsed, Dict String (List error) ) )
-runServerSide rawFormData (Internal.Form.Form _ _ parser _) =
+runServerSide rawFormData (Internal.Form.Form _ parser _) =
     let
         parsed :
             { result : Dict String (List error)

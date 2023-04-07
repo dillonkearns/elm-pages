@@ -125,16 +125,16 @@ view app shared =
     { title = "GET Form Example"
     , body =
         [ form
-            |> Form.withGetMethod
             |> Pages.Form.renderHtml
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                (Pages.Form.options "user-form"
-                    |> Pages.Form.withInput app.data.filters
+                Pages.Form.Serial
+                (Form.options "user-form"
+                    |> Form.withInput app.data.filters
+                    |> Form.withGetMethod
                 )
-                --(\_ -> Nothing)
                 app
         , Html.h2 []
             [ Html.text <| "Current page: " ++ String.fromInt app.data.filters.page

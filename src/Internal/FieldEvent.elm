@@ -96,7 +96,7 @@ methodDecoder =
                         Get
 
                     "POST" ->
-                        Get
+                        Post
 
                     _ ->
                         -- TODO what about "dialog" method? Is it okay for that to be interpreted as GET,

@@ -240,19 +240,17 @@ view app sharedModel model =
         , form
             |> Pages.Form.renderStyledHtml
                 []
-                (Pages.Form.options ("add-item-" ++ String.fromInt model.itemIndex)
-                    |> Pages.Form.withOnSubmit (\_ -> AddItemSubmitted)
+                Pages.Form.Serial
+                (Form.options ("add-item-" ++ String.fromInt model.itemIndex)
+                    |> Form.withOnSubmit (\_ -> AddItemSubmitted)
                 )
-                --(\_ -> Nothing)
                 app
         , Html.div []
             [ deleteForm
                 |> Pages.Form.renderStyledHtml
                     []
-                    (Pages.Form.options "delete-all"
-                        |> Pages.Form.withParallel
-                    )
-                    --(\_ -> Nothing)
+                    Pages.Form.Parallel
+                    (Form.options "delete-all")
                     app
             ]
         , optimisticItems
