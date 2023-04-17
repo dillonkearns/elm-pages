@@ -1,4 +1,15 @@
-module Pages.Form exposing (FormWithServerValidations, Handler, Strategy(..), renderHtml, renderStyledHtml)
+module Pages.Form exposing
+    ( Strategy(..), renderHtml, renderStyledHtml
+    , FormWithServerValidations, Handler
+    )
+
+{-|
+
+@docs Strategy, renderHtml, renderStyledHtml
+
+@docs FormWithServerValidations, Handler
+
+-}
 
 import BackendTask exposing (BackendTask)
 import Dict exposing (Dict)
@@ -13,6 +24,7 @@ import Pages.Transition
 import PagesMsg exposing (PagesMsg)
 
 
+{-| -}
 type alias FormWithServerValidations error combined input view =
     Form.Form
         error
@@ -28,15 +40,18 @@ type alias FormWithServerValidations error combined input view =
         input
 
 
+{-| -}
 type alias Handler error combined =
     Form.Handler.Handler error (BackendTask FatalError (Validation.Validation error combined Never Never))
 
 
+{-| -}
 type Strategy
     = Parallel
     | Serial
 
 
+{-| -}
 renderHtml :
     List (Html.Attribute (PagesMsg userMsg))
     -> Strategy
@@ -125,6 +140,7 @@ renderHtml attrs strategy options_ app form_ =
             attrs
 
 
+{-| -}
 renderStyledHtml :
     List (Html.Styled.Attribute (PagesMsg userMsg))
     -> Strategy
