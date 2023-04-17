@@ -4,10 +4,8 @@ import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
-import Form.FormData exposing (Method(..))
 import Head
 import Head.Seo as Seo
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)

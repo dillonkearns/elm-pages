@@ -7,7 +7,7 @@ import Form
 import Form.Field as Field
 import Form.FieldView
 import Form.Handler
-import Form.Validation as Validation exposing (Combined)
+import Form.Validation as Validation exposing (Validation)
 import Head
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
@@ -84,7 +84,7 @@ type alias Data =
     }
 
 
-form : Form.DoneForm String (BackendTask error (Combined String String)) data (List (Html (PagesMsg Msg)))
+form : Pages.Form.FormWithServerValidations String String input (List (Html msg))
 form =
     Form.form
         (\username ->
@@ -104,12 +104,12 @@ form =
             , view =
                 \formState ->
                     let
-                        errors : Validation.Field String parsed kind -> List String
+                        errors : Validation.Field String parsed anyKind -> List String
                         errors field =
                             formState.errors
                                 |> Form.errorsForField field
 
-                        errorsView : Validation.Field String parsed kind -> Html msg
+                        errorsView : Validation.Field String parsed anyKind -> Html msg
                         errorsView field =
                             case
                                 ( formState.submitAttempted

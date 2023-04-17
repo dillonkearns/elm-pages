@@ -21,7 +21,6 @@ import Bytes exposing (Bytes)
 import Bytes.Decode
 import Dict exposing (Dict)
 import Form
-import Form.FormData exposing (FormData, Method(..))
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
@@ -507,10 +506,10 @@ update config appMsg model =
 
                 Pages.Internal.Msg.Submit fields ->
                     let
-                        payload : { fields : List ( String, String ), method : Method, action : String, id : Maybe String }
+                        payload : { fields : List ( String, String ), method : Form.Method, action : String, id : Maybe String }
                         payload =
                             { fields = fields.fields
-                            , method = Post -- TODO
+                            , method = fields.method
                             , action = fields.action
                             , id = Just fields.id
                             }
@@ -938,7 +937,7 @@ perform config model effect =
             fetchRouteData transitionKey toMsg config url maybeRequestInfo
 
         Submit fields ->
-            if fields.method == Get then
+            if fields.method == Form.Get then
                 model.key
                     |> Maybe.map (\key -> Browser.Navigation.pushUrl key (appendFormQueryParams fields))
                     |> Maybe.withDefault Cmd.none
@@ -1009,10 +1008,10 @@ startFetcher fetcherKey transitionId options model =
         encodedBody =
             encodeFormData options.fields
 
-        formData : { method : Method, action : String, fields : List ( String, String ), id : Maybe String }
+        formData : { method : Form.Method, action : String, fields : List ( String, String ), id : Maybe String }
         formData =
             { -- TODO remove hardcoding
-              method = Get
+              method = Form.Get
 
             -- TODO pass FormData directly
             , action = options.url |> Maybe.withDefault model.url.path
@@ -1165,10 +1164,10 @@ appendFormQueryParams fields =
         |> Maybe.withDefault "/"
     )
         ++ (case fields.method of
-                Get ->
+                Form.Get ->
                     "?" ++ encodeFormData fields.fields
 
-                Post ->
+                Form.Post ->
                     ""
            )
 
@@ -1283,11 +1282,11 @@ fetchRouteData transitionKey toMsg config url details =
 
     -}
     let
-        formMethod : Method
+        formMethod : Form.Method
         formMethod =
             details
                 |> Maybe.map .method
-                |> Maybe.withDefault Get
+                |> Maybe.withDefault Form.Get
     in
     Http.request
         { method = details |> Maybe.map (.method >> methodToString) |> Maybe.withDefault "GET"
@@ -1308,10 +1307,10 @@ fetchRouteData transitionKey toMsg config url details =
                         |> String.join "/"
                    )
                 ++ (case formMethod of
-                        Post ->
+                        Form.Post ->
                             "/"
 
-                        Get ->
+                        Form.Get ->
                             details
                                 |> Maybe.map (.fields >> encodeFormData)
                                 |> Maybe.map (\encoded -> "?" ++ encoded)
@@ -1320,17 +1319,17 @@ fetchRouteData transitionKey toMsg config url details =
                 ++ (case formMethod of
                         -- TODO extract this to something unit testable
                         -- TODO make states mutually exclusive for submissions and direct URL requests (shouldn't be possible to append two query param strings)
-                        Post ->
+                        Form.Post ->
                             ""
 
-                        Get ->
+                        Form.Get ->
                             url.query
                                 |> Maybe.map (\encoded -> "?" ++ encoded)
                                 |> Maybe.withDefault ""
                    )
         , body =
             case formMethod of
-                Post ->
+                Form.Post ->
                     let
                         urlEncodedFields : Maybe String
                         urlEncodedFields =
@@ -1591,13 +1590,13 @@ loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg 
             )
 
 
-methodToString : Method -> String
+methodToString : Form.Method -> String
 methodToString method =
     case method of
-        Get ->
+        Form.Get ->
             "GET"
 
-        Post ->
+        Form.Post ->
             "POST"
 
 
@@ -1609,3 +1608,11 @@ encodeFormData fields =
                 Url.percentEncode name ++ "=" ++ Url.percentEncode value
             )
         |> String.join "&"
+
+
+type alias FormData =
+    { fields : List ( String, String )
+    , method : Form.Method
+    , action : String
+    , id : Maybe String
+    }

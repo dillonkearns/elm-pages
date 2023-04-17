@@ -14,9 +14,17 @@ module Pages.Transition exposing
 
 -}
 
-import Form.FormData exposing (FormData)
+import Form
 import Path exposing (Path)
 import Time
+
+
+type alias FormData =
+    { fields : List ( String, String )
+    , method : Form.Method
+    , action : String
+    , id : Maybe String
+    }
 
 
 {-| -}

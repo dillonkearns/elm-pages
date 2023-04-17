@@ -1,4 +1,4 @@
-module Pages.ProgramConfig exposing (ProgramConfig)
+module Pages.ProgramConfig exposing (FormData, ProgramConfig)
 
 import ApiRoute
 import BackendTask exposing (BackendTask)
@@ -9,7 +9,6 @@ import Bytes.Encode
 import Dict exposing (Dict)
 import FatalError exposing (FatalError)
 import Form
-import Form.FormData exposing (FormData)
 import Head
 import Html exposing (Html)
 import Http
@@ -127,4 +126,12 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , internalError : String -> errorPage
     , errorPageToData : errorPage -> pageData
     , notFoundRoute : route
+    }
+
+
+type alias FormData =
+    { fields : List ( String, String )
+    , method : Form.Method
+    , action : String
+    , id : Maybe String
     }

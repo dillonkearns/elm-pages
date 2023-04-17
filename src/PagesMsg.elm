@@ -15,8 +15,6 @@ You can wrap your Route Module's `Msg` using `fromMsg`.
 
 @docs map, noOp
 
-@docs onSubmit
-
 -}
 
 import Pages.Internal.Msg

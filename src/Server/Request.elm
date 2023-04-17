@@ -98,7 +98,7 @@ import Internal.Request
 import Json.Decode
 import Json.Encode
 import List.NonEmpty
-import Pages.Internal.Form exposing (Validation(..))
+import Pages.Form
 import QueryParams
 import Time
 import Url
@@ -878,6 +878,18 @@ fileField_ name =
         |> Internal.Request.Parser
 
 
+runForm : Validation.Validation error parsed kind constraints -> Form.Validated error parsed
+runForm validation =
+    Form.Handler.run []
+        (Form.Handler.init identity
+            (Form.form
+                { combine = validation
+                , view = []
+                }
+            )
+        )
+
+
 {-| -}
 formDataWithServerValidation :
     Form.Handler.Handler error (BackendTask FatalError (Validation.Validation error combined kind constraints))
@@ -891,10 +903,9 @@ formDataWithServerValidation formParsers =
                         succeed
                             (decoded
                                 |> BackendTask.map
-                                    -- TODO not sure how to migrate this
-                                    (\(Validation _ _ ( maybeParsed, errors2 )) ->
-                                        case ( maybeParsed, errors2 |> Dict.toList |> List.filter (\( _, value ) -> value |> List.isEmpty |> not) |> List.NonEmpty.fromList ) of
-                                            ( Just decodedFinal, Nothing ) ->
+                                    (\clientValidated ->
+                                        case runForm clientValidated of
+                                            Form.Valid decodedFinal ->
                                                 Ok
                                                     ( { persisted =
                                                             { fields = Just rawFormData_
@@ -905,7 +916,7 @@ formDataWithServerValidation formParsers =
                                                     , decodedFinal
                                                     )
 
-                                            _ ->
+                                            Form.Invalid _ errors2 ->
                                                 Err
                                                     { persisted =
                                                         { fields = Just rawFormData_
@@ -916,7 +927,7 @@ formDataWithServerValidation formParsers =
                                     )
                             )
 
-                    Form.Invalid maybeValue errors ->
+                    Form.Invalid _ errors ->
                         Err
                             { persisted =
                                 { fields = Just rawFormData_

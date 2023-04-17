@@ -11,20 +11,19 @@ module Pages.Internal.Msg exposing
 --import Form.FormData exposing (FormData)
 --import FormDecoder
 
-import Form
+import Form exposing (Method)
 import Html exposing (Attribute)
 import Html.Attributes as Attr
-import Internal.FieldEvent
 import Json.Decode
 
 
 {-| -}
 type Msg userMsg
     = UserMsg userMsg
-    | Submit { valid : Bool, action : String, fields : List ( String, String ), id : String, msg : Maybe userMsg, useFetcher : Bool }
+    | Submit { valid : Bool, method : Method, action : String, fields : List ( String, String ), id : String, msg : Maybe userMsg, useFetcher : Bool }
       --| SubmitIfValid String FormData Bool (Maybe userMsg)
       --| SubmitFetcher String FormData Bool (Maybe userMsg)
-    | FormMsg (Internal.FieldEvent.Msg (Msg userMsg))
+    | FormMsg (Form.Msg (Msg userMsg))
     | NoOp
 
 
@@ -87,6 +86,7 @@ map mapFn msg =
                 , action = info.action
                 , id = info.id
                 , msg = Maybe.map mapFn info.msg
+                , method = info.method
                 , useFetcher = info.useFetcher
                 }
 
