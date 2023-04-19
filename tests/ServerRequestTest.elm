@@ -4,6 +4,7 @@ import Dict exposing (Dict)
 import Expect exposing (Expectation)
 import Form
 import Form.Field as Field
+import Form.Handler
 import Form.Validation as Validation
 import FormData
 import Internal.Request exposing (Parser(..))
@@ -63,7 +64,7 @@ all =
         , test "tries multiple form post formats" <|
             \() ->
                 Request.formData
-                    (Form.init
+                    (Form.form
                         (\bar ->
                             { combine =
                                 Validation.succeed identity
@@ -73,9 +74,9 @@ all =
                             }
                         )
                         |> Form.field "bar" Field.text
-                        |> Form.initCombined identity
-                        |> Form.combine identity
-                            (Form.init
+                        |> Form.Handler.init identity
+                        |> Form.Handler.with identity
+                            (Form.form
                                 (\bar ->
                                     { combine =
                                         Validation.succeed identity
@@ -102,7 +103,7 @@ all =
         , test "expectFormPost with missing content-type" <|
             \() ->
                 Request.formData
-                    (Form.init
+                    (Form.form
                         (\bar ->
                             { combine =
                                 Validation.succeed identity
@@ -112,7 +113,7 @@ all =
                             }
                         )
                         |> Form.field "bar" Field.text
-                        |> Form.initCombined identity
+                        |> Form.Handler.init identity
                     )
                     |> expectNoMatch
                         { method = Request.Post
