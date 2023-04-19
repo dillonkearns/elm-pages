@@ -3,6 +3,7 @@
     "codegen-helpers": {
         "packages": {
             "elm/core": "1.0.5",
+            "dillonkearns/elm-form": "2.0.2",
             "elm/html": "1.0.0",
             "rtfeldman/elm-css": "18.0.0",
             "elm/json": "1.1.3"
