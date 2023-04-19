@@ -15,6 +15,7 @@
             "danyx23/elm-mimetype": "4.0.1",
             "dillonkearns/elm-bcp47-language-tag": "1.0.1",
             "dillonkearns/elm-date-or-date-time": "2.0.0",
+            "dillonkearns/elm-form": "2.0.2",
             "elm/browser": "1.0.2",
             "elm/bytes": "1.0.8",
             "elm/core": "1.0.5",
@@ -30,12 +31,12 @@
             "elm-community/list-extra": "8.7.0",
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.0.1",
-            "matheus23/elm-default-tailwind-modules": "2.0.1",
-            "mdgriffith/elm-codegen": "2.0.0",
+            "matheus23/elm-default-tailwind-modules": "4.0.1",
+            "mdgriffith/elm-codegen": "3.0.0",
             "miniBill/elm-codec": "2.0.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "robinheghan/fnv1a": "1.0.0",
-            "rtfeldman/elm-css": "16.1.1",
+            "rtfeldman/elm-css": "18.0.0",
             "rtfeldman/elm-iso8601-date-strings": "1.1.4",
             "the-sett/elm-pretty-printer": "3.0.0",
             "the-sett/elm-syntax-dsl": "6.0.2",
@@ -48,7 +49,9 @@
             "elm-community/basics-extra": "4.1.0",
             "elm-community/maybe-extra": "5.3.0",
             "fredcy/elm-parseint": "2.0.1",
-            "miniBill/elm-unicode": "1.0.2",
+            "matheus23/elm-tailwind-modules-base": "1.0.0",
+            "miniBill/elm-unicode": "1.0.3",
+            "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-hex": "1.0.0",
             "stil4m/elm-syntax": "7.2.9",
             "stil4m/structured-writer": "1.0.3"
@@ -56,7 +59,7 @@
     },
     "test-dependencies": {
         "direct": {
-            "elm-explorations/test": "2.0.1"
+            "elm-explorations/test": "2.1.1"
         },
         "indirect": {
             "elm/random": "1.0.0"

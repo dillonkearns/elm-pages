@@ -1,10 +1,10 @@
 module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 
 import Browser.Navigation
-import Form.FormData exposing (FormData)
 import Http
 import Json.Decode as Decode
 import Pages.Fetcher
+import Pages.ProgramConfig exposing (FormData)
 import Url exposing (Url)
 
 
