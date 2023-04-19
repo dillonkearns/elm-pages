@@ -152,21 +152,23 @@ view app shared model =
     , body =
         [ Html.h2 [] [ Html.text "Form" ]
         , form
-            |> Pages.Form.renderHtml "form"
-                []
-                --(Just << .errors)
+            |> Pages.Form.renderHtml []
+                Pages.Form.Serial
+                (Form.options "form"
+                    |> Form.withInput app.data.post
+                    |> Form.withServerResponse
+                        (app.action |> Maybe.map .errors)
+                )
                 app
-                app.data.post
         , if app.routeParams.slug == "new" then
             Html.text ""
 
           else
             deleteForm
-                |> Pages.Form.renderHtml "delete"
-                    []
-                    --(\_ -> Nothing)
+                |> Pages.Form.renderHtml []
+                    Pages.Form.Serial
+                    (Form.options "delete")
                     app
-                    ()
         ]
     }
 

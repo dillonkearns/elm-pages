@@ -37,14 +37,14 @@ type Kind
 {-| -}
 type alias Context =
     { errors : Elm.Expression
-    , isTransitioning : Elm.Expression
+    , submitting : Elm.Expression
     , submitAttempted : Elm.Expression
     , data : Elm.Expression
     , expression : Elm.Expression
     }
 
 
-formWithFields : Bool -> List ( String, Kind ) -> ({ formState : { errors : Elm.Expression, isTransitioning : Elm.Expression, submitAttempted : Elm.Expression, data : Elm.Expression, expression : Elm.Expression }, params : List { name : String, kind : Kind, param : Elm.Expression } } -> Elm.Expression) -> { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+formWithFields : Bool -> List ( String, Kind ) -> ({ formState : { errors : Elm.Expression, submitting : Elm.Expression, submitAttempted : Elm.Expression, data : Elm.Expression, expression : Elm.Expression }, params : List { name : String, kind : Kind, param : Elm.Expression } } -> Elm.Expression) -> { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
 formWithFields elmCssView fields viewFn =
     Elm.Declare.function "form"
         []
@@ -124,7 +124,7 @@ formWithFields elmCssView fields viewFn =
                                             viewFn
                                                 { formState =
                                                     { errors = formState |> Elm.get "errors"
-                                                    , isTransitioning = formState |> Elm.get "isTransitioning"
+                                                    , submitting = formState |> Elm.get "submitting"
                                                     , submitAttempted = formState |> Elm.get "submitAttempted"
                                                     , data = formState |> Elm.get "data"
                                                     , expression = formState
@@ -148,7 +148,7 @@ formWithFields elmCssView fields viewFn =
                         [ Type.string
                         , Type.named [] "ParsedForm"
                         , Type.var "input"
-                        , Type.named [] "Msg"
+                        , Type.namedWith [ "PagesMsg" ] "PagesMsg" [ Type.named [] "Msg" ]
                         ]
                     )
         )
@@ -237,8 +237,8 @@ provide { fields, view, elmCssView } =
                     (\_ ->
                         initCombined (Elm.val "Action") (form.call [])
                             |> Elm.withType
-                                (Type.namedWith [ "Form" ]
-                                    "ServerForms"
+                                (Type.namedWith [ "Form", "Handler" ]
+                                    "Handler"
                                     [ Type.string
                                     , Type.named [] "Action"
                                     ]
@@ -444,7 +444,7 @@ formInit : Elm.Expression
 formInit =
     Elm.value
         { importFrom = [ "Form" ]
-        , name = "init"
+        , name = "form"
         , annotation = Nothing
         }
         |> Elm.Op.pipe
@@ -465,8 +465,8 @@ initCombined : Elm.Expression -> Elm.Expression -> Elm.Expression
 initCombined initCombinedArg initCombinedArg0 =
     Elm.apply
         (Elm.value
-            { importFrom = [ "Form" ]
-            , name = "initCombined"
+            { importFrom = [ "Form", "Handler" ]
+            , name = "init"
             , annotation = Nothing
             }
         )
