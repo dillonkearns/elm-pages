@@ -140,7 +140,7 @@ file templates basePath =
         toString =
             Elm.Declare.fn "toString"
                 ( "route", Elm.Annotation.named [] "Route" |> Just )
-                (\route -> Gen.Path.toAbsolute (toPath.call route))
+                (\route -> Gen.Path.toAbsolute (toPath.call route) |> Elm.withType Elm.Annotation.string)
 
         redirectTo : Elm.Declaration
         redirectTo =
@@ -162,7 +162,13 @@ file templates basePath =
         toLink : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         toLink =
             Elm.Declare.fn2 "toLink"
-                ( "toAnchorTag", Nothing )
+                ( "toAnchorTag"
+                , Elm.Annotation.function
+                    [ Elm.Annotation.list (Elm.Annotation.namedWith [ "Html" ] "Attribute" [ Elm.Annotation.var "msg" ])
+                    ]
+                    (Elm.Annotation.var "a")
+                    |> Just
+                )
                 ( "route", Just (Elm.Annotation.named [] "Route") )
                 (\toAnchorTag route ->
                     Elm.apply
@@ -172,6 +178,8 @@ file templates basePath =
                             , Gen.Html.Attributes.attribute "elm-pages:prefetch" ""
                             ]
                         ]
+                        |> Elm.withType
+                            (Elm.Annotation.var "a")
                 )
 
         link : Elm.Declaration
@@ -193,6 +201,14 @@ file templates basePath =
                             )
                             route
                     )
+                    |> Elm.withType
+                        (Elm.Annotation.function
+                            [ Elm.Annotation.list (Elm.Annotation.namedWith [ "Html" ] "Attribute" [ Elm.Annotation.var "msg" ])
+                            , Elm.Annotation.list (Elm.Annotation.namedWith [ "Html" ] "Html" [ Elm.Annotation.var "msg" ])
+                            , Elm.Annotation.named [] "Route"
+                            ]
+                            (Elm.Annotation.namedWith [ "Html" ] "Html" [ Elm.Annotation.var "msg" ])
+                        )
                 )
 
         baseUrl : { declaration : Elm.Declaration, reference : Elm.Expression, referenceFrom : List String -> Elm.Expression }
@@ -214,6 +230,7 @@ file templates basePath =
            , link
            , withoutBaseUrl
            ]
+            |> List.map (Elm.withDocumentation ".")
             |> List.map expose
          , [ splitPath.declaration
            , maybeToList.declaration

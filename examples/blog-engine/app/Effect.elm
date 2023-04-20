@@ -1,5 +1,11 @@
 module Effect exposing (Effect(..), batch, fromCmd, map, none, perform)
 
+{-|
+
+@docs Effect, batch, fromCmd, map, none, perform
+
+-}
+
 import Browser.Navigation
 import Http
 import Json.Decode as Decode
@@ -7,6 +13,7 @@ import Pages.Fetcher
 import Url exposing (Url)
 
 
+{-| -}
 type Effect msg
     = None
     | Cmd (Cmd msg)
@@ -23,27 +30,32 @@ type Effect msg
     | SubmitFetcher (Pages.Fetcher.Fetcher msg)
 
 
+{-| -}
 type alias RequestInfo =
     { contentType : String
     , body : String
     }
 
 
+{-| -}
 none : Effect msg
 none =
     None
 
 
+{-| -}
 batch : List (Effect msg) -> Effect msg
 batch =
     Batch
 
 
+{-| -}
 fromCmd : Cmd msg -> Effect msg
 fromCmd =
     Cmd
 
 
+{-| -}
 map : (a -> b) -> Effect a -> Effect b
 map fn effect =
     case effect of
@@ -76,6 +88,7 @@ map fn effect =
                 |> SubmitFetcher
 
 
+{-| -}
 perform :
     { fetchRouteData :
         { data : Maybe a
