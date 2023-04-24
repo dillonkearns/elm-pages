@@ -151,13 +151,28 @@ bodyWithFrontmatter :
             }
             frontmatter
 bodyWithFrontmatter frontmatterDecoder filePath =
-    read filePath
-        (body
-            |> Decode.andThen
-                (\bodyString ->
-                    frontmatter (frontmatterDecoder bodyString)
-                )
-        )
+    BackendTask.Internal.Request.request2
+        { name = "read-file"
+        , body = BackendTask.Http.stringBody "" filePath
+        , expect =
+            body
+                |> Decode.andThen
+                    (\bodyString ->
+                        frontmatter (frontmatterDecoder bodyString)
+                    )
+        , errorDecoder = Decode.field "errorCode" (errorDecoder filePath)
+        , onError =
+            \frontmatterDecodeError ->
+                { fatal =
+                    { title = "BackendTask.File Decoder Error"
+                    , body =
+                        "I encountered a Json Decoder error from a call to BackendTask.File.bodyWithFrontmatter.\n\n"
+                            ++ Decode.errorToString frontmatterDecodeError
+                    }
+                        |> FatalError.build
+                , recoverable = DecodingError frontmatterDecodeError
+                }
+        }
 
 
 {-| -}
