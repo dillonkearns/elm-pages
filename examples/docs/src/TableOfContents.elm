@@ -90,7 +90,7 @@ nameAndTopLevel slug headings =
                 )
 
         _ ->
-            Err ""
+            Err ("Missing H1 heading for " ++ slug)
 
 
 toData : Int -> List Block.Inline -> { anchorId : String, name : String, level : Int }
