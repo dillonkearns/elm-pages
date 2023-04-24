@@ -1,4 +1,7 @@
-module FatalError exposing (FatalError, fromString, recoverable)
+module FatalError exposing
+    ( FatalError, fromString, recoverable
+    , build
+    )
 
 {-| The Elm language doesn't have the concept of exceptions or special control flow for errors. It just has
 Custom Types, and by convention types like `Result` and the `Err` variant are used to represent possible failure states

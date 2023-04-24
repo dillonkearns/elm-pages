@@ -65,7 +65,7 @@ frontmatter frontmatterDecoder =
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
-    import Decode as Decode exposing (Decoder)
+    import Decode exposing (Decoder)
 
     blogPost : BackendTask BlogPostMetadata
     blogPost =
@@ -101,7 +101,7 @@ It's common to parse the body with a markdown parser or other format.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
-    import Decode as Decode exposing (Decoder)
+    import Decode exposing (Decoder)
     import Html exposing (Html)
 
     example :
@@ -174,7 +174,7 @@ just the metadata.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
-    import Decode as Decode exposing (Decoder)
+    import Decode exposing (Decoder)
 
     blogPost : BackendTask BlogPostMetadata
     blogPost =
@@ -198,7 +198,7 @@ the [`BackendTask`](BackendTask) API along with [`BackendTask.Glob`](BackendTask
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
-    import Decode as Decode exposing (Decoder)
+    import Decode exposing (Decoder)
 
     blogPostFiles : BackendTask (List String)
     blogPostFiles =
@@ -231,8 +231,23 @@ onlyFrontmatter :
             }
             frontmatter
 onlyFrontmatter frontmatterDecoder filePath =
-    read filePath
-        (frontmatter frontmatterDecoder)
+    BackendTask.Internal.Request.request2
+        { name = "read-file"
+        , body = BackendTask.Http.stringBody "" filePath
+        , expect = frontmatter frontmatterDecoder
+        , errorDecoder = Decode.field "errorCode" (errorDecoder filePath)
+        , onError =
+            \frontmatterDecodeError ->
+                { fatal =
+                    { title = "BackendTask.File Decoder Error"
+                    , body =
+                        "I encountered a Json Decoder error from a call to BackendTask.File.onlyFrontmatter.\n\n"
+                            ++ Decode.errorToString frontmatterDecodeError
+                    }
+                        |> FatalError.build
+                , recoverable = DecodingError frontmatterDecodeError
+                }
+        }
 
 
 {-| Same as `bodyWithFrontmatter` except it doesn't include the frontmatter.
