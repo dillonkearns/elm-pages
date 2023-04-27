@@ -68,13 +68,7 @@ nextStep allRawResponses staticResponses { errors } =
                     )
     in
     if pendingRequests then
-        let
-            newThing : List HashRequest.Request
-            newThing =
-                urlsToPerform
-                    |> List.Extra.uniqueBy HashRequest.hash
-        in
-        Continue newThing progressedBackendTask
+        Continue urlsToPerform progressedBackendTask
 
     else
         let
