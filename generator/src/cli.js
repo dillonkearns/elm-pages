@@ -325,16 +325,11 @@ async function requireElm(compiledElmPath) {
 function generatorWrapperFile(moduleName) {
   return `port module Main exposing (main)
 
-import BackendTask exposing (BackendTask)
-import FatalError
-import Cli.Program as Program
-import Json.Decode as Decode
-import Json.Encode as Encode
 import Pages.Internal.Platform.GeneratorApplication
 import ${moduleName}
 
 
-main : Program.StatefulProgram Pages.Internal.Platform.GeneratorApplication.Model Pages.Internal.Platform.GeneratorApplication.Msg (BackendTask FatalError.FatalError ()) Pages.Internal.Platform.GeneratorApplication.Flags
+main : Pages.Internal.Platform.GeneratorApplication.Program
 main =
     Pages.Internal.Platform.GeneratorApplication.app
         { data = ${moduleName}.run
@@ -345,13 +340,13 @@ main =
         }
 
 
-port toJsPort : Encode.Value -> Cmd msg
+port toJsPort : Pages.Internal.Platform.GeneratorApplication.JsonValue -> Cmd msg
 
 
-port fromJsPort : (Decode.Value -> msg) -> Sub msg
+port fromJsPort : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> msg) -> Sub msg
 
 
-port gotBatchSub : (Decode.Value -> msg) -> Sub msg
+port gotBatchSub : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> msg) -> Sub msg
 `;
 }
 function collect(value, previous) {

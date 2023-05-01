@@ -1,8 +1,8 @@
-module Pages.Internal.Platform.GeneratorApplication exposing (Flags, Model, Msg(..), init, requestDecoder, update, app)
+module Pages.Internal.Platform.GeneratorApplication exposing (Program, Flags, Model, Msg(..), init, requestDecoder, update, app, JsonValue)
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs Flags, Model, Msg, init, requestDecoder, update, app
+@docs Program, Flags, Model, Msg, init, requestDecoder, update, app, JsonValue
 
 -}
 
@@ -23,6 +23,14 @@ import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.Script
 import Pages.StaticHttp.Request
 import TerminalText as Terminal
+
+
+type alias JsonValue =
+    Decode.Value
+
+
+type alias Program =
+    Program.StatefulProgram Model Msg (BackendTask FatalError.FatalError ()) Flags
 
 
 {-| -}
@@ -47,7 +55,7 @@ type Msg
 {-| -}
 app :
     GeneratorProgramConfig
-    -> Program.StatefulProgram Model Msg (BackendTask FatalError ()) Flags
+    -> Program
 app config =
     let
         cliConfig : Program.Config (BackendTask FatalError ())
