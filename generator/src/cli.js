@@ -90,6 +90,7 @@ async function main() {
     .description("run an elm-pages script")
     .allowUnknownOption()
     .allowExcessArguments()
+    .helpOption(false) // allow --help to propogate to the Script to show usage
     .action(async (elmModulePath, options, options2) => {
       const unprocessedCliOptions = options2.args.splice(
         options2.processedArgs.length,
