@@ -1,8 +1,10 @@
 ---
-description: TODO
+description: elm-pages is built around progressive enhancement, web standards, and type-safety.
 ---
 
 # The elm-pages philosophy
+
+## Progressive Enhancement
 
 ## Composable Building Blocks
 
@@ -29,6 +31,6 @@ I've spent too much time opening 1000 tabs to do these things. Elm is incredible
 
 ## Let Elm Shine
 
-Some JAMstack frameworks have a layer of abstraction for building up a local GraphQL data mesh, then querying for it from a page. GraphQL is great for describing typed data and relationships in APIs. But we already have Elm's great type system and a full general purpose programming language!
+Some web frameworks have a layer of abstraction for building up a local GraphQL data mesh, then querying for it from a page. GraphQL is great for describing typed data and relationships in APIs. But we already have Elm's great type system and a full general purpose programming language!
 
 That's why the `BackendTask` API doesn't add any additional levels of indirection. The goal is to feel like you're just using plain old Elm as much as possible. Of course we want powerful features like being able to pull in markdown files, glob to find files matching a pattern, get HTTP data, and remove unused JSON data. And we want to pull all of that in to the page so it's ready without any loading spinners or `Msg`s. That's where `elm-pages` comes in. But the goal is to create an abstraction that lets you do all those things with a minimal Elm abstraction that lets you just focus on your data modeling and transformations.
