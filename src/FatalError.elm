@@ -1,7 +1,4 @@
-module FatalError exposing
-    ( FatalError, fromString, recoverable
-    , build
-    )
+module FatalError exposing (FatalError, build, fromString, recoverable)
 
 {-| The Elm language doesn't have the concept of exceptions or special control flow for errors. It just has
 Custom Types, and by convention types like `Result` and the `Err` variant are used to represent possible failure states
@@ -57,7 +54,7 @@ issue.
 In the case of server-rendered Routes (`RouteBuilder.serverRender`), `elm-pages` will show your 500 error page
 when these errors occur.
 
-@docs FatalError, fromString, recoverable
+@docs FatalError, build, fromString, recoverable
 
 -}
 
@@ -69,7 +66,8 @@ type alias FatalError =
     Pages.Internal.FatalError.FatalError
 
 
-{-| -}
+{-| Create a FatalError with a title and body.
+-}
 build : { title : String, body : String } -> FatalError
 build info =
     Pages.Internal.FatalError.FatalError info
