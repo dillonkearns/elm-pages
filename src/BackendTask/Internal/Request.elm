@@ -25,10 +25,6 @@ request ({ name, body, expect } as params) =
         expect
         |> BackendTask.onError
             (\error ->
-                let
-                    _ =
-                        Debug.log "BackendTask.Internal.Request" error
-                in
                 -- TODO avoid crash here, this should be handled as an internal error
                 request params
             )
