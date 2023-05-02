@@ -22,7 +22,6 @@ import Gen.Json.Encode
 import Gen.List
 import Gen.Maybe
 import Gen.Pages.Fetcher
-import Gen.Pages.FormState
 import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.Platform.Cli
