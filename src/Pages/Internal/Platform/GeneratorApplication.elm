@@ -25,10 +25,12 @@ import Pages.StaticHttp.Request
 import TerminalText as Terminal
 
 
+{-| -}
 type alias JsonValue =
     Decode.Value
 
 
+{-| -}
 type alias Program =
     Program.StatefulProgram Model Msg (BackendTask FatalError.FatalError ()) Flags
 
