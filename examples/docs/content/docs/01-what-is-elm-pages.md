@@ -44,21 +44,49 @@ Some of the core features include
 - A nice type-safe API for SEO
 - Generate files, like RSS, sitemaps, podcast feeds, or any other strings you can output with pure Elm
 
-## When should I use elm-pages?
+## Server-Rendered elm-pages Use Cases
 
-`elm-pages` is designed to help you build a site with great SEO. It's a really good fit for sites that are based on content, such as:
+`elm-pages` is a full-stack Elm framework which can also be used to pre-render static routes.
 
-- eCommerce
+`elm-pages` server-rendered routes are a good fit for applications with needs such as:
+
+- Dynamic and/or user-specific content
+- Login sessions
+- Form submissions with client-side and server-side validations
+- Responding to Form submissions
+- Pending or Optimistic UI (showing in-flight form submissions)
+
+Many of the core features of `elm-pages` are designed to support these use cases.
+
+- [Forms](/docs/forms)
+- In-flight submissions
+- Server-side rendering
+- [Session API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Server-Session)
+- [BackendTask API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask)
+
+Some examples of this include:
+
+- Admin panels/CRUD applications
+- eCommerce sites
+
+## Pre-Rendered elm-pages Use Cases
+
+In addition to server-rendered routes, `elm-pages` also supports pre-rendered routes. If you have a content-focused site with minimal user-specific data, then you can pre-render all of your pages to HTML at build-time (like this docs site you're reading now!).
+
+Some of the benefits to pre-rendered routes include:
+
+- Simpler hosting (you can use any static hosting provider)
+- If your build is green, then your site is error-free.
+
+Some examples of this include:
+
 - Blogs
 - Marketing sites
 - Restaurant or other brochure sites
 - Portfolios
 
-It might not be the right choice for mostly dynamic apps. If you want file-based routing for a mostly dynamic Elm single-page app, the [`elm-spa`](https://elm-spa.dev/) framework could be a good fit.
+## Deciding Between Server-Rendered and Pre-Rendered Routes
 
-Why not just use `elm-pages` in these cases? You can evaluate the tradeoffs for your particular use case, but here are some baked-in opinions that may help evaluate whether `elm-pages` is a good fit.
+Consider a server-rendered route where you show some paid content if there is a logged in user with an active subscription, or a preview of the content with a call to action to sign up otherwise. This is a great use case for server-rendered routes. You will need to be more careful to handle your [`FatalError`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask#FatalError) cases in your `BackendTask`s for that Route because you don't want the user to get a 500 error page. However, server-rendered routes give you the power to give a rich logged-in user experience with the ease of cookie-based sessions and the simplicity of data from a `BackendTask` that is available without any loading states to deal with (for the user or the developer). Imagine building that same route in a traditional Elm app. You would need to manage your user session using a JWT or similar client-side authentication technique, and your view would need to handle the intermediary states of authenticating, stale login session, or loading data from the backend. With a server-rendered route, since you have Elm code running on the server-side you can handle stale sessions with a server redirect response, and your loading states are resolved on the server-side before rendering.
 
-- `elm-pages build` will pre-render the HTML for all of your routes. If you want to handle routes with client-side rendering only, that's not currently an option in elm-pages, and if you don't have a need for the pre-rendered HTML in your app, then it's better to avoid that. With `elm-pages`, the HTML for each page will either be pre-rendered at the build step, or server-rendered on each request.
-- On single-page app page navigations, `elm-pages` will always request the `Data` for the page it's going to. It tries to optimize it as much as possible by letting you prefetch the data when you hover over a link. That usually gives you about ~150ms or so to load it before the user clicks a link, which is actually enough to make it feel mostly instant. This enables some of the key features in `elm-pages`, but if you're not using those features then it's not providing any value
-
-If your use case does benefit from pre-rendered HTML and `BackendTask`s, `elm-pages` gives you a lot of features out of the box that aim to make that a smooth experience for users and developers.
+If you are dealing with more static, public content, then pre-rendered routes come with some benefits. Consider a blog or documentation site. You don't need to be as careful with `FatalError`'s if you are using pre-rendered routes because you will have a chance to fix any errors that come up before the site goes live to your users (any `FatalError`'s your Routes resolve to will result in a build error). There is a tradeoff with flexibility, and there are reasons you may want to dynamically render content even if it seems relatively static. For example, you may want new articles, or edits, to go live immediately for a news site. If you pre-render your site, then you will need to build all of the your routes any time there is new or updated content. If you use server-rendered routes, this content would be live immediately since it is resolved on-demand at request-time.
