@@ -6,7 +6,7 @@ You can create a fresh `elm-pages` project with the `init` command.
 npx elm-pages init my-project
 cd my-project
 npm install
-npm start # starts a local dev server using `elm-pages dev`
+npx elm-pages dev
 ```
 
 This creates a new project in `my-project/` and starts the dev server. You can then add new routes using the CLI commands below.
@@ -14,7 +14,7 @@ This creates a new project in `my-project/` and starts the dev server. You can t
 ## CLI commands
 
 - `elm-pages dev` - Start the `elm-pages` dev server
-- `elm-pages add Slide.Number_` Generate scaffolding for a new Page Module
+- `elm-pages run AddRoute Slide.Number_` Generate scaffolding for a new Page Module
 - `elm-pages build` - generate a full production build in the `dist/` folder. You'll often want to use a CDN service like [Netlify](http://netlify.com/) or [Vercel](https://vercel.com/) to deploy these generated static files
 
 ## The dev server

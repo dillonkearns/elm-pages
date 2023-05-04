@@ -1,7 +1,13 @@
 # What is elm-pages?
 
 `elm-pages` is a framework for building an Elm single-page app that is able to seamlessly interface with data from an Elm Backend. `elm-pages` is a hybrid framework, allowing you to define Routes that are either server-rendered
-(for more dynamic content with user-specific or request-specific data) or pre-rendered at build-time (for generating static HTML files that are hosted through a CDN). You can mix and match server-rendered and pre-rendered routes in your app. Elm Backend refers to either a traditional server or serverless provider, or a build server depending on whether a Route is server-rendered or pre-rendered. Code that runs on the Elm Backend is co-located with the code for your Elm frontend, allowing you to seamlessly reuse types and code. [The `elm-pages` Architecture](/docs/elm-pages-architecture) manages the glue to get the data from your Elm Backend to your Elm Frontend, giving you a seamless experience of getting data back and forth between the server and the web page through the Route's `data` and `action`.
+(for more dynamic content with user-specific or request-specific data) or pre-rendered at build-time (for generating static HTML files that are hosted through a CDN). You can mix and match server-rendered and pre-rendered routes in your app.
+
+## The Backend
+
+Elm Backend refers to a traditional server or serverless provider for [server-rendered routes](#server-rendered-routes), or your build environment for [pre-rendered routes](#pre-rendered-routes). Code that runs on the Elm Backend is co-located with the code for your Elm Frontend, allowing you to seamlessly reuse types and code. [The `elm-pages` Architecture](/docs/architecture) manages the glue to get the data from your Elm Backend to your Elm Frontend giving you a seamless experience of getting data back and forth between the server and the web page through the Route's `data` (as well as the `action` for server-rendered Routes).
+
+## Route Modules
 
 You [define Routes by adding Route Modules](/docs/file-based-routing) to the `app/Route/` folder. Each Route module has `Data`, which is a special type for data resolved with a [`BackendTask`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/BackendTask). A Route's `Data` type has a lifecycle that is manged by the `elm-pages` framework (similar to how the Elm runtime manages the lifecycle your `Model` in a traditional Elm app), but it is resolved on your `elm-pages` Backend. The `Data` type is available to your `view` function, and it will be available without any loading spinners or Maybe values.
 
