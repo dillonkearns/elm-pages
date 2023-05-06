@@ -36,6 +36,12 @@ const __dirname = path.dirname(__filename);
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
  */
 export async function start(options) {
+  console.error = function (...messages) {
+    if (!messages[0]?.startsWith("Failed to load url")) {
+      console.info(...messages);
+    }
+  };
+
   let threadReadyQueue = [];
   let pool = [];
 
