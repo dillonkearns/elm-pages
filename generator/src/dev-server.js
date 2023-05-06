@@ -173,6 +173,13 @@ export async function start(options) {
         configFile: false,
         root: process.cwd(),
         base: options.base,
+        /*
+        Using explicit optimizeDeps.include prevents the following Vite warning message:
+        (!) Could not auto-determine entry point from rollupOptions or html files and there are no explicit optimizeDeps.include patterns. Skipping dependency pre-bundling.
+         */
+        optimizeDeps: {
+          include: [],
+        },
       },
 
       config.vite

@@ -96,6 +96,9 @@ export async function run(options) {
             input: "elm-stuff/elm-pages/index.html",
           },
         },
+        optimizeDeps: {
+          include: [],
+        },
       },
       config.vite || {}
     );
