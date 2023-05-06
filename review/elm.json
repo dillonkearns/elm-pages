@@ -10,13 +10,13 @@
             "elm/core": "1.0.5",
             "elm/json": "1.1.3",
             "elm/project-metadata-utils": "1.0.2",
-            "jfmengels/elm-review": "2.10.0",
+            "jfmengels/elm-review": "2.13.0",
             "jfmengels/elm-review-common": "1.3.2",
             "jfmengels/elm-review-debug": "1.0.8",
             "jfmengels/elm-review-documentation": "2.0.3",
-            "jfmengels/elm-review-performance": "1.0.1",
-            "jfmengels/elm-review-unused": "1.1.28",
-            "mthadley/elm-review-unit": "2.0.1",
+            "jfmengels/elm-review-performance": "1.0.2",
+            "jfmengels/elm-review-unused": "1.1.29",
+            "mthadley/elm-review-unit": "2.0.2",
             "sparksp/elm-review-imports": "1.0.2",
             "stil4m/elm-syntax": "7.2.9"
         },
@@ -29,8 +29,8 @@
             "elm/time": "1.0.0",
             "elm/virtual-dom": "1.0.3",
             "elm-community/list-extra": "8.7.0",
-            "elm-explorations/test": "2.1.0",
-            "miniBill/elm-unicode": "1.0.2",
+            "elm-explorations/test": "2.1.1",
+            "miniBill/elm-unicode": "1.0.3",
             "rtfeldman/elm-hex": "1.0.0",
             "stil4m/structured-writer": "1.0.3"
         }
