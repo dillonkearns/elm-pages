@@ -114,11 +114,9 @@ export async function run(options) {
       withoutExtension
     );
     const assetManifestPath = path.join(process.cwd(), "dist/manifest.json");
-    const manifest = (
-      await import(assetManifestPath, {
-        assert: { type: "json" },
-      })
-    ).default;
+    const manifest = JSON.parse(
+      await fsPromises.readFile(assetManifestPath, { encoding: "utf-8" })
+    );
     const indexTemplate = await fsPromises.readFile(
       "dist/elm-stuff/elm-pages/index.html",
       "utf-8"
