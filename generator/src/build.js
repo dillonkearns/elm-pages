@@ -505,7 +505,7 @@ function runElmMake(mode, options, elmEntrypointPath, outputPath, cwd) {
 /**
  * @param {string} filePath
  */
-async function runTerser(filePath) {
+export async function runTerser(filePath) {
   console.log("Running terser");
   const minifiedElm = await terser.minify(
     (await fsPromises.readFile(filePath)).toString(),
