@@ -19,6 +19,7 @@ import * as commander from "commander";
 import { runElmCodegenInstall } from "./elm-codegen.js";
 import { packageVersion } from "./compatibility-key.js";
 import { resolveInputPathOrModuleName } from "./resolve-elm-module.js";
+import { runTerser } from "./build.js";
 
 const Argument = commander.Argument;
 const Option = commander.Option;
@@ -194,6 +195,7 @@ async function main() {
 
       let executableName = await lamderaOrElmFallback();
       await build.compileCliApp({ debug: options.debug, executableName });
+      // await runTerser(`${projectDirectory}/elm-stuff/elm-pages/elm.js`);
       fs.renameSync(
         `${projectDirectory}/elm-stuff/elm-pages/elm.js`,
         `${projectDirectory}/elm-stuff/elm-pages/elm.cjs`
@@ -245,9 +247,29 @@ await(async()=>{let{dirname:e}=await import("path"),{fileURLToPath:i}=await impo
           outfile: path.resolve(cwd, options.output),
           external: ["node:*", ...options.external],
           minify: true,
+          pure: [
+            "A2",
+            "A3",
+            "A4",
+            "A5",
+            "A6",
+            "A7",
+            "A8",
+            "A9",
+            "F2",
+            "F3",
+            "F3",
+            "F4",
+            "F5",
+            "F6",
+            "F7",
+            "F8",
+            "F9",
+          ],
           absWorkingDir: projectDirectory,
           banner: { js: `#!/usr/bin/env node\n\n${ESM_REQUIRE_SHIM}` },
         });
+        // await runTerser(path.resolve(cwd, options.output));
       } catch (error) {
         console.log(restoreColorSafe(error));
         process.exit(1);
