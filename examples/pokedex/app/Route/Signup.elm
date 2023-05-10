@@ -1,23 +1,20 @@
 module Route.Signup exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
-import Dict
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Field)
-import Form.Value
+import Form.Handler
+import Form.Validation as Validation exposing (Field)
 import Head
-import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Http
 import MySession
-import Pages.PageUrl exposing (PageUrl)
-import Pages.Url
+import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
 import Route
@@ -59,8 +56,9 @@ route =
 
 action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action _ =
-    (Request.formData (form |> Form.initCombined identity)
+    (Request.formData (form |> Form.Handler.init identity)
         |> Request.map Tuple.second
+        |> Request.map Form.toResult
         |> Request.map (Result.mapError (\error -> "Errors"))
         |> Request.andThen Request.fromResult
     )
@@ -154,7 +152,7 @@ errorsForField formState field =
 
 form : Form.HtmlForm String ( String, String ) data msg
 form =
-    Form.init
+    Form.form
         (\first email ->
             { combine =
                 Validation.succeed Tuple.pair
@@ -168,8 +166,8 @@ form =
                     ]
             }
         )
-        |> Form.field "first" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "Jane"))
-        |> Form.field "email" (Field.text |> required |> Field.withInitialValue (\_ -> Form.Value.string "jane@example.com"))
+        |> Form.field "first" (Field.text |> required |> Field.withInitialValue (\_ -> "Jane"))
+        |> Form.field "email" (Field.text |> required |> Field.withInitialValue (\_ -> "jane@example.com"))
 
 
 required field =
@@ -265,12 +263,12 @@ view app shared model =
             ]
         , flashView app.data.flashMessage
         , form
-            |> Form.renderHtml "test1"
+            |> Pages.Form.renderHtml
                 []
+                Pages.Form.Serial
+                (Form.options "test1")
                 -- TODO pass in server data
-                (\_ -> Nothing)
                 app
-                ()
         ]
     }
 

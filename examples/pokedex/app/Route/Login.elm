@@ -5,10 +5,11 @@ import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
+import Form.Handler
 import Form.Validation as Validation
 import Head
 import Head.Seo as Seo
-import Html as Html exposing (Html)
+import Html exposing (Html)
 import Html.Attributes as Attr
 import MySession
 import Pages.PageUrl exposing (PageUrl)
@@ -56,7 +57,7 @@ type alias Data =
 
 
 form =
-    Form.init
+    Form.form
         (\bar ->
             { combine =
                 Validation.succeed identity
@@ -70,7 +71,8 @@ form =
 data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Request.formData (form |> Form.initCombined identity)
+        [ Request.formData (form |> Form.Handler.init identity)
+            |> Request.map (Tuple.mapSecond (Form.toResult >> Result.mapError (\_ -> "Error")))
             |> MySession.withSession
                 (\( formResponse, nameResult ) session ->
                     (nameResult

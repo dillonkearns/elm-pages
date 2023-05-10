@@ -9,15 +9,15 @@ import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
-import Form.FieldStatus as FieldStatus
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Field)
-import Form.Value
+import Form.Handler
+import Form.Validation as Validation exposing (Field, Validation)
 import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr exposing (css)
 import Icon
+import Pages.Form
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
@@ -199,18 +199,21 @@ usernameInput formState field =
         ]
 
 
-validateCapitalized : String -> ( Maybe String, List String )
+validateCapitalized : String -> Result String String
 validateCapitalized string =
     if string |> String.toList |> List.head |> Maybe.withDefault 'a' |> Char.isUpper then
-        ( Just string, [] )
+        Ok string
 
     else
-        ( Nothing, [ "Needs to be capitalized" ] )
+        Err "Needs to be capitalized"
 
 
-form : Form.DoneForm String (BackendTask FatalError (Combined String User)) data (List (Html (PagesMsg Msg))) Msg
+
+--form : Form.DoneForm String (BackendTask FatalError (Validation String User Never Never)) data (List (Html (PagesMsg Msg))) Msg
+
+
 form =
-    Form.init
+    Form.form
         (\first last username email dob checkin checkout rating password passwordConfirmation comments candidates offers pushNotifications acceptTerms ->
             { combine =
                 Validation.succeed User
@@ -329,53 +332,47 @@ form =
         |> Form.field "first"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (always defaultUser.first >> Form.Value.string)
-                |> Field.withClientValidation validateCapitalized
+                |> Field.withInitialValue (always defaultUser.first)
+                |> Field.validateMap validateCapitalized
             )
         |> Form.field "last"
             (Field.text
                 |> Field.required "Required"
-                |> Field.withInitialValue (always defaultUser.last >> Form.Value.string)
-                |> Field.withClientValidation validateCapitalized
+                |> Field.withInitialValue (always defaultUser.last)
+                |> Field.validateMap validateCapitalized
             )
         |> Form.field "username"
             (Field.text
-                |> Field.withInitialValue (always defaultUser.username >> Form.Value.string)
+                |> Field.withInitialValue (always defaultUser.username)
                 |> Field.required "Required"
-                |> Field.withClientValidation
+                |> Field.validateMap
                     (\username ->
-                        ( Just username
-                        , if username |> String.contains "@" then
-                            [ "Cannot contain @ symbol" ]
+                        if username |> String.contains "@" then
+                            Err "Cannot contain @ symbol"
 
-                          else
-                            []
-                        )
+                        else
+                            Ok username
                     )
-                |> Field.withClientValidation
+                |> Field.validateMap
                     (\username ->
-                        ( Just username
-                        , if username |> String.contains "#" then
-                            [ "Cannot contain # symbol" ]
+                        if username |> String.contains "#" then
+                            Err "Cannot contain # symbol"
 
-                          else
-                            []
-                        )
+                        else
+                            Ok username
                     )
-                |> Field.withClientValidation
+                |> Field.validateMap
                     (\username ->
-                        ( Just username
-                        , if (username |> String.length) < 3 then
-                            [ "Must be at least 3 characters long" ]
+                        if (username |> String.length) < 3 then
+                            Err "Must be at least 3 characters long"
 
-                          else
-                            []
-                        )
+                        else
+                            Ok username
                     )
             )
         |> Form.field "email"
             (Field.text
-                |> Field.withInitialValue (always defaultUser.email >> Form.Value.string)
+                |> Field.withInitialValue (always defaultUser.email)
                 |> Field.email
                 |> Field.required "Required"
             )
@@ -383,31 +380,31 @@ form =
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
-                |> Field.withMin (Date.fromCalendarDate 1900 Time.Jan 1 |> Form.Value.date) "Choose a later date"
-                |> Field.withMax (Date.fromCalendarDate 2022 Time.Jan 1 |> Form.Value.date) "Choose an earlier date"
-                |> Field.withInitialValue (always defaultUser.birthDay >> Form.Value.date)
+                |> Field.withMin (Date.fromCalendarDate 1900 Time.Jan 1) "Choose a later date"
+                |> Field.withMax (Date.fromCalendarDate 2022 Time.Jan 1) "Choose an earlier date"
+                |> Field.withInitialValue (always defaultUser.birthDay)
             )
         |> Form.field "checkin"
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
-                |> Field.withInitialValue (always defaultUser.checkIn >> Form.Value.date)
+                |> Field.withInitialValue (always defaultUser.checkIn)
             )
         |> Form.field "checkout"
             (Field.date
                 { invalid = \_ -> "Invalid date" }
                 |> Field.required "Required"
-                |> Field.withInitialValue (always defaultUser.checkOut >> Form.Value.date)
+                |> Field.withInitialValue (always defaultUser.checkOut)
             )
         |> Form.field "rating"
             (Field.int { invalid = \_ -> "Invalid number" }
                 |> Field.range
                     { missing = "Required"
                     , invalid = \_ -> "Outside range"
-                    , initial = \_ -> Form.Value.int 3
-                    , min = Form.Value.int 1
-                    , max = Form.Value.int 5
+                    , min = 1
+                    , max = 5
                     }
+                |> Field.withInitialValue (\_ -> 3)
             )
         |> Form.field "password"
             (Field.text |> Field.password |> Field.required "Required")
@@ -431,15 +428,13 @@ form =
             )
         |> Form.field "acceptTerms"
             (Field.checkbox
-                |> Field.withClientValidation
+                |> Field.validateMap
                     (\checked ->
-                        ( Just ()
-                        , if checked then
-                            []
+                        if checked then
+                            Ok ()
 
-                          else
-                            [ "Please agree to terms to proceed." ]
-                        )
+                        else
+                            Err "Please agree to terms to proceed."
                     )
             )
 
@@ -545,7 +540,7 @@ route =
 
 action : RouteParams -> Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action routeParams =
-    Request.formDataWithServerValidation (form |> Form.initCombined identity)
+    Request.formDataWithServerValidation (form |> Form.Handler.init identity)
         |> Request.map
             (\toBackendTask ->
                 toBackendTask
@@ -590,7 +585,7 @@ type alias Data =
 type alias ActionData =
     { user : User
     , flashMessage : Result String String
-    , formResponse : Maybe (Form.Response String)
+    , formResponse : Maybe (Form.ServerResponse String)
     }
 
 
@@ -661,17 +656,6 @@ wrapSection children =
         ]
 
 
-
---formModelView formModel =
---    formModel
---        |> Debug.toString
---        |> Html.text
---        |> List.singleton
---        |> Html.pre
---            [ Attr.style "white-space" "break-spaces"
---            ]
-
-
 view :
     App Data ActionData RouteParams
     -> Shared.Model
@@ -717,13 +701,14 @@ view app model sharedModel =
                         |> Debug.toString
                     )
                 , form
-                    |> Form.renderStyledHtml "test"
+                    |> Pages.Form.renderStyledHtml
                         []
-                        --app.action
-                        --    |> Maybe.andThen .formResponse
-                        (\_ -> Nothing)
+                        Pages.Form.Serial
+                        (Form.options "test"
+                            |> Form.withServerResponse
+                                (app.action |> Maybe.andThen .formResponse)
+                        )
                         app
-                        ()
                 ]
             ]
             |> Html.toUnstyled
@@ -789,7 +774,7 @@ textInput info labelText field =
             [ Html.text
                 (field
                     |> Validation.fieldStatus
-                    |> FieldStatus.fieldStatusToString
+                    |> Validation.fieldStatusToString
                 )
             ]
         , Html.label
@@ -1104,7 +1089,7 @@ wrapPushNotificationsSection formState field children =
                 [ Html.text
                     (field
                         |> Validation.fieldStatus
-                        |> FieldStatus.fieldStatusToString
+                        |> Validation.fieldStatusToString
                     )
                 ]
             , Html.div

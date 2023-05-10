@@ -7,11 +7,13 @@ import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Field)
+import Form.Handler
+import Form.Validation as Validation exposing (Field)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Pages.Form
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Path exposing (Path)
@@ -99,13 +101,14 @@ list =
 data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
 data routeParams =
     Request.oneOf
-        [ Request.formData (form |> Form.initCombined identity)
+        [ Request.formData (form |> Form.Handler.init identity)
             |> Request.map
                 (\( formResponse, formResult ) ->
                     BackendTask.succeed
                         (Response.render
                             { results =
                                 formResult
+                                    |> Form.toResult
                                     |> Result.map
                                         (\query ->
                                             Just
@@ -121,9 +124,9 @@ data routeParams =
         ]
 
 
-form : Form.HtmlForm String String () Msg
+form : Form.HtmlForm String String () msg
 form =
-    Form.init
+    Form.form
         (\query ->
             { combine =
                 Validation.succeed identity
@@ -201,13 +204,12 @@ view static sharedModel model =
     , body =
         [ Html.h2 [] [ Html.text "Search" ]
         , form
-            |> Form.withGetMethod
-            |> Form.renderHtml "test1"
+            |> Pages.Form.renderHtml
                 []
+                Pages.Form.Serial
+                (Form.options "test1" |> Form.withGetMethod)
                 -- TODO pass in server data
-                (\_ -> Nothing)
                 static
-                ()
         , static.data.results
             |> Maybe.map resultsView
             |> Maybe.withDefault (Html.div [] [])

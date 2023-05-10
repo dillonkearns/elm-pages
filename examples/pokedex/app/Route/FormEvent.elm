@@ -3,8 +3,6 @@ module Route.FormEvent exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
-import Form.FormData exposing (FormData)
-import FormDecoder
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -23,7 +21,7 @@ type alias Model =
 
 
 type Msg
-    = OnSubmit FormData
+    = OnSubmit --FormData
 
 
 type alias RouteParams =
@@ -60,15 +58,18 @@ update :
     -> ( Model, Effect Msg )
 update app shared msg model =
     case msg of
-        OnSubmit formAsString ->
-            ( { model | formAsString = Just (toString formAsString) }, Effect.none )
+        OnSubmit ->
+            --( { model | formAsString = Just (toString formAsString) }, Effect.none )
+            ( model, Effect.none )
 
 
-toString : FormData -> String
-toString formAsString =
-    formAsString.fields
-        |> List.map (\( key, value ) -> key ++ "=" ++ value)
-        |> String.join "\n"
+
+--toString : FormData -> String
+--toString formAsString =
+--    formAsString.fields
+--        |> List.map (\( key, value ) -> key ++ "=" ++ value)
+--        |> String.join "\n"
+--
 
 
 subscriptions : RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
@@ -135,7 +136,7 @@ view app shared model =
 exampleForm : Html (PagesMsg Msg)
 exampleForm =
     Html.form
-        [ FormDecoder.formDataOnSubmit
+        [--FormDecoder.formDataOnSubmit
         ]
         [ Html.div []
             [ Html.label []
@@ -166,4 +167,7 @@ exampleForm =
             ]
             [ Html.text "Submit" ]
         ]
-        |> Html.map (OnSubmit >> PagesMsg.fromMsg)
+
+
+
+--|> Html.map (OnSubmit >> PagesMsg.fromMsg)
