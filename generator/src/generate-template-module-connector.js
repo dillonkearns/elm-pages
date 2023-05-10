@@ -189,7 +189,6 @@ function fetcherModule(name) {
 
 import Bytes exposing (Bytes)
 import Bytes.Decode
-import FormDecoder
 import Http
 import Pages.Fetcher
 import Route.${moduleName}
