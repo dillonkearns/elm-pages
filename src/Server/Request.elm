@@ -98,7 +98,6 @@ import Internal.Request
 import Json.Decode
 import Json.Encode
 import List.NonEmpty
-import Pages.Form
 import QueryParams
 import Time
 import Url
@@ -949,7 +948,7 @@ formData formParsers =
         |> andThen
             (\rawFormData_ ->
                 case Form.Handler.run rawFormData_ formParsers of
-                    (Form.Valid decoded) as validated ->
+                    (Form.Valid _) as validated ->
                         ( { persisted =
                                 { fields = Just rawFormData_
                                 , clientSideErrors = Just Dict.empty
@@ -960,7 +959,7 @@ formData formParsers =
                         )
                             |> succeed
 
-                    (Form.Invalid maybeDecoded maybeErrors) as validated ->
+                    (Form.Invalid _ maybeErrors) as validated ->
                         ( { persisted =
                                 { fields = Just rawFormData_
                                 , clientSideErrors = Just maybeErrors

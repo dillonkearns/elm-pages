@@ -32,7 +32,7 @@ type alias JsonValue =
 
 {-| -}
 type alias Program =
-    Program.StatefulProgram Model Msg (BackendTask FatalError.FatalError ()) Flags
+    Program.StatefulProgram Model Msg (BackendTask FatalError ()) Flags
 
 
 {-| -}

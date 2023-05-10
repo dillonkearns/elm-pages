@@ -1,11 +1,11 @@
 module Pages.Transition exposing
-    ( Transition(..), LoadingState(..), map
+    ( Transition(..), LoadingState(..), map, FormData
     , FetcherState, FetcherSubmitStatus(..)
     )
 
 {-|
 
-@docs Transition, LoadingState, map
+@docs Transition, LoadingState, map, FormData
 
 
 ## Fetchers

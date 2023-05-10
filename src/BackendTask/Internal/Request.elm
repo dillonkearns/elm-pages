@@ -1,7 +1,7 @@
 module BackendTask.Internal.Request exposing (request, request2)
 
 import BackendTask exposing (BackendTask)
-import BackendTask.Http exposing (Body, Error(..), Expect)
+import BackendTask.Http exposing (Body, Expect)
 import Json.Decode exposing (Decoder)
 import Json.Encode as Encode
 
@@ -24,7 +24,7 @@ request ({ name, body, expect } as params) =
         }
         expect
         |> BackendTask.onError
-            (\error ->
+            (\_ ->
                 -- TODO avoid crash here, this should be handled as an internal error
                 request params
             )
@@ -38,7 +38,7 @@ request2 :
     , onError : Json.Decode.Error -> error
     }
     -> BackendTask error a
-request2 ({ name, body, expect, onError, errorDecoder } as params) =
+request2 { name, body, expect, onError, errorDecoder } =
     -- elm-review: known-unoptimized-recursion
     BackendTask.Http.request
         { url = "elm-pages-internal://" ++ name
@@ -50,7 +50,7 @@ request2 ({ name, body, expect, onError, errorDecoder } as params) =
         }
         (BackendTask.Http.expectJson Json.Decode.value)
         |> BackendTask.onError
-            (\error ->
+            (\_ ->
                 BackendTask.succeed Encode.null
             )
         |> BackendTask.andThen

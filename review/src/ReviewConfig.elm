@@ -131,6 +131,7 @@ config =
                         , "src/TestResult.elm"
                         , "src/Parser/Extra/String.elm"
                         ]
+                    |> Rule.ignoreErrorsForFiles [ "src/Stub.elm" ]
             )
 
 

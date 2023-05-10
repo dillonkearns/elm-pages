@@ -16,7 +16,7 @@ import Dict exposing (Dict)
 import FatalError exposing (FatalError)
 import Form
 import Form.Handler
-import Form.Validation as Validation exposing (Validation)
+import Form.Validation exposing (Validation)
 import Html
 import Html.Styled
 import Pages.Internal.Msg
@@ -42,7 +42,7 @@ type alias FormWithServerValidations error combined input view =
 
 {-| -}
 type alias Handler error combined =
-    Form.Handler.Handler error (BackendTask FatalError (Validation.Validation error combined Never Never))
+    Form.Handler.Handler error (BackendTask FatalError (Validation error combined Never Never))
 
 
 {-| -}

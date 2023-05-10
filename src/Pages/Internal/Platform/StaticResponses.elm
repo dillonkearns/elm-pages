@@ -1,9 +1,8 @@
-module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), empty, nextStep, renderApiRequest)
+module Pages.Internal.Platform.StaticResponses exposing (NextStep(..), empty, nextStep)
 
 import BackendTask exposing (BackendTask)
 import BuildError exposing (BuildError)
 import FatalError exposing (FatalError)
-import List.Extra
 import Pages.Internal.FatalError
 import Pages.StaticHttp.Request as HashRequest
 import Pages.StaticHttpRequest as StaticHttpRequest
@@ -14,13 +13,6 @@ import TerminalText
 empty : a -> BackendTask FatalError a
 empty a =
     BackendTask.succeed a
-
-
-renderApiRequest :
-    BackendTask FatalError response
-    -> BackendTask FatalError response
-renderApiRequest request =
-    request
 
 
 type NextStep route value

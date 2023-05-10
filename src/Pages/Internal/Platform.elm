@@ -505,16 +505,16 @@ update config appMsg model =
                         |> performUserMsg userMsg config
 
                 Pages.Internal.Msg.Submit fields ->
-                    let
-                        payload : { fields : List ( String, String ), method : Form.Method, action : String, id : Maybe String }
-                        payload =
-                            { fields = fields.fields
-                            , method = fields.method
-                            , action = fields.action
-                            , id = Just fields.id
-                            }
-                    in
                     if fields.valid then
+                        let
+                            payload : { fields : List ( String, String ), method : Form.Method, action : String, id : Maybe String }
+                            payload =
+                                { fields = fields.fields
+                                , method = fields.method
+                                , action = fields.action
+                                , id = Just fields.id
+                                }
+                        in
                         if fields.useFetcher then
                             ( { model | nextTransitionKey = model.nextTransitionKey + 1 }
                             , SubmitFetcher fields.id model.nextTransitionKey payload
@@ -988,7 +988,7 @@ perform config model effect =
                             , fromPageMsg = Pages.Internal.Msg.UserMsg >> UserMsg
                             , key = key
                             , setField =
-                                \info ->
+                                \_ ->
                                     --Task.succeed (SetField info) |> Task.perform identity
                                     -- TODO
                                     Cmd.none

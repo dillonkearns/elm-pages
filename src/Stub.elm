@@ -1,4 +1,4 @@
-module Stub exposing (..)
+module Stub exposing (Id, Model, Task(..), map2, nextId)
 
 import Json.Decode as Decode
 import Set exposing (Set)
@@ -24,22 +24,18 @@ type alias Model =
 
 type Task error value
     = Pending (Id -> Id) (Decode.Value -> Model -> ( Model, Task error value ))
-    | Done (Result error value)
 
 
 map2 : (value1 -> value2 -> combined) -> Task error value1 -> Task error value2 -> Task error combined
 map2 mapFn task1 task2 =
     case ( task1, task2 ) of
-        ( Done resolved1, Done resolved2 ) ->
-            Debug.todo ""
-
-        ( Pending toId1 resolved1, Pending toId2 resolved2 ) ->
+        ( Pending toId1 _, Pending toId2 _ ) ->
             Pending
                 (\id ->
                     max (toId1 id) (toId2 id)
                         |> nextId
                 )
-                (\value id ->
+                (\_ _ ->
                     Debug.todo ""
                 )
 
@@ -47,6 +43,7 @@ map2 mapFn task1 task2 =
             Debug.todo ""
 
 
+nextId : Int -> Int
 nextId id =
     id + 1
 

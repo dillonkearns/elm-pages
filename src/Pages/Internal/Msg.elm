@@ -1,20 +1,15 @@
 module Pages.Internal.Msg exposing
-    (  Msg(..)
-       --, fetcherOnSubmit
-
-    ,  map
-       --, onSubmit
-       --, submitIfValid
-
+    ( Msg(..)
+      --, fetcherOnSubmit
+    , map
+      --, onSubmit
+      --, submitIfValid
     )
 
 --import Form.FormData exposing (FormData)
 --import FormDecoder
 
 import Form exposing (Method)
-import Html exposing (Attribute)
-import Html.Attributes as Attr
-import Json.Decode
 
 
 {-| -}
@@ -75,6 +70,7 @@ type Msg userMsg
 {-| -}
 map : (a -> b) -> Msg a -> Msg b
 map mapFn msg =
+    -- elm-review: known-unoptimized-recursion
     case msg of
         UserMsg userMsg ->
             UserMsg (mapFn userMsg)
@@ -91,8 +87,7 @@ map mapFn msg =
                 }
 
         FormMsg value ->
-            FormMsg
-                (Form.mapMsg (map mapFn) value)
+            FormMsg (Form.mapMsg (map mapFn) value)
 
         NoOp ->
             NoOp

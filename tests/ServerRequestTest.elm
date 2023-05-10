@@ -2,7 +2,6 @@ module ServerRequestTest exposing (all)
 
 import Dict exposing (Dict)
 import Expect exposing (Expectation)
-import FatalError
 import Form
 import Form.Field as Field
 import Form.Handler
