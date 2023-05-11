@@ -5,11 +5,14 @@
   ignore = "/bin/false"
 
 [dev]
-  command = "npm start"
-  targetPort = 1234
   autoLaunch = true
-  framework = "#custom"
+  framework = "#static"
 
 [functions]
   included_files = ["content/**"]
   node_bundler = "esbuild"
+
+[[redirects]]
+  from = "*"
+  to = "/.netlify/functions/render/:splat"
+  status = 200
