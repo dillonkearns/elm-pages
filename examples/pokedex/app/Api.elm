@@ -203,7 +203,7 @@ repoStars =
         |> ApiRoute.literal "repo"
         |> ApiRoute.slash
         |> ApiRoute.capture
-        |> ApiRoute.literal ".json"
+        --|> ApiRoute.literal ".json"
         |> ApiRoute.serverRender
 
 
