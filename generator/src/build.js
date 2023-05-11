@@ -195,7 +195,11 @@ export async function run(options) {
 import * as renderer from "./render.js";
 import * as elmModule from "${path.resolve("./elm-stuff/elm-pages/elm.cjs")}";
 import * as url from 'url';
-import * as customBackendTask from "${path.resolve(portsFilePath)}";
+${global.portsFilePath
+          ? `import * as customBackendTask from "${path.resolve(global.portsFilePath)}";`
+          : `const customBackendTask = {};`
+        }
+
 import * as preRenderHtml from "./pre-render-html.js";
 const basePath = \`${options.base || "/"}\`;
 const htmlTemplate = ${JSON.stringify(processedIndexTemplate)};
