@@ -67,6 +67,8 @@ async function ensureRequiredExecutables() {
 }
 
 export async function run(options) {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
   console.warn = function (...messages) {
     // This is a temporary hack to avoid this warning. elm-pages manages compiling the Elm code without Vite's involvement, so it is external to Vite.
     // There is a pending issue to allow having external scripts in Vite, once this issue is fixed we can remove this hack:
@@ -182,13 +184,77 @@ export async function run(options) {
           console.error("Failed to start custom-backend-task watcher", error);
         }
       });
-    // TODO extract common code for compiling ports file?
 
     global.XMLHttpRequest = {};
     const compileCli = compileCliApp(options);
     try {
       await compileCli;
       await compileClientDone;
+      await portBackendTaskCompiled;
+      const inlineRenderCode = `
+import * as renderer from "./render.js";
+import * as elmModule from "${path.resolve("./elm-stuff/elm-pages/elm.cjs")}";
+import * as url from 'url';
+import * as customBackendTask from "${path.resolve(portsFilePath)}";
+import * as preRenderHtml from "./pre-render-html.js";
+const basePath = \`${options.base || "/"}\`;
+const htmlTemplate = ${JSON.stringify(processedIndexTemplate)};
+const mode = "build";
+const addWatcher = () => {};
+
+export async function render(request) {
+  const requestTime = new Date();
+  const response = await renderer.render(
+    customBackendTask,
+    basePath,
+    elmModule.default,
+    mode,
+    (new url.URL(request.rawUrl)).pathname,
+    request,
+    addWatcher,
+    false
+  );
+  console.dir(response);
+  if (response.kind === "bytes") {
+    return {
+        body: response.contentDatPayload.buffer,
+        statusCode: response.statusCode,
+        kind: response.kind,
+        headers: response.headers,
+    }
+  } else if (response.kind === "api-response") {
+    // isBase64Encoded
+    return {
+        body: response.body.body,
+        statusCode: response.statusCode,
+        kind: response.kind,
+        headers: response.headers,
+        isBase64Encoded: response.body.isBase64Encoded,
+    }
+  } else {
+    return {
+        body: preRenderHtml.replaceTemplate(htmlTemplate, response.htmlString),
+        statusCode: response.statusCode,
+        kind: response.kind,
+        headers: response.headers,
+    }
+  }
+}
+`;
+      await esbuild.build({
+        format: "esm",
+        platform: "node",
+        stdin: { contents: inlineRenderCode, resolveDir: __dirname },
+        bundle: true,
+        // TODO do I need to make the outfile joined with the current working directory?
+
+        outfile: ".elm-pages/compiled/render.mjs",
+        // external: ["node:*", ...options.external],
+        packages: "external",
+        minify: true,
+        // absWorkingDir: projectDirectory,
+        // banner: { js: `#!/usr/bin/env node\n\n${ESM_REQUIRE_SHIM}` },
+      });
     } catch (cliError) {
       // TODO make sure not to print duplicate error output if cleaner review output is printed
       console.error(cliError);
@@ -628,19 +694,17 @@ function _HtmlAsJson_toJson(html) {
 async function runAdapter(adaptFn, processedIndexTemplate) {
   try {
     await adaptFn({
-      renderFunctionFilePath: "./elm-stuff/elm-pages/elm.cjs",
+      renderFunctionFilePath: "./.elm-pages/compiled/render.mjs",
       routePatterns: JSON.parse(
         await fsPromises.readFile("./dist/route-patterns.json", "utf-8")
       ),
       apiRoutePatterns: JSON.parse(
         await fsPromises.readFile("./dist/api-patterns.json", "utf-8")
       ),
-      portsFilePath: "./.elm-pages/compiled-ports/custom-backend-task.mjs",
-      htmlTemplate: processedIndexTemplate,
     });
     console.log("Success - Adapter script complete");
   } catch (error) {
-    console.error("ERROR - Adapter script failed");
+    console.trace("ERROR - Adapter script failed", error);
     try {
       console.error(JSON.stringify(error));
     } catch (parsingError) {
