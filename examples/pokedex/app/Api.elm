@@ -24,8 +24,8 @@ routes getStaticRoutes htmlToString =
     [ --nonHybridRoute
       --, noArgs
       redirectRoute
+    , repoStars
 
-    --, repoStars
     --, repoStars2
     , logout
 
@@ -203,7 +203,7 @@ repoStars =
         |> ApiRoute.literal "repo"
         |> ApiRoute.slash
         |> ApiRoute.capture
-        --|> ApiRoute.literal ".json"
+        |> ApiRoute.literal ".json"
         |> ApiRoute.serverRender
 
 
