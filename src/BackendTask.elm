@@ -98,28 +98,19 @@ type alias BackendTask error value =
     RawRequest error value
 
 
-{-| Transform a request into an arbitrary value. The same underlying HTTP requests will be performed during the build
-step, but mapping allows you to change the resulting values by applying functions to the results.
-
-A common use for this is to map your data into your elm-pages view:
+{-| Transform a request into an arbitrary value. The same underlying task will be performed,
+but mapping allows you to change the resulting values by applying functions to the results.
 
     import BackendTask
+    import BackendTask.Http
     import Json.Decode as Decode exposing (Decoder)
 
-    view =
-        BackendTask.Http.get
-            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+    starsMessage =
+        BackendTask.Http.getJson
+            "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.field "stargazers_count" Decode.int)
             |> BackendTask.map
-                (\stars ->
-                    { view =
-                        \model viewForPage ->
-                            { title = "Current stars: " ++ String.fromInt stars
-                            , body = Html.text <| "⭐️ " ++ String.fromInt stars
-                            , head = []
-                            }
-                    }
-                )
+                (\stars -> "⭐️ " ++ String.fromInt stars)
 
 -}
 map : (a -> b) -> BackendTask error a -> BackendTask error b
@@ -146,7 +137,7 @@ resolve =
     andThen combine
 
 
-{-| Turn a list of `StaticHttp.Request`s into a single one.
+{-| Turn a list of `BackendTask`s into a single one.
 
     import BackendTask
     import Json.Decode as Decode exposing (Decoder)
@@ -156,10 +147,10 @@ resolve =
         , sprite : String
         }
 
-    pokemonDetailRequest : StaticHttp.Request (List Pokemon)
+    pokemonDetailRequest : BackendTask (List Pokemon)
     pokemonDetailRequest =
-        StaticHttp.get
-            (Secrets.succeed "https://pokeapi.co/api/v2/pokemon/?limit=3")
+        BackendTask.Http.getJson
+            "https://pokeapi.co/api/v2/pokemon/?limit=3"
             (Decode.field "results"
                 (Decode.list
                     (Decode.map2 Tuple.pair
@@ -167,7 +158,7 @@ resolve =
                         (Decode.field "url" Decode.string)
                         |> Decode.map
                             (\( name, url ) ->
-                                StaticHttp.get (Secrets.succeed url)
+                                BackendTask.Http.getJson url
                                     (Decode.at
                                         [ "sprites", "front_default" ]
                                         Decode.string
@@ -177,7 +168,7 @@ resolve =
                     )
                 )
             )
-            |> StaticHttp.andThen StaticHttp.combine
+            |> BackendTask.andThen BackendTask.combine
 
 -}
 combine : List (BackendTask error value) -> BackendTask error (List value)
@@ -353,7 +344,7 @@ fail error =
     ApiRoute (Err error)
 
 
-{-| Turn an Err into a BackendTask failure.
+{-| Turn `Ok` into `BackendTask.succeed` and `Err` into `BackendTask.fail`.
 -}
 fromResult : Result error value -> BackendTask error value
 fromResult result =
@@ -523,7 +514,10 @@ map9 combineFn request1 request2 request3 request4 request5 request6 request7 re
         |> map2 (|>) request9
 
 
-{-| -}
+{-| Ignore any recoverable error data and propagate the `FatalError`. Similar to a `Cmd` in The Elm Architecture,
+a `FatalError` will not do anything except if it is returned at the top-level of your application. Read more
+in the [`FatalError` docs](FatalError).
+-}
 allowFatal : BackendTask { error | fatal : FatalError } data -> BackendTask FatalError data
 allowFatal backendTask =
     mapError .fatal backendTask
