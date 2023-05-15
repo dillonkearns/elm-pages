@@ -68,6 +68,7 @@
     "vitest": "^0.31.0"
   },
   "files": [
+    "adapter/",
     "generator/src/",
     "generator/review/",
     "generator/dead-code-review/",
