@@ -108,17 +108,15 @@ export const handler = render;`
 async function render(event, context) {
   try {
     const renderResult = await elmPages.render(await reqToJson(event));
-
-    const statusCode = renderResult.statusCode;
-    const headers = renderResult.headers;
+    const { headers, statusCode } = renderResult;
 
     if (renderResult.kind === "bytes") {
       return {
         body: Buffer.from(renderResult.body).toString("base64"),
         isBase64Encoded: true,
         multiValueHeaders: {
-          "Content-Type": "application/octet-stream",
-          "x-powered-by": "elm-pages",
+          "Content-Type": ["application/octet-stream"],
+          "x-powered-by": ["elm-pages"],
           ...headers,
         },
         statusCode,
@@ -134,8 +132,8 @@ async function render(event, context) {
       return {
         body: renderResult.body,
         multiValueHeaders: {
-          "Content-Type": "text/html",
-          "x-powered-by": "elm-pages",
+          "Content-Type": ["text/html"],
+          "x-powered-by": ["elm-pages"],
           ...headers,
         },
         statusCode,
@@ -147,9 +145,9 @@ async function render(event, context) {
     return {
       body: \`<body><h1>Error</h1><pre>\${JSON.stringify(error, null, 2)}</pre></body>\`,
       statusCode: 500,
-      headers: {
-        "Content-Type": "text/html",
-        "x-powered-by": "elm-pages",
+      multiValueHeaders: {
+        "Content-Type": ["text/html"],
+        "x-powered-by": ["elm-pages"],
       },
     };
   }

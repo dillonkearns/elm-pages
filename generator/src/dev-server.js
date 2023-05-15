@@ -534,9 +534,9 @@ export async function start(options) {
                     /<!-- ROOT -->\S*<html lang="en">/m,
                     info.rootElement
                   );
+                setHeaders(res, renderResult.headers);
                 res.writeHead(renderResult.statusCode, {
                   "Content-Type": "text/html",
-                  ...renderResult.headers,
                 });
                 res.end(renderedHtml);
               } catch (e) {
@@ -548,10 +548,8 @@ export async function start(options) {
             case "api-response": {
               if (renderResult.body.kind === "server-response") {
                 const serverResponse = renderResult.body;
-                res.writeHead(
-                  serverResponse.statusCode,
-                  serverResponse.headers
-                );
+                setHeaders(res, serverResponse.headers);
+                res.writeHead(serverResponse.statusCode);
                 res.end(serverResponse.body);
               } else if (renderResult.body.kind === "static-file") {
                 let mimeType = serveStatic.mime.lookup(pathname || "text/html");
@@ -591,6 +589,16 @@ export async function start(options) {
           }
         }
       );
+    });
+  }
+
+  /**
+   * @param { http.ServerResponse } res
+   * @param {{ [key: string]: string[]; }} headers
+   */
+  function setHeaders(res, headers) {
+    Object.keys(headers).forEach(function (key) {
+      res.setHeader(key, headers[key]);
     });
   }
 

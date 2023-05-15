@@ -11,7 +11,7 @@ import BuildError exposing (BuildError)
 import Bytes exposing (Bytes)
 import Bytes.Encode
 import Codec
-import Dict
+import Dict exposing (Dict)
 import FatalError exposing (FatalError)
 import Head exposing (Tag)
 import Html exposing (Html)
@@ -583,6 +583,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                                             , headers =
                                                                                                                 -- TODO should `responseInfo.headers` be used? Is there a problem in the case where there is both an action and data response in one? Do we need to make sure it is performed as two separate HTTP requests to ensure that the cookies are set correctly in that case?
                                                                                                                 actionHeaders
+                                                                                                                    |> combineHeaders
                                                                                                             }
                                                                                                                 |> ToJsPayload.PageProgress
                                                                                                                 |> Effect.SendSinglePageNew encodedData
@@ -665,7 +666,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
 
                                                                                                         RenderRequest.HtmlAndJson ->
                                                                                                             config.errorStatusCode error
-                                                                                                , headers = record.headers
+                                                                                                , headers = record.headers |> combineHeaders
                                                                                                 }
                                                                                                     |> ToJsPayload.PageProgress
                                                                                                     |> Effect.SendSinglePageNew encodedData
@@ -760,7 +761,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                     , staticHttpCache = Dict.empty
                                                                     , is404 = False
                                                                     , statusCode = statusCode
-                                                                    , headers = []
+                                                                    , headers = Dict.empty
                                                                     }
                                                                         |> ToJsPayload.PageProgress
                                                                         |> Effect.SendSinglePageNew byteEncodedPageData
@@ -966,7 +967,7 @@ render404Page config sharedData isDevServer path notFoundReason =
             , staticHttpCache = Dict.empty
             , is404 = True
             , statusCode = 404
-            , headers = []
+            , headers = Dict.empty
             }
                 |> ToJsPayload.PageProgress
                 |> Effect.SendSinglePageNew byteEncodedPageData
@@ -998,7 +999,7 @@ render404Page config sharedData isDevServer path notFoundReason =
             --model.allRawResponses |> Dict.Extra.filterMap (\_ v -> v)
             , is404 = True
             , statusCode = 404
-            , headers = []
+            , headers = Dict.empty
             }
                 |> ToJsPayload.PageProgress
                 |> Effect.SendSinglePageNew byteEncodedPageData
@@ -1059,8 +1060,23 @@ toRedirectResponse config serverRequestPayload includeHtml serverResponse respon
 
                         RenderRequest.HtmlAndJson ->
                             responseMetadata.statusCode
-                , headers = responseMetadata.headers --serverResponse.headers
+                , headers = responseMetadata.headers |> combineHeaders
                 }
                     |> ToJsPayload.PageProgress
                     |> Effect.SendSinglePageNew byteEncodedPageData
             )
+
+
+combineHeaders : List ( String, String ) -> Dict String (List String)
+combineHeaders headers =
+    headers
+        |> List.foldl
+            (\( key, value ) dict ->
+                Dict.update key
+                    (Maybe.map ((::) value)
+                        >> Maybe.withDefault [ value ]
+                        >> Just
+                    )
+                    dict
+            )
+            Dict.empty
