@@ -1,16 +1,27 @@
 module Scaffold.Form exposing
     ( Kind(..), provide, restArgsParser
     , Context
-    , fieldEncoder, recordEncoder
+    , recordEncoder, fieldEncoder
     )
 
-{-|
+{-| This module helps you with scaffolding a form in `elm-pages`, similar to how rails generators are used to scaffold out forms to
+get up and running quickly with the starting point for a form with different field types. See also [`Scaffold.Route`](Scaffold-Route).
+
+See the `AddRoute` script in the starter template for an example. It's usually easiest to modify that script as a starting
+point rather than using this API from scratch.
+
+Using the `AddRoute` script from the default starter template, you can run a command like this:
+
+`npx elm-pages run AddRoute Profile.Username_.Edit first last bio:textarea dob:date` to generate a Route module `app/Route/Profile/Username_/Edit.elm`
+with the wiring form a `Form`.
+
+[Learn more about writing and running elm-pages Scripts for scaffolding](https://elm-pages-v3.netlify.app/docs/elm-pages-scripts#scaffolding-a-route-module).
 
 @docs Kind, provide, restArgsParser
 
 @docs Context
 
-@docs fieldEncoder, recordEncoder
+@docs recordEncoder, fieldEncoder
 
 -}
 
@@ -159,7 +170,18 @@ fieldToParam ( name, _ ) =
     ( name, Nothing )
 
 
-{-| -}
+{-| This parser handles the following field types (or `text` if none is provided):
+
+  - `text`
+  - `textarea`
+  - `checkbox`
+  - `time`
+  - `date`
+
+The naming convention follows the same naming as the HTML form field elements or attributes that are used to represent them.
+In addition to using the appropriate field type, this will also give you an Elm type with the corresponding base type (like `Date` for `date` or `Bool` for `checkbox`).
+
+-}
 restArgsParser : Cli.Option.Option (List String) (List ( String, Kind )) Cli.Option.RestArgsOption
 restArgsParser =
     Cli.Option.restArgs "formFields"
@@ -506,7 +528,8 @@ recordEncoder record fields =
             )
 
 
-{-| -}
+{-| A lower-level, more granular version of `recordEncoder` - lets you generate a JSON Encoder `Expression` for an individual Field rather than a group of Fields.
+-}
 fieldEncoder : Elm.Expression -> String -> Kind -> Elm.Expression
 fieldEncoder record name kind =
     Elm.apply

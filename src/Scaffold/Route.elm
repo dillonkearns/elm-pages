@@ -9,11 +9,16 @@ module Scaffold.Route exposing
 
 {-| This module provides some functions for scaffolding code for a new Route Module. It uses [`elm-codegen`'s API](https://package.elm-lang.org/packages/mdgriffith/elm-codegen/latest/) for generating code.
 
-Typically you'll want to use this via the `elm-pages codegen` CLI command. The default starter template includes a file that uses these functions, which you can tweak to customize your scaffolding commands.
-Learn more about [the `elm-pages run` CLI command in its docs page](https://elm-pages.com/docs/run-command).
+Typically you'll want to use this via the `elm-pages run` CLI command. The default starter template includes a Script that uses these functions, which you can tweak to customize your scaffolding commands.
+[Learn more about writing and running elm-pages Scripts for scaffolding](https://elm-pages-v3.netlify.app/docs/elm-pages-scripts#scaffolding-a-route-module).
+
+It's typically easiest to modify the `AddRoute` script from the starter template and adjust it to your needs rather than writing one from scratch.
 
 
 ## Initializing the Generator Builder
+
+These functions mirror the `RouteBuilder` API that you use in your Route modules to define your route. The difference is that
+instead of defining a route, this is defining a code generator for a Route module.
 
 @docs buildWithLocalState, buildWithSharedState, buildNoState, Builder
 
@@ -214,7 +219,11 @@ buildNoState definitions builder_ =
                 }
 
 
-{-| -}
+{-| The helpers in this module help you generate a Route module file with the core boilerplate abstracted away.
+
+You can also define additional top-level declarations in the generated Route module using this helper.
+
+-}
 addDeclarations : List Elm.Declaration -> Builder -> Builder
 addDeclarations declarations builder =
     case builder of
