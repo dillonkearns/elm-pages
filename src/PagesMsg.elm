@@ -27,6 +27,8 @@ type alias PagesMsg userMsg =
 
 {-|
 
+    import Form
+    import Pages.Form
     import PagesMsg exposing (PagesMsg)
 
     type Msg
@@ -46,10 +48,14 @@ type alias PagesMsg userMsg =
                 [ onClick (PagesMsg.fromMsg ToggleMenu) ]
                 []
 
-            -- `Form.renderHtml` gives us `Html (PagesMsg msg)`, so we don't need to wrap its Msg type
+            -- `Pages.Form.renderHtml` gives us `Html (PagesMsg msg)`, so we don't need to wrap its Msg type
             , logoutForm
-                |> Form.withOnSubmit (\_ -> NewItemSubmitted)
-                |> Form.renderHtml "logout" [] (\_ -> Nothing) app Nothing
+                |> Pages.Form.renderHtml []
+                    Pages.Form.Serial
+                    (Form.options "logout"
+                        |> Form.withOnSubmit (\_ -> NewItemSubmitted)
+                    )
+                    app
             ]
         }
 
