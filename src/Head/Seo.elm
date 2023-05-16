@@ -1,13 +1,13 @@
 module Head.Seo exposing (Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website)
 
-{-| <https://ogp.me/#>
-<https://developers.facebook.com/docs/sharing/opengraph>
+{-| <https://developers.facebook.com/docs/sharing/opengraph>
 
 This module encapsulates some of the best practices for SEO for your site.
 
-`elm-pages` will pre-render each of the static pages (in your `content` directory) so that
+`elm-pages` pre-renders the HTML for your pages (either at build-time or server-render time) so that
 web crawlers can efficiently and accurately process it. The functions in this module are for use
-with the `head` function that you pass to your Pages config (`Pages.application`).
+with the `head` function in your `Route` modules to help you build up a set of `<meta>` tags that
+includes common meta tags used for rich link previews, namely [OpenGraph tags](https://ogp.me/) and [Twitter card tags](https://developer.twitter.com/en/docs/twitter-for-websites/cards/overview/abouts-cards).
 
     import Date
     import Head
