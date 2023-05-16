@@ -11,8 +11,8 @@ module Pages.Manifest exposing
 {-| Represents the configuration of a
 [web manifest file](https://developer.mozilla.org/en-US/docs/Web/Manifest).
 
-You pass your `Pages.Manifest.Config` record into the `Pages.application` function
-(from your generated `Pages.elm` file).
+You pass your `Pages.Manifest.Config` record into the `Pages.Manifest.generator`
+in your `app/Api.elm` module to define a file generator that will build a `manifest.json` file as part of your build.
 
     import Pages.Manifest as Manifest
     import Pages.Manifest.Category
@@ -343,7 +343,23 @@ nonEmptyList list =
         Just list
 
 
-{-| A generator for Api.elm to include a manifest.json.
+{-| A generator for `Api.elm` to include a manifest.json. The String argument is the canonical URL of the site.
+
+    module Api exposing (routes)
+
+    import ApiRoute
+    import Pages.Manifest
+
+    routes :
+        BackendTask FatalError (List Route)
+        -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
+        -> List (ApiRoute.ApiRoute ApiRoute.Response)
+    routes getStaticRoutes htmlToString =
+        [ Pages.Manifest.generator
+            Site.canonicalUrl
+            Manifest.config
+        ]
+
 -}
 generator : String -> BackendTask FatalError Config -> ApiRoute.ApiRoute ApiRoute.Response
 generator canonicalSiteUrl config =
