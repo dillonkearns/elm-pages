@@ -11,7 +11,8 @@ import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
 import Form.FieldView
-import Form.Validation as Validation exposing (Combined, Field)
+import Form.Handler
+import Form.Validation as Validation exposing (Field, Validation)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -20,6 +21,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Nonempty
 import MySession
+import Pages.Form
 import Pages.Script as Script
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
@@ -86,9 +88,9 @@ type alias EnvVariables =
     }
 
 
-form : Form.DoneForm String (BackendTask FatalError (Combined String EmailAddress)) data (List (Html (PagesMsg Msg))) Msg
+form : Pages.Form.FormWithServerValidations String EmailAddress data (List (Html (PagesMsg Msg)))
 form =
-    Form.init
+    Form.form
         (\fieldEmail ->
             { combine =
                 Validation.succeed
@@ -119,7 +121,7 @@ form =
                     [ fieldEmail |> fieldView info "Email"
                     , globalErrors info
                     , Html.button []
-                        [ if info.isTransitioning then
+                        [ if info.submitting then
                             Html.text "Logging in..."
 
                           else
@@ -132,15 +134,15 @@ form =
         |> Form.hiddenKind ( "kind", "login" ) "Expected kind"
 
 
-logoutForm : Form.DoneForm String () data (List (Html (PagesMsg Msg))) Msg
+logoutForm : Form.HtmlForm String () data msg
 logoutForm =
-    Form.init
+    Form.form
         { combine =
             Validation.succeed ()
         , view =
             \info ->
                 [ Html.button []
-                    [ if info.isTransitioning then
+                    [ if info.submitting then
                         Html.text "Logging out..."
 
                       else
@@ -287,21 +289,21 @@ data routeParams =
             )
 
 
-allForms : Form.ServerForms String (BackendTask FatalError (Combined String Action))
+allForms : Pages.Form.Handler String EmailAddress
 allForms =
-    logoutForm
-        |> Form.toServerForm
-        |> Form.initCombinedServer (\_ -> Logout)
-        |> Form.combineServer LogIn form
+    Form.Handler.init identity form
+
+
+
+--logoutForm
+--    |> Form.Handler.init (\_ -> Logout)
+--    |> Form.Handler.with LogIn form
 
 
 action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
 action routeParams =
     Request.map2 Tuple.pair
-        (Request.oneOf
-            [ Request.formDataWithServerValidation allForms
-            ]
-        )
+        (Request.formDataWithServerValidation allForms)
         Request.requestTime
         |> MySession.withSession
             (\( resolveFormBackendTask, requestTime ) session ->
@@ -323,13 +325,13 @@ action routeParams =
                                     )
                                         |> BackendTask.succeed
 
-                                Ok ( _, Logout ) ->
-                                    ( Session.empty
-                                    , Route.redirectTo Route.Login
-                                    )
-                                        |> BackendTask.succeed
-
-                                Ok ( _, LogIn emailAddress ) ->
+                                --Ok ( _, Logout ) ->
+                                --    ( Session.empty
+                                --    , Route.redirectTo Route.Login
+                                --    )
+                                --        |> BackendTask.succeed
+                                --
+                                Ok ( _, emailAddress ) ->
                                     ( okSession
                                     , { maybeError = Nothing
                                       , sentLink = True
@@ -372,7 +374,7 @@ type alias Data =
 
 
 type alias ActionData =
-    { maybeError : Maybe (Form.Response String)
+    { maybeError : Maybe (Form.ServerResponse String)
     , sentLink : Bool
     }
 
@@ -395,19 +397,22 @@ view app shared =
                             Html.div []
                                 [ Html.text <| "Hello! You are already logged in as " ++ username
                                 , logoutForm
-                                    |> Form.toDynamicTransition
-                                    |> Form.renderHtml "logout"
-                                        []
-                                        (\_ -> Nothing)
+                                    |> Pages.Form.renderHtml []
+                                        Pages.Form.Parallel
+                                        (Form.options "logout")
                                         app
-                                        ()
                                 ]
 
                         Nothing ->
                             Html.text "You aren't logged in yet."
                     ]
                 , form
-                    |> Form.renderHtml "login" [] .maybeError app ()
+                    |> Pages.Form.renderHtml []
+                        Pages.Form.Serial
+                        (Form.options "login"
+                            |> Form.withServerResponse (app.action |> Maybe.andThen .maybeError)
+                        )
+                        app
                 ]
         ]
     }

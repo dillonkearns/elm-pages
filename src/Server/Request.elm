@@ -98,6 +98,7 @@ import Internal.Request
 import Json.Decode
 import Json.Encode
 import List.NonEmpty
+import Pages.Form
 import QueryParams
 import Time
 import Url
@@ -891,7 +892,7 @@ runForm validation =
 
 {-| -}
 formDataWithServerValidation :
-    Form.Handler.Handler error (BackendTask FatalError (Validation.Validation error combined kind constraints))
+    Pages.Form.Handler error combined
     -> Parser (BackendTask FatalError (Result (Form.ServerResponse error) ( Form.ServerResponse error, combined )))
 formDataWithServerValidation formParsers =
     rawFormData

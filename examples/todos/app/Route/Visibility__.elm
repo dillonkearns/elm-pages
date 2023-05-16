@@ -20,6 +20,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import LoadingSpinner
 import MySession
+import Pages.Form
 import Pages.Transition exposing (FetcherSubmitStatus(..))
 import PagesMsg exposing (PagesMsg)
 import Route
@@ -290,12 +291,12 @@ action routeParams =
                             |> Result.withDefault Session.empty
                 in
                 case formResult of
-                    Ok actionInput ->
+                    Form.Valid actionInput ->
                         (okSession |> Session.get "sessionId" |> Maybe.withDefault "")
                             |> performAction requestTime actionInput
                             |> BackendTask.map (Tuple.pair okSession)
 
-                    Err _ ->
+                    Form.Invalid _ _ ->
                         BackendTask.succeed ( okSession, Response.render { errors = Nothing } )
             )
 
@@ -353,7 +354,8 @@ view app shared model =
                             _ ->
                                 allForms
                                     |> Form.Handler.run payload.fields
-                                    |> Tuple.first
+                                    |> Form.toResult
+                                    |> Result.toMaybe
                     )
 
         creatingItems : List Entry
@@ -472,11 +474,10 @@ view app shared model =
                         case
                             ( allForms
                                 |> Form.Handler.run payload.fields
-                                |> Tuple.first
                             , status
                             )
                         of
-                            ( Just (Add newItem), Pages.Transition.FetcherComplete (Just parsedActionData) ) ->
+                            ( Form.Valid (Add newItem), Pages.Transition.FetcherComplete (Just parsedActionData) ) ->
                                 parsedActionData.errors
                                     |> Maybe.map (Tuple.pair key)
 
@@ -492,30 +493,32 @@ view app shared model =
             [ section
                 [ class "todoapp" ]
                 [ addItemForm
-                    |> Form.toDynamicFetcher
-                    |> Form.withOnSubmit (\_ -> NewItemSubmitted)
-                    |> Form.renderHtml
-                        ("new-item-"
-                            ++ (model.nextId |> Time.posixToMillis |> String.fromInt)
-                        )
+                    |> Pages.Form.renderHtml
                         [ class "create-form"
                         , hidden (not (List.isEmpty failedAddItemActions))
                         ]
-                        (\_ -> Nothing)
+                        Pages.Form.Parallel
+                        (Form.options
+                            ("new-item-"
+                                ++ (model.nextId |> Time.posixToMillis |> String.fromInt)
+                            )
+                            |> Form.withInput Nothing
+                            |> Form.withOnSubmit (\_ -> NewItemSubmitted)
+                        )
                         app
-                        Nothing
                 , div []
                     (failedAddItemActions
                         |> List.indexedMap
                             (\index ( key, createFetcherErrors ) ->
                                 addItemForm
-                                    |> Form.toDynamicFetcher
-                                    |> Form.withOnSubmit (\_ -> NewItemSubmitted)
-                                    |> Form.renderHtml key
+                                    |> Pages.Form.renderHtml
                                         [ class "create-form", hidden (index /= 0) ]
-                                        (\_ -> Nothing)
+                                        Pages.Form.Parallel
+                                        (Form.options key
+                                            |> Form.withOnSubmit (\_ -> NewItemSubmitted)
+                                            |> Form.withInput (Just createFetcherErrors)
+                                        )
                                         app
-                                        (Just createFetcherErrors)
                             )
                     )
                 , viewEntries app optimisticVisibility optimisticEntities
@@ -542,7 +545,7 @@ allForms =
         |> Form.Handler.with CheckAll toggleAllForm
 
 
-addItemForm : Form.HtmlForm String String (Maybe String) Msg
+addItemForm : Form.HtmlForm String String (Maybe String) msg
 addItemForm =
     Form.form
         (\description ->
@@ -560,7 +563,7 @@ addItemForm =
                             , autofocus True
                             ]
                             description
-                        , formState.data |> Maybe.map (\error -> Html.div [ class "error", id "new-todo-error" ] [ text error ]) |> Maybe.withDefault (text "")
+                        , formState.input |> Maybe.map (\error -> Html.div [ class "error", id "new-todo-error" ] [ text error ]) |> Maybe.withDefault (text "")
                         ]
                     ]
             }
@@ -569,7 +572,7 @@ addItemForm =
         |> Form.hiddenKind ( "kind", "new-item" ) "Expected kind"
 
 
-editItemForm : Form.HtmlForm String ( String, String ) Entry Msg
+editItemForm : Form.HtmlForm String ( String, String ) Entry msg
 editItemForm =
     Form.form
         (\itemId description ->
@@ -582,7 +585,7 @@ editItemForm =
                     [ FieldView.input
                         [ class "edit-input"
                         , name "title"
-                        , id ("todo-" ++ formState.data.id)
+                        , id ("todo-" ++ formState.input.id)
                         ]
                         description
                     ]
@@ -590,18 +593,18 @@ editItemForm =
         )
         |> Form.hiddenField "itemId"
             (Field.text
-                |> Field.withInitialValue (.id >> Form.Value.string)
+                |> Field.withInitialValue .id
                 |> Field.required "Must be present"
             )
         |> Form.field "description"
             (Field.text
-                |> Field.withInitialValue (.description >> Form.Value.string)
+                |> Field.withInitialValue .description
                 |> Field.required "Must be present"
             )
         |> Form.hiddenKind ( "kind", "edit-item" ) "Expected kind"
 
 
-deleteItemForm : Form.HtmlForm String String Entry Msg
+deleteItemForm : Form.HtmlForm String String Entry msg
 deleteItemForm =
     Form.form
         (\todoId ->
@@ -616,12 +619,12 @@ deleteItemForm =
         |> Form.hiddenField "todoId"
             (Field.text
                 |> Field.required "Must be present"
-                |> Field.withInitialValue (.id >> Form.Value.string)
+                |> Field.withInitialValue .id
             )
         |> Form.hiddenKind ( "kind", "delete" ) "Expected kind"
 
 
-toggleAllForm : Form.HtmlForm String Bool { allCompleted : Bool } Msg
+toggleAllForm : Form.HtmlForm String Bool { allCompleted : Bool } msg
 toggleAllForm =
     Form.form
         (\toggleTo ->
@@ -634,7 +637,7 @@ toggleAllForm =
                         [ classList
                             [ ( "toggle-all", True )
                             , ( "toggle", True )
-                            , ( "checked", formState.data.allCompleted )
+                            , ( "checked", formState.input.allCompleted )
                             ]
                         ]
                         [ text "❯" ]
@@ -646,15 +649,12 @@ toggleAllForm =
         )
         |> Form.hiddenField "toggleTo"
             (Field.checkbox
-                |> Field.withInitialValue
-                    (\{ allCompleted } ->
-                        Form.Value.bool (not allCompleted)
-                    )
+                |> Field.withInitialValue (not << .allCompleted)
             )
         |> Form.hiddenKind ( "kind", "toggle-all" ) "Expected kind"
 
 
-checkItemForm : Form.HtmlForm String ( Bool, String ) Entry Msg
+checkItemForm : Form.HtmlForm String ( Bool, String ) Entry msg
 checkItemForm =
     Form.form
         (\todoId complete ->
@@ -665,7 +665,7 @@ checkItemForm =
             , view =
                 \formState ->
                     [ Html.button [ class "toggle" ]
-                        [ if formState.data.completed then
+                        [ if formState.input.completed then
                             Icon.complete
 
                           else
@@ -677,16 +677,16 @@ checkItemForm =
         |> Form.hiddenField "todoId"
             (Field.text
                 |> Field.required "Must be present"
-                |> Field.withInitialValue (.id >> Form.Value.string)
+                |> Field.withInitialValue .id
             )
         |> Form.hiddenField "complete"
             (Field.checkbox
-                |> Field.withInitialValue (.completed >> not >> Form.Value.bool)
+                |> Field.withInitialValue (.completed >> not)
             )
         |> Form.hiddenKind ( "kind", "complete" ) "Expected kind"
 
 
-clearCompletedForm : Form.HtmlForm String () { entriesCompleted : Int } Msg
+clearCompletedForm : Form.HtmlForm String () { entriesCompleted : Int } msg
 clearCompletedForm =
     Form.form
         { combine = Validation.succeed ()
@@ -694,9 +694,9 @@ clearCompletedForm =
             \formState ->
                 [ button
                     [ class "clear-completed"
-                    , hidden (formState.data.entriesCompleted == 0)
+                    , hidden (formState.input.entriesCompleted == 0)
                     ]
-                    [ text ("Clear completed (" ++ String.fromInt formState.data.entriesCompleted ++ ")")
+                    [ text ("Clear completed (" ++ String.fromInt formState.input.entriesCompleted ++ ")")
                     ]
                 ]
         }
@@ -736,8 +736,12 @@ viewEntries app visibility entries =
         , style "visibility" cssVisibility
         ]
         [ toggleAllForm
-            |> Form.toDynamicFetcher
-            |> Form.renderHtml "toggle-all" [] (\_ -> Nothing) app { allCompleted = allCompleted }
+            |> Pages.Form.renderHtml []
+                Pages.Form.Parallel
+                (Form.options "toggle-all"
+                    |> Form.withInput { allCompleted = allCompleted }
+                )
+                app
         , Keyed.ul [ class "todo-list" ] <|
             List.map (viewKeyedEntry app) (List.filter isVisible entries)
         ]
@@ -762,18 +766,31 @@ viewEntry app todo =
         [ div
             [ class "view" ]
             [ checkItemForm
-                |> Form.toDynamicFetcher
-                |> Form.renderHtml ("toggle-" ++ todo.id) [] (\_ -> Nothing) app todo
+                |> Pages.Form.renderHtml []
+                    Pages.Form.Parallel
+                    (("toggle-" ++ todo.id)
+                        |> Form.options
+                        |> Form.withInput todo
+                    )
+                    app
             , editItemForm
-                |> Form.toDynamicFetcher
-                |> Form.renderHtml ("edit-" ++ todo.id) [] (\_ -> Nothing) app todo
+                |> Pages.Form.renderHtml []
+                    Pages.Form.Parallel
+                    (Form.options ("edit-" ++ todo.id)
+                        |> Form.withInput todo
+                    )
+                    app
             , if todo.isSaving then
                 LoadingSpinner.view
 
               else
                 deleteItemForm
-                    |> Form.toDynamicFetcher
-                    |> Form.renderHtml ("delete-" ++ todo.id) [] (\_ -> Nothing) app todo
+                    |> Pages.Form.renderHtml []
+                        Pages.Form.Parallel
+                        (Form.options ("delete-" ++ todo.id)
+                            |> Form.withInput todo
+                        )
+                        app
             ]
         ]
 
@@ -863,8 +880,12 @@ visibilitySwap visibilityParam visibility actualVisibility =
 viewControlsClear : App Data ActionData RouteParams -> Int -> Html (PagesMsg Msg)
 viewControlsClear app entriesCompleted =
     clearCompletedForm
-        |> Form.toDynamicFetcher
-        |> Form.renderHtml "clear-completed" [] (\_ -> Nothing) app { entriesCompleted = entriesCompleted }
+        |> Pages.Form.renderHtml []
+            Pages.Form.Parallel
+            (Form.options "clear-completed"
+                |> Form.withInput { entriesCompleted = entriesCompleted }
+            )
+            app
 
 
 infoFooter : Html msg

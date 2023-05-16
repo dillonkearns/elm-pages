@@ -26,7 +26,7 @@ withSession =
     Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
-        , options = cookieOptions
+        , options = Just cookieOptions
         }
 
 
@@ -38,7 +38,7 @@ withSessionOrRedirect toRequest handler =
     Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
-        , options = cookieOptions
+        , options = Just cookieOptions
         }
         (\request sessionResult ->
             sessionResult
@@ -68,7 +68,7 @@ expectSessionOrRedirect toRequest handler =
     Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
-        , options = cookieOptions
+        , options = Just cookieOptions
         }
         (\request sessionResult ->
             sessionResult
