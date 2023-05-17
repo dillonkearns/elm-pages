@@ -9,7 +9,7 @@
         "Head.Seo",
         "ApiRoute",
         "Pages.Form",
-        "Path",
+        "UrlPath",
         "Pages.PageUrl",
         "FatalError",
         "Pages.Url",

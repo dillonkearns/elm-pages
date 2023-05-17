@@ -6,7 +6,7 @@ import FatalError exposing (FatalError)
 import Html exposing (Html)
 import Pages.Flags exposing (Flags)
 import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 import Route exposing (Route)
 import View exposing (View)
 
@@ -17,7 +17,7 @@ type alias SharedTemplate msg sharedModel sharedData mappedMsg =
         ->
             Maybe
                 { path :
-                    { path : Path
+                    { path : UrlPath
                     , query : Maybe String
                     , fragment : Maybe String
                     }
@@ -29,7 +29,7 @@ type alias SharedTemplate msg sharedModel sharedData mappedMsg =
     , view :
         sharedData
         ->
-            { path : Path
+            { path : UrlPath
             , route : Maybe Route
             }
         -> sharedModel
@@ -37,10 +37,10 @@ type alias SharedTemplate msg sharedModel sharedData mappedMsg =
         -> View mappedMsg
         -> { body : List (Html mappedMsg), title : String }
     , data : BackendTask.BackendTask FatalError sharedData
-    , subscriptions : Path -> sharedModel -> Sub msg
+    , subscriptions : UrlPath -> sharedModel -> Sub msg
     , onPageChange :
         Maybe
-            ({ path : Path
+            ({ path : UrlPath
              , query : Maybe String
              , fragment : Maybe String
              }

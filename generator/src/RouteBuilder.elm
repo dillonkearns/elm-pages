@@ -100,7 +100,7 @@ import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Transition
 import PagesMsg exposing (PagesMsg)
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 import Server.Request
 import Server.Response
 import Shared
@@ -122,7 +122,7 @@ type alias StatefulRoute routeParams data action model msg =
         -> List Head.Tag
     , init : Shared.Model -> App data action routeParams -> ( model, Effect msg )
     , update : App data action routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
-    , subscriptions : routeParams -> Path -> model -> Shared.Model -> Sub msg
+    , subscriptions : routeParams -> UrlPath -> model -> Shared.Model -> Sub msg
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> BackendTask FatalError (Maybe NotFoundReason)
     , kind : String
     , onAction : Maybe (action -> msg)
@@ -139,7 +139,7 @@ type alias App data action routeParams =
     { data : data
     , sharedData : Shared.Data
     , routeParams : routeParams
-    , path : Path
+    , path : UrlPath
     , url : Maybe PageUrl
     , action : Maybe action
     , submit :
@@ -213,7 +213,7 @@ buildWithLocalState :
         -> View (PagesMsg msg)
     , init : App data action routeParams -> Shared.Model -> ( model, Effect msg )
     , update : App data action routeParams -> Shared.Model -> msg -> model -> ( model, Effect msg )
-    , subscriptions : routeParams -> Path -> Shared.Model -> model -> Sub msg
+    , subscriptions : routeParams -> UrlPath -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data action
     -> StatefulRoute routeParams data action model msg
@@ -253,7 +253,7 @@ buildWithSharedState :
         -> View (PagesMsg msg)
     , init : App data action routeParams -> Shared.Model -> ( model, Effect msg )
     , update : App data action routeParams -> Shared.Model -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
-    , subscriptions : routeParams -> Path -> Shared.Model -> model -> Sub msg
+    , subscriptions : routeParams -> UrlPath -> Shared.Model -> model -> Sub msg
     }
     -> Builder routeParams data action
     -> StatefulRoute routeParams data action model msg

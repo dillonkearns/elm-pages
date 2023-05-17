@@ -15,10 +15,10 @@ import Gen.CodeGen.Generate exposing (Error)
 import Gen.Html
 import Gen.Html.Attributes
 import Gen.List
-import Gen.Path
 import Gen.Server.Response
 import Gen.String
 import Gen.Tuple
+import Gen.UrlPath
 import GenerateMain
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import Pretty
@@ -77,7 +77,7 @@ file templates basePath =
             Elm.Declare.fn "toPath"
                 ( "route", Elm.Annotation.named [] "Route" |> Just )
                 (\route ->
-                    Gen.Path.call_.fromString
+                    Gen.UrlPath.call_.fromString
                         (Gen.String.call_.join
                             (Elm.string "/")
                             (Elm.Op.append
@@ -85,7 +85,7 @@ file templates basePath =
                                 (routeToPathFn.call route)
                             )
                         )
-                        |> Elm.withType (Elm.Annotation.named [ "Path" ] "Path")
+                        |> Elm.withType (Elm.Annotation.named [ "UrlPath" ] "UrlPath")
                 )
 
         baseUrlAsPath : { declaration : Elm.Declaration, reference : Elm.Expression, referenceFrom : List String -> Elm.Expression }
@@ -140,7 +140,7 @@ file templates basePath =
         toString =
             Elm.Declare.fn "toString"
                 ( "route", Elm.Annotation.named [] "Route" |> Just )
-                (\route -> Gen.Path.toAbsolute (toPath.call route) |> Elm.withType Elm.Annotation.string)
+                (\route -> Gen.UrlPath.toAbsolute (toPath.call route) |> Elm.withType Elm.Annotation.string)
 
         redirectTo : Elm.Declaration
         redirectTo =
@@ -243,7 +243,7 @@ file templates basePath =
 splitPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
 splitPath =
     Elm.Declare.fn "splitPath"
-        ( "path", Just Gen.Path.annotation_.path )
+        ( "path", Just Gen.UrlPath.annotation_.urlPath )
         (\path ->
             Gen.List.call_.filter
                 (Elm.fn ( "item", Just Elm.Annotation.string )

@@ -29,11 +29,11 @@ import Gen.Pages.Internal.RoutePattern
 import Gen.Pages.PageUrl
 import Gen.Pages.Transition
 import Gen.PagesMsg
-import Gen.Path
 import Gen.Server.Response
 import Gen.String
 import Gen.Tuple
 import Gen.Url
+import Gen.UrlPath
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import String.Case
 
@@ -245,7 +245,7 @@ otherFile routes phaseString =
                 , ( "transition", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
                 , ( "page"
                   , Type.record
-                        [ ( "path", Type.named [ "Path" ] "Path" )
+                        [ ( "path", Type.named [ "UrlPath" ] "UrlPath" )
                         , ( "route", Type.maybe (Type.named [ "Route" ] "Route") )
                         ]
                         |> Just
@@ -511,7 +511,7 @@ otherFile routes phaseString =
         subscriptions =
             Elm.Declare.fn3 "subscriptions"
                 ( "route", Type.named [ "Route" ] "Route" |> Type.maybe |> Just )
-                ( "path", Type.named [ "Path" ] "Path" |> Just )
+                ( "path", pathType |> Just )
                 ( "model", Type.named [] "Model" |> Just )
                 (\route path model ->
                     subBatch
@@ -580,7 +580,7 @@ otherFile routes phaseString =
         templateSubscriptions =
             Elm.Declare.fn3 "templateSubscriptions"
                 ( "route", Type.maybe (Type.named [ "Route" ] "Route") |> Just )
-                ( "path", Type.named [ "Path" ] "Path" |> Just )
+                ( "path", pathType |> Just )
                 ( "model", Type.named [] "Model" |> Just )
                 (\maybeRoute path model ->
                     Elm.Case.maybe maybeRoute
@@ -738,7 +738,7 @@ otherFile routes phaseString =
                 , Type.record
                     [ ( "path"
                       , Type.record
-                            [ ( "path", Type.named [ "Path" ] "Path" )
+                            [ ( "path", pathType )
                             , ( "query", Type.string |> Type.maybe )
                             , ( "fragment", Type.string |> Type.maybe )
                             ]
@@ -1691,7 +1691,7 @@ otherFile routes phaseString =
                                                 }
                                             )
                                             [ route_ ]
-                                            |> Gen.Path.toAbsolute
+                                            |> Gen.UrlPath.toAbsolute
                                     )
                                 )
                             )
@@ -2011,7 +2011,7 @@ otherFile routes phaseString =
                         (Type.record
                             [ ( "path"
                               , Type.record
-                                    [ ( "path", Type.named [ "Path" ] "Path" )
+                                    [ ( "path", Type.named [ "UrlPath" ] "UrlPath" )
                                     , ( "query", Type.string |> Type.maybe )
                                     , ( "fragment", Type.string |> Type.maybe )
                                     ]
@@ -2258,7 +2258,7 @@ todo =
 
 pathType : Type.Annotation
 pathType =
-    Type.named [ "Path" ] "Path"
+    Type.named [ "UrlPath" ] "UrlPath"
 
 
 routePatternToExpression : RoutePattern -> Elm.Expression

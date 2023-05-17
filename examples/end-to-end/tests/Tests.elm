@@ -2,6 +2,7 @@ module Tests exposing (suite)
 
 import Effect exposing (Effect)
 import Expect
+import FatalError
 import Json.Decode as Decode
 import PagesTest
 import ProgramTest
