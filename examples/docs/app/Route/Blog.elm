@@ -9,13 +9,13 @@ import Head.Seo as Seo
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Pages.Url
-import Path
 import Route exposing (Route)
 import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import Tailwind.Breakpoints as Bp
 import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
+import UrlPath
 import View exposing (View)
 
 
@@ -166,7 +166,7 @@ head app =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages"
         , image =
-            { url = [ "images", "icon-png.png" ] |> Path.join |> Pages.Url.fromPath
+            { url = [ "images", "icon-png.png" ] |> UrlPath.join |> Pages.Url.fromPath
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing

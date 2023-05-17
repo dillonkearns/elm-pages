@@ -45,6 +45,30 @@ type alias Handler error combined =
     Form.Handler.Handler error (BackendTask FatalError (Validation error combined Never Never))
 
 
+
+--init :
+--    (parsed -> combined)
+--    -> FormWithServerValidations error parsed input view
+--    -> Handler error combined
+--init mapFn form =
+--    Form.Handler.init
+--        (\something ->
+--            let
+--                foo : parsed
+--                foo =
+--                    something
+--
+--                goal : BackendTask FatalError (Validation error combined Never Never)
+--                goal =
+--                    Debug.todo ""
+--            in
+--            --Form.Validation.map (BackendTask.map (mapFn something))
+--            --Debug.todo ""
+--            goal
+--        )
+--        form
+
+
 {-| -}
 type Strategy
     = Parallel

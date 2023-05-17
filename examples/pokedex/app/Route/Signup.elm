@@ -16,13 +16,13 @@ import Http
 import MySession
 import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Path exposing (Path)
 import Route
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -193,7 +193,7 @@ update app shared msg model =
             ( model, Effect.none )
 
 
-subscriptions : RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
 subscriptions routeParams path shared model =
     Sub.none
 

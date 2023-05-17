@@ -32,11 +32,11 @@ import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request
 import PagesMsg exposing (PagesMsg)
-import Path exposing (Path)
 import RenderRequest exposing (RenderRequest)
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
 import Url exposing (Url)
+import UrlPath exposing (UrlPath)
 
 
 {-| -}
@@ -402,7 +402,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                             { protocol = Url.Https
                             , host = site.canonicalUrl
                             , port_ = Nothing
-                            , path = serverRequestPayload.path |> Path.toRelative
+                            , path = serverRequestPayload.path |> UrlPath.toRelative
                             , query = Nothing
                             , fragment = Nothing
                             }
@@ -471,7 +471,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                             case pageData of
                                                                                 PageServerResponse.RenderPage responseInfo pageData_ ->
                                                                                     let
-                                                                                        currentPage : { path : Path, route : route }
+                                                                                        currentPage : { path : UrlPath, route : route }
                                                                                         currentPage =
                                                                                             { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
 
@@ -565,7 +565,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                                     -- TODO handle other cases besides redirects?
                                                                                                     |> Maybe.withDefault byteEncodedPageData
                                                                                                     |> (\encodedData ->
-                                                                                                            { route = currentPage.path |> Path.toRelative
+                                                                                                            { route = currentPage.path |> UrlPath.toRelative
                                                                                                             , contentJson = Dict.empty
                                                                                                             , html = viewValue.body |> bodyToString
                                                                                                             , errors = []
@@ -615,7 +615,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
 
                                                                                 PageServerResponse.ErrorPage error record ->
                                                                                     let
-                                                                                        currentPage : { path : Path, route : route }
+                                                                                        currentPage : { path : UrlPath, route : route }
                                                                                         currentPage =
                                                                                             { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
 
@@ -651,7 +651,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                         |> Bytes.Encode.encode
                                                                                     )
                                                                                         |> (\encodedData ->
-                                                                                                { route = currentPage.path |> Path.toRelative
+                                                                                                { route = currentPage.path |> UrlPath.toRelative
                                                                                                 , contentJson = Dict.empty
                                                                                                 , html = viewValue.body |> bodyToString
                                                                                                 , errors = []
@@ -743,7 +743,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                 )
                                                                                 |> Tuple.first
 
-                                                                        currentPage : { path : Path, route : route }
+                                                                        currentPage : { path : UrlPath, route : route }
                                                                         currentPage =
                                                                             { path = serverRequestPayload.path, route = urlToRoute config currentUrl }
 
@@ -752,7 +752,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                             (config.view Dict.empty Dict.empty Nothing currentPage Nothing justSharedData dataThing Nothing |> .view)
                                                                                 pageModel
                                                                     in
-                                                                    { route = Path.toAbsolute currentPage.path
+                                                                    { route = UrlPath.toAbsolute currentPage.path
                                                                     , contentJson = Dict.empty
                                                                     , html = viewValue.body |> bodyToString
                                                                     , errors = []
@@ -797,7 +797,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                         -- TODO do I need sharedDataResult here?
                                         Nothing
                                         isDevServer
-                                        (Path.fromString path)
+                                        (UrlPath.fromString path)
                                         NotFoundReason.NoMatchingRoute
                          --Err error ->
                          --    [ error ]
@@ -909,7 +909,7 @@ render404Page :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Maybe sharedData
     -> Bool
-    -> Path
+    -> UrlPath
     -> NotFoundReason
     -> Effect
 render404Page config sharedData isDevServer path notFoundReason =
@@ -940,7 +940,7 @@ render404Page config sharedData isDevServer path notFoundReason =
                 pageData =
                     config.errorPageToData config.notFoundPage
 
-                pathAndRoute : { path : Path, route : route }
+                pathAndRoute : { path : UrlPath, route : route }
                 pathAndRoute =
                     { path = path, route = config.notFoundRoute }
 
@@ -958,7 +958,7 @@ render404Page config sharedData isDevServer path notFoundReason =
                     )
                         pageModel
             in
-            { route = Path.toAbsolute path
+            { route = UrlPath.toAbsolute path
             , contentJson = Dict.empty
             , html = viewValue.body |> bodyToString
             , errors = []
@@ -987,7 +987,7 @@ render404Page config sharedData isDevServer path notFoundReason =
                     }
                         |> NotFoundReason.document config.pathPatterns
             in
-            { route = Path.toAbsolute path
+            { route = UrlPath.toAbsolute path
             , contentJson = Dict.empty
             , html = bodyToString notFoundDocument.body
             , errors = []
@@ -1021,7 +1021,7 @@ urlToRoute config url =
 
 toRedirectResponse :
     ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
-    -> { b | path : Path }
+    -> { b | path : UrlPath }
     -> RenderRequest.IncludeHtml
     -> { c | headers : List ( String, String ), statusCode : Int }
     -> { response | statusCode : Int, headers : List ( String, String ) }
@@ -1044,7 +1044,7 @@ toRedirectResponse config serverRequestPayload includeHtml serverResponse respon
                             |> Bytes.Encode.encode
                         )
                 in
-                { route = serverRequestPayload.path |> Path.toRelative
+                { route = serverRequestPayload.path |> UrlPath.toRelative
                 , contentJson = Dict.empty
                 , html = "This is intentionally blank HTML"
                 , errors = []

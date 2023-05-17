@@ -15,8 +15,8 @@ module Pages.Transition exposing
 -}
 
 import Form
-import Path exposing (Path)
 import Time
+import UrlPath exposing (UrlPath)
 
 
 {-| -}
@@ -31,8 +31,8 @@ type alias FormData =
 {-| -}
 type Transition
     = Submitting FormData
-    | LoadAfterSubmit FormData Path LoadingState
-    | Loading Path LoadingState
+    | LoadAfterSubmit FormData UrlPath LoadingState
+    | Loading UrlPath LoadingState
 
 
 {-| -}

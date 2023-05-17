@@ -8,12 +8,12 @@ import Head
 import Head.Seo as Seo
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import Path exposing (Path)
 import Route
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -81,7 +81,7 @@ update app shared msg model =
             ( model, Effect.none )
 
 
-subscriptions : RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
 subscriptions routeParams path sharedModel model =
     Sub.none
 

@@ -37,11 +37,11 @@ import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
 import Pages.Transition
 import PagesMsg exposing (PagesMsg)
-import Path exposing (Path)
 import QueryParams
 import Task
 import Time
 import Url exposing (Url)
+import UrlPath exposing (UrlPath)
 
 
 {-| -}
@@ -75,7 +75,7 @@ mainView config model =
                     (config.view model.pageFormState
                         (model.inFlightFetchers |> toFetcherState)
                         (model.transition |> Maybe.map Tuple.second)
-                        { path = ContentCache.pathForUrl urls |> Path.join
+                        { path = ContentCache.pathForUrl urls |> UrlPath.join
                         , route = config.urlToRoute { currentUrl | path = model.currentPath }
                         }
                         Nothing
@@ -95,14 +95,14 @@ mainView config model =
 
 urlsToPagePath :
     { currentUrl : Url, basePath : List String }
-    -> Path
+    -> UrlPath
 urlsToPagePath urls =
     urls.currentUrl.path
         |> String.chopForwardSlashes
         |> String.split "/"
         |> List.filter ((/=) "")
         |> List.drop (List.length urls.basePath)
-        |> Path.join
+        |> UrlPath.join
 
 
 {-| -}
@@ -144,7 +144,7 @@ type alias Flags =
 
 type InitKind shared page actionData errorPage
     = OkPage shared page (Maybe actionData)
-    | NotFound { reason : NotFoundReason, path : Path }
+    | NotFound { reason : NotFoundReason, path : UrlPath }
 
 
 {-| -}
@@ -198,7 +198,7 @@ init config flags url key =
                     , basePath = config.basePath
                     }
 
-                pagePath : Path
+                pagePath : UrlPath
                 pagePath =
                     urlsToPagePath urls
 
@@ -338,7 +338,7 @@ type alias Model userModel pageData actionData sharedData =
             , sharedData : sharedData
             , actionData : Maybe actionData
             }
-    , notFound : Maybe { reason : NotFoundReason, path : Path }
+    , notFound : Maybe { reason : NotFoundReason, path : UrlPath }
     , userFlags : Decode.Value
     , transition : Maybe ( Int, Pages.Transition.Transition )
     , nextTransitionKey : Int
@@ -797,7 +797,7 @@ update config appMsg model =
                                     , basePath = config.basePath
                                     }
 
-                                pagePath : Path
+                                pagePath : UrlPath
                                 pagePath =
                                     urlsToPagePath urls
 
@@ -1050,7 +1050,7 @@ startFetcher fetcherKey transitionId options model =
             , tracker = Nothing
             , body = Http.stringBody "application/x-www-form-urlencoded" encodedBody
             , headers = options.headers |> List.map (\( name, value ) -> Http.header name value)
-            , url = options.url |> Maybe.withDefault (Path.join [ model.url.path, "content.dat" ] |> Path.toAbsolute)
+            , url = options.url |> Maybe.withDefault (UrlPath.join [ model.url.path, "content.dat" ] |> UrlPath.toAbsolute)
             , method = "POST"
             , timeout = Nothing
             }
@@ -1129,7 +1129,7 @@ startFetcher2 config fromPageReload fetcherKey transitionId formData model =
             , headers = []
 
             -- TODO use formData.method to do either query params or POST body
-            , url = formData.action |> Url.fromString |> Maybe.map (\{ path } -> Path.join [ path, "content.dat" ] |> Path.toAbsolute) |> Maybe.withDefault "/"
+            , url = formData.action |> Url.fromString |> Maybe.map (\{ path } -> UrlPath.join [ path, "content.dat" ] |> UrlPath.toAbsolute) |> Maybe.withDefault "/"
             , method = formData.method |> methodToString
             , timeout = Nothing
             }
@@ -1207,7 +1207,7 @@ application config =
                         in
                         Sub.batch
                             [ config.subscriptions (model.url |> config.urlToRoute)
-                                (urls.currentUrl |> config.urlToRoute |> config.routeToPath |> Path.join)
+                                (urls.currentUrl |> config.urlToRoute |> config.routeToPath |> UrlPath.join)
                                 pageData.userModel
                                 |> Sub.map (Pages.Internal.Msg.UserMsg >> UserMsg)
                             , config.hotReloadData
@@ -1256,9 +1256,9 @@ withUserMsg config userMsg ( model, effect ) =
             ( model, effect )
 
 
-urlPathToPath : Url -> Path
+urlPathToPath : Url -> UrlPath
 urlPathToPath urls =
-    urls.path |> Path.fromString
+    urls.path |> UrlPath.fromString
 
 
 fetchRouteData :
@@ -1421,18 +1421,18 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
                 Just ( _, Pages.Transition.LoadAfterSubmit submitData _ _ ) ->
                     Pages.Transition.LoadAfterSubmit
                         submitData
-                        (urlToGet.path |> Path.fromString)
+                        (urlToGet.path |> UrlPath.fromString)
                         Pages.Transition.Load
 
                 Just ( _, Pages.Transition.Submitting submitData ) ->
                     Pages.Transition.LoadAfterSubmit
                         submitData
-                        (urlToGet.path |> Path.fromString)
+                        (urlToGet.path |> UrlPath.fromString)
                         Pages.Transition.Load
 
                 _ ->
                     Pages.Transition.Loading
-                        (urlToGet.path |> Path.fromString)
+                        (urlToGet.path |> UrlPath.fromString)
                         Pages.Transition.Load
             )
                 |> Just

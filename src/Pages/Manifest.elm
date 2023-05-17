@@ -77,7 +77,7 @@ import LanguageTag.Language
 import MimeType
 import Pages.Manifest.Category as Category exposing (Category)
 import Pages.Url
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 
 
 
@@ -114,7 +114,7 @@ type Orientation
 init :
     { description : String
     , name : String
-    , startUrl : Path
+    , startUrl : UrlPath
     , icons : List Icon
     }
     -> Config
@@ -253,7 +253,7 @@ type alias Config =
     , themeColor : Maybe Color
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/start_url
-    , startUrl : Path
+    , startUrl : UrlPath
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
@@ -446,7 +446,7 @@ toJson canonicalSiteUrl config =
             |> Maybe.map Encode.string
       )
     , ( "start_url"
-      , Path.toAbsolute config.startUrl
+      , UrlPath.toAbsolute config.startUrl
             |> Encode.string
             |> Just
       )

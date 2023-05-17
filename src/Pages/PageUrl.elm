@@ -13,9 +13,9 @@ the query params are parsed into a `Dict String (List String)`.
 -}
 
 import Dict exposing (Dict)
-import Path exposing (Path)
 import QueryParams
 import Url
+import UrlPath exposing (UrlPath)
 
 
 {-| -}
@@ -23,7 +23,7 @@ type alias PageUrl =
     { protocol : Url.Protocol
     , host : String
     , port_ : Maybe Int
-    , path : Path
+    , path : UrlPath
     , query : Dict String (List String)
     , fragment : Maybe String
     }
@@ -35,7 +35,7 @@ toUrl url =
     { protocol = url.protocol
     , host = url.host
     , port_ = url.port_
-    , path = url.path |> Path.toRelative
+    , path = url.path |> UrlPath.toRelative
     , query =
         if url.query |> Dict.isEmpty then
             Nothing

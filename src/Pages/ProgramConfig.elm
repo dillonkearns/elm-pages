@@ -25,8 +25,8 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.Transition
 import PagesMsg exposing (PagesMsg)
-import Path exposing (Path)
 import Url exposing (Url)
+import UrlPath exposing (UrlPath)
 
 
 type alias ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage =
@@ -38,7 +38,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         ->
             Maybe
                 { path :
-                    { path : Path
+                    { path : UrlPath
                     , query : Maybe String
                     , fragment : Maybe String
                     }
@@ -47,7 +47,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
                 }
         -> ( userModel, effect )
     , update : Form.Model -> Dict String (Pages.Transition.FetcherState actionData) -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
-    , subscriptions : route -> Path -> userModel -> Sub userMsg
+    , subscriptions : route -> UrlPath -> userModel -> Sub userMsg
     , sharedData : BackendTask FatalError sharedData
     , data : Decode.Value -> route -> BackendTask FatalError (PageServerResponse pageData errorPage)
     , action : Decode.Value -> route -> BackendTask FatalError (PageServerResponse actionData errorPage)
@@ -57,7 +57,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> Dict String (Pages.Transition.FetcherState actionData)
         -> Maybe Pages.Transition.Transition
         ->
-            { path : Path
+            { path : UrlPath
             , route : route
             }
         -> Maybe PageUrl
@@ -81,7 +81,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         { protocol : Url.Protocol
         , host : String
         , port_ : Maybe Int
-        , path : Path
+        , path : UrlPath
         , query : Maybe String
         , fragment : Maybe String
         , metadata : route

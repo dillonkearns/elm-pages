@@ -17,12 +17,12 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.PageUrl
 import PagesMsg exposing (PagesMsg)
-import Path
 import Platform.Sub
 import RouteBuilder
 import Server.Request
 import Server.Response
 import Shared
+import UrlPath
 import View
 
 
@@ -71,7 +71,7 @@ update app shared msg model =
 
 subscriptions :
     RouteParams
-    -> Path.Path
+    -> UrlPath.UrlPath
     -> Shared.Model
     -> Model
     -> Sub Msg

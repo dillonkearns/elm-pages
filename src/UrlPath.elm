@@ -1,5 +1,5 @@
-module Path exposing
-    ( Path, join, fromString
+module UrlPath exposing
+    ( UrlPath, join, fromString
     , toAbsolute, toRelative, toSegments
     )
 
@@ -9,27 +9,27 @@ This helper lets you combine together path parts without worrying about having t
 These two examples will result in the same URL, even though the first example has trailing and leading slashes, and the
 second does not.
 
-    Path.join [ "/blog/", "/post-1/" ]
-        |> Path.toAbsolute
+    UrlPath.join [ "/blog/", "/post-1/" ]
+        |> UrlPath.toAbsolute
     --> "/blog/post-1"
 
-    Path.join [ "blog", "post-1" ]
-        |> Path.toAbsolute
+    UrlPath.join [ "blog", "post-1" ]
+        |> UrlPath.toAbsolute
     --> "/blog/post-1"
 
 We can also safely join Strings that include multiple path parts, a single path part per string, or a mix of the two:
 
-    Path.join [ "/articles/archive/", "1977", "06", "10", "post-1" ]
-        |> Path.toAbsolute
+    UrlPath.join [ "/articles/archive/", "1977", "06", "10", "post-1" ]
+        |> UrlPath.toAbsolute
     --> "/articles/archive/1977/06/10/post-1"
 
 
-## Creating Paths
+## Creating UrlPaths
 
-@docs Path, join, fromString
+@docs UrlPath, join, fromString
 
 
-## Turning Paths to String
+## Turning UrlPaths to String
 
 @docs toAbsolute, toRelative, toSegments
 
@@ -40,35 +40,35 @@ import Pages.Internal.String exposing (chopEnd, chopStart)
 
 {-| The path portion of the URL, normalized to ensure that path segments are joined with `/`s in the right places (no doubled up or missing slashes).
 -}
-type alias Path =
+type alias UrlPath =
     List String
 
 
 {-| Turn a Path to a relative URL.
 -}
-join : Path -> Path
+join : UrlPath -> UrlPath
 join parts =
     parts
         |> List.filter (\segment -> segment /= "/")
         |> List.map normalize
 
 
-{-| Turn a Path to a relative URL.
+{-| Turn a UrlPath to a relative URL.
 -}
-toRelative : Path -> String
+toRelative : UrlPath -> String
 toRelative parts =
     join parts
         |> String.join "/"
 
 
-{-| Create a Path from a path String.
+{-| Create a UrlPath from a path String.
 
-    Path.fromString "blog/post-1/"
-        |> Path.toAbsolute
+    UrlPath.fromString "blog/post-1/"
+        |> UrlPath.toAbsolute
         |> Expect.equal "/blog/post-1"
 
 -}
-fromString : String -> Path
+fromString : String -> UrlPath
 fromString path =
     path
         |> toSegments
@@ -80,9 +80,9 @@ toSegments path =
     path |> String.split "/" |> List.filter ((/=) "")
 
 
-{-| Turn a Path to an absolute URL (with no trailing slash).
+{-| Turn a UrlPath to an absolute URL (with no trailing slash).
 -}
-toAbsolute : Path -> String
+toAbsolute : UrlPath -> String
 toAbsolute path =
     "/" ++ toRelative path
 

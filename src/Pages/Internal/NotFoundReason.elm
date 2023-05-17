@@ -9,7 +9,7 @@ module Pages.Internal.NotFoundReason exposing (ModuleContext, NotFoundReason(..)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages.Internal.RoutePattern exposing (RoutePattern)
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 
 
 {-| -}
@@ -22,7 +22,7 @@ type alias ModuleContext =
 
 {-| -}
 type alias Payload =
-    { path : Path
+    { path : UrlPath
     , reason : NotFoundReason
     }
 
@@ -58,7 +58,7 @@ document pathPatterns payload =
                     , Html.code []
                         [ Html.text
                             (payload.path
-                                |> Path.toAbsolute
+                                |> UrlPath.toAbsolute
                             )
                         ]
                     , Html.text " Did you mean to go to one of these routes:"
@@ -85,7 +85,7 @@ document pathPatterns payload =
                     , Html.code []
                         [ Html.text
                             (payload.path
-                                |> Path.toAbsolute
+                                |> UrlPath.toAbsolute
                             )
                         ]
                     , Html.text " successfully matched the route "

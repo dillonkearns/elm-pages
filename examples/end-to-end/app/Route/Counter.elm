@@ -10,9 +10,9 @@ import Http
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import Path exposing (Path)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -74,7 +74,7 @@ update app shared msg model =
             ( model, Effect.none )
 
 
-subscriptions : RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
 subscriptions routeParams path sharedModel model =
     Sub.none
 

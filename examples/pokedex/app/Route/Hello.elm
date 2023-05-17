@@ -11,12 +11,12 @@ import Html
 import Http
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import Path exposing (Path)
 import Route.Signup
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -88,7 +88,7 @@ update app shared msg model =
             )
 
 
-subscriptions : RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
 subscriptions routeParams path shared model =
     Sub.none
 

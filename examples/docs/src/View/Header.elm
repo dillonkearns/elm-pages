@@ -4,15 +4,15 @@ import Css
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Html.Styled.Events
-import Path exposing (Path)
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Breakpoints as Bp
 import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
+import UrlPath exposing (UrlPath)
 
 
-view : msg -> Int -> Path -> Html msg
+view : msg -> Int -> UrlPath -> Html msg
 view toggleMobileMenuMsg stars currentPath =
     nav
         [ css
@@ -135,7 +135,7 @@ view toggleMobileMenuMsg stars currentPath =
         ]
 
 
-headerLink : Path -> String -> String -> Html msg
+headerLink : UrlPath -> String -> String -> Html msg
 headerLink currentPagePath linkTo name =
     a
         [ Attr.href ("/" ++ linkTo)
@@ -144,7 +144,7 @@ headerLink currentPagePath linkTo name =
         [ linkInner currentPagePath linkTo name ]
 
 
-linkInner : Path -> String -> String -> Html msg
+linkInner : UrlPath -> String -> String -> Html msg
 linkInner currentPagePath linkTo name =
     let
         isCurrentPath : Bool

@@ -18,7 +18,6 @@ import Markdown.Renderer
 import MarkdownCodec
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import Path
 import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import SiteOld
@@ -27,6 +26,7 @@ import Tailwind.Breakpoints as Bp
 import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
+import UrlPath
 import View exposing (View)
 
 
@@ -194,7 +194,7 @@ head app =
             , description = metadata.description
             , author = StructuredData.person { name = Author.dillon.name }
             , publisher = StructuredData.person { name = Author.dillon.name }
-            , url = SiteOld.canonicalUrl ++ Path.toAbsolute app.path
+            , url = SiteOld.canonicalUrl ++ UrlPath.toAbsolute app.path
             , imageUrl = metadata.image
             , datePublished = Date.toIsoString metadata.published
             , mainEntityOfPage =

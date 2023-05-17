@@ -12,7 +12,7 @@ If you refer to a local page, like `Route.Index |> Route.toPath |> Pages.Url.fro
 -}
 
 import Pages.Internal.String as String
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 
 
 {-| -}
@@ -22,9 +22,9 @@ type Url
 
 
 {-| -}
-fromPath : Path -> Url
+fromPath : UrlPath -> Url
 fromPath path =
-    path |> Path.toAbsolute |> Internal
+    path |> UrlPath.toAbsolute |> Internal
 
 
 {-| -}
