@@ -60,7 +60,7 @@ noteTitle filePath =
                             |> BackendTask.andThen
                                 (\rawContent ->
                                     Markdown.Parser.parse rawContent
-                                        |> Result.mapError (\_ -> "Markdown error")
+                                        |> Result.mapError (\_ -> FatalError.fromString "Markdown error")
                                         |> Result.map
                                             (\blocks ->
                                                 List.Extra.findMap
@@ -76,9 +76,8 @@ noteTitle filePath =
                                             )
                                         |> Result.andThen
                                             (Result.fromMaybe <|
-                                                ("Expected to find an H1 heading for page " ++ filePath)
+                                                FatalError.fromString ("Expected to find an H1 heading for page " ++ filePath)
                                             )
-                                        |> Result.mapError FatalError.fromString
                                         |> BackendTask.fromResult
                                 )
                         )
@@ -106,7 +105,7 @@ titleAndDescription filePath =
                             |> BackendTask.andThen
                                 (\rawContent ->
                                     Markdown.Parser.parse rawContent
-                                        |> Result.mapError (\_ -> "Markdown error")
+                                        |> Result.mapError (\_ -> FatalError.fromString "Markdown error")
                                         |> Result.map
                                             (\blocks ->
                                                 Maybe.map
@@ -129,8 +128,7 @@ titleAndDescription filePath =
                                                             findH1 blocks
                                                     )
                                             )
-                                        |> Result.andThen (Result.fromMaybe <| "Expected to find an H1 heading for page " ++ filePath)
-                                        |> Result.mapError FatalError.fromString
+                                        |> Result.andThen (Result.fromMaybe <| FatalError.fromString <| "Expected to find an H1 heading for page " ++ filePath)
                                         |> BackendTask.fromResult
                                 )
                         )
