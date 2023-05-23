@@ -18,7 +18,7 @@ import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as Request
-import Path
+import UrlPath
 import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
@@ -478,7 +478,7 @@ startLowLevel apiRoutes _ pages =
                 (RenderRequest.SinglePage
                     RenderRequest.OnlyJson
                     (RenderRequest.Page
-                        { path = Path.fromString (pageToLoad |> String.join "/")
+                        { path = UrlPath.fromString (pageToLoad |> String.join "/")
                         , frontmatter = Route (pageToLoad |> String.join "/")
                         }
                     )
@@ -628,7 +628,7 @@ startWithRoutes pageToLoad _ _ pages =
                 (RenderRequest.SinglePage
                     RenderRequest.OnlyJson
                     (RenderRequest.Page
-                        { path = Path.fromString (pageToLoad |> String.join "/")
+                        { path = UrlPath.fromString (pageToLoad |> String.join "/")
                         , frontmatter = Route (pageToLoad |> String.join "/")
                         }
                     )
