@@ -267,7 +267,6 @@ view app shared =
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                Pages.Form.Serial
                 (Form.options "test1"
                     |> Form.withInput defaultUser
                 )

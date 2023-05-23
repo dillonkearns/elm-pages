@@ -497,13 +497,13 @@ view app shared model =
                         [ class "create-form"
                         , hidden (not (List.isEmpty failedAddItemActions))
                         ]
-                        Pages.Form.Parallel
                         (Form.options
                             ("new-item-"
                                 ++ (model.nextId |> Time.posixToMillis |> String.fromInt)
                             )
                             |> Form.withInput Nothing
                             |> Form.withOnSubmit (\_ -> NewItemSubmitted)
+                            |> Pages.Form.withConcurrent
                         )
                         app
                 , div []
@@ -513,10 +513,10 @@ view app shared model =
                                 addItemForm
                                     |> Pages.Form.renderHtml
                                         [ class "create-form", hidden (index /= 0) ]
-                                        Pages.Form.Parallel
                                         (Form.options key
                                             |> Form.withOnSubmit (\_ -> NewItemSubmitted)
                                             |> Form.withInput (Just createFetcherErrors)
+                                            |> Pages.Form.withConcurrent
                                         )
                                         app
                             )
@@ -737,9 +737,9 @@ viewEntries app visibility entries =
         ]
         [ toggleAllForm
             |> Pages.Form.renderHtml []
-                Pages.Form.Parallel
                 (Form.options "toggle-all"
                     |> Form.withInput { allCompleted = allCompleted }
+                    |> Pages.Form.withConcurrent
                 )
                 app
         , Keyed.ul [ class "todo-list" ] <|
@@ -767,17 +767,17 @@ viewEntry app todo =
             [ class "view" ]
             [ checkItemForm
                 |> Pages.Form.renderHtml []
-                    Pages.Form.Parallel
                     (("toggle-" ++ todo.id)
                         |> Form.options
                         |> Form.withInput todo
+                        |> Pages.Form.withConcurrent
                     )
                     app
             , editItemForm
                 |> Pages.Form.renderHtml []
-                    Pages.Form.Parallel
                     (Form.options ("edit-" ++ todo.id)
                         |> Form.withInput todo
+                        |> Pages.Form.withConcurrent
                     )
                     app
             , if todo.isSaving then
@@ -786,9 +786,9 @@ viewEntry app todo =
               else
                 deleteItemForm
                     |> Pages.Form.renderHtml []
-                        Pages.Form.Parallel
                         (Form.options ("delete-" ++ todo.id)
                             |> Form.withInput todo
+                            |> Pages.Form.withConcurrent
                         )
                         app
             ]
@@ -881,9 +881,9 @@ viewControlsClear : App Data ActionData RouteParams -> Int -> Html (PagesMsg Msg
 viewControlsClear app entriesCompleted =
     clearCompletedForm
         |> Pages.Form.renderHtml []
-            Pages.Form.Parallel
             (Form.options "clear-completed"
                 |> Form.withInput { entriesCompleted = entriesCompleted }
+                |> Pages.Form.withConcurrent
             )
             app
 

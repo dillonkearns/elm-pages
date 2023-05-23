@@ -222,7 +222,6 @@ view app shared =
         , form
             |> Pages.Form.renderStyledHtml
                 []
-                Pages.Form.Serial
                 (Form.options "form"
                     |> Form.withServerResponse (app.action |> Maybe.map .errors)
                 )

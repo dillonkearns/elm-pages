@@ -703,7 +703,6 @@ view app model sharedModel =
                 , form
                     |> Pages.Form.renderStyledHtml
                         []
-                        Pages.Form.Serial
                         (Form.options "test"
                             |> Form.withServerResponse
                                 (app.action |> Maybe.andThen .formResponse)

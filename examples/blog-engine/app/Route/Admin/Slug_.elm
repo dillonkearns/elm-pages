@@ -153,7 +153,6 @@ view app shared model =
         [ Html.h2 [] [ Html.text "Form" ]
         , form
             |> Pages.Form.renderHtml []
-                Pages.Form.Serial
                 (Form.options "form"
                     |> Form.withInput app.data.post
                     |> Form.withServerResponse
@@ -166,7 +165,6 @@ view app shared model =
           else
             deleteForm
                 |> Pages.Form.renderHtml []
-                    Pages.Form.Serial
                     (Form.options "delete")
                     app
         ]

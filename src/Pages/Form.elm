@@ -1,13 +1,16 @@
 module Pages.Form exposing
-    ( Strategy(..), renderHtml, renderStyledHtml
+    ( renderHtml, renderStyledHtml
     , FormWithServerValidations, Handler
+    , Options, withConcurrent
     )
 
 {-|
 
-@docs Strategy, renderHtml, renderStyledHtml
+@docs renderHtml, renderStyledHtml
 
 @docs FormWithServerValidations, Handler
+
+@docs Options, withConcurrent
 
 -}
 
@@ -45,6 +48,15 @@ type alias Handler error combined =
     Form.Handler.Handler error (BackendTask FatalError (Validation error combined Never Never))
 
 
+type alias Options error parsed input msg =
+    Form.Options error parsed input msg { concurrent : Bool }
+
+
+withConcurrent : Options error parsed input msg -> Options error parsed input msg
+withConcurrent options_ =
+    { options_ | extras = Just { concurrent = True } }
+
+
 
 --init :
 --    (parsed -> combined)
@@ -78,8 +90,7 @@ type Strategy
 {-| -}
 renderHtml :
     List (Html.Attribute (PagesMsg userMsg))
-    -> Strategy
-    -> Form.Options error parsed input userMsg
+    -> Options error parsed input userMsg
     ->
         { --path : Path
           --, url : Maybe PageUrl
@@ -91,7 +102,12 @@ renderHtml :
         }
     -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Html (PagesMsg userMsg)) } parsed input
     -> Html.Html (PagesMsg userMsg)
-renderHtml attrs strategy options_ app form_ =
+renderHtml attrs options_ app form_ =
+    let
+        concurrent : Bool
+        concurrent =
+            options_.extras |> Maybe.map .concurrent |> Maybe.withDefault False
+    in
     form_
         |> Form.renderHtml
             { state = app.pageFormState
@@ -137,7 +153,7 @@ renderHtml attrs strategy options_ app form_ =
                         case submission.parsed of
                             Form.Valid _ ->
                                 Pages.Internal.Msg.Submit
-                                    { useFetcher = strategy == Parallel
+                                    { useFetcher = concurrent
                                     , action = submission.action
                                     , fields = submission.fields
                                     , method = submission.method
@@ -151,7 +167,7 @@ renderHtml attrs strategy options_ app form_ =
 
                             Form.Invalid _ _ ->
                                 Pages.Internal.Msg.Submit
-                                    { useFetcher = strategy == Parallel
+                                    { useFetcher = concurrent
                                     , action = submission.action
                                     , method = submission.method
                                     , fields = submission.fields
@@ -160,6 +176,7 @@ renderHtml attrs strategy options_ app form_ =
                                     , valid = False
                                     }
                     )
+            , extras = Nothing
             }
             attrs
 
@@ -167,8 +184,7 @@ renderHtml attrs strategy options_ app form_ =
 {-| -}
 renderStyledHtml :
     List (Html.Styled.Attribute (PagesMsg userMsg))
-    -> Strategy
-    -> Form.Options error parsed input userMsg
+    -> Options error parsed input userMsg
     ->
         { --path : Path
           --, url : Maybe PageUrl
@@ -180,7 +196,12 @@ renderStyledHtml :
         }
     -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Styled.Html (PagesMsg userMsg)) } parsed input
     -> Html.Styled.Html (PagesMsg userMsg)
-renderStyledHtml attrs strategy options_ app form_ =
+renderStyledHtml attrs options_ app form_ =
+    let
+        concurrent : Bool
+        concurrent =
+            options_.extras |> Maybe.map .concurrent |> Maybe.withDefault False
+    in
     form_
         |> Form.renderStyledHtml
             { state = app.pageFormState
@@ -226,7 +247,7 @@ renderStyledHtml attrs strategy options_ app form_ =
                         case submission.parsed of
                             Form.Valid _ ->
                                 Pages.Internal.Msg.Submit
-                                    { useFetcher = strategy == Parallel
+                                    { useFetcher = concurrent
                                     , action = submission.action
                                     , fields = submission.fields
                                     , method = submission.method
@@ -240,7 +261,7 @@ renderStyledHtml attrs strategy options_ app form_ =
 
                             Form.Invalid _ _ ->
                                 Pages.Internal.Msg.Submit
-                                    { useFetcher = strategy == Parallel
+                                    { useFetcher = concurrent
                                     , action = submission.action
                                     , fields = submission.fields
                                     , method = submission.method
@@ -249,5 +270,6 @@ renderStyledHtml attrs strategy options_ app form_ =
                                     , valid = False
                                     }
                     )
+            , extras = Nothing
             }
             attrs

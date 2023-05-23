@@ -212,9 +212,9 @@ view app shared model =
             ]
             [ form
                 |> Pages.Form.renderStyledHtml []
-                    Pages.Form.Parallel
                     (Form.options "dark-mode"
                         |> Form.withInput app.data.isDarkMode
+                        |> Pages.Form.withConcurrent
                     )
                     app
             , Html.text <|

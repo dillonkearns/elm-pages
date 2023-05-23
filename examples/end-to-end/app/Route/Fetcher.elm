@@ -240,7 +240,6 @@ view app sharedModel model =
         , form
             |> Pages.Form.renderStyledHtml
                 []
-                Pages.Form.Serial
                 (Form.options ("add-item-" ++ String.fromInt model.itemIndex)
                     |> Form.withOnSubmit (\_ -> AddItemSubmitted)
                 )
@@ -249,8 +248,9 @@ view app sharedModel model =
             [ deleteForm
                 |> Pages.Form.renderStyledHtml
                     []
-                    Pages.Form.Parallel
-                    (Form.options "delete-all")
+                    (Form.options "delete-all"
+                        |> Pages.Form.withConcurrent
+                    )
                     app
             ]
         , optimisticItems

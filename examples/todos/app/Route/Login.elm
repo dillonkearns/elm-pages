@@ -398,8 +398,9 @@ view app shared =
                                 [ Html.text <| "Hello! You are already logged in as " ++ username
                                 , logoutForm
                                     |> Pages.Form.renderHtml []
-                                        Pages.Form.Parallel
-                                        (Form.options "logout")
+                                        (Form.options "logout"
+                                            |> Pages.Form.withConcurrent
+                                        )
                                         app
                                 ]
 
@@ -408,7 +409,6 @@ view app shared =
                     ]
                 , form
                     |> Pages.Form.renderHtml []
-                        Pages.Form.Serial
                         (Form.options "login"
                             |> Form.withServerResponse (app.action |> Maybe.andThen .maybeError)
                         )

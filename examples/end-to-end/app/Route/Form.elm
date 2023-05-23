@@ -252,7 +252,6 @@ view app shared =
                 , Attr.style "flex-direction" "column"
                 , Attr.style "gap" "20px"
                 ]
-                Pages.Form.Serial
                 (Form.options "user-form"
                     |> Form.withInput defaultUser
                     |> Form.withServerResponse (app.action |> Maybe.map .formResponse)

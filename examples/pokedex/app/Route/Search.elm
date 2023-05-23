@@ -206,7 +206,6 @@ view static sharedModel model =
         , form
             |> Pages.Form.renderHtml
                 []
-                Pages.Form.Serial
                 (Form.options "test1" |> Form.withGetMethod)
                 -- TODO pass in server data
                 static

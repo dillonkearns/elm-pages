@@ -265,7 +265,6 @@ view app shared model =
         , form
             |> Pages.Form.renderHtml
                 []
-                Pages.Form.Serial
                 (Form.options "test1")
                 -- TODO pass in server data
                 app
