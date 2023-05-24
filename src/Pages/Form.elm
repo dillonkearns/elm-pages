@@ -102,7 +102,9 @@ If the request fails, the UI will be updated to reflect the failure with an anim
 The `withConcurrent` is a good fit for either of these UX patterns (Optimistic UI or Pending UI, i.e. showing a loading spinner). You can derive either of these
 visual states from the `app.concurrentSubmissions` field in your `Route` module.
 
-You can call `withConcurrent` on your `Form.Options`.
+You can call `withConcurrent` on your `Form.Options`. Note that while `withConcurrent` will allow multiple form submissions to be in flight at the same time independently,
+the ID of the Form will still have a unique submission. For example, if you click submit on a form with the ID `"edit-123"` and then submit it again before the first submission has completed,
+the second submission will cancel the first submission. So it is important to use unique IDs for forms that represent unique operations.
 
     import Form
     import Pages.Form
