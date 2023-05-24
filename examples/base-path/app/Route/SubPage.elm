@@ -10,7 +10,7 @@ import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import Path
+import UrlPath
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Shared
 import View exposing (View)
@@ -94,7 +94,7 @@ view app shared =
                     [ text "Here is the Elm logo:"
                     ]
                 , img
-                    [ Attr.src (Path.fromString "/images/elm-logo.svg" |> Path.toAbsolute)
+                    [ Attr.src (UrlPath.fromString "/images/elm-logo.svg" |> UrlPath.toAbsolute)
                     , Attr.css [ maxWidth (rem 10) ]
                     ]
                     []

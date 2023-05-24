@@ -8,7 +8,7 @@ import Html.Styled as Html exposing (text)
 import Html.Styled.Attributes as Attr
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import Path
+import UrlPath
 import Route
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Shared
@@ -77,6 +77,6 @@ view app shared =
     { title = "Index page"
     , body =
         [ text "This is the index page."
-        , Html.div [] [ Html.a [ Attr.href (Route.SubPage |> Route.toPath |> Path.toAbsolute) ] [ text "Sub Page" ] ]
+        , Html.div [] [ Html.a [ Attr.href (Route.SubPage |> Route.toPath |> UrlPath.toAbsolute) ] [ text "Sub Page" ] ]
         ]
     }
