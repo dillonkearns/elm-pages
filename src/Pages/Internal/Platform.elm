@@ -26,6 +26,7 @@ import Html.Attributes as Attr
 import Http
 import Json.Decode as Decode
 import Json.Encode
+import Pages.ConcurrentSubmission
 import Pages.ContentCache as ContentCache
 import Pages.Fetcher
 import Pages.Flags
@@ -342,7 +343,7 @@ type alias Model userModel pageData actionData sharedData =
     , userFlags : Decode.Value
     , transition : Maybe ( Int, Pages.Navigation.Navigation )
     , nextTransitionKey : Int
-    , inFlightFetchers : Dict String ( Int, Pages.Navigation.FetcherState actionData )
+    , inFlightFetchers : Dict String ( Int, Pages.ConcurrentSubmission.ConcurrentSubmission actionData )
     , pageFormState : Form.Model
     , pendingRedirect : Bool
     , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
@@ -454,9 +455,9 @@ update config appMsg model =
                                                     , { fetcherState
                                                         | status =
                                                             maybeFetcherDoneActionData
-                                                                |> Maybe.map Pages.Navigation.FetcherReloading
+                                                                |> Maybe.map Pages.ConcurrentSubmission.Reloading
                                                                 -- TODO remove this bad default, FetcherSubmitting is incorrect
-                                                                |> Maybe.withDefault Pages.Navigation.FetcherSubmitting
+                                                                |> Maybe.withDefault Pages.ConcurrentSubmission.Submitting
                                                       }
                                                     )
                                                 )
@@ -857,7 +858,7 @@ update config appMsg model =
                         |> Dict.insert fetcherKey
                             ( transitionId
                             , { payload = fetcherData
-                              , status = Pages.Navigation.FetcherSubmitting
+                              , status = Pages.ConcurrentSubmission.Submitting
                               , initiatedAt = initiatedAt
                               }
                             )
@@ -866,7 +867,7 @@ update config appMsg model =
             )
 
 
-toFetcherState : Dict String ( Int, Pages.Navigation.FetcherState actionData ) -> Dict String (Pages.Navigation.FetcherState actionData)
+toFetcherState : Dict String ( Int, Pages.ConcurrentSubmission.ConcurrentSubmission actionData ) -> Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission actionData)
 toFetcherState inFlightFetchers =
     inFlightFetchers
         |> Dict.map (\_ ( _, fetcherState ) -> fetcherState)
@@ -1143,14 +1144,14 @@ cancelStaleFetchers model =
         |> List.filterMap
             (\( _, ( id, fetcher ) ) ->
                 case fetcher.status of
-                    Pages.Navigation.FetcherReloading _ ->
+                    Pages.ConcurrentSubmission.Reloading _ ->
                         Http.cancel (String.fromInt id)
                             |> Just
 
-                    Pages.Navigation.FetcherSubmitting ->
+                    Pages.ConcurrentSubmission.Submitting ->
                         Nothing
 
-                    Pages.Navigation.FetcherComplete _ ->
+                    Pages.ConcurrentSubmission.Complete _ ->
                         Nothing
             )
         |> Cmd.batch
@@ -1459,9 +1460,9 @@ clearLoadingFetchersAfterDataLoad completedTransitionId model =
                         -- TODO fetchers are never removed from the list. Need to decide how and when to remove them.
                         --(fetcherState.status /= Pages.Transition.FetcherReloading) || (transitionId > completedTransitionId)
                         case ( transitionId > completedTransitionId, fetcherState.status ) of
-                            ( False, Pages.Navigation.FetcherReloading actionData ) ->
+                            ( False, Pages.ConcurrentSubmission.Reloading actionData ) ->
                                 ( transitionId
-                                , { fetcherState | status = Pages.Navigation.FetcherComplete actionData }
+                                , { fetcherState | status = Pages.ConcurrentSubmission.Complete actionData }
                                 )
 
                             _ ->

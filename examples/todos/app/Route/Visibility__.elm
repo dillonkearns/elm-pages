@@ -477,7 +477,7 @@ view app shared model =
                             , status
                             )
                         of
-                            ( Form.Valid (Add newItem), Pages.Navigation.FetcherComplete (Just parsedActionData) ) ->
+                            ( Form.Valid (Add newItem), Pages.ConcurrentSubmission.Complete (Just parsedActionData) ) ->
                                 parsedActionData.errors
                                     |> Maybe.map (Tuple.pair key)
 

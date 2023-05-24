@@ -21,13 +21,14 @@ import Gen.Json.Decode
 import Gen.Json.Encode
 import Gen.List
 import Gen.Maybe
+import Gen.Pages.ConcurrentSubmission
 import Gen.Pages.Fetcher
 import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.Platform.Cli
 import Gen.Pages.Internal.RoutePattern
+import Gen.Pages.Navigation
 import Gen.Pages.PageUrl
-import Gen.Pages.Transition
 import Gen.PagesMsg
 import Gen.Server.Response
 import Gen.String
@@ -239,10 +240,10 @@ otherFile routes phaseString =
                 [ ( "pageFormState", Type.named [ "Form" ] "Model" |> Just )
                 , ( "concurrentSubmissions"
                   , Gen.Dict.annotation_.dict Type.string
-                        (Gen.Pages.Transition.annotation_.fetcherState (Type.named [] "ActionData"))
+                        (Gen.Pages.ConcurrentSubmission.annotation_.concurrentSubmission (Type.named [] "ActionData"))
                         |> Just
                   )
-                , ( "navigation", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
+                , ( "navigation", Type.named [ "Pages", "Navigation" ] "Navigation" |> Type.maybe |> Just )
                 , ( "page"
                   , Type.record
                         [ ( "path", Type.named [ "UrlPath" ] "UrlPath" )
@@ -381,7 +382,7 @@ otherFile routes phaseString =
                                                                                                                                 |> Gen.Dict.map
                                                                                                                                     (\_ fetcherState ->
                                                                                                                                         fetcherState
-                                                                                                                                            |> Gen.Pages.Transition.map (\ad -> actionDataOrNothing ad)
+                                                                                                                                            |> Gen.Pages.ConcurrentSubmission.map (\ad -> actionDataOrNothing ad)
                                                                                                                                     )
                                                                                                                           )
                                                                                                                         , ( "pageFormState", pageFormState )
@@ -917,10 +918,10 @@ otherFile routes phaseString =
                 , ( "concurrentSubmissions"
                   , Gen.Dict.annotation_.dict
                         Type.string
-                        (Gen.Pages.Transition.annotation_.fetcherState (Type.named [] "ActionData"))
+                        (Gen.Pages.ConcurrentSubmission.annotation_.concurrentSubmission (Type.named [] "ActionData"))
                         |> Just
                   )
-                , ( "navigation", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
+                , ( "navigation", Type.named [ "Pages", "Navigation" ] "Navigation" |> Type.maybe |> Just )
                 , ( "sharedData", Type.named [ "Shared" ] "Data" |> Just )
                 , ( "pageData", Type.named [] "PageData" |> Just )
                 , ( "navigationKey", Type.named [ "Browser", "Navigation" ] "Key" |> Type.maybe |> Just )
@@ -1189,7 +1190,7 @@ otherFile routes phaseString =
                                                                                                             |> Gen.Dict.map
                                                                                                                 (\_ fetcherState ->
                                                                                                                     fetcherState
-                                                                                                                        |> Gen.Pages.Transition.map
+                                                                                                                        |> Gen.Pages.ConcurrentSubmission.map
                                                                                                                             (\ad ->
                                                                                                                                 Elm.Case.custom ad
                                                                                                                                     Type.unit

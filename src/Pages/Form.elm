@@ -22,6 +22,7 @@ import Form.Handler
 import Form.Validation exposing (Validation)
 import Html
 import Html.Styled
+import Pages.ConcurrentSubmission
 import Pages.Internal.Msg
 import Pages.Navigation
 import PagesMsg exposing (PagesMsg)
@@ -93,7 +94,7 @@ renderHtml :
           app
             | pageFormState : Form.Model
             , navigation : Maybe Pages.Navigation.Navigation
-            , concurrentSubmissions : Dict String (Pages.Navigation.FetcherState (Maybe action))
+            , concurrentSubmissions : Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission (Maybe action))
         }
     -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Html (PagesMsg userMsg)) } parsed input
     -> Html.Html (PagesMsg userMsg)
@@ -110,13 +111,13 @@ renderHtml attrs options_ app form_ =
                 (case app.concurrentSubmissions |> Dict.get options_.id of
                     Just { status } ->
                         case status of
-                            Pages.Navigation.FetcherComplete _ ->
+                            Pages.ConcurrentSubmission.Complete _ ->
                                 False
 
-                            Pages.Navigation.FetcherSubmitting ->
+                            Pages.ConcurrentSubmission.Submitting ->
                                 True
 
-                            Pages.Navigation.FetcherReloading _ ->
+                            Pages.ConcurrentSubmission.Reloading _ ->
                                 True
 
                     Nothing ->
@@ -187,7 +188,7 @@ renderStyledHtml :
           app
             | pageFormState : Form.Model
             , navigation : Maybe Pages.Navigation.Navigation
-            , concurrentSubmissions : Dict String (Pages.Navigation.FetcherState (Maybe action))
+            , concurrentSubmissions : Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission (Maybe action))
         }
     -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Styled.Html (PagesMsg userMsg)) } parsed input
     -> Html.Styled.Html (PagesMsg userMsg)
@@ -205,13 +206,13 @@ renderStyledHtml attrs options_ app form_ =
                 (case app.concurrentSubmissions |> Dict.get options_.id of
                     Just { status } ->
                         case status of
-                            Pages.Navigation.FetcherComplete _ ->
+                            Pages.ConcurrentSubmission.Complete _ ->
                                 False
 
-                            Pages.Navigation.FetcherSubmitting ->
+                            Pages.ConcurrentSubmission.Submitting ->
                                 True
 
-                            Pages.Navigation.FetcherReloading _ ->
+                            Pages.ConcurrentSubmission.Reloading _ ->
                                 True
 
                     Nothing ->

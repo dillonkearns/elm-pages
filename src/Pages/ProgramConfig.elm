@@ -15,6 +15,7 @@ import Http
 import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
+import Pages.ConcurrentSubmission
 import Pages.Fetcher
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
@@ -46,7 +47,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
                 , pageUrl : Maybe PageUrl
                 }
         -> ( userModel, effect )
-    , update : Form.Model -> Dict String (Pages.Navigation.FetcherState actionData) -> Maybe Pages.Navigation.Navigation -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
+    , update : Form.Model -> Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission actionData) -> Maybe Pages.Navigation.Navigation -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> UrlPath -> userModel -> Sub userMsg
     , sharedData : BackendTask FatalError sharedData
     , data : Decode.Value -> route -> BackendTask FatalError (PageServerResponse pageData errorPage)
@@ -54,7 +55,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , onActionData : actionData -> Maybe userMsg
     , view :
         Form.Model
-        -> Dict String (Pages.Navigation.FetcherState actionData)
+        -> Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission actionData)
         -> Maybe Pages.Navigation.Navigation
         ->
             { path : UrlPath

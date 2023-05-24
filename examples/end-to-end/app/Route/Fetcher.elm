@@ -17,8 +17,8 @@ import Html.Styled as Html
 import Html.Styled.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Pages.ConcurrentSubmission
 import Pages.Form
-import Pages.Navigation exposing (FetcherSubmitStatus(..))
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import RouteBuilder
@@ -205,7 +205,7 @@ view app sharedModel model =
                 |> List.filterMap
                     (\{ status, payload } ->
                         case status of
-                            FetcherComplete _ ->
+                            Pages.ConcurrentSubmission.Complete _ ->
                                 Nothing
 
                             _ ->

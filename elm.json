@@ -31,6 +31,7 @@
         "Pages.Flags",
         "Pages.Fetcher",
         "Pages.Navigation",
+        "Pages.ConcurrentSubmission",
         "Scaffold.Route",
         "Scaffold.Form",
         "Pages.Script",

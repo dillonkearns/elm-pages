@@ -94,6 +94,7 @@ import Form
 import Head
 import Http
 import Json.Decode
+import Pages.ConcurrentSubmission
 import Pages.Fetcher
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
@@ -146,7 +147,7 @@ type alias App data action routeParams =
         { fields : List ( String, String ), headers : List ( String, String ) }
         -> Pages.Fetcher.Fetcher (Result Http.Error action)
     , navigation : Maybe Pages.Navigation.Navigation
-    , concurrentSubmissions : Dict String (Pages.Navigation.FetcherState (Maybe action))
+    , concurrentSubmissions : Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission (Maybe action))
     , pageFormState : Form.Model
     }
 
