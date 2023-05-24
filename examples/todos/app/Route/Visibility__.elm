@@ -20,8 +20,9 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import LoadingSpinner
 import MySession
+import Pages.ConcurrentSubmission
 import Pages.Form
-import Pages.Navigation exposing (FetcherSubmitStatus(..))
+import Pages.Navigation
 import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (App, StatefulRoute)
@@ -335,7 +336,7 @@ view app shared model =
                 |> List.filterMap
                     (\{ status, payload } ->
                         case status of
-                            FetcherComplete thing ->
+                            Pages.ConcurrentSubmission.Complete thing ->
                                 case thing of
                                     Just thisActionData ->
                                         case thisActionData.errors of
@@ -362,8 +363,8 @@ view app shared model =
         creatingItems =
             pendingFetchers
                 |> List.filterMap
-                    (\fetcher ->
-                        case fetcher of
+                    (\submission ->
+                        case submission of
                             Add description ->
                                 Just
                                     { description = description
@@ -380,14 +381,14 @@ view app shared model =
         isClearing =
             pendingFetchers
                 |> List.any
-                    (\fetcher -> fetcher == DeleteComplete)
+                    (\submission -> submission == DeleteComplete)
 
         deletingItems : Set String
         deletingItems =
             pendingFetchers
                 |> List.filterMap
-                    (\fetcher ->
-                        case fetcher of
+                    (\submission ->
+                        case submission of
                             Delete id ->
                                 Just id
 
@@ -400,8 +401,8 @@ view app shared model =
         togglingItems =
             pendingFetchers
                 |> List.filterMap
-                    (\fetcher ->
-                        case fetcher of
+                    (\submission ->
+                        case submission of
                             Check ( bool, id ) ->
                                 Just ( id, bool )
 
@@ -414,8 +415,8 @@ view app shared model =
         togglingAllTo =
             pendingFetchers
                 |> List.filterMap
-                    (\fetcher ->
-                        case fetcher of
+                    (\submission ->
+                        case submission of
                             CheckAll toggleTo ->
                                 Just toggleTo
 
