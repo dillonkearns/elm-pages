@@ -1,15 +1,25 @@
 module Pages.Form exposing
     ( renderHtml, renderStyledHtml
-    , FormWithServerValidations, Handler
     , Options
     , withConcurrent
+    , FormWithServerValidations, Handler
     )
 
-{-|
+{-| `elm-pages` has a built-in integration with [`dillonkearns/elm-form`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/). See the `dillonkearns/elm-form`
+docs and examples for more information on how to define your [`Form`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form). This module is the interface for rendering your `Form` in your `elm-pages` app.
+
+By rendering your `Form` with this module,
+you get all of the boilerplate managed for you automatically by the `elm-pages` framework. That means you do not need to use `Form.init`, `Form.update`, `Form.Model` since these are all
+abstracted away. In addition to that, in-flight form state is automatically managed for you and exposed through the `app` argument in your Route modules.
+
+This means that you can declaratively derive Pending UI or Optimistic UI state from `app.navigation` or `app.concurrentSubmissions` in your Route modules, and even build a
+rich dynamic page that shows pending submissions in the UI without using your Route module's `Model`! This is the power of this abstraction - it's less error-prone to
+declaratively derive state rather than imperatively managing your `Model`.
+
+
+## Rendering Forms
 
 @docs renderHtml, renderStyledHtml
-
-@docs FormWithServerValidations, Handler
 
 @docs Options
 
@@ -29,6 +39,11 @@ You can access this state through `app.navigation` in your `Route` module, which
 This default form submission strategy is a good fit for more linear actions. This is more traditional server submission behavior that you might be familiar with from Rails or other server frameworks without JavaScript enhancement.
 
 @docs withConcurrent
+
+
+## Server-Side Validation
+
+@docs FormWithServerValidations, Handler
 
 -}
 
@@ -67,7 +82,9 @@ type alias Handler error combined =
     Form.Handler.Handler error (BackendTask FatalError (Validation error combined Never Never))
 
 
-{-| -}
+{-| A replacement for [`Form.Options`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form#Options)
+with some extra configuration for the `elm-pages` integration. You can use this type to annotate your form's options.
+-}
 type alias Options error parsed input msg =
     Form.Options error parsed input msg { concurrent : Bool }
 
@@ -84,6 +101,20 @@ If the request fails, the UI will be updated to reflect the failure with an anim
 
 The `withConcurrent` is a good fit for either of these UX patterns (Optimistic UI or Pending UI, i.e. showing a loading spinner). You can derive either of these
 visual states from the `app.concurrentSubmissions` field in your `Route` module.
+
+You can call `withConcurrent` on your `Form.Options`.
+
+    import Form
+    import Pages.Form
+
+    todoItemView app todo =
+        deleteItemForm
+            |> Pages.Form.renderHtml []
+                (Form.options ("delete-" ++ todo.id)
+                    |> Form.withInput todo
+                    |> Pages.Form.withConcurrent
+                )
+                app
 
 -}
 withConcurrent : Options error parsed input msg -> Options error parsed input msg
@@ -115,7 +146,9 @@ withConcurrent options_ =
 --        form
 
 
-{-| -}
+{-| A replacement for `Form.renderHtml` from `dillonkearns/elm-form` that integrates with `elm-pages`. Use this to render your [`Form`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form)
+as `elm/html` `Html`.
+-}
 renderHtml :
     List (Html.Attribute (PagesMsg userMsg))
     -> Options error parsed input userMsg
@@ -209,7 +242,9 @@ renderHtml attrs options_ app form_ =
             attrs
 
 
-{-| -}
+{-| A replacement for `Form.renderStyledHtml` from `dillonkearns/elm-form` that integrates with `elm-pages`. Use this to render your [`Form`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form)
+as `rtfeldman/elm-css` `Html.Styled.Html`.
+-}
 renderStyledHtml :
     List (Html.Styled.Attribute (PagesMsg userMsg))
     -> Options error parsed input userMsg
