@@ -1,7 +1,8 @@
 module Pages.Form exposing
     ( renderHtml, renderStyledHtml
     , FormWithServerValidations, Handler
-    , Options, withConcurrent
+    , Options
+    , withConcurrent
     )
 
 {-|
@@ -10,7 +11,24 @@ module Pages.Form exposing
 
 @docs FormWithServerValidations, Handler
 
-@docs Options, withConcurrent
+@docs Options
+
+
+## Form Submission Strategies
+
+When you render with [`Pages.Form.renderHtml`](#renderHtml) or [`Pages.Form.renderStyledHtml`](#renderStyledHtml),
+`elm-pages` progressively enhances form submissions to manage the requests through Elm (instead of as a vanilla HTML form submission, which performs a full page reload).
+
+By default, `elm-pages` Forms will use the same mental model as the browser's default form submission behavior. That is, the form submission state will be tied to the page's navigation state.
+If you click a link while a form is submitting, the form submission will be cancelled and the page will navigate to the new page. Conceptually, you can think of this as being tied to the navigation state.
+A form submission is part of the page's navigation state, and so is a page navigation. So if you have a page with an edit form, a delete form (no inputs but only a delete button), and a link to a new page,
+you can interact with any of these and it will cancel the previous interactions.
+
+You can access this state through `app.navigation` in your `Route` module, which is a value of type [`Pages.Navigation`](Pages-Navigation).
+
+This default form submission strategy is a good fit for more linear actions. This is more traditional server submission behavior that you might be familiar with from Rails or other server frameworks without JavaScript enhancement.
+
+@docs withConcurrent
 
 -}
 
@@ -54,6 +72,20 @@ type alias Options error parsed input msg =
     Form.Options error parsed input msg { concurrent : Bool }
 
 
+{-| Instead of using the default submission strategy (tied to the page's navigation state), you can use `withConcurrent`.
+`withConcurrent` allows multiple form submissions to be in flight at the same time. It is useful for more dynamic applications. A good rule of thumb
+is if you could have multiple pending spinners on the page at the same time, you should use `withConcurrent`. For example, if you have a page with a list of items,
+say a Twitter clone. If you click the like button on a Tweet, it won't result in a page navigation. You can click the like button on multiple Tweets at the same time
+and they will all submit independently.
+
+In the case of Twitter, there isn't an indication of a loading spinner on the like button because it is expected that it will succeed. This is an example of a User Experience (UX) pattern
+called Optimistic UI. Since it is very likely that liking a Tweet will be successful, the UI will update the UI as if it has immediately succeeded even though the request is still in flight.
+If the request fails, the UI will be updated to reflect the failure with an animation to show that something went wrong.
+
+The `withConcurrent` is a good fit for either of these UX patterns (Optimistic UI or Pending UI, i.e. showing a loading spinner). You can derive either of these
+visual states from the `app.concurrentSubmissions` field in your `Route` module.
+
+-}
 withConcurrent : Options error parsed input msg -> Options error parsed input msg
 withConcurrent options_ =
     { options_ | extras = Just { concurrent = True } }
