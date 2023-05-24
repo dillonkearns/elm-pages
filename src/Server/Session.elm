@@ -318,7 +318,7 @@ encodeSessionUpdate config toRequest userRequestData sessionResult =
                     (\encoded ->
                         response
                             |> Server.Response.withSetCookieHeader
-                                (SetCookie.setCookie config.name encoded (config.options |> Maybe.withDefault SetCookie.initOptions))
+                                (SetCookie.setCookie config.name encoded (config.options |> Maybe.withDefault SetCookie.options))
                     )
                     (sign config.secrets
                         (encodeNonExpiringPairs sessionUpdate)

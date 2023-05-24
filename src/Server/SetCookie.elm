@@ -1,7 +1,7 @@
 module Server.SetCookie exposing
     ( SetCookie
     , SameSite(..)
-    , Options, initOptions
+    , Options, options
     , withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withoutPath, withSameSite
     , toString
     )
@@ -27,7 +27,7 @@ You can learn more about the basics of cookies in the Web Platform in these help
 
 ## Options
 
-@docs Options, initOptions
+@docs Options, options
 
 @docs withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withoutPath, withSameSite
 
@@ -95,24 +95,24 @@ toString builder =
             else
                 ""
 
-        options : Options
-        options =
+        options_ : Options
+        options_ =
             builder.options
 
         httpOnly : Bool
         httpOnly =
-            not options.visibleToJavaScript
+            not options_.visibleToJavaScript
     in
     builder.name
         ++ "="
         ++ Url.percentEncode builder.value
-        ++ option "Expires" (options.expiration |> Maybe.map Utc.fromTime)
-        ++ option "Max-Age" (options.maxAge |> Maybe.map String.fromInt)
-        ++ option "Path" options.path
-        ++ option "Domain" options.domain
-        ++ option "SameSite" (options.sameSite |> Maybe.map sameSiteToString)
+        ++ option "Expires" (options_.expiration |> Maybe.map Utc.fromTime)
+        ++ option "Max-Age" (options_.maxAge |> Maybe.map String.fromInt)
+        ++ option "Path" options_.path
+        ++ option "Domain" options_.domain
+        ++ option "SameSite" (options_.sameSite |> Maybe.map sameSiteToString)
         ++ boolOption "HttpOnly" httpOnly
-        ++ boolOption "Secure" options.secure
+        ++ boolOption "Secure" options_.secure
 
 
 sameSiteToString : SameSite -> String
@@ -130,16 +130,17 @@ sameSiteToString sameSite =
 
 {-| -}
 setCookie : String -> String -> Options -> SetCookie
-setCookie name value options =
+setCookie name value options_ =
     { name = name
     , value = value
-    , options = options
+    , options = options_
     }
 
 
-{-| -}
-initOptions : Options
-initOptions =
+{-| Initialize the default `SetCookie` `Options`. Can be configured directly through a record update, or with `withExpiration`, etc.
+-}
+options : Options
+options =
     { expiration = Nothing
     , visibleToJavaScript = False
     , maxAge = Nothing
