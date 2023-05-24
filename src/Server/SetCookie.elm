@@ -1,8 +1,8 @@
 module Server.SetCookie exposing
-    ( SetCookie
-    , SameSite(..)
+    ( SetCookie, setCookie
     , Options, options
-    , withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withoutPath, withSameSite
+    , SameSite(..), withSameSite
+    , withImmediateExpiration, makeVisibleToJavaScript, nonSecure, withDomain, withExpiration, withMaxAge, withPath, withoutPath
     , toString
     )
 
@@ -20,16 +20,29 @@ You can learn more about the basics of cookies in the Web Platform in these help
   - <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie>
   - <https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies>
 
-@docs SetCookie
-
-@docs SameSite
+@docs SetCookie, setCookie
 
 
-## Options
+## Building Options
+
+Usually you'll want to start by creating default `Options` with `options` and then overriding defaults using the `with...` helpers.
+
+    import Server.SetCookie as SetCookie
+
+    options : SetCookie.Options
+    options =
+        SetCookie.options
+            |> SetCookie.nonSecure
+            |> SetCookie.withMaxAge 123
+            |> SetCookie.makeVisibleToJavaScript
+            |> SetCookie.withoutPath
+            |> SetCookie.setCookie "id" "a3fWa"
 
 @docs Options, options
 
-@docs withImmediateExpiration, makeVisibleToJavaScript, nonSecure, setCookie, withDomain, withExpiration, withMaxAge, withPath, withoutPath, withSameSite
+@docs SameSite, withSameSite
+
+@docs withImmediateExpiration, makeVisibleToJavaScript, nonSecure, withDomain, withExpiration, withMaxAge, withPath, withoutPath
 
 
 ## Internal
@@ -51,7 +64,8 @@ type alias SetCookie =
     }
 
 
-{-| -}
+{-| The set of possible configuration options. You can configure this record directly, or use the `with...` helpers.
+-}
 type alias Options =
     { expiration : Maybe Time.Posix
     , visibleToJavaScript : Bool
@@ -63,7 +77,15 @@ type alias Options =
     }
 
 
-{-| -}
+{-| Possible values for [the cookie's same-site value](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#samesitesamesite-value).
+
+The default option is [`Lax`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#lax) (Lax does not send
+cookies in cross-origin requests so it is a good default for most cases, but [`Strict`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#strict)
+is even more restrictive).
+
+Override the default option using [`withSameSite`](#withSameSite).
+
+-}
 type SameSite
     = Strict
     | Lax
@@ -128,7 +150,10 @@ sameSiteToString sameSite =
             "None"
 
 
-{-| -}
+{-| Create a `SetCookie` record with the given name, value, and [`Options`](Options]. To add a `Set-Cookie` header, you can
+pass this value with [`Server.Response.withSetCookieHeader`](Server-Response#withSetCookieHeader). Or for more low-level
+uses you can stringify the value manually with [`toString`](#toString).
+-}
 setCookie : String -> String -> Options -> SetCookie
 setCookie name value options_ =
     { name = name
@@ -159,7 +184,9 @@ withExpiration time builder =
     }
 
 
-{-| -}
+{-| Sets [`Expires`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#expiresdate) to `Time.millisToPosix 0`,
+which effectively tells the browser to delete the cookie immediately (by giving it an expiration date in the past).
+-}
 withImmediateExpiration : Options -> Options
 withImmediateExpiration builder =
     { builder
@@ -185,7 +212,8 @@ makeVisibleToJavaScript builder =
     }
 
 
-{-| -}
+{-| Sets the `Set-Cookie`'s [`Max-Age`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#max-agenumber).
+-}
 withMaxAge : Int -> Options -> Options
 withMaxAge maxAge builder =
     { builder
@@ -193,7 +221,11 @@ withMaxAge maxAge builder =
     }
 
 
-{-| -}
+{-| Sets the `Set-Cookie`'s [`Path`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#pathpath-value).
+
+The default value is `/`, which will match any sub-directories or the root directory. See also [\`withoutPath](#withoutPath)
+
+-}
 withPath : String -> Options -> Options
 withPath path builder =
     { builder
@@ -201,7 +233,13 @@ withPath path builder =
     }
 
 
-{-| -}
+{-|
+
+> If the server omits the Path attribute, the user agent will use the "directory" of the request-uri's path component as the default value.
+
+Source: <https://www.rfc-editor.org/rfc/rfc6265>. See <https://stackoverflow.com/a/43336097>.
+
+-}
 withoutPath : Options -> Options
 withoutPath builder =
     { builder
@@ -209,7 +247,8 @@ withoutPath builder =
     }
 
 
-{-| -}
+{-| Sets the `Set-Cookie`'s [`Domain`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#domaindomain-value).
+-}
 withDomain : String -> Options -> Options
 withDomain domain builder =
     { builder
