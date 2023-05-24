@@ -1,6 +1,7 @@
-module Pages.Transition exposing
-    ( Transition(..), LoadingState(..), map, FormData
+module Pages.Navigation exposing
+    ( LoadingState(..), map, FormData
     , FetcherState, FetcherSubmitStatus(..)
+    , Navigation(..)
     )
 
 {-|
@@ -29,7 +30,7 @@ type alias FormData =
 
 
 {-| -}
-type Transition
+type Navigation
     = Submitting FormData
     | LoadAfterSubmit FormData UrlPath LoadingState
     | Loading UrlPath LoadingState

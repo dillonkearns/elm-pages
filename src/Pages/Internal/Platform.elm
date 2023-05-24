@@ -33,9 +33,9 @@ import Pages.Internal.Msg
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
+import Pages.Navigation
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.StaticHttpRequest as StaticHttpRequest
-import Pages.Transition
 import PagesMsg exposing (PagesMsg)
 import QueryParams
 import Task
@@ -340,9 +340,9 @@ type alias Model userModel pageData actionData sharedData =
             }
     , notFound : Maybe { reason : NotFoundReason, path : UrlPath }
     , userFlags : Decode.Value
-    , transition : Maybe ( Int, Pages.Transition.Transition )
+    , transition : Maybe ( Int, Pages.Navigation.Navigation )
     , nextTransitionKey : Int
-    , inFlightFetchers : Dict String ( Int, Pages.Transition.FetcherState actionData )
+    , inFlightFetchers : Dict String ( Int, Pages.Navigation.FetcherState actionData )
     , pageFormState : Form.Model
     , pendingRedirect : Bool
     , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
@@ -454,9 +454,9 @@ update config appMsg model =
                                                     , { fetcherState
                                                         | status =
                                                             maybeFetcherDoneActionData
-                                                                |> Maybe.map Pages.Transition.FetcherReloading
+                                                                |> Maybe.map Pages.Navigation.FetcherReloading
                                                                 -- TODO remove this bad default, FetcherSubmitting is incorrect
-                                                                |> Maybe.withDefault Pages.Transition.FetcherSubmitting
+                                                                |> Maybe.withDefault Pages.Navigation.FetcherSubmitting
                                                       }
                                                     )
                                                 )
@@ -534,7 +534,7 @@ update config appMsg model =
                                     Just
                                         ( -- TODO remove hardcoded number
                                           -1
-                                        , Pages.Transition.Submitting payload
+                                        , Pages.Navigation.Submitting payload
                                         )
                               }
                             , Submit payload
@@ -857,7 +857,7 @@ update config appMsg model =
                         |> Dict.insert fetcherKey
                             ( transitionId
                             , { payload = fetcherData
-                              , status = Pages.Transition.FetcherSubmitting
+                              , status = Pages.Navigation.FetcherSubmitting
                               , initiatedAt = initiatedAt
                               }
                             )
@@ -866,7 +866,7 @@ update config appMsg model =
             )
 
 
-toFetcherState : Dict String ( Int, Pages.Transition.FetcherState actionData ) -> Dict String (Pages.Transition.FetcherState actionData)
+toFetcherState : Dict String ( Int, Pages.Navigation.FetcherState actionData ) -> Dict String (Pages.Navigation.FetcherState actionData)
 toFetcherState inFlightFetchers =
     inFlightFetchers
         |> Dict.map (\_ ( _, fetcherState ) -> fetcherState)
@@ -1143,14 +1143,14 @@ cancelStaleFetchers model =
         |> List.filterMap
             (\( _, ( id, fetcher ) ) ->
                 case fetcher.status of
-                    Pages.Transition.FetcherReloading _ ->
+                    Pages.Navigation.FetcherReloading _ ->
                         Http.cancel (String.fromInt id)
                             |> Just
 
-                    Pages.Transition.FetcherSubmitting ->
+                    Pages.Navigation.FetcherSubmitting ->
                         Nothing
 
-                    Pages.Transition.FetcherComplete _ ->
+                    Pages.Navigation.FetcherComplete _ ->
                         Nothing
             )
         |> Cmd.batch
@@ -1407,7 +1407,7 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
         cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
             case model.transition of
-                Just ( transitionKey, Pages.Transition.Loading _ _ ) ->
+                Just ( transitionKey, Pages.Navigation.Loading _ _ ) ->
                     CancelRequest transitionKey
 
                 _ ->
@@ -1418,22 +1418,22 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
         , transition =
             ( model.nextTransitionKey
             , case model.transition of
-                Just ( _, Pages.Transition.LoadAfterSubmit submitData _ _ ) ->
-                    Pages.Transition.LoadAfterSubmit
+                Just ( _, Pages.Navigation.LoadAfterSubmit submitData _ _ ) ->
+                    Pages.Navigation.LoadAfterSubmit
                         submitData
                         (urlToGet.path |> UrlPath.fromString)
-                        Pages.Transition.Load
+                        Pages.Navigation.Load
 
-                Just ( _, Pages.Transition.Submitting submitData ) ->
-                    Pages.Transition.LoadAfterSubmit
+                Just ( _, Pages.Navigation.Submitting submitData ) ->
+                    Pages.Navigation.LoadAfterSubmit
                         submitData
                         (urlToGet.path |> UrlPath.fromString)
-                        Pages.Transition.Load
+                        Pages.Navigation.Load
 
                 _ ->
-                    Pages.Transition.Loading
+                    Pages.Navigation.Loading
                         (urlToGet.path |> UrlPath.fromString)
-                        Pages.Transition.Load
+                        Pages.Navigation.Load
             )
                 |> Just
       }
@@ -1459,9 +1459,9 @@ clearLoadingFetchersAfterDataLoad completedTransitionId model =
                         -- TODO fetchers are never removed from the list. Need to decide how and when to remove them.
                         --(fetcherState.status /= Pages.Transition.FetcherReloading) || (transitionId > completedTransitionId)
                         case ( transitionId > completedTransitionId, fetcherState.status ) of
-                            ( False, Pages.Transition.FetcherReloading actionData ) ->
+                            ( False, Pages.Navigation.FetcherReloading actionData ) ->
                                 ( transitionId
-                                , { fetcherState | status = Pages.Transition.FetcherComplete actionData }
+                                , { fetcherState | status = Pages.Navigation.FetcherComplete actionData }
                                 )
 
                             _ ->

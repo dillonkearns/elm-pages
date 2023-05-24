@@ -23,7 +23,7 @@ import Form.Validation exposing (Validation)
 import Html
 import Html.Styled
 import Pages.Internal.Msg
-import Pages.Transition
+import Pages.Navigation
 import PagesMsg exposing (PagesMsg)
 
 
@@ -92,8 +92,8 @@ renderHtml :
           --, action : Maybe action
           app
             | pageFormState : Form.Model
-            , navigation : Maybe Pages.Transition.Transition
-            , concurrentSubmissions : Dict String (Pages.Transition.FetcherState (Maybe action))
+            , navigation : Maybe Pages.Navigation.Navigation
+            , concurrentSubmissions : Dict String (Pages.Navigation.FetcherState (Maybe action))
         }
     -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Html (PagesMsg userMsg)) } parsed input
     -> Html.Html (PagesMsg userMsg)
@@ -110,26 +110,26 @@ renderHtml attrs options_ app form_ =
                 (case app.concurrentSubmissions |> Dict.get options_.id of
                     Just { status } ->
                         case status of
-                            Pages.Transition.FetcherComplete _ ->
+                            Pages.Navigation.FetcherComplete _ ->
                                 False
 
-                            Pages.Transition.FetcherSubmitting ->
+                            Pages.Navigation.FetcherSubmitting ->
                                 True
 
-                            Pages.Transition.FetcherReloading _ ->
+                            Pages.Navigation.FetcherReloading _ ->
                                 True
 
                     Nothing ->
                         False
                 )
                     || (case app.navigation of
-                            Just (Pages.Transition.Submitting formData) ->
+                            Just (Pages.Navigation.Submitting formData) ->
                                 formData.id == Just options_.id
 
-                            Just (Pages.Transition.LoadAfterSubmit submitData _ _) ->
+                            Just (Pages.Navigation.LoadAfterSubmit submitData _ _) ->
                                 submitData.id == Just options_.id
 
-                            Just (Pages.Transition.Loading _ _) ->
+                            Just (Pages.Navigation.Loading _ _) ->
                                 False
 
                             Nothing ->
@@ -186,8 +186,8 @@ renderStyledHtml :
           --, action : Maybe action
           app
             | pageFormState : Form.Model
-            , navigation : Maybe Pages.Transition.Transition
-            , concurrentSubmissions : Dict String (Pages.Transition.FetcherState (Maybe action))
+            , navigation : Maybe Pages.Navigation.Navigation
+            , concurrentSubmissions : Dict String (Pages.Navigation.FetcherState (Maybe action))
         }
     -> Form.Form error { combine : Validation error parsed named constraints, view : Form.Context error input -> List (Html.Styled.Html (PagesMsg userMsg)) } parsed input
     -> Html.Styled.Html (PagesMsg userMsg)
@@ -205,26 +205,26 @@ renderStyledHtml attrs options_ app form_ =
                 (case app.concurrentSubmissions |> Dict.get options_.id of
                     Just { status } ->
                         case status of
-                            Pages.Transition.FetcherComplete _ ->
+                            Pages.Navigation.FetcherComplete _ ->
                                 False
 
-                            Pages.Transition.FetcherSubmitting ->
+                            Pages.Navigation.FetcherSubmitting ->
                                 True
 
-                            Pages.Transition.FetcherReloading _ ->
+                            Pages.Navigation.FetcherReloading _ ->
                                 True
 
                     Nothing ->
                         False
                 )
                     || (case app.navigation of
-                            Just (Pages.Transition.Submitting formData) ->
+                            Just (Pages.Navigation.Submitting formData) ->
                                 formData.id == Just options_.id
 
-                            Just (Pages.Transition.LoadAfterSubmit submitData _ _) ->
+                            Just (Pages.Navigation.LoadAfterSubmit submitData _ _) ->
                                 submitData.id == Just options_.id
 
-                            Just (Pages.Transition.Loading _ _) ->
+                            Just (Pages.Navigation.Loading _ _) ->
                                 False
 
                             Nothing ->

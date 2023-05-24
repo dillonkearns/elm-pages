@@ -21,9 +21,9 @@ import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
+import Pages.Navigation
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
-import Pages.Transition
 import PagesMsg exposing (PagesMsg)
 import Url exposing (Url)
 import UrlPath exposing (UrlPath)
@@ -46,7 +46,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
                 , pageUrl : Maybe PageUrl
                 }
         -> ( userModel, effect )
-    , update : Form.Model -> Dict String (Pages.Transition.FetcherState actionData) -> Maybe Pages.Transition.Transition -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
+    , update : Form.Model -> Dict String (Pages.Navigation.FetcherState actionData) -> Maybe Pages.Navigation.Navigation -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> UrlPath -> userModel -> Sub userMsg
     , sharedData : BackendTask FatalError sharedData
     , data : Decode.Value -> route -> BackendTask FatalError (PageServerResponse pageData errorPage)
@@ -54,8 +54,8 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , onActionData : actionData -> Maybe userMsg
     , view :
         Form.Model
-        -> Dict String (Pages.Transition.FetcherState actionData)
-        -> Maybe Pages.Transition.Transition
+        -> Dict String (Pages.Navigation.FetcherState actionData)
+        -> Maybe Pages.Navigation.Navigation
         ->
             { path : UrlPath
             , route : route

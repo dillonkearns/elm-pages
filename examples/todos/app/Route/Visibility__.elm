@@ -21,7 +21,7 @@ import Json.Encode as Encode
 import LoadingSpinner
 import MySession
 import Pages.Form
-import Pages.Transition exposing (FetcherSubmitStatus(..))
+import Pages.Navigation exposing (FetcherSubmitStatus(..))
 import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (App, StatefulRoute)
@@ -451,7 +451,7 @@ view app shared model =
         optimisticVisibility : Visibility
         optimisticVisibility =
             case app.navigation of
-                Just (Pages.Transition.Loading path _) ->
+                Just (Pages.Navigation.Loading path _) ->
                     case path of
                         [ "active" ] ->
                             Active
@@ -477,7 +477,7 @@ view app shared model =
                             , status
                             )
                         of
-                            ( Form.Valid (Add newItem), Pages.Transition.FetcherComplete (Just parsedActionData) ) ->
+                            ( Form.Valid (Add newItem), Pages.Navigation.FetcherComplete (Just parsedActionData) ) ->
                                 parsedActionData.errors
                                     |> Maybe.map (Tuple.pair key)
 

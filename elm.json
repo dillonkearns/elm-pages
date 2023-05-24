@@ -30,7 +30,7 @@
         "Pages.Manifest.Category",
         "Pages.Flags",
         "Pages.Fetcher",
-        "Pages.Transition",
+        "Pages.Navigation",
         "Scaffold.Route",
         "Scaffold.Form",
         "Pages.Script",

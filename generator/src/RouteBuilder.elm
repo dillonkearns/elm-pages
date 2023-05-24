@@ -98,7 +98,7 @@ import Pages.Fetcher
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
 import Pages.PageUrl exposing (PageUrl)
-import Pages.Transition
+import Pages.Navigation
 import PagesMsg exposing (PagesMsg)
 import UrlPath exposing (UrlPath)
 import Server.Request
@@ -145,8 +145,8 @@ type alias App data action routeParams =
     , submit :
         { fields : List ( String, String ), headers : List ( String, String ) }
         -> Pages.Fetcher.Fetcher (Result Http.Error action)
-    , navigation : Maybe Pages.Transition.Transition
-    , concurrentSubmissions : Dict String (Pages.Transition.FetcherState (Maybe action))
+    , navigation : Maybe Pages.Navigation.Navigation
+    , concurrentSubmissions : Dict String (Pages.Navigation.FetcherState (Maybe action))
     , pageFormState : Form.Model
     }
 

@@ -18,7 +18,7 @@ import Html.Styled.Attributes as Attr
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Form
-import Pages.Transition exposing (FetcherSubmitStatus(..))
+import Pages.Navigation exposing (FetcherSubmitStatus(..))
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import RouteBuilder
