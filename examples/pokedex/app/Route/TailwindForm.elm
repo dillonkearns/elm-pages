@@ -679,7 +679,7 @@ view app model sharedModel =
                 |> Maybe.withDefault (Html.p [] [])
             , Html.p []
                 [ -- TODO should this be calling a function in Form and passing in the form, like `Form.isSubmitting form`?
-                  if app.transition /= Nothing then
+                  if app.navigation /= Nothing then
                     Html.text "Submitting..."
 
                   else

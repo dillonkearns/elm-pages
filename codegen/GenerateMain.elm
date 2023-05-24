@@ -237,12 +237,12 @@ otherFile routes phaseString =
         view =
             Elm.Declare.function "view"
                 [ ( "pageFormState", Type.named [ "Form" ] "Model" |> Just )
-                , ( "fetchers"
+                , ( "concurrentSubmissions"
                   , Gen.Dict.annotation_.dict Type.string
                         (Gen.Pages.Transition.annotation_.fetcherState (Type.named [] "ActionData"))
                         |> Just
                   )
-                , ( "transition", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
+                , ( "navigation", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
                 , ( "page"
                   , Type.record
                         [ ( "path", Type.named [ "UrlPath" ] "UrlPath" )
@@ -257,7 +257,7 @@ otherFile routes phaseString =
                 ]
                 (\args ->
                     case args of
-                        [ pageFormState, fetchers, transition, page, maybePageUrl, globalData, pageData, actionData ] ->
+                        [ pageFormState, concurrentSubmissions, navigation, page, maybePageUrl, globalData, pageData, actionData ] ->
                             Elm.Case.custom (Elm.tuple (page |> Elm.get "route") pageData)
                                 Type.unit
                                 ([ Elm.Pattern.tuple Elm.Pattern.ignore (Elm.Pattern.variant1 "DataErrorPage____" (Elm.Pattern.var "data"))
@@ -375,9 +375,9 @@ otherFile routes phaseString =
                                                                                                                                 "fetcherArg"
                                                                                                                                 (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route))
                                                                                                                           )
-                                                                                                                        , ( "transition", transition )
-                                                                                                                        , ( "fetchers"
-                                                                                                                          , fetchers
+                                                                                                                        , ( "navigation", navigation )
+                                                                                                                        , ( "concurrentSubmissions"
+                                                                                                                          , concurrentSubmissions
                                                                                                                                 |> Gen.Dict.map
                                                                                                                                     (\_ fetcherState ->
                                                                                                                                         fetcherState
@@ -416,8 +416,8 @@ otherFile routes phaseString =
                                                                                                 , ( "path", page |> Elm.get "path" )
                                                                                                 , ( "url", Elm.nothing )
                                                                                                 , ( "submit", Elm.functionReduced "value" (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
-                                                                                                , ( "transition", Elm.nothing )
-                                                                                                , ( "fetchers", Gen.Dict.empty )
+                                                                                                , ( "navigation", Elm.nothing )
+                                                                                                , ( "concurrentSubmissions", Gen.Dict.empty )
                                                                                                 , ( "pageFormState", Gen.Dict.empty )
                                                                                                 ]
                                                                                             ]
@@ -855,8 +855,8 @@ otherFile routes phaseString =
                                                                                             [ route |> decodeRouteType ActionData
                                                                                             ]
                                                                                       )
-                                                                                    , ( "transition", Elm.nothing )
-                                                                                    , ( "fetchers", Gen.Dict.empty )
+                                                                                    , ( "navigation", Elm.nothing )
+                                                                                    , ( "concurrentSubmissions", Gen.Dict.empty )
                                                                                     , ( "pageFormState", Gen.Dict.empty )
                                                                                     ]
                                                                                 ]
@@ -914,13 +914,13 @@ otherFile routes phaseString =
         update =
             Elm.Declare.function "update"
                 [ ( "pageFormState", Type.named [ "Form" ] "Model" |> Just )
-                , ( "fetchers"
+                , ( "concurrentSubmissions"
                   , Gen.Dict.annotation_.dict
                         Type.string
                         (Gen.Pages.Transition.annotation_.fetcherState (Type.named [] "ActionData"))
                         |> Just
                   )
-                , ( "transition", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
+                , ( "navigation", Type.named [ "Pages", "Transition" ] "Transition" |> Type.maybe |> Just )
                 , ( "sharedData", Type.named [ "Shared" ] "Data" |> Just )
                 , ( "pageData", Type.named [] "PageData" |> Just )
                 , ( "navigationKey", Type.named [ "Browser", "Navigation" ] "Key" |> Type.maybe |> Just )
@@ -929,7 +929,7 @@ otherFile routes phaseString =
                 ]
                 (\args ->
                     case args of
-                        [ pageFormState, fetchers, transition, sharedData, pageData, navigationKey, msg, model ] ->
+                        [ pageFormState, concurrentSubmissions, navigation, sharedData, pageData, navigationKey, msg, model ] ->
                             Elm.Case.custom msg
                                 Type.unit
                                 ([ Elm.Pattern.variant1 "MsgErrorPage____" (Elm.Pattern.var "msg_")
@@ -1183,9 +1183,9 @@ otherFile routes phaseString =
                                                                                                     , ( "path", justPage |> Elm.get "path" )
                                                                                                     , ( "url", Elm.just pageUrl )
                                                                                                     , ( "submit", Elm.fn ( "options", Nothing ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
-                                                                                                    , ( "transition", transition )
-                                                                                                    , ( "fetchers"
-                                                                                                      , fetchers
+                                                                                                    , ( "navigation", navigation )
+                                                                                                    , ( "concurrentSubmissions"
+                                                                                                      , concurrentSubmissions
                                                                                                             |> Gen.Dict.map
                                                                                                                 (\_ fetcherState ->
                                                                                                                     fetcherState

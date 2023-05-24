@@ -231,7 +231,7 @@ view maybeUrl sharedModel model app =
         let
             pendingItems : Dict String Int
             pendingItems =
-                app.fetchers
+                app.concurrentSubmissions
                     |> Dict.values
                     |> List.filterMap
                         (\pending ->
@@ -268,7 +268,7 @@ view maybeUrl sharedModel model app =
                         { totalItems = 0, totalPrice = 0 }
         in
         [ Html.pre []
-            [ app.fetchers
+            [ app.concurrentSubmissions
                 |> Debug.toString
                 |> Html.text
             ]

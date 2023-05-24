@@ -165,7 +165,7 @@ view maybeUrl sharedModel model app =
                 [ Html.text <|
                     "Edit"
                 ]
-        , nameFormView app.data.user app.transition
+        , nameFormView app.data.user app.navigation
         , Html.pre []
             [ app.action
                 |> Debug.toString

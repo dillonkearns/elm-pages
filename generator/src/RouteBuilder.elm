@@ -145,8 +145,8 @@ type alias App data action routeParams =
     , submit :
         { fields : List ( String, String ), headers : List ( String, String ) }
         -> Pages.Fetcher.Fetcher (Result Http.Error action)
-    , transition : Maybe Pages.Transition.Transition
-    , fetchers : Dict String (Pages.Transition.FetcherState (Maybe action))
+    , navigation : Maybe Pages.Transition.Transition
+    , concurrentSubmissions : Dict String (Pages.Transition.FetcherState (Maybe action))
     , pageFormState : Form.Model
     }
 

@@ -317,7 +317,7 @@ view maybeUrl sharedModel model app =
     let
         pendingCreation : Maybe NewItem
         pendingCreation =
-            app.transition
+            app.navigation
                 |> Maybe.andThen getTransitionFields
                 |> Maybe.andThen
                     (\transitionFields ->

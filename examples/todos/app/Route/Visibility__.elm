@@ -330,7 +330,7 @@ view app shared model =
     let
         pendingFetchers : List Action
         pendingFetchers =
-            app.fetchers
+            app.concurrentSubmissions
                 |> Dict.values
                 |> List.filterMap
                     (\{ status, payload } ->
@@ -450,7 +450,7 @@ view app shared model =
 
         optimisticVisibility : Visibility
         optimisticVisibility =
-            case app.transition of
+            case app.navigation of
                 Just (Pages.Transition.Loading path _) ->
                     case path of
                         [ "active" ] ->
@@ -467,7 +467,7 @@ view app shared model =
 
         failedAddItemActions : List ( String, String )
         failedAddItemActions =
-            app.fetchers
+            app.concurrentSubmissions
                 |> Dict.toList
                 |> List.filterMap
                     (\( key, { status, payload } ) ->

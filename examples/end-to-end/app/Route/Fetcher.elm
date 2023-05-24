@@ -200,7 +200,7 @@ view app sharedModel model =
     let
         inFlight : List Action
         inFlight =
-            app.fetchers
+            app.concurrentSubmissions
                 |> Dict.values
                 |> List.filterMap
                     (\{ status, payload } ->
@@ -271,7 +271,7 @@ view app sharedModel model =
               else
                 Html.text "Ready"
             ]
-        , app.fetchers
+        , app.concurrentSubmissions
             |> Dict.toList
             |> List.map
                 (\( key, item ) ->
