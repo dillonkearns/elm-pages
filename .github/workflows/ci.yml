@@ -67,8 +67,8 @@ jobs:
         run: npm run build:generator
       - name: Tests
         run: npm test
-#      - name: elm-format
-#        run: npx --no-install elm-format --validate src/ generator/src
+      #      - name: elm-format
+      #        run: npx --no-install elm-format --validate src/ generator/src
       - name: Build elm docs
         id: docs
         run: lamdera make --docs docs.json
@@ -80,7 +80,7 @@ jobs:
         with:
           start: npm start
           wait-on: "http://localhost:1234"
-          wait-on-timeout: 60
+          wait-on-timeout: 120
 
       - uses: actions/upload-artifact@v1
         if: failure()
