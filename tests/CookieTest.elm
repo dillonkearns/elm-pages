@@ -3,7 +3,6 @@ module CookieTest exposing (all)
 import CookieParser
 import Dict
 import Expect
-import FatalError
 import Test exposing (Test, describe, test)
 
 

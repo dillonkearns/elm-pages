@@ -3,7 +3,6 @@ module ApiRouteTests exposing (all)
 import ApiRoute exposing (..)
 import BackendTask
 import Expect
-import FatalError
 import Internal.ApiRoute exposing (tryMatch, withRoutes)
 import Pattern exposing (Pattern(..))
 import Server.Request

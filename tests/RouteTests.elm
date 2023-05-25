@@ -1,7 +1,6 @@
 module RouteTests exposing (all)
 
 import Expect
-import FatalError
 import List.Extra
 import Regex
 import Test exposing (Test, describe, test)

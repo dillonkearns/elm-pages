@@ -1,9 +1,8 @@
 module PathTests exposing (all)
 
 import Expect
-import FatalError
-import UrlPath
 import Test exposing (Test, describe, test)
+import UrlPath
 
 
 all : Test
