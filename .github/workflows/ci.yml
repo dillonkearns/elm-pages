@@ -78,7 +78,7 @@ jobs:
       - name: Cypress tests
         uses: cypress-io/github-action@v5
         with:
-          start: npm start
+          start: (cd examples/end-to-end && node ../../generator/src/cli.js dev --debug)
           wait-on: "http://localhost:1234"
           wait-on-timeout: 120
 
