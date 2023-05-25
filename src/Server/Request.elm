@@ -147,11 +147,19 @@ is loaded. That's why `data` is a `Request.Parser` in server-rendered Route Modu
 can use the incoming HTTP request data to choose how to respond. For example, you could check for a dark-mode preference
 cookie and render a light- or dark-themed page and render a different page.
 
-That's a mouthful, so let's unpack what it means.
 
-`Request.Parser` means you can pull out
+## Building a Request Parser
 
-data from the request payload using a Server Request Parser.
+`Request.Parser` means you can pull out data from the incoming HTTP request.
+
+With a pre-rendered Route, we wouldn't be able to access the query param before rendering the page, but for a server-rendered Route
+we can dynamically respond to the incoming HTTP request (including its query params).
+
+For example, we might send the user an email with a link like `https://example.com/products/123?coupon=xmas22`.
+When the user clicks the link, we want to respond based on that `coupon` query parameter and render the page with the coupon data
+(either by directly checking the coupon with our DB through [`BackendTask.Custom`](BackendTask#Custom), or through an API request with [`BackendTask.Http`](BackendTask#Http)).
+
+    module Route.Products.Id_ exposing (..)
 
     import BackendTask exposing (BackendTask)
     import RouteBuilder exposing (StatelessRoute)
@@ -159,16 +167,20 @@ data from the request payload using a Server Request Parser.
     import Server.Response as Response exposing (Response)
 
     type alias Data =
-        {}
+        { coupon : Maybe Coupon }
 
     data :
         RouteParams
         -> Request.Parser (BackendTask (Response Data))
     data routeParams =
-        {}
-            |> Server.Response.render
-            |> BackendTask.succeed
-            |> Request.succeed
+        Request.queryParam "coupon"
+            |> Request.map
+                (\maybeCouponCode ->
+                    maybeCouponCode
+                        |> lookupCoupon
+                        |> BackendTask.map (\maybeCoupon ->
+                             (Response.render { coupon = maybeCoupon })
+                )
 
     route : StatelessRoute RouteParams Data ActionData
     route =
