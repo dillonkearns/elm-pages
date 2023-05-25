@@ -27,6 +27,7 @@
         "Server.Response",
         "PagesMsg",
         "Pages.Manifest",
+        "Pages.FormData",
         "Pages.Manifest.Category",
         "Pages.Flags",
         "Pages.Fetcher",

@@ -9,7 +9,8 @@ module Pages.FormData exposing (FormData)
 import Form
 
 
-{-| -}
+{-| The payload for form submissions.
+-}
 type alias FormData =
     { fields : List ( String, String )
     , method : Form.Method
