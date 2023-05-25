@@ -3,11 +3,12 @@ module Server.Request exposing
     , succeed, fromResult, skip
     , formData, formDataWithServerValidation
     , rawFormData
-    , method, rawBody, allCookies, rawHeaders, queryParams
+    , rawUrl
+    , method, rawBody, allCookies, rawHeaders
     , requestTime, optionalHeader, expectContentType, expectJsonBody
     , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap, andThen
-    , queryParam, expectQueryParam
+    , queryParam, expectQueryParam, queryParams
     , cookie, expectCookie
     , expectHeader
     , File, expectMultiPartFormPost
@@ -33,7 +34,9 @@ module Server.Request exposing
 
 ## Direct Values
 
-@docs method, rawBody, allCookies, rawHeaders, queryParams
+@docs rawUrl
+
+@docs method, rawBody, allCookies, rawHeaders
 
 @docs requestTime, optionalHeader, expectContentType, expectJsonBody
 
@@ -47,7 +50,7 @@ module Server.Request exposing
 
 ## Query Parameters
 
-@docs queryParam, expectQueryParam
+@docs queryParam, expectQueryParam, queryParams
 
 
 ## Cookies
@@ -231,7 +234,17 @@ oneOfInternal previousErrors optimizedDecoders =
                     )
 
 
-{-| -}
+{-| A Parser that always matches and parsers into the given value.
+
+    import Server.Request as Request exposing (Request)
+
+    data routeParams =
+        Request.succeed
+            (BackendTask.succeed
+                (Response.render { data = {} })
+            )
+
+-}
 succeed : value -> Parser value
 succeed value =
     Internal.Request.Parser (Json.Decode.succeed ( Ok value, [] ))
@@ -651,7 +664,19 @@ appendError error decoder =
         |> Json.Decode.map (Tuple.mapSecond (\errors -> error :: errors))
 
 
-{-| -}
+{-| Same as [`queryParam`](#queryParam), but instead of returning `Nothing` if the query param is missing, it will result
+a non-matching Parser (will try a subsequent parser if there is a oneOf).
+
+    import Server.Request as Request
+
+    data =
+        Request.oneOf
+            [ Request.expectQueryParam "token"
+                |> Request.map (\token -> showProtectedPageOrRedirect token)
+            , Request.succeed guestPageView
+            ]
+
+-}
 expectQueryParam : String -> Parser String
 expectQueryParam name =
     rawUrl
@@ -684,7 +709,28 @@ expectQueryParam name =
             )
 
 
-{-| -}
+{-| Get `Nothing` if the query param with the given name is missing, or `Just` the value if it is present.
+
+If there are multiple query params with the same name, the first one is returned.
+
+    queryParam "coupon"
+
+    -- url: http://example.com?coupon=abc
+    -- parses into: Just "abc"
+
+    queryParam "coupon"
+
+    -- url: http://example.com?coupon=abc&coupon=xyz
+    -- parses into: Just "abc"
+
+    queryParam "coupon"
+
+    -- url: http://example.com
+    -- parses into: Nothing
+
+See also [`expectQueryParam`](#expectQueryParam) and [`queryParams`](#queryParams), or [`rawUrl`](#rawUrl) if you need something more low-level.
+
+-}
 queryParam : String -> Parser (Maybe String)
 queryParam name =
     rawUrl
@@ -706,7 +752,19 @@ findFirstQueryParam name queryString =
         |> Maybe.andThen List.head
 
 
-{-| -}
+{-| Gives all query params from the URL.
+
+    queryParam "coupon"
+
+    -- url: http://example.com?coupon=abc
+    -- parses into: Dict.fromList [("coupon", ["abc"])]
+
+    queryParam "coupon"
+
+    -- url: http://example.com?coupon=abc&coupon=xyz
+    -- parses into: Dict.fromList [("coupon", ["abc", "xyz"])]
+
+-}
 queryParams : Parser (Dict String (List String))
 queryParams =
     rawUrl
@@ -952,7 +1010,68 @@ formDataWithServerValidation formParsers =
             )
 
 
-{-| -}
+{-| Takes a [`Form.Handler.Handler`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form-Handler) and
+parses the raw form data into a [`Form.Validated`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form#Validated) value.
+
+This is the standard pattern for dealing with form data in `elm-pages`. You can share your code for your [`Form`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form#Form)
+definitions between your client and server code, using this function to parse the raw form data into a `Form.Validated` value for the backend,
+and [`Pages.Form`](Pages-Form) to render the `Form` on the client.
+
+Since we are sharing the `Form` definition between frontend and backend, we get to re-use the same validation logic so we gain confidence that
+the validation errors that the user sees on the client are protected on our backend, and vice versa.
+
+    import BackendTask
+    import Form
+    import Server.Request
+
+    type Action
+        = Delete
+        | CreateOrUpdate Post
+
+    formHandlers : Form.Handler.Handler String Action
+    formHandlers =
+        deleteForm
+            |> Form.Handler.init (\() -> Delete)
+            |> Form.Handler.with CreateOrUpdate createOrUpdateForm
+
+    deleteForm : Form.HtmlForm String () input msg
+
+    createOrUpdateForm : Form.HtmlForm String Post Post msg
+
+    action :
+        RouteParams
+        -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage))
+    action routeParams =
+        Server.Request.map
+            (\( formResponse, parsedForm ) ->
+                case parsedForm of
+                    Form.Valid Delete ->
+                        deletePostBySlug routeParams.slug
+                            |> BackendTask.map
+                                (\() -> Route.redirectTo Route.Index)
+
+                    Form.Valid (CreateOrUpdate post) ->
+                        let
+                            createPost : Bool
+                            createPost =
+                                okForm.slug == "new"
+                        in
+                        createOrUpdatePost post
+                            |> BackendTask.map
+                                (\() ->
+                                    Route.redirectTo
+                                        (Route.Admin__Slug_ { slug = okForm.slug })
+                                )
+
+                    Form.Invalid _ invalidForm ->
+                        BackendTask.succeed
+                            (Server.Response.render
+                                { errors = formResponse }
+                            )
+            )
+            (Server.Request.formData formHandlers)
+
+-}
 formData :
     Form.Handler.Handler error combined
     -> Parser ( Form.ServerResponse error, Form.Validated error combined )

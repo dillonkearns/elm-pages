@@ -232,10 +232,7 @@ action routeParams =
         (Server.Request.formData formHandlers)
 
 
-
---form : Form.HtmlForm String Post Post Msg
-
-
+form : Form.HtmlForm String Post Post msg
 form =
     (\title slug body publish ->
         { combine =
@@ -298,10 +295,7 @@ formHandlers =
         |> Form.Handler.with CreateOrEdit form
 
 
-
---deleteForm : Form.HtmlForm String () input (PagesMsg Msg)
-
-
+deleteForm : Form.HtmlForm String () input msg
 deleteForm =
     Form.form
         { combine = Form.Validation.succeed ()
@@ -339,7 +333,7 @@ buttonWithTransition attributes initialText transitioningText formState =
 errorsView :
     Form.Errors String
     -> Form.Validation.Field String parsed kind
-    -> Html.Html (PagesMsg Msg)
+    -> Html.Html msg
 errorsView errors field =
     if List.isEmpty (Form.errorsForField field errors) then
         Html.div [] []
