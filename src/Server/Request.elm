@@ -1071,6 +1071,23 @@ the validation errors that the user sees on the client are protected on our back
             )
             (Server.Request.formData formHandlers)
 
+You can handle form submissions as either GET or POST requests. Note that for security reasons, it's important to performing mutations with care from GET requests,
+since a GET request can be performed from an outside origin by embedding an image that points to the given URL. So a logout submission should be protected by
+using `POST` to ensure that you can't log users out by embedding an image with a logout URL in it.
+
+If the request has HTTP method `GET`, the form data will come from the query parameters.
+
+If the request has the HTTP method `POST` _and_ the `Content-Type` is `application/x-www-form-urlencoded`, it will return the
+decoded form data from the body of the request.
+
+Otherwise, this `Parser` will not match.
+
+Note that in server-rendered Route modules, your `data` function will handle `GET` requests (and will _not_ receive any `POST` requests),
+while your `action` will receive POST (and other non-GET) requests.
+
+By default, [`Form`]'s are rendered with a `POST` method, and you can configure them to submit `GET` requests using [`withGetMethod`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form#withGetMethod).
+So you will want to handle any `Form`'s rendered using `withGetMethod` in your Route's `data` function, or otherwise handle forms in `action`.
+
 -}
 formData :
     Form.Handler.Handler error combined
@@ -1104,7 +1121,22 @@ formData formParsers =
             )
 
 
-{-| -}
+{-| Get the raw key-value pairs from a form submission.
+
+If the request has the HTTP method `GET`, it will return the query parameters.
+
+If the request has the HTTP method `POST` _and_ the `Content-Type` is `application/x-www-form-urlencoded`, it will return the
+decoded form data from the body of the request.
+
+Otherwise, this `Parser` will not match.
+
+Note that in server-rendered Route modules, your `data` function will handle `GET` requests (and will _not_ receive any `POST` requests),
+while your `action` will receive POST (and other non-GET) requests.
+
+By default, [`Form`]'s are rendered with a `POST` method, and you can configure them to submit `GET` requests using [`withGetMethod`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form#withGetMethod).
+So you will want to handle any `Form`'s rendered using `withGetMethod` in your Route's `data` function, or otherwise handle forms in `action`.
+
+-}
 rawFormData : Parser (List ( String, String ))
 rawFormData =
     -- TODO make an optional version
