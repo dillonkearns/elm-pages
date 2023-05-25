@@ -19,7 +19,8 @@ context("fetchers", () => {
 });
 
 function addItem(itemName) {
-  cy.get("input[name=name]").clear().type(itemName);
+  cy.get("input[name=name]").clear({ force: true });
+  cy.get("input[name=name]").type(itemName, { force: true });
   cy.contains("Submit").click();
 }
 
