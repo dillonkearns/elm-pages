@@ -4,3 +4,6 @@ dist/
 .cache/
 .elm-pages/
 functions/render/elm-pages-cli.js
+cypress/videos
+cypress/screenshots
+
