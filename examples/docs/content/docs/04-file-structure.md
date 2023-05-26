@@ -36,7 +36,7 @@ Must expose
 
 - A type called `View msg` (must have exactly one type variable)
 - `map : (msg1 -> msg2) -> View msg1 -> View msg2`
-- `placeholder : String -> View msg` - used in when you scaffold a new Page module with `elm-pages add MyRoute`
+- `placeholder : String -> View msg` - used when you scaffold a new Page module with `elm-pages add MyRoute`
 
 The `View msg` type is what individual `Page/` modules must return in their `view` functions.
 So if you want to use `mdgriffith/elm-ui` in your `Page`'s `view` functions, you would update your module like this:
