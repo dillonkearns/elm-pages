@@ -82,7 +82,6 @@ xmlDecoder =
     in
     ApiRoute.succeed
         (\request ->
-            --(\_ xmlString  ->
             case ( request |> Request.matchesContentType "application/xml", Request.body request ) of
                 ( True, Just xmlString ) ->
                     xmlString
