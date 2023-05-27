@@ -121,7 +121,7 @@ action :
 action routeParams request =
     case request |> Server.Request.formData forms of
         Nothing ->
-            Debug.todo "TODO"
+            BackendTask.fail (FatalError.fromString "Invalid request")
 
         Just ( formResponse, formPost ) ->
             case formPost of
