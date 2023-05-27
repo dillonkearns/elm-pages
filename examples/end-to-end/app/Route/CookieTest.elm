@@ -5,10 +5,9 @@ import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Head
 import Html.Styled exposing (text)
-import Pages.PageUrl exposing (PageUrl)
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request exposing (Parser)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -35,7 +34,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action = \_ _ -> "No action." |> FatalError.fromString |> BackendTask.fail
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -44,17 +43,11 @@ type alias Data =
     { darkMode : Maybe String }
 
 
-data : RouteParams -> Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.oneOf
-        [ Request.expectCookie "dark-mode"
-            |> Request.map
-                (\darkMode ->
-                    BackendTask.succeed (Response.render { darkMode = Just darkMode })
-                )
-        , Request.succeed
-            (BackendTask.succeed (Response.render { darkMode = Nothing }))
-        ]
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    { darkMode = request |> Request.cookie "dark-mode" }
+        |> Response.render
+        |> BackendTask.succeed
 
 
 head :

@@ -176,6 +176,7 @@ import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
 import Head
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
+import Internal.Request
 import Json.Decode as Decode
 import Json.Encode
 import Pattern
@@ -199,7 +200,7 @@ single handler =
 
 
 {-| -}
-serverRender : ApiRouteBuilder (Server.Request.Parser (BackendTask FatalError (Server.Response.Response Never Never))) constructor -> ApiRoute Response
+serverRender : ApiRouteBuilder (Server.Request.Request -> BackendTask FatalError (Server.Response.Response Never Never)) constructor -> ApiRoute Response
 serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
     ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
@@ -208,36 +209,7 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
                 Internal.ApiRoute.tryMatch path fullHandler
                     |> Maybe.map
                         (\toBackendTask ->
-                            Server.Request.getDecoder toBackendTask
-                                |> (\decoder ->
-                                        Decode.decodeValue decoder serverRequest
-                                            |> Result.mapError Decode.errorToString
-                                            |> BackendTask.fromResult
-                                            |> BackendTask.map Just
-                                   )
-                                |> BackendTask.onError
-                                    (\stringError ->
-                                        -- TODO make error with title and better context/formatting
-                                        FatalError.fromString stringError |> BackendTask.fail
-                                    )
-                                |> BackendTask.andThen
-                                    (\rendered ->
-                                        case rendered of
-                                            Just (Ok okRendered) ->
-                                                okRendered
-
-                                            Just (Err errors) ->
-                                                errors
-                                                    |> Server.Request.errorsToString
-                                                    |> Server.Response.plainText
-                                                    |> Server.Response.withStatusCode 400
-                                                    |> BackendTask.succeed
-
-                                            Nothing ->
-                                                Server.Response.plainText "No matching request handler"
-                                                    |> Server.Response.withStatusCode 400
-                                                    |> BackendTask.succeed
-                                    )
+                            toBackendTask (Internal.Request.toRequest serverRequest)
                         )
                     |> Maybe.map (BackendTask.map (Server.Response.toJson >> Just))
                     |> Maybe.withDefault

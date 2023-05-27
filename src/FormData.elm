@@ -1,4 +1,4 @@
-module FormData exposing (encode, parse)
+module FormData exposing (encode, parse, parseToList)
 
 import Dict exposing (Dict)
 import List.NonEmpty exposing (NonEmpty)
@@ -32,6 +32,26 @@ parse rawString =
                         soFar
             )
             Dict.empty
+
+
+parseToList : String -> List ( String, String )
+parseToList rawString =
+    rawString
+        |> String.split "&"
+        |> List.concatMap
+            (\entry ->
+                case entry |> String.split "=" of
+                    [ key, value ] ->
+                        let
+                            newValue : String
+                            newValue =
+                                value |> decode
+                        in
+                        [ ( key, newValue ) ]
+
+                    _ ->
+                        []
+            )
 
 
 decode : String -> String

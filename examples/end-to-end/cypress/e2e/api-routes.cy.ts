@@ -52,7 +52,7 @@ it("expect query param when none present", () => {
     expect(res.headers["content-type"]).to.eq("text/plain");
     expect(res.status).to.eq(400);
     expect(res.body).to.include(
-      'Expected query param "first", but there were no query params.'
+      `Invalid request, expected either a JSON body or a 'first=' query param.`
     );
   });
 });
@@ -65,7 +65,9 @@ it("missing expected query param", () => {
   }).then((res) => {
     expect(res.headers["content-type"]).to.eq("text/plain");
     expect(res.status).to.eq(400);
-    expect(res.body).to.include('Missing query param "first"');
+    expect(res.body).to.include(
+      `Invalid request, expected either a JSON body or a 'first=' query param.`
+    );
   });
 });
 
@@ -152,7 +154,7 @@ it("gives an error when there is no content-type header", () => {
     expect(res.headers["content-type"]).to.eq("text/plain");
     expect(res.status).to.eq(400);
     expect(res.body).to.eq(
-      "Expected content-type `application/xml` but there was no content-type header."
+      "Invalid request, expected a body with content-type application/xml."
     );
   });
 });

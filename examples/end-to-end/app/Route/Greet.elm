@@ -13,7 +13,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
@@ -42,7 +42,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip ""
+        , action = \_ _ -> BackendTask.succeed (Response.render {})
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -79,49 +79,48 @@ type alias Data =
     }
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.oneOf
-        [ Request.map2 (\a b -> Data a b Nothing)
-            (Request.expectQueryParam "name")
-            Request.requestTime
-            |> Request.map
-                (\requestData ->
-                    requestData
-                        |> Response.render
-                        |> Response.withHeader
-                            "x-greeting"
-                            ("hello there " ++ requestData.username ++ "!")
-                        |> BackendTask.succeed
-                )
-        , Request.requestTime
-            |> MySession.expectSessionOrRedirect
-                (\requestTime session ->
-                    let
-                        username : String
-                        username =
-                            session
-                                |> Session.get "name"
-                                |> Maybe.withDefault "NONAME"
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    case request |> Request.queryParam "name" of
+        Just name ->
+            Data name (Request.requestTime request) Nothing
+                |> Response.render
+                |> Response.withHeader
+                    "x-greeting"
+                    ("hello there " ++ name ++ "!")
+                |> BackendTask.succeed
 
-                        flashMessage : Maybe String
-                        flashMessage =
-                            session
-                                |> Session.get "message"
-                    in
-                    ( session
-                    , { username = username
-                      , requestTime = requestTime
-                      , flashMessage = flashMessage
-                      }
-                        |> Response.render
-                        |> Response.withHeader
-                            "x-greeting"
-                            ("hello " ++ username ++ "!")
+        Nothing ->
+            request
+                |> MySession.expectSessionOrRedirect
+                    (\session ->
+                        let
+                            requestTime =
+                                request |> Request.requestTime
+
+                            username : String
+                            username =
+                                session
+                                    |> Session.get "name"
+                                    |> Maybe.withDefault "NONAME"
+
+                            flashMessage : Maybe String
+                            flashMessage =
+                                session
+                                    |> Session.get "message"
+                        in
+                        ( session
+                        , { username = username
+                          , requestTime = requestTime
+                          , flashMessage = flashMessage
+                          }
+                            |> Response.render
+                            |> Response.withHeader
+                                "x-greeting"
+                                ("hello " ++ username ++ "!")
+                        )
+                            |> BackendTask.succeed
                     )
-                        |> BackendTask.succeed
-                )
-        ]
 
 
 head :

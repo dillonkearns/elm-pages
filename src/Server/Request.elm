@@ -4,18 +4,19 @@ module Server.Request exposing
     , formData, formDataWithServerValidation
     , rawFormData
     , rawUrl
-    , method, rawBody, allCookies, rawHeaders
-    , requestTime, optionalHeader, expectContentType, expectJsonBody
+    , method, rawBody, rawHeaders
+    , requestTime, optionalHeader, expectContentType
     , acceptMethod, acceptContentTypes
     , map, map2, oneOf, andMap, andThen
     , queryParam, expectQueryParam, queryParams
-    , cookie, expectCookie
+    , cookie
     , expectHeader
     , File, expectMultiPartFormPost
     , expectBody
     , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
     , errorsToString, errorToString, getDecoder, ValidationError
+    , Request, body, cookies, header, jsonBody, matchesContentType
     )
 
 {-|
@@ -55,7 +56,7 @@ module Server.Request exposing
 
 ## Cookies
 
-@docs cookie, expectCookie
+@docs cookie
 
 
 ## Headers
@@ -593,12 +594,9 @@ rawHeaders =
 
 
 {-| -}
-requestTime : Parser Time.Posix
-requestTime =
-    Json.Decode.field "requestTime"
-        (Json.Decode.int |> Json.Decode.map Time.millisToPosix)
-        |> noErrors
-        |> Internal.Request.Parser
+requestTime : Request -> Time.Posix
+requestTime (Internal.Request.Request req) =
+    req.time
 
 
 noErrors : Json.Decode.Decoder value -> Json.Decode.Decoder ( Result ValidationError value, List ValidationError )
@@ -650,12 +648,9 @@ acceptMethod ( accepted1, accepted ) (Internal.Request.Parser decoder) =
 
 
 {-| -}
-method : Parser Method
-method =
-    Json.Decode.field "method" Json.Decode.string
-        |> Json.Decode.map methodFromString
-        |> noErrors
-        |> Internal.Request.Parser
+method : Request -> Method
+method (Internal.Request.Request req) =
+    req.method |> methodFromString
 
 
 appendError : ValidationError -> Json.Decode.Decoder ( value, List ValidationError ) -> Json.Decode.Decoder ( value, List ValidationError )
@@ -731,17 +726,12 @@ If there are multiple query params with the same name, the first one is returned
 See also [`expectQueryParam`](#expectQueryParam) and [`queryParams`](#queryParams), or [`rawUrl`](#rawUrl) if you need something more low-level.
 
 -}
-queryParam : String -> Parser (Maybe String)
-queryParam name =
-    rawUrl
-        |> andThen
-            (\url_ ->
-                url_
-                    |> Url.fromString
-                    |> Maybe.andThen .query
-                    |> Maybe.andThen (findFirstQueryParam name)
-                    |> succeed
-            )
+queryParam : String -> Request -> Maybe String
+queryParam name (Internal.Request.Request req) =
+    req.rawUrl
+        |> Url.fromString
+        |> Maybe.andThen .query
+        |> Maybe.andThen (findFirstQueryParam name)
 
 
 findFirstQueryParam : String -> String -> Maybe String
@@ -765,17 +755,13 @@ findFirstQueryParam name queryString =
     -- parses into: Dict.fromList [("coupon", ["abc", "xyz"])]
 
 -}
-queryParams : Parser (Dict String (List String))
-queryParams =
-    rawUrl
-        |> map
-            (\rawUrl_ ->
-                rawUrl_
-                    |> Url.fromString
-                    |> Maybe.andThen .query
-                    |> Maybe.map QueryParams.fromString
-                    |> Maybe.withDefault Dict.empty
-            )
+queryParams : Request -> Dict String (List String)
+queryParams (Internal.Request.Request req) =
+    req.rawUrl
+        |> Url.fromString
+        |> Maybe.andThen .query
+        |> Maybe.map QueryParams.fromString
+        |> Maybe.withDefault Dict.empty
 
 
 {-| This is a Request.Parser that will never match an HTTP request. Similar to `Json.Decode.fail`.
@@ -855,6 +841,13 @@ rawUrl =
 
 
 {-| -}
+header : String -> Request -> Maybe String
+header headerName (Internal.Request.Request req) =
+    req.rawHeaders
+        |> Dict.get (headerName |> String.toLower)
+
+
+{-| -}
 optionalHeader : String -> Parser (Maybe String)
 optionalHeader headerName =
     optionalField (headerName |> String.toLower) Json.Decode.string
@@ -864,38 +857,16 @@ optionalHeader headerName =
 
 
 {-| -}
-expectCookie : String -> Parser String
-expectCookie name =
-    cookie name
-        |> andThen
-            (\maybeCookie ->
-                case maybeCookie of
-                    Just justValue ->
-                        succeed justValue
-
-                    Nothing ->
-                        skipInternal (ValidationError ("Missing cookie " ++ name))
-            )
+cookie : String -> Request -> Maybe String
+cookie name (Internal.Request.Request req) =
+    req.cookies
+        |> Dict.get name
 
 
 {-| -}
-cookie : String -> Parser (Maybe String)
-cookie name =
-    allCookies
-        |> map (Dict.get name)
-
-
-{-| -}
-allCookies : Parser (Dict String String)
-allCookies =
-    Json.Decode.field "headers"
-        (optionalField "cookie"
-            Json.Decode.string
-            |> Json.Decode.map (Maybe.map CookieParser.parse)
-        )
-        |> Json.Decode.map (Maybe.withDefault Dict.empty)
-        |> noErrors
-        |> Internal.Request.Parser
+cookies : Request -> Dict String String
+cookies (Internal.Request.Request req) =
+    req.cookies
 
 
 formField_ : String -> Parser String
@@ -963,51 +934,54 @@ runForm validation =
 {-| -}
 formDataWithServerValidation :
     Pages.Form.Handler error combined
-    -> Parser (BackendTask FatalError (Result (Form.ServerResponse error) ( Form.ServerResponse error, combined )))
-formDataWithServerValidation formParsers =
-    rawFormData
-        |> andThen
-            (\rawFormData_ ->
-                case Form.Handler.run rawFormData_ formParsers of
-                    Form.Valid decoded ->
-                        succeed
-                            (decoded
-                                |> BackendTask.map
-                                    (\clientValidated ->
-                                        case runForm clientValidated of
-                                            Form.Valid decodedFinal ->
-                                                Ok
-                                                    ( { persisted =
+    -> Request
+    -> Maybe (BackendTask FatalError (Result (Form.ServerResponse error) ( Form.ServerResponse error, combined )))
+formDataWithServerValidation formParsers (Internal.Request.Request req) =
+    case req.body of
+        Nothing ->
+            Nothing
+
+        Just body_ ->
+            FormData.parseToList body_
+                |> (\rawFormData_ ->
+                        case Form.Handler.run rawFormData_ formParsers of
+                            Form.Valid decoded ->
+                                decoded
+                                    |> BackendTask.map
+                                        (\clientValidated ->
+                                            case runForm clientValidated of
+                                                Form.Valid decodedFinal ->
+                                                    Ok
+                                                        ( { persisted =
+                                                                { fields = Just rawFormData_
+                                                                , clientSideErrors = Nothing
+                                                                }
+                                                          , serverSideErrors = Dict.empty
+                                                          }
+                                                        , decodedFinal
+                                                        )
+
+                                                Form.Invalid _ errors2 ->
+                                                    Err
+                                                        { persisted =
                                                             { fields = Just rawFormData_
-                                                            , clientSideErrors = Nothing
+                                                            , clientSideErrors = Just errors2
                                                             }
-                                                      , serverSideErrors = Dict.empty
-                                                      }
-                                                    , decodedFinal
-                                                    )
-
-                                            Form.Invalid _ errors2 ->
-                                                Err
-                                                    { persisted =
-                                                        { fields = Just rawFormData_
-                                                        , clientSideErrors = Just errors2
+                                                        , serverSideErrors = Dict.empty
                                                         }
-                                                    , serverSideErrors = Dict.empty
-                                                    }
-                                    )
-                            )
+                                        )
 
-                    Form.Invalid _ errors ->
-                        Err
-                            { persisted =
-                                { fields = Just rawFormData_
-                                , clientSideErrors = Just errors
-                                }
-                            , serverSideErrors = Dict.empty
-                            }
-                            |> BackendTask.succeed
-                            |> succeed
-            )
+                            Form.Invalid _ errors ->
+                                Err
+                                    { persisted =
+                                        { fields = Just rawFormData_
+                                        , clientSideErrors = Just errors
+                                        }
+                                    , serverSideErrors = Dict.empty
+                                    }
+                                    |> BackendTask.succeed
+                   )
+                |> Just
 
 
 {-| Takes a [`Form.Handler.Handler`](https://package.elm-lang.org/packages/dillonkearns/elm-form/latest/Form-Handler) and
@@ -1091,10 +1065,12 @@ So you will want to handle any `Form`'s rendered using `withGetMethod` in your R
 -}
 formData :
     Form.Handler.Handler error combined
-    -> Parser ( Form.ServerResponse error, Form.Validated error combined )
-formData formParsers =
-    rawFormData
-        |> andThen
+    -> Request
+    -> Maybe ( Form.ServerResponse error, Form.Validated error combined )
+formData formParsers ((Internal.Request.Request req) as request) =
+    request
+        |> rawFormData
+        |> Maybe.map
             (\rawFormData_ ->
                 case Form.Handler.run rawFormData_ formParsers of
                     (Form.Valid _) as validated ->
@@ -1106,7 +1082,6 @@ formData formParsers =
                           }
                         , validated
                         )
-                            |> succeed
 
                     (Form.Invalid _ maybeErrors) as validated ->
                         ( { persisted =
@@ -1117,7 +1092,6 @@ formData formParsers =
                           }
                         , validated
                         )
-                            |> succeed
             )
 
 
@@ -1137,71 +1111,25 @@ By default, [`Form`]'s are rendered with a `POST` method, and you can configure 
 So you will want to handle any `Form`'s rendered using `withGetMethod` in your Route's `data` function, or otherwise handle forms in `action`.
 
 -}
-rawFormData : Parser (List ( String, String ))
-rawFormData =
-    -- TODO make an optional version
-    map4 (\parsedContentType a b c -> ( ( a, parsedContentType ), b, c ))
-        (rawContentType |> map (Maybe.map parseContentType))
-        (matchesContentType "application/x-www-form-urlencoded")
-        method
-        (rawBody |> map (Maybe.withDefault "")
-         -- TODO warn of empty body in case when field decoding fails?
-        )
-        |> andThen
-            (\( ( validContentType, parsedContentType ), validMethod, justBody ) ->
-                if validMethod == Get then
-                    queryParams
-                        |> map Dict.toList
-                        |> map (List.map (Tuple.mapSecond (List.head >> Maybe.withDefault "")))
+rawFormData : Request -> Maybe (List ( String, String ))
+rawFormData request =
+    if method request == Get then
+        request
+            |> queryParams
+            |> Dict.toList
+            |> List.map (Tuple.mapSecond (List.head >> Maybe.withDefault ""))
+            |> Just
 
-                else if not ((validContentType |> Maybe.withDefault False) && validMethod == Post) then
-                    Json.Decode.succeed
-                        ( Err
-                            (ValidationError <|
-                                case ( validContentType |> Maybe.withDefault False, validMethod == Post, parsedContentType ) of
-                                    ( False, True, Just contentType_ ) ->
-                                        "expectFormPost did not match - Was form POST but expected content-type `application/x-www-form-urlencoded` and instead got `" ++ contentType_ ++ "`"
-
-                                    ( False, True, Nothing ) ->
-                                        "expectFormPost did not match - Was form POST but expected content-type `application/x-www-form-urlencoded` but the request didn't have a content-type header"
-
-                                    _ ->
-                                        "expectFormPost did not match - expected method POST, but the method was " ++ methodToString validMethod
-                            )
-                        , []
-                        )
-                        |> Internal.Request.Parser
-
-                else
+    else if (method request == Post) && (request |> matchesContentType "application/x-www-form-urlencoded") then
+        body request
+            |> Maybe.map
+                (\justBody ->
                     justBody
-                        |> FormData.parse
-                        |> succeed
-                        |> andThen
-                            (\parsedForm ->
-                                let
-                                    thing : Json.Encode.Value
-                                    thing =
-                                        parsedForm
-                                            |> Dict.toList
-                                            |> List.map
-                                                (Tuple.mapSecond
-                                                    (\( first, _ ) ->
-                                                        Json.Encode.string first
-                                                    )
-                                                )
-                                            |> Json.Encode.object
+                        |> FormData.parseToList
+                )
 
-                                    innerDecoder : Json.Decode.Decoder ( Result ValidationError (List ( String, String )), List ValidationError )
-                                    innerDecoder =
-                                        Json.Decode.keyValuePairs Json.Decode.string
-                                            |> noErrors
-                                in
-                                Json.Decode.decodeValue innerDecoder thing
-                                    |> Result.mapError Json.Decode.errorToString
-                                    |> jsonFromResult
-                                    |> Internal.Request.Parser
-                            )
-            )
+    else
+        Nothing
 
 
 {-| -}
@@ -1262,25 +1190,18 @@ rawContentType =
         |> Internal.Request.Parser
 
 
-matchesContentType : String -> Parser (Maybe Bool)
-matchesContentType expectedContentType =
-    optionalField ("content-type" |> String.toLower) Json.Decode.string
-        |> Json.Decode.field "headers"
-        |> Json.Decode.map
-            (\maybeContentType ->
+matchesContentType : String -> Request -> Bool
+matchesContentType expectedContentType (Internal.Request.Request req) =
+    req.rawHeaders
+        |> Dict.get "content-type"
+        |> (\maybeContentType ->
                 case maybeContentType of
                     Nothing ->
-                        Nothing
+                        False
 
                     Just contentType ->
-                        if (contentType |> parseContentType) == (expectedContentType |> parseContentType) then
-                            Just True
-
-                        else
-                            Just False
-            )
-        |> noErrors
-        |> Internal.Request.Parser
+                        (contentType |> parseContentType) == (expectedContentType |> parseContentType)
+           )
 
 
 parseContentType : String -> String
@@ -1293,26 +1214,15 @@ parseContentType contentTypeString =
 
 
 {-| -}
-expectJsonBody : Json.Decode.Decoder value -> Parser value
-expectJsonBody jsonBodyDecoder =
-    map2 (\_ secondValue -> secondValue)
-        (expectContentType "application/json")
-        (rawBody
-            |> andThen
-                (\rawBody_ ->
-                    (case rawBody_ of
-                        Just body_ ->
-                            Json.Decode.decodeString
-                                jsonBodyDecoder
-                                body_
-                                |> Result.mapError Json.Decode.errorToString
+jsonBody : Json.Decode.Decoder value -> Request -> Maybe (Result Json.Decode.Error value)
+jsonBody jsonBodyDecoder ((Internal.Request.Request req) as request) =
+    case ( req.body, request |> matchesContentType "application/json" ) of
+        ( Just body_, True ) ->
+            Json.Decode.decodeString jsonBodyDecoder body_
+                |> Just
 
-                        Nothing ->
-                            Err "Tried to parse JSON body but the request had no body."
-                    )
-                        |> fromResult
-                )
-        )
+        _ ->
+            Nothing
 
 
 {-| -}
@@ -1416,3 +1326,13 @@ methodToString method_ =
 
         NonStandard nonStandardMethod ->
             nonStandardMethod
+
+
+type alias Request =
+    Internal.Request.Request
+
+
+{-| -}
+body : Request -> Maybe String
+body (Internal.Request.Request req) =
+    req.body

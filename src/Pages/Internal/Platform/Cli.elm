@@ -17,6 +17,7 @@ import Head exposing (Tag)
 import Html exposing (Html)
 import HtmlPrinter
 import Internal.ApiRoute exposing (ApiRoute(..))
+import Internal.Request
 import Json.Decode as Decode
 import Json.Encode
 import PageServerResponse exposing (PageServerResponse)
@@ -422,7 +423,13 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                         --sendSinglePageProgress site model.allRawResponses config model payload
                                         (case isAction of
                                             Just _ ->
-                                                config.action (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter |> BackendTask.map Just
+                                                config.action
+                                                    (RenderRequest.maybeRequestPayload renderRequest
+                                                        |> Maybe.map Internal.Request.toRequest
+                                                        |> Maybe.withDefault Internal.Request.fakeRequest
+                                                    )
+                                                    serverRequestPayload.frontmatter
+                                                    |> BackendTask.map Just
 
                                             Nothing ->
                                                 BackendTask.succeed Nothing
@@ -674,7 +681,13 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                     in
                                                                     renderedResult
                                                                 )
-                                                                (config.data (RenderRequest.maybeRequestPayload renderRequest |> Maybe.withDefault Json.Encode.null) serverRequestPayload.frontmatter)
+                                                                (config.data
+                                                                    (RenderRequest.maybeRequestPayload renderRequest
+                                                                        |> Maybe.map Internal.Request.toRequest
+                                                                        |> Maybe.withDefault Internal.Request.fakeRequest
+                                                                    )
+                                                                    serverRequestPayload.frontmatter
+                                                                )
                                                                 config.sharedData
                                                                 globalHeadTags
                                                 )

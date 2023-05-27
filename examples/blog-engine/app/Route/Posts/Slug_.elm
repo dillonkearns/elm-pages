@@ -22,7 +22,7 @@ import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import Post
 import RouteBuilder
-import Server.Request
+import Server.Request exposing (Request)
 import Server.Response
 import Shared
 import UrlPath
@@ -93,39 +93,38 @@ type alias ActionData =
 
 data :
     RouteParams
-    -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
-data routeParams =
-    Server.Request.succeed
-        (BackendTask.Custom.run "getPost"
-            (Encode.string routeParams.slug)
-            (Decode.nullable Post.decoder)
-            |> BackendTask.allowFatal
-            |> BackendTask.andThen
-                (\maybePost ->
-                    case maybePost of
-                        Just post ->
-                            let
-                                parsed : Result String (List Block)
-                                parsed =
-                                    post.body
-                                        |> Markdown.Parser.parse
-                                        |> Result.mapError (\_ -> "Invalid markdown.")
-                            in
-                            parsed
-                                |> Result.mapError FatalError.fromString
-                                |> Result.map
-                                    (\parsedMarkdown ->
-                                        Server.Response.render
-                                            { body = parsedMarkdown
-                                            }
-                                    )
-                                |> BackendTask.fromResult
+    -> Request
+    -> BackendTask.BackendTask FatalError.FatalError (Server.Response.Response Data ErrorPage.ErrorPage)
+data routeParams request =
+    BackendTask.Custom.run "getPost"
+        (Encode.string routeParams.slug)
+        (Decode.nullable Post.decoder)
+        |> BackendTask.allowFatal
+        |> BackendTask.andThen
+            (\maybePost ->
+                case maybePost of
+                    Just post ->
+                        let
+                            parsed : Result String (List Block)
+                            parsed =
+                                post.body
+                                    |> Markdown.Parser.parse
+                                    |> Result.mapError (\_ -> "Invalid markdown.")
+                        in
+                        parsed
+                            |> Result.mapError FatalError.fromString
+                            |> Result.map
+                                (\parsedMarkdown ->
+                                    Server.Response.render
+                                        { body = parsedMarkdown
+                                        }
+                                )
+                            |> BackendTask.fromResult
 
-                        Nothing ->
-                            Server.Response.errorPage ErrorPage.NotFound
-                                |> BackendTask.succeed
-                )
-        )
+                    Nothing ->
+                        Server.Response.errorPage ErrorPage.NotFound
+                            |> BackendTask.succeed
+            )
 
 
 head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
@@ -153,6 +152,7 @@ view app shared model =
 
 action :
     RouteParams
-    -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage))
-action routeParams =
-    Server.Request.succeed (BackendTask.succeed (Server.Response.render {}))
+    -> Request
+    -> BackendTask.BackendTask FatalError.FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage)
+action routeParams request =
+    BackendTask.succeed (Server.Response.render {})

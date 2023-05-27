@@ -30,6 +30,7 @@ import Gen.Pages.Internal.RoutePattern
 import Gen.Pages.Navigation
 import Gen.Pages.PageUrl
 import Gen.PagesMsg
+import Gen.Server.Request
 import Gen.Server.Response
 import Gen.String
 import Gen.Tuple
@@ -629,7 +630,7 @@ otherFile routes phaseString =
         dataForRoute =
             Elm.Declare.fn2
                 "dataForRoute"
-                ( "requestPayload", Just Gen.Json.Decode.annotation_.value )
+                ( "requestPayload", Just Gen.Server.Request.annotation_.request )
                 ( "maybeRoute", Type.maybe (Type.named [ "Route" ] "Route") |> Just )
                 (\requestPayload maybeRoute ->
                     Elm.Case.maybe maybeRoute
@@ -681,7 +682,7 @@ otherFile routes phaseString =
         action =
             Elm.Declare.fn2
                 "action"
-                ( "requestPayload", Just Gen.Json.Decode.annotation_.value )
+                ( "requestPayload", Just Gen.Server.Request.annotation_.request )
                 ( "maybeRoute", Type.maybe (Type.named [ "Route" ] "Route") |> Just )
                 (\requestPayload maybeRoute ->
                     Elm.Case.maybe maybeRoute

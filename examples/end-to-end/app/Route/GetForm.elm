@@ -15,7 +15,7 @@ import Html.Styled
 import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatelessRoute)
-import Server.Request as Request exposing (Parser)
+import Server.Request as Request exposing (Request)
 import Server.Response
 import Shared
 import View exposing (View)
@@ -84,30 +84,31 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage))
-data routeParams =
-    Request.formData (Form.Handler.init identity form)
-        |> Request.map
-            (\( formResponse, formResult ) ->
-                case formResult of
-                    Form.Valid filters ->
-                        Data filters
-                            |> Server.Response.render
-                            |> BackendTask.succeed
+data : RouteParams -> Request -> BackendTask FatalError (Server.Response.Response Data ErrorPage)
+data routeParams request =
+    case request |> Request.formData (Form.Handler.init identity form) of
+        Nothing ->
+            Data { page = 1 }
+                |> Server.Response.render
+                |> BackendTask.succeed
 
-                    Form.Invalid _ _ ->
-                        Data { page = 1 }
-                            |> Server.Response.render
-                            |> BackendTask.succeed
-            )
+        Just ( formResponse, formResult ) ->
+            case formResult of
+                Form.Valid filters ->
+                    Data filters
+                        |> Server.Response.render
+                        |> BackendTask.succeed
+
+                Form.Invalid _ _ ->
+                    Data { page = 1 }
+                        |> Server.Response.render
+                        |> BackendTask.succeed
 
 
-action : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response ActionData ErrorPage))
-action routeParams =
-    Request.succeed
-        (Server.Response.render {}
-            |> BackendTask.succeed
-        )
+action : RouteParams -> Request -> BackendTask FatalError (Server.Response.Response ActionData ErrorPage)
+action routeParams request =
+    Server.Response.render {}
+        |> BackendTask.succeed
 
 
 head :

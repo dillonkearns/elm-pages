@@ -18,7 +18,7 @@ import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import RouteBuilder
-import Server.Request
+import Server.Request exposing (Request)
 import Server.Response
 import Server.Session as Session
 import Shared
@@ -96,66 +96,69 @@ sessionOptions =
 
 data :
     RouteParams
-    -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
+    -> Request
+    -> BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage)
 data routeParams =
-    Server.Request.succeed ()
-        |> Session.withSessionResult sessionOptions
-            (\() sessionResult ->
-                let
-                    session : Session.Session
-                    session =
-                        sessionResult
-                            |> Result.withDefault Session.empty
+    Session.withSessionResult sessionOptions
+        (\sessionResult ->
+            let
+                session : Session.Session
+                session =
+                    sessionResult
+                        |> Result.withDefault Session.empty
 
-                    isDarkMode : Bool
-                    isDarkMode =
-                        (session |> Session.get "darkMode") == Just "dark"
-                in
-                BackendTask.succeed
-                    ( session
-                    , Server.Response.render
-                        { isDarkMode = isDarkMode
-                        }
-                    )
-            )
+                isDarkMode : Bool
+                isDarkMode =
+                    (session |> Session.get "darkMode") == Just "dark"
+            in
+            BackendTask.succeed
+                ( session
+                , Server.Response.render
+                    { isDarkMode = isDarkMode
+                    }
+                )
+        )
 
 
 action :
     RouteParams
-    -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage))
-action routeParams =
-    Server.Request.formData
-        (form
-            |> Form.Handler.init identity
-        )
+    -> Request
+    -> BackendTask FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage)
+action routeParams request =
+    request
         |> Session.withSessionResult sessionOptions
-            (\( response, formPost ) sessionResult ->
-                let
-                    setToDarkMode : Bool
-                    setToDarkMode =
-                        case formPost of
-                            Form.Valid ok ->
-                                ok
+            (\sessionResult ->
+                case request |> Server.Request.formData (form |> Form.Handler.init identity) of
+                    Nothing ->
+                        "Expected form submission." |> FatalError.fromString |> BackendTask.fail
 
-                            Form.Invalid _ _ ->
-                                False
+                    Just ( response, formPost ) ->
+                        let
+                            setToDarkMode : Bool
+                            setToDarkMode =
+                                case formPost of
+                                    Form.Valid ok ->
+                                        ok
 
-                    session : Session.Session
-                    session =
-                        sessionResult
-                            |> Result.withDefault Session.empty
-                in
-                BackendTask.succeed
-                    ( session
-                        |> Session.insert "darkMode"
-                            (if setToDarkMode then
-                                "dark"
+                                    Form.Invalid _ _ ->
+                                        False
 
-                             else
-                                ""
+                            session : Session.Session
+                            session =
+                                sessionResult
+                                    |> Result.withDefault Session.empty
+                        in
+                        BackendTask.succeed
+                            ( session
+                                |> Session.insert "darkMode"
+                                    (if setToDarkMode then
+                                        "dark"
+
+                                     else
+                                        ""
+                                    )
+                            , Server.Response.render (ActionData response)
                             )
-                    , Server.Response.render (ActionData response)
-                    )
             )
 
 

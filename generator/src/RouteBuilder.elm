@@ -98,20 +98,20 @@ import Pages.ConcurrentSubmission
 import Pages.Fetcher
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
-import Pages.PageUrl exposing (PageUrl)
 import Pages.Navigation
+import Pages.PageUrl exposing (PageUrl)
 import PagesMsg exposing (PagesMsg)
-import UrlPath exposing (UrlPath)
 import Server.Request
 import Server.Response
 import Shared
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
 {-| -}
 type alias StatefulRoute routeParams data action model msg =
-    { data : Json.Decode.Value -> routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
-    , action : Json.Decode.Value -> routeParams -> BackendTask FatalError (Server.Response.Response action ErrorPage)
+    { data : Server.Request.Request -> routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
+    , action : Server.Request.Request -> routeParams -> BackendTask FatalError (Server.Response.Response action ErrorPage)
     , staticRoutes : BackendTask FatalError (List routeParams)
     , view :
         Shared.Model
@@ -155,8 +155,8 @@ type alias App data action routeParams =
 {-| -}
 type Builder routeParams data action
     = WithData
-        { data : Json.Decode.Value -> routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
-        , action : Json.Decode.Value -> routeParams -> BackendTask FatalError (Server.Response.Response action ErrorPage)
+        { data : Server.Request.Request -> routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
+        , action : Server.Request.Request -> routeParams -> BackendTask FatalError (Server.Response.Response action ErrorPage)
         , staticRoutes : BackendTask FatalError (List routeParams)
         , head :
             App data action routeParams
@@ -362,61 +362,19 @@ preRenderWithFallback { data, head, pages } =
 
 {-| -}
 serverRender :
-    { data : routeParams -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response data ErrorPage))
-    , action : routeParams -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response action ErrorPage))
+    { data : routeParams -> Server.Request.Request -> BackendTask FatalError (Server.Response.Response data ErrorPage)
+    , action : routeParams -> Server.Request.Request -> BackendTask FatalError (Server.Response.Response action ErrorPage)
     , head : App data action routeParams -> List Head.Tag
     }
     -> Builder routeParams data action
 serverRender { data, action, head } =
     WithData
         { data =
-            \requestPayload routeParams ->
-                (routeParams
-                    |> data
-                    |> Server.Request.getDecoder
-                    |> (\decoder ->
-                            Json.Decode.decodeValue decoder requestPayload
-                                |> Result.mapError Json.Decode.errorToString
-                                |> BackendTask.fromResult
-                                -- TODO include title and better error context and formatting
-                                |> BackendTask.onError (\error -> BackendTask.fail (FatalError.fromString error))
-                       )
-                )
-                    |> BackendTask.andThen
-                        (\rendered ->
-                            case rendered of
-                                Ok okRendered ->
-                                    okRendered
-
-                                Err error ->
-                                    Server.Request.errorsToString error
-                                        |> FatalError.fromString
-                                        |> BackendTask.fail
-                        )
+            \request routeParams ->
+                data routeParams request
         , action =
-            \requestPayload routeParams ->
-                (routeParams
-                    |> action
-                    |> Server.Request.getDecoder
-                    |> (\decoder ->
-                            Json.Decode.decodeValue decoder requestPayload
-                                |> Result.mapError Json.Decode.errorToString
-                                |> BackendTask.fromResult
-                                -- TODO include title and better error context and formatting
-                                |> BackendTask.onError (\error -> BackendTask.fail (FatalError.fromString error))
-                       )
-                )
-                    |> BackendTask.andThen
-                        (\rendered ->
-                            case rendered of
-                                Ok okRendered ->
-                                    okRendered
-
-                                Err error ->
-                                    Server.Request.errorsToString error
-                                        |> FatalError.fromString
-                                        |> BackendTask.fail
-                        )
+            \request routeParams ->
+                action routeParams request
         , staticRoutes = BackendTask.succeed []
         , head = head
         , serverless = True

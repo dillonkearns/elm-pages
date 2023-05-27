@@ -28,7 +28,7 @@ import Platform.Sub
 import Post exposing (Post)
 import Route
 import RouteBuilder
-import Server.Request
+import Server.Request exposing (Request)
 import Server.Response
 import Shared
 import UrlPath
@@ -99,37 +99,36 @@ type alias ActionData =
 
 data :
     RouteParams
-    -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
-data routeParams =
-    Server.Request.succeed
-        (if routeParams.slug == "new" then
-            Server.Response.render
-                { post =
-                    { slug = ""
-                    , title = ""
-                    , body = ""
-                    , publish = Nothing
-                    }
+    -> Request
+    -> BackendTask.BackendTask FatalError.FatalError (Server.Response.Response Data ErrorPage.ErrorPage)
+data routeParams request =
+    if routeParams.slug == "new" then
+        Server.Response.render
+            { post =
+                { slug = ""
+                , title = ""
+                , body = ""
+                , publish = Nothing
                 }
-                |> BackendTask.succeed
+            }
+            |> BackendTask.succeed
 
-         else
-            BackendTask.Custom.run "getPost"
-                (Encode.string routeParams.slug)
-                (Decode.nullable Post.decoder)
-                |> BackendTask.allowFatal
-                |> BackendTask.map
-                    (\maybePost ->
-                        case maybePost of
-                            Just post ->
-                                Server.Response.render
-                                    { post = post
-                                    }
+    else
+        BackendTask.Custom.run "getPost"
+            (Encode.string routeParams.slug)
+            (Decode.nullable Post.decoder)
+            |> BackendTask.allowFatal
+            |> BackendTask.map
+                (\maybePost ->
+                    case maybePost of
+                        Just post ->
+                            Server.Response.render
+                                { post = post
+                                }
 
-                            Nothing ->
-                                Server.Response.errorPage ErrorPage.NotFound
-                    )
-        )
+                        Nothing ->
+                            Server.Response.errorPage ErrorPage.NotFound
+                )
 
 
 head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
@@ -173,10 +172,11 @@ view app shared model =
 
 action :
     RouteParams
-    -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage))
-action routeParams =
-    Server.Request.map
-        (\( formResponse, parsedForm ) ->
+    -> Request
+    -> BackendTask.BackendTask FatalError.FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage)
+action routeParams request =
+    case Server.Request.formData formHandlers request of
+        Just ( formResponse, parsedForm ) ->
             case parsedForm of
                 Valid Delete ->
                     BackendTask.Custom.run "deletePost"
@@ -228,8 +228,9 @@ action routeParams =
                         (Server.Response.render
                             { errors = formResponse }
                         )
-        )
-        (Server.Request.formData formHandlers)
+
+        Nothing ->
+            BackendTask.fail (FatalError.fromString "Invalid form response")
 
 
 form : Form.HtmlForm String Post Post msg

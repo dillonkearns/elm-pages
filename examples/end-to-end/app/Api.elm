@@ -37,20 +37,18 @@ routes getStaticRoutes htmlToString =
     in
     [ greet
     , ApiRoute.succeed
-        (Request.succeed
-            (Test.Glob.all
+        (\request ->
+            Test.Glob.all
                 |> BackendTask.map viewHtmlResults
                 |> BackendTask.map html
-            )
         )
         |> ApiRoute.literal "tests"
         |> ApiRoute.serverRender
     , ApiRoute.succeed
-        (Request.succeed
-            (Test.HttpRequests.all
+        (\request ->
+            Test.HttpRequests.all
                 |> BackendTask.map viewHtmlResults
                 |> BackendTask.map html
-            )
         )
         |> ApiRoute.literal "http-tests"
         |> ApiRoute.serverRender
@@ -64,12 +62,10 @@ routes getStaticRoutes htmlToString =
 errorRoute : ApiRoute ApiRoute.Response
 errorRoute =
     ApiRoute.succeed
-        (\errorCode ->
-            Request.succeed
-                (Response.plainText ("Here is the error code you requested (" ++ errorCode ++ ")")
-                    |> Response.withStatusCode (String.toInt errorCode |> Maybe.withDefault 500)
-                    |> BackendTask.succeed
-                )
+        (\errorCode request ->
+            Response.plainText ("Here is the error code you requested (" ++ errorCode ++ ")")
+                |> Response.withStatusCode (String.toInt errorCode |> Maybe.withDefault 500)
+                |> BackendTask.succeed
         )
         |> ApiRoute.literal "error-code"
         |> ApiRoute.slash
@@ -85,16 +81,20 @@ xmlDecoder =
             Xml.Decode.path [ "path", "to", "string", "value" ] (Xml.Decode.single Xml.Decode.string)
     in
     ApiRoute.succeed
-        (Request.map2
-            (\_ xmlString ->
-                xmlString
-                    |> Xml.Decode.run dataDecoder
-                    |> Result.Extra.merge
-                    |> Response.plainText
-                    |> BackendTask.succeed
-            )
-            (Request.expectContentType "application/xml")
-            Request.expectBody
+        (\request ->
+            --(\_ xmlString  ->
+            case ( request |> Request.matchesContentType "application/xml", Request.body request ) of
+                ( True, Just xmlString ) ->
+                    xmlString
+                        |> Xml.Decode.run dataDecoder
+                        |> Result.Extra.merge
+                        |> Response.plainText
+                        |> BackendTask.succeed
+
+                _ ->
+                    Response.plainText "Invalid request, expected a body with content-type application/xml."
+                        |> Response.withStatusCode 400
+                        |> BackendTask.succeed
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -110,25 +110,28 @@ multipleContentTypes =
             Xml.Decode.path [ "path", "to", "string", "value" ] (Xml.Decode.single Xml.Decode.string)
     in
     ApiRoute.succeed
-        (Request.oneOf
-            [ Request.map2
-                (\_ xmlString ->
+        (\request ->
+            case ( request |> Request.body, request |> Request.matchesContentType "application/xml" ) of
+                ( Just xmlString, True ) ->
                     xmlString
                         |> Xml.Decode.run dataDecoder
                         |> Result.Extra.merge
                         |> Response.plainText
                         |> BackendTask.succeed
-                )
-                (Request.expectContentType "application/xml")
-                Request.expectBody
-            , Request.map
-                (\decodedValue ->
-                    decodedValue
-                        |> Response.plainText
-                        |> BackendTask.succeed
-                )
-                (Request.expectJsonBody (Decode.at [ "path", "to", "string", "value" ] Decode.string))
-            ]
+
+                _ ->
+                    case
+                        request
+                            |> Request.jsonBody
+                                (Decode.at [ "path", "to", "string", "value" ] Decode.string)
+                    of
+                        Just (Ok decodedValue) ->
+                            decodedValue
+                                |> Response.plainText
+                                |> BackendTask.succeed
+
+                        _ ->
+                            BackendTask.fail (FatalError.fromString "Invalid request body.")
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -139,30 +142,24 @@ multipleContentTypes =
 requestPrinter : ApiRoute ApiRoute.Response
 requestPrinter =
     ApiRoute.succeed
-        (Request.map4
-            (\rawBody method cookies queryParams ->
-                Encode.object
-                    [ ( "rawBody"
-                      , Maybe.map Encode.string rawBody
-                            |> Maybe.withDefault Encode.null
-                      )
-                    , ( "method"
-                      , method |> Request.methodToString |> Encode.string
-                      )
-                    , ( "cookies"
-                      , cookies |> Encode.dict identity Encode.string
-                      )
-                    , ( "queryParams"
-                      , queryParams |> Encode.dict identity (Encode.list Encode.string)
-                      )
-                    ]
-                    |> Response.json
-                    |> BackendTask.succeed
-            )
-            Request.rawBody
-            Request.method
-            Request.allCookies
-            Request.queryParams
+        (\request ->
+            Encode.object
+                [ ( "rawBody"
+                  , Maybe.map Encode.string (Request.body request)
+                        |> Maybe.withDefault Encode.null
+                  )
+                , ( "method"
+                  , Request.method request |> Request.methodToString |> Encode.string
+                  )
+                , ( "cookies"
+                  , Request.cookies request |> Encode.dict identity Encode.string
+                  )
+                , ( "queryParams"
+                  , request |> Request.queryParams |> Encode.dict identity (Encode.list Encode.string)
+                  )
+                ]
+                |> Response.json
+                |> BackendTask.succeed
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -187,40 +184,50 @@ viewHtmlResults tests =
 greet : ApiRoute ApiRoute.Response
 greet =
     ApiRoute.succeed
-        (Request.oneOf
-            [ Request.formData
-                (Form.form
-                    (\bar ->
-                        { combine =
-                            Validation.succeed identity
-                                |> Validation.andMap bar
-                        , view =
-                            \_ -> ()
-                        }
-                    )
-                    |> Form.field "first" (Field.text |> Field.required "Required")
-                    |> Form.Handler.init identity
-                )
-                |> Request.map Tuple.second
-                |> Request.andThen
-                    (\validated ->
-                        validated
-                            |> Form.toResult
-                            |> Result.mapError (\_ -> "")
-                            |> Request.fromResult
-                    )
-            , Request.expectJsonBody (Decode.field "first" Decode.string)
-            , Request.expectQueryParam "first"
-            , Request.expectMultiPartFormPost
-                (\{ field, optionalField } ->
-                    field "first"
-                )
-            ]
-            |> Request.map
-                (\firstName ->
+        (\request ->
+            let
+                jsonBody : Maybe (Result Decode.Error String)
+                jsonBody =
+                    request |> Request.jsonBody (Decode.field "first" Decode.string)
+
+                asFormData : Maybe ( Form.ServerResponse String, Form.Validated String String )
+                asFormData =
+                    request
+                        |> Request.formData
+                            (Form.form
+                                (\firstName ->
+                                    { combine =
+                                        Validation.succeed identity
+                                            |> Validation.andMap firstName
+                                    , view =
+                                        \_ -> ()
+                                    }
+                                )
+                                |> Form.field "first" (Field.text |> Field.required "Required")
+                                |> Form.Handler.init identity
+                            )
+
+                firstNameResult : Result String String
+                firstNameResult =
+                    case ( asFormData, jsonBody ) of
+                        ( Just ( _, Form.Valid name ), _ ) ->
+                            Ok name
+
+                        ( _, Just (Ok name) ) ->
+                            Ok name
+
+                        _ ->
+                            Err ""
+            in
+            case firstNameResult of
+                Ok firstName ->
                     Response.plainText ("Hello " ++ firstName)
                         |> BackendTask.succeed
-                )
+
+                Err _ ->
+                    Response.plainText "Invalid request, expected either a JSON body or a 'first=' query param."
+                        |> Response.withStatusCode 400
+                        |> BackendTask.succeed
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash

@@ -10,7 +10,7 @@ import Html.Styled exposing (div, text)
 import Pages.PageUrl exposing (PageUrl)
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request exposing (Parser)
+import Server.Request as Request exposing (Parser, Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -37,7 +37,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip ""
+        , action = \_ _ -> "No actions" |> FatalError.fromString |> BackendTask.fail
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -47,14 +47,12 @@ type alias Data =
     }
 
 
-data : RouteParams -> Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.succeed
-        (BackendTask.succeed Data
-            |> BackendTask.andMap (BackendTask.File.rawFile "greeting.txt" |> BackendTask.allowFatal)
-            |> BackendTask.map Response.render
-            |> BackendTask.map (Response.withHeader "x-powered-by" "my-framework")
-        )
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.succeed Data
+        |> BackendTask.andMap (BackendTask.File.rawFile "greeting.txt" |> BackendTask.allowFatal)
+        |> BackendTask.map Response.render
+        |> BackendTask.map (Response.withHeader "x-powered-by" "my-framework")
 
 
 

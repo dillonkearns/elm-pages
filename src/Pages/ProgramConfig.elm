@@ -26,6 +26,7 @@ import Pages.Navigation
 import Pages.PageUrl exposing (PageUrl)
 import Pages.SiteConfig exposing (SiteConfig)
 import PagesMsg exposing (PagesMsg)
+import Server.Request
 import Url exposing (Url)
 import UrlPath exposing (UrlPath)
 
@@ -50,8 +51,8 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , update : Form.Model -> Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission actionData) -> Maybe Pages.Navigation.Navigation -> sharedData -> pageData -> Maybe Browser.Navigation.Key -> userMsg -> userModel -> ( userModel, effect )
     , subscriptions : route -> UrlPath -> userModel -> Sub userMsg
     , sharedData : BackendTask FatalError sharedData
-    , data : Decode.Value -> route -> BackendTask FatalError (PageServerResponse pageData errorPage)
-    , action : Decode.Value -> route -> BackendTask FatalError (PageServerResponse actionData errorPage)
+    , data : Server.Request.Request -> route -> BackendTask FatalError (PageServerResponse pageData errorPage)
+    , action : Server.Request.Request -> route -> BackendTask FatalError (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
         Form.Model

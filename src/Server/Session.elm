@@ -113,7 +113,7 @@ import BackendTask.Internal.Request
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
-import Server.Request
+import Server.Request exposing (Request)
 import Server.Response exposing (Response)
 import Server.SetCookie as SetCookie
 
@@ -245,18 +245,17 @@ withSession :
     , secrets : BackendTask error (List String)
     , options : Maybe SetCookie.Options
     }
-    -> (request -> Session -> BackendTask error ( Session, Response data errorPage ))
-    -> Server.Request.Parser request
-    -> Server.Request.Parser (BackendTask error (Response data errorPage))
-withSession config toRequest userRequest =
-    withSessionResult config
-        (\request session ->
-            toRequest request
-                (session
+    -> (Session -> BackendTask error ( Session, Response data errorPage ))
+    -> Request
+    -> BackendTask error (Response data errorPage)
+withSession config toRequest request_ =
+    request_
+        |> withSessionResult config
+            (\session ->
+                session
                     |> Result.withDefault empty
-                )
-        )
-        userRequest
+                    |> toRequest
+            )
 
 
 {-| -}
@@ -265,39 +264,34 @@ withSessionResult :
     , secrets : BackendTask error (List String)
     , options : Maybe SetCookie.Options
     }
-    -> (request -> Result NotLoadedReason Session -> BackendTask error ( Session, Response data errorPage ))
-    -> Server.Request.Parser request
-    -> Server.Request.Parser (BackendTask error (Response data errorPage))
-withSessionResult config toRequest userRequest =
-    Server.Request.map2
-        (\maybeSessionCookie userRequestData ->
-            let
-                unsigned : BackendTask error (Result NotLoadedReason Session)
-                unsigned =
-                    case maybeSessionCookie of
-                        Just sessionCookie ->
-                            sessionCookie
-                                |> unsignCookie config
-                                |> BackendTask.map
-                                    (\unsignResult ->
-                                        case unsignResult of
-                                            Ok decoded ->
-                                                Ok decoded
+    -> (Result NotLoadedReason Session -> BackendTask error ( Session, Response data errorPage ))
+    -> Request
+    -> BackendTask error (Response data errorPage)
+withSessionResult config toTask request =
+    let
+        unsigned : BackendTask error (Result NotLoadedReason Session)
+        unsigned =
+            case Server.Request.cookie config.name request of
+                Just sessionCookie ->
+                    sessionCookie
+                        |> unsignCookie config
+                        |> BackendTask.map
+                            (\unsignResult ->
+                                case unsignResult of
+                                    Ok decoded ->
+                                        Ok decoded
 
-                                            Err () ->
-                                                Err InvalidSessionCookie
-                                    )
+                                    Err () ->
+                                        Err InvalidSessionCookie
+                            )
 
-                        Nothing ->
-                            Err NoSessionCookie
-                                |> BackendTask.succeed
-            in
-            unsigned
-                |> BackendTask.andThen
-                    (encodeSessionUpdate config toRequest userRequestData)
-        )
-        (Server.Request.cookie config.name)
-        userRequest
+                Nothing ->
+                    Err NoSessionCookie
+                        |> BackendTask.succeed
+    in
+    unsigned
+        |> BackendTask.andThen
+            (encodeSessionUpdate config toTask)
 
 
 encodeSessionUpdate :
@@ -305,13 +299,12 @@ encodeSessionUpdate :
     , secrets : BackendTask error (List String)
     , options : Maybe SetCookie.Options
     }
-    -> (c -> d -> BackendTask error ( Session, Response data errorPage ))
-    -> c
+    -> (d -> BackendTask error ( Session, Response data errorPage ))
     -> d
     -> BackendTask error (Response data errorPage)
-encodeSessionUpdate config toRequest userRequestData sessionResult =
+encodeSessionUpdate config toRequest sessionResult =
     sessionResult
-        |> toRequest userRequestData
+        |> toRequest
         |> BackendTask.andThen
             (\( sessionUpdate, response ) ->
                 BackendTask.map

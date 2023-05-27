@@ -10,7 +10,7 @@ import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
@@ -43,11 +43,11 @@ route =
         |> RouteBuilder.buildNoState { view = view }
 
 
-action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
-action _ =
-    Request.succeed ()
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action _ request =
+    request
         |> MySession.withSession
-            (\_ _ ->
+            (\_ ->
                 ( Session.empty
                     |> Session.withFlash "message" "You have been successfully logged out."
                 , Route.redirectTo Route.Login
@@ -60,9 +60,9 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.succeed (BackendTask.succeed (Response.render {}))
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.succeed (Response.render {})
 
 
 head :

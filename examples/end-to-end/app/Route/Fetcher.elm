@@ -22,7 +22,7 @@ import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import RouteBuilder
-import Server.Request
+import Server.Request exposing (Request)
 import Server.Response
 import Shared
 import View
@@ -94,20 +94,19 @@ type alias ActionData =
 
 data :
     RouteParams
-    -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
-data routeParams =
-    Server.Request.succeed
-        (BackendTask.Custom.run "getItems"
-            Encode.null
-            (Decode.list Decode.string)
-            |> BackendTask.allowFatal
-            |> BackendTask.map
-                (\items ->
-                    Server.Response.render
-                        { items = items
-                        }
-                )
-        )
+    -> Request
+    -> BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage)
+data routeParams request =
+    BackendTask.Custom.run "getItems"
+        Encode.null
+        (Decode.list Decode.string)
+        |> BackendTask.allowFatal
+        |> BackendTask.map
+            (\items ->
+                Server.Response.render
+                    { items = items
+                    }
+            )
 
 
 type Action
@@ -117,37 +116,38 @@ type Action
 
 action :
     RouteParams
-    -> Server.Request.Parser (BackendTask FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage))
-action routeParams =
-    Server.Request.formData
-        forms
-        |> Server.Request.map
-            (\( formResponse, formPost ) ->
-                case formPost of
-                    Form.Valid (AddItem newItem) ->
-                        BackendTask.Custom.run "addItem"
-                            (Encode.string newItem)
-                            (Decode.list Decode.string)
-                            |> BackendTask.allowFatal
-                            |> BackendTask.map
-                                (\_ ->
-                                    Server.Response.render ActionData
-                                )
+    -> Request
+    -> BackendTask FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage)
+action routeParams request =
+    case request |> Server.Request.formData forms of
+        Nothing ->
+            Debug.todo "TODO"
 
-                    Form.Valid DeleteAll ->
-                        BackendTask.Custom.run "deleteAllItems"
-                            Encode.null
-                            (Decode.list Decode.string)
-                            |> BackendTask.allowFatal
-                            |> BackendTask.map
-                                (\_ ->
-                                    Server.Response.render ActionData
-                                )
+        Just ( formResponse, formPost ) ->
+            case formPost of
+                Form.Valid (AddItem newItem) ->
+                    BackendTask.Custom.run "addItem"
+                        (Encode.string newItem)
+                        (Decode.list Decode.string)
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map
+                            (\_ ->
+                                Server.Response.render ActionData
+                            )
 
-                    Form.Invalid _ _ ->
-                        BackendTask.succeed
-                            (Server.Response.render ActionData)
-            )
+                Form.Valid DeleteAll ->
+                    BackendTask.Custom.run "deleteAllItems"
+                        Encode.null
+                        (Decode.list Decode.string)
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map
+                            (\_ ->
+                                Server.Response.render ActionData
+                            )
+
+                Form.Invalid _ _ ->
+                    BackendTask.succeed
+                        (Server.Response.render ActionData)
 
 
 forms : Form.Handler.Handler String Action
