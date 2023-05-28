@@ -1,13 +1,9 @@
-module Internal.Request exposing (Parser(..), Request(..), RequestRecord, fakeRequest, toRequest)
+module Internal.Request exposing (Request(..), RequestRecord, fakeRequest, toRequest)
 
 import CookieParser
 import Dict exposing (Dict)
 import Json.Decode as Decode
 import Time
-
-
-type Parser decodesTo validationError
-    = Parser (Decode.Decoder ( Result validationError decodesTo, List validationError ))
 
 
 type Request

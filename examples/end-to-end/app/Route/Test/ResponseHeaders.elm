@@ -2,15 +2,13 @@ module Route.Test.ResponseHeaders exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
-import BuildError exposing (BuildError)
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Head
 import Html.Styled exposing (div, text)
-import Pages.PageUrl exposing (PageUrl)
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request exposing (Parser, Request)
+import Server.Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)

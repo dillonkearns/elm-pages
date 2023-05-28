@@ -1,112 +1,18 @@
 module Server.Request exposing
-    ( Parser
-    , succeed, fromResult, skip
+    ( Request
+    , header, headers
+    , body, jsonBody
     , formData, formDataWithServerValidation
     , rawFormData
+    , matchesContentType
     , rawUrl
-    , method, rawBody, rawHeaders
-    , requestTime, optionalHeader, expectContentType
-    , acceptMethod, acceptContentTypes
-    , map, map2, oneOf, andMap, andThen
-    , queryParam, expectQueryParam, queryParams
+    , method, cookies
+    , requestTime
+    , acceptContentTypes
+    , queryParam, queryParams
     , cookie
-    , expectHeader
-    , File, expectMultiPartFormPost
-    , expectBody
-    , map3, map4, map5, map6, map7, map8, map9
     , Method(..), methodToString
-    , errorsToString, errorToString, getDecoder, ValidationError
-    , Request, body, cookies, header, jsonBody, matchesContentType
     )
-
-{-|
-
-@docs Parser
-
-@docs succeed, fromResult, skip
-
-
-## Forms
-
-@docs formData, formDataWithServerValidation
-
-@docs rawFormData
-
-
-## Direct Values
-
-@docs rawUrl
-
-@docs method, rawBody, allCookies, rawHeaders
-
-@docs requestTime, optionalHeader, expectContentType, expectJsonBody
-
-@docs acceptMethod, acceptContentTypes
-
-
-## Transforming
-
-@docs map, map2, oneOf, andMap, andThen
-
-
-## Query Parameters
-
-@docs queryParam, expectQueryParam, queryParams
-
-
-## Cookies
-
-@docs cookie
-
-
-## Headers
-
-@docs expectHeader
-
-
-## Multi-part forms and file uploads
-
-@docs File, expectMultiPartFormPost
-
-
-## Request Parsers That Can Fail
-
-@docs expectBody
-
-
-## Map Functions
-
-@docs map3, map4, map5, map6, map7, map8, map9
-
-
-## Method Type
-
-@docs Method, methodToString
-
-
-## Internals
-
-@docs errorsToString, errorToString, getDecoder, ValidationError
-
--}
-
-import BackendTask exposing (BackendTask)
-import CookieParser
-import Dict exposing (Dict)
-import FatalError exposing (FatalError)
-import Form
-import Form.Handler
-import Form.Validation as Validation
-import FormData
-import Internal.Request
-import Json.Decode
-import Json.Encode
-import List.NonEmpty
-import Pages.Form
-import QueryParams
-import Time
-import Url
-
 
 {-| A `Server.Request.Parser` lets you send a `Server.Response.Response` based on an incoming HTTP request. For example,
 using a `Server.Request.Parser`, you could check a session cookie to decide whether to respond by rendering a page
@@ -194,340 +100,72 @@ When the user clicks the link, we want to respond based on that `coupon` query p
             }
             |> RouteBuilder.buildNoState { view = view }
 
--}
-type alias Parser decodesTo =
-    Internal.Request.Parser decodesTo ValidationError
+@docs Request
+
+@docs header, headers
 
 
-oneOfInternal : List ValidationError -> List (Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError )) -> Json.Decode.Decoder ( Result ValidationError decodesTo, List ValidationError )
-oneOfInternal previousErrors optimizedDecoders =
-    -- elm-review: known-unoptimized-recursion
-    case optimizedDecoders of
-        [] ->
-            Json.Decode.succeed ( Err (OneOf previousErrors), [] )
+## Body
 
-        [ single ] ->
-            single
-                |> Json.Decode.map
-                    (\result ->
-                        result
-                            |> Tuple.mapFirst (Result.mapError (\error -> OneOf (previousErrors ++ [ error ])))
-                    )
-
-        first :: rest ->
-            first
-                |> Json.Decode.andThen
-                    (\( firstResult, firstErrors ) ->
-                        case ( firstResult, firstErrors ) of
-                            ( Ok okFirstResult, [] ) ->
-                                Json.Decode.succeed ( Ok okFirstResult, [] )
-
-                            ( Ok _, otherErrors ) ->
-                                oneOfInternal (previousErrors ++ otherErrors) rest
-
-                            ( Err error, _ ) ->
-                                case error of
-                                    OneOf errors ->
-                                        oneOfInternal (previousErrors ++ errors) rest
-
-                                    _ ->
-                                        oneOfInternal (previousErrors ++ [ error ]) rest
-                    )
+@docs body, jsonBody
 
 
-{-| A Parser that always matches and parsers into the given value.
+## Forms
 
-    import Server.Request as Request exposing (Request)
+@docs formData, formDataWithServerValidation
 
-    data routeParams =
-        Request.succeed
-            (BackendTask.succeed
-                (Response.render { data = {} })
-            )
-
--}
-succeed : value -> Parser value
-succeed value =
-    Internal.Request.Parser (Json.Decode.succeed ( Ok value, [] ))
+@docs rawFormData
 
 
-{-| TODO internal only
--}
-getDecoder : Parser (BackendTask error response) -> Json.Decode.Decoder (Result ( ValidationError, List ValidationError ) (BackendTask error response))
-getDecoder (Internal.Request.Parser decoder) =
-    decoder
-        |> Json.Decode.map
-            (\( result, validationErrors ) ->
-                case ( result, validationErrors ) of
-                    ( Ok value, [] ) ->
-                        value
-                            |> Ok
+## Content Type
 
-                    ( Ok _, firstError :: rest ) ->
-                        Err ( firstError, rest )
-
-                    ( Err fatalError, errors ) ->
-                        Err ( fatalError, errors )
-            )
+@docs matchesContentType
 
 
-{-| -}
-type ValidationError
-    = ValidationError String
-    | OneOf (List ValidationError)
-    | MissingQueryParam { missingParam : String, allQueryParams : String }
+## Direct Values
+
+@docs rawUrl
+
+@docs method, cookies
+
+@docs requestTime
+
+@docs acceptContentTypes
 
 
-{-| -}
-errorsToString : ( ValidationError, List ValidationError ) -> String
-errorsToString validationErrors =
-    validationErrors
-        |> List.NonEmpty.toList
-        |> List.map errorToString
-        |> String.join "\n"
+## Query Parameters
+
+@docs queryParam, queryParams
 
 
-{-| TODO internal only
--}
-errorToString : ValidationError -> String
-errorToString validationError_ =
-    -- elm-review: known-unoptimized-recursion
-    case validationError_ of
-        ValidationError message ->
-            message
+## Cookies
 
-        OneOf validationErrors ->
-            "Server.Request.oneOf failed in the following "
-                ++ String.fromInt (List.length validationErrors)
-                ++ " ways:\n\n"
-                ++ (validationErrors
-                        |> List.indexedMap (\index error -> "(" ++ String.fromInt (index + 1) ++ ") " ++ errorToString error)
-                        |> String.join "\n\n"
-                   )
-
-        MissingQueryParam record ->
-            "Missing query param \"" ++ record.missingParam ++ "\". Query string was `" ++ record.allQueryParams ++ "`"
+@docs cookie
 
 
-{-| -}
-map : (a -> b) -> Parser a -> Parser b
-map mapFn (Internal.Request.Parser decoder) =
-    Internal.Request.Parser
-        (Json.Decode.map
-            (\( result, errors ) ->
-                ( Result.map mapFn result, errors )
-            )
-            decoder
-        )
+## Headers
 
 
-{-| -}
-oneOf : List (Parser a) -> Parser a
-oneOf serverRequests =
-    Internal.Request.Parser
-        (oneOfInternal []
-            (List.map
-                (\(Internal.Request.Parser decoder) -> decoder)
-                serverRequests
-            )
-        )
+## Method Type
 
-
-{-| Decode an argument and provide it to a function in a decoder.
-
-    decoder : Decoder String
-    decoder =
-        succeed (String.repeat)
-            |> andMap (field "count" int)
-            |> andMap (field "val" string)
-
-
-    """ { "val": "hi", "count": 3 } """
-        |> decodeString decoder
-    --> Success "hihihi"
+@docs Method, methodToString
 
 -}
-andMap : Parser a -> Parser (a -> b) -> Parser b
-andMap =
-    map2 (|>)
 
-
-{-| -}
-andThen : (a -> Parser b) -> Parser a -> Parser b
-andThen toRequestB (Internal.Request.Parser requestA) =
-    Json.Decode.andThen
-        (\value ->
-            case value of
-                ( Ok okValue, _ ) ->
-                    okValue
-                        |> toRequestB
-                        |> unwrap
-
-                ( Err error, errors ) ->
-                    Json.Decode.succeed ( Err error, errors )
-        )
-        requestA
-        |> Internal.Request.Parser
-
-
-unwrap : Parser a -> Json.Decode.Decoder ( Result ValidationError a, List ValidationError )
-unwrap (Internal.Request.Parser decoder_) =
-    decoder_
-
-
-{-| -}
-map2 : (a -> b -> c) -> Parser a -> Parser b -> Parser c
-map2 f (Internal.Request.Parser jdA) (Internal.Request.Parser jdB) =
-    Internal.Request.Parser
-        (Json.Decode.map2
-            (\( result1, errors1 ) ( result2, errors2 ) ->
-                ( Result.map2 f result1 result2
-                , errors1 ++ errors2
-                )
-            )
-            jdA
-            jdB
-        )
-
-
-{-| -}
-map3 :
-    (value1 -> value2 -> value3 -> valueCombined)
-    -> Parser value1
-    -> Parser value2
-    -> Parser value3
-    -> Parser valueCombined
-map3 combineFn request1 request2 request3 =
-    succeed combineFn
-        |> andMap request1
-        |> andMap request2
-        |> andMap request3
-
-
-{-| -}
-map4 :
-    (value1 -> value2 -> value3 -> value4 -> valueCombined)
-    -> Parser value1
-    -> Parser value2
-    -> Parser value3
-    -> Parser value4
-    -> Parser valueCombined
-map4 combineFn request1 request2 request3 request4 =
-    succeed combineFn
-        |> andMap request1
-        |> andMap request2
-        |> andMap request3
-        |> andMap request4
-
-
-{-| -}
-map5 :
-    (value1 -> value2 -> value3 -> value4 -> value5 -> valueCombined)
-    -> Parser value1
-    -> Parser value2
-    -> Parser value3
-    -> Parser value4
-    -> Parser value5
-    -> Parser valueCombined
-map5 combineFn request1 request2 request3 request4 request5 =
-    succeed combineFn
-        |> andMap request1
-        |> andMap request2
-        |> andMap request3
-        |> andMap request4
-        |> andMap request5
-
-
-{-| -}
-map6 :
-    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> valueCombined)
-    -> Parser value1
-    -> Parser value2
-    -> Parser value3
-    -> Parser value4
-    -> Parser value5
-    -> Parser value6
-    -> Parser valueCombined
-map6 combineFn request1 request2 request3 request4 request5 request6 =
-    succeed combineFn
-        |> andMap request1
-        |> andMap request2
-        |> andMap request3
-        |> andMap request4
-        |> andMap request5
-        |> andMap request6
-
-
-{-| -}
-map7 :
-    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> valueCombined)
-    -> Parser value1
-    -> Parser value2
-    -> Parser value3
-    -> Parser value4
-    -> Parser value5
-    -> Parser value6
-    -> Parser value7
-    -> Parser valueCombined
-map7 combineFn request1 request2 request3 request4 request5 request6 request7 =
-    succeed combineFn
-        |> andMap request1
-        |> andMap request2
-        |> andMap request3
-        |> andMap request4
-        |> andMap request5
-        |> andMap request6
-        |> andMap request7
-
-
-{-| -}
-map8 :
-    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> valueCombined)
-    -> Parser value1
-    -> Parser value2
-    -> Parser value3
-    -> Parser value4
-    -> Parser value5
-    -> Parser value6
-    -> Parser value7
-    -> Parser value8
-    -> Parser valueCombined
-map8 combineFn request1 request2 request3 request4 request5 request6 request7 request8 =
-    succeed combineFn
-        |> andMap request1
-        |> andMap request2
-        |> andMap request3
-        |> andMap request4
-        |> andMap request5
-        |> andMap request6
-        |> andMap request7
-        |> andMap request8
-
-
-{-| -}
-map9 :
-    (value1 -> value2 -> value3 -> value4 -> value5 -> value6 -> value7 -> value8 -> value9 -> valueCombined)
-    -> Parser value1
-    -> Parser value2
-    -> Parser value3
-    -> Parser value4
-    -> Parser value5
-    -> Parser value6
-    -> Parser value7
-    -> Parser value8
-    -> Parser value9
-    -> Parser valueCombined
-map9 combineFn request1 request2 request3 request4 request5 request6 request7 request8 request9 =
-    succeed combineFn
-        |> andMap request1
-        |> andMap request2
-        |> andMap request3
-        |> andMap request4
-        |> andMap request5
-        |> andMap request6
-        |> andMap request7
-        |> andMap request8
-        |> andMap request9
+import BackendTask exposing (BackendTask)
+import Dict exposing (Dict)
+import FatalError exposing (FatalError)
+import Form
+import Form.Handler
+import Form.Validation as Validation
+import FormData
+import Internal.Request
+import Json.Decode
+import List.NonEmpty
+import Pages.Form
+import QueryParams
+import Time
+import Url
 
 
 optionalField : String -> Json.Decode.Decoder a -> Json.Decode.Decoder (Maybe a)
@@ -548,49 +186,10 @@ optionalField fieldName decoder_ =
         |> Json.Decode.andThen finishDecoding
 
 
-{-| Turn a Result into a Request. Useful with `andThen`. Turns `Err` into a skipped request handler (non-matching request),
-and `Ok` values into a `succeed` (matching request).
--}
-fromResult : Result String value -> Parser value
-fromResult result =
-    case result of
-        Ok okValue ->
-            succeed okValue
-
-        Err error ->
-            skipInternal (ValidationError error)
-
-
-jsonFromResult : Result String value -> Json.Decode.Decoder value
-jsonFromResult result =
-    case result of
-        Ok okValue ->
-            Json.Decode.succeed okValue
-
-        Err error ->
-            Json.Decode.fail error
-
-
 {-| -}
-expectHeader : String -> Parser String
-expectHeader headerName =
-    optionalField (headerName |> String.toLower) Json.Decode.string
-        |> Json.Decode.field "headers"
-        |> noErrors
-        |> Internal.Request.Parser
-        |> andThen
-            (\value ->
-                fromResult
-                    (value |> Result.fromMaybe "Missing field headers")
-            )
-
-
-{-| -}
-rawHeaders : Parser (Dict String String)
-rawHeaders =
-    Json.Decode.field "headers" (Json.Decode.dict Json.Decode.string)
-        |> noErrors
-        |> Internal.Request.Parser
+headers : Request -> Dict String String
+headers (Internal.Request.Request req) =
+    req.rawHeaders
 
 
 {-| -}
@@ -599,109 +198,22 @@ requestTime (Internal.Request.Request req) =
     req.time
 
 
-noErrors : Json.Decode.Decoder value -> Json.Decode.Decoder ( Result ValidationError value, List ValidationError )
-noErrors decoder =
-    decoder
-        |> Json.Decode.map (\value -> ( Ok value, [] ))
-
-
 {-| -}
-acceptContentTypes : ( String, List String ) -> Parser value -> Parser value
-acceptContentTypes ( accepted1, accepted ) (Internal.Request.Parser decoder) =
-    -- TODO this should parse content-types so it doesn't need to be an exact match (support `; q=...`, etc.)
-    optionalField ("Accept" |> String.toLower) Json.Decode.string
-        |> Json.Decode.field "headers"
-        |> Json.Decode.andThen
-            (\acceptHeader ->
-                if List.NonEmpty.fromCons accepted1 accepted |> List.NonEmpty.member (acceptHeader |> Maybe.withDefault "") then
-                    decoder
+acceptContentTypes : ( String, List String ) -> Request -> Bool
+acceptContentTypes ( accepted1, accepted ) (Internal.Request.Request req) =
+    -- TODO this should parse accept to separate out parts so it doesn't need to be an exact match (support `; q=...`, etc.)
+    case req.rawHeaders |> Dict.get "accept" of
+        Nothing ->
+            False
 
-                else
-                    decoder
-                        |> appendError
-                            (ValidationError
-                                ("Expected Accept header " ++ String.join ", " (accepted1 :: accepted) ++ " but was " ++ (acceptHeader |> Maybe.withDefault ""))
-                            )
-            )
-        |> Internal.Request.Parser
-
-
-{-| -}
-acceptMethod : ( Method, List Method ) -> Parser value -> Parser value
-acceptMethod ( accepted1, accepted ) (Internal.Request.Parser decoder) =
-    (Json.Decode.field "method" Json.Decode.string
-        |> Json.Decode.map methodFromString
-        |> Json.Decode.andThen
-            (\method_ ->
-                if (accepted1 :: accepted) |> List.member method_ then
-                    decoder
-
-                else
-                    decoder
-                        |> appendError
-                            (ValidationError
-                                ("Expected HTTP method " ++ String.join ", " ((accepted1 :: accepted) |> List.map methodToString) ++ " but was " ++ methodToString method_)
-                            )
-            )
-    )
-        |> Internal.Request.Parser
+        Just acceptHeader ->
+            List.NonEmpty.fromCons accepted1 accepted |> List.NonEmpty.member acceptHeader
 
 
 {-| -}
 method : Request -> Method
 method (Internal.Request.Request req) =
     req.method |> methodFromString
-
-
-appendError : ValidationError -> Json.Decode.Decoder ( value, List ValidationError ) -> Json.Decode.Decoder ( value, List ValidationError )
-appendError error decoder =
-    decoder
-        |> Json.Decode.map (Tuple.mapSecond (\errors -> error :: errors))
-
-
-{-| Same as [`queryParam`](#queryParam), but instead of returning `Nothing` if the query param is missing, it will result
-a non-matching Parser (will try a subsequent parser if there is a oneOf).
-
-    import Server.Request as Request
-
-    data =
-        Request.oneOf
-            [ Request.expectQueryParam "token"
-                |> Request.map (\token -> showProtectedPageOrRedirect token)
-            , Request.succeed guestPageView
-            ]
-
--}
-expectQueryParam : String -> Parser String
-expectQueryParam name =
-    rawUrl
-        |> andThen
-            (\url_ ->
-                case url_ |> Url.fromString |> Maybe.andThen .query of
-                    Just queryString ->
-                        let
-                            maybeParamValue : Maybe String
-                            maybeParamValue =
-                                queryString
-                                    |> QueryParams.fromString
-                                    |> Dict.get name
-                                    |> Maybe.andThen List.head
-                        in
-                        case maybeParamValue of
-                            Just okParamValue ->
-                                succeed okParamValue
-
-                            Nothing ->
-                                skipInternal
-                                    (MissingQueryParam
-                                        { missingParam = name
-                                        , allQueryParams = queryString
-                                        }
-                                    )
-
-                    Nothing ->
-                        skipInternal (ValidationError ("Expected query param \"" ++ name ++ "\", but there were no query params."))
-            )
 
 
 {-| Get `Nothing` if the query param with the given name is missing, or `Just` the value if it is present.
@@ -723,7 +235,7 @@ If there are multiple query params with the same name, the first one is returned
     -- url: http://example.com
     -- parses into: Nothing
 
-See also [`expectQueryParam`](#expectQueryParam) and [`queryParams`](#queryParams), or [`rawUrl`](#rawUrl) if you need something more low-level.
+See also [`queryParams`](#queryParams), or [`rawUrl`](#rawUrl) if you need something more low-level.
 
 -}
 queryParam : String -> Request -> Maybe String
@@ -764,80 +276,10 @@ queryParams (Internal.Request.Request req) =
         |> Maybe.withDefault Dict.empty
 
 
-{-| This is a Request.Parser that will never match an HTTP request. Similar to `Json.Decode.fail`.
-
-Why would you want it to always fail? It's helpful for building custom `Server.Request.Parser`. For example, let's say
-you wanted to define a custom `Server.Request.Parser` to use an XML Decoding package on the request body.
-You could define a custom function like this
-
-    import Server.Request as Request
-
-    expectXmlBody : XmlDecoder value -> Request.Parser value
-    expectXmlBody xmlDecoder =
-        Request.expectBody
-            |> Request.andThen
-                (\bodyAsString ->
-                    case runXmlDecoder xmlDecoder bodyAsString of
-                        Ok decodedXml ->
-                            Request.succeed decodedXml
-
-                        Err error ->
-                            Request.skip ("XML could not be decoded " ++ xmlErrorToString error)
-                )
-
-Note that when we said `Request.skip`, remaining Request Parsers will run (for example if you use [`Server.Request.oneOf`](#oneOf)).
-You could build this with different semantics if you wanted to handle _any_ valid XML body. This Request Parser will _not_
-handle any valid XML body. It will only handle requests that can match the XmlDecoder that is passed in.
-
-So when you define your `Server.Request.Parser`s, think carefully about whether you want to handle invalid cases and give an
-error, or fall through to other Parsers. There's no universal right answer, it's just something to decide for your use case.
-
-    expectXmlBody : Request.Parser value
-    expectXmlBody =
-        Request.map2
-            acceptContentTypes
-            Request.expectBody
-            |> Request.andThen
-                (\bodyAsString ->
-                    case runXmlDecoder xmlDecoder bodyAsString of
-                        Ok decodedXml ->
-                            Request.succeed decodedXml
-
-                        Err error ->
-                            Request.skip ("XML could not be decoded " ++ xmlErrorToString error)
-                )
-
--}
-skip : String -> Parser value
-skip errorMessage =
-    skipInternal (ValidationError errorMessage)
-
-
-skipInternal : ValidationError -> Parser value
-skipInternal validationError_ =
-    Internal.Request.Parser
-        (Json.Decode.succeed
-            ( Err validationError_, [] )
-        )
-
-
 {-| -}
-rawUrl : Parser String
-rawUrl =
-    Json.Decode.maybe
-        (Json.Decode.string
-            |> Json.Decode.field "rawUrl"
-        )
-        |> Json.Decode.map
-            (\url_ ->
-                case url_ of
-                    Just justValue ->
-                        ( Ok justValue, [] )
-
-                    Nothing ->
-                        ( Err (ValidationError "Internal error - expected rawUrl field but the adapter script didn't provide one."), [] )
-            )
-        |> Internal.Request.Parser
+rawUrl : Request -> String
+rawUrl (Internal.Request.Request req) =
+    req.rawUrl
 
 
 {-| -}
@@ -845,15 +287,6 @@ header : String -> Request -> Maybe String
 header headerName (Internal.Request.Request req) =
     req.rawHeaders
         |> Dict.get (headerName |> String.toLower)
-
-
-{-| -}
-optionalHeader : String -> Parser (Maybe String)
-optionalHeader headerName =
-    optionalField (headerName |> String.toLower) Json.Decode.string
-        |> Json.Decode.field "headers"
-        |> noErrors
-        |> Internal.Request.Parser
 
 
 {-| -}
@@ -869,54 +302,51 @@ cookies (Internal.Request.Request req) =
     req.cookies
 
 
-formField_ : String -> Parser String
-formField_ name =
-    optionalField name Json.Decode.string
-        |> Json.Decode.map
-            (\value ->
-                case value of
-                    Just justValue ->
-                        ( Ok justValue, [] )
 
-                    Nothing ->
-                        ( Err (ValidationError ("Missing form field '" ++ name ++ "'")), [] )
-            )
-        |> Internal.Request.Parser
-
-
-optionalFormField_ : String -> Parser (Maybe String)
-optionalFormField_ name =
-    optionalField name Json.Decode.string
-        |> noErrors
-        |> Internal.Request.Parser
-
-
-{-| -}
-type alias File =
-    { name : String
-    , mimeType : String
-    , body : String
-    }
-
-
-fileField_ : String -> Parser File
-fileField_ name =
-    optionalField name
-        (Json.Decode.map3 File
-            (Json.Decode.field "filename" Json.Decode.string)
-            (Json.Decode.field "mimeType" Json.Decode.string)
-            (Json.Decode.field "body" Json.Decode.string)
-        )
-        |> Json.Decode.map
-            (\value ->
-                case value of
-                    Just justValue ->
-                        ( Ok justValue, [] )
-
-                    Nothing ->
-                        ( Err (ValidationError ("Missing form field " ++ name)), [] )
-            )
-        |> Internal.Request.Parser
+--formField_ : String -> Parser String
+--formField_ name =
+--    optionalField name Json.Decode.string
+--        |> Json.Decode.map
+--            (\value ->
+--                case value of
+--                    Just justValue ->
+--                        ( Ok justValue, [] )
+--
+--                    Nothing ->
+--                        ( Err (ValidationError ("Missing form field '" ++ name ++ "'")), [] )
+--            )
+--        |> Internal.Request.Parser
+--
+--
+--optionalFormField_ : String -> Parser (Maybe String)
+--optionalFormField_ name =
+--    optionalField name Json.Decode.string
+--        |> noErrors
+--        |> Internal.Request.Parser
+--{-| -}
+--type alias File =
+--    { name : String
+--    , mimeType : String
+--    , body : String
+--    }
+--fileField_ : String -> Parser File
+--fileField_ name =
+--    optionalField name
+--        (Json.Decode.map3 File
+--            (Json.Decode.field "filename" Json.Decode.string)
+--            (Json.Decode.field "mimeType" Json.Decode.string)
+--            (Json.Decode.field "body" Json.Decode.string)
+--        )
+--        |> Json.Decode.map
+--            (\value ->
+--                case value of
+--                    Just justValue ->
+--                        ( Ok justValue, [] )
+--
+--                    Nothing ->
+--                        ( Err (ValidationError ("Missing form field " ++ name)), [] )
+--            )
+--        |> Internal.Request.Parser
 
 
 runForm : Validation.Validation error parsed kind constraints -> Form.Validated error parsed
@@ -1132,64 +562,41 @@ rawFormData request =
         Nothing
 
 
-{-| -}
-expectMultiPartFormPost :
-    ({ field : String -> Parser String
-     , optionalField : String -> Parser (Maybe String)
-     , fileField : String -> Parser File
-     }
-     -> Parser decodedForm
-    )
-    -> Parser decodedForm
-expectMultiPartFormPost toForm =
-    map2
-        (\_ value ->
-            value
-        )
-        (expectContentType "multipart/form-data")
-        (toForm
-            { field = formField_
-            , optionalField = optionalFormField_
-            , fileField = fileField_
-            }
-            |> (\(Internal.Request.Parser decoder) -> decoder)
-            -- @@@ TODO is it possible to do multipart form data parsing in pure Elm?
-            |> Json.Decode.field "multiPartFormData"
-            |> Internal.Request.Parser
-            |> acceptMethod ( Post, [] )
-        )
+
+--{-| -}
+--expectMultiPartFormPost :
+--    ({ field : String -> Parser String
+--     , optionalField : String -> Parser (Maybe String)
+--     , fileField : String -> Parser File
+--     }
+--     -> Parser decodedForm
+--    )
+--    -> Parser decodedForm
+--expectMultiPartFormPost toForm =
+--    map2
+--        (\_ value ->
+--            value
+--        )
+--        (expectContentType "multipart/form-data")
+--        (toForm
+--            { field = formField_
+--            , optionalField = optionalFormField_
+--            , fileField = fileField_
+--            }
+--            |> (\(Internal.Request.Parser decoder) -> decoder)
+--            -- @@@ TODO is it possible to do multipart form data parsing in pure Elm?
+--            |> Json.Decode.field "multiPartFormData"
+--            |> Internal.Request.Parser
+--            |> acceptMethod ( Post, [] )
+--        )
+
+
+rawContentType : Request -> Maybe String
+rawContentType (Internal.Request.Request req) =
+    req.rawHeaders |> Dict.get "content-type"
 
 
 {-| -}
-expectContentType : String -> Parser ()
-expectContentType expectedContentType =
-    optionalField "content-type" Json.Decode.string
-        |> Json.Decode.field "headers"
-        |> noErrors
-        |> Internal.Request.Parser
-        |> andThen
-            (\maybeContentType ->
-                case maybeContentType of
-                    Nothing ->
-                        skipInternal <|
-                            ValidationError ("Expected content-type `" ++ expectedContentType ++ "` but there was no content-type header.")
-
-                    Just contentType ->
-                        if (contentType |> parseContentType) == (expectedContentType |> parseContentType) then
-                            succeed ()
-
-                        else
-                            skipInternal <| ValidationError ("Expected content-type to be " ++ expectedContentType ++ " but it was " ++ contentType)
-            )
-
-
-rawContentType : Parser (Maybe String)
-rawContentType =
-    optionalField ("content-type" |> String.toLower) Json.Decode.string
-        |> noErrors
-        |> Internal.Request.Parser
-
-
 matchesContentType : String -> Request -> Bool
 matchesContentType expectedContentType (Internal.Request.Request req) =
     req.rawHeaders
@@ -1223,25 +630,6 @@ jsonBody jsonBodyDecoder ((Internal.Request.Request req) as request) =
 
         _ ->
             Nothing
-
-
-{-| -}
-rawBody : Parser (Maybe String)
-rawBody =
-    Json.Decode.field "body" (Json.Decode.nullable Json.Decode.string)
-        |> noErrors
-        |> Internal.Request.Parser
-
-
-{-| Same as [`rawBody`](#rawBody), but will only match when a body is present in the HTTP request.
--}
-expectBody : Parser String
-expectBody =
-    rawBody
-        |> andThen
-            (Result.fromMaybe "Expected body but none was present."
-                >> fromResult
-            )
 
 
 {-| -}
@@ -1328,6 +716,7 @@ methodToString method_ =
             nonStandardMethod
 
 
+{-| -}
 type alias Request =
     Internal.Request.Request
 
