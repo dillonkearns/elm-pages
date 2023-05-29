@@ -28,7 +28,7 @@ import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (App, StatelessRoute)
 import SendGrid
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Shared
@@ -189,11 +189,16 @@ globalErrors formState =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.queryParam "magic"
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    let
+        magicLinkHash : Maybe String
+        magicLinkHash =
+            request |> Request.queryParam "magic"
+    in
+    request
         |> MySession.withSession
-            (\magicLinkHash session ->
+            (\session ->
                 let
                     okSessionThing : Session
                     okSessionThing =
@@ -300,46 +305,54 @@ allForms =
 --    |> Form.Handler.with LogIn form
 
 
-action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
-action routeParams =
-    Request.map2 Tuple.pair
-        (Request.formDataWithServerValidation allForms)
-        Request.requestTime
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    let
+        requestTime : Time.Posix
+        requestTime =
+            request |> Request.requestTime
+    in
+    request
         |> MySession.withSession
-            (\( resolveFormBackendTask, requestTime ) session ->
-                resolveFormBackendTask
-                    |> BackendTask.andThen
-                        (\usernameResult ->
-                            let
-                                okSession =
-                                    session
-                                        |> Result.withDefault Session.empty
-                            in
-                            case usernameResult of
-                                Err error ->
-                                    ( okSession
-                                    , Server.Response.render
-                                        { maybeError = Just error
-                                        , sentLink = False
-                                        }
-                                    )
-                                        |> BackendTask.succeed
+            (\session ->
+                case request |> Request.formDataWithServerValidation allForms of
+                    Nothing ->
+                        BackendTask.fail (FatalError.fromString "Expected form submission.")
 
-                                --Ok ( _, Logout ) ->
-                                --    ( Session.empty
-                                --    , Route.redirectTo Route.Login
-                                --    )
-                                --        |> BackendTask.succeed
-                                --
-                                Ok ( _, emailAddress ) ->
-                                    ( okSession
-                                    , { maybeError = Nothing
-                                      , sentLink = True
-                                      }
-                                        |> Server.Response.render
-                                    )
-                                        |> BackendTask.succeed
-                        )
+                    Just resolveFormBackendTask ->
+                        resolveFormBackendTask
+                            |> BackendTask.andThen
+                                (\usernameResult ->
+                                    let
+                                        okSession =
+                                            session
+                                                |> Result.withDefault Session.empty
+                                    in
+                                    case usernameResult of
+                                        Err error ->
+                                            ( okSession
+                                            , Server.Response.render
+                                                { maybeError = Just error
+                                                , sentLink = False
+                                                }
+                                            )
+                                                |> BackendTask.succeed
+
+                                        --Ok ( _, Logout ) ->
+                                        --    ( Session.empty
+                                        --    , Route.redirectTo Route.Login
+                                        --    )
+                                        --        |> BackendTask.succeed
+                                        --
+                                        Ok ( _, emailAddress ) ->
+                                            ( okSession
+                                            , { maybeError = Nothing
+                                              , sentLink = True
+                                              }
+                                                |> Server.Response.render
+                                            )
+                                                |> BackendTask.succeed
+                                )
             )
 
 

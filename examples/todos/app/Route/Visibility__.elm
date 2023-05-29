@@ -26,7 +26,7 @@ import Pages.Navigation
 import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (App, StatefulRoute)
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Set exposing (Set)
@@ -232,11 +232,16 @@ performAction requestTime actionInput sessionId =
                 |> BackendTask.map (\() -> Response.render { errors = Nothing })
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.requestTime
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    let
+        requestTime : Time.Posix
+        requestTime =
+            request |> Request.requestTime
+    in
+    request
         |> MySession.expectSessionDataOrRedirect (Session.get "sessionId")
-            (\parsedSession requestTime session ->
+            (\parsedSession session ->
                 case visibilityFromRouteParams routeParams of
                     Just visibility ->
                         BackendTask.Custom.run "getTodosBySession"
@@ -278,26 +283,32 @@ todoDecoder =
         (Decode.field "id" Decode.string)
 
 
-action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
-action routeParams =
-    Request.map2 Tuple.pair
-        Request.requestTime
-        (Request.formData allForms)
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    let
+        requestTime : Time.Posix
+        requestTime =
+            request |> Request.requestTime
+    in
+    request
         |> MySession.withSession
-            (\( requestTime, ( formResponse, formResult ) ) session ->
+            (\session ->
                 let
                     okSession : Session
                     okSession =
                         session
                             |> Result.withDefault Session.empty
                 in
-                case formResult of
-                    Form.Valid actionInput ->
+                case request |> Request.formData allForms of
+                    Just ( formResponse, Form.Valid actionInput ) ->
                         (okSession |> Session.get "sessionId" |> Maybe.withDefault "")
                             |> performAction requestTime actionInput
                             |> BackendTask.map (Tuple.pair okSession)
 
-                    Form.Invalid _ _ ->
+                    Just ( formResponse, Form.Invalid _ _ ) ->
+                        BackendTask.succeed ( okSession, Response.render { errors = Nothing } )
+
+                    Nothing ->
                         BackendTask.succeed ( okSession, Response.render { errors = Nothing } )
             )
 

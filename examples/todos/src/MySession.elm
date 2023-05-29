@@ -5,44 +5,36 @@ import BackendTask.Env as Env
 import Codec
 import FatalError exposing (FatalError)
 import Route
-import Server.Request exposing (Parser)
+import Server.Request exposing (Request)
 import Server.Response exposing (Response)
 import Server.Session as Session
-import Server.SetCookie as SetCookie
-
-
-cookieOptions : SetCookie.Options
-cookieOptions =
-    SetCookie.options
-        |> SetCookie.withPath "/"
-        |> SetCookie.withSameSite SetCookie.Lax
 
 
 withSession :
-    (request -> Result Session.NotLoadedReason Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
-    -> Parser request
-    -> Parser (BackendTask FatalError (Response data errorPage))
+    (Result Session.NotLoadedReason Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
+    -> Request
+    -> BackendTask FatalError (Response data errorPage)
 withSession =
     Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
-        , options = Just cookieOptions
+        , options = Nothing
         }
 
 
 withSessionOrRedirect :
-    (request -> Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
-    -> Parser request
-    -> Parser (BackendTask FatalError (Response data errorPage))
+    (Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
+    -> Request
+    -> BackendTask FatalError (Response data errorPage)
 withSessionOrRedirect toRequest handler =
     Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
-        , options = Just cookieOptions
+        , options = Nothing
         }
-        (\request sessionResult ->
+        (\sessionResult ->
             sessionResult
-                |> Result.map (toRequest request)
+                |> Result.map toRequest
                 |> Result.withDefault
                     (BackendTask.succeed
                         ( Session.empty
@@ -61,18 +53,18 @@ secrets =
 
 
 expectSessionOrRedirect :
-    (request -> Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
-    -> Parser request
-    -> Parser (BackendTask FatalError (Response data errorPage))
-expectSessionOrRedirect toRequest handler =
+    (Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
+    -> Request
+    -> BackendTask FatalError (Response data errorPage)
+expectSessionOrRedirect toRequest request =
     Session.withSessionResult
         { name = "mysession"
         , secrets = secrets
-        , options = Just cookieOptions
+        , options = Nothing
         }
-        (\request sessionResult ->
+        (\sessionResult ->
             sessionResult
-                |> Result.map (toRequest request)
+                |> Result.map toRequest
                 |> Result.withDefault
                     (BackendTask.succeed
                         ( Session.empty
@@ -80,21 +72,21 @@ expectSessionOrRedirect toRequest handler =
                         )
                     )
         )
-        handler
+        request
 
 
 expectSessionDataOrRedirect :
     (Session.Session -> Maybe parsedSession)
-    -> (parsedSession -> request -> Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
-    -> Parser request
-    -> Parser (BackendTask FatalError (Response data errorPage))
-expectSessionDataOrRedirect parseSessionData handler toRequest =
-    toRequest
+    -> (parsedSession -> Session.Session -> BackendTask FatalError ( Session.Session, Response data errorPage ))
+    -> Request
+    -> BackendTask FatalError (Response data errorPage)
+expectSessionDataOrRedirect parseSessionData handler request =
+    request
         |> expectSessionOrRedirect
-            (\parsedRequest session ->
+            (\session ->
                 case parseSessionData session of
                     Just parsedSession ->
-                        handler parsedSession parsedRequest session
+                        handler parsedSession session
 
                     Nothing ->
                         BackendTask.succeed
