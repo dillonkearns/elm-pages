@@ -1,36 +1,45 @@
 module Server.Request exposing
     ( Request
+    , requestTime
     , header, headers
+    , method, Method(..), methodToString
     , body, jsonBody
     , formData, formDataWithServerValidation
     , rawFormData
-    , matchesContentType
     , rawUrl
-    , method, cookies
-    , requestTime
-    , acceptContentTypes
     , queryParam, queryParams
-    , cookie
-    , Method(..), methodToString
+    , matchesContentType, matchesContentTypes
+    , cookie, cookies
     )
 
-{-| A `Server.Request.Parser` lets you send a `Server.Response.Response` based on an incoming HTTP request. For example,
-using a `Server.Request.Parser`, you could check a session cookie to decide whether to respond by rendering a page
+{-| Server-rendered Route modules and [server-rendered API Routes](ApiRoute#serverRender) give you access to a `Server.Request.Request` argument.
+
+@docs Request
+
+For example, in a server-rendered route,
+you could check a session cookie to decide whether to respond by rendering a page
 for the logged-in user, or else respond with an HTTP redirect response (see the [`Server.Response` docs](Server-Response)).
 
 You can access the incoming HTTP request's:
 
-  - Headers
-  - Cookies
+  - [Headers](#headers)
+  - [Cookies](#cookies)
   - [`method`](#method)
-  - URL query parameters
+  - [`rawUrl`](#rawUrl)
   - [`requestTime`](#requestTime) (as a `Time.Posix`)
+
+There are also some high-level helpers that take the low-level Request data and let you parse it into Elm types:
+
+  - [`jsonBody`](#jsonBody)
+  - [Form Helpers](#forms)
+  - [URL query parameters](#queryParam)
+  - [Content Type](#content-type)
 
 Note that this data is not available for pre-rendered pages or pre-rendered API Routes, only for server-rendered pages.
 This is because when a page is pre-rendered, there _is_ no incoming HTTP request to respond to, it is rendered before a user
 requests the page and then the pre-rendered page is served as a plain file (without running your Route Module).
 
-That's why `RouteBuilder.preRender` has `data : RouteParams -> BackendTask Data`:
+That's why `RouteBuilder.preRender` does not have a `Server.Request.Request` argument.
 
     import BackendTask exposing (BackendTask)
     import RouteBuilder exposing (StatelessRoute)
@@ -52,57 +61,22 @@ That's why `RouteBuilder.preRender` has `data : RouteParams -> BackendTask Data`
             |> RouteBuilder.buildNoState { view = view }
 
 A server-rendered Route Module _does_ have access to a user's incoming HTTP request because it runs every time the page
-is loaded. That's why `data` is a `Request.Parser` in server-rendered Route Modules. Since you have an incoming HTTP request for server-rendered routes,
+is loaded. That's why `data` has a `Server.Request.Request` argument in server-rendered Route Modules. Since you have an incoming HTTP request for server-rendered routes,
 `RouteBuilder.serverRender` has `data : RouteParams -> Request.Parser (BackendTask (Response Data))`. That means that you
 can use the incoming HTTP request data to choose how to respond. For example, you could check for a dark-mode preference
 cookie and render a light- or dark-themed page and render a different page.
 
+@docs requestTime
 
-## Building a Request Parser
 
-`Request.Parser` means you can pull out data from the incoming HTTP request.
-
-With a pre-rendered Route, we wouldn't be able to access the query param before rendering the page, but for a server-rendered Route
-we can dynamically respond to the incoming HTTP request (including its query params).
-
-For example, we might send the user an email with a link like `https://example.com/products/123?coupon=xmas22`.
-When the user clicks the link, we want to respond based on that `coupon` query parameter and render the page with the coupon data
-(either by directly checking the coupon with our DB through [`BackendTask.Custom`](BackendTask#Custom), or through an API request with [`BackendTask.Http`](BackendTask#Http)).
-
-    module Route.Products.Id_ exposing (..)
-
-    import BackendTask exposing (BackendTask)
-    import RouteBuilder exposing (StatelessRoute)
-    import Server.Request as Request exposing (Request)
-    import Server.Response as Response exposing (Response)
-
-    type alias Data =
-        { coupon : Maybe Coupon }
-
-    data :
-        RouteParams
-        -> Request.Parser (BackendTask (Response Data))
-    data routeParams =
-        Request.queryParam "coupon"
-            |> Request.map
-                (\maybeCouponCode ->
-                    maybeCouponCode
-                        |> lookupCoupon
-                        |> BackendTask.map (\maybeCoupon ->
-                             (Response.render { coupon = maybeCoupon })
-                )
-
-    route : StatelessRoute RouteParams Data ActionData
-    route =
-        RouteBuilder.serverRender
-            { head = head
-            , data = data
-            }
-            |> RouteBuilder.buildNoState { view = view }
-
-@docs Request
+## Headers
 
 @docs header, headers
+
+
+## Method
+
+@docs method, Method, methodToString
 
 
 ## Body
@@ -117,38 +91,21 @@ When the user clicks the link, we want to respond based on that `coupon` query p
 @docs rawFormData
 
 
-## Content Type
-
-@docs matchesContentType
-
-
-## Direct Values
+## URL
 
 @docs rawUrl
-
-@docs method, cookies
-
-@docs requestTime
-
-@docs acceptContentTypes
-
-
-## Query Parameters
 
 @docs queryParam, queryParams
 
 
+## Content Type
+
+@docs matchesContentType, matchesContentTypes
+
+
 ## Cookies
 
-@docs cookie
-
-
-## Headers
-
-
-## Method Type
-
-@docs Method, methodToString
+@docs cookie, cookies
 
 -}
 
@@ -192,15 +149,16 @@ headers (Internal.Request.Request req) =
     req.rawHeaders
 
 
-{-| -}
+{-| Get the `Time.Posix` when the incoming HTTP request was received.
+-}
 requestTime : Request -> Time.Posix
 requestTime (Internal.Request.Request req) =
     req.time
 
 
 {-| -}
-acceptContentTypes : ( String, List String ) -> Request -> Bool
-acceptContentTypes ( accepted1, accepted ) (Internal.Request.Request req) =
+matchesContentTypes : ( String, List String ) -> Request -> Bool
+matchesContentTypes ( accepted1, accepted ) (Internal.Request.Request req) =
     -- TODO this should parse accept to separate out parts so it doesn't need to be an exact match (support `; q=...`, etc.)
     case req.rawHeaders |> Dict.get "accept" of
         Nothing ->
@@ -282,21 +240,30 @@ rawUrl (Internal.Request.Request req) =
     req.rawUrl
 
 
-{-| -}
+{-| Get a header from the request. The header name is case-insensitive.
+
+Header: Accept-Language: en-US,en;q=0.5
+
+    request |> Request.header "Accept-Language"
+    -- Just "Accept-Language: en-US,en;q=0.5"
+
+-}
 header : String -> Request -> Maybe String
 header headerName (Internal.Request.Request req) =
     req.rawHeaders
         |> Dict.get (headerName |> String.toLower)
 
 
-{-| -}
+{-| Get a cookie from the request. For a more high-level API, see [`Server.Session`](Server-Session).
+-}
 cookie : String -> Request -> Maybe String
 cookie name (Internal.Request.Request req) =
     req.cookies
         |> Dict.get name
 
 
-{-| -}
+{-| Get all of the cookies from the incoming HTTP request. For a more high-level API, see [`Server.Session`](Server-Session).
+-}
 cookies : Request -> Dict String String
 cookies (Internal.Request.Request req) =
     req.cookies
@@ -716,12 +683,14 @@ methodToString method_ =
             nonStandardMethod
 
 
-{-| -}
+{-| A value that lets you access data from the incoming HTTP request.
+-}
 type alias Request =
     Internal.Request.Request
 
 
-{-| -}
+{-| The Request body, if present (or `Nothing` if there is no request body).
+-}
 body : Request -> Maybe String
 body (Internal.Request.Request req) =
     req.body
