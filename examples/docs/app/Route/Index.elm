@@ -251,9 +251,11 @@ type alias Data =
 
 data :
     RouteParams
-    -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    withUserOrRedirect
+    -> Request
+    -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    request
+    |> withUserOrRedirect
         (\\user ->
             BackendTask.map (Data user)
             (BackendTask.Custom.run "getPosts"
@@ -266,9 +268,10 @@ data routeParams =
 
 withUserOrRedirect :
     (User -> BackendTask FatalError (Response Data ErrorPage))
-    -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-withUserOrRedirect withUser =
-    Request.succeed ()
+    -> Request
+    -> BackendTask FatalError (Response Data ErrorPage)
+withUserOrRedirect withUser request =
+    request
         |> Session.withSession
             { name = "session"
             , secrets =
@@ -349,9 +352,10 @@ view app shared =
 
 data :
     RouteParams
-    -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.succeed (BackendTask.succeed (Response.render {}))
+    -> Request
+    -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.succeed (Response.render {})
 
 
 head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
@@ -361,33 +365,32 @@ head app =
 
 action :
     RouteParams
-    -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
-action routeParams =
-    formHandlers
-        |> Request.formData
-        |> Request.map
-            (\\formData ->
-                case formData of
-                    ( response, parsedForm ) ->
-                        case parsedForm of
-                            Ok (SignUp okForm) ->
-                                BackendTask.Custom.run "createUser"
-                                    -- client-side validations run on the server, too,
-                                    -- so we know that the password and password-confirmation matched
-                                    (Encode.object
-                                        [ ( "username", Encode.string okForm.username )
-                                        , ( "password", Encode.string okForm.password )
-                                        ]
-                                    )
-                                    (Decode.succeed ())
-                                    |> BackendTask.allowFatal
-                                    |> BackendTask.map (\\() -> Response.render { errors = response })
+    -> Request
+    -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    case request |> Request.formData formHandlers of
+        Just ( response, parsedForm ) ->
+            case parsedForm of
+                Form.Valid (SignUp okForm) ->
+                    BackendTask.Custom.run "createUser"
+                        -- client-side validations run on the server, too,
+                        -- so we know that the password and password-confirmation matched
+                        (Encode.object
+                            [ ( "username", Encode.string okForm.username )
+                            , ( "password", Encode.string okForm.password )
+                            ]
+                        )
+                        (Decode.succeed ())
+                        |> BackendTask.allowFatal
+                        |> BackendTask.map (\\() -> Response.render { errors = response })
 
-                            Err error ->
-                                "Error!"
-                                    |> Pages.Script.log
-                                    |> BackendTask.map (\\() -> Response.render { errors = response })
-            )
+                Form.Invalid _ _ ->
+                    "Error!"
+                        |> Pages.Script.log
+                        |> BackendTask.map (\\() -> Response.render { errors = response })
+
+        Nothing ->
+            BackendTask.fail (FatalError.fromString "Expected form submission."
 
 
 errorsView :
