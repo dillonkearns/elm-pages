@@ -3,9 +3,9 @@ module ApiRouteTests exposing (all)
 import ApiRoute exposing (..)
 import BackendTask
 import Expect
+import FatalError
 import Internal.ApiRoute exposing (tryMatch, withRoutes)
 import Pattern exposing (Pattern(..))
-import Server.Request
 import Server.Response
 import Test exposing (Test, describe, test)
 
@@ -112,13 +112,10 @@ all =
             [ test "no dynamic segments" <|
                 \() ->
                     succeed
-                        (Server.Request.succeed ()
-                            |> Server.Request.map
-                                (\() ->
-                                    ""
-                                        |> Server.Response.plainText
-                                        |> BackendTask.succeed
-                                )
+                        (\request ->
+                            ""
+                                |> Server.Response.plainText
+                                |> BackendTask.succeed
                         )
                         |> literal "no-dynamic-segments.json"
                         |> serverRender
@@ -127,13 +124,10 @@ all =
             , test "two literal segments" <|
                 \() ->
                     succeed
-                        (Server.Request.succeed ()
-                            |> Server.Request.map
-                                (\() ->
-                                    ""
-                                        |> Server.Response.plainText
-                                        |> BackendTask.succeed
-                                )
+                        (\request ->
+                            ""
+                                |> Server.Response.plainText
+                                |> BackendTask.succeed
                         )
                         |> literal "api"
                         |> slash
@@ -180,11 +174,8 @@ all =
                 \() ->
                     succeed
                         (\repo ->
-                            Server.Request.succeed ()
-                                |> Server.Request.map
-                                    (\() ->
-                                        BackendTask.succeed ("Data for repo " ++ repo |> Server.Response.plainText)
-                                    )
+                            \request ->
+                                BackendTask.succeed ("Data for repo " ++ repo |> Server.Response.plainText)
                         )
                         |> literal "api"
                         |> slash

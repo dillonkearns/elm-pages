@@ -2,6 +2,7 @@ module FormDataTest exposing (all)
 
 import Dict
 import Expect
+import FatalError
 import FormData
 import Test exposing (Test, describe, test)
 

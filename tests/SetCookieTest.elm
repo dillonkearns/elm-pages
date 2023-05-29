@@ -1,6 +1,7 @@
 module SetCookieTest exposing (all)
 
 import Expect
+import FatalError
 import Server.SetCookie exposing (..)
 import Test exposing (Test, describe, test)
 import Time
