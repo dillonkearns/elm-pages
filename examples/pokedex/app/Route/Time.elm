@@ -34,7 +34,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action = \_ _ -> BackendTask.succeed (Response.render {})
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -95,14 +95,10 @@ type alias Request =
 --                            |> BackendTask.map PageServerResponse.RenderPage
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.succeed ()
-        |> Request.map
-            (\() ->
-                Response.plainText "Hello, this is a string"
-                    |> BackendTask.succeed
-            )
+data : RouteParams -> Request.Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    Response.plainText "Hello, this is a string"
+        |> BackendTask.succeed
 
 
 head :

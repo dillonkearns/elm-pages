@@ -21,7 +21,7 @@ import Pages.Form
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request exposing (Parser)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import Tailwind.Breakpoints as Bp
@@ -538,33 +538,34 @@ route =
             }
 
 
-action : RouteParams -> Parser (BackendTask FatalError (Response ActionData ErrorPage))
-action routeParams =
-    Request.formDataWithServerValidation (form |> Form.Handler.init identity)
-        |> Request.map
-            (\toBackendTask ->
-                toBackendTask
-                    |> BackendTask.andThen
-                        (\result ->
-                            case result of
-                                Ok ( _, user ) ->
-                                    BackendTask.succeed
-                                        { user = user
-                                        , flashMessage =
-                                            Ok ("Successfully updated profile for user " ++ user.first ++ " " ++ user.last)
-                                        , formResponse = Nothing
-                                        }
-                                        |> BackendTask.map Response.render
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    case request |> Request.formDataWithServerValidation (form |> Form.Handler.init identity) of
+        Nothing ->
+            FatalError.fromString "Expected form submission." |> BackendTask.fail
 
-                                Err error ->
-                                    BackendTask.succeed
-                                        { flashMessage = Err "Got errors"
-                                        , user = defaultUser
-                                        , formResponse = Just error
-                                        }
-                                        |> BackendTask.map Response.render
-                        )
-            )
+        Just toBackendTask ->
+            toBackendTask
+                |> BackendTask.andThen
+                    (\result ->
+                        case result of
+                            Ok ( _, user ) ->
+                                BackendTask.succeed
+                                    { user = user
+                                    , flashMessage =
+                                        Ok ("Successfully updated profile for user " ++ user.first ++ " " ++ user.last)
+                                    , formResponse = Nothing
+                                    }
+                                    |> BackendTask.map Response.render
+
+                            Err error ->
+                                BackendTask.succeed
+                                    { flashMessage = Err "Got errors"
+                                    , user = defaultUser
+                                    , formResponse = Just error
+                                    }
+                                    |> BackendTask.map Response.render
+                    )
 
 
 update : a -> b -> Msg -> Model -> ( Model, Effect Msg )
@@ -589,14 +590,11 @@ type alias ActionData =
     }
 
 
-data : RouteParams -> Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.oneOf
-        [ {}
-            |> Response.render
-            |> BackendTask.succeed
-            |> Request.succeed
-        ]
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    {}
+        |> Response.render
+        |> BackendTask.succeed
 
 
 head :

@@ -30,7 +30,7 @@ routes getStaticRoutes htmlToString =
     , logout
 
     --, greet
-    , fileLength
+    --, fileLength
     , BackendTask.succeed manifest |> Manifest.generator Site.canonicalUrl
     ]
 
@@ -61,48 +61,45 @@ routes getStaticRoutes htmlToString =
 --        |> ApiRoute.slash
 --        |> ApiRoute.literal "greet"
 --        |> ApiRoute.serverRender
-
-
-fileLength : ApiRoute ApiRoute.Response
-fileLength =
-    ApiRoute.succeed
-        (Server.Request.expectMultiPartFormPost
-            (\{ field, optionalField, fileField } ->
-                fileField "file"
-            )
-            |> Server.Request.map
-                (\file ->
-                    Server.Response.json
-                        (Json.Encode.object
-                            [ ( "File name: ", Json.Encode.string file.name )
-                            , ( "Length", Json.Encode.int (String.length file.body) )
-                            , ( "mime-type", Json.Encode.string file.mimeType )
-                            , ( "First line"
-                              , Json.Encode.string
-                                    (file.body
-                                        |> String.split "\n"
-                                        |> List.head
-                                        |> Maybe.withDefault ""
-                                    )
-                              )
-                            ]
-                        )
-                        |> BackendTask.succeed
-                )
-        )
-        |> ApiRoute.literal "api"
-        |> ApiRoute.slash
-        |> ApiRoute.literal "file"
-        |> ApiRoute.serverRender
+--fileLength : ApiRoute ApiRoute.Response
+--fileLength =
+--    ApiRoute.succeed
+--        (Server.Request.expectMultiPartFormPost
+--            (\{ field, optionalField, fileField } ->
+--                fileField "file"
+--            )
+--            |> Server.Request.map
+--                (\file ->
+--                    Server.Response.json
+--                        (Json.Encode.object
+--                            [ ( "File name: ", Json.Encode.string file.name )
+--                            , ( "Length", Json.Encode.int (String.length file.body) )
+--                            , ( "mime-type", Json.Encode.string file.mimeType )
+--                            , ( "First line"
+--                              , Json.Encode.string
+--                                    (file.body
+--                                        |> String.split "\n"
+--                                        |> List.head
+--                                        |> Maybe.withDefault ""
+--                                    )
+--                              )
+--                            ]
+--                        )
+--                        |> BackendTask.succeed
+--                )
+--        )
+--        |> ApiRoute.literal "api"
+--        |> ApiRoute.slash
+--        |> ApiRoute.literal "file"
+--        |> ApiRoute.serverRender
 
 
 redirectRoute : ApiRoute ApiRoute.Response
 redirectRoute =
     ApiRoute.succeed
-        (Server.Request.succeed
-            (BackendTask.succeed
+        (\request ->
+            BackendTask.succeed
                 (Route.redirectTo Route.Index)
-            )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -113,8 +110,8 @@ redirectRoute =
 noArgs : ApiRoute ApiRoute.Response
 noArgs =
     ApiRoute.succeed
-        (Server.Request.succeed
-            (BackendTask.Http.getJson
+        (\request ->
+            BackendTask.Http.getJson
                 "https://api.github.com/repos/dillonkearns/elm-pages"
                 (Json.Decode.field "stargazers_count" Json.Decode.int)
                 |> BackendTask.allowFatal
@@ -126,7 +123,6 @@ noArgs =
                             ]
                             |> Server.Response.json
                     )
-            )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -164,14 +160,13 @@ nonHybridRoute =
 logout : ApiRoute ApiRoute.Response
 logout =
     ApiRoute.succeed
-        (Server.Request.succeed ()
-            |> MySession.withSession
-                (\() sessionResult ->
-                    BackendTask.succeed
-                        ( Session.empty
-                        , Route.redirectTo Route.Login
-                        )
-                )
+        (MySession.withSession
+            (\sessionResult ->
+                BackendTask.succeed
+                    ( Session.empty
+                    , Route.redirectTo Route.Login
+                    )
+            )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash
@@ -182,21 +177,19 @@ logout =
 repoStars : ApiRoute ApiRoute.Response
 repoStars =
     ApiRoute.succeed
-        (\repoName ->
-            Server.Request.succeed
-                (BackendTask.Http.getJson
-                    ("https://api.github.com/repos/dillonkearns/" ++ repoName)
-                    (Json.Decode.field "stargazers_count" Json.Decode.int)
-                    |> BackendTask.allowFatal
-                    |> BackendTask.map
-                        (\stars ->
-                            Json.Encode.object
-                                [ ( "repo", Json.Encode.string repoName )
-                                , ( "stars", Json.Encode.int stars )
-                                ]
-                                |> Server.Response.json
-                        )
-                )
+        (\repoName request ->
+            BackendTask.Http.getJson
+                ("https://api.github.com/repos/dillonkearns/" ++ repoName)
+                (Json.Decode.field "stargazers_count" Json.Decode.int)
+                |> BackendTask.allowFatal
+                |> BackendTask.map
+                    (\stars ->
+                        Json.Encode.object
+                            [ ( "repo", Json.Encode.string repoName )
+                            , ( "stars", Json.Encode.int stars )
+                            ]
+                            |> Server.Response.json
+                    )
         )
         |> ApiRoute.literal "api"
         |> ApiRoute.slash

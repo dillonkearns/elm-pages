@@ -12,7 +12,7 @@ import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -35,7 +35,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action"
+        , action = \_ _ -> BackendTask.succeed (Response.render {})
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -55,30 +55,21 @@ type alias LoggedInInfo =
     }
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.oneOf
-        [ Request.expectCookie "username"
-            |> Request.map
-                (\username ->
-                    username
-                        |> LoggedInInfo
-                        |> BackendTask.succeed
-                        |> BackendTask.andMap (BackendTask.File.rawFile "examples/pokedex/content/secret-note.txt" |> BackendTask.allowFatal)
-                        |> BackendTask.map LoggedIn
-                        |> BackendTask.map Response.render
-                )
-        , Request.succeed
-            (NotLoggedIn
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    case request |> Request.cookie "username" of
+        Just username ->
+            username
+                |> LoggedInInfo
+                |> BackendTask.succeed
+                |> BackendTask.andMap (BackendTask.File.rawFile "examples/pokedex/content/secret-note.txt" |> BackendTask.allowFatal)
+                |> BackendTask.map LoggedIn
+                |> BackendTask.map Response.render
+
+        Nothing ->
+            NotLoggedIn
                 |> BackendTask.succeed
                 |> BackendTask.map Response.render
-             --"/login"
-             --    |> ServerResponse.temporaryRedirect
-             --    --|> ServerResponse.withStatusCode 404
-             --    |> PageServerResponse.ServerResponse
-             --    |> BackendTask.succeed
-            )
-        ]
 
 
 head :

@@ -18,7 +18,7 @@ import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session exposing (Session)
 import Shared
@@ -54,27 +54,32 @@ route =
             }
 
 
-action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
-action _ =
-    (Request.formData (form |> Form.Handler.init identity)
-        |> Request.map Tuple.second
-        |> Request.map Form.toResult
-        |> Request.map (Result.mapError (\error -> "Errors"))
-        |> Request.andThen Request.fromResult
-    )
-        |> MySession.withSession
-            (\( first, email ) maybeSession ->
-                let
-                    session : Session
-                    session =
-                        maybeSession |> Result.withDefault Session.empty
-                in
-                validate session
-                    { email = email
-                    , first = first
-                    }
-                    |> BackendTask.succeed
-            )
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action _ request =
+    case request |> Request.formData (form |> Form.Handler.init identity) of
+        Nothing ->
+            Debug.todo ""
+
+        Just ( _, parsed ) ->
+            request
+                |> MySession.withSession
+                    (\maybeSession ->
+                        let
+                            session : Session
+                            session =
+                                maybeSession |> Result.withDefault Session.empty
+                        in
+                        case parsed |> Form.toResult |> Result.mapError (\error -> "Errors") of
+                            Ok ( first, email ) ->
+                                validate session
+                                    { email = email
+                                    , first = first
+                                    }
+                                    |> BackendTask.succeed
+
+                            Err _ ->
+                                BackendTask.fail (FatalError.fromString "")
+                    )
 
 
 validate : Session -> { first : String, email : String } -> ( Session, Response ActionData ErrorPage )
@@ -211,11 +216,11 @@ type ActionData
         }
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.succeed ()
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    request
         |> MySession.withSession
-            (\() sessionResult ->
+            (\sessionResult ->
                 let
                     session : Session
                     session =

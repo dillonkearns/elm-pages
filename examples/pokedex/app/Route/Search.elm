@@ -17,7 +17,7 @@ import Pages.Form
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import UrlPath exposing (UrlPath)
@@ -98,30 +98,28 @@ list =
     ]
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.oneOf
-        [ Request.formData (form |> Form.Handler.init identity)
-            |> Request.map
-                (\( formResponse, formResult ) ->
-                    BackendTask.succeed
-                        (Response.render
-                            { results =
-                                formResult
-                                    |> Form.toResult
-                                    |> Result.map
-                                        (\query ->
-                                            Just
-                                                { query = query
-                                                , results = list |> List.filter (\item -> item |> String.contains query)
-                                                }
-                                        )
-                                    |> Result.withDefault Nothing
-                            }
-                        )
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    case request |> Request.formData (form |> Form.Handler.init identity) of
+        Just ( formResponse, formResult ) ->
+            BackendTask.succeed
+                (Response.render
+                    { results =
+                        formResult
+                            |> Form.toResult
+                            |> Result.map
+                                (\query ->
+                                    Just
+                                        { query = query
+                                        , results = list |> List.filter (\item -> item |> String.contains query)
+                                        }
+                                )
+                            |> Result.withDefault Nothing
+                    }
                 )
-        , Request.succeed (BackendTask.succeed (Response.render { results = Nothing }))
-        ]
+
+        Nothing ->
+            BackendTask.succeed (Response.render { results = Nothing })
 
 
 form : Form.HtmlForm String String () msg
@@ -169,9 +167,9 @@ errorsForField formState field =
         |> Html.ul [ Attr.style "color" "red" ]
 
 
-action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
-action routeParams =
-    Request.skip "No action."
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    BackendTask.succeed (Response.render {})
 
 
 head :

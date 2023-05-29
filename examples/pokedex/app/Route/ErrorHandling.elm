@@ -7,7 +7,7 @@ import Head
 import Html exposing (text)
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request exposing (Parser)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import View exposing (View)
@@ -34,7 +34,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action = \_ _ -> Response.render {} |> BackendTask.succeed
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -43,12 +43,10 @@ type alias Data =
     { darkMode : Maybe String }
 
 
-data : RouteParams -> Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.succeed
-        (BackendTask.fail
-            (FatalError.fromString "This error should be displayed by the error handling!")
-        )
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.fail
+        (FatalError.fromString "This error should be displayed by the error handling!")
 
 
 head :

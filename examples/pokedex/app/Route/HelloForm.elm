@@ -11,7 +11,7 @@ import Html.Attributes as Attr
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import UrlPath exposing (UrlPath)
@@ -78,14 +78,14 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.succeed (BackendTask.succeed (Response.render Data))
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.succeed (Response.render Data)
 
 
-action : RouteParams -> Request.Parser (BackendTask FatalError (Response ActionData ErrorPage))
-action routeParams =
-    Request.skip "No action."
+action : RouteParams -> Request -> BackendTask FatalError (Response ActionData ErrorPage)
+action routeParams request =
+    Response.render {} |> BackendTask.succeed
 
 
 

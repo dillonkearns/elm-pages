@@ -13,7 +13,7 @@ import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Route.Signup
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import UrlPath exposing (UrlPath)
@@ -38,7 +38,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.succeed (BackendTask.succeed (Response.render {}))
+        , action = \_ _ -> BackendTask.succeed (Response.render {})
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -101,9 +101,9 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.succeed (BackendTask.succeed (Response.render Data))
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.succeed (Response.render Data)
 
 
 head :

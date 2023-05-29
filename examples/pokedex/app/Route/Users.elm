@@ -15,11 +15,10 @@ import Head
 import Html
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Pages.PageUrl
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
 import RouteBuilder
-import Server.Request
+import Server.Request exposing (Request)
 import Server.Response
 import Shared
 import UrlPath
@@ -90,20 +89,19 @@ type alias ActionData =
 
 data :
     RouteParams
-    -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response Data ErrorPage.ErrorPage))
-data routeParams =
-    Server.Request.succeed
-        (BackendTask.Custom.run "users"
-            Encode.null
-            (Decode.list (Decode.field "name" Decode.string))
-            |> BackendTask.allowFatal
-            |> BackendTask.map
-                (\users ->
-                    Server.Response.render
-                        { users = users
-                        }
-                )
-        )
+    -> Request
+    -> BackendTask.BackendTask FatalError.FatalError (Server.Response.Response Data ErrorPage.ErrorPage)
+data routeParams request =
+    BackendTask.Custom.run "users"
+        Encode.null
+        (Decode.list (Decode.field "name" Decode.string))
+        |> BackendTask.allowFatal
+        |> BackendTask.map
+            (\users ->
+                Server.Response.render
+                    { users = users
+                    }
+            )
 
 
 head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
@@ -127,6 +125,7 @@ view app shared model =
 
 action :
     RouteParams
-    -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage))
-action routeParams =
-    Server.Request.succeed (BackendTask.succeed (Server.Response.render {}))
+    -> Request
+    -> BackendTask.BackendTask FatalError.FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage)
+action routeParams request =
+    BackendTask.succeed (Server.Response.render {})

@@ -17,7 +17,7 @@ import Pages.Form
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatelessRoute)
-import Server.Request as Request exposing (Parser)
+import Server.Request as Request exposing (Request)
 import Server.Response
 import Shared
 import Time
@@ -178,33 +178,33 @@ type alias Data =
     {}
 
 
-data : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response Data ErrorPage))
-data routeParams =
+data : RouteParams -> Request -> BackendTask FatalError (Server.Response.Response Data ErrorPage)
+data routeParams request =
     Data
         |> Server.Response.render
         |> BackendTask.succeed
-        |> Request.succeed
 
 
-action : RouteParams -> Parser (BackendTask FatalError (Server.Response.Response ActionData ErrorPage))
-action routeParams =
-    Request.formData (form |> Form.Handler.init identity)
-        |> Request.map
-            (\( response, userResult ) ->
-                (case userResult of
-                    Form.Valid user ->
-                        { user = Just user
-                        , formResponse = response
-                        }
+action : RouteParams -> Request -> BackendTask FatalError (Server.Response.Response ActionData ErrorPage)
+action routeParams request =
+    case request |> Request.formData (form |> Form.Handler.init identity) of
+        Just ( response, userResult ) ->
+            (case userResult of
+                Form.Valid user ->
+                    { user = Just user
+                    , formResponse = response
+                    }
 
-                    Form.Invalid _ error ->
-                        { user = Nothing
-                        , formResponse = response
-                        }
-                )
-                    |> Server.Response.render
-                    |> BackendTask.succeed
+                Form.Invalid _ error ->
+                    { user = Nothing
+                    , formResponse = response
+                    }
             )
+                |> Server.Response.render
+                |> BackendTask.succeed
+
+        Nothing ->
+            BackendTask.fail (FatalError.fromString "Expected form submission.")
 
 
 head :

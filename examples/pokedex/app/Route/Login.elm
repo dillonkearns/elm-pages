@@ -17,7 +17,7 @@ import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Route
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
@@ -45,7 +45,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip ""
+        , action = \_ _ -> BackendTask.succeed (Response.render {})
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -68,59 +68,61 @@ form =
         |> Form.field "name" (Field.text |> Field.required "Required")
 
 
-data : RouteParams -> Request.Parser (BackendTask FatalError (Response Data ErrorPage))
-data routeParams =
-    Request.oneOf
-        [ Request.formData (form |> Form.Handler.init identity)
-            |> Request.map (Tuple.mapSecond (Form.toResult >> Result.mapError (\_ -> "Error")))
-            |> MySession.withSession
-                (\( formResponse, nameResult ) session ->
-                    (nameResult
-                        |> unpack
-                            (\_ ->
-                                ( session
-                                    |> Result.withDefault Session.empty
-                                , Route.redirectTo Route.Greet
+data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    case request |> Request.formData (form |> Form.Handler.init identity) of
+        Just ( formResponse, nameResult ) ->
+            request
+                |> MySession.withSession
+                    (\session ->
+                        (nameResult
+                            |> (Form.toResult >> Result.mapError (\_ -> "Error"))
+                            |> unpack
+                                (\_ ->
+                                    ( session
+                                        |> Result.withDefault Session.empty
+                                    , Route.redirectTo Route.Greet
+                                    )
                                 )
-                            )
-                            (\name ->
-                                ( session
-                                    |> Result.withDefault Session.empty
-                                    |> Session.insert "name" name
-                                    |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                                , Route.redirectTo Route.Greet
+                                (\name ->
+                                    ( session
+                                        |> Result.withDefault Session.empty
+                                        |> Session.insert "name" name
+                                        |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
+                                    , Route.redirectTo Route.Greet
+                                    )
                                 )
-                            )
+                        )
+                            |> BackendTask.succeed
                     )
-                        |> BackendTask.succeed
-                )
-        , Request.succeed ()
-            |> MySession.withSession
-                (\() session ->
-                    case session of
-                        Ok okSession ->
-                            let
-                                flashMessage : Maybe String
-                                flashMessage =
-                                    okSession
-                                        |> Session.get "message"
-                            in
-                            ( okSession
-                            , Data
-                                (okSession |> Session.get "name")
-                                flashMessage
-                                |> Response.render
-                            )
-                                |> BackendTask.succeed
 
-                        _ ->
-                            ( Session.empty
-                            , { username = Nothing, flashMessage = Nothing }
-                                |> Response.render
-                            )
-                                |> BackendTask.succeed
-                )
-        ]
+        Nothing ->
+            request
+                |> MySession.withSession
+                    (\session ->
+                        case session of
+                            Ok okSession ->
+                                let
+                                    flashMessage : Maybe String
+                                    flashMessage =
+                                        okSession
+                                            |> Session.get "message"
+                                in
+                                ( okSession
+                                , Data
+                                    (okSession |> Session.get "name")
+                                    flashMessage
+                                    |> Response.render
+                                )
+                                    |> BackendTask.succeed
+
+                            _ ->
+                                ( Session.empty
+                                , { username = Nothing, flashMessage = Nothing }
+                                    |> Response.render
+                                )
+                                    |> BackendTask.succeed
+                    )
 
 
 head :
