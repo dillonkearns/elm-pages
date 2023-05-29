@@ -8,7 +8,7 @@ module Server.Request exposing
     , rawFormData
     , rawUrl
     , queryParam, queryParams
-    , matchesContentType, matchesContentTypes
+    , matchesContentType
     , cookie, cookies
     )
 
@@ -100,7 +100,7 @@ cookie and render a light- or dark-themed page and render a different page.
 
 ## Content Type
 
-@docs matchesContentType, matchesContentTypes
+@docs matchesContentType
 
 
 ## Cookies
@@ -156,19 +156,12 @@ requestTime (Internal.Request.Request req) =
     req.time
 
 
-{-| -}
-matchesContentTypes : ( String, List String ) -> Request -> Bool
-matchesContentTypes ( accepted1, accepted ) (Internal.Request.Request req) =
-    -- TODO this should parse accept to separate out parts so it doesn't need to be an exact match (support `; q=...`, etc.)
-    case req.rawHeaders |> Dict.get "accept" of
-        Nothing ->
-            False
+{-| The [HTTP request method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods) of the incoming request.
 
-        Just acceptHeader ->
-            List.NonEmpty.fromCons accepted1 accepted |> List.NonEmpty.member acceptHeader
+Note that Route modules `data` is run for `GET` requests, and `action` is run for other request methods (including `POST`, `PUT`, `DELETE`).
+So you don't need to check the `method` in your Route Module's `data` function, though you can choose to do so in its `action`.
 
-
-{-| -}
+-}
 method : Request -> Method
 method (Internal.Request.Request req) =
     req.method |> methodFromString
@@ -234,7 +227,21 @@ queryParams (Internal.Request.Request req) =
         |> Maybe.withDefault Dict.empty
 
 
-{-| -}
+{-| The full URL of the incoming HTTP request, including the query params.
+
+Note that the fragment is not included because this is client-only (not sent to the server).
+
+    rawUrl request
+
+    -- url: http://example.com?coupon=abc
+    -- parses into: "http://example.com?coupon=abc"
+
+    rawUrl request
+
+    -- url: https://example.com?coupon=abc&coupon=xyz
+    -- parses into: "https://example.com?coupon=abc&coupon=xyz"
+
+-}
 rawUrl : Request -> String
 rawUrl (Internal.Request.Request req) =
     req.rawUrl
@@ -563,7 +570,23 @@ rawContentType (Internal.Request.Request req) =
     req.rawHeaders |> Dict.get "content-type"
 
 
-{-| -}
+{-| True if the `content-type` header is present AND matches the given argument.
+
+Examples:
+
+    Content-Type: application/json; charset=utf-8
+    request |> matchesContentType "application/json"
+    -- True
+
+    Content-Type: application/json
+    request |> matchesContentType "application/json"
+    -- True
+
+    Content-Type: application/json
+    request |> matchesContentType "application/xml"
+    -- False
+
+-}
 matchesContentType : String -> Request -> Bool
 matchesContentType expectedContentType (Internal.Request.Request req) =
     req.rawHeaders
@@ -587,7 +610,28 @@ parseContentType contentTypeString =
         |> Maybe.withDefault contentTypeString
 
 
-{-| -}
+{-| If the request has a body and its `Content-Type` matches JSON, then
+try running a JSON decoder on the body of the request. Otherwise, return `Nothing`.
+
+Example:
+
+    Body: { "name": "John" }
+    Headers:
+    Content-Type: application/json
+    request |> jsonBody (Json.Decode.field "name" Json.Decode.string)
+    -- Just (Ok "John")
+
+    Body: { "name": "John" }
+    No Headers
+    jsonBody (Json.Decode.field "name" Json.Decode.string) request
+    -- Nothing
+
+    No Body
+    No Headers
+    jsonBody (Json.Decode.field "name" Json.Decode.string) request
+    -- Nothing
+
+-}
 jsonBody : Json.Decode.Decoder value -> Request -> Maybe (Result Json.Decode.Error value)
 jsonBody jsonBodyDecoder ((Internal.Request.Request req) as request) =
     case ( req.body, request |> matchesContentType "application/json" ) of
@@ -599,7 +643,8 @@ jsonBody jsonBodyDecoder ((Internal.Request.Request req) as request) =
             Nothing
 
 
-{-| -}
+{-| An [Incoming HTTP Request Method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods).
+-}
 type Method
     = Connect
     | Delete
@@ -647,7 +692,14 @@ methodFromString rawMethod =
             NonStandard rawMethod
 
 
-{-| Gets the HTTP Method as a String, like 'GET', 'PUT', etc.
+{-| Gets the HTTP Method as an uppercase String.
+
+Examples:
+
+    Get
+        |> methodToString
+        -- "GET"
+
 -}
 methodToString : Method -> String
 methodToString method_ =
