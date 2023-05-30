@@ -7,14 +7,14 @@
     "build": "elm-pages build"
   },
   "devDependencies": {
-    "elm-codegen": "^0.2.0",
+    "elm-codegen": "^0.3.0",
     "elm-optimize-level-2": "^0.3.5",
-    "elm-pages": "^3.0.0-beta.20",
-    "elm-review": "2.8.5",
-    "elm-tooling": "^1.10.0",
-    "vite": "^3.1.8"
+    "elm-pages": "^3.0.0-beta.42",
+    "elm-review": "^2.10.2",
+    "elm-tooling": "^1.14.0",
+    "vite": "^4.3.5"
   },
   "dependencies": {
-    "@netlify/functions": "^1.2.0"
+    "@netlify/functions": "^1.4.0"
   }
 }

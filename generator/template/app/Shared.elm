@@ -4,9 +4,10 @@ import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
 import Html exposing (Html)
+import Html.Events
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
 import View exposing (View)
@@ -19,16 +20,13 @@ template =
     , view = view
     , data = data
     , subscriptions = subscriptions
-    , onPageChange = Just OnPageChange
+    , onPageChange = Nothing
     }
 
 
 type Msg
-    = OnPageChange
-        { path : Path
-        , query : Maybe String
-        , fragment : Maybe String
-        }
+    = SharedMsg SharedMsg
+    | MenuClicked
 
 
 type alias Data =
@@ -40,7 +38,7 @@ type SharedMsg
 
 
 type alias Model =
-    { showMobileMenu : Bool
+    { showMenu : Bool
     }
 
 
@@ -49,7 +47,7 @@ init :
     ->
         Maybe
             { path :
-                { path : Path
+                { path : UrlPath
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -58,7 +56,7 @@ init :
             }
     -> ( Model, Effect Msg )
 init flags maybePagePath =
-    ( { showMobileMenu = False }
+    ( { showMenu = False }
     , Effect.none
     )
 
@@ -66,11 +64,14 @@ init flags maybePagePath =
 update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
     case msg of
-        OnPageChange _ ->
-            ( { model | showMobileMenu = False }, Effect.none )
+        SharedMsg globalMsg ->
+            ( model, Effect.none )
+
+        MenuClicked ->
+            ( { model | showMenu = not model.showMenu }, Effect.none )
 
 
-subscriptions : Path -> Model -> Sub Msg
+subscriptions : UrlPath -> Model -> Sub Msg
 subscriptions _ _ =
     Sub.none
 
@@ -83,16 +84,37 @@ data =
 view :
     Data
     ->
-        { path : Path
+        { path : UrlPath
         , route : Maybe Route
         }
     -> Model
     -> (Msg -> msg)
     -> View msg
     -> { body : List (Html msg), title : String }
-view stars page model toMsg pageView =
+view sharedData page model toMsg pageView =
     { body =
-        [ Html.div [] pageView.body
+        [ Html.nav []
+            [ Html.button
+                [ Html.Events.onClick MenuClicked ]
+                [ Html.text
+                    (if model.showMenu then
+                        "Close Menu"
+
+                     else
+                        "Open Menu"
+                    )
+                ]
+            , if model.showMenu then
+                Html.ul []
+                    [ Html.li [] [ Html.text "Menu item 1" ]
+                    , Html.li [] [ Html.text "Menu item 2" ]
+                    ]
+
+              else
+                Html.text ""
+            ]
+            |> Html.map toMsg
+        , Html.main_ [] pageView.body
         ]
     , title = pageView.title
     }
