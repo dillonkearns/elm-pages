@@ -124,12 +124,12 @@ createFile { moduleName, fields } =
                             []
                     )
                 )
-            , \routeParams ->
+            , \routeParams request ->
                 formHelpers
                     |> Maybe.map
                         (\justFormHelp ->
-                            Request.formData justFormHelp.formHandlers
-                                |> Request.call_.map
+                            Request.formData justFormHelp.formHandlers request
+                                |> Gen.Maybe.call_.map
                                     (Elm.fn ( "formData", Nothing )
                                         (\formData ->
                                             Elm.Case.tuple formData
@@ -185,22 +185,18 @@ createFile { moduleName, fields } =
                                     )
                         )
                     |> Maybe.withDefault
-                        (Request.succeed
-                            (Gen.BackendTask.succeed
-                                (Response.render
-                                    (Elm.record [])
-                                )
+                        (Gen.BackendTask.succeed
+                            (Response.render
+                                (Elm.record [])
                             )
                         )
             )
         , data =
             ( Alias (Type.record [])
-            , \routeParams ->
-                Request.succeed
-                    (Gen.BackendTask.succeed
-                        (Response.render
-                            (Elm.record [])
-                        )
+            , \routeParams request ->
+                Gen.BackendTask.succeed
+                    (Response.render
+                        (Elm.record [])
                     )
             )
         , head = \app -> Elm.list []
@@ -224,7 +220,6 @@ createFile { moduleName, fields } =
                                         , justFormHelp.form
                                             |> PagesForm.call_.renderHtml
                                                 (Elm.list [])
-                                                PagesForm.make_.serial
                                                 (Form.options "form"
                                                     |> Form.withServerResponse
                                                         (app

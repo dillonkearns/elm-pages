@@ -92,8 +92,8 @@ typeToDeclaration name type_ =
 type Builder
     = ServerRender
         (List Elm.Declaration)
-        { data : ( Type, Elm.Expression -> Elm.Expression )
-        , action : ( Type, Elm.Expression -> Elm.Expression )
+        { data : ( Type, Elm.Expression -> Elm.Expression -> Elm.Expression )
+        , action : ( Type, Elm.Expression -> Elm.Expression -> Elm.Expression )
         , head : Elm.Expression -> Elm.Expression
         , moduleName : List String
         }
@@ -108,8 +108,8 @@ type Builder
 
 {-| -}
 serverRender :
-    { data : ( Type, Elm.Expression -> Elm.Expression )
-    , action : ( Type, Elm.Expression -> Elm.Expression )
+    { data : ( Type, Elm.Expression -> Elm.Expression -> Elm.Expression )
+    , action : ( Type, Elm.Expression -> Elm.Expression -> Elm.Expression )
     , head : Elm.Expression -> Elm.Expression
     , moduleName : List String
     }
@@ -203,7 +203,7 @@ buildNoState definitions builder_ =
                             , app = app
                             }
                 , localState = Nothing
-                , data = builder.data |> Tuple.second
+                , data = builder.data |> Tuple.second |> (\fn -> \_ -> fn)
                 , action = builder.pages |> Pages
                 , head = builder.head
                 , types =
@@ -346,7 +346,7 @@ buildWithLocalState definitions builder_ =
                                     }
                         , state = LocalState
                         }
-                , data = builder.data |> Tuple.second
+                , data = builder.data |> Tuple.second |> (\fn -> \_ -> fn)
                 , action = builder.pages |> Pages
                 , head = builder.head
                 , types =
@@ -474,7 +474,7 @@ buildWithSharedState definitions builder_ =
                                     }
                         , state = SharedState
                         }
-                , data = builder.data |> Tuple.second
+                , data = builder.data |> Tuple.second |> (\fn -> \_ -> fn)
                 , action = builder.pages |> Pages
                 , head = builder.head
                 , types =
@@ -496,7 +496,7 @@ type State
 
 
 type ActionOrPages
-    = Action (Elm.Expression -> Elm.Expression)
+    = Action (Elm.Expression -> Elm.Expression -> Elm.Expression)
     | Pages (Maybe Elm.Expression)
 
 
@@ -512,7 +512,7 @@ userFunction :
                 , subscriptions : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
                 , state : State
                 }
-        , data : Elm.Expression -> Elm.Expression
+        , data : Elm.Expression -> Elm.Expression -> Elm.Expression
         , action : ActionOrPages
         , head : Elm.Expression -> Elm.Expression
         , types : { model : Type, msg : Type, data : Type, actionData : Type }
@@ -638,7 +638,7 @@ userFunction moduleName definitions =
                             Elm.Declare.fn4
                                 "subscriptions"
                                 ( "routeParams", "RouteParams" |> Elm.Annotation.named [] |> Just )
-                                ( "path", Elm.Annotation.namedWith [ "Path" ] "Path" [] |> Just )
+                                ( "path", Elm.Annotation.namedWith [ "UrlPath" ] "UrlPath" [] |> Just )
                                 ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
                                 ( "model", localType "Model" |> Just )
                                 (\routeParams path shared model ->
@@ -656,7 +656,7 @@ userFunction moduleName definitions =
                     Elm.Declare.function "data"
                         []
                         (\_ ->
-                            definitions.data Elm.unit
+                            definitions.data Elm.unit Elm.unit
                                 |> Elm.withType
                                     (case definitions.action of
                                         Pages _ ->
@@ -674,11 +674,16 @@ userFunction moduleName definitions =
                                 |> Elm.Annotation.named []
                                 |> Just
                           )
+                        , ( "request"
+                          , "Request"
+                                |> Elm.Annotation.named [ "Server", "Request" ]
+                                |> Just
+                          )
                         ]
                         (\args ->
                             case args of
-                                [ arg ] ->
-                                    definitions.data arg
+                                [ arg, arg2 ] ->
+                                    definitions.data arg arg2
                                         |> Elm.withType
                                             (case definitions.action of
                                                 Pages _ ->
@@ -702,11 +707,16 @@ userFunction moduleName definitions =
                                 |> Elm.Annotation.named []
                                 |> Just
                           )
+                        , ( "request"
+                          , "Request"
+                                |> Elm.Annotation.named [ "Server", "Request" ]
+                                |> Just
+                          )
                         ]
                         (\args ->
                             case args of
-                                [ arg ] ->
-                                    action_ arg |> Elm.withType (myType "ActionData")
+                                [ arg1, arg2 ] ->
+                                    action_ arg1 arg2 |> Elm.withType (myType "ActionData")
 
                                 _ ->
                                     Elm.unit
@@ -750,17 +760,17 @@ userFunction moduleName definitions =
                 Action _ ->
                     serverRender_
                         { action =
-                            \routeParams ->
+                            \routeParams request ->
                                 actionFn
                                     |> Maybe.map
                                         (\justActionFn ->
-                                            justActionFn.call [ routeParams ]
+                                            justActionFn.call [ routeParams, request ]
                                                 |> Elm.withType (myType "ActionData")
                                         )
                                     |> Maybe.withDefault Elm.unit
                         , data =
-                            \routeParams ->
-                                dataFn.call [ routeParams ]
+                            \routeParams request ->
+                                dataFn.call [ routeParams, request ]
                                     |> Elm.withType (myType "Data")
                         , head = headFn.call
                         }
@@ -861,16 +871,18 @@ localType =
 
 myType : String -> Elm.Annotation.Annotation
 myType dataType =
-    Elm.Annotation.namedWith [ "Server", "Request" ]
-        "Parser"
-        [ throwableTask
-            (Elm.Annotation.namedWith [ "Server", "Response" ]
-                "Response"
-                [ Elm.Annotation.named [] dataType
-                , Elm.Annotation.named [ "ErrorPage" ] "ErrorPage"
-                ]
-            )
-        ]
+    --Elm.Annotation.function
+    --    [ Elm.Annotation.namedWith [ "Server", "Request" ]
+    --        "Request"
+    --        []
+    --    ]
+    throwableTask
+        (Elm.Annotation.namedWith [ "Server", "Response" ]
+            "Response"
+            [ Elm.Annotation.named [] dataType
+            , Elm.Annotation.named [ "ErrorPage" ] "ErrorPage"
+            ]
+        )
 
 
 appType : Elm.Annotation.Annotation
@@ -884,8 +896,8 @@ appType =
 
 
 serverRender_ :
-    { data : Elm.Expression -> Elm.Expression
-    , action : Elm.Expression -> Elm.Expression
+    { data : Elm.Expression -> Elm.Expression -> Elm.Expression
+    , action : Elm.Expression -> Elm.Expression -> Elm.Expression
     , head : Elm.Expression -> Elm.Expression
     }
     -> Elm.Expression
@@ -920,22 +932,20 @@ serverRender_ serverRenderArg =
                               )
                             , ( "action"
                               , Elm.Annotation.function
-                                    [ Elm.Annotation.var "routeParams" ]
-                                    (Elm.Annotation.namedWith
-                                        [ "Server", "Request" ]
-                                        "Parser"
-                                        [ throwableTask
-                                            (Elm.Annotation.namedWith
-                                                [ "Server", "Response" ]
-                                                "Response"
-                                                [ Elm.Annotation.var "action"
-                                                , Elm.Annotation.namedWith
-                                                    [ "ErrorPage" ]
-                                                    "ErrorPage"
-                                                    []
-                                                ]
-                                            )
-                                        ]
+                                    [ Elm.Annotation.var "routeParams"
+                                    , Elm.Annotation.named [ "Server", "Request" ] "Request"
+                                    ]
+                                    (throwableTask
+                                        (Elm.Annotation.namedWith
+                                            [ "Server", "Response" ]
+                                            "Response"
+                                            [ Elm.Annotation.var "action"
+                                            , Elm.Annotation.namedWith
+                                                [ "ErrorPage" ]
+                                                "ErrorPage"
+                                                []
+                                            ]
+                                        )
                                     )
                               )
                             , ( "head"
@@ -968,10 +978,20 @@ serverRender_ serverRenderArg =
         [ Elm.record
             [ Tuple.pair
                 "data"
-                (Elm.functionReduced "serverRenderUnpack" serverRenderArg.data)
+                (Elm.functionReduced
+                    "dataUnpack"
+                    (\functionReducedUnpack ->
+                        Elm.functionReduced "dataUnpack2" (serverRenderArg.data functionReducedUnpack)
+                    )
+                )
             , Tuple.pair
                 "action"
-                (Elm.functionReduced "serverRenderUnpack" serverRenderArg.action)
+                (Elm.functionReduced
+                    "actionUnpack"
+                    (\functionReducedUnpack ->
+                        Elm.functionReduced "actionUnpack2" (serverRenderArg.action functionReducedUnpack)
+                    )
+                )
             , Tuple.pair
                 "head"
                 (Elm.functionReduced "serverRenderUnpack" serverRenderArg.head)
@@ -1208,7 +1228,7 @@ buildWithLocalState_ buildWithLocalStateArg buildWithLocalStateArg0 =
                                 , ( "subscriptions"
                                   , Elm.Annotation.function
                                         [ Elm.Annotation.var "routeParams"
-                                        , Elm.Annotation.namedWith [ "Path" ] "Path" []
+                                        , Elm.Annotation.namedWith [ "UrlPath" ] "UrlPath" []
                                         , Elm.Annotation.namedWith [ "Shared" ] "Model" []
                                         , Elm.Annotation.var "model"
                                         ]
