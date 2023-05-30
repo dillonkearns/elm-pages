@@ -4,43 +4,48 @@ module Server.Session exposing
     , Session, empty, get, insert, remove, update, withFlash
     )
 
-{-| You can manage server state with HTTP cookies using this Server.Session API. Server-rendered pages define a `Server.Request.Parser`
-to choose which requests to respond to and how to extract structured data from the incoming request.
+{-| You can manage server state with HTTP cookies using this Server.Session API. Server-rendered routes have a `Server.Request.Request`
+argument that lets you inspect the incoming HTTP request, and return a response using the `Server.Response.Response` type.
+
+This API provides a higher-level abstraction for extracting data from the HTTP request, and setting data in the HTTP response.
+It manages the session through key-value data stored in cookies, and lets you [`insert`](#insert), [`update`](#update), and [`remove`](#remove)
+values from the Session. It also provides an abstraction for flash session values through [`withFlash`](#withFlash).
 
 
-## Using Sessions in a Request.Parser
+## Using Sessions
 
 Using these functions, you can store and read session data in cookies to maintain state between requests.
-For example, TODO:
 
-    action : RouteParams -> Request.Parser (BackendTask (Response ActionData ErrorPage))
-    action routeParams =
-        MySession.withSession
-            (Request.formDataWithServerValidation (form |> Form.initCombinedServer identity))
-            (\nameResultData session ->
-                nameResultData
-                    |> BackendTask.map
-                        (\nameResult ->
-                            case nameResult of
-                                Err errors ->
-                                    ( session
-                                        |> Result.withDefault Nothing
-                                        |> Maybe.withDefault Session.empty
-                                    , Response.render
-                                        { errors = errors
-                                        }
-                                    )
+    import Server.Session as Session
 
-                                Ok ( _, name ) ->
-                                    ( session
-                                        |> Result.withDefault Nothing
-                                        |> Maybe.withDefault Session.empty
-                                        |> Session.insert "name" name
-                                        |> Session.withFlash "message" ("Welcome " ++ name ++ "!")
-                                    , Route.redirectTo Route.Greet
-                                    )
-                        )
-            )
+    secrets : BackendTask FatalError (List String)
+    secrets =
+        Env.expect "SESSION_SECRET"
+            |> BackendTask.allowFatal
+            |> BackendTask.map List.singleton
+
+    type alias Data =
+        { darkMode : Bool }
+
+    data : RouteParams -> Request -> BackendTask (Response Data ErrorPage)
+    data routeParams request =
+        request
+            |> Session.withSession
+                { name = "mysession"
+                , secrets = secrets
+                , options = Nothing
+                }
+                (\session ->
+                    let
+                        darkMode : Bool
+                        darkMode =
+                            (session |> Session.get "mode" |> Maybe.withDefault "light")
+                                == "dark"
+                    in
+                    ( session
+                    , { darkMode = darkMode }
+                    )
+                )
 
 The elm-pages framework will manage signing these cookies using the `secrets : BackendTask (List String)` you pass in.
 That means that the values you set in your session will be directly visible to anyone who has access to the cookie
@@ -130,7 +135,12 @@ type Value
     | NewFlash String
 
 
-{-| -}
+{-| Flash session values are values that are only available for the next request.
+
+    session
+        |> Session.withFlash "message" "Your payment was successful!"
+
+-}
 withFlash : String -> String -> Session -> Session
 withFlash key value (Session session) =
     session
@@ -138,7 +148,12 @@ withFlash key value (Session session) =
         |> Session
 
 
-{-| -}
+{-| Insert a value under the given key in the `Session`.
+
+    session
+        |> Session.insert "mode" "dark"
+
+-}
 insert : String -> String -> Session -> Session
 insert key value (Session session) =
     session
@@ -146,7 +161,15 @@ insert key value (Session session) =
         |> Session
 
 
-{-| -}
+{-| Retrieve a String value from the session for the given key (or `Nothing` if the key is not present).
+
+    (session
+        |> Session.get "mode"
+        |> Maybe.withDefault "light"
+    )
+        == "dark"
+
+-}
 get : String -> Session -> Maybe String
 get key (Session session) =
     session
@@ -168,7 +191,25 @@ unwrap value =
             string
 
 
-{-| -}
+{-| Update the `Session`, given a `Maybe String` of the current value for the given key, and returning a `Maybe String`.
+
+If you return `Nothing`, the key-value pair will be removed from the `Session` (or left out if it didn't exist in the first place).
+
+    session
+        |> Session.update "mode"
+            (\mode ->
+                case mode of
+                    Just "dark" ->
+                        Just "light"
+
+                    Just "light" ->
+                        Just "dark"
+
+                    Nothing ->
+                        Just "dark"
+            )
+
+-}
 update : String -> (Maybe String -> Maybe String) -> Session -> Session
 update key updateFn (Session session) =
     session
@@ -192,7 +233,8 @@ update key updateFn (Session session) =
         |> Session
 
 
-{-| -}
+{-| Remove a key from the `Session`.
+-}
 remove : String -> Session -> Session
 remove key (Session session) =
     session
@@ -200,13 +242,15 @@ remove key (Session session) =
         |> Session
 
 
-{-| -}
+{-| An empty `Session` with no key-value pairs.
+-}
 empty : Session
 empty =
     Session Dict.empty
 
 
-{-| -}
+{-| [`withSessionResult`](#withSessionResult) will return a `Result` with this type if it can't load a session.
+-}
 type NotLoadedReason
     = NoSessionCookie
     | InvalidSessionCookie
@@ -239,7 +283,9 @@ flashPrefix =
     "__flash__"
 
 
-{-| -}
+{-| The main function for using sessions. If you need more fine-grained control over cases where a session can't be loaded, see
+[`withSessionResult`](#withSessionResult).
+-}
 withSession :
     { name : String
     , secrets : BackendTask error (List String)
@@ -258,7 +304,13 @@ withSession config toRequest request_ =
             )
 
 
-{-| -}
+{-| Same as `withSession`, but gives you an `Err` with the reason why the Session couldn't be loaded instead of
+using `Session.empty` as a default in the cases where there is an error loading the session.
+
+A session won't load if there is no session, or if it cannot be unsigned with your secrets. This could be because the cookie was tampered with
+or otherwise corrupted, or because the cookie was signed with a secret that is no longer in the rotation.
+
+-}
 withSessionResult :
     { name : String
     , secrets : BackendTask error (List String)
