@@ -1,10 +1,11 @@
 module Server.Response exposing
     ( Response
-    , json, plainText, temporaryRedirect, permanentRedirect
-    , emptyBody, body, bytesBody, base64Body
     , render
-    , errorPage, mapError
     , map
+    , errorPage, mapError
+    , temporaryRedirect, permanentRedirect
+    , json, plainText
+    , emptyBody, body, bytesBody, base64Body
     , withHeader, withHeaders, withStatusCode, withSetCookieHeader
     , toJson
     )
@@ -16,12 +17,60 @@ module Server.Response exposing
 
 @docs Response
 
-There are two top-level response types:
 
-1.  Server Responses
-2.  Render Responses
+## Response's for Route Modules
 
-A Server Response is a way to directly send a low-level server response, with no additional magic. You can set a String body,
+In a server-rendered Route Module, you return a [`Response`](#Response). You'll typically want to return one of 3 types of Responses
+from your Route Modules:
+
+  - [`Server.Response.render`](#render) to render the current Route Module
+  - [`Server.Response.errorPage`](#errorPage) to render an ErrorPage
+  - [`Server.Response.temporaryRedirect`](#temporaryRedirect) to redirect to another page (the easiest way to build a redirect response is with `Route.redirectTo : Route -> Response data error`).
+
+```
+    import Server.Response as Response
+    import Route
+
+    data routeParams request =
+        case loggedInUser request of
+            Just user ->
+                findProjectById routeParams.id user
+                |> BackendTask.map
+                    (\maybeProject ->
+                        case maybeProject of
+                            Just project ->
+                                Response.render project
+
+                            Nothing ->
+                                Response.errorPage ErrorPage.notFound
+                    )
+            Nothing ->
+                -- the generated module `Route` contains a high-level helper for returning a redirect `Response`
+                Route.redirectTo Route.Login
+```
+
+
+## Render Responses
+
+@docs render
+
+@docs map
+
+
+## Rendering Error Pages
+
+@docs errorPage, mapError
+
+
+## Redirects
+
+@docs temporaryRedirect, permanentRedirect
+
+
+## Response's for Server-Rendered ApiRoutes
+
+When defining your [server-rendered `ApiRoute`'s (`ApiRoute.serverRender`)](ApiRoute#serverRender) in your `app/Api.elm` module,
+you can send a low-level server Response. You can set a String body,
 a list of headers, the status code, etc. The Server Response helpers like `json` and `temporaryRedirect` are just helpers for
 building up those low-level Server Responses.
 
@@ -31,26 +80,14 @@ the current Route Module. To do that, you'll need to pass along the `data` for y
 You can use `withHeader` and `withStatusCode` to customize either type of Response (Server Responses or Render Responses).
 
 
-## Server Responses
+## Body
 
-@docs json, plainText, temporaryRedirect, permanentRedirect
+@docs json, plainText
 
 
 ## Custom Responses
 
 @docs emptyBody, body, bytesBody, base64Body
-
-
-## Render Responses
-
-@docs render
-
-
-## Rendering Error Pages
-
-@docs errorPage, mapError
-
-@docs map
 
 
 ## Amending Responses
@@ -76,7 +113,8 @@ type alias Response data error =
     PageServerResponse data error
 
 
-{-| -}
+{-| Maps the `data` for a Render response. Usually not needed, but always good to have the option.
+-}
 map : (data -> mappedData) -> Response data error -> Response mappedData error
 map mapFn pageServerResponse =
     case pageServerResponse of
@@ -90,7 +128,8 @@ map mapFn pageServerResponse =
             ErrorPage error response
 
 
-{-| -}
+{-| Maps the `error` for an ErrorPage response. Usually not needed, but always good to have the option.
+-}
 mapError : (errorPage -> mappedErrorPage) -> Response data errorPage -> Response data mappedErrorPage
 mapError mapFn pageServerResponse =
     case pageServerResponse of
@@ -104,7 +143,11 @@ mapError mapFn pageServerResponse =
             ErrorPage (mapFn error) response
 
 
-{-| -}
+{-| Build a `Response` with a String body. Sets the `Content-Type` to `text/plain`.
+
+    Response.plainText "Hello"
+
+-}
 plainText : String -> Response data error
 plainText string =
     { statusCode = 200
@@ -115,7 +158,11 @@ plainText string =
         |> ServerResponse
 
 
-{-| -}
+{-| Render the Route Module with the supplied data. Used for both the `data` and `action` functions in a server-rendered Route Module.
+
+    Response.render project
+
+-}
 render : data -> Response data error
 render data =
     RenderPage
@@ -123,13 +170,19 @@ render data =
         data
 
 
-{-| -}
+{-| Instead of rendering the current Route Module, you can render an `ErrorPage` such as a 404 page or a 500 error page.
+
+[Read more about Error Pages](https://elm-pages-v3.netlify.app/docs/error-pages) to learn about
+defining and rendering your custom ErrorPage type.
+
+-}
 errorPage : errorPage -> Response data errorPage
 errorPage errorPage_ =
     ErrorPage errorPage_ { headers = [] }
 
 
-{-| -}
+{-| Build a `Response` with no HTTP response body.
+-}
 emptyBody : Response data error
 emptyBody =
     { statusCode = 200
@@ -140,7 +193,8 @@ emptyBody =
         |> ServerResponse
 
 
-{-| -}
+{-| Same as [`plainText`](#plainText), but doesn't set a `Content-Type`.
+-}
 body : String -> Response data error
 body body_ =
     { statusCode = 200
@@ -151,7 +205,13 @@ body body_ =
         |> ServerResponse
 
 
-{-| -}
+{-| Build a `Response` with a String that should represent a base64 encoded value.
+
+Your adapter will need to handle `isBase64Encoded` to turn it into the appropriate response.
+
+    Response.base64Body "SGVsbG8gV29ybGQ="
+
+-}
 base64Body : String -> Response data error
 base64Body base64String =
     { statusCode = 200
@@ -162,7 +222,12 @@ base64Body base64String =
         |> ServerResponse
 
 
-{-| -}
+{-| Build a `Response` with a `Bytes`.
+
+Under the hood, it will be converted to a base64 encoded String with `isBase64Encoded = True`.
+Your adapter will need to handle `isBase64Encoded` to turn it into the appropriate response.
+
+-}
 bytesBody : Bytes -> Response data error
 bytesBody bytes =
     { statusCode = 200
@@ -173,7 +238,15 @@ bytesBody bytes =
         |> ServerResponse
 
 
-{-| -}
+{-| Build a JSON body from a `Json.Encode.Value`.
+
+    Json.Encode.object
+        [ ( "message", Json.Encode.string "Hello" ) ]
+        |> Response.json
+
+Sets the `Content-Type` to `application/json`.
+
+-}
 json : Json.Encode.Value -> Response data error
 json jsonValue =
     { statusCode = 200
@@ -226,7 +299,12 @@ temporaryRedirect url =
         |> ServerResponse
 
 
-{-| -}
+{-| Set the [HTTP Response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status) for the `Response`.
+
+    Response.plainText "Not Authorized"
+        |> Response.withStatusCode 401
+
+-}
 withStatusCode : Int -> Response data Never -> Response data Never
 withStatusCode statusCode serverResponse =
     case serverResponse of
@@ -240,7 +318,14 @@ withStatusCode statusCode serverResponse =
             never error
 
 
-{-| -}
+{-| Add a header to the response.
+
+    Response.plainText "Hello!"
+        -- allow CORS requests
+        |> Response.withHeader "Access-Control-Allow-Origin" "*"
+        |> Response.withHeader "Access-Control-Allow-Methods" "GET, POST, OPTIONS"
+
+-}
 withHeader : String -> String -> Response data error -> Response data error
 withHeader name value serverResponse =
     case serverResponse of
@@ -254,7 +339,16 @@ withHeader name value serverResponse =
             ErrorPage error { response | headers = ( name, value ) :: response.headers }
 
 
-{-| -}
+{-| Same as [`withHeader`](#withHeader), but allows you to add multiple headers at once.
+
+    Response.plainText "Hello!"
+        -- allow CORS requests
+        |> Response.withHeaders
+            [ ( "Access-Control-Allow-Origin", "*" )
+            , ( "Access-Control-Allow-Methods", "GET, POST, OPTIONS" )
+            ]
+
+-}
 withHeaders : List ( String, String ) -> Response data error -> Response data error
 withHeaders headers serverResponse =
     case serverResponse of
@@ -268,7 +362,12 @@ withHeaders headers serverResponse =
             ErrorPage error { response | headers = headers ++ response.headers }
 
 
-{-| -}
+{-| Set a [`SetCookie`](SetCookie) value on the response.
+
+The easiest way to manage cookies in your Routes is through the [`Server.Session`](Server-Session) API, but this
+provides a more granular way to set cookies.
+
+-}
 withSetCookieHeader : SetCookie -> Response data error -> Response data error
 withSetCookieHeader cookie response =
     response
@@ -278,7 +377,8 @@ withSetCookieHeader cookie response =
             )
 
 
-{-| -}
+{-| For internal use or more advanced use cases for meta frameworks.
+-}
 toJson : Response Never Never -> Json.Encode.Value
 toJson response =
     case response of
