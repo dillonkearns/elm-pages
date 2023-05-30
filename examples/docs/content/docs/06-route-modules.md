@@ -1,15 +1,15 @@
 ---
-description: Page Modules are the blueprint for a route in elm-pages.
+description: Route Modules are the blueprint for a route in elm-pages.
 ---
 
-# Page Modules
+# Route Modules
 
-Page Modules are Elm modules in the `src/Page` folder that define a top-level `page`.
+Route Modules are Elm modules in the `app/Route` folder that define a top-level `route`.
 
-You build the `page` using a builder chain, adding complexity as needed. You can scaffold a simple stateless page with `elm-pages add Hello.Name_`. That gives you `src/Page/Hello/Name_.elm`.
+You build the `route` using a builder chain, adding complexity as needed. You can scaffold a simple stateless page with `elm-pages run AddRoute Hello.Name_`. That gives you `app/Route/Hello/Name_.elm`.
 
 ```elm
-module Page.Hello.Name_ exposing (Model, Msg, StaticData, page)
+module Route.Hello.Name_ exposing (Model, Msg, StaticData, route)
 
 import BackendTask
 import View exposing (View)
