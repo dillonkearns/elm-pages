@@ -62,7 +62,7 @@ That's why `RouteBuilder.preRender` does not have a `Server.Request.Request` arg
 
 A server-rendered Route Module _does_ have access to a user's incoming HTTP request because it runs every time the page
 is loaded. That's why `data` has a `Server.Request.Request` argument in server-rendered Route Modules. Since you have an incoming HTTP request for server-rendered routes,
-`RouteBuilder.serverRender` has `data : RouteParams -> Request.Parser (BackendTask (Response Data))`. That means that you
+`RouteBuilder.serverRender` has `data : RouteParams -> Request -> BackendTask (Response Data)`. That means that you
 can use the incoming HTTP request data to choose how to respond. For example, you could check for a dark-mode preference
 cookie and render a light- or dark-themed page and render a different page.
 
