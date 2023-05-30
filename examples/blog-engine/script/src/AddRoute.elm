@@ -12,6 +12,7 @@ import Elm.Let
 import Elm.Op
 import Gen.BackendTask
 import Gen.Effect as Effect
+import Gen.FatalError
 import Gen.Form as Form
 import Gen.Form.FieldView as FieldView
 import Gen.Html as Html
@@ -183,6 +184,10 @@ createFile { moduleName, fields } =
                                                 )
                                         )
                                     )
+                                |> Gen.Maybe.withDefault
+                                    (Gen.BackendTask.fail
+                                        (Gen.FatalError.fromString "Expected form post")
+                                    )
                         )
                     |> Maybe.withDefault
                         (Gen.BackendTask.succeed
@@ -249,7 +254,7 @@ createFile { moduleName, fields } =
                     Elm.tuple (Elm.record []) Effect.none
             , subscriptions =
                 \{ routeParams, path, shared, model } ->
-                    Gen.Platform.Sub.none
+                    Elm.val "Sub.none"
             , model =
                 Alias (Type.record [])
             , msg =

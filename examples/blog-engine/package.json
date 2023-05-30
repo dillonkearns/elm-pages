@@ -17,6 +17,7 @@
     "@netlify/functions": "^0.7.2",
     "@tailwindcss/forms": "^0.3.4",
     "busboy": "^1.1.0",
+    "elm-codegen": "^0.3.0",
     "elm-pages": "file:../..",
     "elm-review": "^2.7.0",
     "elm-tailwind-modules": "^0.3.2",
