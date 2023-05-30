@@ -398,9 +398,11 @@ and [`Pages.Form`](Pages-Form) to render the `Form` on the client.
 Since we are sharing the `Form` definition between frontend and backend, we get to re-use the same validation logic so we gain confidence that
 the validation errors that the user sees on the client are protected on our backend, and vice versa.
 
-    import BackendTask
+    import BackendTask exposing (BackendTask)
+    import FatalError exposing (FatalError)
     import Form
-    import Server.Request
+    import Server.Request as Request exposing (Request)
+    import Server.Response as Response exposing (Response)
 
     type Action
         = Delete
@@ -418,10 +420,14 @@ the validation errors that the user sees on the client are protected on our back
 
     action :
         RouteParams
-        -> Server.Request.Parser (BackendTask.BackendTask FatalError.FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage))
-    action routeParams =
-        Server.Request.map
-            (\( formResponse, parsedForm ) ->
+        -> Request
+        -> BackendTask FatalError (Response ActionData ErrorPage)
+    action routeParams request =
+        case request |> Server.Request.formData formHandlers of
+            Nothing ->
+                BackendTask.fail (FatalError.fromString "Missing form data")
+
+            Just ( formResponse, parsedForm ) ->
                 case parsedForm of
                     Form.Valid Delete ->
                         deletePostBySlug routeParams.slug
@@ -446,8 +452,6 @@ the validation errors that the user sees on the client are protected on our back
                             (Server.Response.render
                                 { errors = formResponse }
                             )
-            )
-            (Server.Request.formData formHandlers)
 
 You can handle form submissions as either GET or POST requests. Note that for security reasons, it's important to performing mutations with care from GET requests,
 since a GET request can be performed from an outside origin by embedding an image that points to the given URL. So a logout submission should be protected by
