@@ -8,9 +8,11 @@ module ApiRoute exposing
     , toJson, getBuildTimeRoutes, getGlobalHeadTagsBackendTask
     )
 
-{-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files, like RSS feeds, sitemaps, or any text-based file that you output with an Elm function! You get access
-to a BackendTask so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
-the BackendTask for your ApiRoutes, and it won't effect the payload size. Instead, the size of an ApiRoute is just the content you output for that route.
+{-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files either statically pre-rendered at build-time (like RSS feeds, sitemaps, or any text-based file that you output with an Elm function),
+or server-rendered at runtime (like a JSON API endpoint, or an RSS feed that gives you fresh data without rebuilding your site).
+
+Your ApiRoute's get access to a [`BackendTask`](#BackendTask) so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
+the BackendTask for your ApiRoutes and it won't effect the payload size. Instead, the size of an ApiRoute is just the content you output for that route.
 
 Similar to your elm-pages Route Modules, ApiRoute's can be either server-rendered or pre-rendered. Let's compare the differences between pre-rendered and server-rendered ApiRoutes, and the different
 use cases they support.
@@ -273,7 +275,54 @@ encodeStaticFileBody fileBody =
         ]
 
 
-{-| -}
+{-| Pre-render files for a given route pattern statically at build-time. If you only need to serve a single file, you can use [`single`](#single) instead.
+
+    import ApiRoute
+    import BackendTask
+    import BackendTask.Http
+    import Json.Decode as Decode
+    import Json.Encode as Encode
+
+    starsApi : ApiRoute ApiRoute.Response
+    starsApi =
+        ApiRoute.succeed
+            (\user repoName ->
+                BackendTask.Http.getJson
+                    ("https://api.github.com/repos/" ++ user ++ "/" ++ repoName)
+                    (Decode.field "stargazers_count" Decode.int)
+                    |> BackendTask.allowFatal
+                    |> BackendTask.map
+                        (\stars ->
+                            Encode.object
+                                [ ( "repo", Encode.string repoName )
+                                , ( "stars", Encode.int stars )
+                                ]
+                                |> Encode.encode 2
+                        )
+            )
+            |> ApiRoute.literal "repo"
+            |> ApiRoute.slash
+            |> ApiRoute.capture
+            |> ApiRoute.slash
+            |> ApiRoute.capture
+            |> ApiRoute.slash
+            |> ApiRoute.literal ".json"
+            |> ApiRoute.preRender
+                (\route ->
+                    BackendTask.succeed
+                        [ route "dillonkearns" "elm-graphql"
+                        , route "dillonkearns" "elm-pages"
+                        ]
+                )
+
+You can view these files in the dev server at <http://localhost:1234/repo/dillonkearns/elm-graphql.json>, and when you run `elm-pages build` this will result in the following files being generated:
+
+  - `dist/repo/dillonkearns/elm-graphql.json`
+  - `dist/repo/dillonkearns/elm-pages.json`
+
+Note: `dist` is the output folder for `elm-pages build`, so this will be accessible in your hosted site at `/repo/dillonkearns/elm-graphql.json` and `/repo/dillonkearns/elm-pages.json`.
+
+-}
 preRender : (constructor -> BackendTask FatalError (List (List String))) -> ApiRouteBuilder (BackendTask FatalError String) constructor -> ApiRoute Response
 preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
@@ -327,17 +376,20 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
         }
 
 
-{-| -}
+{-| The intermediary value while building an ApiRoute definition.
+-}
 type alias ApiRouteBuilder a constructor =
     Internal.ApiRoute.ApiRouteBuilder a constructor
 
 
-{-| -}
+{-| The final value from defining an ApiRoute.
+-}
 type alias Response =
     Json.Encode.Value
 
 
-{-| -}
+{-| Starts the definition of a route with any captured segments.
+-}
 succeed : a -> ApiRouteBuilder a (List String)
 succeed a =
     ApiRouteBuilder Pattern.empty "" (\_ -> a) (\_ -> "") (\list -> list)
@@ -365,13 +417,15 @@ literal segment (ApiRouteBuilder patterns pattern handler toString constructor) 
         constructor
 
 
-{-| -}
+{-| A path separator within the route.
+-}
 slash : ApiRouteBuilder a constructor -> ApiRouteBuilder a constructor
 slash (ApiRouteBuilder patterns pattern handler toString constructor) =
     ApiRouteBuilder (patterns |> Pattern.addSlash) (pattern ++ "/") handler (\arg -> toString arg ++ "/") constructor
 
 
-{-| -}
+{-| Captures a dynamic segment from the route.
+-}
 capture :
     ApiRouteBuilder (String -> a) constructor
     -> ApiRouteBuilder a (String -> constructor)
@@ -415,7 +469,8 @@ withGlobalHeadTags globalHeadTags (ApiRoute handler) =
     ApiRoute { handler | globalHeadTags = Just globalHeadTags }
 
 
-{-| -}
+{-| For internal use.
+-}
 getGlobalHeadTagsBackendTask : ApiRoute response -> Maybe (BackendTask FatalError (List Head.Tag))
 getGlobalHeadTagsBackendTask (ApiRoute handler) =
     handler.globalHeadTags
