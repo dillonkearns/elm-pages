@@ -123,7 +123,12 @@ import Server.Response exposing (Response)
 import Server.SetCookie as SetCookie
 
 
-{-| -}
+{-| Represents a Session with key-value Strings.
+
+Use with `withSession` to read in the `Session`, and encode any changes you make to the `Session` back through cookie storage
+via the outgoing HTTP response.
+
+-}
 type Session
     = Session (Dict String Value)
 
