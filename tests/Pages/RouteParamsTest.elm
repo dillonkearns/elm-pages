@@ -6,7 +6,6 @@ import Elm.CodeGen
 import Elm.Pretty
 import Elm.ToString
 import Expect exposing (Expectation)
-import FatalError
 import Fuzz exposing (Fuzzer)
 import Pages.Internal.RoutePattern as RoutePattern
 import Pretty

@@ -74,7 +74,6 @@
         "robinheghan/fnv1a": "1.0.0 <= v < 2.0.0",
         "rtfeldman/elm-css": "18.0.0 <= v < 19.0.0",
         "the-sett/elm-syntax-dsl": "6.0.2 <= v < 7.0.0",
-        "turboMaCk/non-empty-list-alias": "1.2.0 <= v < 2.0.0",
         "vito/elm-ansi": "10.0.1 <= v < 11.0.0"
     },
     "test-dependencies": {

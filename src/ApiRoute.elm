@@ -179,7 +179,6 @@ import FatalError exposing (FatalError)
 import Head
 import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
 import Internal.Request
-import Json.Decode as Decode
 import Json.Encode
 import Pattern
 import Regex

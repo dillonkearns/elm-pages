@@ -118,29 +118,10 @@ import Form.Validation as Validation
 import FormData
 import Internal.Request
 import Json.Decode
-import List.NonEmpty
 import Pages.Form
 import QueryParams
 import Time
 import Url
-
-
-optionalField : String -> Json.Decode.Decoder a -> Json.Decode.Decoder (Maybe a)
-optionalField fieldName decoder_ =
-    let
-        finishDecoding : Json.Decode.Value -> Json.Decode.Decoder (Maybe a)
-        finishDecoding json =
-            case Json.Decode.decodeValue (Json.Decode.field fieldName Json.Decode.value) json of
-                Ok _ ->
-                    -- The field is present, so run the decoder on it.
-                    Json.Decode.map Just (Json.Decode.field fieldName decoder_)
-
-                Err _ ->
-                    -- The field was missing, which is fine!
-                    Json.Decode.succeed Nothing
-    in
-    Json.Decode.value
-        |> Json.Decode.andThen finishDecoding
 
 
 {-| -}
@@ -567,11 +548,6 @@ rawFormData request =
 --            |> Internal.Request.Parser
 --            |> acceptMethod ( Post, [] )
 --        )
-
-
-rawContentType : Request -> Maybe String
-rawContentType (Internal.Request.Request req) =
-    req.rawHeaders |> Dict.get "content-type"
 
 
 {-| True if the `content-type` header is present AND matches the given argument.

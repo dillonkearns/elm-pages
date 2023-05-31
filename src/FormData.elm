@@ -1,7 +1,6 @@
-module FormData exposing (encode, parse, parseToList)
+module FormData exposing (parse, parseToList)
 
 import Dict exposing (Dict)
-import List.NonEmpty exposing (NonEmpty)
 import Url
 
 
@@ -60,19 +59,3 @@ decode string =
         |> String.replace "+" " "
         |> Url.percentDecode
         |> Maybe.withDefault ""
-
-
-encode : Dict String (NonEmpty String) -> String
-encode dict =
-    dict
-        |> Dict.toList
-        |> List.concatMap
-            (\( key, values ) ->
-                values
-                    |> List.NonEmpty.toList
-                    |> List.map
-                        (\value ->
-                            Url.percentEncode key ++ "=" ++ Url.percentEncode value
-                        )
-            )
-        |> String.join "&"

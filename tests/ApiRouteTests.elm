@@ -3,7 +3,6 @@ module ApiRouteTests exposing (all)
 import ApiRoute exposing (..)
 import BackendTask
 import Expect
-import FatalError
 import Internal.ApiRoute exposing (tryMatch, withRoutes)
 import Pattern exposing (Pattern(..))
 import Server.Response
@@ -112,7 +111,7 @@ all =
             [ test "no dynamic segments" <|
                 \() ->
                     succeed
-                        (\request ->
+                        (\_ ->
                             ""
                                 |> Server.Response.plainText
                                 |> BackendTask.succeed
@@ -124,7 +123,7 @@ all =
             , test "two literal segments" <|
                 \() ->
                     succeed
-                        (\request ->
+                        (\_ ->
                             ""
                                 |> Server.Response.plainText
                                 |> BackendTask.succeed
@@ -174,7 +173,7 @@ all =
                 \() ->
                     succeed
                         (\repo ->
-                            \request ->
+                            \_ ->
                                 BackendTask.succeed ("Data for repo " ++ repo |> Server.Response.plainText)
                         )
                         |> literal "api"

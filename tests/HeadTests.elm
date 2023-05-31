@@ -1,7 +1,6 @@
 module HeadTests exposing (suite)
 
 import Expect
-import FatalError
 import Head
 import Json.Decode
 import Test exposing (Test, describe, test)
