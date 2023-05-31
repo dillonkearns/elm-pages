@@ -106,7 +106,7 @@ leftArrow =
             [ Tw.transform
             , Tw.inline
             , Tw.flex_shrink_0
-            , Tw.rotate_180
+            , Css.rotate (Css.deg 180) |> Css.transform
             , Tw.mr_1
             ]
         ]
