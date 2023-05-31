@@ -4,11 +4,11 @@ description: elm-pages is built around progressive enhancement, web standards, a
 
 # The elm-pages Philosophy
 
+## Progressive Enhancement
+
 Since we are working within the Web platform, let's make use of it! By leveraging the Web platform, we can create user experiences that are more accessible, resilient, and intuitive.
 
-[Use the Platform](/docs/use-the-platform).
-
-## Progressive Enhancement
+## [Use the Platform](/docs/use-the-platform)
 
 ## Composable Building Blocks
 
