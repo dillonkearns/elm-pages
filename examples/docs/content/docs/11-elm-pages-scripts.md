@@ -14,7 +14,7 @@ The [elm-pages starter repo](https://github.com/dillonkearns/elm-pages-3-alpha-s
 mkdir script
 cd script
 elm init
-elm install dillonkearns/elm-pages-v3-beta
+elm install dillonkearns/elm-pages
 ```
 
 Now we can write our Script Module. Create a file called `script/src/Hello.elm` that exposes a top-level value `run` of type `Script`.
