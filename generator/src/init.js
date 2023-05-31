@@ -17,7 +17,7 @@ export async function run(name) {
 
   if (!fs.existsSync(name)) {
     try {
-      fsExtra.copySync(template, appRoot);
+      await fsExtra.copy(template, appRoot);
       fs.renameSync(
         path.resolve(appRoot, "gitignore"),
         path.resolve(appRoot, ".gitignore")
