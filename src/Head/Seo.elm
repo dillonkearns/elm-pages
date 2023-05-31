@@ -418,7 +418,6 @@ tagsForImage image =
     , ( "og:image:alt", image.alt |> Head.raw |> Just )
     , ( "og:image:width", image.dimensions |> Maybe.map .width |> Maybe.map String.fromInt |> Maybe.map Head.raw )
     , ( "og:image:height", image.dimensions |> Maybe.map .height |> Maybe.map String.fromInt |> Maybe.map Head.raw )
-    , ( "og:image:type", image.mimeType |> Maybe.map Head.raw )
     ]
 
 
