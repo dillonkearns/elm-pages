@@ -9,7 +9,7 @@ from your `Route` module through `app.concurrentSubmissions` as a `Dict String (
 You can use this state to declaratively derive Pending UI or Optimistic UI from your pending submissions (without managing the state in your `Model`, since `elm-pages`
 manages form submission state for you).
 
-You can [see the full-stack TodoMVC example](https://github.com/dillonkearns/elm-pages-v3-beta/blob/master/examples/todos/app/Route/Visibility__.elm) for a complete example of deriving Pending UI state from `app.concurrentSubmissions`.
+You can [see the full-stack TodoMVC example](https://github.com/dillonkearns/elm-pages/blob/master/examples/todos/app/Route/Visibility__.elm) for a complete example of deriving Pending UI state from `app.concurrentSubmissions`.
 
 For example, this how the TodoMVC example derives the list of new items that are being created (but are still pending).
 

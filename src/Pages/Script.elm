@@ -8,7 +8,7 @@ module Pages.Script exposing
 
 {-| An elm-pages Script is a way to execute an `elm-pages` `BackendTask`.
 
-Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a brief tutorial, at <https://elm-pages-v3.netlify.app/docs/elm-pages-scripts>.
+Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a brief tutorial, at <https://elm-pages.com/docs/elm-pages-scripts>.
 
 @docs Script
 
@@ -154,7 +154,7 @@ pass in additional options for the script.
 
 Uses <https://package.elm-lang.org/packages/dillonkearns/elm-cli-options-parser/latest/>.
 
-Read more at <https://elm-pages-v3.netlify.app/docs/elm-pages-scripts/#adding-command-line-options>.
+Read more at <https://elm-pages.com/docs/elm-pages-scripts/#adding-command-line-options>.
 
 -}
 withCliOptions : Program.Config cliOptions -> (cliOptions -> BackendTask FatalError ()) -> Script

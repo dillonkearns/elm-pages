@@ -9,7 +9,7 @@ Elm Backend refers to a traditional server or serverless provider for [server-re
 
 ## Route Modules
 
-You [define Routes by adding Route Modules](/docs/file-based-routing) to the `app/Route/` folder. Each Route module has `Data`, which is a special type for data resolved with a [`BackendTask`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/BackendTask). A Route's `Data` type has a lifecycle that is manged by the `elm-pages` framework (similar to how the Elm runtime manages the lifecycle your `Model` in a traditional Elm app), but it is resolved on your `elm-pages` Backend. The `Data` type is available to your `view` function, and it will be available without any loading spinners or Maybe values.
+You [define Routes by adding Route Modules](/docs/file-based-routing) to the `app/Route/` folder. Each Route module has `Data`, which is a special type for data resolved with a [`BackendTask`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask). A Route's `Data` type has a lifecycle that is manged by the `elm-pages` framework (similar to how the Elm runtime manages the lifecycle your `Model` in a traditional Elm app), but it is resolved on your `elm-pages` Backend. The `Data` type is available to your `view` function, and it will be available without any loading spinners or Maybe values.
 
 `elm-pages` is a superset of a vanilla Elm app, so the familiar Elm Architecture (`Model`/`init`/`update`/`view`) are all available in your Route modules in addition to your Route `Data` and other features that the `elm-pages` framework adds to the core Elm Architecture. `elm-pages` provides abstractions that leverage web standards to give a better user experience and a simpler developer experience. But because `elm-pages` is a superset of Elm, you can always perform vanilla `elm/http` requests from your Route modules or use other patterns you're familiar with from vanilla Elm apps.
 
@@ -17,11 +17,11 @@ You [define Routes by adding Route Modules](/docs/file-based-routing) to the `ap
 
 Server-rendered routes in `elm-pages` give you a full-stack Elm application that lets you
 
-- Resolve Elm data (through the [`BackendTask`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/BackendTask) API) that is resolved server-side, and then available in your hydrated Elm application on the frontend
+- Resolve Elm data (through the [`BackendTask`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask) API) that is resolved server-side, and then available in your hydrated Elm application on the frontend
 - Parse the incoming HTTP request and use it to get dynamic and/or user-specific data, including headers, cookies, and query parameters
-- Set cookies and headers on the response, and manage signed key-value sessions using the [`Server.Session`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/Server-Session) API
+- Set cookies and headers on the response, and manage signed key-value sessions using the [`Server.Session`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Server-Session) API
 - Serve up an initial HTML response, including meta tags, from the server (helpful for both performance and SEO)
-- Respond to follow-up form submissions using the [`Pages.Form`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/Pages-Form) API
+- Respond to follow-up form submissions using the [`Pages.Form`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Pages-Form) API
 
 The goals of server-rendered routes in `elm-pages` are to support performance and maintainability.
 

@@ -15,7 +15,7 @@ Using the `AddRoute` script from the default starter template, you can run a com
 `npx elm-pages run AddRoute Profile.Username_.Edit first last bio:textarea dob:date` to generate a Route module `app/Route/Profile/Username_/Edit.elm`
 with the wiring form a `Form`.
 
-[Learn more about writing and running elm-pages Scripts for scaffolding](https://elm-pages-v3.netlify.app/docs/elm-pages-scripts#scaffolding-a-route-module).
+[Learn more about writing and running elm-pages Scripts for scaffolding](https://elm-pages.com/docs/elm-pages-scripts#scaffolding-a-route-module).
 
 @docs Kind, provide, restArgsParser
 

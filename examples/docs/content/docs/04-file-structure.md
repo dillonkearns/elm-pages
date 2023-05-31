@@ -94,7 +94,7 @@ There's nothing wrong with using this if it suites your needs, the Effect patter
 The `Effect` module must expose a `type Effect msg` and a `perform` function. These are the core of the module, and this pair defines which Effect's
 can happen from your `init` and `update` on your frontend and how to perform them
 
-> Note: Effects are unrelated to [the `BackendTask` API](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/BackendTask). An `Effect` is something that is executed on the frontend of an `elm-pages` app.
+> Note: Effects are unrelated to [the `BackendTask` API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask). An `Effect` is something that is executed on the frontend of an `elm-pages` app.
 
 ## `Shared.elm`
 

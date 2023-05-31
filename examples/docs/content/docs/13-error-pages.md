@@ -1,6 +1,6 @@
 # Error Pages
 
-In your server-rendered routes, you can choose to short-circuit rendering your route and instead render an error page. This is useful for things like 404 pages, or 500 pages, or even custom error pages for specific errors. In order to render your route, you must resolve to the `Data` type in your Route module with [Server.Response.render](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/Server-Response#render).
+In your server-rendered routes, you can choose to short-circuit rendering your route and instead render an error page. This is useful for things like 404 pages, or 500 pages, or even custom error pages for specific errors. In order to render your route, you must resolve to the `Data` type in your Route module with [Server.Response.render](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Server-Response#render).
 
 For example, let's say you have the following Route module:
 
@@ -29,7 +29,7 @@ data routeParams =
     )
 ```
 
-In this example, we are attempting to lookup a user profile by id. If we find the profile, we render the route. If we don't find the profile, we render a 404 error page. A good rule of thumb is that if you are able to successfully resolve the `Data` for your Route, use `Server.Response.render`. If you are unable to resolve the `Data` for your Route, use [`Server.Response.errorPage`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/Server-Response#errorPage).
+In this example, we are attempting to lookup a user profile by id. If we find the profile, we render the route. If we don't find the profile, we render a 404 error page. A good rule of thumb is that if you are able to successfully resolve the `Data` for your Route, use `Server.Response.render`. If you are unable to resolve the `Data` for your Route, use [`Server.Response.errorPage`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Server-Response#errorPage).
 
 ## Custom Error Types
 

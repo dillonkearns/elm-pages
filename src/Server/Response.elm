@@ -172,7 +172,7 @@ render data =
 
 {-| Instead of rendering the current Route Module, you can render an `ErrorPage` such as a 404 page or a 500 error page.
 
-[Read more about Error Pages](https://elm-pages-v3.netlify.app/docs/error-pages) to learn about
+[Read more about Error Pages](https://elm-pages.com/docs/error-pages) to learn about
 defining and rendering your custom ErrorPage type.
 
 -}

@@ -4,7 +4,7 @@ description: You can run scripts written in pure Elm with the `elm-pages run` CL
 
 # `elm-pages` Scripts
 
-The `elm-pages run` command lets you use [`BackendTask`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/BackendTask)'s to do scripting tasks with Elm. The goal is to make it as simple as possible to write a Script in Elm and run it from the command line. You can use any of the techniques from BackendTask's to read files, make HTTP requests, get environment variables, or async NodeJS functions through [`BackendTask.Custom.run`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/BackendTask-Custom#run).
+The `elm-pages run` command lets you use [`BackendTask`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask)'s to do scripting tasks with Elm. The goal is to make it as simple as possible to write a Script in Elm and run it from the command line. You can use any of the techniques from BackendTask's to read files, make HTTP requests, get environment variables, or async NodeJS functions through [`BackendTask.Custom.run`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask-Custom#run).
 
 ## Quick Start
 
@@ -48,7 +48,7 @@ npx elm-pages run Hello
 
 The `script/` folder is a regular Elm project folder. That means it will need to have an `elm.json` file, and an Elm module in the `src/` folder (or whichever `source-directories` path you define in your `elm.json`). It will also need `elm-pages` installed as a dependency.
 
-If you use [`BackendTask.Custom.run`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/BackendTask-Custom#run) from your Script, it will use the `custom-backend-task.ts` (or `.js`) file defined in your `script/` project folder.
+If you use [`BackendTask.Custom.run`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask-Custom#run) from your Script, it will use the `custom-backend-task.ts` (or `.js`) file defined in your `script/` project folder.
 
 The name `script/` is a convention and is not required. You can execute the `elm-pages run` command on any file as long as it is part of an Elm project (in its `source-directories`), and that project has `elm-pages` installed as a dependency.
 
@@ -140,7 +140,7 @@ run script/src/Stars.elm --user elm --name json
 
 ## `FatalError`'s
 
-If the `BackendTask` in your script resolves to a [`FatalError`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/FatalError), the script will print the error message and exit with a non-zero exit code. As with any `BackendTask`, if you want to ensure that your script will not encounter a `FatalError`, you can ensure that you have handled every possible error by using a value with the type `BackendTask Never ()`.
+If the `BackendTask` in your script resolves to a [`FatalError`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/FatalError), the script will print the error message and exit with a non-zero exit code. As with any `BackendTask`, if you want to ensure that your script will not encounter a `FatalError`, you can ensure that you have handled every possible error by using a value with the type `BackendTask Never ()`.
 
 ## Scaffolding a Route Module
 
@@ -152,7 +152,7 @@ The `elm-pages` package includes some modules that help you generate Elm files.
 
 `elm-codegen` helps ensure that you are generating valid code by generating functions that mirror the code they will generate, giving you an extra layer of type safety. `elm-pages` Scripts are general-purpose, so you can do what you want with them, but there are some built-in helpers to make it easy for you to scaffold code for your `elm-pages` app that work well with `elm-codegen`.
 
-Take a look at [the `AddRoute.elm` Script from the `elm-pages` starter repo](https://github.com/dillonkearns/elm-pages-3-alpha-starter/blob/main/script/src/AddRoute.elm). This Script is a great starting point for customizing your own scaffolding Scripts for your project. It is designed to lock in the essential details for defining a Route Module and a Form, while leaving the rest up to you to customize in the script. See [`Scaffold.Route`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/Scaffold-Route) and [`Scaffold.Form`](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/Scaffold-Route) in the docs.
+Take a look at [the `AddRoute.elm` Script from the `elm-pages` starter repo](https://github.com/dillonkearns/elm-pages-3-alpha-starter/blob/main/script/src/AddRoute.elm). This Script is a great starting point for customizing your own scaffolding Scripts for your project. It is designed to lock in the essential details for defining a Route Module and a Form, while leaving the rest up to you to customize in the script. See [`Scaffold.Route`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Route) and [`Scaffold.Form`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Route) in the docs.
 
 ## Compiling Scripts to an Executable JavaScript File
 

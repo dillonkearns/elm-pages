@@ -24,7 +24,7 @@ export default {
 
 You can also use the adapter API directly to build your own adapter. An adapter is an async function that can execute any scripting setup needed to move/copy/generate files or do other setup to prepare an `elm-pages` app for deployment on a given hosting provider. The function return value is ignored, it is just an async function that can perform some actions.
 
-You can see [the full implementation of the Netlify adapter script](https://github.com/dillonkearns/elm-pages-v3-beta/blob/master/adapter/netlify.js) for reference.
+You can see [the full implementation of the Netlify adapter script](https://github.com/dillonkearns/elm-pages/blob/master/adapter/netlify.js) for reference.
 
 It is run after `elm-pages build` has generated the `dist/` folder, so you can assume that the `dist/` folder exists and contains the output of `elm-pages build`.
 

@@ -10,7 +10,7 @@ module Scaffold.Route exposing
 {-| This module provides some functions for scaffolding code for a new Route Module. It uses [`elm-codegen`'s API](https://package.elm-lang.org/packages/mdgriffith/elm-codegen/latest/) for generating code.
 
 Typically you'll want to use this via the `elm-pages run` CLI command. The default starter template includes a Script that uses these functions, which you can tweak to customize your scaffolding commands.
-[Learn more about writing and running elm-pages Scripts for scaffolding](https://elm-pages-v3.netlify.app/docs/elm-pages-scripts#scaffolding-a-route-module).
+[Learn more about writing and running elm-pages Scripts for scaffolding](https://elm-pages.com/docs/elm-pages-scripts#scaffolding-a-route-module).
 
 It's typically easiest to modify the `AddRoute` script from the starter template and adjust it to your needs rather than writing one from scratch.
 
