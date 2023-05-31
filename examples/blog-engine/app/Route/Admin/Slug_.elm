@@ -100,7 +100,7 @@ type alias ActionData =
 data :
     RouteParams
     -> Request
-    -> BackendTask.BackendTask FatalError.FatalError (Server.Response.Response Data ErrorPage.ErrorPage)
+    -> BackendTask FatalError (ServeResponse Data ErrorPage)
 data routeParams request =
     if routeParams.slug == "new" then
         Server.Response.render

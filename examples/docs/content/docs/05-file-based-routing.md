@@ -17,19 +17,19 @@ description: The routing for an elm-pages app is defined from the Elm modules in
 | `app/Route/Repo/User_/Name_/SPLAT_.elm`  | `/repo/dillonkearns/elm-markdown/elm.json`   | `{ user : String, name : String, splat : ( String, List String ) }` |
 | `app/Route/Repo/User_/Name_/SPLAT__.elm` | Above and `/repo/dillonkearns/elm-markdown/` | `{ user : String, name : String, splat : List String }`             |
 
-So Page Modules map to a route. That route can have RouteParams or not. If there are no RouteParams, you don't need to specify how to handle route parameters:
+So Route Modules map to a route. That route can have `RouteParams` or not. If there are no `RouteParams`, you don't need to specify how to handle route parameters:
 
 ```elm
 type alias RouteParams = {}
 
 
-page : Page RouteParams Data
-page =
-    Page.single
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.single
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 ```
 
 If there are RouteParams, then you need to let `elm-pages` know which routes to handle.
@@ -41,14 +41,15 @@ type alias RouteParams =
     { slug : String }
 
 
-page : Page RouteParams Data
-page =
-    Page.preRender
-        { data = data
-        , head = head
-        , routes = routes
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.preRender
+        { head = head
+        , pages = pages
+        , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState
+            { view = view }
 
 
 routes : BackendTask.BackendTask (List RouteParams)
@@ -66,7 +67,56 @@ you display the same blog posts as you build routes for.
 You can also handle routes on the server-side at request-time. The tradeoff is that rather than servering HTML and JSON files from the build step, your server will need to
 build the page when the user requests it.
 
-On the other hand, that means that you can access the incoming Request, including headers and query parameters.
+On the other hand, that means that you can access the incoming Request, including headers and query parameters. It also means you can deal with unlimited possible pages since they are rendered on demand.
+
+```elm
+type alias RouteParams =
+    { slug : String }
+
+
+route : RouteBuilder.StatefulRoute RouteParams Data ActionData Model Msg
+route =
+    RouteBuilder.buildWithLocalState
+        { view = view
+        , init = init
+        , update = update
+        , subscriptions = subscriptions
+        }
+        (RouteBuilder.serverRender { data = data, action = action, head = head })
+
+data :
+    RouteParams
+    -> Request
+    -> BackendTask FatalError (ServeResponse Data ErrorPage)
+data routeParams request =
+    if routeParams.slug == "new" then
+        Server.Response.render
+            { post =
+                { slug = ""
+                , title = ""
+                , body = ""
+                , publish = Nothing
+                }
+            }
+            |> BackendTask.succeed
+
+    else
+        BackendTask.Custom.run "getPost"
+            (Encode.string routeParams.slug)
+            (Decode.nullable Post.decoder)
+            |> BackendTask.allowFatal
+            |> BackendTask.map
+                (\maybePost ->
+                    case maybePost of
+                        Just post ->
+                            Server.Response.render
+                                { post = post
+                                }
+
+                        Nothing ->
+                            Server.Response.errorPage ErrorPage.NotFound
+                )
+```
 
 ## Static Segments
 
@@ -94,11 +144,11 @@ The final segment can use one of the following special handlers:
 2. Splat
 3. Optional Splat
 
-These cannot be used anywhere except for the final segment. That means no static, dynamic, or other segments can come after it in a Page module.
+These cannot be used anywhere except for the final segment. That means no static, dynamic, or other segments can come after it in a Route module.
 
 ## Optional Dynamic Segments
 
-`app/Route/Docs/Section__.elm` will match both `/docs/getting-started` as well as `/docs`. This is often useful when you want to treat a route as the default. You could use a static segment instead to handle `/docs` with `app/Route/Docs`. The choice depends on whether you want to use a separate Page Module to handle those routes or not. In the case of these docs, `/docs` shows the first docs page so it uses an optional segment.
+`app/Route/Docs/Section__.elm` will match both `/docs/getting-started` as well as `/docs`. This is often useful when you want to treat a route as the default. You could use a static segment instead to handle `/docs` with `app/Route/Docs`. The choice depends on whether you want to use a separate Route Module to handle those routes or not. In the case of these docs, `/docs` shows the first docs page so it uses an optional segment.
 
 ## Splat Routes
 
