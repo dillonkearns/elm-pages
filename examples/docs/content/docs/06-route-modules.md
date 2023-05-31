@@ -9,44 +9,65 @@ Route Modules are Elm modules in the `app/Route` folder that define a top-level 
 You build the `route` using a builder chain, adding complexity as needed. You can scaffold a simple stateless page with `elm-pages run AddRoute Hello.Name_`. That gives you `app/Route/Hello/Name_.elm`.
 
 ```elm
-module Route.Hello.Name_ exposing (Model, Msg, StaticData, route)
+module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
-import BackendTask
-import View exposing (View)
+import BackendTask exposing (BackendTask)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
-import Html exposing (text)
-import Pages.ImagePath as ImagePath
+import Html exposing (..)
+import Html.Attributes as Attr
+import Pages.Url
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatelessRoute)
 import Shared
-import Page exposing (StaticPayload, Page)
+import UrlPath
+import View exposing (View)
 
-type alias Route = { name : String }
 
-type alias StaticData = ()
+type alias Model =
+    {}
 
-type alias Model = ()
 
-type alias Msg = Never
+type alias Msg =
+    ()
 
-page : Page Route StaticData
-page =
-    Page.noStaticData
-        { head = head
-        , staticRoutes = BackendTask.succeed [ { name = "world" } ]
+
+type alias RouteParams =
+    { slug : String }
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.preRender
+        { data = data
+        , head = head
+        , pages = pages
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
-head :
-    StaticPayload StaticData Route
-    -> List Head.Tag
-head static = [] -- SEO tags here
+pages : BackendTask FatalError (List RouteParams)
+pages =
+    BackendTask.succeed [ { slug = "introducing-elm-pages" } ]
 
 view :
-    StaticPayload StaticData Route
-    -> Document Msg
-view static =
-    { title = "Hello " ++ static.routeParams.name
-    , body = [ text <| "👋 " ++ static.routeParams.name ]
+    App Data ActionData RouteParams
+    -> Shared.Model
+    -> View (PagesMsg Msg)
+view app shared =
+    { title = app.routeParams.slug
+    , body = [ h2 (text app.routeParams.slug)
+             , p [ text app.data.body ]
+             ]
     }
+
+type alias Data = { body : String }
+
+data : RouteParams -> BackendTask FatalError Data
+data routeParams =
+    "posts/" ++ routeParams.slug ++ ".md"
+        |> BackendTask.File.rawFile
+        |> BackendTask.allowFatal
+        |> BackendTask.map Data
 ```
