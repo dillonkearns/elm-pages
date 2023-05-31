@@ -112,7 +112,7 @@ Defines global head tags and your manifest config.
 
 Must expose
 
-- `config : SiteConfig StaticData`
+- `config : SiteConfig`
 
 ## `public`
 
