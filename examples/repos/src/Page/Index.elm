@@ -1,9 +1,9 @@
 module Page.Index exposing (Data, Model, Msg, page)
 
-import DataSource exposing (DataSource)
+import BackendTask exposing (BackendTask)
 import Head
 import Head.Seo as Seo
-import Page exposing (Page, PageWithState, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, App)
 import Pages.Url
 import View exposing (View)
 
@@ -20,22 +20,22 @@ type alias RouteParams =
     {}
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data ActionData
 page =
-    Page.single
+    RouteBuilder.single
         { head = head
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
-data : DataSource Data
+data : BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 
 
 head :
-    StaticPayload Data RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -59,7 +59,7 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
+    App Data ActionData RouteParams
     -> View Msg
 view static =
     View.placeholder "Index"

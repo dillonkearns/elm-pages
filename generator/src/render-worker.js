@@ -1,27 +1,28 @@
-const renderer = require("../../generator/src/render");
-const path = require("path");
-const fs = require("./dir-helpers.js");
-const compiledElmPath = path.join(process.cwd(), "elm-stuff/elm-pages/elm.js");
-const { parentPort, threadId, workerData } = require("worker_threads");
-let Elm;
+import * as renderer from "../../generator/src/render.js";
+import * as path from "node:path";
+import * as fs from "./dir-helpers.js";
+import { readFileSync, writeFileSync } from "node:fs";
+import { parentPort, threadId, workerData } from "node:worker_threads";
+import * as url from "node:url";
 
-global.staticHttpCache = {};
-
-async function run({ mode, pathname }) {
+async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
   try {
-    const req = null;
-    const renderResult = await renderer(
+    const renderResult = await renderer.render(
+      typeof portsFilePath === "string"
+        ? await import(url.pathToFileURL(path.resolve(portsFilePath)).href)
+        : portsFilePath,
       workerData.basePath,
-      requireElm(mode),
+      await requireElm(mode),
       mode,
       pathname,
-      req,
+      serverRequest,
       function (patterns) {
         if (mode === "dev-server" && patterns.size > 0) {
           parentPort.postMessage({ tag: "watch", data: [...patterns] });
         }
-      }
+      },
+      true
     );
 
     if (mode === "dev-server") {
@@ -41,20 +42,17 @@ async function run({ mode, pathname }) {
   console.timeEnd(`${threadId} ${pathname}`);
 }
 
-function requireElm(mode) {
-  if (mode === "build") {
-    if (!Elm) {
-      const warnOriginal = console.warn;
-      console.warn = function () {};
-
-      Elm = require(compiledElmPath);
-      console.warn = warnOriginal;
-    }
-    return Elm;
-  } else {
-    delete require.cache[require.resolve(compiledElmPath)];
-    return require(compiledElmPath);
-  }
+async function requireElm(mode) {
+  const compiledElmPath = path.join(
+    process.cwd(),
+    "elm-stuff/elm-pages/elm.cjs"
+  );
+  let pathAsUrl = url.pathToFileURL(compiledElmPath);
+  const warnOriginal = console.warn;
+  console.warn = function () {};
+  const Elm = (await import(pathAsUrl.toString())).default;
+  console.warn = warnOriginal;
+  return Elm;
 }
 
 async function outputString(
@@ -66,21 +64,21 @@ async function outputString(
       const args = fromElm;
       const normalizedRoute = args.route.replace(/index$/, "");
       await fs.tryMkdir(`./dist/${normalizedRoute}`);
-      const contentJsonString = JSON.stringify({
-        is404: args.is404,
-        staticData: args.contentJson,
-        path: args.route,
-      });
-      fs.writeFileSync(`dist/${normalizedRoute}/index.html`, args.htmlString);
-      fs.writeFileSync(
-        `dist/${normalizedRoute}/content.json`,
-        contentJsonString
+      const template = readFileSync("./dist/template.html", "utf8");
+      writeFileSync(
+        `dist/${normalizedRoute}/index.html`,
+        renderTemplate(template, fromElm)
       );
+      args.contentDatPayload &&
+        writeFileSync(
+          `dist/${normalizedRoute}/content.dat`,
+          Buffer.from(args.contentDatPayload.buffer)
+        );
       parentPort.postMessage({ tag: "done" });
       break;
     }
     case "api-response": {
-      const body = fromElm.body;
+      const body = fromElm.body.body;
       console.log(`Generated ${pathname}`);
       fs.writeFileSyncSafe(path.join("dist", pathname), body);
       if (pathname === "/all-paths.json") {
@@ -92,6 +90,19 @@ async function outputString(
       break;
     }
   }
+}
+
+function renderTemplate(template, renderResult) {
+  const info = renderResult.htmlString;
+  return template
+    .replace(
+      /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
+      `${info.headTags}
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
+    )
+    .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
+    .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
+    .replace(/<!-- ROOT -->\S*<html lang="en">/m, info.rootElement);
 }
 
 parentPort.on("message", run);

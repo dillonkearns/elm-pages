@@ -1,46 +1,46 @@
 module SharedTemplate exposing (SharedTemplate)
 
-import Browser.Navigation
-import DataSource
+import BackendTask
+import Effect exposing (Effect)
+import FatalError exposing (FatalError)
 import Html exposing (Html)
 import Pages.Flags exposing (Flags)
 import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 import Route exposing (Route)
 import View exposing (View)
 
 
 type alias SharedTemplate msg sharedModel sharedData mappedMsg =
     { init :
-        Maybe Browser.Navigation.Key
-        -> Flags
+        Flags
         ->
             Maybe
                 { path :
-                    { path : Path
+                    { path : UrlPath
                     , query : Maybe String
                     , fragment : Maybe String
                     }
                 , metadata : Maybe Route
                 , pageUrl : Maybe PageUrl
                 }
-        -> ( sharedModel, Cmd msg )
-    , update : msg -> sharedModel -> ( sharedModel, Cmd msg )
+        -> ( sharedModel, Effect msg )
+    , update : msg -> sharedModel -> ( sharedModel, Effect msg )
     , view :
         sharedData
         ->
-            { path : Path
+            { path : UrlPath
             , route : Maybe Route
             }
         -> sharedModel
         -> (msg -> mappedMsg)
         -> View mappedMsg
-        -> { body : Html mappedMsg, title : String }
-    , data : DataSource.DataSource sharedData
-    , subscriptions : Path -> sharedModel -> Sub msg
+        -> { body : List (Html mappedMsg), title : String }
+    , data : BackendTask.BackendTask FatalError sharedData
+    , subscriptions : UrlPath -> sharedModel -> Sub msg
     , onPageChange :
         Maybe
-            ({ path : Path
+            ({ path : UrlPath
              , query : Maybe String
              , fragment : Maybe String
              }

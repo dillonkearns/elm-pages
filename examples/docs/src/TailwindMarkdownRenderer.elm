@@ -9,6 +9,7 @@ import Markdown.Html
 import Markdown.Renderer
 import Oembed
 import SyntaxHighlight
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 
 
@@ -249,7 +250,7 @@ heading { level, rawText, children } =
                                 [ Attr.class "anchor-icon"
                                 , css
                                     [ Tw.ml_2
-                                    , Tw.text_gray_500
+                                    , Tw.text_color Theme.gray_500
                                     , Tw.select_none
                                     ]
                                 ]

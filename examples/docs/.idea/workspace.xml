@@ -2,12 +2,21 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="b7da1fa2-59a6-4d51-84a2-dbde3a0c9af2" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../../elm-package/src/Pages.elm" beforeDir="false" afterPath="$PROJECT_DIR$/../../elm-package/src/Pages.elm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elm-markdown-parser/Main.elm" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gen/PagesNew.elm" beforeDir="false" afterPath="$PROJECT_DIR$/gen/PagesNew.elm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Main.elm" beforeDir="false" afterPath="$PROJECT_DIR$/src/Main.elm" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/Tmp.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Page/Index.elm" beforeDir="false" afterPath="$PROJECT_DIR$/app/Page/Index.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/render/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/functions/render/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Showcase.elm" beforeDir="false" afterPath="$PROJECT_DIR$/src/Showcase.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/TailwindMarkdownRenderer.elm" beforeDir="false" afterPath="$PROJECT_DIR$/src/TailwindMarkdownRenderer.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../generator/src/build.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../generator/src/build.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../generator/src/codegen.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../generator/src/codegen.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../generator/static-code/hmr.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../generator/static-code/hmr.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../review/src/ReviewConfig.elm" beforeDir="false" afterPath="$PROJECT_DIR$/../../review/src/ReviewConfig.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/Pages/Internal/Platform.elm" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/Pages/Internal/Platform.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/Pages/Internal/Platform/StaticResponses.elm" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/Pages/Internal/Platform/StaticResponses.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/Pages/StaticHttpRequest.elm" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/Pages/StaticHttpRequest.elm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../src/RenderRequest.elm" beforeDir="false" afterPath="$PROJECT_DIR$/../../src/RenderRequest.elm" afterDir="false" />
     </list>
-    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -20,32 +29,25 @@
     <elmProjects>
       <project path="$PROJECT_DIR$/elm.json" />
     </elmProjects>
-    <settings elmCompilerPath="$PROJECT_DIR$/node_modules/.bin/elm" elmFormatPath="$PROJECT_DIR$/node_modules/.bin/elm-format" elmTestPath="$PROJECT_DIR$/node_modules/.bin/elm-test" isElmFormatOnSaveEnabled="false" />
+    <settings elmCompilerPath="$PROJECT_DIR$/node_modules/elm-pages/node_modules/.bin/elm" elmFormatPath="$PROJECT_DIR$/node_modules/elm-pages/node_modules/.bin/elm-format" elmTestPath="$PROJECT_DIR$/node_modules/elm-pages/node_modules/.bin/elm-test" elmReviewPath="/var/folders/20/7968hhg95b1chg_vkcpg5j840000gn/T/fnm_multishells/51949_1644181203420/bin/elm-review" isElmFormatOnSaveEnabled="true" />
   </component>
-  <component name="FileEditorManager">
-    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/Main.elm">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="221">
-              <caret line="13" column="30" selection-start-line="13" selection-start-column="30" selection-end-line="13" selection-end-column="30" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/elm.json">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="68">
-              <caret line="4" column="20" selection-start-line="4" selection-start-column="20" selection-end-line="4" selection-end-column="20" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-    </leaf>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Elm Module" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
   </component>
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
@@ -53,6 +55,9 @@
         <option value="$PROJECT_DIR$/src/Main.elm" />
       </list>
     </option>
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
   </component>
   <component name="ProjectConfigurationFiles">
     <option name="files">
@@ -69,6 +74,7 @@
     <option name="width" value="1440" />
     <option name="height" value="900" />
   </component>
+  <component name="ProjectId" id="24kFEmDmGsRWdTmy1rl31SRdOSZ" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
     <navigator proportions="" version="1">
@@ -95,22 +101,16 @@
       <pane id="PackagesPane" />
     </panes>
   </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
   <component name="PropertiesComponent">
     <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/elm.json" />
-    <property name="settings.editor.selected.configurable" value="org.elm.workspace.ui.ElmWorkspaceConfigurable" />
-  </component>
-  <component name="RunDashboard">
-    <option name="ruleStates">
-      <list>
-        <RuleState>
-          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
-        </RuleState>
-        <RuleState>
-          <option name="name" value="StatusDashboardGroupingRule" />
-        </RuleState>
-      </list>
-    </option>
+    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
   <component name="RunManager">
     <configuration default="true" type="Applet">
@@ -119,13 +119,17 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <configuration default="true" type="ELM_TEST_RUN_CONFIGURATION" factoryName="Elm Test configuration factory">
+      <ElmTestRunConfiguration elm-folder="$PROJECT_DIR$" />
+      <method v="2" />
+    </configuration>
     <configuration default="true" type="Application" factoryName="Application">
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration default="true" type="ELM_TEST_RUN_CONFIGURATION" factoryName="Elm Test configuration factory">
+    <configuration default="true" type="ELM_TEST_RUN_CONFIGURATION" factoryName="ELM_TEST_RUN_CONFIGURATION">
       <ElmTestRunConfiguration elm-folder="$PROJECT_DIR$" />
       <method v="2" />
     </configuration>
@@ -155,6 +159,7 @@
       </method>
     </configuration>
   </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="SvnConfiguration">
     <configuration />
   </component>
@@ -200,6 +205,21 @@
       <window_info anchor="right" id="Elm" order="7" weight="0.3297568" />
       <window_info anchor="right" id="Palette&#9;" order="8" />
     </layout>
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/elm-markdown-parser/Main.elm" />

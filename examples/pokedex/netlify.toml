@@ -1,10 +1,18 @@
 [build]
   functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install --no-optional && npm run build && node adapter.js"
+  command = "mkdir bin && export PATH=\"/opt/build/repo/examples/pokedex/bin:$PATH\" && echo $PATH && curl https://static.lamdera.com/bin/linux/lamdera -o bin/lamdera && chmod a+x bin/lamdera && export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install && npm run build:generator) && npm install && npm run generate:tailwind && npm run generate:graphql && npm run build && cp secret-note.txt functions/server-render/"
+  ignore = "/bin/false"
 
 [dev]
-  command = "npm start"
-  targetPort = 1234
   autoLaunch = true
-  framework = "#custom"
+  framework = "#static"
+
+[functions]
+  included_files = ["content/**"]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "*"
+  to = "/.netlify/functions/render/:splat"
+  status = 200

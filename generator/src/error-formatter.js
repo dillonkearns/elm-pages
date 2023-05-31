@@ -1,4 +1,6 @@
-const kleur = require("kleur");
+"use strict";
+
+import * as kleur from "kleur/colors";
 
 /* Thanks to elm-live for this code! 
    https://github.com/wking-io/elm-live/blob/e317b4914c471addea7243c47f28dcebe27a5d36/lib/src/build.js#L65
@@ -13,11 +15,12 @@ const kleur = require("kleur");
  * @param {string} rule
  * @param {string} path
  * */
-const parseHeader = (rule, path) =>
-  kleur.cyan(
-    `-- ${rule.replace("-", " ")} --------------- ${path || ""}
+function parseHeader(rule, path) {
+  return kleur.cyan(
+    `-- ${(rule || "").replace("-", " ")} --------------- ${path || ""}
 `
   );
+}
 
 /**
  * parseMsg :: String|Object -> String
@@ -55,9 +58,6 @@ function toKleurColor(color) {
       case "33BBC8": {
         return "cyan";
       }
-      case "33BBC8": {
-        return "cyan";
-      }
       case "FFFF00": {
         return "yellow";
       }
@@ -81,7 +81,7 @@ function toKleurColor(color) {
 /**
  * @param {RootObject} error
  * */
-const restoreColor = (error) => {
+export const restoreColor = (error) => {
   try {
     if (error.type === "compile-errors") {
       return error.errors
@@ -107,6 +107,25 @@ const restoreColor = (error) => {
 };
 
 /**
+ * @param {string} error
+ * @returns {string}
+ */
+export function restoreColorSafe(error) {
+  try {
+    if (typeof error === "string") {
+      const asJson = JSON.parse(error);
+      return restoreColor(asJson);
+    } else if (Array.isArray(error)) {
+      return error.map(restoreColor).join("\n\n\n");
+    } else {
+      return restoreColor(error);
+    }
+  } catch (e) {
+    return error;
+  }
+}
+
+/**
  * parseMsg :: { errors: Array } -> String
  *
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
@@ -118,15 +137,16 @@ const restoreProblem =
         parseHeader(info.rule, path),
         ...info.formatted.map(parseMsg),
       ].join("");
+    } else if (typeof info.message === "string") {
+      return info.message;
     } else {
+      // console.log("info.message", info.message);
       return [
         parseHeader(info.title, path),
         ...info.message.map(parseMsg),
       ].join("");
     }
   };
-
-module.exports = { restoreColor };
 
 /** @typedef { CompilerError | ReportError | IElmReviewError } RootObject */
 

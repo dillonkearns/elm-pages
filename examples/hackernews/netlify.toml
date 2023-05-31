@@ -1,0 +1,13 @@
+[build]
+  functions = "functions/"
+  publish = "dist/"
+  command = "mkdir bin && export PATH=\"/opt/build/repo/examples/hackernews/bin:$PATH\" && echo $PATH && curl https://static.lamdera.com/bin/linux/lamdera -o bin/lamdera && chmod a+x bin/lamdera && export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npx --no-install elm-tooling install) && npm install && npm run build"
+
+[dev]
+  command = "npm start"
+  targetPort = 1234
+  autoLaunch = true
+  framework = "#custom"
+
+[functions]
+  included_files = ["content/**"]

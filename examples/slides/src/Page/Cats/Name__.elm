@@ -1,11 +1,11 @@
 module Page.Cats.Name__ exposing (Data, Model, Msg, page)
 
-import DataSource
+import BackendTask
 import Element exposing (Element)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (text)
-import Page exposing (Page, PageWithState, StaticPayload)
+import RouteBuilder exposing (StatelessRoute, StatefulRoute, App)
 import Shared
 import View exposing (View)
 
@@ -22,19 +22,19 @@ type alias RouteParams =
     { name : Maybe String }
 
 
-page : Page RouteParams Data
+page : StatelessRoute RouteParams Data ActionData
 page =
-    Page.prerender
+    RouteBuilder.preRender
         { head = head
         , pages = pages
         , data = data
         }
-        |> Page.buildNoState { view = view }
+        |> RouteBuilder.buildNoState { view = view }
 
 
-pages : DataSource.DataSource (List RouteParams)
+pages : BackendTask.BackendTask (List RouteParams)
 pages =
-    DataSource.succeed
+    BackendTask.succeed
         [ { name = Just "larry"
           }
         , { name = Nothing
@@ -42,13 +42,13 @@ pages =
         ]
 
 
-data : RouteParams -> DataSource.DataSource Data
+data : RouteParams -> BackendTask.BackendTask Data
 data routeParams =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 
 
 head :
-    StaticPayload Data RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -72,7 +72,7 @@ type alias Data =
 
 
 view :
-    StaticPayload Data RouteParams
+    App Data ActionData RouteParams
     -> View Msg
 view static =
     { body =

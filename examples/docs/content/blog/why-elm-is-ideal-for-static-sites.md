@@ -40,19 +40,19 @@ Often Elm code will use the pattern to [[conditionally return a validated type]]
 
 Elm is great at giving you errors up front because it checks the contract before passing data along. For example, with a JSON decoder, the decoding fails if there is an unexpected null anywhere. This means you can trust your data integrity before you ever pass it down the line. You don't have to wonder whether you ran through the right code paths to find out whether there was a problem with your data or not. This pairs even better with `elm-pages` because you can find out about these problems at build-time rather than at runtime!
 
-Elm combined with a build phase, like `elm-pages` provides, is an incredible combination because now you can guarantee the happy code path! For pre-rendered pages, you know that the data was solid if the build succeeded. The error code paths are easily handled because you can use `DataSource.fail` to give a custom build error message at any point. Or if anything goes wrong reading a file, decoding frontmatter, performing an HTTP DataSource, then you handle that error as a build error, not an error code path that the user may encounter.
+Elm combined with a build phase, like `elm-pages` provides, is an incredible combination because now you can guarantee the happy code path! For pre-rendered pages, you know that the data was solid if the build succeeded. The error code paths are easily handled because you can use `BackendTask.fail` to give a custom build error message at any point. Or if anything goes wrong reading a file, decoding frontmatter, performing an HTTP BackendTask, then you handle that error as a build error, not an error code path that the user may encounter.
 
-`elm-pages` can also give you great error feedback for free. In the dev server, any time you change your Elm code you get quick feedback showing you any DataSource failures for the current page. In a regular application, you would need to do some wiring to present these errors in a usable way, but with the `elm-pages` architecture it comes for free as part of the core experience.
+`elm-pages` can also give you great error feedback for free. In the dev server, any time you change your Elm code you get quick feedback showing you any BackendTask failures for the current page. In a regular application, you would need to do some wiring to present these errors in a usable way, but with the `elm-pages` architecture it comes for free as part of the core experience.
 
 ## Easier wiring
 
-Elm's sound type system, immutability, and explicitness (no magic) make it very easy to trace code. With `elm-pages`, you get those same benefits for reasoning about your code, but the abstraction of a `DataSource` gives you a declarative way to wire in that type-safe data with a lot less wiring.
+Elm's sound type system, immutability, and explicitness (no magic) make it very easy to trace code. With `elm-pages`, you get those same benefits for reasoning about your code, but the abstraction of a `BackendTask` gives you a declarative way to wire in that type-safe data with a lot less wiring.
 
 ## Optimizing Data
 
 Because we write our JSON decoders explicitly in Elm, we can use the step of building up a Decoder to also keep track of which fields are used, then discard all unused data in our build step. This is exactly what the `OptimizedDecoder` API does in `elm-pages`. This also has the benefit that any sensitive data that comes back from an API response can only end up on a pre-rendered page if we explicitly include it in our JSON decoder, because we're not pulling in full API responses, we're pulling in just the data we decode from our API responses.
 
-Note: this is only for build-time data. Since there's a build step, and we're including our `DataSource`s on the page during this stage, we know at build time exactly what data we will use. At runtime, `elm-pages` gives you a regular Elm app, so you can pull in any data you want dynamically at runtime and it works exactly as it would in a vanilla Elm app.
+Note: this is only for build-time data. Since there's a build step, and we're including our `BackendTask`s on the page during this stage, we know at build time exactly what data we will use. At runtime, `elm-pages` gives you a regular Elm app, so you can pull in any data you want dynamically at runtime and it works exactly as it would in a vanilla Elm app.
 
 ## Nice APIs for extracting the data you need
 
@@ -76,7 +76,7 @@ blogPosts =
         |> Glob.match (Glob.literal "my-blog-posts/")
         |> Glob.capture Glob.wildcard
         |> Glob.match (Glob.literal ".md")
-        |> Glob.toDataSource
+        |> Glob.toBackendTask
 ```
 
 If our filenames are in `snake_case`, but we want our URL slugs in `kebab-case`, then we could transform it in-place
@@ -87,5 +87,5 @@ blogPosts =
         |> Glob.match (Glob.literal "my-blog-posts/")
         |> Glob.capture (Glob.map snakeCaseToKebabCase Glob.wildcard)
         |> Glob.match (Glob.literal ".md")
-        |> Glob.toDataSource
+        |> Glob.toBackendTask
 ```

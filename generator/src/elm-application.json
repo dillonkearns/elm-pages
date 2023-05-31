@@ -3,7 +3,9 @@
     "summary": "elm-pages local generated module documentation",
     "version": "1.0.0",
     "exposed-modules": [
-        "Page",
+        "RouteBuilder",
+        "View",
+        "Effect",
         "Route"
     ]
 }

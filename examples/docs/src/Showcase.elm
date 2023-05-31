@@ -1,9 +1,12 @@
 module Showcase exposing (..)
 
-import DataSource
-import DataSource.Http
-import OptimizedDecoder as Decode
-import Pages.Secrets as Secrets
+import BackendTask exposing (BackendTask)
+import BackendTask.Env as Env
+import BackendTask.Http
+import BuildError exposing (BuildError)
+import FatalError exposing (FatalError)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Extra
 
 
 type alias Entry =
@@ -17,7 +20,7 @@ type alias Entry =
     }
 
 
-decoder : Decode.Decoder (List Entry)
+decoder : Decoder (List Entry)
 decoder =
     Decode.field "records" <|
         Decode.list entryDecoder
@@ -32,45 +35,24 @@ entryDecoder =
             (Decode.field "Live URL" Decode.string)
             (Decode.field "Author" Decode.string)
             (Decode.field "Author URL" Decode.string)
-            (Decode.optionalField "Categories" (Decode.list Decode.string) |> Decode.map (Maybe.withDefault []))
+            (Json.Decode.Extra.optionalField "Categories" (Decode.list Decode.string) |> Decode.map (Maybe.withDefault []))
             (Decode.maybe (Decode.field "Repository URL" Decode.string))
 
 
-staticRequest : DataSource.DataSource (List Entry)
+staticRequest : BackendTask FatalError (List Entry)
 staticRequest =
-    DataSource.Http.request
-        (Secrets.succeed
+    Env.expect "AIRTABLE_TOKEN"
+        |> BackendTask.allowFatal
+        |> BackendTask.andThen
             (\airtableToken ->
-                { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
-                , method = "GET"
-                , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
-                , body = DataSource.Http.emptyBody
-                }
+                BackendTask.Http.request
+                    { url = "https://api.airtable.com/v0/appDykQzbkQJAidjt/elm-pages%20showcase?maxRecords=100&view=Grid%202"
+                    , method = "GET"
+                    , headers = [ ( "Authorization", "Bearer " ++ airtableToken ), ( "view", "viwayJBsr63qRd7q3" ) ]
+                    , body = BackendTask.Http.emptyBody
+                    , retries = Nothing
+                    , timeoutInMs = Nothing
+                    }
+                    (BackendTask.Http.expectJson decoder)
+                    |> BackendTask.allowFatal
             )
-            |> Secrets.with "AIRTABLE_TOKEN"
-        )
-        decoder
-
-
-allCategroies : List String
-allCategroies =
-    [ "Documentation"
-    , "eCommerce"
-    , "Conference"
-    , "Consulting"
-    , "Education"
-    , "Entertainment"
-    , "Event"
-    , "Food"
-    , "Freelance"
-    , "Gallery"
-    , "Landing Page"
-    , "Music"
-    , "Nonprofit"
-    , "Podcast"
-    , "Portfolio"
-    , "Programming"
-    , "Sports"
-    , "Travel"
-    , "Blog"
-    ]

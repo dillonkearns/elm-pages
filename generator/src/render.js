@@ -1,93 +1,134 @@
 // @ts-check
 
-const path = require("path");
-const matter = require("gray-matter");
-const globby = require("globby");
-const fsPromises = require("fs").promises;
-const preRenderHtml = require("./pre-render-html.js");
-const { lookupOrPerform } = require("./request-cache.js");
-const kleur = require("kleur");
-kleur.enabled = true;
+import * as path from "node:path";
+import { default as mm } from "micromatch";
+import { default as matter } from "gray-matter";
+import * as globby from "globby";
+import * as fsPromises from "node:fs/promises";
+import * as preRenderHtml from "./pre-render-html.js";
+import { lookupOrPerform } from "./request-cache.js";
+import * as kleur from "kleur/colors";
+import * as cookie from "cookie-signature";
+import { compatibilityKey } from "./compatibility-key.js";
+import * as fs from "node:fs";
+import * as crypto from "node:crypto";
+import { restoreColorSafe } from "./error-formatter.js";
 
 process.on("unhandledRejection", (error) => {
   console.error(error);
 });
 let foundErrors;
-let pendingDataSourceResponses;
-let pendingDataSourceCount;
 
-module.exports =
-  /**
-   *
-   * @param {string} basePath
-   * @param {Object} elmModule
-   * @param {string} path
-   * @param {import('aws-lambda').APIGatewayProxyEvent} request
-   * @param {(pattern: string) => void} addDataSourceWatcher
-   * @returns
-   */
-  async function run(
+/**
+ *
+ * @param {string} basePath
+ * @param {Object} elmModule
+ * @param {string} path
+ * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
+ * @param {(pattern: string) => void} addBackendTaskWatcher
+ * @param {boolean} hasFsAccess
+ * @returns
+ */
+export async function render(
+  portsFile,
+  basePath,
+  elmModule,
+  mode,
+  path,
+  request,
+  addBackendTaskWatcher,
+  hasFsAccess
+) {
+  // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(hasFsAccess);
+  // resetInMemoryFs();
+  foundErrors = false;
+  // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
+  // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
+  global.XMLHttpRequest = {};
+  const result = await runElmApp(
+    portsFile,
     basePath,
     elmModule,
     mode,
     path,
     request,
-    addDataSourceWatcher
-  ) {
-    foundErrors = false;
-    pendingDataSourceResponses = [];
-    pendingDataSourceCount = 0;
-    // since init/update are never called in pre-renders, and DataSource.Http is called using undici
-    // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
-    XMLHttpRequest = {};
-    const result = await runElmApp(
-      basePath,
+    addBackendTaskWatcher,
+    hasFsAccess
+  );
+  return result;
+}
+
+/**
+ * @param {Object} elmModule
+ * @returns
+ * @param {string[]} cliOptions
+ * @param {any} portsFile
+ * @param {string} scriptModuleName
+ */
+export async function runGenerator(
+  cliOptions,
+  portsFile,
+  elmModule,
+  scriptModuleName
+) {
+  global.isRunningGenerator = true;
+  // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
+  // resetInMemoryFs();
+  foundErrors = false;
+  // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
+  // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
+  global.XMLHttpRequest = {};
+  try {
+    const result = await runGeneratorAppHelp(
+      cliOptions,
+      portsFile,
+      "",
       elmModule,
-      mode,
-      path,
-      request,
-      addDataSourceWatcher
+      scriptModuleName,
+      "production",
+      "",
+      true
     );
     return result;
-  };
-
+  } catch (error) {
+    process.exitCode = 1;
+    console.log(restoreColorSafe(error));
+  }
+}
 /**
  * @param {string} basePath
  * @param {Object} elmModule
  * @param {string} pagePath
  * @param {string} mode
- * @param {import('aws-lambda').APIGatewayProxyEvent} request
- * @param {(pattern: string) => void} addDataSourceWatcher
- * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
+ * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;}))>}
+ * @param {string[]} cliOptions
+ * @param {any} portsFile
+ * @param {typeof import("fs") | import("memfs").IFs} fs
+ * @param {boolean} hasFsAccess
+ * @param {string} scriptModuleName
  */
-function runElmApp(
+function runGeneratorAppHelp(
+  cliOptions,
+  portsFile,
   basePath,
   elmModule,
+  scriptModuleName,
   mode,
   pagePath,
-  request,
-  addDataSourceWatcher
+  hasFsAccess
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
   let app = null;
   let killApp;
   return new Promise((resolve, reject) => {
-    const isJson = pagePath.match(/content\.json\/?$/);
-    const route = pagePath.replace(/content\.json\/?$/, "");
+    const isBytes = pagePath.match(/content\.dat\/?$/);
 
-    const modifiedRequest = { ...request, path: route };
-    // console.log("StaticHttp cache keys", Object.keys(global.staticHttpCache));
-    app = elmModule.Elm.TemplateModulesBeta.init({
+    app = elmModule.Elm.Main.init({
       flags: {
-        secrets: process.env,
-        staticHttpCache: global.staticHttpCache || {},
-        mode,
-        request: {
-          payload: modifiedRequest,
-          kind: "single-page",
-          jsonOnly: !!isJson,
-        },
+        compatibilityKey,
+        argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],
+        versionMessage: "1.2.3",
       },
     });
 
@@ -98,14 +139,147 @@ function runElmApp(
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ fromElm) {
+    async function portHandler(/** @type { FromElm }  */ newThing) {
+      let fromElm;
+      let contentDatPayload;
+
+      fromElm = newThing;
+      if (fromElm.command === "log") {
+        console.log(fromElm.value);
+      } else if (fromElm.tag === "ApiResponse") {
+        // Finished successfully
+        process.exit(0);
+      } else if (fromElm.tag === "PageProgress") {
+        const args = fromElm.args[0];
+
+        if (isBytes) {
+          resolve({
+            kind: "bytes",
+            is404: false,
+            contentJson: JSON.stringify({
+              staticData: args.contentJson,
+              is404: false,
+            }),
+            statusCode: args.statusCode,
+            headers: args.headers,
+            contentDatPayload,
+          });
+        } else {
+          resolve(
+            outputString(basePath, fromElm, isDevServer, contentDatPayload)
+          );
+        }
+      } else if (fromElm.tag === "DoHttp") {
+        app.ports.gotBatchSub.send(
+          Object.fromEntries(
+            await Promise.all(
+              fromElm.args[0].map(([requestHash, requestToPerform]) => {
+                if (
+                  requestToPerform.url !== "elm-pages-internal://port" &&
+                  requestToPerform.url.startsWith("elm-pages-internal://")
+                ) {
+                  return runInternalJob(
+                    requestHash,
+                    app,
+                    mode,
+                    requestToPerform,
+                    hasFsAccess,
+                    patternsToWatch
+                  );
+                } else {
+                  return runHttpJob(
+                    requestHash,
+                    portsFile,
+                    app,
+                    mode,
+                    requestToPerform,
+                    hasFsAccess,
+                    requestToPerform
+                  );
+                }
+              })
+            )
+          )
+        );
+      } else if (fromElm.tag === "Errors") {
+        foundErrors = true;
+        reject(fromElm.args[0].errorsJson);
+      } else {
+        console.log(fromElm);
+      }
+    }
+    app.ports.toJsPort.subscribe(portHandler);
+  }).finally(() => {
+    try {
+      killApp();
+      killApp = null;
+    } catch (error) {}
+  });
+}
+
+/**
+ * @param {string} basePath
+ * @param {Object} elmModule
+ * @param {string} pagePath
+ * @param {string} mode
+ * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} request
+ * @param {(pattern: string) => void} addBackendTaskWatcher
+ * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
+ */
+function runElmApp(
+  portsFile,
+  basePath,
+  elmModule,
+  mode,
+  pagePath,
+  request,
+  addBackendTaskWatcher,
+  hasFsAccess
+) {
+  const isDevServer = mode !== "build";
+  let patternsToWatch = new Set();
+  let app = null;
+  let killApp;
+  return new Promise((resolve, reject) => {
+    const isBytes = pagePath.match(/content\.dat\/?$/);
+    const route = pagePath
+      .replace(/content\.json\/?$/, "")
+      .replace(/content\.dat\/?$/, "");
+
+    const modifiedRequest = { ...request, path: route };
+    app = elmModule.Elm.Main.init({
+      flags: {
+        mode,
+        compatibilityKey,
+        request: {
+          payload: modifiedRequest,
+          kind: "single-page",
+          jsonOnly: !!isBytes,
+        },
+      },
+    });
+
+    killApp = () => {
+      app.ports.toJsPort.unsubscribe(portHandler);
+      app.ports.sendPageData.unsubscribe(portHandler);
+      app.die();
+      app = null;
+      // delete require.cache[require.resolve(compiledElmPath)];
+    };
+
+    async function portHandler(/** @type { FromElm }  */ newThing) {
+      let fromElm;
+      let contentDatPayload;
+      if ("oldThing" in newThing) {
+        fromElm = newThing.oldThing;
+        contentDatPayload = newThing.binaryPageData;
+      } else {
+        fromElm = newThing;
+      }
       if (fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
-        if (mode === "build") {
-          global.staticHttpCache = args.staticHttpCache;
-        }
 
         resolve({
           kind: "api-response",
@@ -115,55 +289,70 @@ function runElmApp(
         });
       } else if (fromElm.tag === "PageProgress") {
         const args = fromElm.args[0];
-        if (mode === "build") {
-          global.staticHttpCache = args.staticHttpCache;
-        }
-
-        if (isJson) {
+        if (isBytes) {
           resolve({
-            kind: "json",
-            is404: args.is404,
+            kind: "bytes",
+            is404: false,
             contentJson: JSON.stringify({
               staticData: args.contentJson,
-              is404: args.is404,
+              is404: false,
             }),
+            statusCode: args.statusCode,
+            headers: args.headers,
+            contentDatPayload,
           });
         } else {
-          resolve(outputString(basePath, fromElm, isDevServer));
-        }
-      } else if (fromElm.tag === "ReadFile") {
-        const filePath = fromElm.args[0];
-        try {
-          patternsToWatch.add(filePath);
-
-          runJob(app, filePath);
-        } catch (error) {
-          sendError(app, {
-            title: "DataSource.File Error",
-            message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
-              filePath
-            )}`,
-          });
+          resolve(
+            outputString(basePath, fromElm, isDevServer, contentDatPayload)
+          );
         }
       } else if (fromElm.tag === "DoHttp") {
-        const requestToPerform = fromElm.args[0];
-        runHttpJob(app, mode, requestToPerform);
-      } else if (fromElm.tag === "Glob") {
-        const globPattern = fromElm.args[0];
-        patternsToWatch.add(globPattern);
-        runGlobJob(app, globPattern);
+        app.ports.gotBatchSub.send(
+          Object.fromEntries(
+            await Promise.all(
+              fromElm.args[0].map(([requestHash, requestToPerform]) => {
+                if (
+                  requestToPerform.url !== "elm-pages-internal://port" &&
+                  requestToPerform.url.startsWith("elm-pages-internal://")
+                ) {
+                  return runInternalJob(
+                    requestHash,
+                    app,
+                    mode,
+                    requestToPerform,
+                    hasFsAccess,
+                    patternsToWatch
+                  );
+                } else {
+                  return runHttpJob(
+                    requestHash,
+                    portsFile,
+                    app,
+                    mode,
+                    requestToPerform,
+                    hasFsAccess,
+                    requestToPerform
+                  );
+                }
+              })
+            )
+          )
+        );
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
-        reject(fromElm.args[0]);
+        reject(fromElm.args[0].errorsJson);
       } else {
         console.log(fromElm);
       }
     }
     app.ports.toJsPort.subscribe(portHandler);
+    app.ports.sendPageData.subscribe(portHandler);
   }).finally(() => {
-    addDataSourceWatcher(patternsToWatch);
-    killApp();
-    killApp = null;
+    addBackendTaskWatcher(patternsToWatch);
+    try {
+      killApp();
+      killApp = null;
+    } catch (error) {}
   });
 }
 /**
@@ -174,21 +363,27 @@ function runElmApp(
 async function outputString(
   basePath,
   /** @type { PageProgress } */ fromElm,
-  isDevServer
+  isDevServer,
+  contentDatPayload
 ) {
   const args = fromElm.args[0];
   let contentJson = {};
   contentJson["staticData"] = args.contentJson;
   contentJson["is404"] = args.is404;
   contentJson["path"] = args.route;
+  contentJson["statusCode"] = args.statusCode;
+  contentJson["headers"] = args.headers;
   const normalizedRoute = args.route.replace(/index$/, "");
 
   return {
     is404: args.is404,
     route: normalizedRoute,
-    htmlString: preRenderHtml(basePath, args, contentJson, isDevServer),
+    htmlString: preRenderHtml.wrapHtml(basePath, args, contentDatPayload),
     contentJson: args.contentJson,
+    statusCode: args.statusCode,
+    headers: args.headers,
     kind: "html",
+    contentDatPayload,
   };
 }
 
@@ -201,205 +396,232 @@ async function outputString(
 
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
-/**
- * @param {string} string
- */
-function jsonOrNull(string) {
+async function runHttpJob(
+  requestHash,
+  portsFile,
+  app,
+  mode,
+  requestToPerform,
+  hasFsAccess,
+  useCache
+) {
   try {
-    return JSON.parse(string);
-  } catch (e) {
-    return { invalidJson: e.toString() };
-  }
-}
-
-async function runJob(app, filePath) {
-  pendingDataSourceCount += 1;
-  try {
-    const fileContents = (
-      await fsPromises.readFile(path.join(process.cwd(), filePath))
-    ).toString();
-    const parsedFile = matter(fileContents);
-
-    pendingDataSourceResponses.push({
-      request: {
-        masked: {
-          url: `file://${filePath}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-        unmasked: {
-          url: `file://${filePath}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-      },
-      response: JSON.stringify({
-        parsedFrontmatter: parsedFile.data,
-        withoutFrontmatter: parsedFile.content,
-        rawFile: fileContents,
-        jsonFile: jsonOrNull(fileContents),
-      }),
-    });
-  } catch (e) {
-    sendError(app, {
-      title: "Error reading file",
-      message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
-        filePath
-      )}`,
-    });
-  } finally {
-    pendingDataSourceCount -= 1;
-    flushIfDone(app);
-  }
-}
-
-async function runHttpJob(app, mode, requestToPerform) {
-  pendingDataSourceCount += 1;
-  try {
-    const responseFilePath = await lookupOrPerform(
+    const lookupResponse = await lookupOrPerform(
+      portsFile,
       mode,
-      requestToPerform.unmasked
+      requestToPerform,
+      hasFsAccess,
+      useCache
     );
 
-    pendingDataSourceResponses.push({
-      request: requestToPerform,
-      response: (
-        await fsPromises.readFile(responseFilePath, "utf8")
-      ).toString(),
-    });
+    if (lookupResponse.kind === "cache-response-path") {
+      const responseFilePath = lookupResponse.value;
+      return [
+        requestHash,
+        {
+          request: requestToPerform,
+          response: JSON.parse(
+            (await fs.promises.readFile(responseFilePath, "utf8")).toString()
+          ),
+        },
+      ];
+    } else if (lookupResponse.kind === "response-json") {
+      return [
+        requestHash,
+        {
+          request: requestToPerform,
+          response: lookupResponse.value,
+        },
+      ];
+    } else {
+      throw `Unexpected kind ${lookupResponse}`;
+    }
+  } catch (error) {
+    console.log("@@@ERROR", error);
+    // sendError(app, error);
+  }
+}
+
+function stringResponse(request, string) {
+  return {
+    request,
+    response: { bodyKind: "string", body: string },
+  };
+}
+function jsonResponse(request, json) {
+  return {
+    request,
+    response: { bodyKind: "json", body: json },
+  };
+}
+
+async function runInternalJob(
+  requestHash,
+  app,
+  mode,
+  requestToPerform,
+  hasFsAccess,
+  patternsToWatch
+) {
+  try {
+    if (requestToPerform.url === "elm-pages-internal://log") {
+      return [requestHash, await runLogJob(requestToPerform)];
+    } else if (requestToPerform.url === "elm-pages-internal://read-file") {
+      return [
+        requestHash,
+        await readFileJobNew(requestToPerform, patternsToWatch),
+      ];
+    } else if (requestToPerform.url === "elm-pages-internal://glob") {
+      return [requestHash, await runGlobNew(requestToPerform, patternsToWatch)];
+    } else if (requestToPerform.url === "elm-pages-internal://randomSeed") {
+      return [
+        requestHash,
+        jsonResponse(
+          requestToPerform,
+          crypto.getRandomValues(new Uint32Array(1))[0]
+        ),
+      ];
+    } else if (requestToPerform.url === "elm-pages-internal://now") {
+      return [requestHash, jsonResponse(requestToPerform, Date.now())];
+    } else if (requestToPerform.url === "elm-pages-internal://env") {
+      return [requestHash, await runEnvJob(requestToPerform, patternsToWatch)];
+    } else if (requestToPerform.url === "elm-pages-internal://encrypt") {
+      return [
+        requestHash,
+        await runEncryptJob(requestToPerform, patternsToWatch),
+      ];
+    } else if (requestToPerform.url === "elm-pages-internal://decrypt") {
+      return [
+        requestHash,
+        await runDecryptJob(requestToPerform, patternsToWatch),
+      ];
+    } else if (requestToPerform.url === "elm-pages-internal://write-file") {
+      return [requestHash, await runWriteFileJob(requestToPerform)];
+    } else {
+      throw `Unexpected internal BackendTask request format: ${kleur.yellow(
+        JSON.stringify(2, null, requestToPerform)
+      )}`;
+    }
   } catch (error) {
     sendError(app, error);
-  } finally {
-    pendingDataSourceCount -= 1;
-    flushIfDone(app);
   }
 }
 
-async function runGlobJob(app, globPattern) {
+async function readFileJobNew(req, patternsToWatch) {
+  const filePath = req.body.args[1];
   try {
-    // if (pendingDataSourceCount > 0) {
-    //   console.log(`Waiting for ${pendingDataSourceCount} pending data sources`);
-    // }
-    pendingDataSourceCount += 1;
+    patternsToWatch.add(filePath);
 
-    pendingDataSourceResponses.push(await globTask(globPattern));
-  } catch (error) {
-    console.log(`Error running glob pattern ${globPattern}`);
-    throw error;
-  } finally {
-    pendingDataSourceCount -= 1;
-    flushIfDone(app);
-  }
-}
-
-function flushIfDone(app) {
-  if (foundErrors) {
-    pendingDataSourceResponses = [];
-  } else if (pendingDataSourceCount === 0) {
-    // console.log(
-    //   `Flushing ${pendingDataSourceResponses.length} items in ${timeUntilThreshold}ms`
-    // );
-
-    flushQueue(app);
-  }
-}
-
-function flushQueue(app) {
-  const temp = pendingDataSourceResponses;
-  pendingDataSourceResponses = [];
-  // console.log("@@@ FLUSHING", temp.length);
-  app.ports.fromJsPort.send({
-    tag: "GotBatch",
-    data: temp,
-  });
-}
-
-/**
- * @param {string} filePath
- * @returns {Promise<Object>}
- */
-async function readFileTask(app, filePath) {
-  // console.log(`Read file ${filePath}`);
-  try {
-    const fileContents = (
-      await fsPromises.readFile(path.join(process.cwd(), filePath))
-    ).toString();
-    // console.log(`DONE reading file ${filePath}`);
+    const fileContents = // TODO can I remove this hack?
+      (
+        await fsPromises.readFile(
+          path.join(process.env.LAMBDA_TASK_ROOT || process.cwd(), filePath)
+        )
+      ).toString();
+    // TODO does this throw an error if there is invalid frontmatter?
     const parsedFile = matter(fileContents);
 
-    return {
-      request: {
-        masked: {
-          url: `file://${filePath}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-        unmasked: {
-          url: `file://${filePath}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-      },
-      response: JSON.stringify({
-        parsedFrontmatter: parsedFile.data,
-        withoutFrontmatter: parsedFile.content,
-        rawFile: fileContents,
-        jsonFile: jsonOrNull(fileContents),
-      }),
-    };
-  } catch (e) {
-    sendError(app, {
-      title: "Error reading file",
-      message: `A DataSource.File read failed because I couldn't find this file: ${kleur.yellow(
-        filePath
-      )}`,
+    return jsonResponse(req, {
+      parsedFrontmatter: parsedFile.data,
+      withoutFrontmatter: parsedFile.content,
+      rawFile: fileContents,
+    });
+  } catch (error) {
+    return jsonResponse(req, {
+      errorCode: error.code,
     });
   }
 }
-
-/**
- * @param {string} globPattern
- * @returns {Promise<Object>}
- */
-async function globTask(globPattern) {
+async function runWriteFileJob(req) {
+  const data = req.body.args[0];
   try {
-    const matchedPaths = await globby(globPattern);
-    // console.log("Got glob path", matchedPaths);
-
-    return {
-      request: {
-        masked: {
-          url: `glob://${globPattern}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-        unmasked: {
-          url: `glob://${globPattern}`,
-          method: "GET",
-          headers: [],
-          body: { tag: "EmptyBody", args: [] },
-        },
-      },
-      response: JSON.stringify(matchedPaths),
+    const fullPathToWrite = path.join(process.cwd(), data.path);
+    await fsPromises.mkdir(path.dirname(fullPathToWrite), { recursive: true });
+    await fsPromises.writeFile(fullPathToWrite, data.body);
+    return jsonResponse(req, null);
+  } catch (error) {
+    console.trace(error);
+    throw {
+      title: "BackendTask Error",
+      message: `BackendTask.Generator.writeFile failed for file path: ${kleur.yellow(
+        data.path
+      )}\n${kleur.red(error.toString())}`,
     };
+  }
+}
+
+async function runGlobNew(req, patternsToWatch) {
+  try {
+    const { pattern, options } = req.body.args[0];
+    const matchedPaths = await globby.globby(pattern, options);
+    patternsToWatch.add(pattern);
+
+    return jsonResponse(
+      req,
+      matchedPaths.map((fullPath) => {
+        return {
+          fullPath,
+          captures: mm.capture(pattern, fullPath),
+        };
+      })
+    );
   } catch (e) {
-    console.log(`Error performing glob '${globPattern}'`);
+    console.log(`Error performing glob '${JSON.stringify(req.body)}'`);
     throw e;
   }
 }
 
-function requireUncached(mode, filePath) {
-  if (mode === "dev-server") {
-    // for the build command, we can skip clearing the cache because it won't change while the build is running
-    // in the dev server, we want to clear the cache to get a the latest code each time it runs
-    delete require.cache[require.resolve(filePath)];
+async function runLogJob(req) {
+  try {
+    console.log(req.body.args[0].message);
+    return jsonResponse(req, null);
+  } catch (e) {
+    console.log(`Error performing env '${JSON.stringify(req.body)}'`);
+    throw e;
   }
-  return require(filePath);
+}
+async function runEnvJob(req, patternsToWatch) {
+  try {
+    const expectedEnv = req.body.args[0];
+    return jsonResponse(req, process.env[expectedEnv] || null);
+  } catch (e) {
+    console.log(`Error performing env '${JSON.stringify(req.body)}'`);
+    throw e;
+  }
+}
+async function runEncryptJob(req, patternsToWatch) {
+  try {
+    return jsonResponse(
+      req,
+      cookie.sign(
+        JSON.stringify(req.body.args[0].values, null, 0),
+        req.body.args[0].secret
+      )
+    );
+  } catch (e) {
+    throw {
+      title: "BackendTask Encrypt Error",
+      message:
+        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+    };
+  }
+}
+async function runDecryptJob(req, patternsToWatch) {
+  try {
+    // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
+    const signed = tryDecodeCookie(
+      req.body.args[0].input,
+      req.body.args[0].secrets
+    );
+
+    return jsonResponse(req, JSON.parse(signed || "null"));
+  } catch (e) {
+    throw {
+      title: "BackendTask Decrypt Error",
+      message:
+        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+    };
+  }
 }
 
 /**
@@ -413,4 +635,16 @@ function sendError(app, error) {
     tag: "BuildError",
     data: error,
   });
+}
+function tryDecodeCookie(input, secrets) {
+  if (secrets.length > 0) {
+    const signed = cookie.unsign(input, secrets[0]);
+    if (signed) {
+      return signed;
+    } else {
+      return tryDecodeCookie(input, secrets.slice(1));
+    }
+  } else {
+    return null;
+  }
 }

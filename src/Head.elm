@@ -1,6 +1,7 @@
 module Head exposing
     ( Tag, metaName, metaProperty, metaRedirect
-    , rssLink, sitemapLink, rootLanguage
+    , rssLink, sitemapLink, rootLanguage, manifestLink
+    , nonLoadingNode
     , structuredData
     , AttributeValue
     , currentPageFullUrl, urlAttribute, raw
@@ -8,17 +9,123 @@ module Head exposing
     , toJson, canonicalLink
     )
 
-{-| This module contains low-level functions for building up
-values that will be rendered into the page's `<head>` tag
-when you run `elm-pages build`. Most likely the `Head.Seo` module
-will do everything you need out of the box, and you will just need to import `Head`
-so you can use the `Tag` type in your type annotations.
+{-| This module contains functions for building up
+tags with metadata that will be rendered into the page's `<head>` tag
+when your page is pre-rendered (or server-rendered, in the case of your server-rendered Route Modules). See also [`Head.Seo`](Head-Seo),
+which has some helper functions for defining OpenGraph and Twitter tags.
 
-But this module might be useful if you have a special use case, or if you are
-writing a plugin package to extend `elm-pages`.
+One of the unique benefits of using `elm-pages` is that all of your routes (both pre-rendered and server-rendered) fully
+render the HTML of your page. That includes the full initial `view` (with the BackendTask resolved, and the `Model` from `init`).
+The HTML response also includes all of the `Head` tags, which are defined in two places:
+
+1.  `app/Site.elm` - there is a `head` definition in `Site.elm` where you define global head tags that will be included on every rendered page.
+
+2.  In each Route Module - there is a `head` function where you have access to both the resolved `BackendTask` and the `RouteParams` for the page and can return head tags based on that.
+
+Here is a common set of global head tags that we can define in `Site.elm`:
+
+    module Site exposing (canonicalUrl, config)
+
+    import BackendTask exposing (BackendTask)
+    import Head
+    import MimeType
+    import SiteConfig exposing (SiteConfig)
+
+    config : SiteConfig
+    config =
+    { canonicalUrl = "<https://elm-pages.com">
+    , head = head
+    }
+
+    head : BackendTask (List Head.Tag)
+    head =
+    [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
+    , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
+    , Head.metaName "theme-color" (Head.raw "#ffffff")
+    , Head.metaName "apple-mobile-web-app-capable" (Head.raw "yes")
+    , Head.metaName "apple-mobile-web-app-status-bar-style" (Head.raw "black-translucent")
+    , Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
+    , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
+    , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
+    , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
+    ]
+    |> BackendTask.succeed
+
+And here is a `head` function for a Route Module for a blog post. Note that we have access to our `BackendTask` Data and
+are using it to populate article metadata like the article's image, publish date, etc.
+
+    import Article
+    import BackendTask
+    import Date
+    import Head
+    import Head.Seo
+    import Path
+    import Route exposing (Route)
+    import RouteBuilder exposing (App, StatelessRoute)
+
+    type alias RouteParams =
+        { slug : String }
+
+    type alias Data =
+        { metadata : ArticleMetadata
+        , body : List Markdown.Block.Block
+        }
+
+    route : StatelessRoute RouteParams Data ActionData
+    route =
+        RouteBuilder.preRender
+            { data = data
+            , head = head
+            , pages = pages
+            }
+            |> RouteBuilder.buildNoState { view = view }
+
+    head :
+        App Data ActionData RouteParams
+        -> List Head.Tag
+    head static =
+        let
+            metadata =
+                static.data.metadata
+        in
+        Head.Seo.summaryLarge
+            { canonicalUrlOverride = Nothing
+            , siteName = "elm-pages"
+            , image =
+                { url = metadata.image
+                , alt = metadata.description
+                , dimensions = Nothing
+                , mimeType = Nothing
+                }
+            , description = metadata.description
+            , locale = Nothing
+            , title = metadata.title
+            }
+            |> Head.Seo.article
+                { tags = []
+                , section = Nothing
+                , publishedTime = Just (DateOrDateTime.Date metadata.published)
+                , modifiedTime = Nothing
+                , expirationTime = Nothing
+                }
+
+
+## Why is pre-rendered HTML important? Does it still matter for SEO?
+
+Many search engines are able to execute JavaScript now. However, not all are, and even with crawlers like Google, there
+is a longer lead time for your pages to be indexed when you have HTML with a blank page that is only visible after the JavaScript executes.
+
+But most importantly, many tools that unfurl links will not execute JavaScript at all, but rather simply do a simple pass to parse your `<head>` tags.
+It is not viable or reliable to add `<head>` tags for metadata on the client-side, it must be present in the initial HTML payload. Otherwise you may not
+get unfurling preview content when you share a link to your site on Slack, Twitter, etc.
+
+
+## Building up Head Tags
 
 @docs Tag, metaName, metaProperty, metaRedirect
-@docs rssLink, sitemapLink, rootLanguage
+@docs rssLink, sitemapLink, rootLanguage, manifestLink
+
+@docs nonLoadingNode
 
 
 ## Structured Data
@@ -45,9 +152,11 @@ writing a plugin package to extend `elm-pages`.
 
 import Json.Encode
 import LanguageTag exposing (LanguageTag)
+import List.Extra
 import MimeType
 import Pages.Internal.String as String
 import Pages.Url
+import Regex
 
 
 {-| Values that can be passed to the generated `Pages.application` config
@@ -57,6 +166,7 @@ type Tag
     = Tag Details
     | StructuredData Json.Encode.Value
     | RootModifier String String
+    | Stripped String
 
 
 type alias Details =
@@ -208,6 +318,130 @@ canonicalLink maybePath =
         , ( "href"
           , maybePath |> Maybe.map raw |> Maybe.withDefault currentPageFullUrl
           )
+        ]
+
+
+{-| Escape hatch for any head tags that don't have high-level helpers. This lets you build arbitrary head nodes as long as they
+are not loading or preloading directives.
+
+Tags that do loading/pre-loading will not work from this function. `elm-pages` uses ViteJS for loading assets like
+script tags, stylesheets, fonts, etc., and allows you to customize which assets to preload and how through the elm-pages.config.mjs file.
+See the full discussion of the design in [#339](https://github.com/dillonkearns/elm-pages/discussions/339).
+
+So for example the following tags would _not_ load if defined through `nonLoadingNode`, and would instead need to be registered through Vite:
+
+  - `<script src="...">`
+  - `<link href="/style.css">`
+  - `<link rel="preload">`
+
+The following tag would successfully render as it is a non-loading tag:
+
+    Head.nonLoadingNode "link"
+        [ ( "rel", Head.raw "alternate" )
+        , ( "type", Head.raw "application/atom+xml" )
+        , ( "title", Head.raw "News" )
+        , ( "href", Head.raw "/news/atom" )
+        ]
+
+Renders the head tag:
+
+`<link rel="alternate" type="application/atom+xml" title="News" href="/news/atom">`
+
+-}
+nonLoadingNode : String -> List ( String, AttributeValue ) -> Tag
+nonLoadingNode nodeName attributes =
+    let
+        relTag : Maybe AttributeValue
+        relTag =
+            attributes
+                |> List.Extra.find (\( key, _ ) -> key == "rel")
+                |> Maybe.map Tuple.second
+
+        isPreloadDirective : Bool
+        isPreloadDirective =
+            case relTag of
+                Just (Raw rel) ->
+                    let
+                        isLinkTag : Bool
+                        isLinkTag =
+                            nodeName |> matchesKeyword "link"
+                    in
+                    isLinkTag
+                        && (rel
+                                |> matchesOneKeyword
+                                    [ "preload"
+                                    , "modulepreload"
+                                    , "preconnect"
+                                    , "dns-prefetch"
+                                    , "stylesheet"
+                                    ]
+                           )
+
+                _ ->
+                    False
+    in
+    if
+        (nodeName |> matchesKeyword "script")
+            || isPreloadDirective
+    then
+        Stripped
+            ("<"
+                ++ nodeName
+                ++ " "
+                ++ (attributes
+                        |> List.map
+                            (\( name, value ) ->
+                                name
+                                    ++ "=\""
+                                    ++ ((case value of
+                                            Raw rawValue ->
+                                                rawValue
+
+                                            _ ->
+                                                "<internals>"
+                                        )
+                                            ++ "\""
+                                       )
+                            )
+                        |> String.join " "
+                   )
+                ++ " />"
+            )
+
+    else
+        node nodeName attributes
+
+
+matchesOneKeyword : List String -> String -> Bool
+matchesOneKeyword keywords string =
+    List.any
+        (\keyword -> string |> matchesKeyword keyword)
+        keywords
+
+
+matchesKeyword : String -> String -> Bool
+matchesKeyword regex string =
+    string |> matchesRegex ("^\\s*" ++ regex ++ "\\s*$")
+
+
+matchesRegex : String -> String -> Bool
+matchesRegex regex string =
+    string
+        |> Regex.contains
+            (Regex.fromStringWith
+                { caseInsensitive = True, multiline = True }
+                regex
+                |> Maybe.withDefault Regex.never
+            )
+
+
+{-| Let's you link to your manifest.json file, see <https://developer.mozilla.org/en-US/docs/Web/Manifest#deploying_a_manifest>.
+-}
+manifestLink : String -> Tag
+manifestLink path =
+    node "link"
+        [ ( "rel", raw "manifest" )
+        , ( "href", raw path )
         ]
 
 
@@ -431,6 +665,12 @@ toJson canonicalSiteUrl currentPagePath tag =
             Json.Encode.object
                 [ ( "type", Json.Encode.string "root" )
                 , ( "keyValuePair", Json.Encode.list Json.Encode.string [ key, value ] )
+                ]
+
+        Stripped message ->
+            Json.Encode.object
+                [ ( "type", Json.Encode.string "stripped" )
+                , ( "message", Json.Encode.string message )
                 ]
 
 

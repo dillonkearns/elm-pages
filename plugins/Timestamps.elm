@@ -1,11 +1,12 @@
 module Timestamps exposing (Timestamps, data, format)
 
-import DataSource exposing (DataSource)
-import DataSource.Port
+import BackendTask exposing (BackendTask)
+import BackendTask.Custom
 import DateFormat
+import Json.Decode as Decode
+import Json.Decode.Extra
 import Json.Encode
 import List.Extra
-import OptimizedDecoder as Decode exposing (Decoder)
 import Result.Extra
 import Time
 
@@ -16,9 +17,9 @@ type alias Timestamps =
     }
 
 
-data : String -> DataSource Timestamps
+data : String -> BackendTask Timestamps
 data filePath =
-    DataSource.Port.get "gitTimestamps"
+    BackendTask.Custom.run "gitTimestamps"
         (Json.Encode.string filePath)
         (Decode.string
             |> Decode.map (String.trim >> String.split "\n")
@@ -31,7 +32,7 @@ data filePath =
                     ]
                 )
             |> Decode.map (firstAndLast Timestamps >> Result.fromMaybe "Error")
-            |> Decode.andThen Decode.fromResult
+            |> Decode.andThen Json.Decode.Extra.fromResult
         )
 
 

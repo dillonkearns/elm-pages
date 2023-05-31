@@ -1,99 +1,46 @@
 module TableOfContents exposing (..)
 
-import Codec exposing (Codec)
+import BackendTask exposing (BackendTask)
+import BackendTask.File
 import Css
-import DataSource exposing (DataSource)
-import DataSource.File
+import FatalError exposing (FatalError)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import List.Extra
 import Markdown.Block as Block exposing (Block, Inline)
 import Markdown.Parser
-import OptimizedDecoder
-import Serialize as S
 import Tailwind.Breakpoints as Bp
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 
 
-dataSource :
-    DataSource (List { file | filePath : String, slug : String })
-    -> DataSource (TableOfContents Data)
-dataSource docFiles =
+backendTask :
+    BackendTask FatalError (List { file | filePath : String, slug : String })
+    -> BackendTask FatalError (TableOfContents Data)
+backendTask docFiles =
     docFiles
-        |> DataSource.map
+        |> BackendTask.map
             (\sections ->
                 sections
                     |> List.map
                         (\section ->
-                            DataSource.File.bodyWithoutFrontmatter
+                            BackendTask.File.bodyWithoutFrontmatter
                                 section.filePath
-                                |> DataSource.andThen (headingsDecoder section.slug)
+                                |> BackendTask.allowFatal
+                                |> BackendTask.andThen (headingsDecoder section.slug)
                         )
             )
-        |> DataSource.resolve
-        |> DataSource.distillSerializeCodec "table-of-contents" serialize
+        |> BackendTask.resolve
 
 
-codec : Codec (TableOfContents Data)
-codec =
-    Codec.list entryCodec
-
-
-entryCodec : Codec (Entry Data)
-entryCodec =
-    Codec.custom
-        (\vEntry value ->
-            case value of
-                Entry data list ->
-                    vEntry data list
-        )
-        |> Codec.variant2 "Entry" Entry dataCodec (Codec.list (Codec.lazy (\() -> entryCodec)))
-        |> Codec.buildCustom
-
-
-dataCodec : Codec Data
-dataCodec =
-    Codec.object Data
-        |> Codec.field "anchorId" .anchorId Codec.string
-        |> Codec.field "name" .name Codec.string
-        |> Codec.field "level" .level Codec.int
-        |> Codec.buildObject
-
-
-serialize : S.Codec e (TableOfContents Data)
-serialize =
-    S.list serializeEntry
-
-
-serializeEntry : S.Codec e (Entry Data)
-serializeEntry =
-    S.customType
-        (\vEntry value ->
-            case value of
-                Entry data list ->
-                    vEntry data list
-        )
-        |> S.variant2 Entry serializeData (S.list (S.lazy (\() -> serializeEntry)))
-        |> S.finishCustomType
-
-
-serializeData : S.Codec e Data
-serializeData =
-    S.record Data
-        |> S.field .anchorId S.string
-        |> S.field .name S.string
-        |> S.field .level S.int
-        |> S.finishRecord
-
-
-headingsDecoder : String -> String -> DataSource (Entry Data)
+headingsDecoder : String -> String -> BackendTask FatalError (Entry Data)
 headingsDecoder slug rawBody =
     rawBody
         |> Markdown.Parser.parse
-        |> Result.mapError (\_ -> "Markdown parsing error")
+        |> Result.mapError (\_ -> FatalError.fromString "Markdown parsing error")
         |> Result.map gatherHeadings
-        |> Result.andThen (nameAndTopLevel slug)
-        |> DataSource.fromResult
+        |> Result.andThen (nameAndTopLevel slug >> Result.mapError FatalError.fromString)
+        |> BackendTask.fromResult
 
 
 nameAndTopLevel :
@@ -143,7 +90,7 @@ nameAndTopLevel slug headings =
                 )
 
         _ ->
-            Err ""
+            Err ("Missing H1 heading for " ++ slug)
 
 
 toData : Int -> List Block.Inline -> { anchorId : String, name : String, level : Int }
@@ -250,7 +197,7 @@ surround showMobileMenu onDocsPage children =
     aside
         [ css
             [ Tw.h_screen
-            , Tw.bg_white
+            , Tw.bg_color Theme.white
             , Tw.flex_shrink_0
             , Tw.top_0
             , Tw.pt_16
@@ -280,7 +227,7 @@ surround showMobileMenu onDocsPage children =
         ]
         [ div
             [ css
-                [ Tw.border_gray_200
+                [ Tw.border_color Theme.gray_200
                 , Tw.w_full
                 , Tw.p_4
                 , Tw.pb_40
@@ -320,7 +267,7 @@ level1Entry current (Entry data children) =
     li
         [ css
             [ Tw.space_y_3
-            , Tw.text_gray_900
+            , Tw.text_color Theme.gray_900
             , Tw.rounded_lg
             ]
         ]
@@ -353,17 +300,17 @@ item isCurrent href body =
             , Tw.outline_none
             , if isCurrent then
                 Css.batch
-                    [ Tw.bg_gray_200
+                    [ Tw.bg_color Theme.gray_200
                     , Tw.font_semibold
                     ]
 
               else
                 Css.batch
                     [ Css.hover
-                        [ Tw.text_black
-                        , Tw.bg_gray_100
+                        [ Tw.text_color Theme.black
+                        , Tw.bg_color Theme.gray_100
                         ]
-                    , Tw.text_gray_500
+                    , Tw.text_color Theme.gray_500
                     ]
             ]
         ]

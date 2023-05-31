@@ -1,13 +1,13 @@
 module Head.Seo exposing (Common, Image, article, audioPlayer, book, profile, song, summary, summaryLarge, videoPlayer, website)
 
-{-| <https://ogp.me/#>
-<https://developers.facebook.com/docs/sharing/opengraph>
+{-| <https://developers.facebook.com/docs/sharing/opengraph>
 
 This module encapsulates some of the best practices for SEO for your site.
 
-`elm-pages` will pre-render each of the static pages (in your `content` directory) so that
+`elm-pages` pre-renders the HTML for your pages (either at build-time or server-render time) so that
 web crawlers can efficiently and accurately process it. The functions in this module are for use
-with the `head` function that you pass to your Pages config (`Pages.application`).
+with the `head` function in your `Route` modules to help you build up a set of `<meta>` tags that
+includes common meta tags used for rich link previews, namely [OpenGraph tags](https://ogp.me/) and [Twitter card tags](https://developer.twitter.com/en/docs/twitter-for-websites/cards/overview/abouts-cards).
 
     import Date
     import Head
@@ -49,8 +49,12 @@ with the `head` function that you pass to your Pages config (`Pages.application`
 
 -}
 
+import DateOrDateTime exposing (DateOrDateTime)
 import Head
 import Head.Twitter as Twitter
+import LanguageTag.Country
+import LanguageTag.Language
+import MimeType exposing (MimeType)
 import Pages.Url
 
 
@@ -233,9 +237,9 @@ website common =
 article :
     { tags : List String
     , section : Maybe String
-    , publishedTime : Maybe Iso8601DateTime
-    , modifiedTime : Maybe Iso8601DateTime
-    , expirationTime : Maybe Iso8601DateTime
+    , publishedTime : Maybe DateOrDateTime
+    , modifiedTime : Maybe DateOrDateTime
+    , expirationTime : Maybe DateOrDateTime
     }
     -> Common
     -> List Head.Tag
@@ -250,7 +254,7 @@ book :
     ->
         { tags : List String
         , isbn : Maybe String
-        , releaseDate : Maybe Iso8601DateTime
+        , releaseDate : Maybe DateOrDateTime
         }
     -> List Head.Tag
 book common details =
@@ -307,6 +311,13 @@ type alias Common =
     }
 
 
+localeToString : Locale -> String
+localeToString ( language, territory ) =
+    LanguageTag.Language.toCodeString language
+        ++ "_"
+        ++ LanguageTag.Country.toCodeString territory
+
+
 tagsForCommon : Common -> List ( String, Maybe Head.AttributeValue )
 tagsForCommon common =
     tagsForImage common.image
@@ -316,12 +327,12 @@ tagsForCommon common =
            , ( "og:url", common.canonicalUrlOverride |> Maybe.map Head.raw |> Maybe.withDefault Head.currentPageFullUrl |> Just )
            , ( "og:description", Just (Head.raw common.description) )
            , ( "og:site_name", Just (Head.raw common.siteName) )
-           , ( "og:locale", common.locale |> Maybe.map Head.raw )
+           , ( "og:locale", common.locale |> Maybe.map localeToString |> Maybe.map Head.raw )
            ]
         ++ (common.alternateLocales
                 |> List.map
                     (\alternateLocale ->
-                        ( "og:locale:alternate", alternateLocale |> Head.raw |> Just )
+                        ( "og:locale:alternate", alternateLocale |> localeToString |> Head.raw |> Just )
                     )
            )
         ++ Twitter.rawTags common.twitterCard
@@ -345,13 +356,12 @@ tagsForAudio : Audio -> List ( String, Maybe Head.AttributeValue )
 tagsForAudio audio =
     [ ( "og:audio", audio.url |> Head.raw |> Just )
     , ( "og:audio:secure_url", audio.url |> Head.raw |> Just )
-    , ( "og:audio:type", audio.mimeType |> Maybe.map Head.raw )
+    , ( "og:audio:type", audio.mimeType |> Maybe.map (MimeType.toString >> Head.raw) )
     ]
 
 
 type alias Locale =
-    -- TODO make this more type-safe
-    String
+    ( LanguageTag.Language.Language, LanguageTag.Country.Country )
 
 
 type Content
@@ -363,14 +373,14 @@ type ContentDetails
     | Article
         { tags : List String
         , section : Maybe String
-        , publishedTime : Maybe Iso8601DateTime
-        , modifiedTime : Maybe Iso8601DateTime
-        , expirationTime : Maybe Iso8601DateTime
+        , publishedTime : Maybe DateOrDateTime
+        , modifiedTime : Maybe DateOrDateTime
+        , expirationTime : Maybe DateOrDateTime
         }
     | Book
         { tags : List String
         , isbn : Maybe String
-        , releaseDate : Maybe Iso8601DateTime
+        , releaseDate : Maybe DateOrDateTime
         }
     | Song
         {-
@@ -389,20 +399,6 @@ type ContentDetails
         , lastName : String
         , username : Maybe String
         }
-
-
-{-| <https://en.wikipedia.org/wiki/ISO_8601>
--}
-type alias Iso8601DateTime =
-    -- TODO should be more type-safe here
-    String
-
-
-{-| <https://en.wikipedia.org/wiki/Media_type>
--}
-type alias MimeType =
-    -- TODO should be more type-safe here
-    String
 
 
 {-| See <https://ogp.me/#structured>
@@ -441,6 +437,7 @@ tagsForVideo video =
     , ( "og:video:secure_url", video.url |> Head.raw |> Just )
     , ( "og:video:width", video.dimensions |> Maybe.map .width |> Maybe.map String.fromInt |> Maybe.map Head.raw )
     , ( "og:video:height", video.dimensions |> Maybe.map .height |> Maybe.map String.fromInt |> Maybe.map Head.raw )
+    , ( "og:video:type", video.mimeType |> Maybe.map (MimeType.toString >> Head.raw) )
     ]
 
 
@@ -459,9 +456,9 @@ tags (Content common details) =
                     -}
                     [ ( "og:type", "article" |> Head.raw |> Just )
                     , ( "article:section", articleDetails.section |> Maybe.map Head.raw )
-                    , ( "article:published_time", articleDetails.publishedTime |> Maybe.map Head.raw )
-                    , ( "article:modified_time", articleDetails.modifiedTime |> Maybe.map Head.raw )
-                    , ( "article:expiration_time", articleDetails.expirationTime |> Maybe.map Head.raw )
+                    , ( "article:published_time", articleDetails.publishedTime |> Maybe.map (DateOrDateTime.toIso8601 >> Head.raw) )
+                    , ( "article:modified_time", articleDetails.modifiedTime |> Maybe.map (DateOrDateTime.toIso8601 >> Head.raw) )
+                    , ( "article:expiration_time", articleDetails.expirationTime |> Maybe.map (DateOrDateTime.toIso8601 >> Head.raw) )
                     ]
                         ++ List.map
                             (\tag -> ( "article:tag", tag |> Head.raw |> Just ))
@@ -470,7 +467,7 @@ tags (Content common details) =
                 Book bookDetails ->
                     [ ( "og:type", "book" |> Head.raw |> Just )
                     , ( "og:isbn", bookDetails.isbn |> Maybe.map Head.raw )
-                    , ( "og:release_date", bookDetails.releaseDate |> Maybe.map Head.raw )
+                    , ( "og:release_date", bookDetails.releaseDate |> Maybe.map (DateOrDateTime.toIso8601 >> Head.raw) )
                     ]
                         ++ List.map
                             (\tag -> ( "book:tag", tag |> Head.raw |> Just ))

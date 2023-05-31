@@ -13,15 +13,15 @@ import Internal.ApiRoute
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.ProgramConfig exposing (ProgramConfig)
-import Path exposing (Path)
 import Regex
 import Url exposing (Url)
+import UrlPath exposing (UrlPath)
 
 
 type RequestPayload route
-    = Page { path : Path, frontmatter : route }
+    = Page { path : UrlPath, frontmatter : route }
     | Api ( String, ApiRoute.ApiRoute ApiRoute.Response )
-    | NotFound Path
+    | NotFound UrlPath
 
 
 type RenderRequest route
@@ -32,7 +32,7 @@ default : RenderRequest route
 default =
     SinglePage
         HtmlAndJson
-        (NotFound (Path.fromString "/error"))
+        (NotFound (UrlPath.fromString "/error"))
         Encode.null
 
 
@@ -49,7 +49,7 @@ type IncludeHtml
 
 
 decoder :
-    ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
+    ProgramConfig userMsg userModel (Maybe route) pageData actionData sharedData effect mappedMsg errorPage
     -> Decode.Decoder (RenderRequest (Maybe route))
 decoder config =
     Decode.field "request"
@@ -90,7 +90,7 @@ decoder config =
 
 
 requestPayloadDecoder :
-    ProgramConfig userMsg userModel (Maybe route) siteData pageData sharedData
+    ProgramConfig userMsg userModel (Maybe route) pageData actionData sharedData effect mappedMsg errorPage
     -> Decode.Decoder (RequestPayload (Maybe route))
 requestPayloadDecoder config =
     (Decode.string
@@ -119,12 +119,12 @@ requestPayloadDecoder config =
                                     ( path, justApi ) |> Api
 
                                 Nothing ->
-                                    NotFound (Path.fromString path)
+                                    NotFound (UrlPath.fromString path)
 
                         else
                             Page
                                 { frontmatter = route
-                                , path = config.routeToPath route |> Path.join
+                                , path = config.routeToPath route |> UrlPath.join
                                 }
 
                     Nothing ->
@@ -133,7 +133,7 @@ requestPayloadDecoder config =
                                 ( path, justApi ) |> Api
 
                             Nothing ->
-                                NotFound (Path.fromString path)
+                                NotFound (UrlPath.fromString path)
             )
     )
         |> Decode.field "path"

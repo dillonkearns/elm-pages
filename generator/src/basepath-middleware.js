@@ -1,6 +1,6 @@
 // this middleware is only active when (config.base !== '/')
 
-module.exports = function baseMiddleware(base) {
+export function baseMiddleware(base) {
   // Keep the named function. The name is visible in debug logs via `DEBUG=connect:dispatcher ...`
   return function viteBaseMiddleware(req, res, next) {
     // `req.url` only contains the path, since that is what gets passed in the HTTP request.
@@ -34,11 +34,11 @@ module.exports = function baseMiddleware(base) {
       const suggestionUrl = `${base}/${path.slice(1)}`;
       res.end(
         `The server is configured with a public base URL of ${base} - ` +
-        `did you mean to visit ${suggestionUrl} instead?`
+          `did you mean to visit ${suggestionUrl} instead?`
       );
       return;
     }
 
     next();
   };
-};
+}

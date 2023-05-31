@@ -1,31 +1,84 @@
-const path = require("path");
-const fs = require("fs");
-const which = require("which");
-const chokidar = require("chokidar");
-const {
-  spawnElmMake,
+import * as path from "path";
+import * as fs from "fs";
+import { default as which } from "which";
+import * as chokidar from "chokidar";
+import { URL } from "url";
+import {
   compileElmForBrowser,
   runElmReview,
-} = require("./compile-elm.js");
-const http = require("http");
-const https = require("https");
-const codegen = require("./codegen.js");
-const kleur = require("kleur");
-const serveStatic = require("serve-static");
-const connect = require("connect");
-const { restoreColor } = require("./error-formatter");
-const { Worker, SHARE_ENV } = require("worker_threads");
-const os = require("os");
-const { ensureDirSync } = require("./file-helpers.js");
-const baseMiddleware = require("./basepath-middleware.js");
-const devcert = require("devcert");
+  compileCliApp,
+} from "./compile-elm.js";
+import * as http from "http";
+import * as https from "https";
+import * as codegen from "./codegen.js";
+import * as kleur from "kleur/colors";
+import { default as serveStatic } from "serve-static";
+import { default as connect } from "connect";
+import { restoreColorSafe } from "./error-formatter.js";
+import { Worker, SHARE_ENV } from "worker_threads";
+import * as os from "os";
+import { ensureDirSync } from "./file-helpers.js";
+import { baseMiddleware } from "./basepath-middleware.js";
+import * as devcert from "devcert";
+import * as busboy from "busboy";
+import { createServer as createViteServer } from "vite";
+import * as esbuild from "esbuild";
+import { merge_vite_configs } from "./vite-utils.js";
+import { templateHtml } from "./pre-render-html.js";
+import { resolveConfig } from "./config.js";
+import * as globby from "globby";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
  */
-async function start(options) {
+export async function start(options) {
+  console.error = function (...messages) {
+    if (!messages[0]?.startsWith("Failed to load url")) {
+      console.info(...messages);
+    }
+  };
+
   let threadReadyQueue = [];
   let pool = [];
+
+  function invalidatePool() {
+    pool.forEach((thread) => {
+      if (thread.used) {
+        thread.stale = true;
+      }
+    });
+    restartIdleWorkersIfStale();
+  }
+
+  function restartIdleWorkersIfStale() {
+    pool.forEach((thread) => {
+      if (thread.stale && thread.ready) {
+        reinitThread(thread);
+      }
+    });
+  }
+
+  function reinitThread(thisThread) {
+    thisThread.worker && thisThread.worker.terminate();
+    // TODO remove event listeners to avoid memory leak?
+    // thread.worker.removeAllListeners("message");
+    // thread.worker.removeAllListeners("error");
+    thisThread.ready = false;
+    thisThread.stale = false;
+    thisThread.used = false;
+    thisThread.worker = new Worker(path.join(__dirname, "./render-worker.js"), {
+      env: SHARE_ENV,
+      workerData: { basePath: options.base },
+    });
+    thisThread.worker.once("online", () => {
+      thisThread.ready = true;
+    });
+  }
+
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
   const cpuCount = os.cpus().length;
 
@@ -33,11 +86,11 @@ async function start(options) {
   const useHttps = options.https;
   let elmMakeRunning = true;
 
-  const serve = serveStatic("public/", { index: false });
   fs.mkdirSync(".elm-pages/cache", { recursive: true });
   const serveCachedFiles = serveStatic(".elm-pages/cache", { index: false });
   const generatedFilesDirectory = "elm-stuff/elm-pages/generated-files";
   fs.mkdirSync(generatedFilesDirectory, { recursive: true });
+
   const serveStaticCode = serveStatic(
     path.join(__dirname, "../static-code"),
     {}
@@ -60,7 +113,17 @@ async function start(options) {
     process.exit(1);
   }
   let clientElmMakeProcess = compileElmForBrowser(options);
-  let pendingCliCompile = compileCliApp(options);
+  let pendingCliCompile = compileCliApp(
+    options,
+    ".elm-pages/Main.elm",
+
+    path.join(process.cwd(), "elm-stuff/elm-pages/", "elm.js"),
+
+    // "elm.js",
+    "elm-stuff/elm-pages/",
+    path.join("elm-stuff/elm-pages/", "elm.js")
+  );
+
   watchElmSourceDirs(true);
 
   async function setup() {
@@ -101,27 +164,98 @@ async function start(options) {
     );
 
     watcher.add(sourceDirs);
-    watcher.add("./public/*.css");
-    watcher.add("./port-data-source.js");
   }
 
-  async function compileCliApp(options) {
-    await spawnElmMake(
-      options,
-      ".elm-pages/TemplateModulesBeta.elm",
-      "elm.js",
-      "elm-stuff/elm-pages/"
-    );
-  }
+  const config = await resolveConfig();
+  const vite = await createViteServer(
+    merge_vite_configs(
+      {
+        server: {
+          middlewareMode: true,
+          base: options.base,
+          port: options.port,
+        },
+        appType: "custom",
+        configFile: false,
+        root: process.cwd(),
+        base: options.base,
+        /*
+        Using explicit optimizeDeps.include prevents the following Vite warning message:
+        (!) Could not auto-determine entry point from rollupOptions or html files and there are no explicit optimizeDeps.include patterns. Skipping dependency pre-bundling.
+         */
+        optimizeDeps: {
+          include: [],
+        },
+      },
+
+      config.vite
+    )
+  );
+
+  const ctx = await esbuild.context({
+    entryPoints: ["./custom-backend-task"],
+    platform: "node",
+    assetNames: "[name]-[hash]",
+    chunkNames: "chunks/[name]-[hash]",
+    outExtension: { ".js": ".mjs" },
+    format: "esm",
+    metafile: true,
+    bundle: true,
+    packages: "external",
+    logLevel: "silent",
+    outdir: ".elm-pages/compiled-ports",
+    entryNames: "[dir]/[name]-[hash]",
+
+    plugins: [
+      {
+        name: "example",
+        setup(build) {
+          build.onEnd(async (result) => {
+            try {
+              global.portsFilePath = Object.keys(result.metafile.outputs)[0];
+
+              clients.forEach((client) => {
+                client.response.write(`data: content.dat\n\n`);
+              });
+            } catch (e) {
+              const portBackendTaskFileFound =
+                globby.globbySync("./custom-backend-task.*").length > 0;
+              if (portBackendTaskFileFound) {
+                // don't present error if there are no files matching custom-backend-task
+                // if there are files matching custom-backend-task, warn the user in case something went wrong loading it
+                const messages = (
+                  await esbuild.formatMessages(result.errors, {
+                    kind: "error",
+                    color: true,
+                  })
+                ).join("\n");
+                global.portsFilePath = {
+                  __internalElmPagesError: messages,
+                };
+
+                clients.forEach((client) => {
+                  client.response.write(`data: content.dat\n\n`);
+                });
+              } else {
+                global.portsFilePath = null;
+              }
+            }
+          });
+        },
+      },
+    ],
+  });
+  await ctx.watch();
 
   const app = connect()
     .use(timeMiddleware())
-    .use(baseMiddleware(options.base))
-    .use(awaitElmMiddleware)
-    .use(serveCachedFiles)
     .use(serveStaticCode)
-    .use(serve)
+    .use(awaitElmMiddleware)
+    .use(baseMiddleware(options.base))
+    .use(serveCachedFiles)
+    .use(vite.middlewares)
     .use(processRequest);
+
   if (useHttps) {
     const ssl = await devcert.certificateFor("localhost");
     https.createServer(ssl, app).listen(port);
@@ -144,30 +278,19 @@ async function start(options) {
   watcher.on("all", async function (eventName, pathThatChanged) {
     if (pathThatChanged === "elm.json") {
       watchElmSourceDirs(false);
-    } else if (pathThatChanged.endsWith(".css")) {
-      clients.forEach((client) => {
-        client.response.write(`data: style.css\n\n`);
-      });
+    } else if (
+      pathThatChanged.startsWith("app/Route") &&
+      !pathThatChanged.endsWith(".elm")
+    ) {
+      // this happens when a folder is created in app/Route. Ignore this case.
     } else if (pathThatChanged.endsWith(".elm")) {
+      invalidatePool();
       if (elmMakeRunning) {
       } else {
         let codegenError = null;
         if (needToRerunCodegen(eventName, pathThatChanged)) {
           try {
             await codegen.generate(options.base);
-            clientElmMakeProcess = compileElmForBrowser(options);
-            pendingCliCompile = compileCliApp(options);
-
-            Promise.all([clientElmMakeProcess, pendingCliCompile])
-              .then(() => {
-                elmMakeRunning = false;
-              })
-              .catch(() => {
-                elmMakeRunning = false;
-              });
-            clients.forEach((client) => {
-              client.response.write(`data: elm.js\n\n`);
-            });
           } catch (error) {
             codegenError = error;
           }
@@ -182,7 +305,13 @@ async function start(options) {
           pendingCliCompile = Promise.reject(errorJson);
         } else {
           clientElmMakeProcess = compileElmForBrowser(options);
-          pendingCliCompile = compileCliApp(options);
+          pendingCliCompile = compileCliApp(
+            options,
+            ".elm-pages/Main.elm",
+            path.join(process.cwd(), "elm-stuff/elm-pages/", "elm.js"),
+            "elm-stuff/elm-pages/",
+            path.join("elm-stuff/elm-pages/", "elm.js")
+          );
         }
 
         Promise.all([clientElmMakeProcess, pendingCliCompile])
@@ -193,29 +322,29 @@ async function start(options) {
             elmMakeRunning = false;
           });
         clients.forEach((client) => {
-          client.response.write(`data: content.json\n\n`);
+          client.response.write(`data: content.dat\n\n`);
         });
       }
     } else {
       // TODO use similar logic in the workers? Or don't use cache at all?
       // const changedPathRelative = path.relative(process.cwd(), pathThatChanged);
       //
-      // Object.keys(global.staticHttpCache).forEach((dataSourceKey) => {
-      //   if (dataSourceKey.includes(`file://${changedPathRelative}`)) {
-      //     delete global.staticHttpCache[dataSourceKey];
+      // Object.keys(global.staticHttpCache).forEach((backendTaskKey) => {
+      //   if (backendTaskKey.includes(`file://${changedPathRelative}`)) {
+      //     delete global.staticHttpCache[backendTaskKey];
       //   } else if (
       //     (eventName === "add" ||
       //       eventName === "unlink" ||
       //       eventName === "change" ||
       //       eventName === "addDir" ||
       //       eventName === "unlinkDir") &&
-      //     dataSourceKey.startsWith("glob://")
+      //     backendTaskKey.startsWith("glob://")
       //   ) {
-      //     delete global.staticHttpCache[dataSourceKey];
+      //     delete global.staticHttpCache[backendTaskKey];
       //   }
       // });
       clients.forEach((client) => {
-        client.response.write(`data: content.json\n\n`);
+        client.response.write(`data: content.dat\n\n`);
       });
     }
   });
@@ -243,7 +372,7 @@ async function start(options) {
   function needToRerunCodegen(eventName, pathThatChanged) {
     return (
       (eventName === "add" || eventName === "unlink") &&
-      pathThatChanged.match(/src\/Page\/.*\.elm/)
+      pathThatChanged.match(/app\/Route\/.*\.elm/)
     );
   }
 
@@ -251,20 +380,24 @@ async function start(options) {
    * @param {string} pathname
    * @param {((value: any) => any) | null | undefined} onOk
    * @param {((reason: any) => PromiseLike<never>) | null | undefined} onErr
+   * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} serverRequest
    */
-  function runRenderThread(pathname, onOk, onErr) {
+  function runRenderThread(serverRequest, pathname, onOk, onErr) {
     let cleanUpThread = () => {};
     return new Promise(async (resolve, reject) => {
       const readyThread = await waitForThread();
-      console.log(`Rendering ${pathname}`, readyThread.worker.threadId);
       cleanUpThread = () => {
         cleanUp(readyThread);
       };
 
       readyThread.ready = false;
+      await pendingCliCompile;
+      readyThread.used = true;
       readyThread.worker.postMessage({
         mode: "dev-server",
         pathname,
+        serverRequest,
+        portsFilePath: global.portsFilePath,
       });
       readyThread.worker.on("message", (message) => {
         if (message.tag === "done") {
@@ -309,17 +442,18 @@ async function start(options) {
     } catch (error) {
       let isImplicitContractError = false;
       try {
-        isImplicitContractError = JSON.parse(error).errors.some(
-          (errorItem) => errorItem.name === "TemplateModulesBeta"
-        );
+        let jsonParsed = JSON.parse(error);
+        isImplicitContractError =
+          jsonParsed.errors &&
+          jsonParsed.errors.some((errorItem) => errorItem.name === "Main");
       } catch (unexpectedError) {
         console.log("Unexpected error", unexpectedError);
       }
       if (isImplicitContractError) {
         const reviewOutput = await runElmReview();
-        console.log(restoreColor(JSON.parse(reviewOutput)));
+        console.log(restoreColorSafe(reviewOutput));
 
-        if (req.url.includes("content.json")) {
+        if (req.url.includes("content.dat")) {
           res.writeHead(500, { "Content-Type": "application/json" });
           if (emptyReviewError(reviewOutput)) {
             res.end(error);
@@ -331,8 +465,8 @@ async function start(options) {
           res.end(errorHtml());
         }
       } else {
-        console.log(restoreColor(JSON.parse(error)));
-        if (req.url.includes("content.json")) {
+        console.log(restoreColorSafe(error));
+        if (req.url.includes("content.dat")) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(error);
         } else {
@@ -343,51 +477,129 @@ async function start(options) {
       return;
     }
 
-    await runRenderThread(
-      pathname,
-      function (renderResult) {
-        const is404 = renderResult.is404;
-        switch (renderResult.kind) {
-          case "json": {
-            res.writeHead(is404 ? 404 : 200, {
-              "Content-Type": "application/json",
-            });
-            res.end(renderResult.contentJson);
-            break;
-          }
-          case "html": {
-            res.writeHead(is404 ? 404 : 200, {
-              "Content-Type": "text/html",
-            });
-            res.end(renderResult.htmlString);
-            break;
-          }
-          case "api-response": {
-            let mimeType = serveStatic.mime.lookup(pathname || "text/html");
-            mimeType =
-              mimeType === "application/octet-stream" ? "text/html" : mimeType;
-            res.writeHead(renderResult.statusCode, {
-              "Content-Type": mimeType,
-            });
-            res.end(renderResult.body);
-            // TODO - if route is static, write file to api-route-cache/ directory
-            // TODO - get 404 or other status code from elm-pages renderer
-            break;
-          }
-        }
-      },
+    const requestTime = new Date();
+    /** @type {string | null} */
+    let body = null;
 
-      function (error) {
-        console.log(restoreColor(error));
-        if (req.url.includes("content.json")) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(error));
-        } else {
-          res.writeHead(500, { "Content-Type": "text/html" });
-          res.end(errorHtml());
-        }
+    req.on("data", function (data) {
+      if (!body) {
+        body = "";
       }
-    );
+      body += data;
+    });
+
+    req.on("end", async function () {
+      // TODO run render directly instead of in worker thread
+      await runRenderThread(
+        await reqToJson(req, body, requestTime),
+        pathname,
+        async function (renderResult) {
+          const is404 = renderResult.is404;
+          switch (renderResult.kind) {
+            case "bytes": {
+              res.writeHead(is404 ? 404 : renderResult.statusCode, {
+                "Content-Type": "application/octet-stream",
+                ...renderResult.headers,
+              });
+              res.end(Buffer.from(renderResult.contentDatPayload.buffer));
+              break;
+            }
+            case "json": {
+              // TODO is this used anymore? I Think it's a dead code path and can be deleted
+              res.writeHead(is404 ? 404 : renderResult.statusCode, {
+                "Content-Type": "application/json",
+                ...renderResult.headers,
+              });
+              // is contentJson used any more? I think it can safely be deleted
+              res.end(renderResult.contentJson);
+              break;
+            }
+            case "html": {
+              try {
+                const template = templateHtml(true, config.headTagsTemplate);
+                const processedTemplate = await vite.transformIndexHtml(
+                  req.originalUrl,
+                  template
+                );
+                const info = renderResult.htmlString;
+                const renderedHtml = processedTemplate
+                  .replace(
+                    /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
+                    `${info.headTags}
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
+                  )
+                  .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
+                  .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
+                  .replace(
+                    /<!-- ROOT -->\S*<html lang="en">/m,
+                    info.rootElement
+                  );
+                setHeaders(res, renderResult.headers);
+                res.writeHead(renderResult.statusCode, {
+                  "Content-Type": "text/html",
+                });
+                res.end(renderedHtml);
+              } catch (e) {
+                vite.ssrFixStacktrace(e);
+                next(e);
+              }
+              break;
+            }
+            case "api-response": {
+              if (renderResult.body.kind === "server-response") {
+                const serverResponse = renderResult.body;
+                setHeaders(res, serverResponse.headers);
+                res.writeHead(serverResponse.statusCode);
+                res.end(serverResponse.body);
+              } else if (renderResult.body.kind === "static-file") {
+                let mimeType = serveStatic.mime.lookup(pathname || "text/html");
+                mimeType =
+                  mimeType === "application/octet-stream"
+                    ? "text/html"
+                    : mimeType;
+                res.writeHead(renderResult.statusCode, {
+                  "Content-Type": mimeType,
+                });
+                res.end(renderResult.body.body);
+                // TODO - if route is static, write file to api-route-cache/ directory
+                // TODO - get 404 or other status code from elm-pages renderer
+              } else {
+                throw (
+                  "Unexpected api-response renderResult: " +
+                  JSON.stringify(renderResult, null, 2)
+                );
+              }
+              break;
+            }
+            default: {
+              console.dir(renderResult);
+              throw "Unexpected renderResult kind: " + renderResult.kind;
+            }
+          }
+        },
+
+        function (error) {
+          console.log(restoreColorSafe(error));
+          if (req.url.includes("content.dat")) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(error));
+          } else {
+            res.writeHead(500, { "Content-Type": "text/html" });
+            res.end(errorHtml());
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * @param { http.ServerResponse } res
+   * @param {{ [key: string]: string[]; }} headers
+   */
+  function setHeaders(res, headers) {
+    Object.keys(headers).forEach(function (key) {
+      res.setHeader(key, headers[key]);
+    });
   }
 
   /**
@@ -435,6 +647,7 @@ async function start(options) {
   }
 
   function runPendingWork() {
+    restartIdleWorkersIfStale();
     const readyThreads = pool.filter((thread) => thread.ready);
     readyThreads.forEach((readyThread) => {
       const startTask = threadReadyQueue.shift();
@@ -459,6 +672,7 @@ async function start(options) {
         workerData: { basePath },
       }),
       ready: false,
+      used: false,
     };
     newWorker.worker.once("online", () => {
       newWorker.ready = true;
@@ -512,21 +726,12 @@ function errorHtml() {
   return `<!DOCTYPE html>
   <html lang="en">
   <head>
-    <link rel="stylesheet" href="/style.css"></link>
-    <style>
-@keyframes lds-default {
-    0%, 20%, 80%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.5);
-    }
-  }
-    </style>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/dev-style.css">
     <link rel="preload" href="/index.js" as="script">
     <!--<link rel="preload" href="/elm.js" as="script">-->
     <script src="/hmr.js" type="text/javascript"></script>
-    <!--<script defer="defer" src="/elm.js" type="text/javascript"></script>-->
+    <script src="/elm.js" type="text/javascript"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script>
@@ -551,9 +756,9 @@ function errorHtml() {
 
 async function ensureRequiredExecutables() {
   try {
-    await which("elm");
+    await which("lamdera");
   } catch (error) {
-    throw "I couldn't find elm on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
+    throw "I couldn't find lamdera on the PATH. Please ensure it's installed, either globally, or locally. If it's installed locally, ensure you're running through an NPM script or with npx so the PATH is configured to include it.";
   }
   try {
     await which("elm-review");
@@ -562,4 +767,79 @@ async function ensureRequiredExecutables() {
   }
 }
 
-module.exports = { start };
+/**
+ * @param {http.IncomingMessage} req
+ * @param {string | null} body
+ * @param {Date} requestTime
+ */
+function reqToJson(req, body, requestTime) {
+  return new Promise((resolve, reject) => {
+    if (
+      req.method === "POST" &&
+      req.headers["content-type"] &&
+      req.headers["content-type"].includes("multipart/form-data") &&
+      body
+    ) {
+      try {
+        const bb = busboy({
+          headers: req.headers,
+        });
+        let fields = {};
+
+        bb.on("file", (fieldname, file, info) => {
+          const { filename, encoding, mimeType } = info;
+
+          file.on("data", (data) => {
+            fields[fieldname] = {
+              filename,
+              mimeType,
+              body: data.toString(),
+            };
+          });
+        });
+
+        bb.on("field", (fieldName, value) => {
+          fields[fieldName] = value;
+        });
+
+        // TODO skip parsing JSON and form data body if busboy doesn't run
+        bb.on("close", () => {
+          resolve(toJsonHelper(req, body, requestTime, fields));
+        });
+        bb.write(body);
+      } catch (error) {
+        resolve(toJsonHelper(req, body, requestTime, null));
+      }
+    } else {
+      resolve(toJsonHelper(req, body, requestTime, null));
+    }
+  });
+}
+
+/**
+ * @param {http.IncomingMessage} req
+ * @param {string | null} body
+ * @param {Date} requestTime
+ * @param {Object | null} multiPartFormData
+ * @returns {{method: string; rawUrl: string; body: string?; }}
+ */
+function toJsonHelper(req, body, requestTime, multiPartFormData) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  return {
+    method: req.method,
+    headers: req.headers || {},
+    rawUrl: url.toString(),
+    body: body,
+    requestTime: Math.round(requestTime.getTime()),
+    multiPartFormData: multiPartFormData,
+  };
+}
+// TODO capture repeat entries into a list of values
+// TODO have expect functions in Elm to handle expecting exactly one value, or getting first value only without failing if more
+function paramsToObject(entries) {
+  const result = {};
+  for (const [key, value] of entries) {
+    result[key] = value;
+  }
+  return result;
+}

@@ -1,24 +1,25 @@
 {
   "name": "elm-pages-example",
+  "type": "module",
   "version": "1.0.0",
   "description": "Example site built with elm-pages.",
   "scripts": {
     "start": "elm-pages dev",
+    "vercel-build": "(cd ../../ && npm install) && npm install && curl https://static.lamdera.com/bin/linux/lamdera -o ./node_modules/.bin/lamdera && chmod a+x ./node_modules/.bin/lamdera && npx --no-install elm-tooling install && npx elm-pages build",
     "start:https": "elm-pages dev --https",
-    "build": "elm-pages build"
+    "build": "elm-pages build --keep-cache"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
   "devDependencies": {
     "elm-oembed": "0.0.6",
-    "elm-optimize-level-2": "^0.2.3",
+    "elm-optimize-level-2": "^0.3.5",
     "elm-pages": "file:../..",
-    "elm-tooling": "^1.3.0",
-    "puppeteer": "^9.1.1"
+    "elm-review": "^2.10.2",
+    "elm-tooling": "^1.14.0",
+    "vite-plugin-webfont-dl": "^3.7.4"
   },
   "dependencies": {
-    "airtable": "^0.11.1",
-    "chrome-aws-lambda": "^9.1.0",
-    "puppeteer-core": "^9.1.1"
+    "airtable": "^0.11.6"
   }
 }

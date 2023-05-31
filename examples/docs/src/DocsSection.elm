@@ -1,8 +1,8 @@
-module DocsSection exposing (Section, all, codec)
+module DocsSection exposing (Section, all)
 
-import Codec exposing (Codec)
-import DataSource exposing (DataSource)
-import DataSource.Glob as Glob
+import BackendTask exposing (BackendTask)
+import BackendTask.Glob as Glob
+import BuildError exposing (BuildError)
 
 
 type alias Section =
@@ -12,17 +12,7 @@ type alias Section =
     }
 
 
-codec : Codec (List Section)
-codec =
-    Codec.object Section
-        |> Codec.field "filePath" .filePath Codec.string
-        |> Codec.field "order" .order Codec.int
-        |> Codec.field "slug" .slug Codec.string
-        |> Codec.buildObject
-        |> Codec.list
-
-
-all : DataSource (List Section)
+all : BackendTask error (List Section)
 all =
     Glob.succeed Section
         |> Glob.captureFilePath
@@ -31,8 +21,8 @@ all =
         |> Glob.match (Glob.literal "-")
         |> Glob.capture Glob.wildcard
         |> Glob.match (Glob.literal ".md")
-        |> Glob.toDataSource
-        |> DataSource.map
+        |> Glob.toBackendTask
+        |> BackendTask.map
             (\sections ->
                 sections
                     |> List.sortBy .order

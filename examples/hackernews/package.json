@@ -1,0 +1,24 @@
+{
+  "name": "elm-pages-example",
+  "version": "1.0.0",
+  "description": "Example site built with elm-pages.",
+  "scripts": {
+    "start": "elm-pages dev --debug",
+    "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
+    "build": "elm-pages build"
+  },
+  "author": "Dillon Kearns",
+  "license": "BSD-3",
+  "devDependencies": {
+    "@dillonkearns/elm-graphql": "^4.2.3",
+    "@netlify/functions": "^0.7.2",
+    "@tailwindcss/forms": "^0.3.4",
+    "busboy": "^1.1.0",
+    "elm-pages": "file:../..",
+    "elm-review": "^2.7.1",
+    "elm-tailwind-modules": "^0.3.2",
+    "elm-tooling": "^1.3.0",
+    "postcss": "^8.4.5",
+    "tailwindcss": "^2.2.19"
+  }
+}

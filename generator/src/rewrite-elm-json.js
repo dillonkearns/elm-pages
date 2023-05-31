@@ -1,19 +1,23 @@
-const fs = require("fs");
+import * as fs from "node:fs";
 
-module.exports = async function () {
+export async function rewriteElmJson(
+  sourceElmJsonPath,
+  targetElmJsonPath,
+  options
+) {
   var elmJson = JSON.parse(
-    (await fs.promises.readFile("./elm.json")).toString()
+    (await fs.promises.readFile(sourceElmJsonPath)).toString()
   );
 
   // write new elm.json
 
   await writeFileIfChanged(
-    "./elm-stuff/elm-pages/elm.json",
-    JSON.stringify(rewriteElmJson(elmJson))
+    targetElmJsonPath,
+    JSON.stringify(rewriteElmJsonHelp(elmJson, options))
   );
-};
+}
 
-function rewriteElmJson(elmJson) {
+function rewriteElmJsonHelp(elmJson, options) {
   // The internal generated file will be at:
   // ./elm-stuff/elm-pages/
   // So, we need to take the existing elmJson and
@@ -27,6 +31,12 @@ function rewriteElmJson(elmJson) {
   elmJson["source-directories"] = elmJson["source-directories"].map((item) => {
     return "../../" + item;
   });
+  if (options && options.executableName === "elm") {
+    // elm, don't add lamdera/codecs
+  } else {
+    // lamdera, add codecs dependency
+    elmJson["dependencies"]["direct"]["lamdera/codecs"] = "1.0.0";
+  }
   // 3. add our own secret My.elm module 😈
   elmJson["source-directories"].push(".elm-pages");
   return elmJson;

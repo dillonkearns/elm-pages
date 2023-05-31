@@ -4,22 +4,14 @@ import Css
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
 import Route
-import Serialize as S
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 
 
 type alias Item =
     { title : String, slug : String }
-
-
-serialize : S.Codec Never { title : String, slug : String }
-serialize =
-    S.record Item
-        |> S.field .title S.string
-        |> S.field .slug S.string
-        |> S.finishRecord
 
 
 view : ( Maybe Item, Maybe Item ) -> Html msg
@@ -93,12 +85,12 @@ linkStyle =
         , Tw.p_4
         , Tw.neg_m_4
         , Tw.no_underline |> Css.important
-        , Tw.text_gray_600 |> Css.important
+        , Tw.text_color Theme.gray_600 |> Css.important
         , Tw.flex
         , Tw.items_center
         , Tw.mr_2
         , Css.hover
-            [ Tw.text_blue_700 |> Css.important
+            [ Tw.text_color Theme.blue_700 |> Css.important
             ]
         ]
 

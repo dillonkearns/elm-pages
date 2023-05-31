@@ -1,0 +1,36 @@
+{
+  "name": "elm-pages-example",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Example site built with elm-pages.",
+  "scripts": {
+    "start": "elm-pages dev",
+    "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
+    "build": "elm-pages build --keep-cache",
+    "generate:tailwind": "elm-tailwind-modules --dir ./gen --tailwind-config tailwind.config.js",
+    "generate:graphql": "elm-graphql https://elm-pages-todos.hasura.app/v1/graphql --header \"x-hasura-admin-secret: $SMOOTHIES_HASURA_SECRET\" --output gen"
+  },
+  "author": "Dillon Kearns",
+  "license": "BSD-3",
+  "devDependencies": {
+    "@dillonkearns/elm-graphql": "^4.2.3",
+    "@netlify/functions": "^0.7.2",
+    "@tailwindcss/forms": "^0.3.4",
+    "busboy": "^1.1.0",
+    "elm-codegen": "^0.3.0",
+    "elm-pages": "file:../..",
+    "elm-review": "^2.7.0",
+    "elm-tailwind-modules": "^0.3.2",
+    "elm-tooling": "^1.3.0",
+    "postcss": "^8.4.5",
+    "prisma": "^4.9.0",
+    "tailwindcss": "^2.2.19"
+  },
+  "dependencies": {
+    "@prisma/client": "^4.9.0",
+    "bcryptjs": "^2.4.3"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  }
+}

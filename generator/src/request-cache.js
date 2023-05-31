@@ -1,120 +1,257 @@
-const path = require("path");
-const undici = require("undici");
-const fs = require("fs");
-const objectHash = require("object-hash");
-const kleur = require("kleur");
+import * as path from "path";
+import * as fsPromises from "fs/promises";
+import * as kleur from "kleur/colors";
+import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 
-/**
- * To cache HTTP requests on disk with quick lookup and insertion, we store the hashed request.
- * This uses SHA1 hashes. They are uni-directional hashes, which works for this use case. Most importantly,
- * they're unique enough and can be expressed in a case-insensitive way so it works on Windows filesystems.
- * And they are 40 hex characters, so the length won't be too long no matter what the request payload.
- * @param {Object} request
- */
-function requestToString(request) {
-  return objectHash(request);
-}
-/**
- * @param {Object} request
- */
-function fullPath(request) {
-  return path.join(
-    process.cwd(),
-    ".elm-pages",
-    "http-response-cache",
-    requestToString(request)
-  );
-}
+const defaultHttpCachePath = "./.elm-pages/http-cache";
+
+/** @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: JSON}} Response */
 
 /**
  * @param {string} mode
- * @param {{url: string; headers: {[x: string]: string}; method: string; body: Body } } rawRequest
- * @returns {Promise<string>}
+ * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body;}} rawRequest
+ * @param {Record<string, unknown>} portsFile
+ * @param {boolean} hasFsAccess
+ * @returns {Promise<Response>}
  */
-function lookupOrPerform(mode, rawRequest) {
+export function lookupOrPerform(
+  portsFile,
+  mode,
+  rawRequest,
+  hasFsAccess,
+  useCache
+) {
+  const makeFetchHappen = makeFetchHappenOriginal.defaults({
+    cache: mode === "build" ? "no-cache" : "default",
+  });
   return new Promise(async (resolve, reject) => {
     const request = toRequest(rawRequest);
-    const responsePath = fullPath(request);
 
-    if (fs.existsSync(responsePath)) {
-      // console.log("Skipping request, found file.");
-      resolve(responsePath);
-    } else {
-      let portDataSource = {};
-      let portDataSourceFound = false;
+    let portBackendTask = portsFile;
+    let portBackendTaskImportError = null;
+    try {
+      if (portsFile === undefined) {
+        throw "missing";
+      }
+    } catch (e) {
+      portBackendTaskImportError = e;
+    }
+
+    if (request.url === "elm-pages-internal://port") {
       try {
-        portDataSource = requireUncached(
-          mode,
-          path.join(process.cwd(), "port-data-source.js")
-        );
-        portDataSourceFound = true;
-      } catch (e) {}
+        const { input, portName } = rawRequest.body.args[0];
 
-      if (request.url.startsWith("port://")) {
-        try {
-          const portName = request.url.replace(/^port:\/\//, "");
-          // console.time(JSON.stringify(request.url));
-          if (!portDataSource[portName]) {
-            if (portDataSourceFound) {
-              throw `DataSource.Port.send "${portName}" is not defined. Be sure to export a function with that name from port-data-source.js`;
-            } else {
-              throw `DataSource.Port.send "${portName}" was called, but I couldn't find the port definitions file 'port-data-source.js'.`;
-            }
-          } else if (typeof portDataSource[portName] !== "function") {
-            throw `DataSource.Port.send "${portName}" is not a function. Be sure to export a function with that name from port-data-source.js`;
+        if (portBackendTask === null) {
+          resolve({
+            kind: "response-json",
+            value: jsonResponse({
+              "elm-pages-internal-error": "MissingCustomBackendTaskFile",
+            }),
+          });
+        } else if (portBackendTask && portBackendTask.__internalElmPagesError) {
+          resolve({
+            kind: "response-json",
+            value: jsonResponse({
+              "elm-pages-internal-error": "ErrorInCustomBackendTaskFile",
+              error: portBackendTask.__internalElmPagesError,
+            }),
+          });
+        } else if (portBackendTask && !portBackendTask[portName]) {
+          if (portBackendTaskImportError === null) {
+            resolve({
+              kind: "response-json",
+              value: jsonResponse({
+                "elm-pages-internal-error": "CustomBackendTaskNotDefined",
+              }),
+            });
+          } else if (portBackendTaskImportError === "missing") {
+            resolve({
+              kind: "response-json",
+              value: jsonResponse({
+                "elm-pages-internal-error": "MissingCustomBackendTaskFile",
+              }),
+            });
+          } else {
+            resolve({
+              kind: "response-json",
+              value: jsonResponse({
+                "elm-pages-internal-error": "ErrorInCustomBackendTaskFile",
+                error:
+                  (portBackendTaskImportError &&
+                    portBackendTaskImportError.stack) ||
+                  "",
+              }),
+            });
           }
-          await fs.promises.writeFile(
-            responsePath,
-            JSON.stringify(
-              await portDataSource[portName](rawRequest.body.args[0])
-            )
-          );
-          resolve(responsePath);
+        } else if (typeof portBackendTask[portName] !== "function") {
+          resolve({
+            kind: "response-json",
+            value: jsonResponse({
+              "elm-pages-internal-error": "ExportIsNotFunction",
+              error: typeof portBackendTask[portName],
+            }),
+          });
+        } else {
+          console.time(`BackendTask.Custom.run "${portName}"`);
+          try {
+            resolve({
+              kind: "response-json",
+              value: jsonResponse(
+                toElmJson(await portBackendTask[portName](input))
+              ),
+            });
+          } catch (portCallError) {
+            if (portCallError instanceof Error) {
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "NonJsonException",
+                  error: portCallError.message,
+                  stack: portCallError.stack || null,
+                }),
+              });
+            }
+            try {
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "CustomBackendTaskException",
+                  error: JSON.parse(JSON.stringify(portCallError, null, 0)),
+                }),
+              });
+            } catch (jsonDecodeError) {
+              resolve({
+                kind: "response-json",
+                value: jsonResponse({
+                  "elm-pages-internal-error": "NonJsonException",
+                  error: portCallError.toString(),
+                }),
+              });
+            }
+          }
+          console.timeEnd(`BackendTask.Custom.run "${portName}"`);
+        }
+      } catch (error) {
+        console.trace(error);
+        reject({
+          title: "BackendTask.Custom Error",
+          message: error.toString(),
+        });
+      }
+    } else {
+      try {
+        console.time(`fetch ${request.url}`);
+        const response = await safeFetch(makeFetchHappen, request.url, {
+          method: request.method,
+          body: request.body,
+          headers: {
+            "User-Agent": "request",
+            ...request.headers,
+          },
+          ...rawRequest.cacheOptions,
+        });
 
-          // console.timeEnd(JSON.stringify(requestToPerform.masked));
-        } catch (error) {
-          console.trace(error);
-          reject({
-            title: "DataSource.Port Error",
-            message: error.toString(),
+        console.timeEnd(`fetch ${request.url}`);
+        const expectString = request.headers["elm-pages-internal"];
+
+        let body;
+        let bodyKind;
+        if (expectString === "ExpectJson") {
+          try {
+            body = await response.buffer();
+            body = JSON.parse(body.toString("utf-8"));
+            bodyKind = "json";
+          } catch (error) {
+            body = body.toString("utf8");
+            bodyKind = "string";
+          }
+        } else if (
+          expectString === "ExpectBytes" ||
+          expectString === "ExpectBytesResponse"
+        ) {
+          body = await response.buffer();
+          try {
+            body = body.toString("base64");
+            bodyKind = "bytes";
+          } catch (e) {
+            body = body.toString("utf8");
+            bodyKind = "string";
+          }
+        } else if (expectString === "ExpectWhatever") {
+          bodyKind = "whatever";
+          body = null;
+        } else if (
+          expectString === "ExpectResponse" ||
+          expectString === "ExpectString"
+        ) {
+          bodyKind = "string";
+          body = await response.text();
+        } else {
+          throw `Unexpected expectString ${expectString}`;
+        }
+
+        resolve({
+          kind: "response-json",
+          value: {
+            headers: Object.fromEntries(response.headers.entries()),
+            statusCode: response.status,
+            body,
+            bodyKind,
+            url: response.url,
+            statusText: response.statusText,
+          },
+        });
+      } catch (error) {
+        if (error.code === "ECONNREFUSED") {
+          resolve({
+            kind: "response-json",
+            value: { "elm-pages-internal-error": "NetworkError" },
+          });
+        } else if (
+          error.code === "ETIMEDOUT" ||
+          error.code === "ERR_SOCKET_TIMEOUT"
+        ) {
+          resolve({
+            kind: "response-json",
+            value: { "elm-pages-internal-error": "Timeout" },
+          });
+        } else {
+          console.trace("elm-pages unhandled HTTP error", error);
+          resolve({
+            kind: "response-json",
+            value: { "elm-pages-internal-error": "NetworkError" },
           });
         }
-      } else {
-        undici
-          .stream(
-            request.url,
-            {
-              method: request.method,
-              body: request.body,
-              headers: {
-                "User-Agent": "request",
-                ...request.headers,
-              },
-            },
-            (response) => {
-              const writeStream = fs.createWriteStream(responsePath);
-              writeStream.on("finish", async () => {
-                resolve(responsePath);
-              });
-
-              return writeStream;
-            }
-          )
-          .catch((error) => {
-            let errorMessage = error.toString();
-            if (error.code === "ENOTFOUND") {
-              errorMessage = `Could not reach URL.`;
-            }
-            reject({
-              title: "DataSource.Http Error",
-              message: `${kleur
-                .yellow()
-                .underline(request.url)} ${errorMessage}`,
-            });
-          });
       }
     }
   });
+}
+
+/**
+ * @param {unknown} obj
+ * @returns {JSON}
+ */
+function toElmJson(obj) {
+  if (Array.isArray(obj)) {
+    return obj.map(toElmJson);
+  } else if (typeof obj === "object") {
+    for (let key in obj) {
+      const value = obj[key];
+      if (typeof value === "undefined") {
+        obj[key] = null;
+      } else if (value instanceof Date) {
+        obj[key] = {
+          "__elm-pages-normalized__": {
+            kind: "Date",
+            value: Math.floor(value.getTime()),
+          },
+        };
+        // } else if (value instanceof Object) {
+        //   toElmJson(obj);
+      }
+    }
+  }
+  return obj;
 }
 
 /**
@@ -131,7 +268,6 @@ function toRequest(elmRequest) {
     body: toBody(elmRequest.body),
   };
 }
-
 /**
  * @param {Body} body
  */
@@ -142,6 +278,9 @@ function toBody(body) {
     }
     case "StringBody": {
       return body.args[1];
+    }
+    case "BytesBody": {
+      return Buffer.from(body.args[1], "base64");
     }
     case "JsonBody": {
       return JSON.stringify(body.args[0]);
@@ -161,13 +300,16 @@ function toContentType(body) {
     case "StringBody": {
       return { "Content-Type": body.args[0] };
     }
+    case "BytesBody": {
+      return { "Content-Type": body.args[0] };
+    }
     case "JsonBody": {
       return { "Content-Type": "application/json" };
     }
   }
 }
 
-/** @typedef { { tag: 'EmptyBody'} | { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } } Body  */
+/** @typedef { { tag: 'EmptyBody'} |{ tag: 'BytesBody'; args: [string, string] } |  { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } } Body  */
 function requireUncached(mode, filePath) {
   if (mode === "dev-server") {
     // for the build command, we can skip clearing the cache because it won't change while the build is running
@@ -177,4 +319,37 @@ function requireUncached(mode, filePath) {
   return require(filePath);
 }
 
-module.exports = { lookupOrPerform };
+/**
+ * @param {unknown} json
+ */
+function jsonResponse(json) {
+  return { bodyKind: "json", body: json };
+}
+
+async function safeFetch(makeFetchHappen, url, options) {
+  const { cachePath, ...optionsWithoutCachePath } = options;
+  const cachePathWithDefault = cachePath || defaultHttpCachePath;
+  if (await canAccess(cachePathWithDefault)) {
+    return await makeFetchHappen(url, {
+      cachePath: cachePathWithDefault,
+      ...options,
+    });
+  } else {
+    return await makeFetchHappen(url, {
+      cache: "no-store",
+      ...optionsWithoutCachePath,
+    });
+  }
+}
+
+async function canAccess(filePath) {
+  try {
+    await fsPromises.access(
+      filePath,
+      fsPromises.constants.R_OK | fsPromises.constants.W_OK
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}

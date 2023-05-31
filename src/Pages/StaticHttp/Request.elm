@@ -1,8 +1,8 @@
 module Pages.StaticHttp.Request exposing (Request, codec, hash)
 
 import Codec exposing (Codec)
+import FNV1a
 import Json.Encode as Encode
-import Murmur3
 import Pages.Internal.StaticHttpBody as StaticHttpBody exposing (Body)
 
 
@@ -11,6 +11,7 @@ type alias Request =
     , method : String
     , headers : List ( String, String )
     , body : Body
+    , cacheOptions : Maybe Encode.Value
     }
 
 
@@ -23,7 +24,7 @@ hash requestDetails =
         , ( "body", StaticHttpBody.encode requestDetails.body )
         ]
         |> Encode.encode 0
-        |> Murmur3.hashString 0
+        |> FNV1a.hash
         |> String.fromInt
 
 
@@ -39,4 +40,5 @@ codec =
         |> Codec.field "method" .method Codec.string
         |> Codec.field "headers" .headers (Codec.list (Codec.tuple Codec.string Codec.string))
         |> Codec.field "body" .body StaticHttpBody.codec
+        |> Codec.nullableField "cacheOptions" .cacheOptions Codec.value
         |> Codec.buildObject

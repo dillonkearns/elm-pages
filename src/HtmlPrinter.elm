@@ -8,18 +8,22 @@ import Test.Html.Internal.ElmHtml.ToString exposing (defaultFormatOptions, nodeT
 import VirtualDom
 
 
-htmlToString : Html msg -> String
-htmlToString viewHtml =
+htmlToString : Maybe { indent : Int, newLines : Bool } -> Html msg -> String
+htmlToString formatOptions viewHtml =
     case
         Decode.decodeValue
             (decodeElmHtml (\_ _ -> VirtualDom.Normal (Decode.succeed ())))
             (asJsonView viewHtml)
     of
         Ok str ->
-            nodeToStringWithOptions defaultFormatOptions str
+            nodeToStringWithOptions
+                (formatOptions
+                    |> Maybe.withDefault defaultFormatOptions
+                )
+                str
 
         Err err ->
-            "Error: " ++ Decode.errorToString err
+            "Error pre-rendering HTML in HtmlPrinter.elm: " ++ Decode.errorToString err
 
 
 asJsonView : Html msg -> Decode.Value

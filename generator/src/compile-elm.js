@@ -1,50 +1,185 @@
-const spawnCallback = require("cross-spawn").spawn;
-const fs = require("fs");
-const path = require("path");
-const kleur = require("kleur");
-const debug = true;
-const { inject } = require("elm-hot");
-const pathToClientElm = path.join(
-  process.cwd(),
-  "elm-stuff/elm-pages/",
-  "browser-elm.js"
-);
+import { spawn as spawnCallback } from "cross-spawn";
+import * as fs from "fs";
+import * as fsHelpers from "./dir-helpers.js";
+import * as fsPromises from "fs/promises";
+import * as path from "path";
+import * as kleur from "kleur/colors";
+import { inject } from "elm-hot";
+import { fileURLToPath } from "url";
+import { rewriteElmJson } from "./rewrite-elm-json-help.js";
+import { ensureDirSync } from "./file-helpers.js";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-async function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
-  const fullOutputPath = cwd ? path.join(cwd, outputPath) : outputPath;
-  await runElm(options, elmEntrypointPath, outputPath, cwd);
-
-  await fs.promises.writeFile(
-    fullOutputPath,
-    (await fs.promises.readFile(fullOutputPath, "utf-8"))
-      .replace(
-        /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-        "return " + (debug ? "_Json_wrap(x)" : "x")
-      )
-      .replace(
-        "return ports ? { ports: ports } : {};",
-        `const die = function() {
-        managers = null
-        model = null
-        stepper = null
-        ports = null
-      }
-
-      return ports ? { ports: ports, die: die } : { die: die };`
-      )
+export async function compileElmForBrowser(options) {
+  // TODO do I need to make sure this is run from the right cwd? Before it was run outside of this function in the global scope, need to make sure that doesn't change semantics.
+  const pathToClientElm = path.join(
+    process.cwd(),
+    "elm-stuff/elm-pages/",
+    "browser-elm.js"
   );
-}
-
-async function compileElmForBrowser(options) {
+  const secretDir = path.join(process.cwd(), "elm-stuff/elm-pages/browser-elm");
+  await fsHelpers.tryMkdir(secretDir);
+  rewriteElmJson(process.cwd(), secretDir, function (elmJson) {
+    elmJson["source-directories"] = elmJson["source-directories"].map(
+      (item) => {
+        return "../../../" + item;
+      }
+    );
+    return elmJson;
+  });
   await runElm(
     options,
-    "./.elm-pages/TemplateModulesBeta.elm",
-    pathToClientElm
+    "../../../.elm-pages/Main.elm",
+    pathToClientElm,
+    secretDir
   );
   return fs.promises.writeFile(
     "./.elm-pages/cache/elm.js",
-    inject(await fs.promises.readFile(pathToClientElm, "utf-8"))
+    inject(await fs.promises.readFile(pathToClientElm, "utf-8")).replace(
+      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
+      "let appendSubmitter = (myFormData, event) => { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
+        (true
+          ? // TODO remove hardcoding
+            "_Json_wrap([...(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event)))])"
+          : "[...(new FormData(event.target))")
+    )
   );
+}
+
+export async function compileCliApp(
+  options,
+  elmEntrypointPath,
+  outputPath,
+  cwd,
+  readFrom
+) {
+  await compileElm(options, elmEntrypointPath, outputPath, cwd);
+
+  const elmFileContent = await fsPromises.readFile(readFrom, "utf-8");
+  // Source: https://github.com/elm-explorations/test/blob/d5eb84809de0f8bbf50303efd26889092c800609/src/Elm/Kernel/HtmlAsJson.js
+  const forceThunksSource = ` _HtmlAsJson_toJson(x)
+}
+
+              var virtualDomKernelConstants =
+  {
+    nodeTypeTagger: 4,
+    nodeTypeThunk: 5,
+    kids: "e",
+    refs: "l",
+    thunk: "m",
+    node: "k",
+    value: "a"
+  }
+
+function forceThunks(vNode) {
+  if (typeof vNode !== "undefined" && vNode.$ === "#2") {
+    // This is a tuple (the kids : List (String, Html) field of a Keyed node); recurse into the right side of the tuple
+    vNode.b = forceThunks(vNode.b);
+  }
+  if (typeof vNode !== 'undefined' && vNode.$ === virtualDomKernelConstants.nodeTypeThunk && !vNode[virtualDomKernelConstants.node]) {
+    // This is a lazy node; evaluate it
+    var args = vNode[virtualDomKernelConstants.thunk];
+    vNode[virtualDomKernelConstants.node] = vNode[virtualDomKernelConstants.thunk].apply(args);
+    // And then recurse into the evaluated node
+    vNode[virtualDomKernelConstants.node] = forceThunks(vNode[virtualDomKernelConstants.node]);
+  }
+  if (typeof vNode !== 'undefined' && vNode.$ === virtualDomKernelConstants.nodeTypeTagger) {
+    // This is an Html.map; recurse into the node it is wrapping
+    vNode[virtualDomKernelConstants.node] = forceThunks(vNode[virtualDomKernelConstants.node]);
+  }
+  if (typeof vNode !== 'undefined' && typeof vNode[virtualDomKernelConstants.kids] !== 'undefined') {
+    // This is something with children (either a node with kids : List Html, or keyed with kids : List (String, Html));
+    // recurse into the children
+    vNode[virtualDomKernelConstants.kids] = vNode[virtualDomKernelConstants.kids].map(forceThunks);
+  }
+  return vNode;
+}
+
+function _HtmlAsJson_toJson(html) {
+`;
+
+  await fsPromises.writeFile(
+    readFrom.replace(/\.js$/, ".cjs"),
+    elmFileContent
+      .replace(
+        /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
+        "return " +
+          // TODO should the logic for this be `if options.optimize`? Or does the first case not make sense at all?
+          (true
+            ? `${forceThunksSource}
+  return _Json_wrap(forceThunks(html));
+`
+            : `${forceThunksSource}
+return forceThunks(html);
+`)
+      )
+      .replace(/console\.log..App dying../, "")
+  );
+}
+
+/**
+ * @param {string} elmEntrypointPath
+ * @param {string} outputPath
+ * @param {string | undefined} cwd
+ */
+async function compileElm(options, elmEntrypointPath, outputPath, cwd) {
+  await spawnElmMake(options, elmEntrypointPath, outputPath, cwd);
+  if (!options.debug) {
+    // TODO maybe pass in a boolean argument for whether it's build or dev server, and only do eol2 for build
+    // await elmOptimizeLevel2(outputPath, cwd);
+  }
+}
+
+function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
+  return new Promise(async (resolve, reject) => {
+    const subprocess = spawnCallback(
+      `lamdera`,
+      [
+        "make",
+        elmEntrypointPath,
+        "--output",
+        outputPath,
+        // TODO use --optimize for prod build
+        ...(options.debug ? ["--debug"] : []),
+        "--report",
+        "json",
+      ],
+      {
+        // ignore stdout
+        // stdio: ["inherit", "ignore", "inherit"],
+
+        cwd: cwd,
+      }
+    );
+    if (await fsHelpers.fileExists(outputPath)) {
+      try {
+        await fsPromises.unlink(outputPath, {
+          force: true /* ignore errors if file doesn't exist */,
+        });
+      } catch (e) {}
+    }
+    let commandOutput = "";
+
+    subprocess.stderr.on("data", function (data) {
+      commandOutput += data;
+    });
+    subprocess.on("error", function () {
+      reject(commandOutput);
+    });
+
+    subprocess.on("close", async (code) => {
+      if (
+        code == 0 &&
+        (await fsHelpers.fileExists(outputPath)) &&
+        commandOutput === ""
+      ) {
+        resolve();
+      } else {
+        reject(commandOutput);
+      }
+    });
+  });
 }
 
 /**
@@ -57,13 +192,14 @@ async function runElm(options, elmEntrypointPath, outputPath, cwd) {
   const startTime = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
-      `elm`,
+      `lamdera`,
       [
         "make",
         elmEntrypointPath,
         "--output",
         outputPath,
         ...(options.debug ? ["--debug"] : []),
+        ...(options.optimize ? ["--optimize"] : []),
         "--report",
         "json",
       ],
@@ -98,7 +234,7 @@ async function runElm(options, elmEntrypointPath, outputPath, cwd) {
 /**
  * @param {string} [ cwd ]
  */
-async function runElmReview(cwd) {
+export async function runElmReview(cwd) {
   const startTime = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawnCallback(
@@ -137,11 +273,39 @@ async function runElmReview(cwd) {
   });
 }
 
-module.exports = {
-  spawnElmMake,
-  compileElmForBrowser,
-  runElmReview,
-};
+function elmOptimizeLevel2(outputPath, cwd) {
+  return new Promise((resolve, reject) => {
+    const optimizedOutputPath = outputPath + ".opt";
+    const subprocess = spawnCallback(
+      `elm-optimize-level-2`,
+      [outputPath, "--output", optimizedOutputPath],
+      {
+        // ignore stdout
+        // stdio: ["inherit", "ignore", "inherit"],
+
+        cwd: cwd,
+      }
+    );
+    let commandOutput = "";
+
+    subprocess.stderr.on("data", function (data) {
+      commandOutput += data;
+    });
+
+    subprocess.on("close", async (code) => {
+      if (
+        code === 0 &&
+        commandOutput === "" &&
+        (await fsHelpers.fileExists(optimizedOutputPath))
+      ) {
+        await fs.promises.copyFile(optimizedOutputPath, outputPath);
+        resolve();
+      } else {
+        reject(commandOutput);
+      }
+    });
+  });
+}
 
 /**
  * @param {number} start

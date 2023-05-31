@@ -1,7 +1,7 @@
 /**
  * @param {string[]} name
  */
-function routeParams(name) {
+export function routeParams(name) {
   return name
     .map((section) => {
       const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)__?$/);
@@ -17,7 +17,7 @@ function routeParams(name) {
  * @param {string[]} name
  * @returns {Segment[]}
  */
-function parseRouteParams(name) {
+export function parseRouteParams(name) {
   return name.flatMap((section) => {
     const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
     const maybeParam = (routeParamMatch && routeParamMatch[1]) || "TODO";
@@ -68,7 +68,7 @@ function parseRouteParams(name) {
  * @param {string[]} name
  * @returns {( Segment | {kind: 'static'; name: string})[]}
  */
-function parseRouteParamsWithStatic(name) {
+export function parseRouteParamsWithStatic(name) {
   return name.flatMap((section) => {
     const routeParamMatch = section.match(/([A-Z][A-Za-z0-9]*)(_?_?)$/);
     const maybeParam = (routeParamMatch && routeParamMatch[1]) || "TODO";
@@ -123,7 +123,7 @@ function parseRouteParamsWithStatic(name) {
  * @param {string[]} name
  * @returns {string}
  */
-function routeVariantDefinition(name) {
+export function routeVariantDefinition(name) {
   const newLocal = parseRouteParams(name);
   if (newLocal.length == 0) {
     return routeVariant(name);
@@ -151,7 +151,7 @@ function routeVariantDefinition(name) {
  * @param {string[]} name
  * @returns {string}
  */
-function toPathPattern(name) {
+export function toPathPattern(name) {
   return (
     "/" +
     parseRouteParamsWithStatic(name)
@@ -177,12 +177,68 @@ function toPathPattern(name) {
       .join("/")
   );
 }
+/**
+ * @param {string[]} name
+ * @returns {string[]}
+ */
+export function toPathPatterns(name) {
+  const segments = parseRouteParamsWithStatic(name);
+
+  const lastSegment = segments[segments.length - 1];
+  const allButLast = segments.slice(0, segments.length - 1);
+  if (lastSegment && lastSegment.kind === "optional") {
+    return [
+      joinPath(newHelper(allButLast)),
+      joinPath(newHelper(allButLast).concat(`:${lastSegment.name}`)),
+    ];
+  } else {
+    return [joinPath(newHelper(segments))];
+  }
+}
+
+/**
+ * @param {string[]} segments
+ */
+export function joinPath(segments) {
+  const joined = segments.join("/");
+  if (joined.startsWith("/")) {
+    return joined;
+  } else {
+    return "/" + joined;
+  }
+}
+
+/**
+ * @return {string[]}
+ */
+export function newHelper(segments) {
+  return segments.map((param) => {
+    switch (param.kind) {
+      case "static": {
+        return camelToKebab(param.name);
+      }
+      case "dynamic": {
+        return `:${param.name}`;
+      }
+      case "optional": {
+        return `[:${param.name}]`;
+      }
+      case "required-splat": {
+        return `*`;
+      }
+      case "optional-splat": {
+        return `*`;
+      }
+    }
+  });
+  // .join("/");
+}
 
 /**
  * @param {string[]} name
  * @returns {string}
  */
-function toElmPathPattern(name) {
+export function toElmPathPattern(name) {
   const parsedSegments = parseRouteParamsWithStatic(name);
 
   const foundEndings = parsedSegments.flatMap((segment) => {
@@ -211,7 +267,11 @@ function toElmPathPattern(name) {
     .flatMap((param) => {
       switch (param.kind) {
         case "static": {
-          return [`Pages.Internal.RoutePattern.StaticSegment "${camelToKebab(param.name)}"`];
+          return [
+            `Pages.Internal.RoutePattern.StaticSegment "${camelToKebab(
+              param.name
+            )}"`,
+          ];
         }
         case "dynamic": {
           return [`Pages.Internal.RoutePattern.DynamicSegment "${param.name}"`];
@@ -237,14 +297,14 @@ function toElmPathPattern(name) {
  * @param {string} input
  * @returns {string}
  */
-function camelToKebab(input) {
+export function camelToKebab(input) {
   return input.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
 /**
  * @param {string[]} name
  */
-function paramsRecord(name) {
+export function paramsRecord(name) {
   return `{ ${parseRouteParams(name).map((param) => {
     switch (param.kind) {
       case "dynamic": {
@@ -266,7 +326,7 @@ function paramsRecord(name) {
 /**
  * @param {string[]} name
  */
-function routeVariant(name) {
+export function routeVariant(name) {
   return `${name.join("__")}`;
 }
 
@@ -274,43 +334,29 @@ function routeVariant(name) {
  * @param {string[]} name
  * @param {string} paramsName
  */
-function destructureRoute(name, paramsName) {
+export function destructureRoute(name, paramsName) {
   return emptyRouteParams(name)
     ? `Route.${routeVariant(name)}`
     : `(Route.${routeVariant(name)} ${paramsName})`;
 }
 
-function referenceRouteParams(name, paramsName) {
+export function referenceRouteParams(name, paramsName) {
   return emptyRouteParams(name) ? `{}` : paramsName;
 }
 /**
  * @param {string[]} name
  */
-function emptyRouteParams(name) {
+export function emptyRouteParams(name) {
   return parseRouteParams(name).length === 0;
 }
 
 /**
  * @param {string} name
  */
-function toFieldName(name) {
+export function toFieldName(name) {
   if (name === "SPLAT") {
     return "splat";
   } else {
     return name.charAt(0).toLowerCase() + name.slice(1);
   }
 }
-
-module.exports = {
-  routeParams,
-  routeVariantDefinition,
-  routeVariant,
-  toFieldName,
-  paramsRecord,
-  toPathPattern,
-  parseRouteParams,
-  parseRouteParamsWithStatic,
-  toElmPathPattern,
-  destructureRoute,
-  referenceRouteParams,
-};

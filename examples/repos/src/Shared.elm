@@ -1,7 +1,7 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import Browser.Navigation
-import DataSource
+import BackendTask
 import Html exposing (Html)
 import Pages.Flags
 import Path exposing (Path)
@@ -77,9 +77,9 @@ subscriptions _ _ =
     Sub.none
 
 
-data : DataSource.DataSource Data
+data : BackendTask.BackendTask Data
 data =
-    DataSource.succeed ()
+    BackendTask.succeed ()
 
 
 view :

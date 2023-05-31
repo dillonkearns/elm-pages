@@ -1,9 +1,9 @@
-module Shiki exposing (Highlighted, decoder, view)
+module Shiki exposing (Highlighted, ShikiToken, decoder, view)
 
 import Html exposing (Html)
 import Html.Attributes as Attr exposing (class)
-import Html.Lazy
-import OptimizedDecoder as Decode exposing (Decoder)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Extra
 
 
 type alias ShikiToken =
@@ -32,8 +32,8 @@ shikiTokenDecoder : Decode.Decoder ShikiToken
 shikiTokenDecoder =
     Decode.map3 ShikiToken
         (Decode.field "content" Decode.string)
-        (Decode.optionalField "color" Decode.string)
-        (Decode.optionalField "fontStyle" fontStyleDecoder |> Decode.map (Maybe.andThen identity))
+        (Json.Decode.Extra.optionalField "color" Decode.string)
+        (Json.Decode.Extra.optionalField "fontStyle" fontStyleDecoder |> Decode.map (Maybe.andThen identity))
 
 
 fontStyleDecoder : Decoder (Maybe ( String, String ))

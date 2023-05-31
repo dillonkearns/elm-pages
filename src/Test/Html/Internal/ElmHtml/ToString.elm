@@ -11,7 +11,7 @@ module Test.Html.Internal.ElmHtml.ToString exposing
 
 -}
 
-import Dict exposing (Dict)
+import Dict
 import String
 import Test.Html.Internal.ElmHtml.InternalTypes exposing (..)
 
@@ -130,17 +130,16 @@ nodeRecordToString options { tag, children, facts } =
                 |> String.join " "
                 |> Just
 
-        boolToString b =
-            case b of
-                True ->
-                    "True"
-
-                False ->
-                    "False"
-
         boolAttributes =
             Dict.toList facts.boolAttributes
-                |> List.map (\( k, v ) -> k ++ "=" ++ (String.toLower <| boolToString v))
+                |> List.filterMap
+                    (\( k, v ) ->
+                        if v then
+                            Just k
+
+                        else
+                            Nothing
+                    )
                 |> String.join " "
                 |> Just
     in

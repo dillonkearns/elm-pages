@@ -10,9 +10,9 @@ exports.handler =
     global.staticHttpCache = {};
 
     const compiledElmPath = path.join(__dirname, "elm-pages-cli.js");
-    const renderer = require("../../../../generator/src/render");
+    const { render } = require("../../../../generator/src/render");
     try {
-      const renderResult = await renderer(
+      const renderResult = await render(
         compiledElmPath,
         event.path,
         event,

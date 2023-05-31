@@ -1,7 +1,8 @@
 module Site exposing (config)
 
+import BackendTask exposing (BackendTask)
 import Cloudinary
-import DataSource
+import FatalError exposing (FatalError)
 import Head
 import MimeType
 import Pages.Manifest as Manifest
@@ -10,11 +11,9 @@ import Route exposing (Route)
 import SiteConfig exposing (SiteConfig)
 
 
-config : SiteConfig Data
+config : SiteConfig
 config =
-    { data = data
-    , canonicalUrl = canonicalUrl
-    , manifest = manifest
+    { canonicalUrl = canonicalUrl
     , head = head
     }
 
@@ -24,21 +23,27 @@ type alias Data =
     }
 
 
-data : DataSource.DataSource Data
+data : BackendTask.BackendTask FatalError Data
 data =
-    DataSource.map Data
+    BackendTask.map Data
         --(StaticFile.request "site-name.txt" StaticFile.body)
-        (DataSource.succeed "site-name")
+        (BackendTask.succeed "site-name")
 
 
-head : Data -> List Head.Tag
-head static =
-    [ Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
+head : BackendTask FatalError (List Head.Tag)
+head =
+    [ Head.metaName "viewport" (Head.raw "width=device-width,initial-scale=1")
+    , Head.metaName "mobile-web-app-capable" (Head.raw "yes")
+    , Head.metaName "theme-color" (Head.raw "#ffffff")
+    , Head.metaName "apple-mobile-web-app-capable" (Head.raw "yes")
+    , Head.metaName "apple-mobile-web-app-status-bar-style" (Head.raw "black-translucent")
+    , Head.icon [ ( 32, 32 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 32)
     , Head.icon [ ( 16, 16 ) ] MimeType.Png (cloudinaryIcon MimeType.Png 16)
     , Head.appleTouchIcon (Just 180) (cloudinaryIcon MimeType.Png 180)
     , Head.appleTouchIcon (Just 192) (cloudinaryIcon MimeType.Png 192)
     , Head.sitemapLink "/sitemap.xml"
     ]
+        |> BackendTask.succeed
 
 
 canonicalUrl : String

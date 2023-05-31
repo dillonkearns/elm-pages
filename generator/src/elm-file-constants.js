@@ -1,7 +1,9 @@
-function elmPagesUiFile() {
+export function elmPagesUiFile() {
   return `module Pages exposing (builtAt)
 
 import Time
+import Json.Decode
+import Json.Encode
 
 
 builtAt : Time.Posix
@@ -10,7 +12,6 @@ builtAt =
 `;
 }
 
-function elmPagesCliFile() {
+export function elmPagesCliFile() {
   return elmPagesUiFile();
 }
-module.exports = { elmPagesUiFile, elmPagesCliFile };

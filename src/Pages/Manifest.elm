@@ -2,15 +2,17 @@ module Pages.Manifest exposing
     ( Config, Icon
     , init
     , withBackgroundColor, withCategories, withDisplayMode, withIarcRatingId, withLang, withOrientation, withShortName, withThemeColor
+    , withField
     , DisplayMode(..), Orientation(..), IconPurpose(..)
+    , generator
     , toJson
     )
 
 {-| Represents the configuration of a
 [web manifest file](https://developer.mozilla.org/en-US/docs/Web/Manifest).
 
-You pass your `Pages.Manifest.Config` record into the `Pages.application` function
-(from your generated `Pages.elm` file).
+You pass your `Pages.Manifest.Config` record into the `Pages.Manifest.generator`
+in your `app/Api.elm` module to define a file generator that will build a `manifest.json` file as part of your build.
 
     import Pages.Manifest as Manifest
     import Pages.Manifest.Category
@@ -40,9 +42,19 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 @docs withBackgroundColor, withCategories, withDisplayMode, withIarcRatingId, withLang, withOrientation, withShortName, withThemeColor
 
 
+## Arbitrary Fields Escape Hatch
+
+@docs withField
+
+
 ## Config options
 
 @docs DisplayMode, Orientation, IconPurpose
+
+
+## Generating a Manifest.json
+
+@docs generator
 
 
 ## Functions for use by the generated code (`Pages.elm`)
@@ -51,8 +63,13 @@ You pass your `Pages.Manifest.Config` record into the `Pages.application` functi
 
 -}
 
+import ApiRoute
+import BackendTask exposing (BackendTask)
 import Color exposing (Color)
 import Color.Convert
+import Dict exposing (Dict)
+import FatalError exposing (FatalError)
+import Head
 import Json.Encode as Encode
 import LanguageTag exposing (LanguageTag, emptySubtags)
 import LanguageTag.Country as Country
@@ -60,7 +77,7 @@ import LanguageTag.Language
 import MimeType
 import Pages.Manifest.Category as Category exposing (Category)
 import Pages.Url
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 
 
 
@@ -97,7 +114,7 @@ type Orientation
 init :
     { description : String
     , name : String
-    , startUrl : Path
+    , startUrl : UrlPath
     , icons : List Icon
     }
     -> Config
@@ -114,6 +131,7 @@ init options =
     , shortName = Nothing
     , icons = options.icons
     , lang = usEnglish
+    , otherFields = Dict.empty
     }
 
 
@@ -182,6 +200,17 @@ withLang languageTag config =
     { config | lang = languageTag }
 
 
+{-| Escape hatch for specifying fields that aren't exposed through this module otherwise. The possible supported properties
+in a manifest file can change over time, so see [MDN manifest.json docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json)
+for a full listing of the current supported properties.
+-}
+withField : String -> Encode.Value -> Config -> Config
+withField name value config =
+    { config
+        | otherFields = config.otherFields |> Dict.insert name value
+    }
+
+
 orientationToString : Orientation -> String
 orientationToString orientation =
     case orientation of
@@ -224,12 +253,13 @@ type alias Config =
     , themeColor : Maybe Color
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/start_url
-    , startUrl : Path
+    , startUrl : UrlPath
 
     -- https://developer.mozilla.org/en-US/docs/Web/Manifest/short_name
     , shortName : Maybe String
     , icons : List Icon
     , lang : LanguageTag
+    , otherFields : Dict String Encode.Value
     }
 
 
@@ -313,6 +343,39 @@ nonEmptyList list =
         Just list
 
 
+{-| A generator for `Api.elm` to include a manifest.json. The String argument is the canonical URL of the site.
+
+    module Api exposing (routes)
+
+    import ApiRoute
+    import Pages.Manifest
+
+    routes :
+        BackendTask FatalError (List Route)
+        -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
+        -> List (ApiRoute.ApiRoute ApiRoute.Response)
+    routes getStaticRoutes htmlToString =
+        [ Pages.Manifest.generator
+            Site.canonicalUrl
+            Manifest.config
+        ]
+
+-}
+generator : String -> BackendTask FatalError Config -> ApiRoute.ApiRoute ApiRoute.Response
+generator canonicalSiteUrl config =
+    ApiRoute.succeed
+        (config
+            |> BackendTask.map (toJson canonicalSiteUrl >> Encode.encode 0)
+        )
+        |> ApiRoute.literal "manifest.json"
+        |> ApiRoute.single
+        |> ApiRoute.withGlobalHeadTags
+            (BackendTask.succeed
+                [ Head.manifestLink "/manifest.json"
+                ]
+            )
+
+
 {-| Feel free to use this, but in 99% of cases you won't need it. The generated
 code will run this for you to generate your `manifest.json` file automatically!
 -}
@@ -383,7 +446,7 @@ toJson canonicalSiteUrl config =
             |> Maybe.map Encode.string
       )
     , ( "start_url"
-      , Path.toAbsolute config.startUrl
+      , UrlPath.toAbsolute config.startUrl
             |> Encode.string
             |> Just
       )
@@ -394,6 +457,10 @@ toJson canonicalSiteUrl config =
       , Encode.string "/" |> Just
       )
     ]
+        ++ (config.otherFields
+                |> Dict.toList
+                |> List.map (Tuple.mapSecond Just)
+           )
         |> encodeMaybeObject
 
 

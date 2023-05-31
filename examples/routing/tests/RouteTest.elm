@@ -1,6 +1,7 @@
 module RouteTest exposing (..)
 
 import Expect
+import FatalError
 import Fuzz exposing (Fuzzer)
 import Route exposing (Route)
 import Test exposing (Test, describe, fuzz, test)

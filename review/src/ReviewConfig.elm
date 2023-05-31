@@ -11,6 +11,10 @@ when inside the directory containing this file.
 
 -}
 
+import Docs.NoMissing exposing (exposedModules, onlyExposed)
+import Docs.ReviewAtDocs
+import Docs.ReviewLinksAndSections
+import Docs.UpToDateReadmeLinks
 import NoDebug.Log
 import NoDebug.TodoOrToString
 import NoExposingEverything
@@ -20,6 +24,8 @@ import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
 import NoMissingTypeExpose
 import NoModuleOnExposedNames
+import NoPrematureLetComputation
+import NoPrimitiveTypeAlias
 import NoUnmatchedUnit
 import NoUnoptimizedRecursion
 import NoUnused.CustomTypeConstructorArgs
@@ -35,9 +41,18 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    ([ NoExposingEverything.rule
-
-     --NoImportingEverything.rule []
+    ([ --Docs.NoMissing.rule
+       --    { document = onlyExposed
+       --    , from = exposedModules
+       --    }
+       Docs.ReviewLinksAndSections.rule
+     , Docs.ReviewAtDocs.rule
+     , Docs.UpToDateReadmeLinks.rule
+     , NoPrimitiveTypeAlias.rule
+     , NoExposingEverything.rule
+     , NoPrematureLetComputation.rule
+     , NoImportingEverything.rule []
+        |> ignoreInTest
      , NoInconsistentAliases.config
         [ ( "Html.Attributes", "Attr" )
 
@@ -48,21 +63,24 @@ config =
      , NoModuleOnExposedNames.rule
         |> Rule.ignoreErrorsForFiles
             [ -- Glob module ignored because of https://github.com/sparksp/elm-review-imports/issues/3#issuecomment-854262659
-              "src/DataSource/Glob.elm"
+              "src/BackendTask/Glob.elm"
             , "src/ApiRoute.elm"
             ]
      , NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optOutWithComment "known-unoptimized-recursion")
         |> ignoreInTest
      , NoDebug.Log.rule
-        |> ignoreInTest
      , NoDebug.TodoOrToString.rule
         |> ignoreInTest
      , NoMissingTypeAnnotation.rule
      , NoMissingTypeAnnotationInLetIn.rule
+        |> Rule.ignoreErrorsForFiles
+            [ "tests/FormTests.elm"
+            ]
      , NoMissingTypeExpose.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Seo.elm"
-            , "src/DataSource/Glob.elm" -- incorrect result,
+            , "src/BackendTask/Glob.elm" -- incorrect result,
+            , "src/Pages/Internal/Platform/GeneratorApplication.elm"
             , "src/Pages/Internal/Platform/Effect.elm"
             , "src/Pages/Internal/Platform/Cli.elm"
             , "src/Pages/Internal/Platform.elm"
@@ -77,15 +95,13 @@ config =
                     (\rule ->
                         rule
                             |> Rule.ignoreErrorsForFiles
-                                [ "src/Pages/Internal/Platform/Effect.elm"
-                                , "src/Pages/Internal/Platform.elm"
-                                , "src/Pages/Internal/Platform/Cli.elm"
-                                , "src/SecretsDict.elm"
-                                , "src/StructuredData.elm"
-                                , "src/Router.elm" -- used in generated code
-                                , "src/RoutePattern.elm" -- used in generated code
+                                [ "src/StructuredData.elm"
+                                , "src/Pages/Internal/RoutePattern.elm" -- used in generated code
                                 , "src/Pages/Http.elm" -- reports incorrect unused custom type constructor
-                                , "src/DataSource/ServerRequest.elm" -- temporarily removed from exposed modules for alpha serverless
+                                , "src/Internal/ApiRoute.elm"
+                                , "src/Pages/StaticHttpRequest.elm"
+                                , "src/Pages/Internal/Platform/ToJsPayload.elm"
+                                , "src/Pages/Internal/Platform/Effect.elm"
                                 ]
                     )
            )
@@ -96,7 +112,26 @@ config =
                     |> Rule.ignoreErrorsForDirectories
                         [ "src/ElmHtml"
                         , "src/Test"
+                        , ".elm-pages"
+
+                        -- elm-program-test vendored
+                        , "src/Vendored"
+                        , "src/SimulatedEffect"
+                        , "src/Result"
+                        , "src/Query"
+                        , "src/ProgramTest"
                         ]
+                    |> Rule.ignoreErrorsForFiles
+                        [ -- elm-program-test vendored
+                          "src/PairingHeap.elm"
+                        , "src/MultiDict.elm"
+                        , "src/TestState.elm"
+                        , "src/Url/Extra.elm"
+                        , "src/ProgramTest.elm"
+                        , "src/TestResult.elm"
+                        , "src/Parser/Extra/String.elm"
+                        ]
+                    |> Rule.ignoreErrorsForFiles [ "src/Stub.elm" ]
             )
 
 
@@ -106,7 +141,6 @@ noUnusedRules =
         |> ignoreInTest
         |> Rule.ignoreErrorsForFiles
             [ "src/Head/Twitter.elm" -- keeping unused for future use for spec API
-            , "src/RoutePattern.elm"
             ]
     , NoUnused.CustomTypeConstructorArgs.rule
         |> ignoreInTest
@@ -127,11 +161,12 @@ noUnusedRules =
     , NoUnused.Parameters.rule
         |> Rule.ignoreErrorsForFiles
             [ "src/HtmlPrinter.elm" -- magic argument in the HtmlPrinter
+            , "src/FormDecoder.elm" -- magic argument that is tweaked in the JS output
             ]
     , NoUnused.Patterns.rule
     , NoUnused.Variables.rule
         |> Rule.ignoreErrorsForFiles
-            [ "src/DataSource/Glob.elm"
+            [ "src/BackendTask/Glob.elm"
             ]
     ]
 

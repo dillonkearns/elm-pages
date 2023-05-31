@@ -1,11 +1,12 @@
 {
   "name": "elm-pages-example",
+  "type": "module",
   "version": "1.0.0",
   "description": "Example site built with elm-pages.",
   "scripts": {
     "start": "elm-pages dev",
     "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
-    "build": "elm-pages build"
+    "build": "elm-pages build --debug --keep-cache"
   },
   "author": "Dillon Kearns",
   "license": "BSD-3",
@@ -13,6 +14,7 @@
     "elm-oembed": "0.0.6",
     "elm-pages": "file:../..",
     "elm-tooling": "^1.3.0",
+    "esbuild": "^0.17.18",
     "http-server": "^0.11.1"
   }
 }

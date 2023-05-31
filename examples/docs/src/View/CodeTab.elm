@@ -4,16 +4,17 @@ import Css
 import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr exposing (..)
 import SyntaxHighlight
+import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 
 
-view : ( String, String ) -> Html Never
+view : ( String, String ) -> Html msg
 view tab =
     div
         [ css
             [ Tw.rounded_xl
             , Tw.shadow_2xl
-            , Tw.bg_black
+            , Tw.bg_color Theme.black
             , Tw.rounded_lg
             , Tw.shadow_lg
             ]
@@ -42,8 +43,8 @@ iconArea =
                     , Tw.h_3
                     , Tw.border_2
                     , Tw.rounded_full
-                    , Tw.border_red_500
-                    , Tw.bg_red_500
+                    , Tw.border_color Theme.red_500
+                    , Tw.bg_color Theme.red_500
                     ]
                 ]
                 []
@@ -53,8 +54,8 @@ iconArea =
                     , Tw.h_3
                     , Tw.border_2
                     , Tw.rounded_full
-                    , Tw.border_yellow_400
-                    , Tw.bg_yellow_400
+                    , Tw.border_color Theme.yellow_400
+                    , Tw.bg_color Theme.yellow_400
                     ]
                 ]
                 []
@@ -64,8 +65,8 @@ iconArea =
                     , Tw.h_3
                     , Tw.border_2
                     , Tw.rounded_full
-                    , Tw.border_green_400
-                    , Tw.bg_green_400
+                    , Tw.border_color Theme.green_400
+                    , Tw.bg_color Theme.green_400
                     ]
                 ]
                 []
@@ -82,13 +83,13 @@ elmCodeBlock elmCode =
             (Html.pre [] [ Html.code [] [ Html.text elmCode ] ])
 
 
-codeTabs : ( String, String ) -> Html Never
+codeTabs : ( String, String ) -> Html msg
 codeTabs fileName =
-    ul [ css [ Tw.flex, Tw.text_sm, Tw.text_blue_200 ], Attr.style "transform" "translateY(0%) translateZ(0px);" ]
+    ul [ css [ Tw.flex, Tw.text_sm, Tw.text_color Theme.blue_200 ], Attr.style "transform" "translateY(0%) translateZ(0px);" ]
         [ codeTab 0 True fileName ]
 
 
-codeTab : Int -> Bool -> ( String, String ) -> Html Never
+codeTab : Int -> Bool -> ( String, String ) -> Html msg
 codeTab index isCurrent ( fileName, fileContents ) =
     li
         [ css [ Tw.flex_none ]
@@ -97,18 +98,18 @@ codeTab index isCurrent ( fileName, fileContents ) =
             [ Attr.type_ "button"
             , css
                 [ Tw.border
-                , Tw.border_transparent
+                , Tw.border_color Theme.transparent
                 , Tw.py_2
                 , Tw.px_4
                 , Tw.font_medium
-                , Tw.text_blue_200
+                , Tw.text_color Theme.blue_200
                 , if isCurrent then
-                    Tw.bg_blue_800
+                    Tw.bg_color Theme.blue_800
 
                   else
-                    Tw.bg_transparent
+                    Tw.bg_color Theme.transparent
                 , Css.focus [ Tw.outline_none ]
-                , Css.hover [ Tw.text_blue_100 ]
+                , Css.hover [ Tw.text_color Theme.blue_100 ]
                 ]
             ]
             [ text fileName ]
