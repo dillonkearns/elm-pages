@@ -19,7 +19,7 @@ import FatalError
 import RouteBuilder exposing (Page, App, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
+import UrlPath
 import Route exposing (Route)
 import Shared
 import View exposing (View)
@@ -74,7 +74,7 @@ import FatalError
 import RouteBuilder exposing (Page, App, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
+import UrlPath
 import Route exposing (Route)
 import Shared
 import View exposing (View)
@@ -120,7 +120,7 @@ import BackendTask as DS
 import RouteBuilder exposing (Page, App, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
+import UrlPath
 import Route exposing (Route)
 import Shared
 import View exposing (View)
@@ -174,7 +174,7 @@ import BackendTask as DS
 import RouteBuilder exposing (Page, App, single)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
+import UrlPath
 import Route exposing (Route)
 import Shared
 import View exposing (View)
@@ -221,7 +221,7 @@ import FatalError
 import RouteBuilder exposing (Page, App)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
+import UrlPath
 import Route exposing (Route)
 import Shared
 import View exposing (View)
@@ -276,7 +276,7 @@ import FatalError
 import RouteBuilder exposing (Page, App)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
+import UrlPath
 import Route exposing (Route)
 import Shared
 import View exposing (View)
@@ -555,7 +555,7 @@ import BackendTask exposing (BackendTask)
 import RouteBuilder exposing (Page, App)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path
+import UrlPath
 import Route exposing (Route)
 import Shared
 import View exposing (View)
@@ -605,7 +605,7 @@ import Html exposing (Html)
 import Html.Styled
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
 import TableOfContents
@@ -656,7 +656,7 @@ import Html exposing (Html)
 import Html.Styled
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
+import UrlPath exposing (UrlPath)
 import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
 import TableOfContents
