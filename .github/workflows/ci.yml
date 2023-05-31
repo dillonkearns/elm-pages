@@ -112,7 +112,6 @@ jobs:
         uses: JS-DevTools/npm-publish@v1
         with:
           token: ${{ secrets.NPM_TOKEN }}
-          tag: beta
   # windows-snapshots:
   #   runs-on: windows-latest
   #   steps:
