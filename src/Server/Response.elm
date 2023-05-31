@@ -4,8 +4,7 @@ module Server.Response exposing
     , map
     , errorPage, mapError
     , temporaryRedirect, permanentRedirect
-    , json, plainText
-    , emptyBody, body, bytesBody, base64Body
+    , json, plainText, emptyBody, body, bytesBody, base64Body
     , withHeader, withHeaders, withStatusCode, withSetCookieHeader
     , toJson
     )
@@ -80,14 +79,9 @@ the current Route Module. To do that, you'll need to pass along the `data` for y
 You can use `withHeader` and `withStatusCode` to customize either type of Response (Server Responses or Render Responses).
 
 
-## Body
+## Response Body
 
-@docs json, plainText
-
-
-## Custom Responses
-
-@docs emptyBody, body, bytesBody, base64Body
+@docs json, plainText, emptyBody, body, bytesBody, base64Body
 
 
 ## Amending Responses
@@ -362,7 +356,7 @@ withHeaders headers serverResponse =
             ErrorPage error { response | headers = headers ++ response.headers }
 
 
-{-| Set a [`SetCookie`](SetCookie) value on the response.
+{-| Set a [`Server.SetCookie`](Server-SetCookie) value on the response.
 
 The easiest way to manage cookies in your Routes is through the [`Server.Session`](Server-Session) API, but this
 provides a more granular way to set cookies.

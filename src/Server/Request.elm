@@ -69,17 +69,17 @@ cookie and render a light- or dark-themed page and render a different page.
 @docs requestTime
 
 
-## Headers
+## Request Headers
 
 @docs header, headers
 
 
-## Method
+## Request Method
 
 @docs method, Method, methodToString
 
 
-## Body
+## Request Body
 
 @docs body, jsonBody
 
@@ -103,7 +103,7 @@ cookie and render a light- or dark-themed page and render a different page.
 @docs matchesContentType
 
 
-## Cookies
+## Using Cookies
 
 @docs cookie, cookies
 
@@ -456,7 +456,7 @@ formData :
     Form.Handler.Handler error combined
     -> Request
     -> Maybe ( Form.ServerResponse error, Form.Validated error combined )
-formData formParsers ((Internal.Request.Request req) as request) =
+formData formParsers request =
     request
         |> rawFormData
         |> Maybe.map

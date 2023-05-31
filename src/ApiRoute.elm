@@ -11,7 +11,7 @@ module ApiRoute exposing
 {-| ApiRoute's are defined in `src/Api.elm` and are a way to generate files either statically pre-rendered at build-time (like RSS feeds, sitemaps, or any text-based file that you output with an Elm function),
 or server-rendered at runtime (like a JSON API endpoint, or an RSS feed that gives you fresh data without rebuilding your site).
 
-Your ApiRoute's get access to a [`BackendTask`](#BackendTask) so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
+Your ApiRoute's get access to a [`BackendTask`](BackendTask) so you can pull in HTTP data, etc. Because ApiRoutes don't hydrate into Elm apps (like pages in elm-pages do), you can pull in as much data as you want in
 the BackendTask for your ApiRoutes and it won't effect the payload size. Instead, the size of an ApiRoute is just the content you output for that route.
 
 Similar to your elm-pages Route Modules, ApiRoute's can be either server-rendered or pre-rendered. Let's compare the differences between pre-rendered and server-rendered ApiRoutes, and the different
