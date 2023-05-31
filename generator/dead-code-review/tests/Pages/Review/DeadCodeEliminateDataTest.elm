@@ -373,7 +373,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
-        , data = \\_ -> Request.oneOf []
+        , data = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         , action = action
         }
         |> RouteBuilder.buildNoState { view = view }
@@ -409,7 +409,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \\_ -> Request.oneOf []
+        , action = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         }
         |> RouteBuilder.buildNoState { view = view }
 """
@@ -474,7 +474,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
-        , data = \\_ -> Server.Request.oneOf []
+        , data = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         , action = action
         }
         |> RouteBuilder.buildNoState { view = view }
@@ -510,7 +510,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \\_ -> Server.Request.oneOf []
+        , action = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         }
         |> RouteBuilder.buildNoState { view = view }
 """
@@ -538,7 +538,7 @@ route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
-        , data = \\_ -> Request.oneOf []
+        , data = \\_ _ -> BackendTask.fail (FatalError.fromString "")
         }
         |> RouteBuilder.buildNoState { view = view }
 """

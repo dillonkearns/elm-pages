@@ -246,9 +246,11 @@ expressionVisitor node context =
                                                             ++ exceptionFromString
 
                                                     "serverRender" ->
-                                                        "\\_ -> "
-                                                            ++ referenceFunction context.importContext ( [ "Server", "Request" ], "oneOf" )
-                                                            ++ " []\n        "
+                                                        "\\_ _ -> "
+                                                            ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                            ++ " ("
+                                                            ++ referenceFunction context.importContext ( [ "FatalError" ], "fromString" )
+                                                            ++ " \"\")\n        "
 
                                                     "single" ->
                                                         referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
