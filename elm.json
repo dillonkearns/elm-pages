@@ -1,9 +1,9 @@
 {
     "type": "package",
-    "name": "dillonkearns/elm-pages-v3-beta",
+    "name": "dillonkearns/elm-pages",
     "summary": "A statically typed site generator.",
     "license": "BSD-3-Clause",
-    "version": "21.0.0",
+    "version": "9.0.0",
     "exposed-modules": [
         "Head",
         "Head.Seo",
