@@ -1,5 +1,5 @@
 ---
-description: TODO
+description: elm-pages has some special files that you define to build your app, including a file-based routing system.
 ---
 
 # File Structure
@@ -8,13 +8,17 @@ With `elm-pages`, you don't define the central `Main.elm` entrypoint. That's def
 
 It builds your app for you from these special files that you define:
 
-`src/`
+`app/`
 
 - [`View.elm`](/docs/file-structure#view.elm)
 - [`Shared.elm`](/docs/file-structure#shared.elm)
 - [`Api.elm`](/docs/file-structure#api.elm)
+- [`Effect.elm`](/docs/file-structure#effect.elm)
+- `ErrorPage.elm` (see [Error Page docs page](/docs/error-pages))
 - [`Site.elm`](/docs/file-structure#site.elm)
-- [`Page/`](/docs/file-structure#page-modules)
+- [`Route/`](/docs/file-structure#page-modules)
+
+> Note: elm-pages uses the `app/` folder for Elm code that has a special meaning to the framework. It is recommended that you keep your own Elm code besides these special files in `src/` to make it clear which modules have special meaning for the framework.
 
 There is also a special `public/` folder that will directly copy assets without any processing.
 
@@ -25,9 +29,13 @@ And entrypoint files for your CSS and JS.
 - [`index.js`](/docs/file-structure#index.js)
 - [`style.css`](/docs/file-structure#style.css)
 
-## Page Modules
+And a configuration file.
 
-This folder is the core of your `elm-pages` app. Elm modules defined under `src/Page/` are what define the routes for your app. See [File-Based Routing](/docs/file-based-routing).
+- [`elm-pages.config.mjs`](#elm-pages.config.mjs)
+
+## Route Modules
+
+This folder is the core of your `elm-pages` app. Elm modules defined under `app/Route/` are what define the routes for your app. See [File-Based Routing](/docs/file-based-routing).
 
 ## `View.elm`
 
@@ -36,13 +44,12 @@ Must expose
 
 - A type called `View msg` (must have exactly one type variable)
 - `map : (msg1 -> msg2) -> View msg1 -> View msg2`
-- `placeholder : String -> View msg` - used in when you scaffold a new Page module with `elm-pages add MyRoute`
 
-The `View msg` type is what individual `Page/` modules must return in their `view` functions.
-So if you want to use `mdgriffith/elm-ui` in your `Page`'s `view` functions, you would update your module like this:
+The `View msg` type is what individual `Route/` modules must return in their `view` functions.
+So if you want to use `mdgriffith/elm-ui` in your `Route`'s `view` functions, you would update your module like this:
 
 ```elm
-module View exposing (View, map, placeholder)
+module View exposing (View, map)
 
 import Element exposing (Element)
 
@@ -57,13 +64,6 @@ map : (msg1 -> msg2) -> View msg1 -> View msg2
 map fn view =
     { title = view.title
     , body = List.map (Element.map fn) view.body
-    }
-
-
-placeholder : String -> View msg
-placeholder moduleName =
-    { title = "Placeholder"
-    , body = [ Element.text moduleName ]
     }
 ```
 
@@ -84,16 +84,27 @@ type alias View msg =
 
 Then in your `Shared.elm` module, you would render based on that extra field.
 
+## `Effect.elm`
+
+`elm-pages` has built-in support for [the Effect Pattern](https://sporto.github.io/elm-patterns/architecture/effects.html).
+
+If you want to use a `Cmd` directly instead of going through the level of indirection of an Effect, you can use `Effect.fromCmd : Cmd msg -> Effect msg`.
+There's nothing wrong with using this if it suites your needs, the Effect pattern is there in case you need it for testing, introspection and analytics for your Cmds, etc. But if you're not leveraging it for those things then `Effect.fromCmd` is the simplest way to get up and running.
+
+The `Effect` module must expose a `type Effect msg` and a `perform` function. These are the core of the module, and this pair defines which Effect's
+can happen from your `init` and `update` on your frontend and how to perform them
+
+> Note: Effects are unrelated to [the `BackendTask` API](https://package.elm-lang.org/packages/dillonkearns/elm-pages-v3-beta/latest/BackendTask). An `Effect` is something that is executed on the frontend of an `elm-pages` app.
+
 ## `Shared.elm`
 
 This is where your site-wide layout goes. The `Shared.view` function receives the `view` from a
-Page module, and can render it within a layout.
+Route module, and can render it within a layout.
 
 Must expose
 
-- `init : SharedTemplate Msg Model StaticData msg`
 - `Msg` - global `Msg`s across the whole app, like toggling a menu in the shared header view
-- `Model` - shared state that persists between page navigations. This `Shared.Model` can be accessed by Page Modules.
+- `Model` - shared state that persists between page navigations. This `Shared.Model` can be accessed by Route Modules.
 
 ## `Site.elm`
 
@@ -131,6 +142,38 @@ export default {
 
 ## `public/style.css`
 
+You can configure which CSS assets to load by customizing your `elm-pages.config.mjs` file.
+
 This CSS file will be included on the page. It will also live reload if you make changes to this file.
 
 Right now, this is the only user CSS file that is loaded. You can use CSS imports to load other CSS files here.
+
+## `elm-pages.config.mjs`
+
+- `vite` - The `elm-pages` config file is a JavaScript file that exports a config object. You can pass it a [Vite configuration](https://vitejs.dev/config/) to customize how `elm-pages` built-in Vite integration processes your assets in its dev server and build.
+- `headTagsTemplate` - A function that returns a string of HTML that will be included in the `<head>` of every page. This is useful for including additional CSS or JS assets on the page. It is pre-processed by Vite.
+- `preloadTagForFile` - Given a file name, return a boolen to indicate whether or not to include a preload tag for that asset.
+- `adapter` - an adapter function to prepare your built application for deployment with a given framework or hosting provider. See the [full adapter docs page](/docs/adapters).
+
+```js
+import { defineConfig } from "vite";
+import adapter from "elm-pages/adapter/netlify.js";
+
+export default {
+  adapter,
+  vite: defineConfig({
+    plugins: [
+      /**/
+    ],
+  }),
+  headTagsTemplate(context) {
+    return `
+<link rel="stylesheet" href="/style.css" />
+<meta name="generator" content="elm-pages v${context.cliVersion}" />
+`;
+  },
+  preloadTagForFile(file) {
+    return !file.endsWith(".css");
+  },
+};
+```
