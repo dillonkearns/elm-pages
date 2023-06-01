@@ -9,7 +9,7 @@
   "devDependencies": {
     "elm-codegen": "^0.3.0",
     "elm-optimize-level-2": "^0.3.5",
-    "elm-pages": "^3.0.0-beta.42",
+    "elm-pages": "^3.0.3",
     "elm-review": "^2.10.2",
     "elm-tooling": "^1.14.0",
     "vite": "^4.3.5"
