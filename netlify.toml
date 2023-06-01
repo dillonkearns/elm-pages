@@ -2,7 +2,12 @@
   base = "examples/docs/"
   functions = "functions/"
   publish = "dist/"
-  command = "mkdir /opt/build/repo/examples/docs/bin && export PATH=\"/opt/build/repo/examples/docs/bin:$PATH\" && echo $PATH && curl https://static.lamdera.com/bin/linux/lamdera -o /opt/build/repo/examples/docs/bin/lamdera && chmod a+x /opt/build/repo/examples/docs/bin/lamdera && export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npm run build:generator) && npm install && npx --no-install elm-tooling install && node ../../generator/src/cli.js build"
+  command = "mkdir /opt/build/repo/examples/docs/bin && export PATH=\"/opt/build/repo/examples/docs/bin:$PATH\" && echo $PATH && curl https://static.lamdera.com/bin/linux/lamdera -o /opt/build/repo/examples/docs/bin/lamdera && chmod a+x /opt/build/repo/examples/docs/bin/lamdera && export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npm run build:generator) && npm install && npx --no-install elm-tooling install && npx elm-pages build && (cd functions/process-url && npm i)"
+
+[[redirects]]
+  from = "/screenshot/*"
+  to = "/.netlify/functions/screenshot"
+  status = 200
 
 [dev]
   command = "npm start"
