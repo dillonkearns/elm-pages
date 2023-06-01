@@ -41,19 +41,15 @@ fakeRequest =
 
 requestDecoder : Decode.Decoder RequestRecord
 requestDecoder =
-    Decode.succeed RequestRecord
-        |> andMap
-            (Decode.field "requestTime"
-                (Decode.int |> Decode.map Time.millisToPosix)
-            )
-        |> andMap (Decode.field "method" Decode.string)
-        |> andMap (Decode.field "body" (Decode.nullable Decode.string))
-        |> andMap
-            (Decode.string
-                |> Decode.field "rawUrl"
-            )
-        |> andMap (Decode.field "headers" (Decode.dict Decode.string))
-        |> andMap
+    Decode.map6 RequestRecord
+        (Decode.field "requestTime"
+            (Decode.int |> Decode.map Time.millisToPosix)
+        )
+        (Decode.field "method" Decode.string)
+        (Decode.maybe (Decode.field "body" Decode.string))
+        (Decode.field "rawUrl" Decode.string)
+        (Decode.maybe (Decode.field "headers" (Decode.dict Decode.string)) |> Decode.map (Maybe.withDefault Dict.empty))
+        (Decode.maybe
             (Decode.field "headers"
                 (optionalField "cookie" Decode.string
                     |> Decode.map
@@ -62,6 +58,8 @@ requestDecoder =
                         )
                 )
             )
+            |> Decode.map (Maybe.withDefault Dict.empty)
+        )
 
 
 andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b

@@ -159,10 +159,11 @@ async function render(event, context) {
  */
 function reqToJson(req) {
   return {
+    requestTime: Math.round(new Date().getTime()),
     method: req.httpMethod,
     headers: req.headers,
     rawUrl: req.rawUrl,
-    body: req.body,
+    body: req.body || null,
     multiPartFormData: null,
   };
 }
