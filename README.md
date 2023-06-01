@@ -1,80 +1,20 @@
 # `elm-pages` [![Netlify Status](https://api.netlify.com/api/v1/badges/8ee4a674-4f37-4f16-b99e-607c0a02ee75/deploy-status)](https://app.netlify.com/sites/elm-pages/deploys) [![Build Status](https://github.com/dillonkearns/elm-pages/workflows/Elm%20CI/badge.svg)](https://github.com/dillonkearns/elm-pages/actions?query=branch%3Amaster) [![npm](https://img.shields.io/npm/v/elm-pages.svg)](https://npmjs.com/package/elm-pages) [![Elm package](https://img.shields.io/elm-package/v/dillonkearns/elm-pages.svg)](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/)
 
-<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-
-[![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
-
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
-
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/dillonkearns/elm-pages-starter)
 
-A **statically typed** site generator, written with pure Elm.
+`elm-pages` is a framework for building an Elm single-page app that is able to seamlessly interface with data from an Elm Backend. `elm-pages` is a hybrid framework, allowing you to define Routes that are either server-rendered
+(for more dynamic content with user-specific or request-specific data) or pre-rendered at build-time (for generating static HTML files that are hosted through a CDN). You can mix and match server-rendered and pre-rendered routes in your app.
+
+`elm-pages` also has a command for running pure Elm scripts with a single command. See the [elm-pages Scripts docs page](https://elm-pages-v3.netlify.app/docs/elm-pages-scripts).
 
 ## Getting Started Resources
 
 - [elm-pages Docs Site](https://elm-pages.com/docs)
-- [elm-pages Elm API Docs](https://package.elm-lang.org/packages/dillonkearns/elm-pages/10.0.0/)
+- [elm-pages site showcase](https://elm-pages.com/showcase/)
+- [elm-pages Elm API Docs](https://package.elm-lang.org/packages/dillonkearns/elm-pages/10.0.1/)
 - [Quick start repo](https://github.com/dillonkearns/elm-pages-starter) [(live site hosted here)](https://elm-pages-starter.netlify.com)
 - [Introducing `elm-pages` blog post](https://elm-pages.com/blog/introducing-elm-pages)
 - [`examples` folder](https://github.com/dillonkearns/elm-pages/blob/master/examples/) (includes https://elm-pages.com site source)
-
-## Key features
-
-### SEO made easy
-
-With `elm-pages`, SEO is as easy
-as calling a type-safe, high-level Elm API
-and passing in data from your content's metadata.
-
-The metadata is just Elm data that you define
-however you want, using a Json Decoder to grab
-data out of your markdown frontmatter.
-
-```elm
-import MyMetadata exposing (MyMetadata)
-
-head : BlogMetadata -> List (Head.Tag Pages.PathKey)
-head meta =
-  Seo.summaryLarge
-    { canonicalUrlOverride = Nothing
-    , siteName = "elm-pages"
-    , image =
-      { url = PagesNew.images.icon
-      , alt = meta.description
-      , dimensions = Nothing
-      , mimeType = Nothing
-      }
-    , description = meta.description
-    , locale = Nothing
-    , title = meta.title
-    }
-    |> Seo.article
-      { tags = []
-      , section = Nothing
-      , publishedTime = Just (Date.toIsoString meta.published)
-      , modifiedTime = Nothing
-      , expirationTime = Nothing
-      }
-```
-
-### Optimized for performance
-
-`elm-pages` has a set of features built-in to make
-sure your page is blazing fast on any device.
-
-- Automatic page pre-rendering
-- Page content is split up per-page so page content downloads and parses just-in-time
-- Page pre-fetching on link hover
-
-Try out `elm-pages`, open up Lighthouse, and
-see for yourself! Or check out https://elm-pages.com
-(find the source code in the [`examples/docs/`](https://github.com/dillonkearns/elm-pages/tree/master/examples/docs) folder).
-
-## What's next?
-
-Take a look at the current projects to see the current priorities!
-
-https://github.com/dillonkearns/elm-pages/projects
 
 ## Compatibility Key
 
