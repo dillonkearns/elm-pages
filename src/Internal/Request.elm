@@ -62,11 +62,6 @@ requestDecoder =
         )
 
 
-andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
-andMap =
-    Decode.map2 (|>)
-
-
 optionalField : String -> Decode.Decoder a -> Decode.Decoder (Maybe a)
 optionalField fieldName decoder_ =
     let
