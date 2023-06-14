@@ -10,9 +10,16 @@
 
 I'm excited to announce the release of `elm-pages` v3! This has been a real labor of love that I've been working on for over a year. I am truly excited to see what the Elm community builds with it. I believe the new features in v3 open up a lot more use cases, and I hope that it makes it delightful to build full-stack Elm applications!
 
-## Server-rendered routes (full-stack Elm!)
+If you're new to `elm-pages`, it is a framework that gives you file-based routing to create an Elm single-page application (SPA). Besides the file-based routing, the heart of `elm-pages` is a rich API for declaratively gathering data: [`BackendTask`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask) (previously called `DataSource` in v2). Route Modules in `elm-pages` have an extension to the traditional life-cycle in apps using The Elm Architecture (TEA): a `data` function that lets you resolve data from a `BackendTask` before the initial page render (no loading spinners because the data is resolved before your `view` is rendered). `elm-pages` serves pages with fully rendered HTML (not just a skeleton that waits for the JavaScript to render, but a fully rendered `view` with access to your Route Module's `data`).
 
 While `elm-pages` v2 was focused on static site generation, `elm-pages` v3 is a hybrid framework, giving you all the same static site generation features from v2, but with a whole new set of use cases opened up with server-rendered routes.
+
+Before I dive into the details of the new features in v3, here is a preview of some of the exciting new use cases that are now possible with `elm-pages` v3:
+
+- Write an [`elm-pages` Script](/docs/elm-pages-scripts) (an Elm module that exposes a `run` function that executes a `BackendTask`) that declaratively reads files, logs, fetches HTTP data, and uses custom `BackendTask`s that run async NodeJS functions. Execute it with a single command (`elm-pages run script/src/MyScript.elm`).
+- Write a full-stack, server-rendered Elm app with cookie-based authentication. With the `elm-pages` v3 Form API, you get full-stack Elm forms that re-use the same validation logic on the client and server. And you can build an entire Form submission workflow with realtime validations without touching your `Model` by deriving pending UI state from the in-flight submissions that `elm-pages` manages for you. Check out this live demo of TodoMVC with database persistence and magic link authentication ([demo](https://elm-pages-todos.netlify.app/)) ([source code](https://github.com/dillonkearns/elm-pages/blob/master/examples/todos/app/Route/Visibility__.elm)).
+
+## Server-rendered routes (full-stack Elm!)
 
 `elm-pages` v3 is focused on making it easy to build full-stack Elm apps. This means that you can use `elm-pages` to build a full-stack Elm app that can render pages on the server, and then hydrate them on the client. Because your data is resolved on the backend before it's sent to the client, you have your fully resolved data before your `view` is rendered, which means no intermediary `Maybe` loading or error states, and no loading spinners. You can resolve data on the server in a low-latency environment close to your data, and then ship the dense, processed data to the client for a rich initial render.
 
@@ -88,7 +95,7 @@ export async function findPost(slug) {
 }
 ```
 
-`BackendTask`'s also let us run any markdown parsing and other expensive processing on the backend instead of the user's browser. By doing this work on the server, we can resolve the core data for the page in a single pass, and avoid sending unprocessed data or doing multiple round trips to the server from the client. As a bonus, because we are only running our Markdown parsing from our `data` function (which is only executed on our Backend), this is dead-code eliminated from our client bundle! That means that not only does the execution of running markdown parsing not bog down the user's browser, but it doesn't even need to download the markdown parser code!
+`BackendTask`s also let us run any markdown parsing and other expensive processing on the backend instead of the user's browser. By doing this work on the server, we can resolve the core data for the page in a single pass, and avoid sending unprocessed data or doing multiple round trips to the server from the client. As a bonus, because we are only running our Markdown parsing from our `data` function (which is only executed on our Backend), this is dead-code eliminated from our client bundle! That means that not only does the execution of running markdown parsing not bog down the user's browser, but it doesn't even need to download the markdown parser code!
 
 Plus, we get the initial page load with a rich initial render, no loading spinners or flashes of blank content. If we architect our app effectively with our data center co-located with our `elm-pages` Backend server, and well-tuned database queries, we can get a very compelling performance story.
 
@@ -108,9 +115,11 @@ And if you're wondering how the magic of full-stack routes in elm-pages works ov
 
 ## Goodbye `OptimizedDecoder`s!
 
-This is one of those wonderful cases where it's all upside. In v3, you no longer need to use `OptimizedDecoder`s to ensure that your page loads pull in only the essential data they depend on. Instead, `elm-pages` automatically serializes your `Route` data, only serializing exactly the final data you end up with in your `data` function. Not only that, but the data is serialized in a more compact binary format, giving even better performance. That means instead of using the `Json.Decode` drop-in replacement for your `v2` data with `import OptimizedDecoder`, you can just use vanilla JSON Decoders and you will end up with compact data.
+This is one of those wonderful cases where it's all upside. In v3, you no longer need to use `OptimizedDecoder`s to ensure that your page loads pull in only the essential data they depend on. `elm-pages` v2 introduced `OptimizedDecoder`s which would strip out any JSON data that wasn't consumed by the decoders you used in your `DataSource`s. This helped optimize the size of the data that was used to hydrate the Elm application on the client with the same data that was used to render the page on the server. However, it was an extra concept to understand, and it came with some footguns and inconveniences. You could accidentally end up with sensitive data in your page data, and you couldn't re-use existing JSON decoders or JSON decoding utilities since you had to use the `OptimizedDecoder` type instead of `Json.Decode.Decoder`. There [was a `Secrets` API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/9.0.0/Pages-Secrets) that let you define `DataSource`s using sensitive data to perform the request, but scrubbing the sensitive data while still preserving the key-value data associated with those requests. You can read about some of the old [caveats of data serialization from v2 for comparison in the docs archive](https://package.elm-lang.org/packages/dillonkearns/elm-pages/9.0.0/DataSource#optimizing-page-data).
 
-The data that is sent to the client is exactly the type you define in your Route Module's `Data` type. That means you don't need to worry about whether any sensitive intermediary data ended up in the page data. What you see is what you get. You can read about some of the old [caveats of data serialization from v2 for comparison in the docs archive](https://package.elm-lang.org/packages/dillonkearns/elm-pages/9.0.0/DataSource#optimizing-page-data).
+If that's a lot to take in, don't worry, with v3 you no longer need to think about any of these details! Instead, `elm-pages` automatically serializes your `Route` data, only serializing exactly the final data you end up with in your `data` function. Not only that, but the data is serialized in a more compact binary format, giving even better performance. That means instead of using the `Json.Decode` drop-in replacement for your `v2` data with `import OptimizedDecoder`, you can just use vanilla JSON Decoders and you will end up with compact data.
+
+The data that is sent to the client is exactly the type you define in your Route Module's `Data` type. That means you don't need to worry about whether any sensitive intermediary data ended up in the page data. What you see is what you get.
 
 ## DataSource renamed to BackendTask
 
@@ -128,7 +137,7 @@ In v2, a `DataSource` could cause a build failure without that being reflected i
 
 If you have a `BackendTask Never String`, for example, you know that it will never result in an error.
 
-Here are two different ways you could handle HTTP errors in v3. `handled` will give `Nothing` on failure, and will never result in a `BackendTask` error. `unhandled` yields a `FatalError` if anything goes wrong. The `data` function in your elm-pages Route Modules has type `BackendTask FatalError Data`, and the framework will handle the [`FatalError`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/FatalError) by printing the error message and failing the build for static pre-rendered routes, or by rendering a 500 error page for server-rendered routes.
+Here are two different ways you could handle HTTP errors in v3. `handled` will give `Nothing` on failure, and will never result in a `BackendTask` error. `unhandled` yields a [`FatalError`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/FatalError) if anything goes wrong. The `data` function in your elm-pages Route Modules has type `BackendTask FatalError Data`, and the framework will handle the `FatalError` by printing the error message and failing the build for static pre-rendered routes, or by rendering a 500 error page for server-rendered routes.
 
 ```elm
 handled : BackendTask.BackendTask Never (Maybe Int)
@@ -178,13 +187,13 @@ There is also an `elm-pages bundle-script` command for bundling into a single ex
 
 The scaffolding uses the excellent tool [`mdgriffith/elm-codegen`](https://github.com/mdgriffith/elm-codegen) to generate the Route Modules. `elm-codegen` provides a high-level way to write Elm code that generates Elm code. Sounds scary, but it's a lot of fun to use! `elm-pages` [abstracts out the boilerplate around Routes](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Route) [and Forms](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Form), so you can focus on customizing your template within the confines of generating a valid Route Module.
 
-With `elm-pages` Scripts-based scaffolding, you have full programmatic control over your scaffolding, and all in pure Elm. You can run arbitrary `BackendTask`s, and customize your scaffolding with command-line options. Here's an [example of the scaffolding script ](https://github.com/dillonkearns/elm-pages/blob/5633707ae7c9d6bfc3f920b12df06eb8ea9b1098/examples/end-to-end/script/src/AddRoute.elm). The `elm-pages-starter` repo and the `elm-pages init` project skeleton both come with a `script/src/AddRoute.elm` script that you can customize to your needs.
+With `elm-pages` Scripts-based scaffolding, you have full programmatic control over your scaffolding, and all in pure Elm. You can run arbitrary `BackendTask`s, and customize your scaffolding with command-line options. Here's an [example of the scaffolding script](https://github.com/dillonkearns/elm-pages/blob/5633707ae7c9d6bfc3f920b12df06eb8ea9b1098/examples/end-to-end/script/src/AddRoute.elm). The `elm-pages-starter` repo and the `elm-pages init` project skeleton both come with a `script/src/AddRoute.elm` script that you can customize to your needs.
 
 ## Built-in Vite Integration
 
 In v2, there was a philosophy of "bring your own bundler". The web ecosystem had so many different approaches to post-processing - Webpack, Parcel, Rollup, Snowpack. Or just the TypeScript compiler, PostCSS CLI, and other standalone post-processing tools. There wasn't a clear winner, and often tools that choose a bundler like Webpack ended up exposing dangerous configuration options that could interfere with the way the framework bundled the core app.
 
-That all changed when Vite came out with a refreshingly sane approach to bundling. It is conventions-based (no configuration needed for many common tools, for example it will find your TypeScript config file and use that automatically). Plus it is extremely fast, and has a rich ecosystem, and a simple plugin API. So `elm-pages` V3 comes with a built-in Vite integration.
+That all changed when Vite came out with a refreshingly sane approach to bundling. It is conventions-based (no configuration needed for many common tools, for example it will find your TypeScript config file and use that automatically). Plus it is extremely fast, and has a rich ecosystem, and a simple plugin API. So `elm-pages` v3 comes with a built-in Vite integration.
 
 `elm-pages` still does its own processing of the core Elm code in your app so you can't break your app by mistake, and you get your Elm code bundled and optimized for production with zero configuration (it even runs `elm-optimize-level-2` on the production build!). And you get seamless hot data reloading as well - try defining a Route Module with `Data` that pulls in content from a file (`BackendTask.File`) or uses a Glob pattern to list matching files (`BackendTask.Glob`), and you'll see the page hot reload with the latest data as you touch files that your Route Module depends on.
 
@@ -265,5 +274,17 @@ view app shared model =
      ]
   ]
   }
+
+```
+
+## Forms and Pending UI
+
+One of my favorite features in v3 is the Form API. As Web developers, one of the core things we do is provide a way for users to input data and send it to a server (ideally with nice client-side validations).
+
+This can involve a lot of boilerplate in an Elm app, and a lot of opportunities to forget wiring. Managing Pending UI state tends to be fairly imperative.
+
+`elm-pages` v3 introduces a Form API that manages wiring for you, and manages pending form submissions, allowing you to derive Pending UI state declaratively. Here is an example of a Route Module that manages a form submissions, all without managing any state in our `Model`.
+
+```elm
 
 ```
