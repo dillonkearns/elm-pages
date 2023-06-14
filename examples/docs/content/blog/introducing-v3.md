@@ -206,8 +206,9 @@ Check out a full examples of using the Session API [to manage dark mode](https:/
 
 One of my favorite features in v3 is the Form API. As Web developers, one of the core things we do is provide a way for users to input data and send it to a server (ideally with nice client-side validations). This can involve a lot of boilerplate in an Elm app, and a lot of opportunities to forget wiring. Managing Pending UI state tends to be fairly imperative.
 
-`elm-pages` v3 introduces a Form API that manages wiring for you, and manages pending form submissions, allowing you to derive Pending UI state declaratively.
-Check out [the derived pending state in the TodoMVC demo](https://github.com/dillonkearns/elm-pages/blob/ea7aa6eb618ff3c4cc226cfeaeb6b937d994882d/examples/todos/app/Route/Visibility__.elm#L439-L461).
+`elm-pages` v3 introduces a Form API that manages wiring for you, and manages pending form submissions, allowing you to derive Pending UI state declaratively. `elm-pages` v3 also introduces the concept of an `action`. `action` is the same as a Route Module's `data` function, except instead of running a `BackendTask` for the initial page load, `action` runs in resopnse to a non-GET request (such as a form submission using the default form submission method in `elm-pages`: `POST`). Check out [the derived pending state in the TodoMVC demo](https://github.com/dillonkearns/elm-pages/blob/ea7aa6eb618ff3c4cc226cfeaeb6b937d994882d/examples/todos/app/Route/Visibility__.elm#L439-L461), as well as [the `action` function in the TodoMVC demo](https://github.com/dillonkearns/elm-pages/blob/ea7aa6eb618ff3c4cc226cfeaeb6b937d994882d/examples/todos/app/Route/Visibility__.elm#L286-L313).
+
+My thinking on progressively enhancing forms and building a framework around Web platform primitives has been heavily influenced by [RemixJS](https://remix.run/). A big thank you to the Remix team for their amazing vision and for sharing their ideas and paving a path for a more standards-based approach to full-stack Web development.
 
 ## Goodbye `OptimizedDecoder`s!
 
