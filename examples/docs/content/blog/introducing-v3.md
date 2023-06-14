@@ -196,28 +196,19 @@ For all of your non-Elm bundling needs, you get the simplicity and power of Vite
 
 ## Session API
 
-[One of the core foundational principles of this v3 release is "Use the platform"](http://localhost:1234/docs/use-the-platform). `elm-pages` leverages Web standards.
-
-That brings a lot of conveniences for server-rendered routes, like using cookie-based sessions through [the Session API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Server-Session).
+[One of the core foundational principles of this v3 release is "Use the platform"](http://localhost:1234/docs/use-the-platform). `elm-pages` leverages Web standards. That brings a lot of conveniences for server-rendered routes, like using cookie-based sessions through [the Session API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Server-Session). The `elm-pages` `Session` automatically manages serializing your session data as key-value pairs in a signed cookie. The cookie is signed using the secrets you pass in. That means while you can read the key-value data from the cookie if you have access to it, if you modify its contents, the signature will no longer match and the cookie will be rejected. This allows you to use the cookie to store session data like a a user session ID since you can trust that the server set the value. [HTTP-only](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#httponly) cookies are used by default, giving you the extra layer of security that the cookie cannot be accessed from JavaScript.
 
 ```elm
 import Server.Session as Session
 import BackendTask exposing (BackendTask)
-import Effect
 import ErrorPage exposing (ErrorPage)
-import FatalError
-import Form
-import Form.Field
-import Form.FieldView
-import Form.Handler
-import Form.Validation
-import Head
-import Html.Styled
-import Html.Styled.Attributes
+import FatalError exposing (FatalError)
+import Html exposing (..)
+import Html.Attributes exposing (..)
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App)
-import Server.Request
-import Server.Response
+import Server.Request as Request
+import Server.Response as Response
 import Shared
 import View
 
@@ -231,7 +222,10 @@ secrets =
 type alias Data =
     { darkMode : Bool }
 
-data : RouteParams -> Request -> BackendTask (Response Data ErrorPage)
+data :
+    RouteParams
+    -> Request
+    -> BackendTask FatalError (Response Data ErrorPage)
 data routeParams request =
     request
         |> Session.withSession
@@ -247,9 +241,11 @@ data routeParams request =
                             == "dark"
                 in
                 ( session
-                , { darkMode = darkMode }
+                , { isDarkMode = darkMode } |> Server.Response.render
                 )
+                    |> BackendTask.succeed
             )
+
 view :
     App Data ActionData RouteParams
     -> Shared.Model
@@ -272,17 +268,14 @@ view app shared model =
 
 ```
 
+You can rotate your signing secrets. The first secret will be used to sign new values, but unsigning will go through each of the secrets until it finds one that works. This high-level abstraction allows you to use powerful primitives that the web platform provides, while making it easy to use common patterns simply and securely.
+
 ## Forms and Pending UI
 
-One of my favorite features in v3 is the Form API. As Web developers, one of the core things we do is provide a way for users to input data and send it to a server (ideally with nice client-side validations).
+One of my favorite features in v3 is the Form API. As Web developers, one of the core things we do is provide a way for users to input data and send it to a server (ideally with nice client-side validations). This can involve a lot of boilerplate in an Elm app, and a lot of opportunities to forget wiring. Managing Pending UI state tends to be fairly imperative.
 
-This can involve a lot of boilerplate in an Elm app, and a lot of opportunities to forget wiring. Managing Pending UI state tends to be fairly imperative.
-
-`elm-pages` v3 introduces a Form API that manages wiring for you, and manages pending form submissions, allowing you to derive Pending UI state declaratively. Here is an example of a Route Module that manages a form submissions, all without managing any state in our `Model`.
-
-```elm
-
-```
+`elm-pages` v3 introduces a Form API that manages wiring for you, and manages pending form submissions, allowing you to derive Pending UI state declaratively.
+Check out [the derived pending state in the TodoMVC demo](https://github.com/dillonkearns/elm-pages/blob/ea7aa6eb618ff3c4cc226cfeaeb6b937d994882d/examples/todos/app/Route/Visibility__.elm#L439-L461).
 
 ## Goodbye `OptimizedDecoder`s!
 
