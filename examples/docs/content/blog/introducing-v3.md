@@ -1,7 +1,7 @@
 ---
 {
   "author": "Dillon Kearns",
-  "title": "Introducing elm-pages v3",
+  "title": "Introducing elm-pages v3 (full-stack Elm!)",
   "description": "While elm-pages v2 was focused on static site generation, elm-pages v3 is a hybrid framework, giving you all the same static site generation features from v2, but with a whole new set of use cases opened up with server-rendered routes.",
   "unsplash": "1447069387593-a5de0862481e",
   "published": "2023-06-14",
