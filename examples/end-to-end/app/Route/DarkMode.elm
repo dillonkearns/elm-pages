@@ -1,11 +1,8 @@
-module Route.DarkMode exposing (..)
-
-{-| -}
+module Route.DarkMode exposing (ActionData, Data, Model, Msg, RouteParams, route)
 
 import BackendTask exposing (BackendTask)
 import Css
-import Effect
-import ErrorPage
+import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Form
 import Form.Field as Field
@@ -16,10 +13,9 @@ import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes exposing (css)
 import Pages.Form
 import PagesMsg exposing (PagesMsg)
-import Platform.Sub
 import RouteBuilder
-import Server.Request exposing (Request)
-import Server.Response
+import Server.Request as Request exposing (Request)
+import Server.Response as Response exposing (Response)
 import Server.Session as Session
 import Shared
 import View
@@ -29,53 +25,20 @@ type alias Model =
     {}
 
 
-type Msg
-    = NoOp
+type alias Msg =
+    ()
 
 
 type alias RouteParams =
     {}
 
 
-route : RouteBuilder.StatefulRoute RouteParams Data ActionData Model Msg
+route : RouteBuilder.StatelessRoute RouteParams Data ActionData
 route =
-    RouteBuilder.buildWithLocalState
+    RouteBuilder.buildNoState
         { view = view
-        , init = init
-        , update = update
-        , subscriptions = subscriptions
         }
         (RouteBuilder.serverRender { data = data, action = action, head = head })
-
-
-init :
-    RouteBuilder.App Data ActionData RouteParams
-    -> Shared.Model
-    -> ( Model, Effect.Effect Msg )
-init app shared =
-    ( {}, Effect.none )
-
-
-update :
-    RouteBuilder.App Data ActionData RouteParams
-    -> Shared.Model
-    -> Msg
-    -> Model
-    -> ( Model, Effect.Effect Msg )
-update app shared msg model =
-    case msg of
-        NoOp ->
-            ( model, Effect.none )
-
-
-subscriptions :
-    routeParams
-    -> path
-    -> sharedModel
-    -> model
-    -> Sub Msg
-subscriptions routeParams path sharedModel model =
-    Sub.none
 
 
 type alias Data =
@@ -97,38 +60,34 @@ sessionOptions =
 data :
     RouteParams
     -> Request
-    -> BackendTask FatalError (Server.Response.Response Data ErrorPage.ErrorPage)
-data routeParams =
-    Session.withSessionResult sessionOptions
-        (\sessionResult ->
-            let
-                session : Session.Session
-                session =
-                    sessionResult
-                        |> Result.withDefault Session.empty
-
-                isDarkMode : Bool
-                isDarkMode =
-                    (session |> Session.get "darkMode") == Just "dark"
-            in
-            BackendTask.succeed
-                ( session
-                , Server.Response.render
-                    { isDarkMode = isDarkMode
-                    }
-                )
-        )
+    -> BackendTask FatalError (Response Data ErrorPage.ErrorPage)
+data routeParams request =
+    request
+        |> Session.withSession sessionOptions
+            (\session ->
+                let
+                    isDarkMode : Bool
+                    isDarkMode =
+                        (session |> Session.get "darkMode") == Just "dark"
+                in
+                BackendTask.succeed
+                    ( session
+                    , Response.render
+                        { isDarkMode = isDarkMode
+                        }
+                    )
+            )
 
 
 action :
     RouteParams
     -> Request
-    -> BackendTask FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage)
+    -> BackendTask FatalError (Response ActionData ErrorPage)
 action routeParams request =
     request
         |> Session.withSessionResult sessionOptions
             (\sessionResult ->
-                case request |> Server.Request.formData (form |> Form.Handler.init identity) of
+                case request |> Request.formData (form |> Form.Handler.init identity) of
                     Nothing ->
                         "Expected form submission." |> FatalError.fromString |> BackendTask.fail
 
@@ -157,7 +116,7 @@ action routeParams request =
                                      else
                                         ""
                                     )
-                            , Server.Response.render (ActionData response)
+                            , Response.render (ActionData response)
                             )
             )
 
@@ -196,9 +155,8 @@ form =
 view :
     RouteBuilder.App Data ActionData RouteParams
     -> Shared.Model
-    -> Model
     -> View.View (PagesMsg Msg)
-view app shared model =
+view app shared =
     { title = "DarkMode"
     , body =
         [ Html.div
