@@ -16,8 +16,11 @@ While `elm-pages` v2 was focused on static site generation, `elm-pages` v3 is a 
 
 Before I dive into the details of the new features in v3, here is a preview of some of the exciting new use cases that are now possible with `elm-pages` v3:
 
-- Write an [`elm-pages` Script](/docs/elm-pages-scripts) (an Elm module that exposes a `run` function that executes a `BackendTask`) that declaratively reads files, logs, fetches HTTP data, and uses custom `BackendTask`s that run async NodeJS functions. Execute it with a single command (`elm-pages run script/src/MyScript.elm`).
-- Write a full-stack, server-rendered Elm app with cookie-based authentication. With the `elm-pages` v3 Form API, you get full-stack Elm forms that re-use the same validation logic on the client and server. And you can build an entire Form submission workflow with realtime validations without touching your `Model` by deriving pending UI state from the in-flight submissions that `elm-pages` manages for you. Check out this live demo of TodoMVC with database persistence and magic link authentication ([demo](https://elm-pages-todos.netlify.app/)) ([source code](https://github.com/dillonkearns/elm-pages/blob/master/examples/todos/app/Route/Visibility__.elm)).
+- Write a full-stack, server-rendered Elm app with cookie-based authentication. With the `elm-pages` v3 Form API, you get full-stack Elm forms that re-use the same validation logic on the client and server. And you can build an entire Form submission workflow with realtime validations without touching your `Model`, including deriving pending UI state from the in-flight submissions that `elm-pages` manages for you. Check out this live demo of TodoMVC with database persistence and magic link authentication ([demo](https://elm-pages-todos.netlify.app/)) ([source code](https://github.com/dillonkearns/elm-pages/blob/master/examples/todos/app/Route/Visibility__.elm)).
+- Write an [`elm-pages` Script](/docs/elm-pages-scripts) (an Elm module that exposes a `run` function that executes a `BackendTask`) that reads files, logs, fetches HTTP data, and uses custom `BackendTask`s that run async NodeJS functions. Execute it with a single command (`elm-pages run script/src/MyScript.elm`).
+- Scaffold new Route Modules, and customize your template with the full power of `BackendTask`s! `elm-pages` v3 has a much more extensible scaffolding script, powered by `elm-pages` Scripts and [`elm-codegen`](https://github.com/mdgriffith/elm-codegen). You can even scaffold new Route Modules with a full-stack Form submission workflow with a single command (`elm-pages run script/src/AddRoute.elm Signup first email subscribe:checkbox`).
+
+Let's dive into some of the new features that make these workflows possible!
 
 ## Server-rendered routes (full-stack Elm!)
 
@@ -95,7 +98,7 @@ export async function findPost(slug) {
 }
 ```
 
-`BackendTask`s also let us run any markdown parsing and other expensive processing on the backend instead of the user's browser. By doing this work on the server, we can resolve the core data for the page in a single pass, and avoid sending unprocessed data or doing multiple round trips to the server from the client. As a bonus, because we are only running our Markdown parsing from our `data` function (which is only executed on our Backend), this is dead-code eliminated from our client bundle! That means that not only does the execution of running markdown parsing not bog down the user's browser, but it doesn't even need to download the markdown parser code!
+`BackendTask`s also let us run any markdown parsing and other expensive processing on the backend instead of the user's browser. By doing this work on the server, we can resolve the core data for the page in a single pass, and avoid sending unprocessed data or doing multiple round trips to the server from the client. As a bonus, because we are only running our markdown parsing from our `data` function (which is only executed on our Backend), this is dead-code eliminated from our client bundle! That means that not only does the execution of running markdown parsing not bog down the user's browser, but it doesn't even need to download the markdown parser code!
 
 Plus, we get the initial page load with a rich initial render, no loading spinners or flashes of blank content. If we architect our app effectively with our data center co-located with our `elm-pages` Backend server, and well-tuned database queries, we can get a very compelling performance story.
 
@@ -112,14 +115,6 @@ You can also define API routes that are rendered on the server. That means in ad
 If you're wondering how the server-side part of an elm-pages app is hosted, take a look at [the adapter docs page](/docs/adapters). There is a built-in adapter for Netlify serverless functions, and there are some community adapters being developed for frameworks like Express. You can define your own for your deployment target of choice.
 
 And if you're wondering how the magic of full-stack routes in elm-pages works overall, check out the docs page on [The elm-pages Architecture](/docs/architecture).
-
-## Goodbye `OptimizedDecoder`s!
-
-This is one of those wonderful cases where it's all upside. In v3, you no longer need to use `OptimizedDecoder`s to ensure that your page loads pull in only the essential data they depend on. `elm-pages` v2 introduced `OptimizedDecoder`s which would strip out any JSON data that wasn't consumed by the decoders you used in your `DataSource`s. This helped optimize the size of the data that was used to hydrate the Elm application on the client with the same data that was used to render the page on the server. However, it was an extra concept to understand, and it came with some footguns and inconveniences. You could accidentally end up with sensitive data in your page data, and you couldn't re-use existing JSON decoders or JSON decoding utilities since you had to use the `OptimizedDecoder` type instead of `Json.Decode.Decoder`. There [was a `Secrets` API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/9.0.0/Pages-Secrets) that let you define `DataSource`s using sensitive data to perform the request, but scrubbing the sensitive data while still preserving the key-value data associated with those requests. You can read about some of the old [caveats of data serialization from v2 for comparison in the docs archive](https://package.elm-lang.org/packages/dillonkearns/elm-pages/9.0.0/DataSource#optimizing-page-data).
-
-If that's a lot to take in, don't worry, with v3 you no longer need to think about any of these details! Instead, `elm-pages` automatically serializes your `Route` data, only serializing exactly the final data you end up with in your `data` function. Not only that, but the data is serialized in a more compact binary format, giving even better performance. That means instead of using the `Json.Decode` drop-in replacement for your `v2` data with `import OptimizedDecoder`, you can just use vanilla JSON Decoders and you will end up with compact data.
-
-The data that is sent to the client is exactly the type you define in your Route Module's `Data` type. That means you don't need to worry about whether any sensitive intermediary data ended up in the page data. What you see is what you get.
 
 ## DataSource renamed to BackendTask
 
@@ -288,3 +283,17 @@ This can involve a lot of boilerplate in an Elm app, and a lot of opportunities 
 ```elm
 
 ```
+
+## Goodbye `OptimizedDecoder`s!
+
+This is one of those wonderful cases where it's all upside. In v3, you no longer need to use `OptimizedDecoder`s to ensure that your page loads pull in only the essential data they depend on. `elm-pages` v2 introduced `OptimizedDecoder`s which would strip out any JSON data that wasn't consumed by the decoders you used in your `DataSource`s. This helped optimize the size of the data that was used to hydrate the Elm application on the client with the same data that was used to render the page on the server. However, it was an extra concept to understand, and it came with some footguns and inconveniences. You could accidentally end up with sensitive data in your page data, and you couldn't re-use existing JSON decoders or JSON decoding utilities since you had to use the `OptimizedDecoder` type instead of `Json.Decode.Decoder`. There [was a `Secrets` API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/9.0.0/Pages-Secrets) that let you define `DataSource`s using sensitive data to perform the request, but scrubbing the sensitive data while still preserving the key-value data associated with those requests. You can read about some of the old [caveats of data serialization from v2 for comparison in the docs archive](https://package.elm-lang.org/packages/dillonkearns/elm-pages/9.0.0/DataSource#optimizing-page-data).
+
+If that's a lot to take in, don't worry, with v3 you no longer need to think about any of these details! Instead, `elm-pages` automatically serializes your `Route` data, only serializing exactly the final data you end up with in your `data` function. Not only that, but the data is serialized in a more compact binary format, giving even better performance. That means instead of using the `Json.Decode` drop-in replacement for your `v2` data with `import OptimizedDecoder`, you can just use vanilla JSON Decoders and you will end up with compact data.
+
+The data that is sent to the client is exactly the type you define in your Route Module's `Data` type. That means you don't need to worry about whether any sensitive intermediary data ended up in the page data. What you see is what you get.
+
+## Try It Out
+
+If you're interested in trying out `elm-pages` v3, you can get started with [the starter repo](https://github.com/dillonkearns/elm-pages-starter), or by running `npx elm-pages@latest init`. The starter templates come with a `script/src/AddRoute.elm` module that is ready to customize for your app, and come with the Netlify adapter configured so you can deploy a full-stack Elm app right from the starter template.
+
+Be sure to join the `#elm-pages` channel in the [Elm Slack](https://elmlang.herokuapp.com/) to get help and share your feedback! I'd love to hear what you build with `elm-pages` v3.
