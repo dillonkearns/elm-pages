@@ -198,77 +198,9 @@ For all of your non-Elm bundling needs, you get the simplicity and power of Vite
 
 [One of the core foundational principles of this v3 release is "Use the platform"](http://localhost:1234/docs/use-the-platform). `elm-pages` leverages Web standards. That brings a lot of conveniences for server-rendered routes, like using cookie-based sessions through [the Session API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Server-Session). The `elm-pages` `Session` automatically manages serializing your session data as key-value pairs in a signed cookie. The cookie is signed using the secrets you pass in. That means while you can read the key-value data from the cookie if you have access to it, if you modify its contents, the signature will no longer match and the cookie will be rejected. This allows you to use the cookie to store session data like a a user session ID since you can trust that the server set the value. [HTTP-only](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#httponly) cookies are used by default, giving you the extra layer of security that the cookie cannot be accessed from JavaScript.
 
-```elm
-import Server.Session as Session
-import BackendTask exposing (BackendTask)
-import ErrorPage exposing (ErrorPage)
-import FatalError exposing (FatalError)
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import PagesMsg exposing (PagesMsg)
-import RouteBuilder exposing (App)
-import Server.Request as Request
-import Server.Response as Response
-import Shared
-import View
-
-
-secrets : BackendTask FatalError (List String)
-secrets =
-    Env.expect "SESSION_SECRET"
-        |> BackendTask.allowFatal
-        |> BackendTask.map List.singleton
-
-type alias Data =
-    { darkMode : Bool }
-
-data :
-    RouteParams
-    -> Request
-    -> BackendTask FatalError (Response Data ErrorPage)
-data routeParams request =
-    request
-        |> Session.withSession
-            { name = "mysession"
-            , secrets = secrets
-            , options = Nothing
-            }
-            (\session ->
-                let
-                    darkMode : Bool
-                    darkMode =
-                        (session |> Session.get "mode" |> Maybe.withDefault "light")
-                            == "dark"
-                in
-                ( session
-                , { isDarkMode = darkMode } |> Server.Response.render
-                )
-                    |> BackendTask.succeed
-            )
-
-view :
-    App Data ActionData RouteParams
-    -> Shared.Model
-    -> Model
-    -> View (PagesMsg Msg)
-view app shared model =
-  { title = "My Page"
-  , body = [
-    Html.div [
-      if app.data.darkMode then
-        class "dark"
-      else
-        class "light"
-     ]
-     [
-      -- ...
-     ]
-  ]
-  }
-
-```
-
 You can rotate your signing secrets. The first secret will be used to sign new values, but unsigning will go through each of the secrets until it finds one that works. This high-level abstraction allows you to use powerful primitives that the web platform provides, while making it easy to use common patterns simply and securely.
+
+Check out a full examples of using the Session API [to manage dark mode](https://github.com/dillonkearns/elm-pages/blob/69058c749ab5bc2e181275e43993695035bd8407/examples/end-to-end/app/Route/DarkMode.elm#L60-L79), and to [manage a user session using magic link authentication](https://github.com/dillonkearns/elm-pages/blob/69058c749ab5bc2e181275e43993695035bd8407/examples/todos/app/Route/Login.elm#L199-L213) ([try the live demo here](https://elm-pages-todos.netlify.app/)).
 
 ## Forms and Pending UI
 
