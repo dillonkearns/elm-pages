@@ -90,11 +90,11 @@ export async function findPost(slug) {
 
 `BackendTask`'s also let us run any markdown parsing and other expensive processing on the backend instead of the user's browser. By doing this work on the server, we can resolve the core data for the page in a single pass, and avoid sending unprocessed data or doing multiple round trips to the server from the client. As a bonus, because we are only running our Markdown parsing from our `data` function (which is only executed on our Backend), this is dead-code eliminated from our client bundle! That means that not only does the execution of running markdown parsing not bog down the user's browser, but it doesn't even need to download the markdown parser code!
 
-Plus, we get the initial page load with a rich intial render, no loading spinners or flashes of blank content. If we architect our app effectively with our data center co-located with our `elm-pages` Backend server, and well-tuned database queries, we can get a very compelling performance story.
+Plus, we get the initial page load with a rich initial render, no loading spinners or flashes of blank content. If we architect our app effectively with our data center co-located with our `elm-pages` Backend server, and well-tuned database queries, we can get a very compelling performance story.
 
 Notice also that we have the ability to dynamically render an error page if the post is not found (learn more in the [ErrorPage docs](/docs/error-pages)). This opens up new use cases because we can decide whether to render a 404 page based on the data we get back from our database at request-time (rather than pre-rendering a finite set of pages at build-time). With this workflow, we could even publish a post to our database and have it show up without running a build. `elm-pages` v3 provides error handling abstractions to render routes with your happy path data clean and free of error states and loading spinners, while still letting you bail out of the happy path to present an error page when needed.
 
-`elm-pages` v3 still fully supports static site generation with `RouteBuilder.preRender` (in fact, this blog is an example of that!). But you can choose the right architecture, or even transition to more flexiblility when you need it with the new suite of hybrid features in v3.
+`elm-pages` v3 still fully supports static site generation with `RouteBuilder.preRender` (in fact, this blog is an example of that!). But you can choose the right architecture, or even transition to more flexibility when you need it with the new suite of hybrid features in v3.
 
 ## Server-rendered API Routes
 
@@ -178,7 +178,7 @@ There is also an `elm-pages bundle-script` command for bundling into a single ex
 
 The scaffolding uses the excellent tool [`mdgriffith/elm-codegen`](https://github.com/mdgriffith/elm-codegen) to generate the Route Modules. `elm-codegen` provides a high-level way to write Elm code that generates Elm code. Sounds scary, but it's a lot of fun to use! `elm-pages` [abstracts out the boilerplate around Routes](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Route) [and Forms](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Form), so you can focus on customizing your template within the confines of generating a valid Route Module.
 
-With `elm-pages` Scripts-based scaffolding, you have full programmatic control over your scaffolding, and all in pure Elm. You can run arbitrary `BackendTask`s, and customize your scaffolding with command-line options. Here's an example of the scaffolding script [](https://github.com/dillonkearns/elm-pages/blob/5633707ae7c9d6bfc3f920b12df06eb8ea9b1098/examples/end-to-end/script/src/AddRoute.elm). The `elm-pages-starter` repo and the `elm-pages init` project skeleton both come with a `script/src/AddRoute.elm` script that you can customize to your needs.
+With `elm-pages` Scripts-based scaffolding, you have full programmatic control over your scaffolding, and all in pure Elm. You can run arbitrary `BackendTask`s, and customize your scaffolding with command-line options. Here's an [example of the scaffolding script ](https://github.com/dillonkearns/elm-pages/blob/5633707ae7c9d6bfc3f920b12df06eb8ea9b1098/examples/end-to-end/script/src/AddRoute.elm). The `elm-pages-starter` repo and the `elm-pages init` project skeleton both come with a `script/src/AddRoute.elm` script that you can customize to your needs.
 
 ## Built-in Vite Integration
 
