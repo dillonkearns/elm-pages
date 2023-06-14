@@ -9,6 +9,7 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Pages.Url exposing (Url)
 import Route
+import UnsplashImage
 
 
 type alias BlogPost =
@@ -89,7 +90,11 @@ frontmatterDecoder =
                     )
             )
         )
-        (Decode.field "image" imageDecoder)
+        (Decode.oneOf
+            [ Decode.field "image" imageDecoder
+            , Decode.field "unsplash" UnsplashImage.decoder |> Decode.map UnsplashImage.imagePath
+            ]
+        )
         (Decode.field "draft" Decode.bool
             |> Decode.maybe
             |> Decode.map (Maybe.withDefault False)

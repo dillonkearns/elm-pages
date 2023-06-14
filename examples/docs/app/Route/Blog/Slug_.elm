@@ -26,6 +26,7 @@ import Tailwind.Breakpoints as Bp
 import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
+import UnsplashImage
 import UrlPath
 import View exposing (View)
 
@@ -270,7 +271,11 @@ frontmatterDecoder =
                     )
             )
         )
-        (Decode.field "image" imageDecoder)
+        (Decode.oneOf
+            [ Decode.field "image" imageDecoder
+            , Decode.field "unsplash" UnsplashImage.decoder |> Decode.map UnsplashImage.imagePath
+            ]
+        )
         (Decode.field "draft" Decode.bool
             |> Decode.maybe
             |> Decode.map (Maybe.withDefault False)
