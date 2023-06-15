@@ -29,6 +29,20 @@ describe("parse GitHub URL", function () {
       }
     );
   });
+  it("raw github URL", function () {
+    assert.deepEqual(
+      parse(
+        "https://raw.githubusercontent.com/dillonkearns/elm-pages-starter/master/script/src/Stars.elm"
+      ),
+      {
+        remote: "https://github.com/dillonkearns/elm-pages-starter.git",
+        filePath: "script/src/Stars.elm",
+        branch: "master",
+        owner: "dillonkearns",
+        repo: "elm-pages-starter",
+      }
+    );
+  });
   it("github:repo:path", function () {
     assert.deepEqual(
       parse("github:dillonkearns/elm-pages-starter:script/src/Stars.elm"),

@@ -5,6 +5,7 @@ export function parse(input) {
   const patterns = [
     /https?:\/\/github.com\/(?<owner>[^/]+)\/(?<repo>[^/]+)(\/(blob|tree)\/(?<branch>[^/]+)(\/(?<filePath>.*)))?(#?.*)$/,
     /github:(?<owner>[^\/]+)\/(?<repo>[^\/]+):(?<filePath>.*)$/,
+    /http(s)?:\/\/raw.githubusercontent.com\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/(?<branch>[^\/]+)\/(?<filePath>.*)$/,
   ];
   const match = patterns.map((pattern) => input.match(pattern)).find((m) => m);
 
