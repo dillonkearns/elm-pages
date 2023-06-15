@@ -146,7 +146,11 @@ async function main() {
         // TODO have option for compiling with --debug or not (maybe allow running with elm-optimize-level-2 as well?)
 
         let executableName = await lamderaOrElmFallback();
-        await build.compileCliApp({ debug: "debug", executableName });
+        await build.compileCliApp({
+          debug: "debug",
+          executableName,
+          mainModule: "ScriptMain",
+        });
         fs.renameSync(
           `${projectDirectory}/elm-stuff/elm-pages/elm.js`,
           `${projectDirectory}/elm-stuff/elm-pages/elm.cjs`

@@ -635,7 +635,10 @@ export async function compileCliApp(options) {
     // TODO should be --optimize, but there seems to be an issue with the html to JSON with --optimize
     options.debug ? "debug" : "optimize",
     options,
-    path.join(process.cwd(), "elm-stuff/elm-pages/.elm-pages/Main.elm"),
+    path.join(
+      process.cwd(),
+      `elm-stuff/elm-pages/.elm-pages/${options.mainModule || "Main"}.elm`
+    ),
     path.join(process.cwd(), "elm-stuff/elm-pages/elm.js"),
     path.join(process.cwd(), "elm-stuff/elm-pages")
   );
