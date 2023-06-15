@@ -28,8 +28,13 @@ function rewriteElmJsonHelp(elmJson, options) {
     }
   );
   // 2. prepend ../../../ to remaining
+
   elmJson["source-directories"] = elmJson["source-directories"].map((item) => {
-    return "../../" + item;
+    if (item === ".") {
+      return "parentDirectory";
+    } else {
+      return "../../" + item;
+    }
   });
   if (options && options.executableName === "elm") {
     // elm, don't add lamdera/codecs

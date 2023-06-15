@@ -124,7 +124,7 @@ function runGeneratorAppHelp(
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
 
-    app = elmModule.Elm.Main.init({
+    app = elmModule.Elm.ScriptMain.init({
       flags: {
         compatibilityKey,
         argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],

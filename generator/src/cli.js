@@ -161,6 +161,7 @@ async function main() {
           moduleName
         );
       } catch (error) {
+        console.trace(error);
         console.log(restoreColorSafe(error));
         process.exit(1);
       }
@@ -346,7 +347,7 @@ async function requireElm(compiledElmPath) {
  * @param {string} moduleName
  */
 function generatorWrapperFile(moduleName) {
-  return `port module Main exposing (main)
+  return `port module ScriptMain exposing (main)
 
 import Pages.Internal.Platform.GeneratorApplication
 import ${moduleName}
@@ -396,7 +397,9 @@ async function compileElmForScript(elmModulePath) {
   ensureDirSync(`${projectDirectory}/elm-stuff`);
   ensureDirSync(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages`);
   await fs.promises.writeFile(
-    path.join(`${projectDirectory}/elm-stuff/elm-pages/.elm-pages/Main.elm`),
+    path.join(
+      `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
+    ),
     generatorWrapperFile(moduleName)
   );
   let executableName = await lamderaOrElmFallback();
@@ -406,6 +409,18 @@ async function compileElmForScript(elmModulePath) {
     await which("elm");
     executableName = "elm";
   }
+  fs.mkdirSync(`${projectDirectory}/elm-stuff/elm-pages/parentDirectory`);
+  // copy every file ending with '.elm' from `projectDirectory` to `elm-stuff/elm-pages/parentDirectory`
+  const elmFiles = globby.globbySync(`${projectDirectory}/*.elm`);
+  elmFiles.forEach((elmFile) => {
+    fs.copyFileSync(
+      elmFile,
+      `${projectDirectory}/elm-stuff/elm-pages/parentDirectory/${path.basename(
+        elmFile
+      )}`
+    );
+  });
+
   await rewriteElmJson(
     `${projectDirectory}/elm.json`,
     `${projectDirectory}/elm-stuff/elm-pages/elm.json`,
