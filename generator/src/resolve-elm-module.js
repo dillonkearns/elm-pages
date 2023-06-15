@@ -71,9 +71,8 @@ export async function resolveInputPathOrModuleName(inputPathOrModuleName) {
   }
 }
 
-function downloadRemoteScript({ remote, owner, repo, branch }) {
-  return new Promise(async (resolve, reject) => {
-    branch ||= "master";
+async function downloadRemoteScript({ remote, owner, repo, branch }) {
+  try {
     const cloneToPath = path.join(
       "elm-stuff",
       "elm-pages",
@@ -84,29 +83,62 @@ function downloadRemoteScript({ remote, owner, repo, branch }) {
 
     const repoExists = fs.existsSync(cloneToPath);
 
-    let subprocess;
     if (repoExists) {
-      subprocess = spawn("git", ["pull"], {
+      await exec("git", ["pull"], {
+        cwd: cloneToPath,
+      });
+      const defaultBranch = (
+        await exec("git", ["remote", "show", "origin"], {
+          cwd: cloneToPath,
+        })
+      ).match(/HEAD branch: (?<defaultBranch>.*)/).groups.defaultBranch;
+      await exec("git", ["checkout", branch || defaultBranch], {
         cwd: cloneToPath,
       });
     } else {
-      subprocess = spawn("git", ["clone", "--depth=1", remote, cloneToPath], {
-        cwd: process.cwd(),
-      });
+      if (branch) {
+        await exec("git", [
+          "clone",
+          "--branch",
+          branch,
+          "--depth=1",
+          remote,
+          cloneToPath,
+        ]);
+      } else {
+        await exec("git", ["clone", "--depth=1", remote, cloneToPath]);
+      }
     }
+    return cloneToPath;
+  } catch (error) {
+    process.exitCode = 1;
+    throw `I encountered an error cloning the repo:\n\n ${error}`;
+  }
+}
 
+/**
+ * @param {string} command
+ * @param {readonly string[]} args
+ * @param {import("child_process").SpawnOptionsWithoutStdio} [ options ]
+ */
+function exec(command, args, options) {
+  return new Promise(async (resolve, reject) => {
+    let subprocess = spawn(command, args, options);
     let commandOutput = "";
 
     subprocess.stderr.on("data", function (data) {
       commandOutput += data;
     });
 
+    subprocess.stdout.on("data", function (data) {
+      commandOutput += data;
+    });
+
     subprocess.on("close", async (code) => {
       if (code === 0) {
-        resolve(cloneToPath);
+        resolve(commandOutput);
       } else {
-        process.exitCode = 1;
-        reject(`I encountered an error cloning the repo:\n\n ${commandOutput}`);
+        reject(commandOutput);
       }
     });
   });
