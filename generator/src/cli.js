@@ -409,6 +409,10 @@ async function compileElmForScript(elmModulePath) {
     await which("elm");
     executableName = "elm";
   }
+  fs.rmSync(`${projectDirectory}/elm-stuff/elm-pages/parentDirectory`, {
+    recursive: true,
+    force: true,
+  });
   fs.mkdirSync(`${projectDirectory}/elm-stuff/elm-pages/parentDirectory`);
   // copy every file ending with '.elm' from `projectDirectory` to `elm-stuff/elm-pages/parentDirectory`
   const elmFiles = globby.globbySync(`${projectDirectory}/*.elm`);
