@@ -83,6 +83,27 @@ describe("parse GitHub URL", function () {
       }
     );
   });
+  it("gist:hash", function () {
+    assert.deepEqual(parse("gist:4f050018784b25246729a82fc9907543"), {
+      remote: "https://gist.github.com/4f050018784b25246729a82fc9907543.git",
+      filePath: "Main.elm",
+      branch: null,
+      owner: "gist",
+      repo: "4f050018784b25246729a82fc9907543",
+    });
+  });
+  it("gist/owner:hash", function () {
+    assert.deepEqual(
+      parse("gist:dillonkearns/4f050018784b25246729a82fc9907543"),
+      {
+        remote: "https://gist.github.com/4f050018784b25246729a82fc9907543.git",
+        filePath: "Main.elm",
+        branch: null,
+        owner: "dillonkearns",
+        repo: "4f050018784b25246729a82fc9907543",
+      }
+    );
+  });
   it("github:repo:path", function () {
     assert.deepEqual(
       parse("github:dillonkearns/elm-pages-starter:script/src/Stars.elm"),

@@ -23,6 +23,8 @@ export function parse(input) {
       /https?:\/\/gist\.github.com\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)(\/?#(?<filePath>.*))?$/,
       /https?:\/\/gist\.github.com\/(?<repo>[^\/]+)(\/?#(?<filePath>.*))?$/,
       /https?:\/\/gist\.githubusercontent\.com\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/raw\/(?<sha>[^/]+)\/(?<filePath>.*)?$/,
+      /gist:(?<owner>[^\/]+)\/(?<repo>[^\/]+)(:(?<filePath>.*))?$/,
+      /gist:(?<repo>[^\/]+)(:(?<filePath>.*))?$/,
     ];
     const gistMatch = gistPatterns
       .map((pattern) => input.match(pattern))
