@@ -1,5 +1,12 @@
+/**
+ * @param {string} input
+ */
 export function parse(input) {
-  const match = parseGithubUrl(input) || parseRemotePath(input);
+  const patterns = [
+    /https?:\/\/github.com\/(?<owner>[^/]+)\/(?<repo>[^/]+)(\/(blob|tree)\/(?<branch>[^/]+)(\/(?<filePath>.*)))?(#?.*)$/,
+    /github:(?<owner>[^\/]+)\/(?<repo>[^\/]+):(?<filePath>.*)$/,
+  ];
+  const match = patterns.map((pattern) => input.match(pattern)).find((m) => m);
 
   if (match) {
     const g = match.groups;
@@ -13,23 +20,4 @@ export function parse(input) {
   } else {
     return null;
   }
-}
-
-/**
- * @param {string} input
- */
-function parseGithubUrl(input) {
-  return input.match(
-    /https?:\/\/github.com\/(?<owner>[^/]+)\/(?<repo>[^/]+)(\/(blob|tree)\/(?<branch>[^/]+)(\/(?<filePath>.*)))?(#?.*)$/
-  );
-}
-
-/**
- * @param {string} possibleRemotePath
- */
-function parseRemotePath(possibleRemotePath) {
-  // "github:user/repo:script/src/Hello.elm",
-  const githubRegex =
-    /github:(?<owner>[^\/]+)\/(?<repo>[^\/]+):(?<filePath>.*)$/;
-  return possibleRemotePath.match(githubRegex);
 }
