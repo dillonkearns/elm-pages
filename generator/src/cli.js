@@ -101,7 +101,7 @@ async function main() {
         await compileElmForScript(elmModulePath);
 
         const { moduleName, projectDirectory, sourceDirectory } =
-          resolveInputPathOrModuleName(elmModulePath);
+          await resolveInputPathOrModuleName(elmModulePath);
 
         const portBackendTaskCompiled = esbuild
           .build({
@@ -186,7 +186,7 @@ async function main() {
     )
     .action(async (elmModulePath, options, options2) => {
       const { moduleName, projectDirectory, sourceDirectory } =
-        resolveInputPathOrModuleName(elmModulePath);
+        await resolveInputPathOrModuleName(elmModulePath);
       await compileElmForScript(elmModulePath);
 
       const cwd = process.cwd();
@@ -204,7 +204,7 @@ async function main() {
 
       try {
         const { moduleName, projectDirectory, sourceDirectory } =
-          resolveInputPathOrModuleName(elmModulePath);
+          await resolveInputPathOrModuleName(elmModulePath);
 
         const portBackendTaskFileFound =
           globby.globbySync(
@@ -378,7 +378,7 @@ function collect(value, previous) {
 
 async function compileElmForScript(elmModulePath) {
   const { moduleName, projectDirectory, sourceDirectory } =
-    resolveInputPathOrModuleName(elmModulePath);
+    await resolveInputPathOrModuleName(elmModulePath);
   const splitModuleName = moduleName.split(".");
   const expectedFilePath = path.join(
     sourceDirectory,

@@ -1,5 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { spawn } from "cross-spawn";
+import { parse } from "../src/parse-remote.js";
 
 function findNearestElmJson(filePath) {
   function searchForElmJson(directory) {
@@ -48,8 +50,14 @@ function getElmModuleName(inputPath) {
   return { projectDirectory, moduleName, sourceDirectory: matchingSourceDir };
 }
 
-export function resolveInputPathOrModuleName(inputPathOrModuleName) {
-  if (
+export async function resolveInputPathOrModuleName(inputPathOrModuleName) {
+  const parsed = parse(inputPathOrModuleName);
+  if (parsed) {
+    const { filePath } = parsed;
+    const repoPath = await downloadRemoteScript(parsed);
+    const absolutePathForScript = path.join(repoPath, filePath);
+    return getElmModuleName(absolutePathForScript);
+  } else if (
     /^[A-Z][a-zA-Z0-9_]*(\.[A-Z][a-zA-Z0-9_]*)*$/.test(inputPathOrModuleName)
   ) {
     const absolutePathForScript = path.resolve("./script/src");
@@ -61,4 +69,45 @@ export function resolveInputPathOrModuleName(inputPathOrModuleName) {
   } else {
     return getElmModuleName(inputPathOrModuleName);
   }
+}
+
+function downloadRemoteScript({ remote, owner, repo, branch }) {
+  return new Promise(async (resolve, reject) => {
+    branch ||= "master";
+    const cloneToPath = path.join(
+      "elm-stuff",
+      "elm-pages",
+      "remote-scripts",
+      owner,
+      repo
+    );
+
+    const repoExists = fs.existsSync(cloneToPath);
+
+    let subprocess;
+    if (repoExists) {
+      subprocess = spawn("git", ["pull"], {
+        cwd: cloneToPath,
+      });
+    } else {
+      subprocess = spawn("git", ["clone", "--depth=1", remote, cloneToPath], {
+        cwd: process.cwd(),
+      });
+    }
+
+    let commandOutput = "";
+
+    subprocess.stderr.on("data", function (data) {
+      commandOutput += data;
+    });
+
+    subprocess.on("close", async (code) => {
+      if (code === 0) {
+        resolve(cloneToPath);
+      } else {
+        process.exitCode = 1;
+        reject(`I encountered an error cloning the repo:\n\n ${commandOutput}`);
+      }
+    });
+  });
 }
