@@ -74,7 +74,7 @@ view error model =
             }
 
 
-statusCode : ErrorPage -> number
+statusCode : ErrorPage -> Int
 statusCode error =
     case error of
         NotFound ->
