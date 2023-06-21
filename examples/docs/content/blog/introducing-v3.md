@@ -170,7 +170,7 @@ run =
         (Script.log "Hello, World!")
 ```
 
-I think this is one of the best ways to try out `elm-pages` to get a feel for the `BackendTask` API and what you can do with it, as well as how error handling works in `elm-pages`. Check out [the quick start and intro to elm-pages scripts in the docs](/docs/scripts). We also have a [deep dive on `elm-pages` scripts on an episode of the Elm Radio podcast](https://elm-radio.com/episode/elm-pages-scripts/).
+I think this is one of the best ways to try out `elm-pages` to get a feel for the `BackendTask` API and what you can do with it, as well as how error handling works in `elm-pages`. Check out [the quick start and intro to elm-pages scripts in the docs](/docs/elm-pages-scripts). We also have a [deep dive on `elm-pages` scripts on an episode of the Elm Radio podcast](https://elm-radio.com/episode/elm-pages-scripts/).
 
 `elm-pages` Scripts also has a `Script.withCliOptions` that lets you parse command-line options using [`dillonkearns/elm-cli-options-parser`](https://package.elm-lang.org/packages/dillonkearns/elm-cli-options-parser/latest/), so you can build full-fledged CLI utilities in pure Elm.
 
