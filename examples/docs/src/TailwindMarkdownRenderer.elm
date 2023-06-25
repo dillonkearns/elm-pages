@@ -237,6 +237,7 @@ heading { level, rawText, children } =
                     , Tw.mt_10
                     , Tw.pb_1
                     , Tw.border_b
+                    , Css.property "scroll-margin-top" "80px"
                     ]
                 ]
                 [ Html.a
