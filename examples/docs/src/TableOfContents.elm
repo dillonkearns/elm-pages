@@ -275,6 +275,10 @@ level1Entry current (Entry data children) =
         , ul
             [ css
                 [ Tw.space_y_3
+                , if isCurrent then
+                    Tw.block
+                  else
+                    Tw.hidden
                 ]
             ]
             (children
