@@ -52,8 +52,8 @@ route =
             { view = view }
 
 
-routes : BackendTask.BackendTask (List RouteParams)
-routes =
+pages : BackendTask.BackendTask (List RouteParams)
+pages =
     BackendTask.succeed [ { slug = "introducing-elm-pages" } ]
 ```
 
