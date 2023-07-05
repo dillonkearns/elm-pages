@@ -8,3 +8,11 @@ code::before,
 code::after {
   content: "" !important;
 }
+
+details[open] .summary-open {
+  display: inline;
+}
+
+details[open] .summary-closed {
+  display: none;
+}

@@ -142,3 +142,24 @@ rightArrow =
             ]
             []
         ]
+
+
+downArrow : Html msg
+downArrow =
+    svg
+        [ SvgAttr.fill "none"
+        , SvgAttr.viewBox "0 0 24 24"
+        , SvgAttr.strokeWidth "1.5"
+        , SvgAttr.stroke "currentColor"
+        , SvgAttr.css
+            [ Tw.w_6
+            , Tw.h_6
+            ]
+        ]
+        [ path
+            [ SvgAttr.strokeLinecap "round"
+            , SvgAttr.strokeLinejoin "round"
+            , SvgAttr.d "M19.5 8.25l-7.5 7.5-7.5-7.5"
+            ]
+            []
+        ]

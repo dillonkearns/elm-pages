@@ -222,63 +222,69 @@ view app sharedModel =
                 ]
             ]
             [ TableOfContents.view sharedModel.showMobileMenu True app.routeParams.section app.sharedData
-            , Html.article
-                [ css
-                    [ Tw.prose
-                    , Tw.max_w_xl
-
-                    --, Tw.whitespace_normal
-                    --, Tw.mx_auto
-                    , Tw.relative
-                    , Tw.pt_20
-                    , Tw.pb_16
-                    , Tw.px_6
-                    , Tw.w_full
-                    , Tw.max_w_full
-                    , Tw.overflow_x_hidden
-                    , Bp.md
-                        [ Tw.px_8
-                        ]
-                    ]
-                ]
-                [ Html.div
+            , Html.div []
+                [ TableOfContents.onThisPageDetails sharedModel.showMobileMenu False app.routeParams.section app.sharedData
+                , Html.article
                     [ css
-                        [ Tw.max_w_screen_md
-                        , Tw.mx_auto
-                        , Bp.xl [ Tw.pr_36 ]
+                        [ Tw.prose
+                        , Tw.max_w_xl
+
+                        --, Tw.whitespace_normal
+                        --, Tw.mx_auto
+                        , Tw.relative
+                        , Tw.pt_20
+                        , Tw.pb_16
+                        , Tw.px_6
+                        , Tw.flex
+                        , Tw.flex_col
+                        , Tw.w_full
+                        , Tw.max_w_full
+                        , Tw.overflow_x_hidden
+                        , Bp.md
+                            [ Tw.px_8
+                            ]
                         ]
                     ]
-                    ((app.data.body
-                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                        |> Result.withDefault []
-                     )
-                        ++ [ NextPrevious.view app.data.titles.previousAndNext
-                           , Html.hr [] []
-                           , Html.footer
-                                [ css [ Tw.text_right ]
-                                ]
-                                [ Html.a
-                                    [ Attr.href app.data.editUrl
-                                    , Attr.rel "noopener"
-                                    , Attr.target "_blank"
-                                    , css
-                                        [ Tw.text_sm
-                                        , Css.hover
-                                            [ Tw.text_color Theme.gray_800 |> Css.important
+                    [ Html.div
+                        [ css
+                            [ Tw.max_w_screen_md
+                            , Tw.mx_auto
+                            , Bp.xl [ Tw.pr_36 ]
+                            ]
+                        ]
+                        ((app.data.body
+                            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                            |> Result.withDefault []
+                         )
+                            ++ [ NextPrevious.view app.data.titles.previousAndNext
+                               , Html.hr [] []
+                               , Html.footer
+                                    [ css [ Tw.text_right ]
+                                    ]
+                                    [ Html.a
+                                        [ Attr.href app.data.editUrl
+                                        , Attr.rel "noopener"
+                                        , Attr.target "_blank"
+                                        , css
+                                            [ Tw.text_sm
+                                            , Css.hover
+                                                [ Tw.text_color Theme.gray_800 |> Css.important
+                                                ]
+                                            , Tw.text_color Theme.gray_500 |> Css.important
+                                            , Tw.flex
+                                            , Tw.items_center
+                                            , Tw.float_right
                                             ]
-                                        , Tw.text_color Theme.gray_500 |> Css.important
-                                        , Tw.flex
-                                        , Tw.items_center
-                                        , Tw.float_right
+                                        ]
+                                        [ Html.span [ css [ Tw.pr_1 ] ] [ Html.text "Suggest an edit on GitHub" ]
+                                        , Heroicon.edit
                                         ]
                                     ]
-                                    [ Html.span [ css [ Tw.pr_1 ] ] [ Html.text "Suggest an edit on GitHub" ]
-                                    , Heroicon.edit
-                                    ]
-                                ]
-                           ]
-                    )
+                               ]
+                        )
+                    ]
                 ]
+            , TableOfContents.onThisPage sharedModel.showMobileMenu False app.routeParams.section app.sharedData
             ]
         ]
     }

@@ -9,6 +9,9 @@ import Html.Styled.Attributes as Attr exposing (css)
 import List.Extra
 import Markdown.Block as Block exposing (Block, Inline)
 import Markdown.Parser
+import NextPrevious
+import Svg.Styled as Svg
+import Svg.Styled.Attributes as SvgAttr
 import Tailwind.Breakpoints as Bp
 import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
@@ -209,10 +212,6 @@ surround showMobileMenu onDocsPage children =
                 Tw.hidden
             , Tw.fixed
             , Tw.z_10
-
-            --, Bp.dark
-            --    [ Tw.bg_dark
-            --    ]
             , Bp.md
                 [ Tw.w_64
                 , Tw.block
@@ -233,16 +232,209 @@ surround showMobileMenu onDocsPage children =
                 , Tw.pb_40
                 , Tw.h_full
                 , Tw.overflow_y_auto
-
-                --, Bp.dark
-                --    [ Tw.border_gray_900
-                --    ]
                 , Bp.md
                     [ Tw.pb_16
                     ]
                 ]
             ]
             children
+        ]
+
+
+onThisPage : Bool -> Bool -> Maybe String -> TableOfContents Data -> Html msg
+onThisPage showMobileMenu onDocsPage current toc =
+    let
+        currentAnchorId : String
+        currentAnchorId =
+            Maybe.withDefault "what-is-elm-pages" current
+
+        subHeadings : List (Entry Data)
+        subHeadings =
+            toc
+                |> List.filterMap
+                    (\(Entry data children) ->
+                        if data.anchorId == currentAnchorId then
+                            Just children
+
+                        else
+                            Nothing
+                    )
+                |> List.head
+                |> Maybe.withDefault []
+    in
+    div []
+        [ div
+            [ css
+                [ Tw.hidden
+                , Bp.lg
+                    [ Tw.sticky
+                    , Tw.top_28
+                    , Tw.order_1
+                    , Tw.mt_10
+                    , Tw.block
+                    , Tw.w_56
+                    , Tw.flex_shrink_0
+                    , Tw.self_start
+                    , Tw.overflow_auto
+                    ]
+                ]
+            ]
+            [ nav
+                [ css
+                    [ Tw.mb_2
+                    , Tw.text_sm
+                    , Tw.font_bold
+                    ]
+                ]
+                [ text "On this page" ]
+            , ul []
+                (subHeadings
+                    |> List.map onThisPageItem
+                )
+            ]
+        ]
+
+
+onThisPageDetails : Bool -> Bool -> Maybe String -> TableOfContents Data -> Html msg
+onThisPageDetails showMobileMenu onDocsPage current toc =
+    let
+        currentAnchorId : String
+        currentAnchorId =
+            Maybe.withDefault "what-is-elm-pages" current
+
+        subHeadings : List (Entry Data)
+        subHeadings =
+            toc
+                |> List.filterMap
+                    (\(Entry data children) ->
+                        if data.anchorId == currentAnchorId then
+                            Just children
+
+                        else
+                            Nothing
+                    )
+                |> List.head
+                |> Maybe.withDefault []
+    in
+    div
+        [ css
+            [ --Tw.sticky,
+              Tw.top_28
+            , Tw.order_1
+            , Tw.mt_10
+            , Tw.block
+            , Tw.w_56
+
+            --, Tw.flex_shrink_0
+            , Tw.self_start
+            , Tw.overflow_auto
+            , Bp.lg
+                [ Tw.hidden
+                ]
+            ]
+        ]
+        [ details
+            [ css
+                [ Tw.flex
+                , Tw.h_full
+                , Tw.flex_col
+                , Bp.lg
+                    [ Tw.ml_80
+                    , Tw.mt_4
+                    , Tw.hidden
+                    ]
+                ]
+            ]
+            [ summary
+                [ css
+                    [ Css.listStyle Css.none
+                    , Tw.flex
+                    , Tw.cursor_pointer
+                    , Tw.select_none
+                    , Tw.items_center
+                    , Tw.gap_2
+                    , Tw.border_b
+                    , Tw.px_2
+                    , Tw.py_3
+                    , Tw.text_sm
+                    , Tw.font_medium
+                    , Css.active
+                        [--Tw.bg_gray_100
+                        ]
+                    , Css.hover
+                        [--Tw.text_color
+                        ]
+                    ]
+                ]
+                [ div
+                    [ css
+                        [ Tw.flex
+                        , Tw.items_center
+                        , Tw.gap_2
+                        ]
+                    ]
+                    [ Svg.svg
+                        [ Attr.attribute "aria-hidden" "true"
+                        , SvgAttr.class "summary-closed"
+                        , SvgAttr.css
+                            [ Tw.h_5
+                            , Tw.w_5
+                            ]
+                        ]
+                        [ NextPrevious.rightArrow
+                        ]
+                    , Svg.svg
+                        [ Attr.attribute "aria-hidden" "true"
+                        , SvgAttr.class "summary-open"
+                        , SvgAttr.css
+                            [ Tw.hidden
+                            , Tw.h_5
+                            , Tw.w_5
+                            ]
+                        ]
+                        [ NextPrevious.downArrow
+                        ]
+                    ]
+                , div
+                    [ css
+                        [ Tw.whitespace_nowrap
+                        ]
+                    ]
+                    [ text "On this page" ]
+                ]
+            , ul
+                [ css
+                    [ Tw.pl_9
+                    ]
+                ]
+                (subHeadings
+                    |> List.map onThisPageItem
+                )
+            ]
+        ]
+
+
+onThisPageItem : Entry Data -> Html msg
+onThisPageItem (Entry subHeading _) =
+    li []
+        [ a
+            [ Attr.href ("#" ++ subHeading.anchorId)
+            , css
+                [ Tw.block
+                , Tw.py_1
+                , Tw.text_sm
+                , Tw.text_color Theme.gray_500
+                , Css.active
+                    [ Tw.bg_color Theme.gray_200
+                    , Tw.font_semibold
+                    ]
+                , Css.hover
+                    [ Tw.text_color Theme.black
+                    , Tw.bg_color Theme.gray_100
+                    ]
+                ]
+            ]
+            [ text subHeading.name ]
         ]
 
 
@@ -272,14 +464,6 @@ level1Entry current (Entry data children) =
             ]
         ]
         [ item isCurrent ("/docs/" ++ data.anchorId) data.name
-        , ul
-            [ css
-                [ Tw.space_y_3
-                ]
-            ]
-            (children
-                |> List.map (level2Entry data.anchorId)
-            )
         ]
 
 
