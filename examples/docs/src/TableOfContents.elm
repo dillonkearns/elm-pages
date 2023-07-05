@@ -323,7 +323,7 @@ onThisPageDetails showMobileMenu onDocsPage current toc =
             , Tw.order_1
             , Tw.mt_10
             , Tw.block
-            , Tw.w_56
+            , Tw.w_full
 
             --, Tw.flex_shrink_0
             , Tw.self_start
