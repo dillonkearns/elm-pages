@@ -8,7 +8,7 @@ The `elm-pages run` command lets you use [`BackendTask`](https://package.elm-lan
 
 ## Quick Start
 
-The [elm-pages starter repo](https://github.com/dillonkearns/elm-pages-3-alpha-starter) comes with a `script/` folder that is setup with an `elm.json` with `elm-pages` as a dependency, but you can also create the `script/` folder from scratch:
+The [elm-pages starter repo](https://github.com/dillonkearns/elm-pages-starter) comes with a `script/` folder that is setup with an `elm.json` with `elm-pages` as a dependency, but you can also create the `script/` folder from scratch:
 
 ```
 mkdir script
@@ -152,7 +152,7 @@ The `elm-pages` package includes some modules that help you generate Elm files.
 
 `elm-codegen` helps ensure that you are generating valid code by generating functions that mirror the code they will generate, giving you an extra layer of type safety. `elm-pages` Scripts are general-purpose, so you can do what you want with them, but there are some built-in helpers to make it easy for you to scaffold code for your `elm-pages` app that work well with `elm-codegen`.
 
-Take a look at [the `AddRoute.elm` Script from the `elm-pages` starter repo](https://github.com/dillonkearns/elm-pages-3-alpha-starter/blob/main/script/src/AddRoute.elm). This Script is a great starting point for customizing your own scaffolding Scripts for your project. It is designed to lock in the essential details for defining a Route Module and a Form, while leaving the rest up to you to customize in the script. See [`Scaffold.Route`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Route) and [`Scaffold.Form`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Route) in the docs.
+Take a look at [the `AddRoute.elm` Script from the `elm-pages` starter repo](https://github.com/dillonkearns/elm-pages-starter/blob/master/script/src/AddRoute.elm). This Script is a great starting point for customizing your own scaffolding Scripts for your project. It is designed to lock in the essential details for defining a Route Module and a Form, while leaving the rest up to you to customize in the script. See [`Scaffold.Route`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Route) and [`Scaffold.Form`](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Scaffold-Route) in the docs.
 
 ## Compiling Scripts to an Executable JavaScript File
 
