@@ -26,7 +26,7 @@ There is also a special `public/` folder that will directly copy assets without 
 
 And entrypoint files for your CSS and JS.
 
-- [`index.js`](/docs/file-structure#index.js)
+- [`index.ts`](/docs/file-structure#index.ts)
 - [`style.css`](/docs/file-structure#style.css)
 
 And a configuration file.
@@ -120,7 +120,7 @@ Files in this folder are copied directly into `dist/` when you run `elm-pages bu
 
 For example, if you had a file called `public/images/profile.jpg`, then you could access it at `http://localhost:1234/images/profile.jpg` in your dev server, or the corresponding path in your production domain.
 
-## `public/index.js`
+## `public/index.ts`
 
 This is the entrypoint for your JavaScript. Export an Object with a functions `load` and `flags`. Right now, this is the only place that user JavaScript code can be loaded. You can use `import` statements to load other JS files here.
 
