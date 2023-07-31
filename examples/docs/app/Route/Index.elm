@@ -189,7 +189,7 @@ all =
         |> BackendTask.resolve
 
 
-stars : String -> BackendTask Int
+stars : String -> BackendTask FatalError Int
 stars repoName =
     Decode.field "stargazers_count" Decode.int
     |> BackendTask.Http.getJson ("https://api.github.com/repos/dillonkearns/" ++ repoName)
