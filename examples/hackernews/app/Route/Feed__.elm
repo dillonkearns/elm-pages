@@ -1,27 +1,28 @@
 module Route.Feed__ exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
-import BackendTask.Http
 import BackendTask.Custom
+import BackendTask.Http
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Json.Decode exposing (Decoder)
 import Json.Encode as Encode
-import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path exposing (Path)
+import PagesMsg exposing (PagesMsg)
 import Route
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
 import Story exposing (Item)
 import Url.Builder
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -43,7 +44,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action = \_ _ -> BackendTask.fail (FatalError.fromString "No action.")
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -54,33 +55,31 @@ route =
 
 
 init :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init static sharedModel =
     ( {}, Effect.none )
 
 
 update :
-    PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update static sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
-pages : BackendTask (List RouteParams)
+pages : BackendTask FatalError (List RouteParams)
 pages =
     BackendTask.succeed []
 
@@ -95,57 +94,54 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    Request.queryParam "page"
-        |> Request.map
-            (\maybePage ->
-                let
-                    currentPage : Int
-                    currentPage =
-                        maybePage
-                            |> Maybe.andThen String.toInt
-                            |> Maybe.withDefault 1
+data : RouteParams -> Request.Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    let
+        currentPage : Int
+        currentPage =
+            Request.queryParam "page" request
+                |> Maybe.andThen String.toInt
+                |> Maybe.withDefault 1
 
-                    feed : String
-                    feed =
-                        --const type = Astro.params.stories || "top";
-                        case routeParams.feed |> Maybe.withDefault "top" of
-                            "top" ->
-                                "news"
+        feed : String
+        feed =
+            --const type = Astro.params.stories || "top";
+            case routeParams.feed |> Maybe.withDefault "top" of
+                "top" ->
+                    "news"
 
-                            "new" ->
-                                "newest"
+                "new" ->
+                    "newest"
 
-                            "show" ->
-                                "show"
+                "show" ->
+                    "show"
 
-                            "ask" ->
-                                "ask"
+                "ask" ->
+                    "ask"
 
-                            "job" ->
-                                "jobs"
+                "job" ->
+                    "jobs"
 
-                            _ ->
-                                "not-found"
+                _ ->
+                    "not-found"
 
-                    getStoriesUrl : String
-                    getStoriesUrl =
-                        Url.Builder.crossOrigin "https://node-hnapi.herokuapp.com"
-                            [ feed ]
-                            [ Url.Builder.int "page" currentPage
-                            ]
+        getStoriesUrl : String
+        getStoriesUrl =
+            Url.Builder.crossOrigin "https://node-hnapi.herokuapp.com"
+                [ feed ]
+                [ Url.Builder.int "page" currentPage
+                ]
 
-                    getStories : BackendTask (List Item)
-                    getStories =
-                        BackendTask.Http.get getStoriesUrl
-                            (Story.decoder |> Json.Decode.list)
-                in
-                BackendTask.map2 Data
-                    getStories
-                    (BackendTask.succeed currentPage)
-                    |> BackendTask.map Response.render
-            )
+        getStories : BackendTask FatalError (List Item)
+        getStories =
+            BackendTask.Http.getJson getStoriesUrl
+                (Story.decoder |> Json.Decode.list)
+                |> BackendTask.allowFatal
+    in
+    BackendTask.map2 Data
+        getStories
+        (BackendTask.succeed currentPage)
+        |> BackendTask.map Response.render
 
 
 head :
@@ -156,7 +152,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages Hacker News"
         , image =
-            { url = [ "images", "icon-png.png" ] |> Path.join |> Pages.Url.fromPath
+            { url = [ "images", "icon-png.png" ] |> UrlPath.join |> Pages.Url.fromPath
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing
@@ -178,12 +174,11 @@ title routeParams =
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view static sharedModel model =
     { title = title static.routeParams
     , body =
         [ paginationView static.data.stories static.routeParams static.data.currentPage

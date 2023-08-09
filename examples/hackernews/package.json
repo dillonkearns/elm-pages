@@ -4,7 +4,6 @@
   "description": "Example site built with elm-pages.",
   "scripts": {
     "start": "elm-pages dev --debug",
-    "serve": "npm run build && http-server ./dist -a localhost -p 3000 -c-1",
     "build": "elm-pages build"
   },
   "author": "Dillon Kearns",

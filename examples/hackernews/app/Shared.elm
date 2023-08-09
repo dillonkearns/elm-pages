@@ -2,13 +2,14 @@ module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import BackendTask
 import Effect exposing (Effect)
+import FatalError exposing (FatalError)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
-import Path exposing (Path)
 import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -25,7 +26,7 @@ template =
 
 type Msg
     = OnPageChange
-        { path : Path
+        { path : UrlPath
         , query : Maybe String
         , fragment : Maybe String
         }
@@ -50,7 +51,7 @@ init :
     ->
         Maybe
             { path :
-                { path : Path
+                { path : UrlPath
                 , query : Maybe String
                 , fragment : Maybe String
                 }
@@ -58,7 +59,7 @@ init :
             , pageUrl : Maybe PageUrl
             }
     -> ( Model, Effect Msg )
-init flags maybePagePath =
+init flags maybePageUrlPath =
     ( { showMobileMenu = False }
     , Effect.none
     )
@@ -74,12 +75,12 @@ update msg model =
             ( model, Effect.none )
 
 
-subscriptions : Path -> Model -> Sub Msg
+subscriptions : UrlPath -> Model -> Sub Msg
 subscriptions _ _ =
     Sub.none
 
 
-data : BackendTask.BackendTask Data
+data : BackendTask.BackendTask FatalError Data
 data =
     BackendTask.succeed ()
 
@@ -87,15 +88,15 @@ data =
 view :
     Data
     ->
-        { path : Path
+        { path : UrlPath
         , route : Maybe Route
         }
     -> Model
     -> (Msg -> msg)
     -> View msg
-    -> { body : Html msg, title : String }
+    -> { body : List (Html msg), title : String }
 view sharedData page model toMsg pageView =
-    { body = Html.div [] (headerView :: pageView.body)
+    { body = [ Html.div [] (headerView :: pageView.body) ]
     , title = pageView.title
     }
 
