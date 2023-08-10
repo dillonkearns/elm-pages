@@ -89,7 +89,7 @@ Then in your `Shared.elm` module, you would render based on that extra field.
 `elm-pages` has built-in support for [the Effect Pattern](https://sporto.github.io/elm-patterns/architecture/effects.html).
 
 If you want to use a `Cmd` directly instead of going through the level of indirection of an Effect, you can use `Effect.fromCmd : Cmd msg -> Effect msg`.
-There's nothing wrong with using this if it suites your needs, the Effect pattern is there in case you need it for testing, introspection and analytics for your Cmds, etc. But if you're not leveraging it for those things then `Effect.fromCmd` is the simplest way to get up and running.
+There's nothing wrong with using this if it suits your needs, the Effect pattern is there in case you need it for testing, introspection and analytics for your Cmds, etc. But if you're not leveraging it for those things then `Effect.fromCmd` is the simplest way to get up and running.
 
 The `Effect` module must expose a `type Effect msg` and a `perform` function. These are the core of the module, and this pair defines which Effect's
 can happen from your `init` and `update` on your frontend and how to perform them
