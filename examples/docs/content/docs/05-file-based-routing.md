@@ -134,7 +134,7 @@ There is one special static segment name: Index. You'll only need this for your 
 
 Segments ending with an underscore (`_`) are dynamic segments. You can mix static and dynamic segments. For example, `app/Route/Blog/Slug_.elm` will handle URLs like `/blog/my-post`.
 
-You can have two dynamic segments. `app/Route/Episode/Show_/SeasonNumber_/EpisodeNumber_.elm` will handle URLs like `/episode/simpsons/3/1`. The resulting URL will be give you RouteParams `{ show = "simpsons", seasonNumber = "3", episodeNumber = "1" }`.
+You can have more than one dynamic segment. `app/Route/Episode/Show_/SeasonNumber_/EpisodeNumber_.elm` will handle URLs like `/episode/simpsons/3/1`. The resulting URL will be give you RouteParams `{ show = "simpsons", seasonNumber = "3", episodeNumber = "1" }`.
 
 ## Special Ending Segments
 
