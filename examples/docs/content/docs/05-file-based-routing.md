@@ -148,7 +148,7 @@ These cannot be used anywhere except for the final segment. That means no static
 
 ## Optional Dynamic Segments
 
-`app/Route/Docs/Section__.elm` will match both `/docs/getting-started` as well as `/docs`. This is often useful when you want to treat a route as the default. You could use a static segment instead to handle `/docs` with `app/Route/Docs`. The choice depends on whether you want to use a separate Route Module to handle those routes or not. In the case of these docs, `/docs` shows the first docs page so it uses an optional segment.
+`app/Route/Docs/Section__.elm` will match both `/docs/getting-started` as well as `/docs`. This is often useful when you want to treat a route as the default. You could use a static segment instead to handle `/docs` with `app/Route/Docs.elm`. The choice depends on whether you want to use a separate Route Module to handle those routes or not. In the case of these docs, `/docs` shows the first docs page so it uses an optional segment.
 
 ## Splat Routes
 
