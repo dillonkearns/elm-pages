@@ -4,6 +4,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import Effect exposing (Effect)
 import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html exposing (Html)
@@ -11,15 +12,15 @@ import Html.Attributes as Attr
 import Html.Keyed
 import Json.Decode as Decode
 import Json.Encode as Encode
-import PagesMsg exposing (PagesMsg)
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
-import Path exposing (Path)
-import RouteBuilder exposing (StatefulRoute, StatelessRoute, App)
+import PagesMsg exposing (PagesMsg)
+import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
 import Shared
 import Story exposing (Entry(..), Item(..))
+import UrlPath exposing (UrlPath)
 import View exposing (View)
 
 
@@ -40,7 +41,7 @@ route =
     RouteBuilder.serverRender
         { head = head
         , data = data
-        , action = \_ -> Request.skip "No action."
+        , action = \_ _ -> BackendTask.fail (FatalError.fromString "No action.")
         }
         |> RouteBuilder.buildWithLocalState
             { view = view
@@ -51,33 +52,31 @@ route =
 
 
 init :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
-init maybePageUrl sharedModel static =
+init static sharedModel =
     ( {}, Effect.none )
 
 
 update :
-    PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
-    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
-update pageUrl sharedModel static msg model =
+update static sharedModel msg model =
     case msg of
         NoOp ->
             ( model, Effect.none )
 
 
-subscriptions : Maybe PageUrl -> RouteParams -> Path -> Shared.Model -> Model -> Sub Msg
-subscriptions maybePageUrl routeParams path sharedModel model =
+subscriptions : RouteParams -> UrlPath -> Shared.Model -> Model -> Sub Msg
+subscriptions routeParams path sharedModel model =
     Sub.none
 
 
-pages : BackendTask (List RouteParams)
+pages : BackendTask FatalError (List RouteParams)
 pages =
     BackendTask.succeed []
 
@@ -91,10 +90,10 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request.Parser (BackendTask (Response Data ErrorPage))
-data routeParams =
-    Request.succeed
-        (BackendTask.Http.get ("https://node-hnapi.herokuapp.com/item/" ++ routeParams.id)
+data : RouteParams -> Request.Request -> BackendTask FatalError (Response Data ErrorPage)
+data routeParams request =
+    BackendTask.allowFatal
+        (BackendTask.Http.getJson ("https://node-hnapi.herokuapp.com/item/" ++ routeParams.id)
             (Decode.map2 Tuple.pair
                 Story.decoder
                 (Decode.field "comments" (Decode.value |> Decode.map (Encode.encode 0)))
@@ -115,7 +114,7 @@ head static =
         { canonicalUrlOverride = Nothing
         , siteName = "elm-pages Hacker News"
         , image =
-            { url = [ "images", "icon-png.png" ] |> Path.join |> Pages.Url.fromPath
+            { url = [ "images", "icon-png.png" ] |> UrlPath.join |> Pages.Url.fromPath
             , alt = "elm-pages logo"
             , dimensions = Nothing
             , mimeType = Nothing
@@ -128,12 +127,11 @@ head static =
 
 
 view :
-    Maybe PageUrl
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
-    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
-view maybeUrl sharedModel model static =
+view static sharedModel model =
     { title = static.data.story |> Tuple.first |> (\(Item common _) -> common.title)
     , body =
         [ storyView static.data.story
