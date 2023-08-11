@@ -2,7 +2,7 @@ module BackendTask exposing
     ( BackendTask
     , map, succeed, fail
     , fromResult
-    , andThen, resolve, combine
+    , andThen, resolve, combine, sequence
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult
@@ -73,7 +73,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 ## Chaining Requests
 
-@docs andThen, resolve, combine
+@docs andThen, resolve, combine, sequence
 
 @docs andMap
 
@@ -88,6 +88,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 import FatalError exposing (FatalError)
 import Json.Encode
+import List.Chunks
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 
 
@@ -173,7 +174,44 @@ resolve =
 -}
 combine : List (BackendTask error value) -> BackendTask error (List value)
 combine items =
+    items
+        |> List.Chunks.chunk 100
+        |> List.map combineHelp
+        |> List.Chunks.chunk 100
+        |> List.map combineHelp
+        |> List.Chunks.chunk 100
+        |> List.map combineHelp
+        |> combineHelp
+        |> map (List.concat >> List.concat >> List.concat)
+
+
+{-| `combineHelp` on its own will overflow the stack with larger lists of tasks
+
+dividing the tasks into smaller nested chunks and recombining makes `combine` stack safe
+
+There's probably a way of doing this without the Lists but it's a neat trick to safely combine lots of tasks!
+
+-}
+combineHelp : List (BackendTask error value) -> BackendTask error (List value)
+combineHelp items =
     List.foldl (map2 (::)) (succeed []) items |> map List.reverse
+
+
+{-| Like combine, but runs each task one after the other
+-}
+sequence : List (BackendTask error value) -> BackendTask error (List value)
+sequence items =
+    sequenceHelp items (succeed [])
+
+
+sequenceHelp : List (BackendTask error value) -> BackendTask error (List value) -> BackendTask error (List value)
+sequenceHelp items combined =
+    case items of
+        item :: rest ->
+            combined |> andThen (\xs -> sequenceHelp rest (map (\x -> x :: xs) item))
+
+        [] ->
+            combined
 
 
 {-| Like map, but it takes in two `Request`s.
