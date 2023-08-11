@@ -27,7 +27,7 @@ Using these functions, you can store and read session data in cookies to maintai
     type alias Data =
         { darkMode : Bool }
 
-    data : RouteParams -> Request -> BackendTask (Response Data ErrorPage)
+    data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
     data routeParams request =
         request
             |> Session.withSession
@@ -42,12 +42,15 @@ Using these functions, you can store and read session data in cookies to maintai
                             (session |> Session.get "mode" |> Maybe.withDefault "light")
                                 == "dark"
                     in
-                    ( session
-                    , { darkMode = darkMode }
-                    )
+                    BackendTask.succeed
+                        ( session
+                        , Response.render
+                            { darkMode = darkMode
+                            }
+                        )
                 )
 
-The elm-pages framework will manage signing these cookies using the `secrets : BackendTask (List String)` you pass in.
+The elm-pages framework will manage signing these cookies using the `secrets : BackendTask FatalError (List String)` you pass in.
 That means that the values you set in your session will be directly visible to anyone who has access to the cookie
 (so don't directly store sensitive data in your session). Since the session cookie is signed using the secret you provide,
 the cookie will be invalidated if it is tampered with because it won't match when elm-pages verifies that it has been
@@ -56,7 +59,7 @@ signed with your secrets. Of course you need to provide secure secrets and treat
 
 ### Rotating Secrets
 
-The first String in `secrets : BackendTask (List String)` will be used to sign sessions, while the remaining String's will
+The first String in `secrets : BackendTask FatalError (List String)` will be used to sign sessions, while the remaining String's will
 still be used to attempt to "unsign" the cookies. So if you have a single secret:
 
     Session.withSession
