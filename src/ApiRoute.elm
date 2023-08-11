@@ -65,10 +65,11 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
 
     import ApiRoute
     import BackendTask exposing (BackendTask)
+    import FatalError exposing (FatalError)
     import Server.Request
 
     routes :
-        BackendTask (List Route)
+        BackendTask FatalError (List Route)
         -> (Maybe { indent : Int, newLines : Bool } -> Html Never -> String)
         -> List (ApiRoute.ApiRoute ApiRoute.Response)
     routes getStaticRoutes htmlToString =
