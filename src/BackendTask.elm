@@ -206,6 +206,8 @@ sequence items =
 
 sequenceHelp : List (BackendTask error value) -> BackendTask error (List value) -> BackendTask error (List value)
 sequenceHelp items combined =
+    -- elm-review: known-unoptimized-recursion
+    -- counterintuitively this is stack safe, whereas putting sequenceHelp in tail call optimized position blows the stack
     case items of
         item :: rest ->
             combined |> andThen (\xs -> sequenceHelp rest (map (\x -> x :: xs) item))
