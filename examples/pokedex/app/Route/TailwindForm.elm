@@ -25,6 +25,7 @@ import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
 import Tailwind.Breakpoints as Bp
+import Tailwind.Theme as Th
 import Tailwind.Utilities as Tw
 import Time
 import View exposing (View)
@@ -98,7 +99,7 @@ usernameInput formState field =
                     , Tw.gap_4
                     , Tw.items_start
                     , Tw.border_t
-                    , Tw.border_gray_200
+                    , Tw.border_color Th.gray_200
                     , Tw.pt_5
                     ]
                 ]
@@ -109,7 +110,7 @@ usernameInput formState field =
                     [ Tw.block
                     , Tw.text_sm
                     , Tw.font_medium
-                    , Tw.text_gray_700
+                    , Tw.text_color Th.gray_700
                     , Bp.sm
                         [ Tw.mt_px
                         , Tw.pt_2
@@ -143,9 +144,9 @@ usernameInput formState field =
                             , Tw.rounded_l_md
                             , Tw.border
                             , Tw.border_r_0
-                            , Tw.border_gray_300
-                            , Tw.bg_gray_50
-                            , Tw.text_gray_500
+                            , Tw.border_color Th.gray_300
+                            , Tw.bg_color Th.gray_50
+                            , Tw.text_color Th.gray_500
                             , Bp.sm
                                 [ Tw.text_sm
                                 ]
@@ -164,10 +165,10 @@ usernameInput formState field =
                             , Tw.min_w_0
                             , Tw.rounded_none
                             , Tw.rounded_r_md
-                            , Tw.border_gray_300
+                            , Tw.border_color Th.gray_300
                             , Css.focus
-                                [ Tw.ring_indigo_500
-                                , Tw.border_indigo_500
+                                [ Tw.ring_color Th.indigo_500
+                                , Tw.border_color Th.indigo_500
                                 ]
                             , Bp.sm
                                 [ Tw.text_sm
@@ -464,18 +465,18 @@ saveButton formHasErrors formAttrs =
                     , Tw.py_2
                     , Tw.px_4
                     , Tw.border
-                    , Tw.border_transparent
+                    , Tw.border_color Th.transparent
                     , Tw.shadow_sm
                     , Tw.text_sm
                     , Tw.font_medium
                     , Tw.rounded_md
-                    , Tw.text_white
-                    , Tw.bg_indigo_600
+                    , Tw.text_color Th.white
+                    , Tw.bg_color Th.indigo_600
                     , Css.focus
                         [ Tw.outline_none
                         , Tw.ring_2
                         , Tw.ring_offset_2
-                        , Tw.ring_indigo_500
+                        , Tw.ring_color Th.indigo_500
                         ]
                     , --if formHasErrors then
                       --    Css.batch
@@ -486,7 +487,7 @@ saveButton formHasErrors formAttrs =
                       --
                       --  else
                       Css.hover
-                        [ Tw.bg_indigo_700
+                        [ Tw.bg_color Th.indigo_700
                         ]
                     ]
                ]
@@ -499,24 +500,24 @@ cancelButton =
     Html.button
         [ Attr.type_ "button"
         , css
-            [ Tw.bg_white
+            [ Tw.bg_color Th.white
             , Tw.py_2
             , Tw.px_4
             , Tw.border
-            , Tw.border_gray_300
+            , Tw.border_color Th.gray_300
             , Tw.rounded_md
             , Tw.shadow_sm
             , Tw.text_sm
             , Tw.font_medium
-            , Tw.text_gray_700
+            , Tw.text_color Th.gray_700
             , Css.focus
                 [ Tw.outline_none
                 , Tw.ring_2
                 , Tw.ring_offset_2
-                , Tw.ring_indigo_500
+                , Tw.ring_color Th.indigo_500
                 ]
             , Css.hover
-                [ Tw.bg_gray_50
+                [ Tw.bg_color Th.gray_50
                 ]
             ]
         ]
@@ -626,7 +627,7 @@ wrapSection children =
                     [ Tw.text_lg
                     , Tw.leading_6
                     , Tw.font_medium
-                    , Tw.text_gray_900
+                    , Tw.text_color Th.gray_900
                     ]
                 ]
                 [ Html.text "Profile" ]
@@ -635,7 +636,7 @@ wrapSection children =
                     [ Tw.mt_1
                     , Tw.max_w_2xl
                     , Tw.text_sm
-                    , Tw.text_gray_500
+                    , Tw.text_color Th.gray_500
                     ]
                 ]
                 [ Html.text "This information will be displayed publicly so be careful what you share." ]
@@ -689,7 +690,7 @@ view app model sharedModel =
                     , Tw.flex_col
                     , Tw.items_center
                     , Tw.mt_8
-                    , Tw.border_gray_700
+                    , Tw.border_color Th.gray_700
                     , Tw.rounded_lg
                     ]
                 ]
@@ -757,7 +758,7 @@ textInput info labelText field =
                 , Tw.gap_4
                 , Tw.items_start
                 , Tw.border_t
-                , Tw.border_gray_200
+                , Tw.border_color Th.gray_200
                 , Tw.pt_5
                 ]
             ]
@@ -779,7 +780,7 @@ textInput info labelText field =
                 [ Tw.block
                 , Tw.text_sm
                 , Tw.font_medium
-                , Tw.text_gray_700
+                , Tw.text_color Th.gray_700
                 , Bp.sm
                     [ Tw.mt_px
                     , Tw.pt_2
@@ -807,11 +808,11 @@ textInput info labelText field =
                         , Tw.block
                         , Tw.w_full
                         , Tw.shadow_sm
-                        , Tw.border_gray_300
+                        , Tw.border_color Th.gray_300
                         , Tw.rounded_md
                         , Css.focus
-                            [ Tw.ring_indigo_500
-                            , Tw.border_indigo_500
+                            [ Tw.ring_color Th.indigo_500
+                            , Tw.border_color Th.indigo_500
                             ]
                         , Bp.sm
                             [ Tw.max_w_xs
@@ -836,7 +837,7 @@ errorsView formState field =
         [ css
             [ Tw.mt_2
             , Tw.text_sm
-            , Tw.text_red_600
+            , Tw.text_color Th.red_600
             ]
         ]
         (if showErrors then
@@ -881,11 +882,11 @@ checkboxInput { name, description } info field =
                         [ css
                             [ Tw.h_4
                             , Tw.w_4
-                            , Tw.text_indigo_600
-                            , Tw.border_gray_300
+                            , Tw.text_color Th.indigo_600
+                            , Tw.border_color Th.gray_300
                             , Tw.rounded
                             , Css.focus
-                                [ Tw.ring_indigo_500
+                                [ Tw.ring_color Th.indigo_500
                                 ]
                             ]
                         ]
@@ -899,13 +900,13 @@ checkboxInput { name, description } info field =
                 [ Html.div
                     [ css
                         [ Tw.font_medium
-                        , Tw.text_gray_700
+                        , Tw.text_color Th.gray_700
                         ]
                     ]
                     [ Html.text name ]
                 , Html.p
                     [ css
-                        [ Tw.text_gray_500
+                        [ Tw.text_color Th.gray_500
                         ]
                     ]
                     [ Html.text description ]
@@ -919,7 +920,7 @@ wrapNotificationsSections children =
     Html.div
         [ css
             [ Tw.divide_y
-            , Tw.divide_gray_200
+            , Tw.divide_color Th.gray_200
             , Tw.pt_8
             , Tw.space_y_6
             , Bp.sm
@@ -934,7 +935,7 @@ wrapNotificationsSections children =
                     [ Tw.text_lg
                     , Tw.leading_6
                     , Tw.font_medium
-                    , Tw.text_gray_900
+                    , Tw.text_color Th.gray_900
                     ]
                 ]
                 [ Html.text "Notifications" ]
@@ -943,7 +944,7 @@ wrapNotificationsSections children =
                     [ Tw.mt_1
                     , Tw.max_w_2xl
                     , Tw.text_sm
-                    , Tw.text_gray_500
+                    , Tw.text_color Th.gray_500
                     ]
                 ]
                 [ Html.text "We'll always let you know about important changes, but you pick what else you want to hear about." ]
@@ -952,7 +953,7 @@ wrapNotificationsSections children =
             [ css
                 [ Tw.space_y_6
                 , Tw.divide_y
-                , Tw.divide_gray_200
+                , Tw.divide_color Th.gray_200
                 , Bp.sm
                     [ Tw.space_y_5
                     ]
@@ -990,10 +991,10 @@ wrapEmailSection children =
                         [ css
                             [ Tw.text_base
                             , Tw.font_medium
-                            , Tw.text_gray_900
+                            , Tw.text_color Th.gray_900
                             , Bp.sm
                                 [ Tw.text_sm
-                                , Tw.text_gray_700
+                                , Tw.text_color Th.gray_700
                                 ]
                             ]
                         , Attr.id "label-email"
@@ -1029,7 +1030,7 @@ radioInput errors item toRadio =
             , Tw.block
             , Tw.text_sm
             , Tw.font_medium
-            , Tw.text_gray_700
+            , Tw.text_color Th.gray_700
             ]
         ]
         [ Html.div
@@ -1042,11 +1043,11 @@ radioInput errors item toRadio =
                 [ css
                     [ Tw.h_4
                     , Tw.w_4
-                    , Tw.text_indigo_600
-                    , Tw.border_gray_300
+                    , Tw.text_color Th.indigo_600
+                    , Tw.border_color Th.gray_300
                     , Tw.mr_2
                     , Css.focus
-                        [ Tw.ring_indigo_500
+                        [ Tw.ring_color Th.indigo_500
                         ]
                     ]
                 ]
@@ -1104,10 +1105,10 @@ wrapPushNotificationsSection formState field children =
                         [ css
                             [ Tw.text_base
                             , Tw.font_medium
-                            , Tw.text_gray_900
+                            , Tw.text_color Th.gray_900
                             , Bp.sm
                                 [ Tw.text_sm
-                                , Tw.text_gray_700
+                                , Tw.text_color Th.gray_700
                                 ]
                             ]
                         , Attr.id "label-notifications"
@@ -1129,7 +1130,7 @@ wrapPushNotificationsSection formState field children =
                         [ Html.p
                             [ css
                                 [ Tw.text_sm
-                                , Tw.text_gray_500
+                                , Tw.text_color Th.gray_500
                                 ]
                             ]
                             [ Html.text "These are delivered via SMS to your mobile phone." ]
