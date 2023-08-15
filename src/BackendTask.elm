@@ -140,6 +140,7 @@ resolve =
 {-| Turn a list of `BackendTask`s into a single one.
 
     import BackendTask
+    import FatalError exposing (FatalError)
     import Json.Decode as Decode exposing (Decoder)
 
     type alias Pokemon =
@@ -147,7 +148,7 @@ resolve =
         , sprite : String
         }
 
-    pokemonDetailRequest : BackendTask (List Pokemon)
+    pokemonDetailRequest : BackendTask FatalError (List Pokemon)
     pokemonDetailRequest =
         BackendTask.Http.getJson
             "https://pokeapi.co/api/v2/pokemon/?limit=3"
@@ -169,6 +170,7 @@ resolve =
                 )
             )
             |> BackendTask.andThen BackendTask.combine
+            |> BackendTask.allowFatal
 
 -}
 combine : List (BackendTask error value) -> BackendTask error (List value)
@@ -190,11 +192,11 @@ combine items =
                 }
             )
             (get
-                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+                "https://api.github.com/repos/dillonkearns/elm-pages"
                 (Decode.field "stargazers_count" Decode.int)
             )
             (get
-                (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-markdown")
+                "https://api.github.com/repos/dillonkearns/elm-markdown"
                 (Decode.field "stargazers_count" Decode.int)
             )
 
@@ -239,17 +241,19 @@ map2 fn request1 request2 =
 from the previous response to build up the URL, headers, etc. that you send to the subsequent request.
 
     import BackendTask
+    import FatalError exposing (FatalError)
     import Json.Decode as Decode exposing (Decoder)
 
-    licenseData : BackendTask String
+    licenseData : BackendTask FatalError String
     licenseData =
-        BackendTask.Http.get
-            (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+        BackendTask.Http.getJson
+            "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.at [ "license", "url" ] Decode.string)
             |> BackendTask.andThen
                 (\licenseUrl ->
-                    BackendTask.Http.get (Secrets.succeed licenseUrl) (Decode.field "description" Decode.string)
+                    BackendTask.Http.getJson licenseUrl (Decode.field "description" Decode.string)
                 )
+            |> BackendTask.allowFatal
 
 -}
 andThen : (a -> BackendTask error b) -> BackendTask error a -> BackendTask error b
