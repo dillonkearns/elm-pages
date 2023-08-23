@@ -102,10 +102,11 @@ async function render(event, context) {
 
 /**
  * @param {import('aws-lambda').APIGatewayProxyEvent} req
- * @returns {{method: string; rawUrl: string; body: string?; headers: Record<string, string>; multiPartFormData: unknown }}
+ * @returns {{requestTime: number, method: string; rawUrl: string; body: string?; headers: Record<string, string>; multiPartFormData: unknown }}
  */
 function reqToJson(req) {
   return {
+    requestTime: Math.round(new Date().getTime()),
     method: req.httpMethod,
     headers: req.headers,
     rawUrl: req.rawUrl,
