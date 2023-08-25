@@ -227,7 +227,6 @@ head app =
             , modifiedTime = Nothing
             , expirationTime = Nothing
             }
-
 """ )
             }
         , firstSection
