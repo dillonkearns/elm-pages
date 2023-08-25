@@ -321,9 +321,7 @@ function initWorker(basePath, whenDone) {
       newWorker.worker.on("message", (message) => {
         if (message.tag === "all-paths") {
           pagesReadyCalled = true;
-          pagesReady(
-            ["/____elm-pages-internal____/404"].concat(JSON.parse(message.data))
-          );
+          pagesReady(JSON.parse(message.data));
         } else if (message.tag === "error") {
           process.exitCode = 1;
           console.error(restoreColorSafe(message.data));
