@@ -280,10 +280,6 @@ export async function render(request) {
     const cliDone = runCli(options);
     await cliDone;
 
-    await fsPromises.rename(
-      "dist/____elm-pages-internal____/404/index.html",
-      "dist/404.html"
-    );
     await runAdapter(
       config.adapter ||
         function () {
