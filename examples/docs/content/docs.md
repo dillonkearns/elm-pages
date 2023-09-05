@@ -163,7 +163,7 @@ We could swap that out to get the data from another source at any time. Like thi
 ```elm
 authorsFromCms : BackendTask (List Author)
 authorsFromCms =
-    BackendTask.Http.get (Secrets.succeed "mycms.com/authors")
+    BackendTask.Http.get "mycms.com/authors"
         authorsDecoder
 ```
 
@@ -215,7 +215,7 @@ import BackendTask exposing (BackendTask)
 
 staticData : BackendTask Int
 staticData =
-    BackendTask.Http.get (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+    BackendTask.Http.get "https://api.github.com/repos/dillonkearns/elm-pages"
         (OptimizedDecoder.field "stargazers_count" OptimizedDecoder.int)
 ```
 
