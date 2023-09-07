@@ -10,7 +10,7 @@ import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Html.Styled exposing (a, div, text)
-import Html.Styled.Attributes as Attr
+import Html.Styled.Attributes as Attr exposing (href)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.PageUrl exposing (PageUrl)
@@ -101,6 +101,13 @@ view app shared =
         , div [] [ text <| "Greeting: " ++ app.data.greeting ]
         , div [] [ text <| "Greeting: " ++ app.data.portGreeting ]
         , div [] [ text <| "Random Data: " ++ Debug.toString app.data.randomTuple ]
+        , div []
+            [ a
+                [ href "/get-form?page=2"
+                ]
+                [ text "Page 2"
+                ]
+            ]
         , div []
             [ text <|
                 "Now: "

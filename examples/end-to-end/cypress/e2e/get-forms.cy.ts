@@ -8,4 +8,9 @@ context("dev server with base path", () => {
     cy.contains("Page 2").click();
     cy.contains("Current page: 2");
   });
+  it("navigates to a page with query params from a different starting path", () => {
+    cy.visit("/");
+    cy.contains("Page 2").click();
+    cy.contains("Current page: 2");
+  });
 });

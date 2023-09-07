@@ -392,7 +392,7 @@ update config appMsg model =
                     let
                         navigatingToSamePage : Bool
                         navigatingToSamePage =
-                            url.path == model.url.path
+                            url.path == model.url.path && url.query == model.url.query
                     in
                     if navigatingToSamePage then
                         -- this is a workaround for an issue with anchor fragment navigation
@@ -403,7 +403,7 @@ update config appMsg model =
 
                     else
                         ( model
-                        , BrowserPushUrl url.path
+                        , BrowserPushUrl (Url.toString url)
                         )
 
                 Browser.External href ->
