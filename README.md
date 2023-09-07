@@ -11,7 +11,7 @@
 
 - [elm-pages Docs Site](https://elm-pages.com/docs)
 - [elm-pages site showcase](https://elm-pages.com/showcase/)
-- [elm-pages Elm API Docs](https://package.elm-lang.org/packages/dillonkearns/elm-pages/10.0.1/)
+- [elm-pages Elm API Docs](https://package.elm-lang.org/packages/dillonkearns/elm-pages/10.0.2/)
 - [Quick start repo](https://github.com/dillonkearns/elm-pages-starter) [(live site hosted here)](https://elm-pages-starter.netlify.com)
 - [Introducing `elm-pages` blog post](https://elm-pages.com/blog/introducing-elm-pages)
 - [`examples` folder](https://github.com/dillonkearns/elm-pages/blob/master/examples/) (includes https://elm-pages.com site source)
