@@ -3,7 +3,7 @@ import * as path from "path";
 import { default as mm } from "micromatch";
 import * as routeHelpers from "./route-codegen-helpers.js";
 import { restoreColorSafe } from "./error-formatter.js";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
 /**
  * @param {string} basePath
@@ -66,7 +66,7 @@ export async function generateTemplateModuleConnector(basePath, phase) {
 async function runElmCodegenCli(templates, basePath, phase) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const filePath = path.join(__dirname, `../../codegen/elm-pages-codegen.cjs`);
+  const filePath = pathToFileURL(path.join(__dirname, `../../codegen/elm-pages-codegen.cjs`)).href;
 
   const promise = new Promise(async (resolve, reject) => {
     const elmPagesCodegen = (await import(filePath)).default.Elm.Generate;
