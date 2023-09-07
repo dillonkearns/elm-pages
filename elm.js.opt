@@ -9342,7 +9342,7 @@
                     var urlRequest = appMsg.a;
                     if (!urlRequest.$) {
                         var url = urlRequest.a;
-                        var navigatingToSamePage = _Utils_eq(url.dA, model.jY.dA) && _Utils_eq(url.aQ, model.jY.aQ);
+                        var navigatingToSamePage = _Utils_eq(url.dA, model.jY.dA) && (_Utils_eq(url.aQ, model.jY.aQ) && (!_Utils_eq(url.aG, $elm$core$Maybe$Nothing)));
                         return navigatingToSamePage ? _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$BrowserLoadUrl($elm$url$Url$toString(url))) : _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$BrowserPushUrl($elm$url$Url$toString(url)));
                     }
                     else {
@@ -9360,7 +9360,7 @@
                         return $author$project$Pages$Internal$Platform$loadDataAndUpdateUrl_fn(_Utils_Tuple3(newPageData, newSharedData, newActionData), $elm$core$Maybe$Nothing, url, url, false, config, model);
                     }
                     else {
-                        return (_Utils_eq(model.jY.dA, url.dA) && _Utils_eq(model.jY.aQ, url.aQ)) ? _Utils_Tuple2(_Utils_update(model, { jY: url }), $author$project$Pages$Internal$Platform$NoEffect) : $author$project$Pages$Internal$Platform$startNewGetLoad_fn(url, A3($author$project$Pages$Internal$Platform$UpdateCacheAndUrlNew, true, url, $elm$core$Maybe$Nothing), _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect));
+                        return (_Utils_eq(model.jY.dA, url.dA) && _Utils_eq(model.jY.aQ, url.aQ)) ? (_Utils_eq(url.aG, $elm$core$Maybe$Nothing) ? _Utils_Tuple2(_Utils_update(model, { jY: url }), $author$project$Pages$Internal$Platform$ScrollToTop) : _Utils_Tuple2(_Utils_update(model, { jY: url }), $author$project$Pages$Internal$Platform$NoEffect)) : $author$project$Pages$Internal$Platform$startNewGetLoad_fn(url, A3($author$project$Pages$Internal$Platform$UpdateCacheAndUrlNew, true, url, $elm$core$Maybe$Nothing), _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect));
                     }
                 case 5:
                     var fetcherKey = appMsg.b;
