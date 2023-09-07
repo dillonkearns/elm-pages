@@ -9342,8 +9342,8 @@
                     var urlRequest = appMsg.a;
                     if (!urlRequest.$) {
                         var url = urlRequest.a;
-                        var navigatingToSamePage = _Utils_eq(url.dA, model.jY.dA);
-                        return navigatingToSamePage ? _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$BrowserLoadUrl($elm$url$Url$toString(url))) : _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$BrowserPushUrl(url.dA));
+                        var navigatingToSamePage = _Utils_eq(url.dA, model.jY.dA) && _Utils_eq(url.aQ, model.jY.aQ);
+                        return navigatingToSamePage ? _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$BrowserLoadUrl($elm$url$Url$toString(url))) : _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$BrowserPushUrl($elm$url$Url$toString(url)));
                     }
                     else {
                         var href = urlRequest.a;
