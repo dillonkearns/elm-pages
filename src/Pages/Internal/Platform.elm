@@ -425,12 +425,21 @@ update config appMsg model =
 
                 Nothing ->
                     if model.url.path == url.path && model.url.query == url.query then
-                        ( { model
-                            | -- update the URL in case query params or fragment changed
-                              url = url
-                          }
-                        , NoEffect
-                        )
+                        if url.fragment == Nothing then
+                            ( { model
+                                | -- update the URL in case query params or fragment changed
+                                  url = url
+                              }
+                            , ScrollToTop
+                            )
+
+                        else
+                            ( { model
+                                | -- update the URL in case query params or fragment changed
+                                  url = url
+                              }
+                            , NoEffect
+                            )
 
                     else
                         ( model
