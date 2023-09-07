@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.8] - 2023-09-07
+
+### Fixed
+
+- Fix for a Windows path import issue, see [#384](https://github.com/dillonkearns/elm-pages/issues/384).
+- Removed some optional chaining operators to prevent unnecessary Node version requirement.
+
 ## [2.1.9] - 2021-08-27
 
 ### Added

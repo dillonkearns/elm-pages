@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [10.0.2] - 2023-09-07
+
+### Fixed
+
+- Cleaned up handling of navigating to new pages with query parameters, and navigating to links with `#`'s (named anchors). See [#389](https://github.com/dillonkearns/elm-pages/issues/389).
+    Thank you to [`@kyasu1`](https://github.com/kyasu1) for the issue report and suggested fixes!
+
 ## [8.0.2] - 2021-08-03
 
 ### Fixed
