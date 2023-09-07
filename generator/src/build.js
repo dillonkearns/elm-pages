@@ -73,7 +73,7 @@ export async function run(options) {
     // This is a temporary hack to avoid this warning. elm-pages manages compiling the Elm code without Vite's involvement, so it is external to Vite.
     // There is a pending issue to allow having external scripts in Vite, once this issue is fixed we can remove this hack:
     // https://github.com/vitejs/vite/issues/3533
-    if (!messages[0]?.startsWith(`<script src="/elm.js">`)) {
+    if (messages && messages[0] && !messages[0].startsWith(`<script src="/elm.js">`)) {
       console.info(...messages);
     }
   };

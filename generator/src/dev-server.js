@@ -37,7 +37,7 @@ const __dirname = path.dirname(__filename);
  */
 export async function start(options) {
   console.error = function (...messages) {
-    if (!messages[0]?.startsWith("Failed to load url")) {
+    if (messages && messages[0] && !messages[0].startsWith("Failed to load url")) {
       console.info(...messages);
     }
   };

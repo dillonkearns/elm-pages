@@ -10,7 +10,7 @@ export function merge_vite_configs(...configs) {
       ...config,
       resolve: {
         ...config.resolve,
-        alias: normalize_alias(config.resolve?.alias || {}),
+        alias: normalize_alias((config.resolve && config.resolve.alias) || {}),
       },
     }))
   );
