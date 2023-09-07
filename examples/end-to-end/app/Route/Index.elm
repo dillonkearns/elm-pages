@@ -17,6 +17,7 @@ import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Random
+import Route
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Shared
 import Time
@@ -90,6 +91,11 @@ head static =
         |> Seo.website
 
 
+link : List (Html.Styled.Attribute msg) -> List (Html.Styled.Html msg) -> Route.Route -> Html.Styled.Html msg
+link attributes children route_ =
+    Route.toLink (\anchorAttrs -> a (List.map Attr.fromUnstyled anchorAttrs ++ attributes) children) route_
+
+
 view :
     App Data ActionData RouteParams
     -> Shared.Model
@@ -101,13 +107,9 @@ view app shared =
         , div [] [ text <| "Greeting: " ++ app.data.greeting ]
         , div [] [ text <| "Greeting: " ++ app.data.portGreeting ]
         , div [] [ text <| "Random Data: " ++ Debug.toString app.data.randomTuple ]
+        , div [] [ a [ href "/get-form?page=2" ] [ text "Page 2" ] ]
         , div []
-            [ a
-                [ href "/get-form?page=2"
-                ]
-                [ text "Page 2"
-                ]
-            ]
+            [ Route.Index |> link [] [ text "Link to Self" ] ]
         , div []
             [ text <|
                 "Now: "
