@@ -2,7 +2,7 @@ module BackendTask exposing
     ( BackendTask
     , map, succeed, fail
     , fromResult
-    , andThen, resolve, combine, sequence
+    , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult
@@ -73,7 +73,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 ## Chaining Requests
 
-@docs andThen, resolve, combine, sequence
+@docs andThen, resolve, combine
 
 @docs andMap
 
@@ -195,25 +195,6 @@ There's probably a way of doing this without the Lists but it's a neat trick to 
 combineHelp : List (BackendTask error value) -> BackendTask error (List value)
 combineHelp items =
     List.foldl (map2 (::)) (succeed []) items |> map List.reverse
-
-
-{-| Like combine, but runs each task one after the other
--}
-sequence : List (BackendTask error value) -> BackendTask error (List value)
-sequence items =
-    sequenceHelp items (succeed [])
-
-
-sequenceHelp : List (BackendTask error value) -> BackendTask error (List value) -> BackendTask error (List value)
-sequenceHelp items combined =
-    -- elm-review: known-unoptimized-recursion
-    -- counterintuitively this is stack safe, whereas putting sequenceHelp in tail call optimized position blows the stack
-    case items of
-        item :: rest ->
-            combined |> andThen (\xs -> sequenceHelp rest (map (\x -> x :: xs) item))
-
-        [] ->
-            combined
 
 
 {-| Like map, but it takes in two `Request`s.
