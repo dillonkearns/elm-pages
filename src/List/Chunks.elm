@@ -23,6 +23,7 @@ chunk n xs =
 
 chunkInternal : Int -> List a -> Array (List a) -> Trampoline (List (List a))
 chunkInternal n xs acc =
+    -- elm-review: known-unoptimized-recursion
     if List.isEmpty xs then
         Done (Array.toList acc)
 
