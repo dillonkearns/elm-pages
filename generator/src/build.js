@@ -221,7 +221,6 @@ export async function render(request) {
     addWatcher,
     false
   );
-  console.dir(response);
   if (response.kind === "bytes") {
     return {
         body: response.contentDatPayload.buffer,
