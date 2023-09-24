@@ -167,6 +167,7 @@ bodyWithFrontmatter frontmatterDecoder filePath =
                     { title = "BackendTask.File Decoder Error"
                     , body =
                         "I encountered a Json Decoder error from a call to BackendTask.File.bodyWithFrontmatter.\n\n"
+                            ++ ("I was trying to process `" ++ filePath ++ "`.\n\n")
                             ++ Decode.errorToString frontmatterDecodeError
                     }
                         |> FatalError.build
@@ -257,6 +258,7 @@ onlyFrontmatter frontmatterDecoder filePath =
                     { title = "BackendTask.File Decoder Error"
                     , body =
                         "I encountered a Json Decoder error from a call to BackendTask.File.onlyFrontmatter.\n\n"
+                            ++ ("I was trying to process `" ++ filePath ++ "`.\n\n")
                             ++ Decode.errorToString frontmatterDecodeError
                     }
                         |> FatalError.build
