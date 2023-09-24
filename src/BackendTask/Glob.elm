@@ -28,7 +28,7 @@ With the `BackendTask.Glob` API, you could get all of those files like so:
 
     import BackendTask exposing (BackendTask)
 
-    blogPostsGlob : BackendTask (List String)
+    blogPostsGlob : BackendTask error (List String)
     blogPostsGlob =
         Glob.succeed (\slug -> slug)
             |> Glob.match (Glob.literal "content/blog/")
@@ -69,7 +69,7 @@ There will be one argument for every `capture` in your pipeline, whereas `match`
     import BackendTask exposing (BackendTask)
     import BackendTask.Glob as Glob
 
-    blogPostsGlob : BackendTask (List String)
+    blogPostsGlob : BackendTask error (List String)
     blogPostsGlob =
         Glob.succeed (\slug -> slug)
             -- no argument from this, but we will only
@@ -97,7 +97,7 @@ Let's try our blogPostsGlob from before, but change every `match` to `capture`.
     import BackendTask exposing (BackendTask)
 
     blogPostsGlob :
-        BackendTask
+        BackendTask error
             (List
                 { filePath : String
                 , slug : String
@@ -155,20 +155,22 @@ This is my first post!
 Then we could read that title for our blog post list page using our `blogPosts` `BackendTask` that we defined above.
 
     import BackendTask.File
+    import FatalError exposing (FatalError)
     import Json.Decode as Decode exposing (Decoder)
 
-    titles : BackendTask (List BlogPost)
+    titles : BackendTask FatalError (List BlogPost)
     titles =
         blogPosts
             |> BackendTask.map
                 (List.map
                     (\blogPost ->
-                        BackendTask.File.request
+                        BackendTask.File.onlyFrontmatter
+                            blogFrontmatterDecoder
                             blogPost.filePath
-                            (BackendTask.File.frontmatter blogFrontmatterDecoder)
                     )
                 )
             |> BackendTask.resolve
+            |> BackendTask.allowFatal
 
     type alias BlogPost =
         { title : String }
@@ -249,7 +251,7 @@ could use
     import BackendTask exposing (BackendTask)
     import BackendTask.Glob as Glob
 
-    blogPostsGlob : BackendTask (List String)
+    blogPostsGlob : BackendTask error (List String)
     blogPostsGlob =
         Glob.succeed (\slug -> slug)
             |> Glob.match (Glob.literal "content/blog/")
@@ -258,14 +260,14 @@ could use
             |> Glob.toBackendTask
 
 If you want to validate file formats, you can combine that with some `BackendTask` helpers to turn a `Glob (Result String value)` into
-a `BackendTask (List value)`.
+a `BackendTask FatalError (List value)`.
 
 For example, you could take a date and parse it.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.Glob as Glob
 
-    example : BackendTask (List ( String, String ))
+    example : BackendTask FatalError (List ( String, String ))
     example =
         Glob.succeed
             (\dateResult slug ->
@@ -281,14 +283,14 @@ For example, you could take a date and parse it.
             |> BackendTask.map (List.map BackendTask.fromResult)
             |> BackendTask.resolve
 
-    expectDateFormat : List String -> Result String String
+    expectDateFormat : List String -> Result FatalError String
     expectDateFormat dateParts =
         case dateParts of
             [ year, month, date ] ->
                 Ok (String.join "-" [ year, month, date ])
 
             _ ->
-                Err "Unexpected date format, expected yyyy/mm/dd folder structure."
+                Err <| FatalError.fromString "Unexpected date format, expected yyyy/mm/dd folder structure."
 
 -}
 map : (a -> b) -> Glob a -> Glob b
@@ -322,7 +324,7 @@ fullFilePath =
     import BackendTask.Glob as Glob
 
     blogPosts :
-        BackendTask
+        BackendTask error
             (List
                 { filePath : String
                 , slug : String
@@ -368,11 +370,11 @@ match 0 or more path parts like, see `recursiveWildcard`.
         , slug : String
         }
 
-    example : BackendTask (List BlogPost)
+    example : BackendTask error (List BlogPost)
     example =
         Glob.succeed BlogPost
             |> Glob.match (Glob.literal "blog/")
-            |> Glob.match Glob.wildcard
+            |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal "-")
             |> Glob.capture Glob.wildcard
             |> Glob.match (Glob.literal "-")
@@ -391,7 +393,7 @@ match 0 or more path parts like, see `recursiveWildcard`.
 
 That will match to:
 
-    results : BackendTask (List BlogPost)
+    results : BackendTask error (List BlogPost)
     results =
         BackendTask.succeed
             [ { year = "2021"
@@ -443,7 +445,7 @@ Leading 0's are ignored.
     import BackendTask exposing (BackendTask)
     import BackendTask.Glob as Glob
 
-    slides : BackendTask (List Int)
+    slides : BackendTask error (List Int)
     slides =
         Glob.succeed identity
             |> Glob.match (Glob.literal "slide-")
@@ -472,7 +474,7 @@ With files
 
 Yields
 
-    matches : BackendTask (List Int)
+    matches : BackendTask error (List Int)
     matches =
         BackendTask.succeed
             [ 1
@@ -513,7 +515,7 @@ This is the elm-pages equivalent of `**/*.txt` in standard shell syntax:
     import BackendTask exposing (BackendTask)
     import BackendTask.Glob as Glob
 
-    example : BackendTask (List ( List String, String ))
+    example : BackendTask error (List ( List String, String ))
     example =
         Glob.succeed Tuple.pair
             |> Glob.match (Glob.literal "articles/")
@@ -537,7 +539,7 @@ With these files:
 
 We would get the following matches:
 
-    matches : BackendTask (List ( List String, String ))
+    matches : BackendTask error (List ( List String, String ))
     matches =
         BackendTask.succeed
             [ ( [ "archive", "1977", "06", "10" ], "apple-2-announced" )
@@ -552,14 +554,14 @@ And also note that it matches 0 path parts into an empty list.
 If we didn't include the `wildcard` after the `recursiveWildcard`, then we would only get
 a single level of matches because it is followed by a file extension.
 
-    example : BackendTask (List String)
+    example : BackendTask error (List String)
     example =
         Glob.succeed identity
             |> Glob.match (Glob.literal "articles/")
             |> Glob.capture Glob.recursiveWildcard
             |> Glob.match (Glob.literal ".txt")
 
-    matches : BackendTask (List String)
+    matches : BackendTask error (List String)
     matches =
         BackendTask.succeed
             [ "google-io-2021-recap"
@@ -677,7 +679,7 @@ Exactly the same as `match` except it also captures the matched sub-pattern.
         , slug : String
         }
 
-    archives : BackendTask ArchivesArticle
+    archives : BackendTask error ArchivesArticle
     archives =
         Glob.succeed ArchivesArticle
             |> Glob.match (Glob.literal "archive/")
@@ -693,7 +695,7 @@ Exactly the same as `match` except it also captures the matched sub-pattern.
 
 The file `archive/1977/06/10/apple-2-released.md` will give us this match:
 
-    matches : List ArchivesArticle
+    matches : List error ArchivesArticle
     matches =
         BackendTask.succeed
             [ { year = 1977
@@ -744,7 +746,7 @@ capture (Glob matcherPattern apply1) (Glob pattern apply2) =
         , extension : String
         }
 
-    dataFiles : BackendTask (List DataFile)
+    dataFiles : BackendTask error (List DataFile)
     dataFiles =
         Glob.succeed DataFile
             |> Glob.match (Glob.literal "my-data/")
@@ -768,7 +770,7 @@ If we have the following files
 
 That gives us
 
-    results : BackendTask (List DataFile)
+    results : BackendTask error (List DataFile)
     results =
         BackendTask.succeed
             [ { name = "authors"
@@ -781,7 +783,7 @@ That gives us
 
 You could also match an optional file path segment using `oneOf`.
 
-    rootFilesMd : BackendTask (List String)
+    rootFilesMd : BackendTask error (List String)
     rootFilesMd =
         Glob.succeed (\slug -> slug)
             |> Glob.match (Glob.literal "blog/")
@@ -806,7 +808,7 @@ With these files:
 
 This would give us:
 
-    results : BackendTask (List String)
+    results : BackendTask error (List String)
     results =
         BackendTask.succeed
             [ "first-post"
@@ -965,7 +967,7 @@ encodeOptions options =
 
     import BackendTask.Glob as Glob exposing (OnlyFolders, defaultOptions)
 
-    matchingFiles : Glob a -> BackendTask (List a)
+    matchingFiles : Glob a -> BackendTask error (List a)
     matchingFiles glob =
         glob
             |> Glob.toBackendTaskWithOptions { defaultOptions | include = OnlyFolders }
@@ -1010,12 +1012,12 @@ For example, maybe you can have
     import BackendTask exposing (BackendTask)
     import BackendTask.Glob as Glob
 
-    findBlogBySlug : String -> BackendTask String
+    findBlogBySlug : String -> BackendTask FatalError String
     findBlogBySlug slug =
         Glob.succeed identity
             |> Glob.captureFilePath
             |> Glob.match (Glob.literal "blog/")
-            |> Glob.capture (Glob.literal slug)
+            |> Glob.match (Glob.literal slug)
             |> Glob.match
                 (Glob.oneOf
                     ( ( "", () )
@@ -1024,6 +1026,7 @@ For example, maybe you can have
                 )
             |> Glob.match (Glob.literal ".md")
             |> Glob.expectUniqueMatch
+            |> BackendTask.allowFatal
 
 If we used `findBlogBySlug "first-post"` with these files:
 
@@ -1035,7 +1038,7 @@ If we used `findBlogBySlug "first-post"` with these files:
 
 This would give us:
 
-    results : BackendTask String
+    results : BackendTask FatalError String
     results =
         BackendTask.succeed "blog/first-post/index.md"
 
