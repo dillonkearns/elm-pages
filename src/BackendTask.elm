@@ -88,6 +88,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 import FatalError exposing (FatalError)
 import Json.Encode
+import List.Chunks
 import Pages.StaticHttpRequest exposing (RawRequest(..))
 
 
@@ -175,6 +176,26 @@ resolve =
 -}
 combine : List (BackendTask error value) -> BackendTask error (List value)
 combine items =
+    items
+        |> List.Chunks.chunk 100
+        |> List.map combineHelp
+        |> List.Chunks.chunk 100
+        |> List.map combineHelp
+        |> List.Chunks.chunk 100
+        |> List.map combineHelp
+        |> combineHelp
+        |> map (List.concat >> List.concat >> List.concat)
+
+
+{-| `combineHelp` on its own will overflow the stack with larger lists of tasks
+
+dividing the tasks into smaller nested chunks and recombining makes `combine` stack safe
+
+There's probably a way of doing this without the Lists but it's a neat trick to safely combine lots of tasks!
+
+-}
+combineHelp : List (BackendTask error value) -> BackendTask error (List value)
+combineHelp items =
     List.foldl (map2 (::)) (succeed []) items |> map List.reverse
 
 
