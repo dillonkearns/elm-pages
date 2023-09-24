@@ -1,7 +1,7 @@
 {
     "type": "package",
     "name": "dillonkearns/elm-pages",
-    "summary": "A statically typed site generator.",
+    "summary": "Hybrid Elm framework with full-stack and static routes.",
     "license": "BSD-3-Clause",
     "version": "10.0.2",
     "exposed-modules": [
