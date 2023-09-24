@@ -3,6 +3,7 @@ module Icon exposing (error, icon2, icon3)
 import Html.Styled exposing (Html)
 import Svg.Styled exposing (path, svg)
 import Svg.Styled.Attributes as SvgAttr
+import Tailwind.Theme as Th
 import Tailwind.Utilities as Tw
 
 
@@ -12,7 +13,7 @@ error =
         [ SvgAttr.css
             [ Tw.h_5
             , Tw.w_5
-            , Tw.text_red_500
+            , Tw.text_color Th.red_500
             ]
         , SvgAttr.viewBox "0 0 20 20"
         , SvgAttr.fill "currentColor"
@@ -31,7 +32,7 @@ icon2 =
         [ SvgAttr.css
             [ Tw.h_full
             , Tw.w_full
-            , Tw.text_gray_300
+            , Tw.text_color Th.gray_300
             ]
         , SvgAttr.fill "currentColor"
         , SvgAttr.viewBox "0 0 24 24"
@@ -49,7 +50,7 @@ icon3 =
             [ Tw.mx_auto
             , Tw.h_12
             , Tw.w_12
-            , Tw.text_gray_400
+            , Tw.text_color Th.gray_400
             ]
         , SvgAttr.stroke "currentColor"
         , SvgAttr.fill "none"
