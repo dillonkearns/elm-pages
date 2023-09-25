@@ -35,26 +35,23 @@ we're using `BackendTask.allowFatal` to let the framework treat that as an unexp
 ```javascript
 // custom-backend-task.js
 
-module.exports =
-  /**
-   * @param { unknown } fromElm
-   * @returns { Promise<unknown> }
-   */
-  {
-    environmentVariable: async function (name) {
-      const result = process.env[name];
-      if (result) {
-        return result;
-      } else {
-        throw `No environment variable called ${name}
+/**
+* @param { string } fromElm
+* @returns { Promise<string> }
+*/
+export async function environmentVariable(name) {
+    const result = process.env[name];
+    if (result) {
+      return result;
+    } else {
+      throw `No environment variable called ${name}
 
 Available:
 
 ${Object.keys(process.env).join("\n")}
 `;
-      }
-    },
-  }
+    }
+}
 ```
 
 
