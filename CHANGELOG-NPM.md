@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- Use `cross-spawn` in the beta build to support running on Windows. Thank you @Y0hy0h for fix [#161](https://github.com/dillonkearns/elm-pages/pull/161)!
+- Use `cross-spawn` in the beta build to support running on Windows. Thank you @j-maas for fix [#161](https://github.com/dillonkearns/elm-pages/pull/161)!
 
 ## [1.5.4] - 2020-11-02
 
@@ -114,7 +114,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- Fix `static` folder behavior in Windows, see [#118](https://github.com/dillonkearns/elm-pages/pull/118) (thank you [Y0hy0h](https://github.com/Y0hy0h)!).
+- Fix `static` folder behavior in Windows, see [#118](https://github.com/dillonkearns/elm-pages/pull/118) (thank you [j-maas](https://github.com/j-maas)!).
 - Make sure that process exits with non-zero status on error so build fails when there are errors in the build. See [#121](https://github.com/dillonkearns/elm-pages/pull/121).
 
 ## [1.4.0] - 2020-05-11
@@ -135,7 +135,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Uses Terser instead of GoogleClosureCompiler to minify the JavaScript bundle in production. GoogleClosureCompiler was causing some issues for Windows users when
   they ran `elm-pages build` because that dependency has known issues on Windows. See [#90](https://github.com/dillonkearns/elm-pages/pull/90). Thank you very much
-  to [Johannes Maas](https://github.com/Y0hy0h) for the PR!
+  to [Johannes Maas](https://github.com/j-maas) for the PR!
 
 ### Fixed
 
