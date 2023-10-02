@@ -142,7 +142,7 @@ pages =
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
     BackendTask.Http.getJson
-        (Secrets.succeed "https://api.github.com/repos/dillonkearns/elm-pages")
+        "https://api.github.com/repos/dillonkearns/elm-pages"
         (Decode.field "stargazer_count" Decode.int)
     |> BackendTask.allowFatal
 
