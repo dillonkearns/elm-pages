@@ -7,7 +7,7 @@ import Head
 import Head.Seo as Seo
 import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
-import Link
+import Link exposing (Link)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import Route exposing (Route)
@@ -118,7 +118,7 @@ landingView =
             { heading = "Pull in typed Elm data to your pages"
             , body = "Whether your data is coming from markdown files, APIs, a CMS, or all of the above, elm-pages lets you pull in just the data you need for a page. No loading spinners, no Msg or update logic, just define your data and use it in your view."
             , buttonText = "Check out the Docs"
-            , buttonLink = Route.Docs__Section__ { section = Nothing }
+            , buttonLink = Route.Docs__Section__ { section = Nothing } |> Link.internal
             , svgIcon = "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
             , code =
                 ( "app/Route/Repo/Name_.elm", """module Route.Repo.Name_ exposing (Data, Model, Msg, route)
@@ -161,7 +161,7 @@ view app =
             { heading = "Combine data from multiple sources"
             , body = "Wherever the data came from, you can transform BackendTasks and combine multiple BackendTasks using the full power of Elm's type system."
             , buttonText = "Learn more about BackendTasks"
-            , buttonLink = "https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask"
+            , buttonLink = "https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/BackendTask" |> Link.external
             , svgIcon = "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
             , code =
                 ( "src/Project.elm", """type alias Project =
@@ -200,7 +200,7 @@ stars repoName =
             { heading = "SEO"
             , body = "Make sure your site previews look polished with the type-safe SEO API. `elm-pages build` pre-renders HTML for your pages. And your SEO tags get access to the page's BackendTasks."
             , buttonText = "Learn about the SEO API"
-            , buttonLink = "https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Head-Seo"
+            , buttonLink = "https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Head-Seo" |> Link.external
             , svgIcon = "M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242z"
             , code =
                 ( "app/Route/Blog/Slug_.elm", """head :
@@ -234,7 +234,7 @@ head app =
             { heading = "Full-Stack Elm"
             , body = "With server-rendered routes, you can seamlessly pull in user-specific data from your backend and hydrate it into a dynamic Elm application. No API layer required. You can access incoming HTTP requests from your server-rendered routes, and even use the Session API to manage key-value pairs through signed cookies."
             , buttonText = "Learn about server-rendered routes"
-            , buttonLink = "https://elm-pages.com/docs/what-is-elm-pages"
+            , buttonLink = Route.Docs__Section__ { section = Nothing } |> Link.internal
             , svgIcon = "M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"
             , code =
                 ( "app/Route/Feed.elm", """module Route.Feed exposing (ActionData, Data, Model, Msg, RouteParams, route)
@@ -315,7 +315,7 @@ view app shared model =
             { heading = "Forms Without the Wiring"
             , body = "elm-pages uses progressively enhanced web standards. The Web has had a way to send data to backends for decades, no need to re-invent the wheel! Just modernize it with some progressive enhancement. You define your Form and validations declaratively, and elm-pages gives you client-side validations and state with no Model/init/update wiring whatsoever. You can even derive pending/optimistic UI from the in-flight form submissions (which elm-pages manages and exposes to you for free as well!)."
             , buttonText = "Learn about the Form API"
-            , buttonLink = "https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Pages-Form"
+            , buttonLink = "https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Pages-Form" |> Link.external
             , svgIcon = "M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M13.125 12h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125M20.625 12c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5M12 14.625v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 14.625c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m0 1.5v-1.5m0 0c0-.621.504-1.125 1.125-1.125m0 0h7.5"
             , code =
                 ( "app/Route/Signup.elm", """module Route.Signup exposing (ActionData, Data, Model, Msg, RouteParams, route)
@@ -475,7 +475,7 @@ formHandlers =
 firstSection :
     { heading : String
     , body : String
-    , buttonLink : Route
+    , buttonLink : Link
     , buttonText : String
     , svgIcon : String
     , code : ( String, String )
