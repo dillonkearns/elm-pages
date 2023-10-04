@@ -76,7 +76,7 @@ jobs:
       - name: Setup for cypress
         run: (cd examples/end-to-end && npm install && npx elm-tooling install && rm -rf elm-stuff && npx elm-pages gen && lamdera make app/Route/Index.elm)
       - name: Cypress tests
-        uses: cypress-io/github-action@v5
+        uses: cypress-io/github-action@v6
         with:
           working-directory: examples/end-to-end
           start: node ../../generator/src/cli.js dev --debug
