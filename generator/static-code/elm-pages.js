@@ -103,14 +103,17 @@ function find_anchor(node) {
   return /** @type {HTMLAnchorElement} */ (node);
 }
 
-Object.defineProperty(SubmitEvent.prototype, "fields", {
-  get: function fields() {
-    let formData = new FormData(this.currentTarget);
-    if (this.submitter && this.submitter.name) {
-      formData.append(this.submitter.name, this.submitter.value);
-    }
-    return [...formData.entries()];
-  },
-});
+// only run in modern browsers to prevent exception: https://github.com/dillonkearns/elm-pages/issues/427
+if ("SubmitEvent" in window) {
+  Object.defineProperty(SubmitEvent.prototype, "fields", {
+    get: function fields() {
+      let formData = new FormData(this.currentTarget);
+      if (this.submitter && this.submitter.name) {
+        formData.append(this.submitter.name, this.submitter.value);
+      }
+      return [...formData.entries()];
+    },
+  });
+}
 
 setup();
