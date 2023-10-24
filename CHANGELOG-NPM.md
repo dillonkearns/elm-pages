@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.9] - 2023-10-24
+
+### Fixed
+
+- Fix "SubmitEvent" error in older browsers, see [#427](https://github.com/dillonkearns/elm-pages/issues/427).
+
 ## [3.0.8] - 2023-09-07
 
 ### Fixed
