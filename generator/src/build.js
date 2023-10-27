@@ -232,9 +232,9 @@ export async function render(request) {
     // isBase64Encoded
     return {
         body: response.body.body,
-        statusCode: response.statusCode,
+        statusCode: response.body.statusCode,
         kind: response.kind,
-        headers: response.headers,
+        headers: response.body.headers,
         isBase64Encoded: response.body.isBase64Encoded,
     }
   } else {
