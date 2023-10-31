@@ -20,8 +20,8 @@ For example, if you wanted to handle possible errors to present them to the user
         BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.field "description" Decode.string)
             |> BackendTask.onError
-                (\error ->
-                    case FatalError.unwrap error of
+                (\{ recoverable } ->
+                    case recoverable of
                         BackendTask.Http.BadStatus metadata string ->
                             if metadata.statusCode == 401 || metadata.statusCode == 403 || metadata.statusCode == 404 then
                                 BackendTask.succeed "Either this repo doesn't exist or you don't have access to it."
