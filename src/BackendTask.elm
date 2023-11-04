@@ -199,27 +199,28 @@ combineHelp items =
     List.foldl (map2 (::)) (succeed []) items |> map List.reverse
 
 
-{-| Like map, but it takes in two `Request`s.
+{-| Like map, but it takes in two `BackendTask`s.
 
-    view siteMetadata page =
-        StaticHttp.map2
-            (\elmPagesStars elmMarkdownStars ->
-                { view =
-                    \model viewForPage ->
-                        { title = "Repo Stargazers"
-                        , body = starsView elmPagesStars elmMarkdownStars
-                        }
-                , head = head elmPagesStars elmMarkdownStars
-                }
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Env as Env
+    import BackendTask.Http
+    import FatalError exposing (FatalError)
+    import Json.Decode as Decode
+
+    type alias Data =
+        { pokemon : List String, envValue : Maybe String }
+
+    data : BackendTask FatalError Data
+    data =
+        BackendTask.map2 Data
+            (BackendTask.Http.getJson
+                "https://pokeapi.co/api/v2/pokemon/?limit=100&offset=0"
+                (Decode.field "results"
+                    (Decode.list (Decode.field "name" Decode.string))
+                )
+                |> BackendTask.allowFatal
             )
-            (get
-                "https://api.github.com/repos/dillonkearns/elm-pages"
-                (Decode.field "stargazers_count" Decode.int)
-            )
-            (get
-                "https://api.github.com/repos/dillonkearns/elm-markdown"
-                (Decode.field "stargazers_count" Decode.int)
-            )
+            (Env.get "HELLO")
 
 -}
 map2 : (a -> b -> c) -> BackendTask error a -> BackendTask error b -> BackendTask error c
@@ -334,28 +335,15 @@ andMap =
     map2 (|>)
 
 
-{-| This is useful for prototyping with some hardcoded data, or for having a view that doesn't have any StaticHttp data.
+{-| This is useful for prototyping with some hardcoded data, or for having a view that doesn't have any BackendTask data.
 
-    import BackendTask
+    import BackendTask exposing (BackendTask)
 
-    view :
-        List ( PagePath, Metadata )
-        ->
-            { path : PagePath
-            , frontmatter : Metadata
-            }
-        ->
-            StaticHttp.Request
-                { view : Model -> View -> { title : String, body : Html Msg }
-                , head : List (Head.Tag Pages.PathKey)
-                }
-    view siteMetadata page =
-        StaticHttp.succeed
-            { view =
-                \model viewForPage ->
-                    mainView model viewForPage
-            , head = head page.frontmatter
-            }
+    type alias RouteParams = { name : String }
+
+    pages : BackendTask error (List RouteParams)
+    pages =
+        BackendTask.succeed [ { name = "elm-pages" } ]
 
 -}
 succeed : a -> BackendTask error a
