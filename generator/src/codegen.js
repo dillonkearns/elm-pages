@@ -72,7 +72,7 @@ export async function generate(basePath) {
 }
 
 function writeFetcherModules(basePath, fetcherData) {
-  Promise.all(
+  return Promise.all(
     fetcherData.map(([name, fileContent]) => {
       let filePath = path.join(basePath, `/Fetcher/${name.join("/")}.elm`);
       ensureDirSync(path.dirname(filePath));
