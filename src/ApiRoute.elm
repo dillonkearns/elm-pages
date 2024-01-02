@@ -120,41 +120,52 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
     requestPrinterExample : ApiRoute ApiRoute.Response
     requestPrinterExample =
         ApiRoute.succeed
-            (Server.Request.map4
-                (\rawBody method cookies queryParams ->
-                    Encode.object
-                        [ ( "rawBody"
-                          , rawBody
-                                |> Maybe.map Encode.string
-                                |> Maybe.withDefault Encode.null
-                          )
-                        , ( "method"
-                          , method
-                                |> Server.Request.methodToString
-                                |> Encode.string
-                          )
-                        , ( "cookies"
-                          , cookies
-                                |> Encode.dict
-                                    identity
-                                    Encode.string
-                          )
-                        , ( "queryParams"
-                          , queryParams
-                                |> Encode.dict
-                                    identity
-                                    (Encode.list Encode.string)
-                          )
-                        ]
-                        |> Response.json
-                        |> BackendTask.succeed
-                )
-                Server.Request.rawBody
-                Server.Request.method
-                Server.Request.allCookies
-                Server.Request.queryParams
+            (\pageId revisionId request ->
+                Encode.object
+                    [ ( "pageId"
+                      , Encode.string pageId
+                      )
+                    , ( "revisionId"
+                      , Encode.string revisionId
+                      )
+                    , ( "body"
+                      , request
+                            |> Server.Request.body
+                            |> Maybe.map Encode.string
+                            |> Maybe.withDefault Encode.null
+                      )
+                    , ( "method"
+                      , request
+                            |> Server.Request.method
+                            |> Server.Request.methodToString
+                            |> Encode.string
+                      )
+                    , ( "cookies"
+                      , request
+                            |> Server.Request.cookies
+                            |> Encode.dict
+                                identity
+                                Encode.string
+                      )
+                    , ( "queryParams"
+                      , request
+                            |> Server.Request.queryParams
+                            |> Encode.dict
+                                identity
+                                (Encode.list Encode.string)
+                      )
+                    ]
+                    |> Response.json
+                    |> BackendTask.succeed
             )
-            |> ApiRoute.literal "api"
+            -- Path: /pages/:pageId/revisions/:revisionId/request-test
+            |> ApiRoute.literal "pages"
+            |> ApiRoute.slash
+            |> ApiRoute.capture
+            |> ApiRoute.slash
+            |> ApiRoute.literal "revisions"
+            |> ApiRoute.slash
+            |> ApiRoute.capture
             |> ApiRoute.slash
             |> ApiRoute.literal "request-test"
             |> ApiRoute.serverRender
