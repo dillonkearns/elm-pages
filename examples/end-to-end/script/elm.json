@@ -11,7 +11,7 @@
             "avh4/elm-color": "1.0.0",
             "danfishgold/base64-bytes": "1.1.0",
             "danyx23/elm-mimetype": "4.0.1",
-            "dillonkearns/elm-bcp47-language-tag": "1.0.1",
+            "dillonkearns/elm-bcp47-language-tag": "2.0.0",
             "dillonkearns/elm-cli-options-parser": "3.2.0",
             "dillonkearns/elm-date-or-date-time": "2.0.0",
             "elm/browser": "1.0.2",
@@ -28,7 +28,7 @@
             "elm-community/list-extra": "8.7.0",
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.0.1",
-            "mdgriffith/elm-codegen": "4.1.0",
+            "mdgriffith/elm-codegen": "4.1.1",
             "miniBill/elm-codec": "2.1.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "robinheghan/fnv1a": "1.0.0",
@@ -42,7 +42,7 @@
             "elm-community/basics-extra": "4.1.0",
             "elm-community/maybe-extra": "5.3.0",
             "fredcy/elm-parseint": "2.0.1",
-            "miniBill/elm-unicode": "1.0.3",
+            "miniBill/elm-unicode": "1.1.0",
             "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-hex": "1.0.0",
             "rtfeldman/elm-iso8601-date-strings": "1.1.4",
@@ -52,9 +52,7 @@
         }
     },
     "test-dependencies": {
-        "direct": {
-            "the-sett/elm-pretty-printer": "3.1.0"
-        },
+        "direct": {},
         "indirect": {}
     }
 }

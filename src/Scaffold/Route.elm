@@ -2,7 +2,7 @@ module Scaffold.Route exposing
     ( buildWithLocalState, buildWithSharedState, buildNoState, Builder
     , Type(..)
     , serverRender
-    , preRender, single
+    , preRender
     , addDeclarations
     , moduleNameCliArg
     )
@@ -32,7 +32,7 @@ instead of defining a route, this is defining a code generator for a Route modul
 
 ## Generating pre-rendered pages
 
-@docs preRender, single
+@docs preRender
 
 
 ## Including Additional elm-codegen Declarations
@@ -118,7 +118,12 @@ serverRender =
     ServerRender []
 
 
-{-| -}
+{-| Will scaffold using `RouteBuilder.preRender` if there are any dynamic segments (as in `Company.Team.Name_`),
+or using `RouteBuilder.single` if there are no dynamic segments (as in `Company.AboutUs`).
+
+When there are no dynamic segments, the `pages` field will be ignored as it is only relevant for Routes with dynamic segments.
+
+-}
 preRender :
     { data : ( Type, Elm.Expression -> Elm.Expression )
     , pages : Elm.Expression
@@ -127,42 +132,34 @@ preRender :
     }
     -> Builder
 preRender input =
-    --let
-    --    hasDynamicRouteSegments : Bool
-    --    hasDynamicRouteSegments =
-    --        RoutePattern.fromModuleName input.moduleName
-    --            -- TODO give error if not parseable here
-    --            |> Maybe.map RoutePattern.hasRouteParams
-    --            |> Maybe.withDefault False
-    --in
-    PreRender []
-        { data = input.data
-        , pages =
-            input.pages
-                |> Elm.withType
-                    (throwableTask
-                        (Elm.Annotation.list <| Elm.Annotation.named [] "RouteParams")
-                    )
-                |> Just
-        , head = input.head
-        , moduleName = input.moduleName
-        }
+    let
+        hasDynamicRouteSegments : Bool
+        hasDynamicRouteSegments =
+            RoutePattern.fromModuleName input.moduleName
+                |> Maybe.map RoutePattern.hasRouteParams
+                |> Maybe.withDefault False
+    in
+    if hasDynamicRouteSegments then
+        PreRender []
+            { data = input.data
+            , pages =
+                input.pages
+                    |> Elm.withType
+                        (throwableTask
+                            (Elm.Annotation.list <| Elm.Annotation.named [] "RouteParams")
+                        )
+                    |> Just
+            , head = input.head
+            , moduleName = input.moduleName
+            }
 
-
-{-| -}
-single :
-    { data : ( Type, Elm.Expression )
-    , head : Elm.Expression -> Elm.Expression
-    , moduleName : List String
-    }
-    -> Builder
-single input =
-    PreRender []
-        { data = ( Tuple.first input.data, \_ -> Tuple.second input.data )
-        , pages = Nothing
-        , head = input.head
-        , moduleName = input.moduleName
-        }
+    else
+        PreRender []
+            { data = input.data
+            , pages = Nothing
+            , head = input.head
+            , moduleName = input.moduleName
+            }
 
 
 {-| -}
@@ -656,7 +653,7 @@ userFunction moduleName definitions =
                     Elm.Declare.function "data"
                         []
                         (\_ ->
-                            definitions.data Elm.unit Elm.unit
+                            definitions.data Elm.unit (Elm.record [])
                                 |> Elm.withType
                                     (case definitions.action of
                                         Pages _ ->
@@ -668,34 +665,60 @@ userFunction moduleName definitions =
                         )
 
                 _ ->
-                    Elm.Declare.function "data"
-                        [ ( "routeParams"
-                          , "RouteParams"
-                                |> Elm.Annotation.named []
-                                |> Just
-                          )
-                        , ( "request"
-                          , "Request"
-                                |> Elm.Annotation.named [ "Server", "Request" ]
-                                |> Just
-                          )
-                        ]
-                        (\args ->
-                            case args of
-                                [ arg, arg2 ] ->
-                                    definitions.data arg arg2
-                                        |> Elm.withType
-                                            (case definitions.action of
-                                                Pages _ ->
-                                                    throwableTask (Elm.Annotation.named [] "Data")
+                    case definitions.action of
+                        Pages _ ->
+                            Elm.Declare.function "data"
+                                [ ( "routeParams"
+                                  , "RouteParams"
+                                        |> Elm.Annotation.named []
+                                        |> Just
+                                  )
+                                ]
+                                (\args ->
+                                    case args of
+                                        [ arg ] ->
+                                            definitions.data
+                                                (arg
+                                                    |> Elm.withType
+                                                        (throwableTask
+                                                            (Elm.Annotation.named [] "Data")
+                                                        )
+                                                )
+                                                Elm.unit
 
-                                                Action _ ->
-                                                    myType "Data"
-                                            )
+                                        _ ->
+                                            Elm.unit
+                                )
 
-                                _ ->
-                                    Elm.unit
-                        )
+                        Action _ ->
+                            Elm.Declare.function "data"
+                                [ ( "routeParams"
+                                  , "RouteParams"
+                                        |> Elm.Annotation.named []
+                                        |> Just
+                                  )
+                                , ( "request"
+                                  , "Request"
+                                        |> Elm.Annotation.named [ "Server", "Request" ]
+                                        |> Just
+                                  )
+                                ]
+                                (\args ->
+                                    case args of
+                                        [ arg, arg2 ] ->
+                                            definitions.data arg arg2
+                                                |> Elm.withType
+                                                    (case definitions.action of
+                                                        Pages _ ->
+                                                            throwableTask (Elm.Annotation.named [] "Data")
+
+                                                        Action _ ->
+                                                            myType "Data"
+                                                    )
+
+                                        _ ->
+                                            Elm.unit
+                                )
 
         actionFn : Maybe { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
         actionFn =

@@ -1,12 +1,12 @@
 {
-    "elm-codegen-version": "0.2.0",
+    "elm-codegen-version": "0.5.1",
     "codegen-helpers": {
         "packages": {
             "elm/core": "1.0.5",
             "dillonkearns/elm-form": "3.0.0",
             "elm/html": "1.0.0",
             "rtfeldman/elm-css": "18.0.0",
-            "dillonkearns/elm-pages": "10.0.0",
+            "dillonkearns/elm-pages": "11.0.0",
             "elm/json": "1.1.3"
         },
         "local": [
