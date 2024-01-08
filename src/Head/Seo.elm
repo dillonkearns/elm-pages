@@ -52,8 +52,8 @@ includes common meta tags used for rich link previews, namely [OpenGraph tags](h
 import DateOrDateTime exposing (DateOrDateTime)
 import Head
 import Head.Twitter as Twitter
-import LanguageTag.Country
 import LanguageTag.Language
+import LanguageTag.Region
 import MimeType exposing (MimeType)
 import Pages.Url
 
@@ -315,7 +315,7 @@ localeToString : Locale -> String
 localeToString ( language, territory ) =
     LanguageTag.Language.toCodeString language
         ++ "_"
-        ++ LanguageTag.Country.toCodeString territory
+        ++ LanguageTag.Region.toCodeString territory
 
 
 tagsForCommon : Common -> List ( String, Maybe Head.AttributeValue )
@@ -361,7 +361,7 @@ tagsForAudio audio =
 
 
 type alias Locale =
-    ( LanguageTag.Language.Language, LanguageTag.Country.Country )
+    ( LanguageTag.Language.Language, LanguageTag.Region.Region )
 
 
 type Content

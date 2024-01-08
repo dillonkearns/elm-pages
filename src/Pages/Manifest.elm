@@ -72,8 +72,8 @@ import FatalError exposing (FatalError)
 import Head
 import Json.Encode as Encode
 import LanguageTag exposing (LanguageTag, emptySubtags)
-import LanguageTag.Country as Country
 import LanguageTag.Language
+import LanguageTag.Region as Region
 import MimeType
 import Pages.Manifest.Category as Category exposing (Category)
 import Pages.Url
@@ -140,7 +140,7 @@ usEnglish =
     LanguageTag.Language.en
         |> LanguageTag.build
             { emptySubtags
-                | region = Just Country.us
+                | region = Just Region.us
             }
 
 
