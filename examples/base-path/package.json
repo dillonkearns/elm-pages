@@ -13,8 +13,8 @@
   "devDependencies": {
     "elm-oembed": "0.0.6",
     "elm-pages": "file:../..",
-    "elm-tooling": "^1.14.0",
-    "esbuild": "^0.17.18",
+    "elm-tooling": "^1.15.0",
+    "esbuild": "^0.19.11",
     "http-server": "^14.1.1"
   }
 }
