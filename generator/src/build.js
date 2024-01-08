@@ -100,7 +100,7 @@ export async function run(options) {
         ssr: false,
 
         build: {
-          manifest: true,
+          manifest: '___vite-manifest___.json',
           outDir: "dist",
           rollupOptions: {
             input: "elm-stuff/elm-pages/index.html",
@@ -123,7 +123,7 @@ export async function run(options) {
       fullOutputPath,
       withoutExtension
     );
-    const assetManifestPath = path.join(process.cwd(), "dist/manifest.json");
+    const assetManifestPath = path.join(process.cwd(), "dist/___vite-manifest___.json");
     const manifest = JSON.parse(
       await fsPromises.readFile(assetManifestPath, { encoding: "utf-8" })
     );
@@ -155,7 +155,7 @@ export async function run(options) {
         `<script defer src="/elm.${browserElmHash}.js" type="text/javascript"></script>`
       );
     await fsPromises.writeFile("dist/template.html", processedIndexTemplate);
-    await fsPromises.unlink(assetManifestPath);
+    // await fsPromises.unlink(assetManifestPath);
     const portBackendTaskCompiled = esbuild
       .build({
         entryPoints: ["./custom-backend-task"],
