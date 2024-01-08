@@ -6,4 +6,6 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    [ Pages.Review.DeadCodeEliminateData.rule ]
+    [ Pages.Review.DeadCodeEliminateData.rule
+        |> Rule.filterErrorsForFiles (String.startsWith "app/")
+    ]
