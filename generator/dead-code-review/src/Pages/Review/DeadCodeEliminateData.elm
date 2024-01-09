@@ -86,7 +86,7 @@ finalEvaluation context =
                 , details = [ "" ]
                 }
                 importAddRange
-                [ Review.Fix.insertAt importAddRange.end "\nimport FatalError\n"
+                [ Review.Fix.insertAt importAddRange.end "\n\nimport FatalError\n\n"
                 ]
             ]
 
