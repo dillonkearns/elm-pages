@@ -2,7 +2,7 @@
   base = "examples/docs/"
   functions = "functions/"
   publish = "dist/"
-  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install --no-optional && npm run build:generator) && npm install && npx --no-install elm-tooling install && npx elm-pages build && (cd functions/process-url && npm i)"
+  command = "export ELM_HOME=\"$NETLIFY_BUILD_BASE/cache/elm\" && (cd ../../ && npm install && npm run build:generator) && npm install && npx --no-install elm-tooling install && npx elm-pages build && (cd functions/process-url && npm i)"
 
 [[redirects]]
   from = "/screenshot/*"
