@@ -166,7 +166,7 @@ file templates basePath =
                 , Elm.Annotation.function
                     [ Elm.Annotation.list (Elm.Annotation.namedWith [ "Html" ] "Attribute" [ Elm.Annotation.var "msg" ])
                     ]
-                    (Elm.Annotation.var "a")
+                    (Elm.Annotation.var "abc")
                     |> Just
                 )
                 ( "route", Just (Elm.Annotation.named [] "Route") )
@@ -179,7 +179,7 @@ file templates basePath =
                             ]
                         ]
                         |> Elm.withType
-                            (Elm.Annotation.var "a")
+                            (Elm.Annotation.var "abc")
                 )
 
         link : Elm.Declaration
