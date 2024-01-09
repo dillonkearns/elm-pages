@@ -2,7 +2,7 @@ module Scaffold.Route exposing
     ( buildWithLocalState, buildWithSharedState, buildNoState, Builder
     , Type(..)
     , serverRender
-    , preRender
+    , preRender, single
     , addDeclarations
     , moduleNameCliArg
     )
@@ -32,7 +32,7 @@ instead of defining a route, this is defining a code generator for a Route modul
 
 ## Generating pre-rendered pages
 
-@docs preRender
+@docs preRender, single
 
 
 ## Including Additional elm-codegen Declarations
@@ -123,6 +123,9 @@ or using `RouteBuilder.single` if there are no dynamic segments (as in `Company.
 
 When there are no dynamic segments, the `pages` field will be ignored as it is only relevant for Routes with dynamic segments.
 
+For dynamic segments, the `routeParams` parameter in the `data` function will be an `Elm.Expression` with the `RouteParams` parameter in the `data` function.
+For static segments, it will be a hardcoded empty record (`{}`).
+
 -}
 preRender :
     { data : ( Type, Elm.Expression -> Elm.Expression )
@@ -160,6 +163,26 @@ preRender input =
             , head = input.head
             , moduleName = input.moduleName
             }
+
+
+{-| @depreacted. This is obsolete and will be removed in a future release. Use [`preRender`](#preRender) instead.
+
+If you pass in only static route segments as the `moduleName` to `preRender` it will yield the same result as `single`.
+
+-}
+single :
+    { data : ( Type, Elm.Expression )
+    , head : Elm.Expression -> Elm.Expression
+    , moduleName : List String
+    }
+    -> Builder
+single input =
+    PreRender []
+        { data = ( Tuple.first input.data, \_ -> Tuple.second input.data )
+        , pages = Nothing
+        , head = input.head
+        , moduleName = input.moduleName
+        }
 
 
 {-| -}
