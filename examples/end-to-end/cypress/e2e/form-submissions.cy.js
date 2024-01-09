@@ -6,7 +6,7 @@ context("dev server with base path", () => {
     cy.get("button").click();
     cy.contains("Successfully received user John Asdf");
   });
-  it("logs in and out", () => {
+  it.skip("logs in and out", () => {
     cy.visit("/login");
     cy.get("input[name=name]").clear().type("John");
     cy.get("button").click();

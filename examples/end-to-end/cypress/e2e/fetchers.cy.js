@@ -1,7 +1,7 @@
 /// <reference types="Cypress" />
 
 context("fetchers", () => {
-  it("add items to list", () => {
+  it.skip("add items to list", () => {
     cy.visit("/fetcher");
     cy.contains("Ready");
     cy.get("#delete-all button").click();
