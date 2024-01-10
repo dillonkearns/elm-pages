@@ -110,6 +110,69 @@ data =
     BackendTask.succeed ()
 """
                         ]
+        , test "replaces import with exposing line" <|
+            \() ->
+                """module View exposing (View, map, placeholder)
+
+import Html.Styled as Html exposing (Html)
+
+
+type alias View msg =
+   { title : String
+   , body : List (Html msg)
+   }
+
+
+map : (msg1 -> msg2) -> View msg1 -> View msg2
+map fn view =
+   { title = view.title
+   , body = List.map (Html.map fn) view.body
+   }
+
+
+placeholder : String -> View msg
+placeholder moduleName =
+   { title = "Placeholder"
+   , body = [ Html.text moduleName ]
+   }
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Codemod"
+                            , details =
+                                [ "" ]
+                            , under =
+                                """import Html.Styled as Html"""
+                            }
+                            |> Review.Test.whenFixed
+                                """module View exposing (View, map, placeholder)
+
+
+import FatalError
+import Html.Styled as Html exposing (Html)
+
+
+type alias View msg =
+   { title : String
+   , body : List (Html msg)
+   }
+
+
+map : (msg1 -> msg2) -> View msg1 -> View msg2
+map fn view =
+   { title = view.title
+   , body = List.map (Html.map fn) view.body
+   }
+
+
+placeholder : String -> View msg
+placeholder moduleName =
+   { title = "Placeholder"
+   , body = [ Html.text moduleName ]
+   }
+"""
+                        ]
         , test "supports aliased BackendTask module import" <|
             \() ->
                 """module Route.Index exposing (Data, Model, Msg, route)
