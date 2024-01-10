@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [10.0.3] - 2024-01-10
+
+### Fixed
+
+- Update elm-review version for an internally used rule to the latest Elm package to support newer elm-review NPM executable (fixes [#364](https://github.com/dillonkearns/elm-pages/issues/364)).
+- Allow reading files with absolute paths (still reads relative path by default), see [#390](https://github.com/dillonkearns/elm-pages/issues/390).
+- Fix `Scaffold.Route.preRender` - added an incorrect parameter that resulted in a compilation error in generated boilerplate.
+
+### Changed
+
+- Change `Scaffold.Route.preRender` to intelligently use `RouteBuilder.single` or `RouteBuilder.preRender` as appropriate
+  based on whether the `moduleName` to generate has any dynamic route segments in it. `Scaffold.Route.single` is therefore deprecated as obsolete and will be removed in a future release.
+
 ## [10.0.2] - 2023-09-07
 
 ### Fixed
