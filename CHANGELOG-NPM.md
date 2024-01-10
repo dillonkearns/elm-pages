@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.10] - 2024-01-10
+
+### Fixed
+
+- Update elm-review version for an internally used rule to the latest Elm package to support newer elm-review NPM executable (fixes [#364](https://github.com/dillonkearns/elm-pages/issues/364)).
+- Allow reading files with absolute paths (still reads relative path by default), see [#390](https://github.com/dillonkearns/elm-pages/issues/390).
+- Fix an error with scripts (`elm-pages run`) when run on Windows, see [#446](https://github.com/dillonkearns/elm-pages/issues/446).
+- Remove `import FatalError` code changes in user-maintained files, see [#441](https://github.com/dillonkearns/elm-pages/issues/441).
+- Update dependencies in starter template.
+- Fix `Scaffold.Route.preRender` - added an incorrect parameter that resulted in a compilation error in generated boilerplate.
+
+### Added
+
+- Add `AddStaticRoute`
+
+### Changed
+
+- Update to Vite v5. [NodeJS version 18 or 20+ is now required](https://vitejs.dev/guide/migration#node-js-support).
+- Update NPM dependencies to latest versions.
+- Change `Scaffold.Route.preRender` to intelligently use `RouteBuilder.single` or `RouteBuilder.preRender` as appropriate
+  based on whether the `moduleName` to generate has any dynamic route segments in it. `Scaffold.Route.single` is therefore deprecated as obsolete and will be removed in a future release.
+
 ## [3.0.9] - 2023-10-24
 
 ### Fixed
