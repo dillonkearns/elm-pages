@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Change `Scaffold.Route.preRender` to intelligently use `RouteBuilder.single` or `RouteBuilder.preRender` as appropriate
   based on whether the `moduleName` to generate has any dynamic route segments in it. `Scaffold.Route.single` is therefore deprecated as obsolete and will be removed in a future release.
+- Updated version constraint so users now need to use "mdgriffith/elm-codegen": "4.0.0 <= v < 5.0.0" (be sure to update your `scripts/elm.json` as well!)
+- Updated version constraint so users now need to use "dillonkearns/elm-bcp47-language-tag": "2.0.0 <= v < 3.0.0",
 
 ## [10.0.2] - 2023-09-07
 
