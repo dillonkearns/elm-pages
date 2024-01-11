@@ -56,7 +56,7 @@
     "@types/node": "^20.10.7",
     "@types/serve-static": "^1.15.5",
     "cypress": "^13.6.2",
-    "elm-codegen": "^0.5.1",
+    "elm-codegen": "0.3.0",
     "elm-optimize-level-2": "^0.3.5",
     "elm-review": "^2.10.3",
     "elm-test": "^0.19.1-revision12",
