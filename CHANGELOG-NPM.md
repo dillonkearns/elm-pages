@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.12] - 2024-01-10
+
+### Fixed
+
+- Fix issue with generated `Main.elm` code by using a different version of elm-codegen internally (does not effect the user-facing elm-codegen version constraints).
+
 ## [3.0.11] - 2024-01-10
 
 ### Fixed
