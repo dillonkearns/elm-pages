@@ -48,4 +48,12 @@ Similar to the approach with GitHub repos, you specify a Gist URL which you coul
 
 For example, you can look at this code in your browser: <https://gist.github.com/dillonkearns/4f050018784b25246729a82fc9907543>. And you can execute it by passing it to `elm-pages run`:
 
-`npx elm-pages@latest run https://gist.github.com/dillonkearns/4f050018784b25246729a82fc9907543`
+`npx elm-pages@3.0.12 run https://gist.github.com/dillonkearns/4f050018784b25246729a82fc9907543`
+
+You can specify an entrypoint file to execute from a Gist by linking to a raw file in a Gist directly like so:
+
+<https://gist.githubusercontent.com/dillonkearns/4f050018784b25246729a82fc9907543/raw/898c6963b87b37d026f162f5758ad7a23825cd64/Main.elm>
+
+`npx elm-pages@3.0.12 run https://gist.githubusercontent.com/dillonkearns/4f050018784b25246729a82fc9907543/raw/898c6963b87b37d026f162f5758ad7a23825cd64/Main.elm`
+
+You can use this to either explicitly point to the default entrypoint `Main.elm`, or to execute a different entrypoint script.
