@@ -234,7 +234,7 @@ export async function render(request) {
         body: response.body.body,
         statusCode: response.statusCode,
         kind: response.kind,
-        headers: response.headers,
+        headers: response.body.headers,
         isBase64Encoded: response.body.isBase64Encoded,
     }
   } else {
