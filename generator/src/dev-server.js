@@ -175,6 +175,9 @@ export async function start(options) {
           base: options.base,
           port: options.port,
         },
+        assetsInclude: [
+          '/elm-pages.js'
+        ],
         appType: "custom",
         configFile: false,
         root: process.cwd(),

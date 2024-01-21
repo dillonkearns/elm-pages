@@ -97,6 +97,9 @@ export async function run(options) {
         configFile: false,
         root: process.cwd(),
         base: options.base,
+        assetsInclude: [
+          '/elm-pages.js'
+        ],
         ssr: false,
 
         build: {
