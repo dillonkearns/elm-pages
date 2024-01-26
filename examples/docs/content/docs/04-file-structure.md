@@ -120,7 +120,7 @@ Files in this folder are copied directly into `dist/` when you run `elm-pages bu
 
 For example, if you had a file called `public/images/profile.jpg`, then you could access it at `http://localhost:1234/images/profile.jpg` in your dev server, or the corresponding path in your production domain.
 
-## `public/index.ts`
+## `index.ts`
 
 This is the entrypoint for your JavaScript. Export an Object with a functions `load` and `flags`. Right now, this is the only place that user JavaScript code can be loaded. You can use `import` statements to load other JS files here.
 
@@ -140,7 +140,7 @@ export default {
 };
 ```
 
-## `public/style.css`
+## `style.css`
 
 You can configure which CSS assets to load by customizing your `elm-pages.config.mjs` file.
 
