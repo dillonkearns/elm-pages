@@ -4,6 +4,7 @@ module Pages.Script exposing
     , writeFile
     , log
     , Error(..)
+    , doThen, sleep
     )
 
 {-| An elm-pages Script is a way to execute an `elm-pages` `BackendTask`.
@@ -35,6 +36,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 -}
 
 import BackendTask exposing (BackendTask)
+import BackendTask.Custom
 import BackendTask.Http
 import BackendTask.Internal.Request
 import Cli.OptionsParser as OptionsParser
@@ -164,3 +166,24 @@ withCliOptions config execute =
             config
                 |> Program.mapConfig execute
         )
+sleep : Int -> BackendTask error ()
+sleep int =
+    BackendTask.Internal.Request.request
+        { name = "sleep"
+        , body =
+            BackendTask.Http.jsonBody
+                (Encode.object
+                    [ ( "milliseconds", Encode.int int )
+                    ]
+                )
+        , expect =
+            BackendTask.Http.expectJson (Decode.null ())
+        }
+
+
+
+
+doThen : BackendTask error value -> BackendTask error () -> BackendTask error value
+doThen task1 task2 =
+    task2
+        |> BackendTask.andThen (\() -> task1)

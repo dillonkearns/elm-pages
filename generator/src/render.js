@@ -500,6 +500,8 @@ async function runInternalJob(
       ];
     } else if (requestToPerform.url === "elm-pages-internal://write-file") {
       return [requestHash, await runWriteFileJob(requestToPerform)];
+    } else if (requestToPerform.url === "elm-pages-internal://sleep") {
+      return [requestHash, await runSleep(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
       return [requestHash, runStartSpinner(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
@@ -534,6 +536,16 @@ async function readFileJobNew(req, patternsToWatch) {
     });
   }
 }
+
+function runSleep(req) {
+  const { milliseconds } = req.body.args[0];
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(jsonResponse(req, null));
+    }, milliseconds);
+  });
+}
+
 async function runWriteFileJob(req) {
   const data = req.body.args[0];
   try {
