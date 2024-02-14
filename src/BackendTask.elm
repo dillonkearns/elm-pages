@@ -339,7 +339,8 @@ andMap =
 
     import BackendTask exposing (BackendTask)
 
-    type alias RouteParams = { name : String }
+    type alias RouteParams =
+        { name : String }
 
     pages : BackendTask error (List RouteParams)
     pages =
