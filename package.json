@@ -27,6 +27,7 @@
   "dependencies": {
     "busboy": "^1.6.0",
     "chokidar": "^3.5.3",
+    "cli-cursor": "^4.0.0",
     "commander": "^11.1.0",
     "connect": "^3.7.0",
     "cookie-signature": "^1.2.1",
