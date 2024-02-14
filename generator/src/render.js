@@ -13,6 +13,9 @@ import { compatibilityKey } from "./compatibility-key.js";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
+import { Spinnies } from './spinnies/index.js'
+
+const spinnies = new Spinnies();
 
 process.on("unhandledRejection", (error) => {
   console.error(error);
@@ -497,6 +500,10 @@ async function runInternalJob(
       ];
     } else if (requestToPerform.url === "elm-pages-internal://write-file") {
       return [requestHash, await runWriteFileJob(requestToPerform)];
+    } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
+      return [requestHash, runStartSpinner(requestToPerform)];
+    } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
+      return [requestHash, runStopSpinner(requestToPerform)];
     } else {
       throw `Unexpected internal BackendTask request format: ${kleur.yellow(
         JSON.stringify(2, null, requestToPerform)
@@ -543,6 +550,38 @@ async function runWriteFileJob(req) {
       )}\n${kleur.red(error.toString())}`,
     };
   }
+}
+
+function runStartSpinner(req) {
+  const data = req.body.args[0];
+  let spinnerId;
+
+  if (data.spinnerId) {
+    spinnerId = data.spinnerId;
+    // TODO use updateSpinnerState?
+    spinnies.update(spinnerId, { text: data.text, status: 'spinning' });
+  } else {
+    spinnerId = Math.random().toString(36);
+      // spinnies.add(spinnerId, { text: data.text, status: data.immediateStart ? 'spinning' : 'stopped' });
+      spinnies.add(spinnerId, { text: data.text, status: 'spinning' });
+    // }
+  }
+  return jsonResponse(req, spinnerId);
+}
+
+function runStopSpinner(req) {
+  const data = req.body.args[0];
+  const { spinnerId, completionText, completionFn } = data;
+  let completeFn;
+  if (completionFn === 'succeed') {
+    spinnies.succeed(spinnerId, { text: completionText })
+  } else if (completionFn === 'fail') {
+    spinnies.fail(spinnerId, { text: completionText })
+  } else {
+    console.log('Unexpected')
+  }
+  return jsonResponse(req, null);
+
 }
 
 async function runGlobNew(req, patternsToWatch) {
