@@ -199,6 +199,26 @@ runTaskExisting (Spinner spinnerId (Options options_)) backendTask =
                     , expect = BackendTask.Http.expectJson (Decode.succeed value)
                     }
             )
+        |> BackendTask.onError
+            (\error ->
+                let
+                    ( completionIcon, completionText ) =
+                        options_.onCompletion (Err error)
+                in
+                BackendTask.Internal.Request.request
+                    { name = "stop-spinner"
+                    , body =
+                        BackendTask.Http.jsonBody
+                            (Encode.object
+                                [ ( "spinnerId", Encode.string spinnerId )
+                                , ( "completionFn", encodeCompletionIcon completionIcon |> Encode.string )
+                                , ( "completionText", completionText |> Maybe.map Encode.string |> Maybe.withDefault Encode.null )
+                                ]
+                            )
+                    , expect = BackendTask.Http.expectJson (Decode.succeed ())
+                    }
+                    |> BackendTask.andThen (\() -> BackendTask.fail error)
+            )
 
 
 spinner : String -> (Result error value -> ( CompletionIcon, Maybe String )) -> BackendTask error value -> BackendTask error value
