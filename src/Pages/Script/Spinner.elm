@@ -1,8 +1,9 @@
-module Pages.Script.Spinner exposing (CompletionIcon(..), Options, Spinner, encodeCompletionIcon, options, runTask, runTaskExisting, runTaskWithOptions, showStep, spinner, start, withImmediateStart, withNamedAnimation, withOnCompletion)
+module Pages.Script.Spinner exposing (CompletionIcon(..), Options, Spinner, encodeCompletionIcon, options, runSteps, runTask, runTaskExisting, runTaskWithOptions, showStep, spinner, start, steps, withImmediateStart, withNamedAnimation, withOnCompletion, withStep)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
+import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 
@@ -279,3 +280,34 @@ encodeCompletionIcon completionIcon =
 
         Custom string ->
             "custom"
+
+
+type Steps error value
+    = Steps (BackendTask error value)
+
+
+steps : Steps FatalError ()
+steps =
+    Steps (BackendTask.succeed ())
+
+
+withStep : String -> (oldValue -> BackendTask FatalError newValue) -> Steps FatalError oldValue -> Steps FatalError newValue
+withStep text backendTask steps_ =
+    case steps_ of
+        Steps previousSteps ->
+            Steps
+                (BackendTask.map2
+                    (\pipelineValue newSpinner ->
+                        runTaskExisting
+                            newSpinner
+                            (backendTask pipelineValue)
+                    )
+                    previousSteps
+                    (options text |> showStep)
+                    |> BackendTask.andThen identity
+                )
+
+
+runSteps : Steps FatalError value -> BackendTask FatalError value
+runSteps (Steps steps_) =
+    steps_
