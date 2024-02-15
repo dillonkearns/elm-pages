@@ -1,4 +1,4 @@
-module Pages.Script.Spinner exposing (CompletionIcon(..), Options, Spinner, encodeCompletionIcon, options, runSteps, runTask, runTaskExisting, runTaskWithOptions, showStep, spinner, start, steps, withImmediateStart, withNamedAnimation, withOnCompletion, withStep)
+module Pages.Script.Spinner exposing (CompletionIcon(..), Options, Spinner, encodeCompletionIcon, options, runSteps, runTask, runTaskExisting, runTaskWithOptions, showStep, spinner, start, steps, withImmediateStart, withNamedAnimation, withOnCompletion, withStep, withStepWithOptions)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
@@ -304,6 +304,23 @@ withStep text backendTask steps_ =
                     )
                     previousSteps
                     (options text |> showStep)
+                    |> BackendTask.andThen identity
+                )
+
+
+withStepWithOptions : Options FatalError newValue -> (oldValue -> BackendTask FatalError newValue) -> Steps FatalError oldValue -> Steps FatalError newValue
+withStepWithOptions options_ backendTask steps_ =
+    case steps_ of
+        Steps previousSteps ->
+            Steps
+                (BackendTask.map2
+                    (\pipelineValue newSpinner ->
+                        runTaskExisting
+                            newSpinner
+                            (backendTask pipelineValue)
+                    )
+                    previousSteps
+                    (showStep options_)
                     |> BackendTask.andThen identity
                 )
 
