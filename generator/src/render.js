@@ -206,6 +206,7 @@ function runGeneratorAppHelp(
         );
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
+        spinnies.stopAll();
         reject(fromElm.args[0].errorsJson);
       } else {
         console.log(fromElm);
@@ -343,6 +344,7 @@ function runElmApp(
         );
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
+        spinnies.stopAll();
         reject(fromElm.args[0].errorsJson);
       } else {
         console.log(fromElm);
