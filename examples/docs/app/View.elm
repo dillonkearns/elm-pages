@@ -1,14 +1,20 @@
-module View exposing (View, map, placeholder)
+module View exposing (View, map)
+
+{-|
+@docs map, View
+ -}
+
 
 import Html.Styled as Html exposing (Html)
 
-
+{-| -}
 type alias View msg =
     { title : String
     , body : List (Html msg)
     }
 
 
+{-| -}
 map : (msg1 -> msg2) -> View msg1 -> View msg2
 map fn view =
     { title = view.title
@@ -16,8 +22,3 @@ map fn view =
     }
 
 
-placeholder : String -> View msg
-placeholder moduleName =
-    { title = "Placeholder"
-    , body = [ Html.text moduleName ]
-    }

@@ -4,6 +4,7 @@ import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
+import Html.Styled as Html
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
@@ -77,4 +78,6 @@ view :
     -> Shared.Model
     -> View (PagesMsg Msg)
 view static sharedModel =
-    View.placeholder "Blog.Slug_"
+    { title = "Blog.Slug_"
+    , body = [ Html.text "Blog.Slug_" ]
+    }

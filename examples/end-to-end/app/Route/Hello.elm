@@ -5,6 +5,7 @@ import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
+import Html.Styled as Html
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
@@ -74,4 +75,6 @@ view :
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
-    View.placeholder "Hello"
+    { title = "Hello"
+    , body = [ Html.text "Hello" ]
+    }

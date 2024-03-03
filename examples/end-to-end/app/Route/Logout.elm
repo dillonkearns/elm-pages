@@ -5,6 +5,7 @@ import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
+import Html.Styled as Html
 import MySession
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
@@ -90,4 +91,6 @@ view :
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
-    View.placeholder "Logout"
+    { title = "Logout"
+    , body = [ Html.text "Logout" ]
+    }
