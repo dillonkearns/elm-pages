@@ -63,6 +63,8 @@ type Error
 
 {-| Write a file to the file system.
 
+File paths are relative to the root of your `elm-pages` project (next to the `elm.json` file and `src/` directory), or you can pass in absolute paths beginning with a `/`.
+
     module MyScript exposing (run)
 
     import BackendTask
@@ -166,6 +168,8 @@ withCliOptions config execute =
             config
                 |> Program.mapConfig execute
         )
+
+
 sleep : Int -> BackendTask error ()
 sleep int =
     BackendTask.Internal.Request.request
@@ -179,8 +183,6 @@ sleep int =
         , expect =
             BackendTask.Http.expectJson (Decode.null ())
         }
-
-
 
 
 doThen : BackendTask error value -> BackendTask error () -> BackendTask error value
