@@ -551,9 +551,8 @@ function runSleep(req) {
 async function runWriteFileJob(req) {
   const data = req.body.args[0];
   try {
-    const fullPathToWrite = path.join(process.cwd(), data.path);
-    await fsPromises.mkdir(path.dirname(fullPathToWrite), { recursive: true });
-    await fsPromises.writeFile(fullPathToWrite, data.body);
+    await fsPromises.mkdir(path.dirname(data.path), { recursive: true });
+    await fsPromises.writeFile(data.path, data.body);
     return jsonResponse(req, null);
   } catch (error) {
     console.trace(error);
