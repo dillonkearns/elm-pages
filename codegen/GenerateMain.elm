@@ -8,6 +8,7 @@ import Elm.Extra exposing (expose, fnIgnore, topLevelValue)
 import Elm.Let
 import Elm.Op
 import Elm.Pattern
+import Gen.Api
 import Gen.ApiRoute
 import Gen.BackendTask
 import Gen.Basics
@@ -15,6 +16,8 @@ import Gen.Bytes
 import Gen.Bytes.Decode
 import Gen.Bytes.Encode
 import Gen.Dict
+import Gen.Effect
+import Gen.ErrorPage
 import Gen.Head
 import Gen.Html
 import Gen.Json.Decode
@@ -30,12 +33,16 @@ import Gen.Pages.Internal.RoutePattern
 import Gen.Pages.Navigation
 import Gen.Pages.PageUrl
 import Gen.PagesMsg
+import Gen.Platform.Sub
 import Gen.Server.Request
 import Gen.Server.Response
+import Gen.Shared
+import Gen.Site
 import Gen.String
 import Gen.Tuple
 import Gen.Url
 import Gen.UrlPath
+import Gen.View
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import String.Case
 
@@ -67,7 +74,7 @@ otherFile routes phaseString =
             , update = update.value []
             , subscriptions = subscriptions.value []
             , sharedData =
-                Elm.value { name = "template", importFrom = [ "Shared" ], annotation = Nothing }
+                Gen.Shared.values_.template
                     |> Elm.get "data"
             , data = dataForRoute.value []
             , action = action.value []
@@ -111,19 +118,13 @@ otherFile routes phaseString =
                         Elm.nothing
 
                     Cli ->
-                        Elm.just
-                            (Elm.value
-                                { name = "config"
-                                , annotation = Nothing
-                                , importFrom = [ "Site" ]
-                                }
-                            )
+                        Elm.just Gen.Site.values_.config
             , toJsPort = Elm.val "toJsPort"
             , fromJsPort = applyIdentityTo (Elm.val "fromJsPort")
             , gotBatchSub =
                 case phase of
                     Browser ->
-                        subNone
+                        Gen.Platform.Sub.values_.none
 
                     Cli ->
                         applyIdentityTo (Elm.val "gotBatchSub")
@@ -141,7 +142,7 @@ otherFile routes phaseString =
                                 Elm.Op.cons pathsToGenerateHandler.reference
                                     (Elm.Op.cons routePatterns.reference
                                         (Elm.Op.cons apiPatterns.reference
-                                            (Elm.apply (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
+                                            (Elm.apply Gen.Api.values_.routes
                                                 [ getStaticRoutes.reference
                                                 , htmlToString
                                                 ]
@@ -169,36 +170,11 @@ otherFile routes phaseString =
 
                     Cli ->
                         Elm.just (globalHeadTags.value [])
-            , cmdToEffect =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "fromCmd"
-                    , importFrom = [ "Effect" ]
-                    }
-            , perform =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "perform"
-                    , importFrom = [ "Effect" ]
-                    }
-            , errorStatusCode =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "statusCode"
-                    , importFrom = [ "ErrorPage" ]
-                    }
-            , notFoundPage =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "notFound"
-                    , importFrom = [ "ErrorPage" ]
-                    }
-            , internalError =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "internalError"
-                    , importFrom = [ "ErrorPage" ]
-                    }
+            , cmdToEffect = Gen.Effect.values_.fromCmd
+            , perform = Gen.Effect.values_.perform
+            , errorStatusCode = Gen.ErrorPage.values_.statusCode
+            , notFoundPage = Gen.ErrorPage.values_.notFound
+            , internalError = Gen.ErrorPage.values_.internalError
             , errorPageToData = Elm.val "DataErrorPage____"
             , notFoundRoute = Elm.nothing
             }
@@ -276,11 +252,7 @@ otherFile routes phaseString =
                                                                     |> Elm.Case.patternToBranch
                                                                         (\subModel ->
                                                                             Elm.apply
-                                                                                (Elm.value
-                                                                                    { importFrom = [ "Shared" ]
-                                                                                    , name = "template"
-                                                                                    , annotation = Nothing
-                                                                                    }
+                                                                                (Gen.Shared.values_.template
                                                                                     |> Elm.get "view"
                                                                                 )
                                                                                 [ globalData
@@ -292,19 +264,14 @@ otherFile routes phaseString =
                                                                                             (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
                                                                                     )
                                                                                 , Elm.apply
-                                                                                    (Elm.value { importFrom = [ "View" ], name = "map", annotation = Nothing })
+                                                                                    Gen.View.values_.map
                                                                                     [ Elm.functionReduced "myMsg"
                                                                                         (\myMsg ->
                                                                                             Gen.PagesMsg.fromMsg
                                                                                                 (Elm.apply (Elm.val "MsgErrorPage____") [ myMsg ])
                                                                                         )
                                                                                     , Elm.apply
-                                                                                        (Elm.value
-                                                                                            { importFrom = [ "ErrorPage" ]
-                                                                                            , name = "view"
-                                                                                            , annotation = Nothing
-                                                                                            }
-                                                                                        )
+                                                                                        Gen.ErrorPage.values_.view
                                                                                         [ data
                                                                                         , subModel
                                                                                         ]
@@ -342,11 +309,7 @@ otherFile routes phaseString =
                                                                                                 |> Elm.Case.patternToBranch
                                                                                                     (\subModel ->
                                                                                                         Elm.apply
-                                                                                                            (Elm.value
-                                                                                                                { importFrom = [ "Shared" ]
-                                                                                                                , name = "template"
-                                                                                                                , annotation = Nothing
-                                                                                                                }
+                                                                                                            (Gen.Shared.values_.template
                                                                                                                 |> Elm.get "view"
                                                                                                             )
                                                                                                             [ globalData
@@ -358,7 +321,7 @@ otherFile routes phaseString =
                                                                                                                         (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
                                                                                                                 )
                                                                                                             , Elm.apply
-                                                                                                                (Elm.value { importFrom = [ "View" ], name = "map", annotation = Nothing })
+                                                                                                                Gen.View.values_.map
                                                                                                                 [ Elm.functionReduced
                                                                                                                     "innerPageMsg"
                                                                                                                     (Gen.PagesMsg.call_.map (route |> routeVariantExpression Msg))
@@ -518,11 +481,7 @@ otherFile routes phaseString =
                 (\route path model ->
                     subBatch
                         [ Elm.apply
-                            (Elm.value
-                                { importFrom = [ "Shared" ]
-                                , name = "template"
-                                , annotation = Nothing
-                                }
+                            (Gen.Shared.values_.template
                                 |> Elm.get "subscriptions"
                             )
                             [ path
@@ -586,7 +545,7 @@ otherFile routes phaseString =
                 ( "model", Type.named [] "Model" |> Just )
                 (\maybeRoute path model ->
                     Elm.Case.maybe maybeRoute
-                        { nothing = subNone
+                        { nothing = Gen.Platform.Sub.values_.none
                         , just =
                             ( "justRoute"
                             , \justRoute ->
@@ -613,7 +572,7 @@ otherFile routes phaseString =
                                                             ]
                                                             |> subMap (route |> routeVariantExpression Msg)
                                                     )
-                                            , Elm.Case.otherwise (\_ -> subNone)
+                                            , Elm.Case.otherwise (\_ -> Gen.Platform.Sub.values_.none)
                                             ]
                                     )
                             )
@@ -764,21 +723,11 @@ otherFile routes phaseString =
                                             ]
                                         )
                                         (Elm.apply
-                                            (Elm.value
-                                                { annotation = Nothing
-                                                , name = "batch"
-                                                , importFrom = [ "Effect" ]
-                                                }
-                                            )
+                                            Gen.Effect.values_.batch
                                             [ Elm.list
                                                 [ templateCmd
                                                 , Elm.apply
-                                                    (Elm.value
-                                                        { annotation = Nothing
-                                                        , importFrom = [ "Effect" ]
-                                                        , name = "map"
-                                                        }
-                                                    )
+                                                    Gen.Effect.values_.map
                                                     [ Elm.val "MsgGlobal"
                                                     , globalCmd
                                                     ]
@@ -848,12 +797,7 @@ otherFile routes phaseString =
                                                                                       )
                                                                                     , ( "submit"
                                                                                       , Elm.apply
-                                                                                            (Elm.value
-                                                                                                { importFrom = [ "Pages", "Fetcher" ]
-                                                                                                , name = "submit"
-                                                                                                , annotation = Nothing
-                                                                                                }
-                                                                                            )
+                                                                                            Gen.Pages.Fetcher.values_.submit
                                                                                             [ route |> decodeRouteType ActionData
                                                                                             ]
                                                                                       )
@@ -865,7 +809,7 @@ otherFile routes phaseString =
                                                                                 |> Gen.Tuple.call_.mapBoth
                                                                                     (route |> routeVariantExpression Model)
                                                                                     (Elm.apply
-                                                                                        (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing })
+                                                                                        Gen.Effect.values_.map
                                                                                         [ route |> routeVariantExpression Msg
                                                                                         ]
                                                                                     )
@@ -885,15 +829,11 @@ otherFile routes phaseString =
                             (currentGlobalModel
                                 |> Gen.Maybe.map
                                     (\m ->
-                                        Elm.tuple m (Elm.value { annotation = Nothing, importFrom = [ "Effect" ], name = "none" })
+                                        Elm.tuple m Gen.Effect.values_.none
                                     )
                                 |> Gen.Maybe.withDefault
                                     (Elm.apply
-                                        (Elm.value
-                                            { importFrom = [ "Shared" ]
-                                            , name = "template"
-                                            , annotation = Nothing
-                                            }
+                                        (Gen.Shared.values_.template
                                             |> Elm.get "init"
                                         )
                                         [ userFlags, maybePagePath ]
@@ -955,12 +895,7 @@ otherFile routes phaseString =
                                                             |> Elm.Case.patternToBranch
                                                                 (\( pageModel, thisPageData ) ->
                                                                     Elm.apply
-                                                                        (Elm.value
-                                                                            { importFrom = [ "ErrorPage" ]
-                                                                            , name = "update"
-                                                                            , annotation = Nothing
-                                                                            }
-                                                                        )
+                                                                        Gen.ErrorPage.values_.update
                                                                         [ thisPageData
                                                                         , msg_
                                                                         , pageModel
@@ -971,7 +906,7 @@ otherFile routes phaseString =
                                                         , Elm.Pattern.ignore
                                                             |> Elm.Case.patternToBranch
                                                                 (\() ->
-                                                                    Elm.tuple (model |> Elm.get "page") effectNone
+                                                                    Elm.tuple (model |> Elm.get "page") Gen.Effect.values_.none
                                                                 )
                                                         ]
                                                     )
@@ -988,11 +923,7 @@ otherFile routes phaseString =
                                                 )
                                                 |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "sharedModel") (Elm.Pattern.var "globalCmd"))
                                                     (Elm.apply
-                                                        (Elm.value
-                                                            { importFrom = [ "Shared" ]
-                                                            , name = "template"
-                                                            , annotation = Nothing
-                                                            }
+                                                        (Gen.Shared.values_.template
                                                             |> Elm.get "update"
                                                         )
                                                         [ msg_, model |> Elm.get "global" ]
@@ -1005,7 +936,7 @@ otherFile routes phaseString =
                                             Elm.Let.letIn
                                                 (\() ( updatedModel, cmd ) ->
                                                     Elm.Case.maybe
-                                                        (Elm.value { importFrom = [ "Shared" ], name = "template", annotation = Nothing }
+                                                        (Gen.Shared.values_.template
                                                             |> Elm.get "onPageChange"
                                                         )
                                                         { nothing = Elm.tuple updatedModel cmd
@@ -1015,7 +946,7 @@ otherFile routes phaseString =
                                                                 Elm.Let.letIn
                                                                     (\( updatedGlobalModel, globalCmd ) ->
                                                                         Elm.tuple (Elm.updateRecord [ ( "global", updatedGlobalModel ) ] updatedModel)
-                                                                            (Elm.apply (Elm.value { importFrom = [ "Effect" ], name = "batch", annotation = Nothing })
+                                                                            (Elm.apply Gen.Effect.values_.batch
                                                                                 [ Elm.list
                                                                                     [ cmd
                                                                                     , effectMap (Elm.val "MsgGlobal") globalCmd
@@ -1025,7 +956,7 @@ otherFile routes phaseString =
                                                                     )
                                                                     |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "updatedGlobalModel") (Elm.Pattern.var "globalCmd"))
                                                                         (Elm.apply
-                                                                            (Elm.value { importFrom = [ "Shared" ], name = "template", annotation = Nothing }
+                                                                            (Gen.Shared.values_.template
                                                                                 |> Elm.get "update"
                                                                             )
                                                                             [ Elm.apply thingy
@@ -1135,21 +1066,11 @@ otherFile routes phaseString =
                                                                                                     ]
                                                                                             )
                                                                                             (Elm.apply
-                                                                                                (Elm.value
-                                                                                                    { name = "batch"
-                                                                                                    , importFrom = [ "Effect" ]
-                                                                                                    , annotation = Nothing
-                                                                                                    }
-                                                                                                )
+                                                                                                Gen.Effect.values_.batch
                                                                                                 [ Elm.list
                                                                                                     [ pageCmd
                                                                                                     , Elm.apply
-                                                                                                        (Elm.value
-                                                                                                            { name = "map"
-                                                                                                            , importFrom = [ "Effect" ]
-                                                                                                            , annotation = Nothing
-                                                                                                            }
-                                                                                                        )
+                                                                                                        Gen.Effect.values_.map
                                                                                                         [ Elm.val "MsgGlobal"
                                                                                                         , newGlobalCmd
                                                                                                         ]
@@ -1223,7 +1144,7 @@ otherFile routes phaseString =
                                                                     , Elm.Pattern.ignore
                                                                         |> Elm.Case.patternToBranch
                                                                             (\() ->
-                                                                                Elm.tuple model effectNone
+                                                                                Elm.tuple model Gen.Effect.values_.none
                                                                             )
                                                                     ]
                                                             )
@@ -1278,23 +1199,19 @@ otherFile routes phaseString =
                                     Elm.triple
                                         (Elm.apply wrapModel [ a ])
                                         (Elm.apply
-                                            (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing })
+                                            Gen.Effect.values_.map
                                             [ wrapMsg, b ]
                                         )
                                         (Elm.Case.maybe c
                                             { nothing =
                                                 Elm.tuple
                                                     (model |> Elm.get "global")
-                                                    effectNone
+                                                    Gen.Effect.values_.none
                                             , just =
                                                 ( "sharedMsg"
                                                 , \sharedMsg ->
                                                     Elm.apply
-                                                        (Elm.value
-                                                            { importFrom = [ "Shared" ]
-                                                            , name = "template"
-                                                            , annotation = Nothing
-                                                            }
+                                                        (Gen.Shared.values_.template
                                                             |> Elm.get "update"
                                                         )
                                                         [ sharedMsg
@@ -1339,21 +1256,16 @@ otherFile routes phaseString =
                 ( "pageData", Type.named [] "PageData" |> Just )
                 (\pageData ->
                     Elm.apply
-                        (Elm.value
-                            { importFrom = [ "ErrorPage" ]
-                            , name = "init"
-                            , annotation = Nothing
-                            }
-                        )
+                        Gen.ErrorPage.values_.init
                         [ Elm.Case.custom pageData
                             Type.unit
                             [ Elm.Case.branch1 "DataErrorPage____"
                                 ( "errorPage", Type.unit )
                                 (\errorPage -> errorPage)
-                            , Elm.Case.otherwise (\_ -> Elm.value { importFrom = [ "ErrorPage" ], name = "notFound", annotation = Nothing })
+                            , Elm.Case.otherwise (\_ -> Gen.ErrorPage.values_.notFound)
                             ]
                         ]
-                        |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____") (Elm.apply (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing }) [ Elm.val "MsgErrorPage____" ])
+                        |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____") (Elm.apply Gen.Effect.values_.map [ Elm.val "MsgErrorPage____" ])
                         |> Elm.withType (Type.tuple (Type.named [] "PageModel") (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ]))
                 )
 
@@ -1701,7 +1613,7 @@ otherFile routes phaseString =
                         )
                         (Elm.Op.cons routePatterns.reference
                             (Elm.Op.cons apiPatterns.reference
-                                (Elm.apply (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
+                                (Elm.apply Gen.Api.values_.routes
                                     [ getStaticRoutes.reference
                                     , Elm.fn2 ( "a", Nothing ) ( "b", Nothing ) (\_ _ -> Elm.string "")
                                     ]
@@ -1727,7 +1639,7 @@ otherFile routes phaseString =
                     (Gen.Json.Encode.call_.list
                         Gen.Basics.values_.identity
                         (Elm.apply
-                            (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
+                            Gen.Api.values_.routes
                             [ getStaticRoutes.reference
                             , Elm.fn2 ( "a", Nothing ) ( "b", Nothing ) (\_ _ -> Elm.string "")
                             ]
@@ -1853,20 +1765,11 @@ otherFile routes phaseString =
                 )
                 (\htmlToString ->
                     Elm.Op.cons
-                        (Elm.value
-                            { importFrom = [ "Site" ]
-                            , annotation = Nothing
-                            , name = "config"
-                            }
+                        (Gen.Site.values_.config
                             |> Elm.get "head"
                         )
                         (Elm.apply
-                            (Elm.value
-                                { importFrom = [ "Api" ]
-                                , annotation = Nothing
-                                , name = "routes"
-                                }
-                            )
+                            Gen.Api.values_.routes
                             [ getStaticRoutes.reference
                             , htmlToString
                             ]
@@ -2296,31 +2199,17 @@ routePatternToExpression route =
         }
 
 
-effectNone =
-    Elm.value { annotation = Nothing, importFrom = [ "Effect" ], name = "none" }
-
-
 effectMap : Elm.Expression -> Elm.Expression -> Elm.Expression
 effectMap mapTo value =
     Elm.apply
-        (Elm.value
-            { name = "map"
-            , importFrom = [ "Effect" ]
-            , annotation = Nothing
-            }
-        )
+        Gen.Effect.values_.map
         [ mapTo, value ]
 
 
 effectMap_ : Elm.Expression -> Elm.Expression
 effectMap_ mapTo =
     Elm.apply
-        (Elm.value
-            { name = "map"
-            , importFrom = [ "Effect" ]
-            , annotation = Nothing
-            }
-        )
+        Gen.Effect.values_.map
         [ mapTo ]
 
 
@@ -2482,30 +2371,10 @@ ignoreBranchIfNeeded info routes =
         |> List.filterMap identity
 
 
-subNone : Elm.Expression
-subNone =
-    Elm.value
-        { importFrom = [ "Platform", "Sub" ]
-        , name = "none"
-        , annotation = Just (subType (Type.var "msg"))
-        }
-
-
 subBatch : List Elm.Expression -> Elm.Expression
 subBatch batchArg =
     Elm.apply
-        (Elm.value
-            { importFrom = [ "Platform", "Sub" ]
-            , name = "batch"
-            , annotation =
-                Just
-                    (Type.function
-                        [ Type.list (subType (Type.var "msg"))
-                        ]
-                        (subType (Type.var "msg"))
-                    )
-            }
-        )
+        Gen.Platform.Sub.values_.batch
         [ Elm.list batchArg ]
 
 
@@ -2517,19 +2386,5 @@ subType inner =
 subMap : Elm.Expression -> Elm.Expression -> Elm.Expression
 subMap mapArg mapArg0 =
     Elm.apply
-        (Elm.value
-            { importFrom = [ "Platform", "Sub" ]
-            , name = "map"
-            , annotation =
-                Just
-                    (Type.function
-                        [ Type.function
-                            [ Type.var "a" ]
-                            (Type.var "msg")
-                        , subType (Type.var "a")
-                        ]
-                        (subType (Type.var "msg"))
-                    )
-            }
-        )
+        Gen.Platform.Sub.values_.map
         [ mapArg, mapArg0 ]
