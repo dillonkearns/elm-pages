@@ -477,7 +477,7 @@ otherFile routes phaseString =
                 ( "path", pathType |> Just )
                 ( "model", Type.named [] "Model" |> Just )
                 (\route path model ->
-                    subBatch
+                    Gen.Platform.Sub.batch
                         [ Elm.apply
                             (Gen.Shared.values_.template
                                 |> Elm.get "subscriptions"
@@ -486,10 +486,10 @@ otherFile routes phaseString =
                             , model
                                 |> Elm.get "global"
                             ]
-                            |> subMap (Elm.val "MsgGlobal")
+                            |> Gen.Platform.Sub.call_.map (Elm.val "MsgGlobal")
                         , templateSubscriptions.call route path model
                         ]
-                        |> Elm.withType (subType (Type.named [] "Msg"))
+                        |> Elm.withType (Gen.Platform.Sub.annotation_.sub (Type.named [] "Msg"))
                 )
 
         onActionData :
@@ -568,14 +568,14 @@ otherFile routes phaseString =
                                                             , templateModel
                                                             , model |> Elm.get "global"
                                                             ]
-                                                            |> subMap (route |> routeVariantExpression Msg)
+                                                            |> Gen.Platform.Sub.call_.map (route |> routeVariantExpression Msg)
                                                     )
                                             , Elm.Case.otherwise (\_ -> Gen.Platform.Sub.values_.none)
                                             ]
                                     )
                             )
                         }
-                        |> Elm.withType (subType (Type.named [] "Msg"))
+                        |> Elm.withType (Gen.Platform.Sub.annotation_.sub (Type.named [] "Msg"))
                 )
 
         dataForRoute :
@@ -918,14 +918,12 @@ otherFile routes phaseString =
                                                                                     , ( "global", newGlobalModel )
                                                                                     ]
                                                                             )
-                                                                            (Gen.Effect.call_.batch
-                                                                                (Elm.list
-                                                                                    [ pageCmd
-                                                                                    , Gen.Effect.call_.map
-                                                                                        (Elm.val "MsgGlobal")
-                                                                                        newGlobalCmd
-                                                                                    ]
-                                                                                )
+                                                                            (Gen.Effect.batch
+                                                                                [ pageCmd
+                                                                                , Gen.Effect.call_.map
+                                                                                    (Elm.val "MsgGlobal")
+                                                                                    newGlobalCmd
+                                                                                ]
                                                                             )
                                                                     )
                                                                     |> Elm.Let.destructure
@@ -1021,12 +1019,12 @@ otherFile routes phaseString =
                                                             (Elm.Pattern.variant1 "DataErrorPage____" (Elm.Pattern.var "thisPageData"))
                                                             |> Elm.Case.patternToBranch
                                                                 (\( pageModel, thisPageData ) ->
-                                                                    Gen.ErrorPage.call_.update
+                                                                    Gen.ErrorPage.update
                                                                         thisPageData
                                                                         msg_
                                                                         pageModel
                                                                         |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____")
-                                                                            (effectMap_ (Elm.val "MsgErrorPage____"))
+                                                                            (Elm.apply Gen.Effect.values_.map [ Elm.val "MsgErrorPage____" ])
                                                                 )
                                                         , Elm.Pattern.ignore
                                                             |> Elm.Case.patternToBranch
@@ -1044,7 +1042,7 @@ otherFile routes phaseString =
                                                 (\( sharedModel, globalCmd ) ->
                                                     Elm.tuple
                                                         (Elm.updateRecord [ ( "global", sharedModel ) ] model)
-                                                        (effectMap (Elm.val "MsgGlobal") globalCmd)
+                                                        (Gen.Effect.call_.map (Elm.val "MsgGlobal") globalCmd)
                                                 )
                                                 |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "sharedModel") (Elm.Pattern.var "globalCmd"))
                                                     (Elm.apply
@@ -1071,12 +1069,10 @@ otherFile routes phaseString =
                                                                 Elm.Let.letIn
                                                                     (\( updatedGlobalModel, globalCmd ) ->
                                                                         Elm.tuple (Elm.updateRecord [ ( "global", updatedGlobalModel ) ] updatedModel)
-                                                                            (Gen.Effect.call_.batch
-                                                                                (Elm.list
-                                                                                    [ cmd
-                                                                                    , effectMap (Elm.val "MsgGlobal") globalCmd
-                                                                                    ]
-                                                                                )
+                                                                            (Gen.Effect.batch
+                                                                                [ cmd
+                                                                                , Gen.Effect.call_.map (Elm.val "MsgGlobal") globalCmd
+                                                                                ]
                                                                             )
                                                                     )
                                                                     |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "updatedGlobalModel") (Elm.Pattern.var "globalCmd"))
@@ -1189,10 +1185,7 @@ otherFile routes phaseString =
                                 (\( a, b, c ) ->
                                     Elm.triple
                                         (Elm.apply wrapModel [ a ])
-                                        (Gen.Effect.call_.map
-                                            wrapMsg
-                                            b
-                                        )
+                                        (Gen.Effect.call_.map wrapMsg b)
                                         (Elm.Case.maybe c
                                             { nothing =
                                                 Elm.tuple
@@ -1246,7 +1239,7 @@ otherFile routes phaseString =
             Elm.Declare.fn "initErrorPage"
                 ( "pageData", Type.named [] "PageData" |> Just )
                 (\pageData ->
-                    Gen.ErrorPage.call_.init
+                    Gen.ErrorPage.init
                         (Elm.Case.custom pageData
                             Type.unit
                             [ Elm.Case.branch1 "DataErrorPage____"
@@ -1603,14 +1596,14 @@ otherFile routes phaseString =
                         )
                         (Elm.Op.cons routePatterns.reference
                             (Elm.Op.cons apiPatterns.reference
-                                (Gen.Api.call_.routes
+                                (Gen.Api.routes
                                     getStaticRoutes.reference
-                                    (Elm.fn2 ( "a", Nothing ) ( "b", Nothing ) (\_ _ -> Elm.string ""))
+                                    (\_ _ -> Elm.string "")
                                 )
                             )
                             |> Gen.List.call_.map Gen.ApiRoute.values_.getBuildTimeRoutes
                             |> Gen.BackendTask.call_.combine
-                            |> Gen.BackendTask.call_.map Gen.List.values_.concat
+                            |> Gen.BackendTask.map Gen.List.call_.concat
                         )
                     )
                     |> Gen.ApiRoute.literal "all-paths.json"
@@ -1627,9 +1620,9 @@ otherFile routes phaseString =
                 (Gen.ApiRoute.succeed
                     (Gen.Json.Encode.call_.list
                         Gen.Basics.values_.identity
-                        (Gen.Api.call_.routes
+                        (Gen.Api.routes
                             getStaticRoutes.reference
-                            (Elm.fn2 ( "a", Nothing ) ( "b", Nothing ) (\_ _ -> Elm.string ""))
+                            (\_ _ -> Elm.string "")
                             |> Gen.List.call_.map Gen.ApiRoute.values_.toJson
                         )
                         |> Gen.Json.Encode.encode 0
@@ -1651,14 +1644,12 @@ otherFile routes phaseString =
         routePatterns =
             topLevelValue "routePatterns"
                 (Gen.ApiRoute.succeed
-                    (Gen.Json.Encode.call_.list
-                        (Elm.fn ( "info", Nothing )
-                            (\info ->
-                                Gen.Json.Encode.object
-                                    [ Elm.tuple (Elm.string "kind") (Gen.Json.Encode.call_.string (info |> Elm.get "kind"))
-                                    , Elm.tuple (Elm.string "pathPattern") (Gen.Json.Encode.call_.string (info |> Elm.get "pathPattern"))
-                                    ]
-                            )
+                    (Gen.Json.Encode.list
+                        (\info ->
+                            Gen.Json.Encode.object
+                                [ Elm.tuple (Elm.string "kind") (Gen.Json.Encode.call_.string (info |> Elm.get "kind"))
+                                , Elm.tuple (Elm.string "pathPattern") (Gen.Json.Encode.call_.string (info |> Elm.get "pathPattern"))
+                                ]
                         )
                         (routes
                             |> List.concatMap
@@ -1716,7 +1707,6 @@ otherFile routes phaseString =
                                           )
                                         ]
                                 )
-                            |> Elm.list
                         )
                         |> Gen.Json.Encode.encode 0
                         |> Gen.BackendTask.succeed
@@ -1761,7 +1751,7 @@ otherFile routes phaseString =
                             |> Gen.List.call_.filterMap Gen.ApiRoute.values_.getGlobalHeadTagsBackendTask
                         )
                         |> Gen.BackendTask.call_.combine
-                        |> Gen.BackendTask.call_.map Gen.List.values_.concat
+                        |> Gen.BackendTask.map Gen.List.call_.concat
                         |> Elm.withType
                             (Gen.BackendTask.annotation_.backendTask
                                 (Type.named [ "FatalError" ] "FatalError")
@@ -1883,7 +1873,7 @@ otherFile routes phaseString =
                                         )
                             )
                     )
-                    |> Gen.BackendTask.call_.map Gen.List.values_.concat
+                    |> Gen.BackendTask.map Gen.List.call_.concat
                     |> Elm.withType
                         (Gen.BackendTask.annotation_.backendTask
                             (Type.named [ "FatalError" ] "FatalError")
@@ -2184,20 +2174,6 @@ routePatternToExpression route =
         }
 
 
-effectMap : Elm.Expression -> Elm.Expression -> Elm.Expression
-effectMap mapTo value =
-    Gen.Effect.call_.map
-        mapTo
-        value
-
-
-effectMap_ : Elm.Expression -> Elm.Expression
-effectMap_ mapTo =
-    Elm.apply
-        Gen.Effect.values_.map
-        [ mapTo ]
-
-
 append : List Elm.Expression -> Elm.Expression
 append expressions =
     case expressions |> List.reverse of
@@ -2253,21 +2229,3 @@ ignoreBranchIfNeeded info routes =
         Nothing
     ]
         |> List.filterMap identity
-
-
-subBatch : List Elm.Expression -> Elm.Expression
-subBatch batchArg =
-    Gen.Platform.Sub.call_.batch
-        (Elm.list batchArg)
-
-
-subType : Type.Annotation -> Type.Annotation
-subType inner =
-    Type.namedWith [ "Platform", "Sub" ] "Sub" [ inner ]
-
-
-subMap : Elm.Expression -> Elm.Expression -> Elm.Expression
-subMap mapArg mapArg0 =
-    Gen.Platform.Sub.call_.map
-        mapArg
-        mapArg0
