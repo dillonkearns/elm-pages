@@ -1335,7 +1335,7 @@ otherFile routes phaseString =
                                                                         )
                                                                             |> Just
 
-                                                                    RoutePattern.StaticParam name ->
+                                                                    RoutePattern.StaticParam _ ->
                                                                         Nothing
                                                             )
                                                         |> List.map (\( key, value ) -> Elm.tuple (Elm.string key) value)
