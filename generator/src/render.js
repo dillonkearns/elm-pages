@@ -600,15 +600,26 @@ function runStopSpinner(req) {
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
-    const matchedPaths = await globby.globby(pattern, options);
+    const matchedPaths = await globby.globby(pattern, { ...options, stats: true });
     patternsToWatch.add(pattern);
 
     return jsonResponse(
       req,
       matchedPaths.map((fullPath) => {
+        const stats = fullPath.stats;
+        if (!stats) { return null }
         return {
-          fullPath,
-          captures: mm.capture(pattern, fullPath),
+          fullPath: fullPath.path,
+          captures: mm.capture(pattern, fullPath.path),
+          fileStats: {
+            size: stats.size,
+            atime: Math.round(stats.atime.getTime()),
+            mtime: Math.round(stats.mtime.getTime()),
+            ctime: Math.round(stats.ctime.getTime()),
+            birthtime: Math.round(stats.birthtime.getTime()),
+            fullPath: fullPath.path,
+            isDirectory: stats.isDirectory(),
+          }
         };
       })
     );

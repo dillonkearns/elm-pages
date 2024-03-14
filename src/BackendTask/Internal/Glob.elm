@@ -6,19 +6,31 @@ module BackendTask.Internal.Glob exposing
     )
 
 import List.Extra
+import Time
 
 
 {-| -}
 type Glob a
-    = Glob String (String -> List String -> ( a, List String ))
+    = Glob String (Maybe FileStats -> String -> List String -> ( a, List String ))
 
 
-run : String -> List String -> Glob a -> { match : a, pattern : String }
-run rawInput captures (Glob pattern applyCapture) =
+type alias FileStats =
+    { fullPath : String
+    , sizeInBytes : Int
+    , lastContentChange : Time.Posix
+    , lastAccess : Time.Posix
+    , lastFileChange : Time.Posix
+    , createdAt : Time.Posix
+    , isDirectory : Bool
+    }
+
+
+run : Maybe FileStats -> String -> List String -> Glob a -> { match : a, pattern : String }
+run fileStats rawInput captures (Glob pattern applyCapture) =
     { match =
         captures
             |> List.reverse
-            |> applyCapture rawInput
+            |> applyCapture fileStats rawInput
             |> Tuple.first
     , pattern = pattern
     }

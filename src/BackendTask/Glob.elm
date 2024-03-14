@@ -4,6 +4,7 @@ module BackendTask.Glob exposing
     , captureFilePath
     , wildcard, recursiveWildcard
     , int, digits
+    , FileStats, captureStats
     , expectUniqueMatch, expectUniqueMatchFromList
     , literal
     , map, succeed
@@ -97,7 +98,8 @@ Let's try our blogPostsGlob from before, but change every `match` to `capture`.
     import BackendTask exposing (BackendTask)
 
     blogPostsGlob :
-        BackendTask error
+        BackendTask
+            error
             (List
                 { filePath : String
                 , slug : String
@@ -198,6 +200,13 @@ That will give us
 @docs int, digits
 
 
+## Capturing File Stats
+
+You can access a file's stats including timestamps when the file was created and modified, and file size.
+
+@docs FileStats, captureStats
+
+
 ## Matching a Specific Number of Files
 
 @docs expectUniqueMatch, expectUniqueMatchFromList
@@ -235,6 +244,7 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
+import Time
 
 
 {-| A pattern to match local files and capture parts of the path into a nice Elm data type.
@@ -296,9 +306,9 @@ For example, you could take a date and parse it.
 map : (a -> b) -> Glob a -> Glob b
 map mapFn (Glob pattern applyCapture) =
     Glob pattern
-        (\fullPath captures ->
+        (\fileStats fullPath captures ->
             captures
-                |> applyCapture fullPath
+                |> applyCapture fileStats fullPath
                 |> Tuple.mapFirst mapFn
         )
 
@@ -307,13 +317,13 @@ map mapFn (Glob pattern applyCapture) =
 -}
 succeed : constructor -> Glob constructor
 succeed constructor =
-    Glob "" (\_ captures -> ( constructor, captures ))
+    Glob "" (\_ _ captures -> ( constructor, captures ))
 
 
 fullFilePath : Glob String
 fullFilePath =
     Glob ""
-        (\fullPath captures ->
+        (\_ fullPath captures ->
             ( fullPath, captures )
         )
 
@@ -324,7 +334,8 @@ fullFilePath =
     import BackendTask.Glob as Glob
 
     blogPosts :
-        BackendTask error
+        BackendTask
+            error
             (List
                 { filePath : String
                 , slug : String
@@ -352,6 +363,75 @@ Whenever possible, it's a good idea to use function to make sure you have an acc
 captureFilePath : Glob (String -> value) -> Glob value
 captureFilePath =
     capture fullFilePath
+
+
+{-| The information about a file that you can access when you use [`captureStats`](#captureStats).
+-}
+type alias FileStats =
+    { fullPath : String
+    , sizeInBytes : Int
+    , lastContentChange : Time.Posix
+    , lastAccess : Time.Posix
+    , lastFileChange : Time.Posix
+    , createdAt : Time.Posix
+    , isDirectory : Bool
+    }
+
+
+{-|
+
+    import BackendTask.Glob as Glob
+
+    recentlyChangedRouteModules : BackendTask error (List ( Time.Posix, List String ))
+    recentlyChangedRouteModules =
+        Glob.succeed
+            (\fileStats directoryName fileName ->
+                ( fileStats.lastContentChange
+                , directoryName ++ [ fileName ]
+                )
+            )
+            |> Glob.captureStats
+            |> Glob.match (Glob.literal "app/Route/")
+            |> Glob.capture Glob.recursiveWildcard
+            |> Glob.match (Glob.literal "/")
+            |> Glob.capture Glob.wildcard
+            |> Glob.match (Glob.literal ".elm")
+            |> Glob.toBackendTask
+            |> BackendTask.map
+                (\entries ->
+                    entries
+                        |> List.sortBy (\( lastChanged, _ ) -> Time.posixToMillis lastChanged)
+                        |> List.reverse
+                )
+
+-}
+captureStats : Glob (FileStats -> value) -> Glob value
+captureStats =
+    capture
+        (Glob ""
+            (\fileStats _ captures ->
+                ( fileStats
+                    |> Maybe.withDefault
+                        { fullPath = "ERROR"
+                        , sizeInBytes = -1
+                        , lastContentChange = Time.millisToPosix 0
+                        , lastAccess = Time.millisToPosix 0
+                        , lastFileChange = Time.millisToPosix 0
+                        , createdAt = Time.millisToPosix 0
+                        , isDirectory = True
+                        }
+                , captures
+                )
+            )
+        )
+
+
+fullStats : Glob String
+fullStats =
+    Glob ""
+        (\fileStats fullPath captures ->
+            ( fullPath, captures )
+        )
 
 
 {-| Matches anything except for a `/` in a file path. You may be familiar with this syntax from shells like bash
@@ -410,7 +490,7 @@ will match _within_ a path part (think between the slashes of a file path). `rec
 wildcard : Glob String
 wildcard =
     Glob "*"
-        (\_ captures ->
+        (\_ _ captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -428,7 +508,7 @@ See [`int`](#int) for a convenience function to get an Int value instead of a St
 digits : Glob String
 digits =
     Glob "([0-9]+)"
-        (\_ captures ->
+        (\_ _ captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -573,7 +653,7 @@ This is usually not what is intended. Using `recursiveWildcard` is usually follo
 recursiveWildcard : Glob (List String)
 recursiveWildcard =
     Glob "**"
-        (\_ captures ->
+        (\_ _ captures ->
             case captures of
                 first :: rest ->
                     ( first, rest )
@@ -593,7 +673,7 @@ zeroOrMore matchers =
             ++ (matchers |> String.join "|")
             ++ ")"
         )
-        (\_ captures ->
+        (\_ _ captures ->
             case captures of
                 first :: rest ->
                     ( if first == "" then
@@ -636,7 +716,7 @@ blogPosts =
 -}
 literal : String -> Glob String
 literal string =
-    Glob string (\_ captures -> ( string, captures ))
+    Glob string (\_ _ captures -> ( string, captures ))
 
 
 {-| Adds on to the glob pattern, but does not capture it in the resulting Elm match value. That means this changes which
@@ -649,17 +729,17 @@ match : Glob a -> Glob value -> Glob value
 match (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
         (pattern ++ matcherPattern)
-        (\fullPath captures ->
+        (\fileStats_ fullPath captures ->
             let
                 ( _, captured1 ) =
                     -- apply to make sure we drop from the captures list for all capturing patterns
                     -- but don't change the return value
                     captures
-                        |> apply1 fullPath
+                        |> apply1 fileStats_ fullPath
 
                 ( applied2, captured2 ) =
                     captured1
-                        |> apply2 fullPath
+                        |> apply2 fileStats_ fullPath
             in
             ( applied2
             , captured2
@@ -717,15 +797,15 @@ capture : Glob a -> Glob (a -> value) -> Glob value
 capture (Glob matcherPattern apply1) (Glob pattern apply2) =
     Glob
         (pattern ++ matcherPattern)
-        (\fullPath captures ->
+        (\fileStats fullPath captures ->
             let
                 ( applied1, captured1 ) =
                     captures
-                        |> apply1 fullPath
+                        |> apply1 fileStats fullPath
 
                 ( applied2, captured2 ) =
                     captured1
-                        |> apply2 fullPath
+                        |> apply2 fileStats fullPath
             in
             ( applied1 |> applied2
             , captured2
@@ -828,7 +908,7 @@ oneOf ( defaultMatch, otherMatchers ) =
             ++ (allMatchers |> List.map Tuple.first |> String.join ",")
             ++ "}"
         )
-        (\_ captures ->
+        (\_ _ captures ->
             case captures of
                 match_ :: rest ->
                     ( allMatchers
@@ -862,7 +942,7 @@ atLeastOne ( defaultMatch, otherMatchers ) =
             ++ (allMatchers |> List.map Tuple.first |> String.join "|")
             ++ ")"
         )
-        (\_ captures ->
+        (\_ _ captures ->
             case captures of
                 match_ :: rest ->
                     ( --( allMatchers
@@ -958,6 +1038,7 @@ encodeOptions options =
     , options.maxDepth |> Maybe.map (\depth -> ( "deep", Encode.int depth ))
     , ( "onlyFiles", options.include == OnlyFiles || options.include == FilesAndFolders |> Encode.bool ) |> Just
     , ( "onlyDirectories", options.include == OnlyFolders || options.include == FilesAndFolders |> Encode.bool ) |> Just
+    , ( "stats", Encode.bool True ) |> Just
     ]
         |> List.filterMap identity
         |> Encode.object
@@ -984,7 +1065,8 @@ toBackendTaskWithOptions options glob =
                 ]
                 |> BackendTask.Http.jsonBody
         , expect =
-            Decode.map2 (\fullPath captures -> { fullPath = fullPath, captures = captures })
+            Decode.map3 (\fileStats fullPath captures -> { fileStats = fileStats, fullPath = fullPath, captures = captures })
+                (Decode.field "fileStats" (Decode.maybe fileStatsDecoder))
                 (Decode.field "fullPath" Decode.string)
                 (Decode.field "captures" (Decode.list Decode.string))
                 |> Decode.list
@@ -992,8 +1074,8 @@ toBackendTaskWithOptions options glob =
                     (\rawGlob ->
                         rawGlob
                             |> List.map
-                                (\{ fullPath, captures } ->
-                                    BackendTask.Internal.Glob.run fullPath captures glob
+                                (\{ fileStats, fullPath, captures } ->
+                                    BackendTask.Internal.Glob.run fileStats fullPath captures glob
                                         |> .match
                                 )
                     )
@@ -1001,6 +1083,18 @@ toBackendTaskWithOptions options glob =
         }
         |> BackendTask.onError
             (\_ -> BackendTask.succeed [])
+
+
+fileStatsDecoder : Decode.Decoder FileStats
+fileStatsDecoder =
+    Decode.map7 FileStats
+        (Decode.field "fullPath" Decode.string)
+        (Decode.field "size" Decode.int)
+        (Decode.field "mtime" Decode.int |> Decode.map Time.millisToPosix)
+        (Decode.field "atime" Decode.int |> Decode.map Time.millisToPosix)
+        (Decode.field "ctime" Decode.int |> Decode.map Time.millisToPosix)
+        (Decode.field "birthtime" Decode.int |> Decode.map Time.millisToPosix)
+        (Decode.field "isDirectory" Decode.bool)
 
 
 {-| Sometimes you want to make sure there is a unique file matching a particular pattern.
