@@ -1,6 +1,3 @@
 [submodule "examples/todos/send-grid"]
 	path = examples/todos/send-grid
 	url = https://github.com/MartinSStewart/send-grid
-[submodule "codegen/elm-codegen"]
-	path = codegen/elm-codegen
-	url = https://github.com/dillonkearns/elm-codegen
