@@ -36,7 +36,6 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 -}
 
 import BackendTask exposing (BackendTask)
-import BackendTask.Custom
 import BackendTask.Http
 import BackendTask.Internal.Request
 import Cli.OptionsParser as OptionsParser

@@ -429,7 +429,7 @@ captureStats =
 fullStats : Glob String
 fullStats =
     Glob ""
-        (\fileStats fullPath captures ->
+        (\_ fullPath captures ->
             ( fullPath, captures )
         )
 
