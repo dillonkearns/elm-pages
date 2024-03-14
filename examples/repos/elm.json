@@ -54,7 +54,7 @@
             "justinmimbs/time-extra": "1.1.1",
             "lazamar/dict-parser": "1.0.2",
             "mgold/elm-nonempty-list": "4.2.0",
-            "ryannhg/date-format": "2.3.0"
+            "ryan-haskell/date-format": "1.0.0"
         }
     },
     "test-dependencies": {
