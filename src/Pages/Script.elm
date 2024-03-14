@@ -2,9 +2,8 @@ module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
     , writeFile
-    , log
+    , log, sleep, doThen
     , Error(..)
-    , doThen, sleep
     )
 
 {-| An elm-pages Script is a way to execute an `elm-pages` `BackendTask`.
@@ -26,7 +25,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## Utilities
 
-@docs log
+@docs log, sleep, doThen
 
 
 ## Errors
@@ -169,6 +168,7 @@ withCliOptions config execute =
         )
 
 
+{-| -}
 sleep : Int -> BackendTask error ()
 sleep int =
     BackendTask.Internal.Request.request
@@ -184,6 +184,7 @@ sleep int =
         }
 
 
+{-| -}
 doThen : BackendTask error value -> BackendTask error () -> BackendTask error value
 doThen task1 task2 =
     task2

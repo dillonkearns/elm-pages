@@ -1,4 +1,10 @@
-module Pages.Script.Spinner exposing (CompletionIcon(..), Options, Spinner, encodeCompletionIcon, options, runSteps, runTask, runTaskExisting, runTaskWithOptions, showStep, spinner, start, steps, withImmediateStart, withNamedAnimation, withOnCompletion, withStep, withStepWithOptions)
+module Pages.Script.Spinner exposing (CompletionIcon(..), Options, Spinner, Steps(..), options, runSteps, runTask, runTaskExisting, runTaskWithOptions, showStep, spinner, start, steps, withImmediateStart, withNamedAnimation, withOnCompletion, withStep, withStepWithOptions)
+
+{-|
+
+@docs CompletionIcon, Options, Spinner, Steps, options, runSteps, runTask, runTaskExisting, runTaskWithOptions, showStep, spinner, start, steps, withImmediateStart, withNamedAnimation, withOnCompletion, withStep, withStepWithOptions
+
+-}
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
@@ -8,6 +14,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 
 
+{-| -}
 type CompletionIcon
     = Succeed
     | Fail
@@ -16,6 +23,7 @@ type CompletionIcon
     | Custom String
 
 
+{-| -}
 type Options error value
     = Options
         { text : String
@@ -25,15 +33,18 @@ type Options error value
         }
 
 
+{-| -}
 withOnCompletion : (Result error value -> ( CompletionIcon, Maybe String )) -> Options error value -> Options error value
 withOnCompletion function (Options options_) =
     Options { options_ | onCompletion = function }
 
 
+{-| -}
 type Spinner error value
     = Spinner String (Options error value)
 
 
+{-| -}
 options : String -> Options error value
 options text =
     Options
@@ -51,6 +62,7 @@ options text =
         }
 
 
+{-| -}
 withNamedAnimation : String -> Options error value -> Options error value
 withNamedAnimation animationName (Options options_) =
     Options { options_ | animation = Just animationName }
@@ -80,6 +92,7 @@ showStep (Options options_) =
         }
 
 
+{-| -}
 start : Spinner error1 value1 -> BackendTask error ()
 start (Spinner spinnerId _) =
     BackendTask.Internal.Request.request
@@ -95,11 +108,13 @@ start (Spinner spinnerId _) =
         }
 
 
+{-| -}
 withImmediateStart : Options error value -> Options error value
 withImmediateStart (Options options_) =
     Options { options_ | immediateStart = True }
 
 
+{-| -}
 runTaskWithOptions : Options error value -> BackendTask error value -> BackendTask error value
 runTaskWithOptions (Options options_) backendTask =
     Options options_
@@ -150,6 +165,7 @@ runTaskWithOptions (Options options_) backendTask =
             )
 
 
+{-| -}
 runTask : String -> BackendTask error value -> BackendTask error value
 runTask text backendTask =
     spinner text
@@ -164,6 +180,7 @@ runTask text backendTask =
         backendTask
 
 
+{-| -}
 runTaskExisting : Spinner error value -> BackendTask error value -> BackendTask error value
 runTaskExisting (Spinner spinnerId (Options options_)) backendTask =
     BackendTask.Internal.Request.request
@@ -221,6 +238,7 @@ runTaskExisting (Spinner spinnerId (Options options_)) backendTask =
             )
 
 
+{-| -}
 spinner : String -> (Result error value -> ( CompletionIcon, Maybe String )) -> BackendTask error value -> BackendTask error value
 spinner text onCompletion task =
     BackendTask.Internal.Request.request
@@ -298,19 +316,22 @@ encodeCompletionIcon completionIcon =
         Info ->
             "info"
 
-        Custom string ->
+        Custom _ ->
             "custom"
 
 
+{-| -}
 type Steps error value
     = Steps (BackendTask error value)
 
 
+{-| -}
 steps : Steps FatalError ()
 steps =
     Steps (BackendTask.succeed ())
 
 
+{-| -}
 withStep : String -> (oldValue -> BackendTask FatalError newValue) -> Steps FatalError oldValue -> Steps FatalError newValue
 withStep text backendTask steps_ =
     case steps_ of
@@ -328,6 +349,7 @@ withStep text backendTask steps_ =
                 )
 
 
+{-| -}
 withStepWithOptions : Options FatalError newValue -> (oldValue -> BackendTask FatalError newValue) -> Steps FatalError oldValue -> Steps FatalError newValue
 withStepWithOptions options_ backendTask steps_ =
     case steps_ of
@@ -345,6 +367,7 @@ withStepWithOptions options_ backendTask steps_ =
                 )
 
 
+{-| -}
 runSteps : Steps FatalError value -> BackendTask FatalError value
 runSteps (Steps steps_) =
     steps_
