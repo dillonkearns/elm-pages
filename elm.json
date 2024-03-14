@@ -36,6 +36,7 @@
         "Scaffold.Route",
         "Scaffold.Form",
         "Pages.Script",
+        "Pages.Script.Spinner",
         "Pages.Internal.Platform",
         "Pages.Internal.Platform.Cli",
         "Pages.Internal.Platform.GeneratorApplication",
