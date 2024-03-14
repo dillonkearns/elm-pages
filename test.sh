@@ -1,5 +1,6 @@
 set -ex;
 yes | lamdera reset || true
+npm run build:generator
 npx elm-test-rs
 (cd examples/routing && yes | lamdera reset || true && npm i && npm run build && npx elm-test-rs)
 (cd generator/dead-code-review && npx elm-test-rs)
