@@ -15,6 +15,7 @@ import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
 import { Spinnies } from './spinnies/index.js'
 import { default as which } from "which";
+import * as readline from "readline";
 
 const spinnies = new Spinnies();
 
@@ -507,6 +508,8 @@ async function runInternalJob(
       return [requestHash, await runSleep(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://which") {
       return [requestHash, await runWhich(requestToPerform)];
+    } else if (requestToPerform.url === "elm-pages-internal://question") {
+      return [requestHash, await runQuestion(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
       return [requestHash, runStartSpinner(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
@@ -558,6 +561,26 @@ async function runWhich(req) {
   } catch (error) {
     return jsonResponse(req, null);
   }
+}
+
+async function runQuestion(req) {
+  return jsonResponse(req, await question(req.body.args[0]));
+}
+
+export async function question({ prompt }) {
+  return new Promise((resolve) =>
+    {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+
+      return rl.question(prompt, (answer) => {
+        rl.close();
+        resolve(answer);
+      });
+    },
+  );
 }
 
 async function runWriteFileJob(req) {

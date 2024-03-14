@@ -2,7 +2,7 @@ module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
     , writeFile
-    , log, sleep, doThen, which, expectWhich
+    , log, sleep, doThen, which, expectWhich, question
     , Error(..)
     )
 
@@ -25,7 +25,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## Utilities
 
-@docs log, sleep, doThen, which, expectWhich
+@docs log, sleep, doThen, which, expectWhich, question
 
 
 ## Errors
@@ -219,3 +219,15 @@ expectWhich command =
                                 }
                             )
             )
+
+
+{-| -}
+question : String -> BackendTask error String
+question prompt =
+    BackendTask.Internal.Request.request
+        { body =
+            BackendTask.Http.jsonBody
+                (Encode.object [ ( "prompt", Encode.string prompt ) ])
+        , expect = BackendTask.Http.expectJson Decode.string
+        , name = "question"
+        }
