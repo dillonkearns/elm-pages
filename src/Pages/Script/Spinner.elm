@@ -81,7 +81,7 @@ showStep (Options options_) =
 
 
 start : Spinner error1 value1 -> BackendTask error ()
-start (Spinner spinnerId options_) =
+start (Spinner spinnerId _) =
     BackendTask.Internal.Request.request
         { name = "start-spinner"
         , body =
