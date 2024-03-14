@@ -2,7 +2,7 @@ module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
     , writeFile
-    , log, sleep, doThen
+    , log, sleep, doThen, which, expectWhich
     , Error(..)
     )
 
@@ -25,7 +25,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 ## Utilities
 
-@docs log, sleep, doThen
+@docs log, sleep, doThen, which, expectWhich
 
 
 ## Errors
@@ -189,3 +189,33 @@ doThen : BackendTask error value -> BackendTask error () -> BackendTask error va
 doThen task1 task2 =
     task2
         |> BackendTask.andThen (\() -> task1)
+
+
+{-| -}
+which : String -> BackendTask error (Maybe String)
+which command =
+    BackendTask.Internal.Request.request
+        { body = BackendTask.Http.jsonBody (Encode.string command)
+        , expect = BackendTask.Http.expectJson (Decode.nullable Decode.string)
+        , name = "which"
+        }
+
+
+{-| -}
+expectWhich : String -> BackendTask FatalError String
+expectWhich command =
+    which command
+        |> BackendTask.andThen
+            (\maybePath ->
+                case maybePath of
+                    Just path ->
+                        BackendTask.succeed path
+
+                    Nothing ->
+                        BackendTask.fail
+                            (FatalError.build
+                                { title = "Command not found"
+                                , body = "I expected to find `" ++ command ++ "`, but it was not on your PATH. Make sure it is installed and included in your PATH."
+                                }
+                            )
+            )

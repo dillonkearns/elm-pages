@@ -14,6 +14,7 @@ import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
 import { Spinnies } from './spinnies/index.js'
+import { default as which } from "which";
 
 const spinnies = new Spinnies();
 
@@ -504,6 +505,8 @@ async function runInternalJob(
       return [requestHash, await runWriteFileJob(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://sleep") {
       return [requestHash, await runSleep(requestToPerform)];
+    } else if (requestToPerform.url === "elm-pages-internal://which") {
+      return [requestHash, await runWhich(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
       return [requestHash, runStartSpinner(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
@@ -546,6 +549,15 @@ function runSleep(req) {
       resolve(jsonResponse(req, null));
     }, milliseconds);
   });
+}
+
+async function runWhich(req) {
+  const command = req.body.args[0];
+  try {
+    return jsonResponse(req, await which(command));
+  } catch (error) {
+    return jsonResponse(req, null);
+  }
 }
 
 async function runWriteFileJob(req) {
