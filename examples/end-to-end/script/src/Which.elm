@@ -8,10 +8,21 @@ import Pages.Script.Spinner as Spinner
 run : Script
 run =
     Script.withoutCliOptions
-        (Script.question "Executable name? "
-            |> BackendTask.andThen Script.expectWhich
+        (Script.expectWhich "elm"
+            |> BackendTask.andThen (\exe -> Script.sh (exe ++ " --version"))
             |> BackendTask.andThen
-                (\elmPath ->
-                    Script.log elmPath
+                (\elmVersion ->
+                    if elmVersion == "0.19.1" then
+                        Script.log "You are on the latest version of Elm!"
+
+                    else
+                        Script.log elmVersion
+                )
+            |> Script.doThen
+                (Script.sh "elm diff"
+                    |> BackendTask.map
+                        (\_ ->
+                            ()
+                        )
                 )
         )

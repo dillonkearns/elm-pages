@@ -16,7 +16,10 @@ import { restoreColorSafe } from "./error-formatter.js";
 import { Spinnies } from './spinnies/index.js'
 import { default as which } from "which";
 import * as readline from "readline";
+import { spawn as spawnCallback } from "cross-spawn";
 
+
+let verbosity = 2;
 const spinnies = new Spinnies();
 
 process.on("unhandledRejection", (error) => {
@@ -510,6 +513,8 @@ async function runInternalJob(
       return [requestHash, await runWhich(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://question") {
       return [requestHash, await runQuestion(requestToPerform)];
+    } else if (requestToPerform.url === "elm-pages-internal://shell") {
+      return [requestHash, await runShell(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
       return [requestHash, runStartSpinner(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
@@ -565,6 +570,47 @@ async function runWhich(req) {
 
 async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
+}
+
+async function runShell(req) {
+  return jsonResponse(req, await shell(req.body.args[0]));
+}
+
+export function shell(commandAndArgs) {
+  return new Promise((resolve, reject) => {
+    if (verbosity > 1) {
+      console.log(`$ ${commandAndArgs}`);
+    }
+    const subprocess = spawnCallback(commandAndArgs, [], {
+      // ignore stdout
+      // stdio: ["inherit", "ignore", "inherit"],
+      // cwd: cwd,
+      shell: true,
+    });
+    let commandOutput = "";
+    let stderrOutput = "";
+    let stdoutOutput = "";
+
+    subprocess.stderr.on("data", function (data) {
+      if (verbosity > 0) {
+        // log to stderr
+        console.error(data.toString())
+      }
+      commandOutput += data;
+      stderrOutput += data;
+    });
+    subprocess.stdout.on("data", function (data) {
+      if (verbosity > 0) {
+        console.log(data.toString());
+      }
+      commandOutput += data;
+      stdoutOutput += data;
+    });
+
+    subprocess.on("close", async (code) => {
+      resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
+    });
+  });
 }
 
 export async function question({ prompt }) {

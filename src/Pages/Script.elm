@@ -2,6 +2,7 @@ module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
     , writeFile
+    , sh, shell
     , log, sleep, doThen, which, expectWhich, question
     , Error(..)
     )
@@ -21,6 +22,11 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 ## File System Utilities
 
 @docs writeFile
+
+
+## Shell Commands
+
+@docs sh, shell
 
 
 ## Utilities
@@ -231,3 +237,78 @@ question prompt =
         , expect = BackendTask.Http.expectJson Decode.string
         , name = "question"
         }
+
+
+{-| -}
+sh : String -> BackendTask FatalError String
+sh command =
+    shell command |> BackendTask.map (.output >> removeTrailingNewline) |> BackendTask.allowFatal
+
+
+removeTrailingNewline : String -> String
+removeTrailingNewline str =
+    if String.endsWith "\n" str then
+        String.dropRight 1 str
+
+    else
+        str
+
+
+{-| -}
+shell :
+    String
+    ->
+        BackendTask
+            { fatal : FatalError
+            , recoverable :
+                { output : String
+                , stderr : String
+                , stdout : String
+                , statusCode : Int
+                }
+            }
+            { output : String
+            , stderr : String
+            , stdout : String
+            }
+shell command =
+    BackendTask.Internal.Request.request
+        { name = "shell"
+        , body = BackendTask.Http.jsonBody (Encode.string command)
+        , expect = BackendTask.Http.expectJson commandDecoder
+        }
+        |> BackendTask.andThen
+            (\rawOutput ->
+                if rawOutput.exitCode == 0 then
+                    BackendTask.succeed
+                        { output = rawOutput.output
+                        , stderr = rawOutput.stderr
+                        , stdout = rawOutput.stdout
+                        }
+
+                else
+                    FatalError.recoverable { title = "", body = "" }
+                        { output = rawOutput.output
+                        , stderr = rawOutput.stderr
+                        , stdout = rawOutput.stdout
+                        , statusCode = rawOutput.exitCode
+                        }
+                        |> BackendTask.fail
+            )
+
+
+type alias RawOutput =
+    { exitCode : Int
+    , output : String
+    , stderr : String
+    , stdout : String
+    }
+
+
+commandDecoder : Decode.Decoder RawOutput
+commandDecoder =
+    Decode.map4 RawOutput
+        (Decode.field "errorCode" Decode.int)
+        (Decode.field "output" Decode.string)
+        (Decode.field "stderrOutput" Decode.string)
+        (Decode.field "stdoutOutput" Decode.string)
