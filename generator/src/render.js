@@ -573,19 +573,25 @@ async function runQuestion(req) {
 }
 
 async function runShell(req) {
-  return jsonResponse(req, await shell(req.body.args[0]));
+  if (req.body.args[0].length === 1) {
+    return jsonResponse(req, await shell(req.body.args[0][0]));
+  } else {
+    return jsonResponse(req, await pipeShells(req.body.args[0]));
+  }
 }
 
 export function shell(commandAndArgs) {
   return new Promise((resolve, reject) => {
+    const command = commandAndArgs.command;
+    const args = commandAndArgs.args;
     if (verbosity > 1) {
       console.log(`$ ${commandAndArgs}`);
     }
-    const subprocess = spawnCallback(commandAndArgs, [], {
+    const subprocess = spawnCallback(command, args, {
       // ignore stdout
-      // stdio: ["inherit", "ignore", "inherit"],
+      stdio: ["pipe", "pipe", "pipe"],
       // cwd: cwd,
-      shell: true,
+      // shell: true,
     });
     let commandOutput = "";
     let stderrOutput = "";
@@ -610,6 +616,73 @@ export function shell(commandAndArgs) {
     subprocess.on("close", async (code) => {
       resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
     });
+  });
+}
+
+/**
+ * @typedef {{ command: string, args: string[]}} ElmCommand
+ */
+
+/**
+ * @param {ElmCommand[]} commandsAndArgs
+ */
+export function pipeShells(commandsAndArgs) {
+  return new Promise((resolve, reject) => {
+      /**
+       * @type {null | import('node:child_process').ChildProcess}
+       */
+      let previousProcess = null;
+      let currentProcess = null;
+
+      commandsAndArgs.forEach(({command, args}, index) => {
+      /**
+       * @type {import('node:child_process').ChildProcess}
+       */
+        if (previousProcess === null) {
+          // console.log(`$ ${command} ${args.join(' ')}`, 'IF');
+          currentProcess = spawnCallback(command, args, {
+            stdio: ['inherit', 'pipe', 'inherit'],
+          });
+        } else {
+          // console.log(`$ ${command} ${args.join(' ')}`, 'ELSE');
+          // currentProcess = spawnCallback(command, args, {
+          //   stdio: ['pipe', 'inherit', 'pipe'],
+          // });
+          currentProcess = spawnCallback(command, args, {
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
+          previousProcess.stdout.pipe(currentProcess.stdin);
+        }
+        previousProcess = currentProcess;
+    });
+    // TODO handle case where there is exactly 1 command
+    // TODO handle case where there are > 2 commands
+
+    if (currentProcess === null) { reject('')}
+    else {
+        let commandOutput = "";
+        let stderrOutput = "";
+        let stdoutOutput = "";
+        currentProcess.stderr.on("data", function (data) {
+        if (verbosity > 0) {
+          // log to stderr
+          console.error(data.toString())
+        }
+        commandOutput += data;
+        stderrOutput += data;
+      });
+      currentProcess.stdout.on("data", function (data) {
+        if (verbosity > 0) {
+          console.log(data.toString());
+        }
+        commandOutput += data;
+        stdoutOutput += data;
+      });
+
+      currentProcess.on("close", async (code) => {
+        resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
+      });
+    }
   });
 }
 

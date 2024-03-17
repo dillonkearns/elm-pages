@@ -240,9 +240,9 @@ question prompt =
 
 
 {-| -}
-sh : String -> BackendTask FatalError String
-sh command =
-    shell command |> BackendTask.map (.output >> removeTrailingNewline) |> BackendTask.allowFatal
+sh : String -> List String -> BackendTask FatalError String
+sh command args =
+    shell [ ( command, args ) ] |> BackendTask.map (.output >> removeTrailingNewline) |> BackendTask.allowFatal
 
 
 removeTrailingNewline : String -> String
@@ -256,7 +256,7 @@ removeTrailingNewline str =
 
 {-| -}
 shell :
-    String
+    List ( String, List String )
     ->
         BackendTask
             { fatal : FatalError
@@ -271,10 +271,10 @@ shell :
             , stderr : String
             , stdout : String
             }
-shell command =
+shell commandsAndArgs =
     BackendTask.Internal.Request.request
         { name = "shell"
-        , body = BackendTask.Http.jsonBody (Encode.string command)
+        , body = BackendTask.Http.jsonBody (commandsAndArgsEncoder commandsAndArgs)
         , expect = BackendTask.Http.expectJson commandDecoder
         }
         |> BackendTask.andThen
@@ -295,6 +295,18 @@ shell command =
                         }
                         |> BackendTask.fail
             )
+
+
+commandsAndArgsEncoder : List ( String, List String ) -> Encode.Value
+commandsAndArgsEncoder commandsAndArgs =
+    Encode.list
+        (\( command, args ) ->
+            Encode.object
+                [ ( "command", Encode.string command )
+                , ( "args", Encode.list Encode.string args )
+                ]
+        )
+        commandsAndArgs
 
 
 type alias RawOutput =
