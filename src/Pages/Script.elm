@@ -242,7 +242,17 @@ question prompt =
 {-| -}
 sh : String -> List String -> BackendTask FatalError String
 sh command args =
-    shell [ ( command, args ) ] |> BackendTask.map (.output >> removeTrailingNewline) |> BackendTask.allowFatal
+    shell
+        { commands =
+            [ { command = command
+              , args = args
+              , timeout = Nothing
+              }
+            ]
+        , cwd = Nothing
+        }
+        |> BackendTask.map (.output >> removeTrailingNewline)
+        |> BackendTask.allowFatal
 
 
 removeTrailingNewline : String -> String
@@ -254,9 +264,22 @@ removeTrailingNewline str =
         str
 
 
+type alias SubCommand =
+    { command : String
+    , args : List String
+    , timeout : Maybe Int
+    }
+
+
+type alias Command =
+    { cwd : Maybe String
+    , commands : List SubCommand
+    }
+
+
 {-| -}
 shell :
-    List ( String, List String )
+    Command
     ->
         BackendTask
             { fatal : FatalError
@@ -297,16 +320,27 @@ shell commandsAndArgs =
             )
 
 
-commandsAndArgsEncoder : List ( String, List String ) -> Encode.Value
+commandsAndArgsEncoder : Command -> Encode.Value
 commandsAndArgsEncoder commandsAndArgs =
-    Encode.list
-        (\( command, args ) ->
-            Encode.object
-                [ ( "command", Encode.string command )
-                , ( "args", Encode.list Encode.string args )
-                ]
-        )
-        commandsAndArgs
+    Encode.object
+        [ ( "cwd", nullable Encode.string commandsAndArgs.cwd )
+        , ( "commands"
+          , Encode.list
+                (\sub ->
+                    Encode.object
+                        [ ( "command", Encode.string sub.command )
+                        , ( "args", Encode.list Encode.string sub.args )
+                        , ( "timeout", sub.timeout |> nullable Encode.int )
+                        ]
+                )
+                commandsAndArgs.commands
+          )
+        ]
+
+
+nullable : (a -> Encode.Value) -> Maybe a -> Encode.Value
+nullable encoder =
+    Maybe.map encoder >> Maybe.withDefault Encode.null
 
 
 type alias RawOutput =

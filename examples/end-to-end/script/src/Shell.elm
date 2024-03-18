@@ -1,4 +1,4 @@
-module Shell exposing (Command(..), binary, command, exec, map, pipe, run, stdout, text, tryJson, tryMap, withQuiet, withTimeout)
+module Shell exposing (Command(..), binary, command, exec, map, pipe, run, stdout, text, tryJson, tryMap, withCwd, withQuiet, withTimeout)
 
 import BackendTask exposing (BackendTask)
 import Base64
@@ -11,19 +11,39 @@ import Pages.Script as Script
 command : String -> List String -> Command String
 command command_ args =
     Command
-        { command = [ ( command_, args ) ]
+        { command = [ subCommand command_ args ]
         , quiet = False
         , timeout = Nothing
         , decoder = Just
+        , cwd = Nothing
+
+        -- shell?
+        -- env?
         }
+
+
+subCommand : String -> List String -> SubCommand
+subCommand command_ args =
+    { command = command_
+    , args = args
+    , timeout = Nothing
+    }
+
+
+type alias SubCommand =
+    { command : String
+    , args : List String
+    , timeout : Maybe Int
+    }
 
 
 type Command stdout
     = Command
-        { command : List ( String, List String )
+        { command : List SubCommand
         , quiet : Bool
         , timeout : Maybe Int
         , decoder : String -> Maybe stdout
+        , cwd : Maybe String
         }
 
 
@@ -34,6 +54,7 @@ map mapFn (Command command_) =
         , quiet = command_.quiet
         , timeout = command_.timeout
         , decoder = command_.decoder >> Maybe.map mapFn
+        , cwd = command_.cwd
         }
 
 
@@ -44,6 +65,7 @@ tryMap mapFn (Command command_) =
         , quiet = command_.quiet
         , timeout = command_.timeout
         , decoder = command_.decoder >> Maybe.andThen mapFn
+        , cwd = command_.cwd
         }
 
 
@@ -54,14 +76,26 @@ binary (Command command_) =
         , quiet = command_.quiet
         , timeout = command_.timeout
         , decoder = Base64.toBytes
+        , cwd = command_.cwd
         }
 
 
+{-| Note that `withQuiet` applies to the entire pipeline, not just the command it is applied to.
+-}
 withQuiet : Command stdout -> Command stdout
 withQuiet (Command options_) =
     Command { options_ | quiet = True }
 
 
+{-| Note that `withCwd` applies to the entire pipeline, not just the command it is applied to.
+-}
+withCwd : String -> Command stdout -> Command stdout
+withCwd cwd_ (Command options_) =
+    Command { options_ | cwd = Just cwd_ }
+
+
+{-| Applies to each individual command in the pipeline.
+-}
 withTimeout : Int -> Command stdout -> Command stdout
 withTimeout timeout (Command command_) =
     Command { command_ | timeout = Just timeout }
@@ -103,6 +137,13 @@ pipe (Command to) (Command from) =
         , quiet = to.quiet
         , timeout = to.timeout
         , decoder = to.decoder
+        , cwd =
+            case to.cwd of
+                Just cwd ->
+                    Just cwd
+
+                Nothing ->
+                    from.cwd
         }
 
 
@@ -115,12 +156,18 @@ run :
             }
             { output : String, stderr : String, stdout : String }
 run (Command options_) =
-    Script.shell options_.command
+    Script.shell
+        { commands = options_.command
+        , cwd = options_.cwd
+        }
 
 
 exec : Command stdout -> BackendTask FatalError ()
 exec (Command options_) =
-    Script.shell options_.command
+    Script.shell
+        { commands = options_.command
+        , cwd = options_.cwd
+        }
         |> BackendTask.allowFatal
         |> BackendTask.map (\_ -> ())
 

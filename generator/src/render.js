@@ -573,8 +573,8 @@ async function runQuestion(req) {
 }
 
 async function runShell(req) {
-  if (req.body.args[0].length === 1) {
-    return jsonResponse(req, await shell(req.body.args[0][0]));
+  if (req.body.args[0].commands.length === 1) {
+    return jsonResponse(req, await shell(req.body.args[0]));
   } else {
     return jsonResponse(req, await pipeShells(req.body.args[0]));
   }
@@ -582,15 +582,16 @@ async function runShell(req) {
 
 export function shell(commandAndArgs) {
   return new Promise((resolve, reject) => {
-    const command = commandAndArgs.command;
-    const args = commandAndArgs.args;
+    // console.log({cwd: commandAndArgs.cwd});process.exit(1);
+    const command = commandAndArgs.commands[0].command;
+    const args = commandAndArgs.commands[0].args;
     if (verbosity > 1) {
       console.log(`$ ${commandAndArgs}`);
     }
     const subprocess = spawnCallback(command, args, {
       // ignore stdout
       stdio: ["pipe", "pipe", "pipe"],
-      // cwd: cwd,
+      cwd: commandAndArgs.cwd ? commandAndArgs.cwd : undefined,
       // shell: true,
     });
     let commandOutput = "";
@@ -620,11 +621,11 @@ export function shell(commandAndArgs) {
 }
 
 /**
- * @typedef {{ command: string, args: string[]}} ElmCommand
+ * @typedef {{ command: string, args: string[], timeout: number? }} ElmCommand
  */
 
 /**
- * @param {ElmCommand[]} commandsAndArgs
+ * @param {{ commands: ElmCommand[], cwd: string? }} commandsAndArgs
  */
 export function pipeShells(commandsAndArgs) {
   return new Promise((resolve, reject) => {
@@ -634,7 +635,7 @@ export function pipeShells(commandsAndArgs) {
       let previousProcess = null;
       let currentProcess = null;
 
-      commandsAndArgs.forEach(({command, args}, index) => {
+      commandsAndArgs.commands.forEach(({command, args, timeout }, index) => {
       /**
        * @type {import('node:child_process').ChildProcess}
        */
@@ -642,6 +643,8 @@ export function pipeShells(commandsAndArgs) {
           // console.log(`$ ${command} ${args.join(' ')}`, 'IF');
           currentProcess = spawnCallback(command, args, {
             stdio: ['inherit', 'pipe', 'inherit'],
+            timeout: timeout ? undefined : timeout,
+            cwd: commandsAndArgs.cwd ? commandsAndArgs.cwd : undefined,
           });
         } else {
           // console.log(`$ ${command} ${args.join(' ')}`, 'ELSE');
@@ -650,6 +653,8 @@ export function pipeShells(commandsAndArgs) {
           // });
           currentProcess = spawnCallback(command, args, {
             stdio: ['pipe', 'pipe', 'pipe'],
+            timeout: timeout ? undefined : timeout,
+            cwd: commandsAndArgs.cwd ? commandsAndArgs.cwd : undefined,
           });
           previousProcess.stdout.pipe(currentProcess.stdin);
         }
