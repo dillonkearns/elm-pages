@@ -6,6 +6,7 @@ module BackendTask exposing
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult
+    , do, doEach, sequence
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `BackendTask` that will be resolved **before** `init` is called. That means it is also available
@@ -197,6 +198,45 @@ There's probably a way of doing this without the Lists but it's a neat trick to 
 combineHelp : List (BackendTask error value) -> BackendTask error (List value)
 combineHelp items =
     List.foldl (map2 (::)) (succeed []) items |> map List.reverse
+
+
+{-| -}
+doEach : List (BackendTask error ()) -> BackendTask error ()
+doEach items =
+    items
+        |> sequenceHelp
+        |> map (\_ -> ())
+
+
+{-| Ignore the resulting value of the BackendTask.
+-}
+do : BackendTask error value -> BackendTask error ()
+do backendTask =
+    backendTask
+        |> map (\_ -> ())
+
+
+{-| -}
+sequence : List (BackendTask error value) -> BackendTask error (List value)
+sequence items =
+    items
+        |> sequenceHelp
+
+
+sequenceHelp : List (BackendTask error value) -> BackendTask error (List value)
+sequenceHelp items =
+    List.foldl
+        (\item accumulator ->
+            accumulator
+                |> andThen
+                    (\accValue ->
+                        item
+                            |> map (\itemValue -> itemValue :: accValue)
+                    )
+        )
+        (succeed [])
+        items
+        |> map List.reverse
 
 
 {-| Like map, but it takes in two `BackendTask`s.
