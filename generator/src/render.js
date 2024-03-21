@@ -580,13 +580,18 @@ async function runShell(req) {
   }
 }
 
+function commandAndArgsToString(commandsAndArgs) {
+  return '$ ' + (commandsAndArgs.commands.map((commandAndArgs) => {
+    return [ commandAndArgs.command, ...commandAndArgs.args ].join(" ");
+  }).join(" | "));
+}
+
 export function shell(commandAndArgs) {
   return new Promise((resolve, reject) => {
-    // console.log({cwd: commandAndArgs.cwd});process.exit(1);
     const command = commandAndArgs.commands[0].command;
     const args = commandAndArgs.commands[0].args;
     if (verbosity > 1) {
-      console.log(`$ ${commandAndArgs}`);
+      console.log(commandAndArgsToString(commandAndArgs));
     }
     const subprocess = spawnCallback(command, args, {
       // ignore stdout
@@ -598,18 +603,15 @@ export function shell(commandAndArgs) {
     let stderrOutput = "";
     let stdoutOutput = "";
 
+    if (verbosity > 0) {
+      subprocess.stdout.pipe(process.stdout);
+      subprocess.stderr.pipe(process.stderr);
+    }
     subprocess.stderr.on("data", function (data) {
-      if (verbosity > 0) {
-        // log to stderr
-        console.error(data.toString())
-      }
       commandOutput += data;
       stderrOutput += data;
     });
     subprocess.stdout.on("data", function (data) {
-      if (verbosity > 0) {
-        console.log(data.toString());
-      }
       commandOutput += data;
       stdoutOutput += data;
     });
@@ -629,6 +631,10 @@ export function shell(commandAndArgs) {
  */
 export function pipeShells(commandsAndArgs) {
   return new Promise((resolve, reject) => {
+    if (verbosity > 1) {
+      console.log(commandAndArgsToString(commandsAndArgs));
+    }
+
       /**
        * @type {null | import('node:child_process').ChildProcess}
        */
