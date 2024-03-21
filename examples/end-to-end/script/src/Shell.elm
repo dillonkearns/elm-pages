@@ -1,4 +1,4 @@
-module Shell exposing (Command(..), binary, command, exec, map, pipe, run, stdout, text, tryJson, tryMap, withCwd, withQuiet, withTimeout)
+module Shell exposing (Command(..), binary, command, exec, map, pipe, run, sh, stdout, text, tryJson, tryMap, withCwd, withQuiet, withTimeout)
 
 import BackendTask exposing (BackendTask)
 import Base64
@@ -185,3 +185,9 @@ tryJson jsonDecoder command_ =
                 Json.Decode.decodeString jsonDecoder jsonString
                     |> Result.toMaybe
             )
+
+
+{-| -}
+sh : String -> List String -> BackendTask FatalError ()
+sh command_ args =
+    command command_ args |> exec
