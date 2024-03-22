@@ -240,6 +240,8 @@ getWithOptions request__ =
             , headers = request__.headers
             , body = emptyBody
             , method = "GET"
+            , dir = []
+            , env = Dict.empty
             , cacheOptions =
                 { cacheStrategy = request__.cacheStrategy
                 , retries = request__.retries
@@ -406,6 +408,8 @@ request request__ expect =
             , headers = request__.headers
             , method = request__.method
             , body = request__.body
+            , dir = []
+            , env = Dict.empty
             , cacheOptions =
                 { cacheStrategy = Nothing -- cache strategy only applies to GET and HEAD, need to use getWithOptions to customize
                 , cachePath = Nothing
@@ -486,6 +490,8 @@ requestRaw request__ expect =
                     :: request__.headers
             , method = request__.method
             , body = request__.body
+            , dir = []
+            , env = Dict.empty
             , cacheOptions = request__.cacheOptions
             }
     in

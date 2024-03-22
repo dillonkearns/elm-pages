@@ -6,7 +6,7 @@ module BackendTask exposing
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult
-    , do, doEach, sequence
+    , do, doEach, inDir, sequence
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `BackendTask` that will be resolved **before** `init` is called. That means it is also available
@@ -125,6 +125,21 @@ map fn requestInfo =
             Request
                 urls
                 (mapLookupFn fn lookupFn)
+
+
+{-| -}
+inDir : String -> BackendTask error value -> BackendTask error value
+inDir dir backendTask =
+    case backendTask of
+        ApiRoute _ ->
+            backendTask
+
+        Request urls lookupFn ->
+            Request
+                (urls
+                    |> List.map (\req -> { req | dir = dir :: req.dir })
+                )
+                (\a b -> lookupFn a b |> inDir dir)
 
 
 mapLookupFn : (a -> b) -> (d -> c -> BackendTask error a) -> d -> c -> BackendTask error b

@@ -573,30 +573,31 @@ async function runQuestion(req) {
 }
 
 async function runShell(req) {
+  const cwd = path.resolve(...req.dir);
   if (req.body.args[0].commands.length === 1) {
-    return jsonResponse(req, await shell(req.body.args[0]));
+    return jsonResponse(req, await shell(cwd, req.body.args[0]));
   } else {
-    return jsonResponse(req, await pipeShells(req.body.args[0]));
+    return jsonResponse(req, await pipeShells(cwd, req.body.args[0]));
   }
 }
 
-function commandAndArgsToString(commandsAndArgs) {
-  return '$ ' + (commandsAndArgs.commands.map((commandAndArgs) => {
+function commandAndArgsToString(cwd, commandsAndArgs) {
+  return `${cwd}: $ ` + (commandsAndArgs.commands.map((commandAndArgs) => {
     return [ commandAndArgs.command, ...commandAndArgs.args ].join(" ");
   }).join(" | "));
 }
 
-export function shell(commandAndArgs) {
+export function shell(cwd, commandAndArgs) {
   return new Promise((resolve, reject) => {
     const command = commandAndArgs.commands[0].command;
     const args = commandAndArgs.commands[0].args;
     if (verbosity > 1) {
-      console.log(commandAndArgsToString(commandAndArgs));
+      console.log(commandAndArgsToString(cwd, commandAndArgs));
     }
     const subprocess = spawnCallback(command, args, {
       // ignore stdout
       stdio: ["pipe", "pipe", "pipe"],
-      cwd: commandAndArgs.cwd ? commandAndArgs.cwd : undefined,
+      cwd: cwd,
       // shell: true,
     });
     let commandOutput = "";
@@ -627,12 +628,12 @@ export function shell(commandAndArgs) {
  */
 
 /**
- * @param {{ commands: ElmCommand[], cwd: string? }} commandsAndArgs
+ * @param {{ commands: ElmCommand[] }} commandsAndArgs
  */
-export function pipeShells(commandsAndArgs) {
+export function pipeShells(cwd, commandsAndArgs) {
   return new Promise((resolve, reject) => {
     if (verbosity > 1) {
-      console.log(commandAndArgsToString(commandsAndArgs));
+      console.log(commandAndArgsToString(cwd, commandsAndArgs));
     }
 
       /**
@@ -650,7 +651,7 @@ export function pipeShells(commandsAndArgs) {
           currentProcess = spawnCallback(command, args, {
             stdio: ['inherit', 'pipe', 'inherit'],
             timeout: timeout ? undefined : timeout,
-            cwd: commandsAndArgs.cwd ? commandsAndArgs.cwd : undefined,
+            cwd: cwd,
           });
         } else {
           // console.log(`$ ${command} ${args.join(' ')}`, 'ELSE');
@@ -660,7 +661,7 @@ export function pipeShells(commandsAndArgs) {
           currentProcess = spawnCallback(command, args, {
             stdio: ['pipe', 'pipe', 'pipe'],
             timeout: timeout ? undefined : timeout,
-            cwd: commandsAndArgs.cwd ? commandsAndArgs.cwd : undefined,
+            cwd: cwd,
           });
           previousProcess.stdout.pipe(currentProcess.stdin);
         }
@@ -765,7 +766,8 @@ function runStopSpinner(req) {
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
-    const matchedPaths = await globby.globby(pattern, { ...options, stats: true });
+    const cwd = path.resolve(...req.dir);
+    const matchedPaths = await globby.globby(pattern, { ...options, stats: true, cwd });
     patternsToWatch.add(pattern);
 
     return jsonResponse(

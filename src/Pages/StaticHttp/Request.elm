@@ -1,6 +1,7 @@
 module Pages.StaticHttp.Request exposing (Request, codec, hash)
 
 import Codec exposing (Codec)
+import Dict exposing (Dict)
 import FNV1a
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody as StaticHttpBody exposing (Body)
@@ -12,6 +13,8 @@ type alias Request =
     , headers : List ( String, String )
     , body : Body
     , cacheOptions : Maybe Encode.Value
+    , env : Dict String String
+    , dir : List String
     }
 
 
@@ -41,4 +44,6 @@ codec =
         |> Codec.field "headers" .headers (Codec.list (Codec.tuple Codec.string Codec.string))
         |> Codec.field "body" .body StaticHttpBody.codec
         |> Codec.nullableField "cacheOptions" .cacheOptions Codec.value
+        |> Codec.field "env" .env (Codec.dict Codec.string)
+        |> Codec.field "dir" .dir (Codec.list Codec.string)
         |> Codec.buildObject
