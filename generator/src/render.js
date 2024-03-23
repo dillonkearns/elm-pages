@@ -460,7 +460,20 @@ function jsonResponse(request, json) {
     response: { bodyKind: "json", body: json },
   };
 }
+/**
+ * @param {any} request
+ * @param {Buffer} buffer
+ */
+function bytesResponse(request, buffer) {
+  return {
+    request,
+    response: { bodyKind: "bytes", body: buffer.toString("base64") },
+  };
+}
 
+/**
+ * @param {{ url: string; body: { args: any[] } }} requestToPerform
+ */
 async function runInternalJob(
   requestHash,
   app,
@@ -476,6 +489,13 @@ async function runInternalJob(
       return [
         requestHash,
         await readFileJobNew(requestToPerform, patternsToWatch),
+      ];
+    } else if (
+      requestToPerform.url === "elm-pages-internal://read-file-binary"
+    ) {
+      return [
+        requestHash,
+        await readFileBinaryJobNew(requestToPerform, patternsToWatch),
       ];
     } else if (requestToPerform.url === "elm-pages-internal://glob") {
       return [requestHash, await runGlobNew(requestToPerform, patternsToWatch)];
@@ -513,7 +533,7 @@ async function runInternalJob(
       return [requestHash, runStopSpinner(requestToPerform)];
     } else {
       throw `Unexpected internal BackendTask request format: ${kleur.yellow(
-        JSON.stringify(2, null, requestToPerform)
+        JSON.stringify(requestToPerform, null, 2)
       )}`;
     }
   } catch (error) {
@@ -539,6 +559,31 @@ async function readFileJobNew(req, patternsToWatch) {
     return jsonResponse(req, {
       errorCode: error.code,
     });
+  }
+}
+
+/**
+ * @param {{ url: string; body: { args: any[] } }} req
+ * @param {{ add: (arg0: string) => void; }} patternsToWatch
+ */
+async function readFileBinaryJobNew(req, patternsToWatch) {
+  const filePath = req.body.args[1];
+  try {
+    patternsToWatch.add(filePath);
+
+    const fileContents = await fsPromises.readFile(filePath);
+    // It's safe to use allocUnsafe here because we're going to overwrite it immediately anyway
+    const buffer = Buffer.allocUnsafe(4 + fileContents.length);
+    const view = new Int32Array(buffer);
+    view[0] = fileContents.length;
+    buffer.set(fileContents, 4);
+
+    return bytesResponse(req, fileContents);
+  } catch (error) {
+    const buffer = Buffer.alloc(4);
+    const view = new Int32Array(buffer);
+    view[0] = -1;
+    return bytesResponse(req, buffer);
   }
 }
 
