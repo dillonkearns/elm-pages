@@ -347,8 +347,8 @@ You could read a file called `hello.jpg` in your root project directory like thi
     import BackendTask.File as File
     import Bytes exposing (Bytes)
 
-    elmJsonFile : BackendTask Bytes
-    elmJsonFile =
+    elmBinaryFile : BackendTask Bytes
+    elmBinaryFile =
         File.binaryFile "hello.jpg"
 
 -}
