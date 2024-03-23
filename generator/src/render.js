@@ -465,7 +465,23 @@ function jsonResponse(request, json) {
     response: { bodyKind: "json", body: json },
   };
 }
+/**
+ * @param {any} request
+ * @param {WithImplicitCoercion<ArrayBuffer | SharedArrayBuffer>} buffer
+ */
+function bytesResponse(request, buffer) {
+  return {
+    request,
+    response: {
+      bodyKind: "bytes",
+      body: Buffer.from(buffer).toString("base64"),
+    },
+  };
+}
 
+/**
+ * @param {{ url: string; body: { args: any[] } }} requestToPerform
+ */
 async function runInternalJob(
   requestHash,
   app,
@@ -486,6 +502,11 @@ async function runInternalJob(
         return [
           requestHash,
           await readFileJobNew(requestToPerform, patternsToWatch, context),
+        ];
+      case "elm-pages-internal://read-file-binary":
+        return [
+          requestHash,
+          await readFileBinaryJobNew(requestToPerform, patternsToWatch),
         ];
       case "elm-pages-internal://glob":
         return [
@@ -565,6 +586,34 @@ async function readFileJobNew(req, patternsToWatch, { cwd }) {
     return jsonResponse(req, {
       errorCode: error.code,
     });
+  }
+}
+
+/**
+ * @param {{ url: string; body: { args: any[] } }} req
+ * @param {{ add: (arg0: string) => void; }} patternsToWatch
+ */
+async function readFileBinaryJobNew(req, patternsToWatch) {
+  const filePath = req.body.args[1];
+  try {
+    patternsToWatch.add(filePath);
+
+    const fileContents = await fsPromises.readFile(filePath);
+    // It's safe to use allocUnsafe here because we're going to overwrite it immediately anyway
+    const buffer = new Uint8Array(4 + fileContents.length);
+    const view = new DataView(
+      buffer.buffer,
+      buffer.byteOffset,
+      buffer.byteLength
+    );
+    view.setInt32(0, fileContents.length);
+    fileContents.copy(buffer, 4);
+
+    return bytesResponse(req, buffer);
+  } catch (error) {
+    const buffer = new Int32Array(1);
+    buffer[0] = -1;
+    return bytesResponse(req, buffer);
   }
 }
 
