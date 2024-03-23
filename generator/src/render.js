@@ -473,12 +473,15 @@ function jsonResponse(request, json) {
 }
 /**
  * @param {any} request
- * @param {Buffer} buffer
+ * @param {WithImplicitCoercion<ArrayBuffer | SharedArrayBuffer>} buffer
  */
 function bytesResponse(request, buffer) {
   return {
     request,
-    response: { bodyKind: "bytes", body: buffer.toString("base64") },
+    response: {
+      bodyKind: "bytes",
+      body: Buffer.from(buffer).toString("base64"),
+    },
   };
 }
 
@@ -605,16 +608,19 @@ async function readFileBinaryJobNew(req, patternsToWatch) {
 
     const fileContents = await fsPromises.readFile(filePath);
     // It's safe to use allocUnsafe here because we're going to overwrite it immediately anyway
-    const buffer = Buffer.allocUnsafe(4 + fileContents.length);
-    const view = new Int32Array(buffer);
-    view[0] = fileContents.length;
-    buffer.set(fileContents, 4);
+    const buffer = new Uint8Array(4 + fileContents.length);
+    const view = new DataView(
+      buffer.buffer,
+      buffer.byteOffset,
+      buffer.byteLength
+    );
+    view.setInt32(0, fileContents.length);
+    fileContents.copy(buffer, 4);
 
-    return bytesResponse(req, fileContents);
+    return bytesResponse(req, buffer);
   } catch (error) {
-    const buffer = Buffer.alloc(4);
-    const view = new Int32Array(buffer);
-    view[0] = -1;
+    const buffer = new Int32Array(1);
+    buffer[0] = -1;
     return bytesResponse(req, buffer);
   }
 }
