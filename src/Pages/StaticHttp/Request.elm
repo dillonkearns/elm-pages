@@ -15,6 +15,7 @@ type alias Request =
     , cacheOptions : Maybe Encode.Value
     , env : Dict String String
     , dir : List String
+    , quiet : Bool
     }
 
 
@@ -46,4 +47,5 @@ codec =
         |> Codec.nullableField "cacheOptions" .cacheOptions Codec.value
         |> Codec.field "env" .env (Codec.dict Codec.string)
         |> Codec.field "dir" .dir (Codec.list Codec.string)
+        |> Codec.field "quiet" .quiet Codec.bool
         |> Codec.buildObject
