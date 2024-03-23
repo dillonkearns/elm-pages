@@ -349,7 +349,7 @@ You could read a file called `hello.jpg` in your root project directory like thi
 
     elmJsonFile : BackendTask Bytes
     elmJsonFile =
-        File.binaryFile "hello.txt"
+        File.binaryFile "hello.jpg"
 
 -}
 binaryFile : String -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } Bytes
