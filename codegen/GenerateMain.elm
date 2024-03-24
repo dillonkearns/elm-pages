@@ -15,6 +15,7 @@ import Gen.Basics
 import Gen.Bytes
 import Gen.Bytes.Decode
 import Gen.Bytes.Encode
+import Gen.Debug
 import Gen.Dict
 import Gen.Effect
 import Gen.ErrorPage
@@ -88,7 +89,7 @@ otherFile routes phaseString =
 
                     Cli ->
                         getStaticRoutes.reference
-                            |> Gen.BackendTask.map (Gen.List.call_.map (Elm.val "Just"))
+                            |> Gen.BackendTask.map (Gen.List.call_.map (Elm.functionReduced "x" Gen.Maybe.make_.just))
             , urlToRoute =
                 Elm.value
                     { annotation = Nothing
@@ -775,7 +776,9 @@ otherFile routes phaseString =
                                                                                       )
                                                                                     , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                     , ( "path"
-                                                                                      , Elm.apply (Elm.val ".path") [ justRouteAndPath |> Gen.Tuple.second ]
+                                                                                      , justRouteAndPath
+                                                                                            |> Gen.Tuple.second
+                                                                                            |> Elm.get "path"
                                                                                       )
                                                                                     , ( "url"
                                                                                       , Gen.Maybe.andThen (Elm.get "pageUrl") maybePagePath
@@ -2122,7 +2125,7 @@ applyIdentityTo to =
 
 todo : Elm.Expression
 todo =
-    Elm.apply (Elm.val "Debug.todo") [ Elm.string "" ]
+    Gen.Debug.todo ""
 
 
 pathType : Type.Annotation
