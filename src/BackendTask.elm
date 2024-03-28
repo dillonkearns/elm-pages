@@ -6,7 +6,7 @@ module BackendTask exposing
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult
-    , do, doEach, inDir, quiet, sequence
+    , do, doEach, inDir, quiet, sequence, withEnv
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `BackendTask` that will be resolved **before** `init` is called. That means it is also available
@@ -85,8 +85,14 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 @docs allowFatal, mapError, onError, toResult
 
+
+## Scripting
+
+@docs do, doEach, inDir, quiet, sequence, withEnv
+
 -}
 
+import Dict
 import FatalError exposing (FatalError)
 import Json.Encode
 import List.Chunks
@@ -155,6 +161,21 @@ quiet backendTask =
                     |> List.map (\req -> { req | quiet = True })
                 )
                 (\a b -> lookupFn a b |> quiet)
+
+
+{-| -}
+withEnv : String -> String -> BackendTask error value -> BackendTask error value
+withEnv key value backendTask =
+    case backendTask of
+        ApiRoute _ ->
+            backendTask
+
+        Request urls lookupFn ->
+            Request
+                (urls
+                    |> List.map (\req -> { req | env = req.env |> Dict.insert key value })
+                )
+                (\a b -> lookupFn a b |> withEnv key value)
 
 
 mapLookupFn : (a -> b) -> (d -> c -> BackendTask error a) -> d -> c -> BackendTask error b
