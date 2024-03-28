@@ -5,7 +5,7 @@ module BackendTask exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , allowFatal, mapError, onError, toResult
+    , allowFatal, mapError, onError, toResult, failIf
     , do, doEach, inDir, quiet, sequence, withEnv
     )
 
@@ -83,7 +83,7 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 ## FatalError Handling
 
-@docs allowFatal, mapError, onError, toResult
+@docs allowFatal, mapError, onError, toResult, failIf
 
 
 ## Scripting
@@ -634,3 +634,13 @@ toResult backendTask =
     backendTask
         |> andThen (Ok >> succeed)
         |> onError (Err >> succeed)
+
+
+{-| -}
+failIf : Bool -> FatalError -> BackendTask FatalError ()
+failIf condition fatalError =
+    if condition then
+        fail fatalError
+
+    else
+        succeed ()
