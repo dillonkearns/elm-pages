@@ -574,37 +574,39 @@ async function runQuestion(req) {
 
 async function runShell(req) {
   const cwd = path.resolve(...req.dir);
+  const quiet = req.quiet;
+  const env = { ...process.env, ...req.env };
   if (req.body.args[0].commands.length === 1) {
-    return jsonResponse(req, await shell(cwd, req.body.args[0]));
+    return jsonResponse(req, await shell({ cwd, quiet, env }, req.body.args[0]));
   } else {
-    return jsonResponse(req, await pipeShells(cwd, req.body.args[0]));
+    return jsonResponse(req, await pipeShells({ cwd, quiet, env }, req.body.args[0]));
   }
 }
 
 function commandAndArgsToString(cwd, commandsAndArgs) {
-  return `${cwd}: $ ` + (commandsAndArgs.commands.map((commandAndArgs) => {
+  return `$ ` + (commandsAndArgs.commands.map((commandAndArgs) => {
     return [ commandAndArgs.command, ...commandAndArgs.args ].join(" ");
   }).join(" | "));
 }
 
-export function shell(cwd, commandAndArgs) {
+export function shell({ cwd, quiet, env }, commandAndArgs) {
   return new Promise((resolve, reject) => {
     const command = commandAndArgs.commands[0].command;
     const args = commandAndArgs.commands[0].args;
-    if (verbosity > 1) {
+    if (verbosity > 1 && !quiet) {
       console.log(commandAndArgsToString(cwd, commandAndArgs));
     }
     const subprocess = spawnCallback(command, args, {
       // ignore stdout
       stdio: ["pipe", "pipe", "pipe"],
       cwd: cwd,
-      // shell: true,
+      env: env,
     });
     let commandOutput = "";
     let stderrOutput = "";
     let stdoutOutput = "";
 
-    if (verbosity > 0) {
+    if (verbosity > 0 && !quiet) {
       subprocess.stdout.pipe(process.stdout);
       subprocess.stderr.pipe(process.stderr);
     }
@@ -630,7 +632,7 @@ export function shell(cwd, commandAndArgs) {
 /**
  * @param {{ commands: ElmCommand[] }} commandsAndArgs
  */
-export function pipeShells(cwd, commandsAndArgs) {
+export function pipeShells({ cwd, quiet, env }, commandsAndArgs) {
   return new Promise((resolve, reject) => {
     if (verbosity > 1) {
       console.log(commandAndArgsToString(cwd, commandsAndArgs));
@@ -652,6 +654,7 @@ export function pipeShells(cwd, commandsAndArgs) {
             stdio: ['inherit', 'pipe', 'inherit'],
             timeout: timeout ? undefined : timeout,
             cwd: cwd,
+            env: env,
           });
         } else {
           // console.log(`$ ${command} ${args.join(' ')}`, 'ELSE');
@@ -662,6 +665,7 @@ export function pipeShells(cwd, commandsAndArgs) {
             stdio: ['pipe', 'pipe', 'pipe'],
             timeout: timeout ? undefined : timeout,
             cwd: cwd,
+            env: env,
           });
           previousProcess.stdout.pipe(currentProcess.stdin);
         }
@@ -676,7 +680,7 @@ export function pipeShells(cwd, commandsAndArgs) {
         let stderrOutput = "";
         let stdoutOutput = "";
         currentProcess.stderr.on("data", function (data) {
-        if (verbosity > 0) {
+        if (verbosity > 0 && !quiet) {
           // log to stderr
           console.error(data.toString())
         }
