@@ -13,6 +13,7 @@ module BackendTask.Glob exposing
     , toBackendTask
     , toBackendTaskWithOptions
     , defaultOptions, Options, Include(..)
+    , fromString, fromStringWithOptions
     )
 
 {-|
@@ -1220,3 +1221,54 @@ toPatternString glob =
     case glob of
         Glob pattern_ _ ->
             pattern_
+
+
+{-| Runs a glob string directly, with `include = FilesAndFolders`. Behavior is similar to using glob patterns in a shell.
+
+If you need to capture specific parts of the path, you can use `capture` and `match` functions instead. `fromString`
+only allows you to capture a list of matching file paths.
+
+The following glob syntax is supported:
+
+  - `*` matches any number of characters except for `/`
+  - `**` matches any number of characters including `/`
+
+For example, if we have the following files:
+
+```shell
+- src/
+    - Main.elm
+    - Ui/
+        - Icon.elm
+- content/
+    - blog/
+        - first-post.md
+        - second-post.md
+```
+
+    import BackendTask.Glob as Glob
+
+    blogPosts : BackendTask error (List String)
+    blogPosts =
+        Glob.fromString "content/blog/*.md"
+
+    --> BackendTask.succeed [ "content/blog/first-post.md", "content/blog/second-post.md" ]
+    elmFiles : BackendTask error (List String)
+    elmFiles =
+        Glob.fromString "src/**/*.elm"
+
+    --> BackendTask.succeed [ "src/Main.elm", "src/Ui", "src/Ui/Icon.elm" ]
+
+-}
+fromString : String -> BackendTask error (List String)
+fromString pattern_ =
+    fromStringWithOptions { defaultOptions | include = FilesAndFolders } pattern_
+
+
+{-| Same as [`fromString`](#fromString), but with custom [`Options`](#Options).
+-}
+fromStringWithOptions : Options -> String -> BackendTask error (List String)
+fromStringWithOptions options pattern_ =
+    Glob pattern_ (\_ _ _ -> ( identity, [] ))
+        |> captureFilePath
+        |> toBackendTaskWithOptions options
