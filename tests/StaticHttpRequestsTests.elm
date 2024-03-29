@@ -18,7 +18,6 @@ import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.ProgramConfig exposing (ProgramConfig)
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request as Request
-import UrlPath
 import ProgramTest exposing (ProgramTest)
 import Regex
 import RenderRequest
@@ -27,101 +26,97 @@ import Server.Response as Response
 import SimulatedEffect.Cmd
 import SimulatedEffect.Ports
 import Test exposing (Test, describe, test)
+import UrlPath
 
 
 all : Test
 all =
     describe "Static Http Requests"
-        [ test "initial requests are sent out" <|
-            \() ->
-                startSimple []
-                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.allowFatal)
-                    |> simulateHttp
-                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (JsonBody
-                            (Encode.object [ ( "stargazer_count", Encode.int 86 ) ])
-                        )
-                    |> expectSuccess []
-        , test "StaticHttp request for initial are resolved" <|
-            \() ->
-                startSimple
-                    [ "post-1" ]
-                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.allowFatal)
-                    |> simulateHttp
-                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (JsonBody
-                            (Encode.object [ ( "stargazer_count", Encode.int 86 ) ])
-                        )
-                    |> expectSuccess []
+        [ test "initial requests are sent out" <| \() ->
+        startSimple []
+            (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.allowFatal)
+            |> simulateHttp
+                (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                (JsonBody
+                    (Encode.object [ ( "stargazer_count", Encode.int 86 ) ])
+                )
+            |> expectSuccess []
+        , test "StaticHttp request for initial are resolved" <| \() ->
+        startSimple
+            [ "post-1" ]
+            (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.allowFatal)
+            |> simulateHttp
+                (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                (JsonBody
+                    (Encode.object [ ( "stargazer_count", Encode.int 86 ) ])
+                )
+            |> expectSuccess []
         , describe "single page renders"
-            [ test "single pages that are pre-rendered" <|
-                \() ->
-                    startSimple [ "post-1" ]
-                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.allowFatal)
-                        |> simulateHttp
-                            (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                            (JsonBody
-                                (Encode.object [ ( "stargazer_count", Encode.int 86 ) ])
-                            )
-                        |> ProgramTest.expectOutgoingPortValues
-                            "toJsPort"
-                            (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
-                            (\actualPorts ->
-                                case actualPorts of
-                                    [ ToJsPayload.PageProgress portData ] ->
-                                        if portData.is404 then
-                                            Expect.fail "Expected page to be found and rendered"
+            [ test "single pages that are pre-rendered" <| \() ->
+            startSimple [ "post-1" ]
+                (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" starDecoder |> BackendTask.allowFatal)
+                |> simulateHttp
+                    (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                    (JsonBody
+                        (Encode.object [ ( "stargazer_count", Encode.int 86 ) ])
+                    )
+                |> ProgramTest.expectOutgoingPortValues
+                    "toJsPort"
+                    (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                    (\actualPorts ->
+                        case actualPorts of
+                            [ ToJsPayload.PageProgress portData ] ->
+                                if portData.is404 then
+                                    Expect.fail "Expected page to be found and rendered"
 
-                                        else
-                                            Expect.pass
+                                else
+                                    Expect.pass
 
-                                    _ ->
-                                        Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
-                            )
+                            _ ->
+                                Expect.fail <| "Expected exactly 1 port of type PageProgress. Instead, got \n" ++ Debug.toString actualPorts
+                    )
             ]
-        , test "the stripped JSON from the same request with different decoders is merged so the decoders succeed" <|
-            \() ->
-                startSimple
-                    [ "post-1" ]
-                    (BackendTask.map2 Tuple.pair
-                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
-                            (JD.field "stargazer_count" JD.int)
-                            |> BackendTask.allowFatal
-                        )
-                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
-                            (JD.field "language" JD.string)
-                            |> BackendTask.allowFatal
-                        )
+        , test "the stripped JSON from the same request with different decoders is merged so the decoders succeed" <| \() ->
+        startSimple
+            [ "post-1" ]
+            (BackendTask.map2 Tuple.pair
+                (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
+                    (JD.field "stargazer_count" JD.int)
+                    |> BackendTask.allowFatal
+                )
+                (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
+                    (JD.field "language" JD.string)
+                    |> BackendTask.allowFatal
+                )
+            )
+            |> simulateHttp
+                (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                (JsonBody
+                    (Encode.object
+                        [ ( "stargazer_count", Encode.int 86 )
+                        , ( "language", Encode.string "Elm" )
+                        ]
                     )
-                    |> simulateHttp
-                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (JsonBody
-                            (Encode.object
-                                [ ( "stargazer_count", Encode.int 86 )
-                                , ( "language", Encode.string "Elm" )
-                                ]
-                            )
-                        )
-                    |> expectSuccess []
-        , test "andThen" <|
-            \() ->
-                startSimple
-                    [ "elm-pages" ]
-                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.succeed ())
-                        |> BackendTask.allowFatal
-                        |> BackendTask.andThen
-                            (\_ ->
-                                BackendTask.Http.getJson "NEXT-REQUEST" (JD.succeed ())
-                                    |> BackendTask.allowFatal
-                            )
+                )
+            |> expectSuccess []
+        , test "andThen" <| \() ->
+        startSimple
+            [ "elm-pages" ]
+            (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.succeed ())
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\_ ->
+                        BackendTask.Http.getJson "NEXT-REQUEST" (JD.succeed ())
+                            |> BackendTask.allowFatal
                     )
-                    |> simulateHttp
-                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (JsonBody Encode.null)
-                    |> simulateHttp
-                        (get "NEXT-REQUEST")
-                        (JsonBody Encode.null)
-                    |> expectSuccess []
+            )
+            |> simulateHttp
+                (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                (JsonBody Encode.null)
+            |> simulateHttp
+                (get "NEXT-REQUEST")
+                (JsonBody Encode.null)
+            |> expectSuccess []
 
         --, test "andThen chain avoids repeat requests" <|
         -- TODO is this test case still relevant? Need to think about the new desired functionality with caching HTTP requests given that
@@ -227,180 +222,173 @@ all =
         --                    ]
         --                  )
         --                ]
-        , test "reduced JSON is sent out" <|
-            \() ->
-                startSimple []
-                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
-                        |> BackendTask.allowFatal
-                    )
-                    |> simulateHttp
-                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
-                    |> expectSuccess []
-        , test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <|
-            \() ->
-                startSimple []
-                    (BackendTask.Http.request
-                        { url = "https://api.github.com/repos/dillonkearns/elm-pages"
-                        , method = "GET"
-                        , headers = []
-                        , body = BackendTask.Http.emptyBody
-                        , retries = Nothing
-                        , timeoutInMs = Nothing
-                        }
-                        (BackendTask.Http.expectJson
-                            (JD.field "stargazer_count" JD.int)
-                        )
-                        |> BackendTask.allowFatal
-                    )
-                    |> simulateHttp
-                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
-                    |> expectSuccess []
-        , test "plain string" <|
-            \() ->
-                startSimple []
-                    (BackendTask.Http.request
-                        { url = "https://example.com/file.txt"
-                        , method = "GET"
-                        , headers = []
-                        , body = BackendTask.Http.emptyBody
-                        , retries = Nothing
-                        , timeoutInMs = Nothing
-                        }
-                        BackendTask.Http.expectString
-                        |> BackendTask.allowFatal
-                    )
-                    |> simulateHttp
-                        { method = "GET"
-                        , url = "https://example.com/file.txt"
-                        , headers =
-                            []
-                        , body = BackendTask.Http.emptyBody
-                        , cacheOptions = Nothing
-                        }
-                        (StringBody "This is a raw text file.")
-                    |> expectSuccess []
-        , test "Err in String to Result function turns into decode error" <|
-            \() ->
-                startSimple []
-                    (BackendTask.Http.request
-                        { url = "https://example.com/file.txt"
-                        , method = "GET"
-                        , headers = []
-                        , body = BackendTask.Http.emptyBody
-                        , retries = Nothing
-                        , timeoutInMs = Nothing
-                        }
-                        BackendTask.Http.expectString
-                        |> BackendTask.allowFatal
-                        |> BackendTask.map
-                            (\string ->
-                                if String.toUpper string == string then
-                                    Ok string
+        , test "reduced JSON is sent out" <| \() ->
+        startSimple []
+            (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
+                |> BackendTask.allowFatal
+            )
+            |> simulateHttp
+                (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
+            |> expectSuccess []
+        , test "you can use elm/json decoders with StaticHttp.unoptimizedRequest" <| \() ->
+        startSimple []
+            (BackendTask.Http.request
+                { url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                , method = "GET"
+                , headers = []
+                , body = BackendTask.Http.emptyBody
+                , retries = Nothing
+                , timeoutInMs = Nothing
+                }
+                (BackendTask.Http.expectJson
+                    (JD.field "stargazer_count" JD.int)
+                )
+                |> BackendTask.allowFatal
+            )
+            |> simulateHttp
+                (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
+            |> expectSuccess []
+        , test "plain string" <| \() ->
+        startSimple []
+            (BackendTask.Http.request
+                { url = "https://example.com/file.txt"
+                , method = "GET"
+                , headers = []
+                , body = BackendTask.Http.emptyBody
+                , retries = Nothing
+                , timeoutInMs = Nothing
+                }
+                BackendTask.Http.expectString
+                |> BackendTask.allowFatal
+            )
+            |> simulateHttp
+                { method = "GET"
+                , url = "https://example.com/file.txt"
+                , headers =
+                    []
+                , body = BackendTask.Http.emptyBody
+                , cacheOptions = Nothing
+                , quiet = False
+                , env = Dict.empty
+                , dir = []
+                }
+                (StringBody "This is a raw text file.")
+            |> expectSuccess []
+        , test "Err in String to Result function turns into decode error" <| \() ->
+        startSimple []
+            (BackendTask.Http.request
+                { url = "https://example.com/file.txt"
+                , method = "GET"
+                , headers = []
+                , body = BackendTask.Http.emptyBody
+                , retries = Nothing
+                , timeoutInMs = Nothing
+                }
+                BackendTask.Http.expectString
+                |> BackendTask.allowFatal
+                |> BackendTask.map
+                    (\string ->
+                        if String.toUpper string == string then
+                            Ok string
 
-                                else
-                                    Err "String was not uppercased"
-                            )
-                        |> BackendTask.andThen (\result -> result |> Result.mapError FatalError.fromString |> BackendTask.fromResult)
+                        else
+                            Err "String was not uppercased"
                     )
-                    |> simulateHttp
-                        (get "https://example.com/file.txt")
-                        (StringBody "This is a raw text file.")
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
-                        (expectErrorsPort
-                            """-- CUSTOM ERROR ----------------------------------------------------- elm-pages
+                |> BackendTask.andThen (\result -> result |> Result.mapError FatalError.fromString |> BackendTask.fromResult)
+            )
+            |> simulateHttp
+                (get "https://example.com/file.txt")
+                (StringBody "This is a raw text file.")
+            |> ProgramTest.expectOutgoingPortValues
+                "toJsPort"
+                (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                (expectErrorsPort
+                    """-- CUSTOM ERROR ----------------------------------------------------- elm-pages
 
 
 
 String was not uppercased"""
                         )
-        , test "POST method works" <|
-            \() ->
-                startSimple []
-                    (BackendTask.Http.request
-                        { method = "POST"
-                        , url = "https://api.github.com/repos/dillonkearns/elm-pages"
-                        , headers = []
-                        , body = BackendTask.Http.emptyBody
-                        , retries = Nothing
-                        , timeoutInMs = Nothing
-                        }
-                        (BackendTask.Http.expectJson
-                            (JD.field "stargazer_count" JD.int)
-                        )
-                        |> BackendTask.allowFatal
+        , test "POST method works" <| \() ->
+        startSimple []
+            (BackendTask.Http.request
+                { method = "POST"
+                , url = "https://api.github.com/repos/dillonkearns/elm-pages"
+                , headers = []
+                , body = BackendTask.Http.emptyBody
+                , retries = Nothing
+                , timeoutInMs = Nothing
+                }
+                (BackendTask.Http.expectJson
+                    (JD.field "stargazer_count" JD.int)
+                )
+                |> BackendTask.allowFatal
+            )
+            |> simulateHttp
+                (post "https://api.github.com/repos/dillonkearns/elm-pages")
+                (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
+            |> expectSuccess []
+        , test "json is reduced from andThen chains" <| \() ->
+        startSimple []
+            (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
+                |> BackendTask.andThen
+                    (\_ ->
+                        BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
                     )
-                    |> simulateHttp
-                        (post "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (jsonBody """{ "stargazer_count": 86, "unused_field": 123 }""")
-                    |> expectSuccess []
-        , test "json is reduced from andThen chains" <|
-            \() ->
-                startSimple []
-                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int)
-                        |> BackendTask.andThen
-                            (\_ ->
-                                BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int)
-                            )
-                        |> BackendTask.allowFatal
-                    )
-                    |> simulateHttp
-                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (jsonBody """{ "stargazer_count": 100, "unused_field": 123 }""")
-                    |> simulateHttp
-                        (get "https://api.github.com/repos/dillonkearns/elm-pages-starter")
-                        (jsonBody """{ "stargazer_count": 50, "unused_field": 456 }""")
-                    |> expectSuccess []
-        , test "reduced json is preserved by StaticHttp.map2" <|
-            \() ->
-                startSimple []
-                    (BackendTask.map2 (\_ _ -> ())
-                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int) |> BackendTask.allowFatal)
-                        (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int) |> BackendTask.allowFatal)
-                    )
-                    |> simulateMultipleHttp
-                        [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                          , jsonBody """{ "stargazer_count": 100, "unused_field": 123 }"""
-                          )
-                        , ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
-                          , jsonBody """{ "stargazer_count": 50, "unused_field": 456 }"""
-                          )
-                        ]
-                    |> expectSuccess []
-        , test "the port sends out even if there are no http requests" <|
-            \() ->
-                start
-                    [ ( []
-                      , BackendTask.succeed ()
-                      )
-                    ]
-                    |> expectSuccess []
-        , test "the port sends out when there are duplicate http requests for the same page" <|
-            \() ->
-                startSimple []
-                    (BackendTask.map2 (\_ _ -> ())
-                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.allowFatal)
-                        (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.allowFatal)
-                    )
-                    |> simulateHttp
-                        (get "http://example.com")
-                        (jsonBody """null""")
-                    |> expectSuccess []
-        , test "an error is sent out for decoder failures" <|
-            \() ->
-                startSimple [ "elm-pages" ]
-                    (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI.") |> BackendTask.allowFatal)
-                    |> simulateHttp
-                        (get "https://api.github.com/repos/dillonkearns/elm-pages")
-                        (jsonBody """{ "stargazer_count": 86 }""")
-                    |> ProgramTest.expectOutgoingPortValues
-                        "toJsPort"
-                        (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
-                        (expectErrorsPort
-                            """-- HTTP ERROR ----------------------------------------------------- elm-pages
+                |> BackendTask.allowFatal
+            )
+            |> simulateHttp
+                (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                (jsonBody """{ "stargazer_count": 100, "unused_field": 123 }""")
+            |> simulateHttp
+                (get "https://api.github.com/repos/dillonkearns/elm-pages-starter")
+                (jsonBody """{ "stargazer_count": 50, "unused_field": 456 }""")
+            |> expectSuccess []
+        , test "reduced json is preserved by StaticHttp.map2" <| \() ->
+        startSimple []
+            (BackendTask.map2 (\_ _ -> ())
+                (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.field "stargazer_count" JD.int) |> BackendTask.allowFatal)
+                (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages-starter" (JD.field "stargazer_count" JD.int) |> BackendTask.allowFatal)
+            )
+            |> simulateMultipleHttp
+                [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                  , jsonBody """{ "stargazer_count": 100, "unused_field": 123 }"""
+                  )
+                , ( get "https://api.github.com/repos/dillonkearns/elm-pages-starter"
+                  , jsonBody """{ "stargazer_count": 50, "unused_field": 456 }"""
+                  )
+                ]
+            |> expectSuccess []
+        , test "the port sends out even if there are no http requests" <| \() ->
+        start
+            [ ( []
+              , BackendTask.succeed ()
+              )
+            ]
+            |> expectSuccess []
+        , test "the port sends out when there are duplicate http requests for the same page" <| \() ->
+        startSimple []
+            (BackendTask.map2 (\_ _ -> ())
+                (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.allowFatal)
+                (BackendTask.Http.getJson "http://example.com" (JD.succeed ()) |> BackendTask.allowFatal)
+            )
+            |> simulateHttp
+                (get "http://example.com")
+                (jsonBody """null""")
+            |> expectSuccess []
+        , test "an error is sent out for decoder failures" <| \() ->
+        startSimple [ "elm-pages" ]
+            (BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages" (JD.fail "The user should get this message from the CLI.") |> BackendTask.allowFatal)
+            |> simulateHttp
+                (get "https://api.github.com/repos/dillonkearns/elm-pages")
+                (jsonBody """{ "stargazer_count": 86 }""")
+            |> ProgramTest.expectOutgoingPortValues
+                "toJsPort"
+                (Codec.decoder (ToJsPayload.successCodecNew2 "" ""))
+                (expectErrorsPort
+                    """-- HTTP ERROR ----------------------------------------------------- elm-pages
 
 BadBody: Problem with the given value:
 
@@ -813,6 +801,9 @@ get url =
     , headers = []
     , body = BackendTask.Http.emptyBody
     , cacheOptions = Nothing
+    , quiet = False
+    , env = Dict.empty
+    , dir = []
     }
 
 
@@ -823,6 +814,9 @@ post url =
     , headers = []
     , body = BackendTask.Http.emptyBody
     , cacheOptions = Nothing
+    , quiet = False
+    , env = Dict.empty
+    , dir = []
     }
 
 

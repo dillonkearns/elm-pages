@@ -3,6 +3,7 @@ module StaticResponsesTests exposing (all)
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BuildError exposing (BuildError)
+import Dict
 import Expect
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
@@ -18,74 +19,70 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "StaticResponses"
-        [ test "simple get" <|
-            \() ->
-                BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
-                    (Decode.field "stargazers_count" Decode.int)
-                    |> BackendTask.allowFatal
-                    |> expectRequestChain 123
-                        [ [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                            , Encode.object
-                                [ ( "stargazers_count", Encode.int 123 )
-                                ]
-                            )
-                          ]
+        [ test "simple get" <| \() ->
+        BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
+            (Decode.field "stargazers_count" Decode.int)
+            |> BackendTask.allowFatal
+            |> expectRequestChain 123
+                [ [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                    , Encode.object
+                        [ ( "stargazers_count", Encode.int 123 )
                         ]
-        , test "andThen" <|
-            \() ->
-                BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
-                    (Decode.field "stargazers_count" Decode.int)
-                    |> BackendTask.andThen
-                        (\elmPagesStars ->
-                            BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-graphql"
-                                (Decode.field "stargazers_count" Decode.int)
-                                |> BackendTask.map (\graphqlStars -> elmPagesStars + graphqlStars)
-                        )
-                    |> BackendTask.allowFatal
-                    |> expectRequestChain 579
-                        [ [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                            , Encode.object
-                                [ ( "stargazers_count", Encode.int 123 )
-                                ]
-                            )
-                          ]
-                        , [ ( get "https://api.github.com/repos/dillonkearns/elm-graphql"
-                            , Encode.object
-                                [ ( "stargazers_count", Encode.int 456 )
-                                ]
-                            )
-                          ]
+                    )
+                  ]
+                ]
+        , test "andThen" <| \() ->
+        BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
+            (Decode.field "stargazers_count" Decode.int)
+            |> BackendTask.andThen
+                (\elmPagesStars ->
+                    BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-graphql"
+                        (Decode.field "stargazers_count" Decode.int)
+                        |> BackendTask.map (\graphqlStars -> elmPagesStars + graphqlStars)
+                )
+            |> BackendTask.allowFatal
+            |> expectRequestChain 579
+                [ [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                    , Encode.object
+                        [ ( "stargazers_count", Encode.int 123 )
                         ]
-        , test "log" <|
-            \() ->
-                Script.log "Hello!"
-                    |> expectRequestChain ()
-                        [ [ ( log "Hello!"
-                            , Encode.object []
-                            )
-                          ]
+                    )
+                  ]
+                , [ ( get "https://api.github.com/repos/dillonkearns/elm-graphql"
+                    , Encode.object
+                        [ ( "stargazers_count", Encode.int 456 )
                         ]
-        , test "andThen log" <|
-            \() ->
-                BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
-                    (Decode.field "stargazers_count" Decode.int)
-                    |> BackendTask.allowFatal
-                    |> BackendTask.andThen
-                        (\stars ->
-                            Script.log ("Stars: " ++ String.fromInt stars)
-                        )
-                    |> expectRequestChain ()
-                        [ [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
-                            , Encode.object
-                                [ ( "stargazers_count", Encode.int 123 )
-                                ]
-                            )
-                          ]
-                        , [ ( log "Stars: 123"
-                            , Encode.object []
-                            )
-                          ]
+                    )
+                  ]
+                ]
+        , test "log" <| \() ->
+        Script.log "Hello!"
+            |> expectRequestChain ()
+                [ [ ( log "Hello!"
+                    , Encode.object []
+                    )
+                  ]
+                ]
+        , test "andThen log" <| \() ->
+        BackendTask.Http.getJson "https://api.github.com/repos/dillonkearns/elm-pages"
+            (Decode.field "stargazers_count" Decode.int)
+            |> BackendTask.allowFatal
+            |> BackendTask.andThen
+                (\stars ->
+                    Script.log ("Stars: " ++ String.fromInt stars)
+                )
+            |> expectRequestChain ()
+                [ [ ( get "https://api.github.com/repos/dillonkearns/elm-pages"
+                    , Encode.object
+                        [ ( "stargazers_count", Encode.int 123 )
                         ]
+                    )
+                  ]
+                , [ ( log "Stars: 123"
+                    , Encode.object []
+                    )
+                  ]
+                ]
         ]
 
 
@@ -105,6 +102,9 @@ portRequest portName body =
     , headers = []
     , body = JsonBody body
     , cacheOptions = Nothing
+    , quiet = False
+    , env = Dict.empty
+    , dir = []
     }
 
 
@@ -115,6 +115,9 @@ get url =
     , headers = []
     , body = EmptyBody
     , cacheOptions = Nothing
+    , quiet = False
+    , env = Dict.empty
+    , dir = []
     }
 
 
