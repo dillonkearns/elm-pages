@@ -1,11 +1,51 @@
-module Shell exposing (Command(..), binary, command, exec, map, pipe, run, sh, stdout, text, tryJson, tryMap, withCwd, withQuiet, withTimeout)
+module BackendTask.Shell exposing
+    ( Command(..)
+    , sh
+    , command, exec
+    , withTimeout
+    , stdout, run, text
+    , pipe
+    , binary, tryJson, map, tryMap
+    )
+
+{-|
+
+@docs Command
+
+
+## Executing Commands
+
+@docs sh
+
+@docs command, exec
+
+@docs withTimeout
+
+
+## Capturing Output
+
+@docs stdout, run, text
+
+
+## Piping Commands
+
+@docs pipe
+
+
+## Output Decoders
+
+@docs binary, tryJson, map, tryMap
+
+-}
 
 import BackendTask exposing (BackendTask)
+import BackendTask.Http
+import BackendTask.Internal.Request
 import Base64
 import Bytes exposing (Bytes)
 import FatalError exposing (FatalError)
-import Json.Decode
-import Pages.Script as Script
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 
 
 command : String -> List String -> Command String
@@ -16,9 +56,6 @@ command command_ args =
         , timeout = Nothing
         , decoder = Just
         , cwd = Nothing
-
-        -- shell?
-        -- env?
         }
 
 
@@ -80,20 +117,6 @@ binary (Command command_) =
         }
 
 
-{-| Note that `withQuiet` applies to the entire pipeline, not just the command it is applied to.
--}
-withQuiet : Command stdout -> Command stdout
-withQuiet (Command options_) =
-    Command { options_ | quiet = True }
-
-
-{-| Note that `withCwd` applies to the entire pipeline, not just the command it is applied to.
--}
-withCwd : String -> Command stdout -> Command stdout
-withCwd cwd_ (Command options_) =
-    Command { options_ | cwd = Just cwd_ }
-
-
 {-| Applies to each individual command in the pipeline.
 -}
 withTimeout : Int -> Command stdout -> Command stdout
@@ -104,9 +127,9 @@ withTimeout timeout (Command command_) =
 text : Command stdout -> BackendTask FatalError String
 text command_ =
     command_
-        |> withQuiet
         |> run
         |> BackendTask.map .stdout
+        |> BackendTask.quiet
         |> BackendTask.allowFatal
 
 
@@ -118,6 +141,7 @@ stdout : Command stdout -> BackendTask FatalError stdout
 stdout ((Command command_) as fullCommand) =
     fullCommand
         |> run
+        |> BackendTask.quiet
         |> BackendTask.allowFatal
         |> BackendTask.andThen
             (\output ->
@@ -126,7 +150,8 @@ stdout ((Command command_) as fullCommand) =
                         BackendTask.succeed okStdout
 
                     Nothing ->
-                        BackendTask.fail (FatalError.fromString "")
+                        -- TODO provide decoder error message here! Need Result instead of Maybe.
+                        BackendTask.fail (FatalError.fromString "Decoder failed")
             )
 
 
@@ -156,7 +181,7 @@ run :
             }
             { output : String, stderr : String, stdout : String }
 run (Command options_) =
-    Script.shell
+    shell__
         { commands = options_.command
         , cwd = options_.cwd
         }
@@ -165,7 +190,7 @@ run (Command options_) =
 
 exec : Command stdout -> BackendTask FatalError ()
 exec (Command options_) =
-    Script.shell
+    shell__
         { commands = options_.command
         , cwd = options_.cwd
         }
@@ -179,12 +204,12 @@ example =
     command "ls" [] |> text
 
 
-tryJson : Json.Decode.Decoder a -> Command String -> Command a
+tryJson : Decoder a -> Command String -> Command a
 tryJson jsonDecoder command_ =
     command_
         |> tryMap
             (\jsonString ->
-                Json.Decode.decodeString jsonDecoder jsonString
+                Decode.decodeString jsonDecoder jsonString
                     |> Result.toMaybe
             )
 
@@ -193,3 +218,103 @@ tryJson jsonDecoder command_ =
 sh : String -> List String -> BackendTask FatalError ()
 sh command_ args =
     command command_ args |> exec
+
+
+{-| -}
+shell__ :
+    Command_
+    -> Bool
+    ->
+        BackendTask
+            { fatal : FatalError
+            , recoverable :
+                { output : String
+                , stderr : String
+                , stdout : String
+                , statusCode : Int
+                }
+            }
+            { output : String
+            , stderr : String
+            , stdout : String
+            }
+shell__ commandsAndArgs captureOutput =
+    BackendTask.Internal.Request.request
+        { name = "shell"
+        , body = BackendTask.Http.jsonBody (commandsAndArgsEncoder commandsAndArgs captureOutput)
+        , expect = BackendTask.Http.expectJson commandDecoder
+        }
+        |> BackendTask.andThen
+            (\rawOutput ->
+                if rawOutput.exitCode == 0 then
+                    BackendTask.succeed
+                        { output = rawOutput.output
+                        , stderr = rawOutput.stderr
+                        , stdout = rawOutput.stdout
+                        }
+
+                else
+                    FatalError.recoverable { title = "Shell command error", body = "Exit status was " ++ String.fromInt rawOutput.exitCode }
+                        { output = rawOutput.output
+                        , stderr = rawOutput.stderr
+                        , stdout = rawOutput.stdout
+                        , statusCode = rawOutput.exitCode
+                        }
+                        |> BackendTask.fail
+            )
+
+
+type alias Command_ =
+    { cwd : Maybe String
+    , commands : List SubCommand
+    }
+
+
+commandsAndArgsEncoder : Command_ -> Bool -> Encode.Value
+commandsAndArgsEncoder commandsAndArgs captureOutput =
+    Encode.object
+        [ ( "cwd", nullable Encode.string commandsAndArgs.cwd )
+        , ( "captureOutput", Encode.bool captureOutput )
+        , ( "commands"
+          , Encode.list
+                (\sub ->
+                    Encode.object
+                        [ ( "command", Encode.string sub.command )
+                        , ( "args", Encode.list Encode.string sub.args )
+                        , ( "timeout", sub.timeout |> nullable Encode.int )
+                        ]
+                )
+                commandsAndArgs.commands
+          )
+        ]
+
+
+nullable : (a -> Encode.Value) -> Maybe a -> Encode.Value
+nullable encoder =
+    Maybe.map encoder >> Maybe.withDefault Encode.null
+
+
+type alias RawOutput =
+    { exitCode : Int
+    , output : String
+    , stderr : String
+    , stdout : String
+    }
+
+
+commandDecoder : Decoder RawOutput
+commandDecoder =
+    Decode.map4 RawOutput
+        (Decode.field "errorCode" Decode.int)
+        (Decode.field "output" Decode.string)
+        (Decode.field "stderrOutput" Decode.string)
+        (Decode.field "stdoutOutput" Decode.string)
+
+
+removeTrailingNewline : String -> String
+removeTrailingNewline str =
+    if String.endsWith "\n" str then
+        String.dropRight 1 str
+
+    else
+        str

@@ -21,6 +21,7 @@
         "BackendTask.File",
         "BackendTask.Custom",
         "BackendTask.Env",
+        "BackendTask.Shell",
         "BackendTask.Do",
         "Server.Request",
         "Server.Session",

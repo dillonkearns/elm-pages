@@ -2,7 +2,6 @@ module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
     , writeFile
-    , sh, shell
     , log, sleep, doThen, which, expectWhich, question
     , Error(..)
     )
@@ -22,11 +21,6 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 ## File System Utilities
 
 @docs writeFile
-
-
-## Shell Commands
-
-@docs sh, shell
 
 
 ## Utilities
@@ -237,127 +231,3 @@ question prompt =
         , expect = BackendTask.Http.expectJson Decode.string
         , name = "question"
         }
-
-
-{-| -}
-sh : String -> List String -> BackendTask FatalError String
-sh command args =
-    shell
-        { commands =
-            [ { command = command
-              , args = args
-              , timeout = Nothing
-              }
-            ]
-        , cwd = Nothing
-        }
-        True
-        |> BackendTask.map (.output >> removeTrailingNewline)
-        |> BackendTask.allowFatal
-
-
-removeTrailingNewline : String -> String
-removeTrailingNewline str =
-    if String.endsWith "\n" str then
-        String.dropRight 1 str
-
-    else
-        str
-
-
-type alias SubCommand =
-    { command : String
-    , args : List String
-    , timeout : Maybe Int
-    }
-
-
-type alias Command =
-    { cwd : Maybe String
-    , commands : List SubCommand
-    }
-
-
-{-| -}
-shell :
-    Command
-    -> Bool
-    ->
-        BackendTask
-            { fatal : FatalError
-            , recoverable :
-                { output : String
-                , stderr : String
-                , stdout : String
-                , statusCode : Int
-                }
-            }
-            { output : String
-            , stderr : String
-            , stdout : String
-            }
-shell commandsAndArgs captureOutput =
-    BackendTask.Internal.Request.request
-        { name = "shell"
-        , body = BackendTask.Http.jsonBody (commandsAndArgsEncoder commandsAndArgs captureOutput)
-        , expect = BackendTask.Http.expectJson commandDecoder
-        }
-        |> BackendTask.andThen
-            (\rawOutput ->
-                if rawOutput.exitCode == 0 then
-                    BackendTask.succeed
-                        { output = rawOutput.output
-                        , stderr = rawOutput.stderr
-                        , stdout = rawOutput.stdout
-                        }
-
-                else
-                    FatalError.recoverable { title = "Shell command error", body = "Exit status was " ++ String.fromInt rawOutput.exitCode }
-                        { output = rawOutput.output
-                        , stderr = rawOutput.stderr
-                        , stdout = rawOutput.stdout
-                        , statusCode = rawOutput.exitCode
-                        }
-                        |> BackendTask.fail
-            )
-
-
-commandsAndArgsEncoder : Command -> Bool -> Encode.Value
-commandsAndArgsEncoder commandsAndArgs captureOutput =
-    Encode.object
-        [ ( "cwd", nullable Encode.string commandsAndArgs.cwd )
-        , ( "captureOutput", Encode.bool captureOutput )
-        , ( "commands"
-          , Encode.list
-                (\sub ->
-                    Encode.object
-                        [ ( "command", Encode.string sub.command )
-                        , ( "args", Encode.list Encode.string sub.args )
-                        , ( "timeout", sub.timeout |> nullable Encode.int )
-                        ]
-                )
-                commandsAndArgs.commands
-          )
-        ]
-
-
-nullable : (a -> Encode.Value) -> Maybe a -> Encode.Value
-nullable encoder =
-    Maybe.map encoder >> Maybe.withDefault Encode.null
-
-
-type alias RawOutput =
-    { exitCode : Int
-    , output : String
-    , stderr : String
-    , stdout : String
-    }
-
-
-commandDecoder : Decode.Decoder RawOutput
-commandDecoder =
-    Decode.map4 RawOutput
-        (Decode.field "errorCode" Decode.int)
-        (Decode.field "output" Decode.string)
-        (Decode.field "stderrOutput" Decode.string)
-        (Decode.field "stdoutOutput" Decode.string)
