@@ -608,7 +608,6 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
     });
     } else {
     const subprocess = spawnCallback(command, args, {
-      // ignore stdout
       stdio: ["pipe", "pipe", "pipe"],
       cwd: cwd,
       env: env,
@@ -662,7 +661,6 @@ export function pipeShells({ cwd, quiet, env, captureOutput }, commandsAndArgs) 
        * @type {import('node:child_process').ChildProcess}
        */
         if (previousProcess === null) {
-          // console.log(`$ ${command} ${args.join(' ')}`, 'IF');
           currentProcess = spawnCallback(command, args, {
             stdio: ['inherit', 'pipe', 'inherit'],
             timeout: timeout ? undefined : timeout,
@@ -689,10 +687,8 @@ export function pipeShells({ cwd, quiet, env, captureOutput }, commandsAndArgs) 
         }
         previousProcess = currentProcess;
     });
-    // TODO handle case where there is exactly 1 command
-    // TODO handle case where there are > 2 commands
 
-    if (currentProcess === null) { reject('')}
+    if (currentProcess === null) { reject('') }
     else {
         let commandOutput = "";
         let stderrOutput = "";
