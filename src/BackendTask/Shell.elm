@@ -1,5 +1,5 @@
 module BackendTask.Shell exposing
-    ( Command(..)
+    ( Command
     , sh
     , command, exec
     , withTimeout
@@ -199,11 +199,6 @@ exec (Command options_) =
         |> BackendTask.map (\_ -> ())
 
 
-example : BackendTask FatalError String
-example =
-    command "ls" [] |> text
-
-
 tryJson : Decoder a -> Command String -> Command a
 tryJson jsonDecoder command_ =
     command_
@@ -309,12 +304,3 @@ commandDecoder =
         (Decode.field "output" Decode.string)
         (Decode.field "stderrOutput" Decode.string)
         (Decode.field "stdoutOutput" Decode.string)
-
-
-removeTrailingNewline : String -> String
-removeTrailingNewline str =
-    if String.endsWith "\n" str then
-        String.dropRight 1 str
-
-    else
-        str

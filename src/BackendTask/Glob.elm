@@ -1,6 +1,7 @@
 module BackendTask.Glob exposing
     ( Glob
     , capture, match
+    , fromString, fromStringWithOptions
     , captureFilePath
     , wildcard, recursiveWildcard
     , int, digits
@@ -13,7 +14,6 @@ module BackendTask.Glob exposing
     , toBackendTask
     , toBackendTaskWithOptions
     , defaultOptions, Options, Include(..)
-    , fromString, fromStringWithOptions
     )
 
 {-|
@@ -138,6 +138,12 @@ and error prone. That's what the [`captureFilePath`](#captureFilePath) helper is
 
 
 ## Reading matching files
+
+You can use the less powerful but more familiar and terse `fromString` helpers if you only need to find matching file paths
+(but don't care about parsing out parts of the paths). This is helpful when you need a reference to matching files and
+you are only using the file paths to then read or do scripting tasks with those paths.
+
+@docs fromString, fromStringWithOptions
 
 @docs captureFilePath
 

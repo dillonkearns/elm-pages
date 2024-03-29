@@ -136,6 +136,8 @@ map fn requestInfo =
 {-| -}
 inDir : String -> BackendTask error value -> BackendTask error value
 inDir dir backendTask =
+    -- elm-review: known-unoptimized-recursion
+    -- TODO try to find a way to optimize tail-call recursion here
     case backendTask of
         ApiRoute _ ->
             backendTask
@@ -151,6 +153,8 @@ inDir dir backendTask =
 {-| -}
 quiet : BackendTask error value -> BackendTask error value
 quiet backendTask =
+    -- elm-review: known-unoptimized-recursion
+    -- TODO try to find a way to optimize tail-call recursion here
     case backendTask of
         ApiRoute _ ->
             backendTask
@@ -166,6 +170,8 @@ quiet backendTask =
 {-| -}
 withEnv : String -> String -> BackendTask error value -> BackendTask error value
 withEnv key value backendTask =
+    -- elm-review: known-unoptimized-recursion
+    -- TODO try to find a way to optimize tail-call recursion here
     case backendTask of
         ApiRoute _ ->
             backendTask
