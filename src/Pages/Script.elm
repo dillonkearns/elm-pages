@@ -251,6 +251,7 @@ sh command args =
             ]
         , cwd = Nothing
         }
+        True
         |> BackendTask.map (.output >> removeTrailingNewline)
         |> BackendTask.allowFatal
 
@@ -280,6 +281,7 @@ type alias Command =
 {-| -}
 shell :
     Command
+    -> Bool
     ->
         BackendTask
             { fatal : FatalError
@@ -294,10 +296,10 @@ shell :
             , stderr : String
             , stdout : String
             }
-shell commandsAndArgs =
+shell commandsAndArgs captureOutput =
     BackendTask.Internal.Request.request
         { name = "shell"
-        , body = BackendTask.Http.jsonBody (commandsAndArgsEncoder commandsAndArgs)
+        , body = BackendTask.Http.jsonBody (commandsAndArgsEncoder commandsAndArgs captureOutput)
         , expect = BackendTask.Http.expectJson commandDecoder
         }
         |> BackendTask.andThen
@@ -310,7 +312,7 @@ shell commandsAndArgs =
                         }
 
                 else
-                    FatalError.recoverable { title = "", body = "" }
+                    FatalError.recoverable { title = "Shell command error", body = "Exit status was " ++ String.fromInt rawOutput.exitCode }
                         { output = rawOutput.output
                         , stderr = rawOutput.stderr
                         , stdout = rawOutput.stdout
@@ -320,10 +322,11 @@ shell commandsAndArgs =
             )
 
 
-commandsAndArgsEncoder : Command -> Encode.Value
-commandsAndArgsEncoder commandsAndArgs =
+commandsAndArgsEncoder : Command -> Bool -> Encode.Value
+commandsAndArgsEncoder commandsAndArgs captureOutput =
     Encode.object
         [ ( "cwd", nullable Encode.string commandsAndArgs.cwd )
+        , ( "captureOutput", Encode.bool captureOutput )
         , ( "commands"
           , Encode.list
                 (\sub ->

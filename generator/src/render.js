@@ -576,10 +576,11 @@ async function runShell(req) {
   const cwd = path.resolve(...req.dir);
   const quiet = req.quiet;
   const env = { ...process.env, ...req.env };
+  const captureOutput = req.body.args[0].captureOutput;
   if (req.body.args[0].commands.length === 1) {
-    return jsonResponse(req, await shell({ cwd, quiet, env }, req.body.args[0]));
+    return jsonResponse(req, await shell({ cwd, quiet, env, captureOutput }, req.body.args[0]));
   } else {
-    return jsonResponse(req, await pipeShells({ cwd, quiet, env }, req.body.args[0]));
+    return jsonResponse(req, await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0]));
   }
 }
 
@@ -589,13 +590,23 @@ function commandAndArgsToString(cwd, commandsAndArgs) {
   }).join(" | "));
 }
 
-export function shell({ cwd, quiet, env }, commandAndArgs) {
+export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
   return new Promise((resolve, reject) => {
     const command = commandAndArgs.commands[0].command;
     const args = commandAndArgs.commands[0].args;
     if (verbosity > 1 && !quiet) {
       console.log(commandAndArgsToString(cwd, commandAndArgs));
     }
+    if (!captureOutput && !quiet) {
+      const subprocess = spawnCallback(command, args, {
+        stdio: quiet ? ['inherit', 'ignore', 'ignore'] : ['inherit', 'inherit', 'inherit'],
+        cwd: cwd,
+        env: env,
+      });
+    subprocess.on("close", async (code) => {
+      resolve({ output: "", errorCode: code, stderrOutput: "", stdoutOutput: "" });
+    });
+    } else {
     const subprocess = spawnCallback(command, args, {
       // ignore stdout
       stdio: ["pipe", "pipe", "pipe"],
@@ -622,6 +633,7 @@ export function shell({ cwd, quiet, env }, commandAndArgs) {
     subprocess.on("close", async (code) => {
       resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
     });
+  }
   });
 }
 
@@ -632,9 +644,9 @@ export function shell({ cwd, quiet, env }, commandAndArgs) {
 /**
  * @param {{ commands: ElmCommand[] }} commandsAndArgs
  */
-export function pipeShells({ cwd, quiet, env }, commandsAndArgs) {
+export function pipeShells({ cwd, quiet, env, captureOutput }, commandsAndArgs) {
   return new Promise((resolve, reject) => {
-    if (verbosity > 1) {
+    if (verbosity > 1 && !quiet) {
       console.log(commandAndArgsToString(cwd, commandsAndArgs));
     }
 
@@ -645,6 +657,7 @@ export function pipeShells({ cwd, quiet, env }, commandsAndArgs) {
       let currentProcess = null;
 
       commandsAndArgs.commands.forEach(({command, args, timeout }, index) => {
+        let isLastProcess = index === commandsAndArgs.commands.length - 1;
       /**
        * @type {import('node:child_process').ChildProcess}
        */
@@ -657,16 +670,21 @@ export function pipeShells({ cwd, quiet, env }, commandsAndArgs) {
             env: env,
           });
         } else {
-          // console.log(`$ ${command} ${args.join(' ')}`, 'ELSE');
-          // currentProcess = spawnCallback(command, args, {
-          //   stdio: ['pipe', 'inherit', 'pipe'],
-          // });
-          currentProcess = spawnCallback(command, args, {
-            stdio: ['pipe', 'pipe', 'pipe'],
-            timeout: timeout ? undefined : timeout,
-            cwd: cwd,
-            env: env,
-          });
+          if (isLastProcess && !captureOutput) {
+            currentProcess = spawnCallback(command, args, {
+              stdio: quiet ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'inherit', 'inherit'],
+              timeout: timeout ? undefined : timeout,
+              cwd: cwd,
+              env: env,
+            });
+          } else {
+            currentProcess = spawnCallback(command, args, {
+              stdio: ['pipe', 'pipe', 'pipe'],
+              timeout: timeout ? undefined : timeout,
+              cwd: cwd,
+              env: env,
+            });
+          }
           previousProcess.stdout.pipe(currentProcess.stdin);
         }
         previousProcess = currentProcess;
@@ -679,18 +697,17 @@ export function pipeShells({ cwd, quiet, env }, commandsAndArgs) {
         let commandOutput = "";
         let stderrOutput = "";
         let stdoutOutput = "";
-        currentProcess.stderr.on("data", function (data) {
+
         if (verbosity > 0 && !quiet) {
-          // log to stderr
-          console.error(data.toString())
+          currentProcess.stdout && currentProcess.stdout.pipe(process.stdout);
+          currentProcess.stderr && currentProcess.stderr.pipe(process.stderr);
         }
+
+        currentProcess.stderr && currentProcess.stderr.on("data", function (data) {
         commandOutput += data;
         stderrOutput += data;
       });
-      currentProcess.stdout.on("data", function (data) {
-        if (verbosity > 0) {
-          console.log(data.toString());
-        }
+      currentProcess.stdout && currentProcess.stdout.on("data", function (data) {
         commandOutput += data;
         stdoutOutput += data;
       });

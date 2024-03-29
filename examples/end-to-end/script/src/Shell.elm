@@ -160,6 +160,7 @@ run (Command options_) =
         { commands = options_.command
         , cwd = options_.cwd
         }
+        True
 
 
 exec : Command stdout -> BackendTask FatalError ()
@@ -168,6 +169,7 @@ exec (Command options_) =
         { commands = options_.command
         , cwd = options_.cwd
         }
+        False
         |> BackendTask.allowFatal
         |> BackendTask.map (\_ -> ())
 
