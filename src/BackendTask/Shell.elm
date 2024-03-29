@@ -48,6 +48,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 
 
+{-| -}
 command : String -> List String -> Command String
 command command_ args =
     Command
@@ -74,6 +75,7 @@ type alias SubCommand =
     }
 
 
+{-| -}
 type Command stdout
     = Command
         { command : List SubCommand
@@ -84,6 +86,7 @@ type Command stdout
         }
 
 
+{-| -}
 map : (a -> b) -> Command a -> Command b
 map mapFn (Command command_) =
     Command
@@ -95,6 +98,7 @@ map mapFn (Command command_) =
         }
 
 
+{-| -}
 tryMap : (a -> Maybe b) -> Command a -> Command b
 tryMap mapFn (Command command_) =
     Command
@@ -106,6 +110,7 @@ tryMap mapFn (Command command_) =
         }
 
 
+{-| -}
 binary : Command String -> Command Bytes
 binary (Command command_) =
     Command
@@ -124,6 +129,7 @@ withTimeout timeout (Command command_) =
     Command { command_ | timeout = Just timeout }
 
 
+{-| -}
 text : Command stdout -> BackendTask FatalError String
 text command_ =
     command_
@@ -137,6 +143,7 @@ text command_ =
 --redirect : Command -> ???
 
 
+{-| -}
 stdout : Command stdout -> BackendTask FatalError stdout
 stdout ((Command command_) as fullCommand) =
     fullCommand
@@ -155,6 +162,7 @@ stdout ((Command command_) as fullCommand) =
             )
 
 
+{-| -}
 pipe : Command to -> Command from -> Command to
 pipe (Command to) (Command from) =
     Command
@@ -172,6 +180,7 @@ pipe (Command to) (Command from) =
         }
 
 
+{-| -}
 run :
     Command stdout
     ->
@@ -188,6 +197,7 @@ run (Command options_) =
         True
 
 
+{-| -}
 exec : Command stdout -> BackendTask FatalError ()
 exec (Command options_) =
     shell__
@@ -199,6 +209,7 @@ exec (Command options_) =
         |> BackendTask.map (\_ -> ())
 
 
+{-| -}
 tryJson : Decoder a -> Command String -> Command a
 tryJson jsonDecoder command_ =
     command_
