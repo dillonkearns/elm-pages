@@ -55,6 +55,44 @@ ${Object.keys(process.env).join("\n")}
 ```
 
 
+## Context Parameter
+
+If you define a second parameter in an exported `custom-backend-task` file function, you can access the `context` object. This object is a JSON object that contains the following fields:
+
+  - `cwd` - the current working directory for the `BackendTask`, set by calls to [`BackendTask.inDir`](BackendTask#inDir). If you don't use `BackendTask.inDir`, this will be the directory from which you are invoking `elm-pages`.
+  - `env` - the environment variables for the `BackendTask`, set by calls to [`BackendTask.withEnv`](BackendTask#withEnv)
+  - `quiet` - a boolean that is `true` if the `BackendTask` is running in quiet mode, set by calls to [`BackendTask.quiet`](BackendTask#quiet)
+
+If your `BackendTask.Custom` implementation depends on relative file paths, `process.env`, or has logging, it is recommended to use the `context.cwd` and `context.env` fields to ensure
+that the behavior of your `BackendTask.Custom` is consistent with the core `BackendTask` definitions provided by the framework. For example, the [`BackendTask.Glob`](BackendTask-Glob)
+API will resolve glob patterns relative to the `cwd` context.
+
+```js
+import toml from 'toml';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+
+export async function readTomlFile(relativeFilePath, context) {
+  const filePath = path.resolve(context.cwd, relativeFilePath);
+  // toml.parse returns a JSON representation of the TOML input
+  return toml.parse(fs.readFile(filePath));
+}
+```
+
+        import BackendTask exposing (BackendTask)
+        import BackendTask.Custom
+        import Json.Encode
+        import OptimizedDecoder as Decode
+
+        data : BackendTask FatalError String
+        data =
+            BackendTask.Custom.run "parseTomlFile"
+                (Json.Encode.string "my-file.toml")
+                myJsonDecoder
+                |> BackendTask.allowFatal
+
+
 ## Performance
 
 As with any JavaScript or NodeJS code, avoid doing blocking IO operations. For example, avoid using `fs.readFileSync`, because blocking IO can slow down your elm-pages builds and dev server. `elm-pages` performs all `BackendTask`'s in parallel whenever possible.
