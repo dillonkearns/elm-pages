@@ -1,7 +1,7 @@
 module BackendTask.Shell exposing
-    ( Command
-    , sh
-    , command, exec
+    ( sh
+    , Command, command
+    , exec
     , withTimeout
     , stdout, run, text
     , pipe
@@ -10,14 +10,20 @@ module BackendTask.Shell exposing
 
 {-|
 
-@docs Command
+@docs sh
+
+
+## Building Commands
+
+For more sophisticated commands, you can build a `Command` using the `command` function, which you can then use to
+pipe together multiple `Command`s, and to capture or decode their final output.
+
+@docs Command, command
 
 
 ## Executing Commands
 
-@docs sh
-
-@docs command, exec
+@docs exec
 
 @docs withTimeout
 
@@ -205,7 +211,38 @@ tryJson jsonDecoder command_ =
             )
 
 
-{-| -}
+{-| The simplest way to execute a shell command when you don't need to capture its output or do more sophisticated error handling.
+
+This behaves similarly to running a simple command in a shell script. For example, if you have a bash script like this:
+
+```bash
+#!/bin/bash
+
+elm make example/Main.elm --output=/dev/null
+```
+
+You will see the output of the `elm make` command in the console, and if the command fails, the script will fail with a non-zero exit code.
+
+Similarly in this example, the `Shell.sh` command runs the `elm make` and prints the output to the console.
+If the command fails, the `FatalError` will fail the script with a non-zero exit code.
+
+    module MyScript exposing (run)
+
+    import BackendTask.Shell
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Shell.sh
+                "elm"
+                [ "make"
+                , "example/Main.elm"
+                , "--output=/dev/null"
+                ]
+            )
+
+-}
 sh : String -> List String -> BackendTask FatalError ()
 sh command_ args =
     command command_ args |> exec
