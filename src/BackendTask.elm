@@ -6,7 +6,8 @@ module BackendTask exposing
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
     , allowFatal, mapError, onError, toResult, failIf
-    , do, doEach, inDir, quiet, sequence, withEnv
+    , do, doEach, sequence
+    , inDir, quiet, withEnv
     )
 
 {-| In an `elm-pages` app, each Route Module can define a value `data` which is a `BackendTask` that will be resolved **before** `init` is called. That means it is also available
@@ -88,7 +89,22 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 ## Scripting
 
-@docs do, doEach, inDir, quiet, sequence, withEnv
+@docs do, doEach, sequence
+
+
+## BackendTask Context
+
+You can set the following context for a `BackendTask`:
+
+  - `inDir` - Set the working directory
+  - `quiet` - Silence the output
+  - `withEnv` - Set an environment variable
+
+It's important to understand that a `BackendTask` does not run until it is passed to the `elm-pages` runtime (it is _not_ run as soon as it is defined,
+like you may be familiar with in other languages like JavaScript). So you can use these functions to set the context
+of a `BackendTask` at any point before you pass it to and it will be applied when the `BackendTask` is run.
+
+@docs inDir, quiet, withEnv
 
 -}
 
@@ -133,7 +149,70 @@ map fn requestInfo =
                 (mapLookupFn fn lookupFn)
 
 
-{-| -}
+{-| `inDir` sets the working directory for a `BackendTask`. The working directory of a `BackendTask` will be used to resolve relative paths
+and is relevant for the following types of `BackendTask`s:
+
+  - Reading files ([`BackendTask.File`](BackendTask-File))
+  - Running glob patterns ([`BackendTask.Glob`](BackendTask-Glob))
+  - Executing shell commands ([`BackendTask.Shell`](BackendTask-Shell))
+
+See the BackendTask Context section for more about how setting context works.
+
+For example, these two values will produce the same result:
+
+    import BackendTask.Glob as Glob
+
+    example1 : BackendTask error (List String)
+    example1 =
+        Glob.fromString "src/**/*.elm"
+
+    example2 : BackendTask error (List String)
+    example2 =
+        BackendTask.inDir "src" (Glob.fromString "**/*.elm")
+
+You can also nest the working directory by using `inDir` multiple times:
+
+    import BackendTask.Glob as Glob
+
+    example3 : BackendTask error (List String)
+    example3 =
+        BackendTask.map2
+            (\routeModules specialModules ->
+                { routeModules = routeModules
+                , specialModules = specialModules
+                }
+            )
+            (BackendTask.inDir "Route" (Glob.fromString "**/*.elm"))
+            (Glob.fromString "*.elm")
+            |> BackendTask.inDir "app"
+
+The above example will list out files from `app/Route/**/*.elm` and `app/*.elm` because `inDir "app"` is applied to the `BackendTask.map2` which combines together both of the Glob tasks.
+
+`inDir` supports absolute paths. In this example, we apply a relative path on top of an absolute path, so the relative path will be resolved relative to the absolute path.
+
+    import BackendTask.Glob as Glob
+
+    example3 : BackendTask error (List String)
+    example3 =
+        BackendTask.map2
+            (\routeModules specialModules ->
+                { routeModules = routeModules
+                , specialModules = specialModules
+                }
+            )
+            -- same as `Glob.fromString "/projects/my-elm-pages-blog/app/Route/**/*.elm"`
+            (BackendTask.inDir "Route" (Glob.fromString "**/*.elm"))
+            (Glob.fromString "*.elm")
+            |> BackendTask.inDir "/projects/my-elm-pages-blog/app"
+
+You can also use `BackendTask.inDir ".."` to go up a directory, or \`BackendTask.inDir "../.." to go up two directories, etc.
+
+Use of trailing slashes is optional and does not change the behavior of `inDir`. Leading slashes distinguish between
+absolute and relative paths, so `BackendTask.inDir "./src"` is exactly the same as `BackendTask.inDir "src"`, etc.
+
+Each level of nesting with `inDir` will resolve using [NodeJS's `path.resolve`](https://nodejs.org/api/path.html#pathresolvepaths).
+
+-}
 inDir : String -> BackendTask error value -> BackendTask error value
 inDir dir backendTask =
     -- elm-review: known-unoptimized-recursion
