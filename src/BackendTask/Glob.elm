@@ -1043,26 +1043,15 @@ encodeOptions options =
     , ( "caseSensitiveMatch", Encode.bool options.caseSensitiveMatch ) |> Just
     , ( "gitignore", Encode.bool options.gitignore ) |> Just
     , options.maxDepth |> Maybe.map (\depth -> ( "deep", Encode.int depth ))
-    , ( "onlyFiles"
-      , (if options.include == FilesAndFolders then
-            False
+    , case options.include of
+        OnlyFiles ->
+            ( "onlyFiles", Encode.bool True ) |> Just
 
-         else
-            options.include == OnlyFiles
-        )
-            |> Encode.bool
-      )
-        |> Just
-    , ( "onlyDirectories"
-      , (if options.include == FilesAndFolders then
-            False
+        OnlyFolders ->
+            ( "onlyDirectories", Encode.bool True ) |> Just
 
-         else
-            options.include == OnlyFolders
-        )
-            |> Encode.bool
-      )
-        |> Just
+        FilesAndFolders ->
+            ( "onlyFiles", Encode.bool False ) |> Just
     , ( "stats", Encode.bool True ) |> Just
     ]
         |> List.filterMap identity
