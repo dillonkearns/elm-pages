@@ -9,7 +9,7 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
 
 /**
  * @param {string} mode
- * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body;}} rawRequest
+ * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body; }} rawRequest
  * @param {Record<string, unknown>} portsFile
  * @param {boolean} hasFsAccess
  * @returns {Promise<Response>}
@@ -93,11 +93,16 @@ export function lookupOrPerform(
           });
         } else {
           console.time(`BackendTask.Custom.run "${portName}"`);
+          let context = {
+            cwd: path.resolve(...rawRequest.dir),
+            quiet: rawRequest.quiet,
+            env: { ...process.env, ...rawRequest.env },
+          }
           try {
             resolve({
               kind: "response-json",
               value: jsonResponse(
-                toElmJson(await portBackendTask[portName](input))
+                toElmJson(await portBackendTask[portName](input, context))
               ),
             });
           } catch (portCallError) {
