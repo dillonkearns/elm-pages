@@ -56,7 +56,6 @@ command command_ args =
         , quiet = False
         , timeout = Nothing
         , decoder = Just
-        , cwd = Nothing
         }
 
 
@@ -82,7 +81,6 @@ type Command stdout
         , quiet : Bool
         , timeout : Maybe Int
         , decoder : String -> Maybe stdout
-        , cwd : Maybe String
         }
 
 
@@ -94,7 +92,6 @@ map mapFn (Command command_) =
         , quiet = command_.quiet
         , timeout = command_.timeout
         , decoder = command_.decoder >> Maybe.map mapFn
-        , cwd = command_.cwd
         }
 
 
@@ -106,7 +103,6 @@ tryMap mapFn (Command command_) =
         , quiet = command_.quiet
         , timeout = command_.timeout
         , decoder = command_.decoder >> Maybe.andThen mapFn
-        , cwd = command_.cwd
         }
 
 
@@ -118,7 +114,6 @@ binary (Command command_) =
         , quiet = command_.quiet
         , timeout = command_.timeout
         , decoder = Base64.toBytes
-        , cwd = command_.cwd
         }
 
 
@@ -170,13 +165,6 @@ pipe (Command to) (Command from) =
         , quiet = to.quiet
         , timeout = to.timeout
         , decoder = to.decoder
-        , cwd =
-            case to.cwd of
-                Just cwd ->
-                    Just cwd
-
-                Nothing ->
-                    from.cwd
         }
 
 
@@ -190,21 +178,13 @@ run :
             }
             { output : String, stderr : String, stdout : String }
 run (Command options_) =
-    shell__
-        { commands = options_.command
-        , cwd = options_.cwd
-        }
-        True
+    shell__ options_.command True
 
 
 {-| -}
 exec : Command stdout -> BackendTask FatalError ()
 exec (Command options_) =
-    shell__
-        { commands = options_.command
-        , cwd = options_.cwd
-        }
-        False
+    shell__ options_.command False
         |> BackendTask.allowFatal
         |> BackendTask.map (\_ -> ())
 
@@ -228,7 +208,7 @@ sh command_ args =
 
 {-| -}
 shell__ :
-    Command_
+    List SubCommand
     -> Bool
     ->
         BackendTask
@@ -270,17 +250,10 @@ shell__ commandsAndArgs captureOutput =
             )
 
 
-type alias Command_ =
-    { cwd : Maybe String
-    , commands : List SubCommand
-    }
-
-
-commandsAndArgsEncoder : Command_ -> Bool -> Encode.Value
+commandsAndArgsEncoder : List SubCommand -> Bool -> Encode.Value
 commandsAndArgsEncoder commandsAndArgs captureOutput =
     Encode.object
-        [ ( "cwd", nullable Encode.string commandsAndArgs.cwd )
-        , ( "captureOutput", Encode.bool captureOutput )
+        [ ( "captureOutput", Encode.bool captureOutput )
         , ( "commands"
           , Encode.list
                 (\sub ->
@@ -290,7 +263,7 @@ commandsAndArgsEncoder commandsAndArgs captureOutput =
                         , ( "timeout", sub.timeout |> nullable Encode.int )
                         ]
                 )
-                commandsAndArgs.commands
+                commandsAndArgs
           )
         ]
 
