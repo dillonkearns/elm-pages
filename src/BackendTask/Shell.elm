@@ -223,8 +223,8 @@ elm make example/Main.elm --output=/dev/null
 
 You will see the output of the `elm make` command in the console, and if the command fails, the script will fail with a non-zero exit code.
 
-Similarly in this example, the `Shell.sh` command runs the `elm make` and prints the output to the console.
-If the command fails, the `FatalError` will fail the script with a non-zero exit code.
+Similarly in this example, the `Shell.sh` command runs `elm make` and prints the output to the console.
+If the command fails, the script will fail with the `FatalError` that `Shell.sh` returns because of the command's non-zero exit code.
 
     module MyScript exposing (run)
 
