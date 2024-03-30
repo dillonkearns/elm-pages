@@ -55,7 +55,7 @@ command command_ args =
         { command = [ subCommand command_ args ]
         , quiet = False
         , timeout = Nothing
-        , decoder = Just
+        , decoder = Ok
         }
 
 
@@ -80,7 +80,7 @@ type Command stdout
         { command : List SubCommand
         , quiet : Bool
         , timeout : Maybe Int
-        , decoder : String -> Maybe stdout
+        , decoder : String -> Result String stdout
         }
 
 
@@ -91,18 +91,18 @@ map mapFn (Command command_) =
         { command = command_.command
         , quiet = command_.quiet
         , timeout = command_.timeout
-        , decoder = command_.decoder >> Maybe.map mapFn
+        , decoder = command_.decoder >> Result.map mapFn
         }
 
 
 {-| -}
-tryMap : (a -> Maybe b) -> Command a -> Command b
+tryMap : (a -> Result String b) -> Command a -> Command b
 tryMap mapFn (Command command_) =
     Command
         { command = command_.command
         , quiet = command_.quiet
         , timeout = command_.timeout
-        , decoder = command_.decoder >> Maybe.andThen mapFn
+        , decoder = command_.decoder >> Result.andThen mapFn
         }
 
 
@@ -113,7 +113,7 @@ binary (Command command_) =
         { command = command_.command
         , quiet = command_.quiet
         , timeout = command_.timeout
-        , decoder = Base64.toBytes
+        , decoder = Base64.toBytes >> Result.fromMaybe "Failed to decode base64 output."
         }
 
 
@@ -148,12 +148,16 @@ stdout ((Command command_) as fullCommand) =
         |> BackendTask.andThen
             (\output ->
                 case output.stdout |> command_.decoder of
-                    Just okStdout ->
+                    Ok okStdout ->
                         BackendTask.succeed okStdout
 
-                    Nothing ->
-                        -- TODO provide decoder error message here! Need Result instead of Maybe.
-                        BackendTask.fail (FatalError.fromString "Decoder failed")
+                    Err message ->
+                        BackendTask.fail
+                            (FatalError.build
+                                { title = "stdout decoder failed"
+                                , body = "The stdout decoder failed with the following message: \n\n" ++ message
+                                }
+                            )
             )
 
 
@@ -195,8 +199,9 @@ tryJson jsonDecoder command_ =
     command_
         |> tryMap
             (\jsonString ->
-                Decode.decodeString jsonDecoder jsonString
-                    |> Result.toMaybe
+                jsonString
+                    |> Decode.decodeString jsonDecoder
+                    |> Result.mapError Decode.errorToString
             )
 
 
