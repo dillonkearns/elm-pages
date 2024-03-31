@@ -1,11 +1,11 @@
 module BackendTask.Shell exposing
     ( sh
-    , Command, command
+    , Command, command, pipe
+    , stdout, run, text
+    , tryJson, map, tryMap
+    , binary
     , exec
     , withTimeout
-    , stdout, run, text
-    , pipe
-    , binary, tryJson, map, tryMap
     )
 
 {-|
@@ -18,14 +18,7 @@ module BackendTask.Shell exposing
 For more sophisticated commands, you can build a `Command` using the `command` function, which you can then use to
 pipe together multiple `Command`s, and to capture or decode their final output.
 
-@docs Command, command
-
-
-## Executing Commands
-
-@docs exec
-
-@docs withTimeout
+@docs Command, command, pipe
 
 
 ## Capturing Output
@@ -33,14 +26,18 @@ pipe together multiple `Command`s, and to capture or decode their final output.
 @docs stdout, run, text
 
 
-## Piping Commands
-
-@docs pipe
-
-
 ## Output Decoders
 
-@docs binary, tryJson, map, tryMap
+@docs tryJson, map, tryMap
+
+@docs binary
+
+
+## Executing Commands
+
+@docs exec
+
+@docs withTimeout
 
 -}
 
@@ -80,7 +77,8 @@ type alias SubCommand =
     }
 
 
-{-| -}
+{-| A shell command which can be executed, or piped together with other commands.
+-}
 type Command stdout
     = Command
         { command : List SubCommand
@@ -144,7 +142,42 @@ text command_ =
 --redirect : Command -> ???
 
 
-{-| -}
+{-| Runs the command (which could be a pipeline of sub-commands), and captures stdout from the final portion of the pipeline.
+Then decodes stdout using any decoder used to transform the value, or fails with a `FatalError` if the decoder fails.
+
+    import BackendTask.Shell as Shell exposing (Command)
+
+    example : BackendTask FatalError String
+    example =
+        Shell.command "ls" [ "-l" ]
+            |> Shell.stdout
+
+Note that the output for intermediary commands in the pipeline is not captured but rather is piped through directly
+to the next command in the pipeline. So every time you use `pipe` to add to the pipeline you are overwriting the decoder.
+
+For example, we could define a command for counting lines using `wc`:
+
+    countLines : Shell.Command Int
+    countLines =
+        Shell.command "wc" [ "-l" ]
+            |> Shell.tryMap
+                (\count ->
+                    count
+                        |> String.toInt
+                        |> Result.fromMaybe "Failed to parse line count"
+                )
+
+If we use `countLines` at the very end of any pipeline, `stdout` will give us an `Int`.
+
+    import BackendTask.Shell as Shell exposing (Command)
+
+    example : BackendTask FatalError Int
+    example =
+        Shell.command "ls" [ "-l" ]
+            |> Shell.pipe countLines
+            |> Shell.stdout
+
+-}
 stdout : Command stdout -> BackendTask FatalError stdout
 stdout ((Command command_) as fullCommand) =
     fullCommand
