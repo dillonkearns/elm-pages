@@ -150,11 +150,8 @@ async function main() {
           debug: "debug",
           executableName,
           mainModule: "ScriptMain",
+          isScript: true,
         });
-        fs.renameSync(
-          `${projectDirectory}/elm-stuff/elm-pages/elm.js`,
-          `${projectDirectory}/elm-stuff/elm-pages/elm.cjs`
-        );
         process.chdir(cwd);
         await renderer.runGenerator(
           unprocessedCliOptions,
@@ -203,6 +200,7 @@ async function main() {
         debug: options.debug,
         executableName,
         mainModule: "ScriptMain",
+        isScript: true,
       });
       // await runTerser(`${projectDirectory}/elm-stuff/elm-pages/elm.js`);
       fs.renameSync(

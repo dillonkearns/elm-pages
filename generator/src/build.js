@@ -686,15 +686,22 @@ function _HtmlAsJson_toJson(html) {
 
   await fsPromises.writeFile(
     ELM_FILE_PATH().replace(/\.js$/, ".cjs"),
-    elmFileContent
+    applyScriptPatches(options, elmFileContent
       .replace(
         /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
         `return ${forceThunksSource}
   return _Json_wrap(forceThunks(html));
 `
       )
-      .replace(`console.log('App dying')`, "")
-  );
+      .replace(`console.log('App dying')`, "")));
+}
+
+function applyScriptPatches(options, input) {
+  if (options.isScript) {
+    return input.replace(`_Debug_crash(8, moduleName, region, message)`, "console.error('TODO in module `' + moduleName + '` ' + _Debug_regionToString(region) + '\\n\\n' + message); process.exitCode = 1; debugger; throw 'CRASH!';");
+  } else {
+    return input;
+  }
 }
 
 async function runAdapter(adaptFn, processedIndexTemplate) {
