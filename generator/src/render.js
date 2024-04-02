@@ -17,6 +17,10 @@ import { Spinnies } from './spinnies/index.js'
 import { default as which } from "which";
 import * as readline from "readline";
 import { spawn as spawnCallback } from "cross-spawn";
+import * as consumers from 'stream/consumers'
+import * as zlib from 'node:zlib'
+import { Readable } from "node:stream";
+
 
 
 let verbosity = 2;
@@ -515,6 +519,8 @@ async function runInternalJob(
       return [requestHash, await runQuestion(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://shell") {
       return [requestHash, await runShell(requestToPerform)];
+    } else if (requestToPerform.url === "elm-pages-internal://stream") {
+      return [requestHash, await runStream(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
       return [requestHash, runStartSpinner(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
@@ -570,6 +576,80 @@ async function runWhich(req) {
 
 async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
+}
+function runStream(req) {
+  return new Promise(async (resolve, reject) => {
+    try {
+    const cwd = path.resolve(...req.dir);
+    const quiet = req.quiet;
+    const env = { ...process.env, ...req.env };
+    const kind = req.body.args[0].kind;
+    const parts = req.body.args[0].parts;
+    let lastStream = null;
+
+      parts.forEach((part, index) => {
+        let isLastProcess = index === parts.length - 1;
+        let thisStream = pipePartToStream(lastStream, part, { cwd, quiet, env });
+        lastStream = thisStream;
+      });
+      if (kind === "json") {
+        resolve(jsonResponse(req, await consumers.json(lastStream)));
+      } else if (kind === "text") {
+        resolve(jsonResponse(req, await consumers.text(lastStream)));
+      } else {
+        lastStream.once("finish", async () => {
+          resolve(jsonResponse(req, null));
+        });
+      }
+
+      lastStream.once("error", (error) => {
+        console.log('Stream error!');
+        console.error(error);
+        reject(jsonResponse(req, null));
+      });
+
+    } catch (error) {
+      console.trace(error);
+      process.exit(1);
+    }
+  });
+}
+
+/**
+ * 
+ * @param {import('node:stream').Stream} lastStream 
+ * @param {{ name: string }} part 
+ * @param {{cwd: string, quiet: boolean, env: object}} param2 
+ * @returns 
+ */
+function pipePartToStream(lastStream, part, { cwd, quiet, env }) {
+  if (verbosity > 1 && !quiet) {
+  }
+  if (part.name === "stdout") {
+    return lastStream.pipe(process.stdout);
+  } else if (part.name === "stdin") {
+    return process.stdin;
+  } else if (part.name === "fileRead") {
+    return fs.createReadStream(part.path);
+  } else if (part.name === "gzip") {
+    return lastStream.pipe(zlib.createGzip());
+  } else if (part.name === "unzip") {
+    return lastStream.pipe(zlib.createUnzip());
+  } else if (part.name === "fileWrite") {
+    return lastStream.pipe(fs.createWriteStream(part.path));
+  } else if (part.name === "command") {
+    const {command, args} = part;
+    const newProcess = spawnCallback(command, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    lastStream && lastStream.pipe(newProcess.stdin);
+    return newProcess.stdout;
+  } else if (part.name === "fromString") {
+    return Readable.from([part.string]);
+  } else {
+    console.error(`Unknown stream part: ${part.name}!`);
+    process.exit(1);
+  }
 }
 
 async function runShell(req) {
