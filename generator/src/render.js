@@ -630,17 +630,19 @@ function pipePartToStream(lastStream, part, { cwd, quiet, env }) {
   } else if (part.name === "stdin") {
     return process.stdin;
   } else if (part.name === "fileRead") {
-    return fs.createReadStream(part.path);
+    return fs.createReadStream(path.resolve(cwd, part.path));
   } else if (part.name === "gzip") {
     return lastStream.pipe(zlib.createGzip());
   } else if (part.name === "unzip") {
     return lastStream.pipe(zlib.createUnzip());
   } else if (part.name === "fileWrite") {
-    return lastStream.pipe(fs.createWriteStream(part.path));
+    return lastStream.pipe(fs.createWriteStream(path.resolve(part.path)));
   } else if (part.name === "command") {
     const {command, args} = part;
     const newProcess = spawnCallback(command, args, {
       stdio: ["pipe", "pipe", "pipe"],
+      cwd: cwd,
+      env: env,
     });
     lastStream && lastStream.pipe(newProcess.stdin);
     return newProcess.stdout;
