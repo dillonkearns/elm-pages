@@ -515,7 +515,7 @@ requestRaw request__ expect =
 
                             Nothing ->
                                 --Err (Pages.StaticHttpRequest.UserCalledStaticHttpFail ("INTERNAL ERROR - expected request" ++ request_.url))
-                                Err (BadBody Nothing ("INTERNAL ERROR - expected request" ++ request_.url))
+                                Err (BadBody Nothing ("INTERNAL ERROR - expected request " ++ request_.url))
 
                             Just (Err RequestsAndPending.NetworkError) ->
                                 Err NetworkError
