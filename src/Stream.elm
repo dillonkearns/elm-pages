@@ -5,6 +5,7 @@ module Stream exposing
     , commandWithOptions
     , CommandOptions, defaultCommandOptions, allowNon0Status, inheritUnused, withOutput, withTimeout
     , OutputChannel(..)
+    , customRead, customWrite, customDuplex
     )
 
 {-|
@@ -26,6 +27,11 @@ module Stream exposing
 @docs CommandOptions, defaultCommandOptions, allowNon0Status, inheritUnused, withOutput, withTimeout
 
 @docs OutputChannel
+
+
+## Custom Streams
+
+@docs customRead, customWrite, customDuplex
 
 -}
 
@@ -74,6 +80,33 @@ fileRead path =
 fileWrite : String -> Stream { read : Never, write : () }
 fileWrite path =
     single "fileWrite" [ ( "path", Encode.string path ) ]
+
+
+{-| -}
+customRead : String -> Encode.Value -> Stream { read : (), write : Never }
+customRead name input =
+    single "customRead"
+        [ ( "portName", Encode.string name )
+        , ( "input", input )
+        ]
+
+
+{-| -}
+customWrite : String -> Encode.Value -> Stream { read : Never, write : () }
+customWrite name input =
+    single "customWrite"
+        [ ( "portName", Encode.string name )
+        , ( "input", input )
+        ]
+
+
+{-| -}
+customDuplex : String -> Encode.Value -> Stream { read : (), write : () }
+customDuplex name input =
+    single "customDuplex"
+        [ ( "portName", Encode.string name )
+        , ( "input", input )
+        ]
 
 
 {-| -}

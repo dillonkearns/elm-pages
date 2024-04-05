@@ -1,10 +1,13 @@
 module StreamTests exposing (run)
 
 import BackendTask exposing (BackendTask)
+import BackendTask.Custom
+import BackendTask.Http
 import BackendTaskTest exposing (testScript)
 import Expect
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Pages.Script as Script exposing (Script)
 import Stream exposing (Stream)
 import Test
@@ -30,6 +33,17 @@ run =
                 (\() ->
                     Expect.pass
                 )
+        , BackendTask.Custom.run "hello"
+            Encode.null
+            Decode.string
+            |> try
+            |> test "custom task"
+                (Expect.equal "Hello!")
+        , Stream.fromString "asdf\nqwer\n"
+            |> Stream.pipe (Stream.customDuplex "upperCaseStream" Encode.null)
+            |> Stream.read
+            |> test "custom duplex"
+                (Expect.equal "ASDF\nQWER\n")
         , Stream.fileRead "elm.json"
             |> Stream.pipe Stream.gzip
             |> Stream.pipe (Stream.fileWrite zipFile)

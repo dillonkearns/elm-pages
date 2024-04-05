@@ -197,7 +197,8 @@ function runGeneratorAppHelp(
                     mode,
                     requestToPerform,
                     hasFsAccess,
-                    patternsToWatch
+                    patternsToWatch,
+                    portsFile
                   );
                 } else {
                   return runHttpJob(
@@ -335,7 +336,8 @@ function runElmApp(
                     mode,
                     requestToPerform,
                     hasFsAccess,
-                    patternsToWatch
+                    patternsToWatch,
+                    portsFile
                   );
                 } else {
                   return runHttpJob(
@@ -476,7 +478,8 @@ async function runInternalJob(
   mode,
   requestToPerform,
   hasFsAccess,
-  patternsToWatch
+  patternsToWatch,
+  portsFile
 ) {
   try {
     if (requestToPerform.url === "elm-pages-internal://log") {
@@ -521,7 +524,7 @@ async function runInternalJob(
     } else if (requestToPerform.url === "elm-pages-internal://shell") {
       return [requestHash, await runShell(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://stream") {
-      return [requestHash, await runStream(requestToPerform)];
+      return [requestHash, await runStream(requestToPerform, portsFile)];
     } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
       return [requestHash, runStartSpinner(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
@@ -578,7 +581,7 @@ async function runWhich(req) {
 async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
-function runStream(req) {
+function runStream(req, portsFile) {
   return new Promise(async (resolve, reject) => {
     try {
     const cwd = path.resolve(...req.dir);
@@ -587,8 +590,9 @@ function runStream(req) {
     const kind = req.body.args[0].kind;
     const parts = req.body.args[0].parts;
     let lastStream = null;
+    let index = 0;
 
-      parts.forEach((part, index) => {
+      for (const part of parts) {
         let isLastProcess = index === parts.length - 1;
         let thisStream;
         if (isLastProcess && (kind === "command" || kind === "commandCode")) {
@@ -628,10 +632,11 @@ function runStream(req) {
               });
             }
         } else {
-          thisStream = pipePartToStream(lastStream, part, { cwd, quiet, env });
+          thisStream = await pipePartToStream(lastStream, part, { cwd, quiet, env }, portsFile);
         }
         lastStream = thisStream;
-      });
+        index += 1;
+      }
       if (kind === "json") {
         resolve(jsonResponse(req, await consumers.json(lastStream)));
       } else if (kind === "text") {
@@ -660,6 +665,7 @@ function runStream(req) {
   });
 }
 
+
 /**
  * 
  * @param {import('node:stream').Stream} lastStream 
@@ -667,7 +673,7 @@ function runStream(req) {
  * @param {{cwd: string, quiet: boolean, env: object}} param2 
  * @returns 
  */
-function pipePartToStream(lastStream, part, { cwd, quiet, env }) {
+async function pipePartToStream(lastStream, part, { cwd, quiet, env }, portsFile) {
   if (verbosity > 1 && !quiet) {
   }
   if (part.name === "stdout") {
@@ -676,6 +682,12 @@ function pipePartToStream(lastStream, part, { cwd, quiet, env }) {
     return process.stdin;
   } else if (part.name === "fileRead") {
     return fs.createReadStream(path.resolve(cwd, part.path));
+  } else if (part.name === "customDuplex") {
+    return portsFile[part.portName](part.input, { cwd, quiet, env });
+  } else if (part.name === "customRead") {
+    return portsFile[part.portName](part.input, { cwd, quiet, env });
+  } else if (part.name === "customWrite") {
+    return portsFile[part.portName](part.input, { cwd, quiet, env });
   } else if (part.name === "gzip") {
     return lastStream.pipe(zlib.createGzip());
   } else if (part.name === "unzip") {
