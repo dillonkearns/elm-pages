@@ -297,13 +297,21 @@ commandOutputDecoder =
 
 
 {-| -}
-captureCommandWithInput : String -> List String -> Stream { read : (), write : write } -> BackendTask FatalError CommandOutput
+captureCommandWithInput :
+    String
+    -> List String
+    -> Stream { read : (), write : write }
+    -> BackendTask { fatal : FatalError, recoverable : { code : Int, output : CommandOutput } } CommandOutput
 captureCommandWithInput command_ args_ stream =
     captureCommand_ command_ args_ (Just stream)
 
 
 {-| -}
-captureCommand_ : String -> List String -> Maybe (Stream { read : (), write : write }) -> BackendTask FatalError CommandOutput
+captureCommand_ :
+    String
+    -> List String
+    -> Maybe (Stream { read : (), write : write })
+    -> BackendTask { fatal : FatalError, recoverable : { code : Int, output : CommandOutput } } CommandOutput
 captureCommand_ command_ args_ maybeStream =
     BackendTask.Internal.Request.request
         { name = "stream"
@@ -325,7 +333,11 @@ captureCommand_ command_ args_ maybeStream =
 
 
 {-| -}
-runCommandWithInput : String -> List String -> Stream { read : (), write : write } -> BackendTask { fatal : FatalError, recoverable : Int } ()
+runCommandWithInput :
+    String
+    -> List String
+    -> Stream { read : (), write : write }
+    -> BackendTask { fatal : FatalError, recoverable : Int } ()
 runCommandWithInput command_ args_ maybeStream =
     runCommand_ command_ args_ (Just maybeStream)
 
@@ -371,13 +383,19 @@ runCommand_ command_ args_ maybeStream =
 
 
 {-| -}
-captureCommand : String -> List String -> BackendTask FatalError CommandOutput
+captureCommand :
+    String
+    -> List String
+    -> BackendTask { fatal : FatalError, recoverable : { code : Int, output : CommandOutput } } CommandOutput
 captureCommand command_ args_ =
     captureCommand_ command_ args_ Nothing
 
 
 {-| -}
-runCommand : String -> List String -> BackendTask { fatal : FatalError, recoverable : Int } ()
+runCommand :
+    String
+    -> List String
+    -> BackendTask { fatal : FatalError, recoverable : Int } ()
 runCommand command_ args_ =
     runCommand_ command_ args_ Nothing
 

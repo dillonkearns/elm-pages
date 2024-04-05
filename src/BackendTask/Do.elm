@@ -1,7 +1,7 @@
 module BackendTask.Do exposing
     ( do
     , noop
-    , sh, exec
+    , exec, command
     , glob, log, env
     , each, failIf
     )
@@ -51,7 +51,7 @@ recognize it as a continuation chain.
 
 ## Shell Commands
 
-@docs sh, exec
+@docs exec, command
 
 
 ## Common Utilities
@@ -65,7 +65,6 @@ recognize it as a continuation chain.
 import BackendTask exposing (BackendTask)
 import BackendTask.Env as Env
 import BackendTask.Glob as Glob
-import BackendTask.Shell as Shell
 import FatalError exposing (FatalError)
 import Pages.Script as Script
 
@@ -92,7 +91,7 @@ noop =
 {-| A continuation-style helper for [`Glob.fromString`](BackendTask-Glob#fromString).
 
 In a shell script, you can think of this as a stand-in for globbing files directly within a command. All commands in
-you run with [`BackendTask.Shell`](BackendTask-Shell) (including the [`sh`](#sh) and [`exec`](#exec) helpers)
+you run with [`BackendTask.Shell`](BackendTask-Shell) (including the [`sh`](#exec) and [`exec`](#command) helpers)
 sanitizes and escapes all arguments passed, and does not do glob expansion, so this is helpful for translating
 a shell script to Elm.
 
@@ -142,16 +141,15 @@ failIf condition error =
 
 
 {-| -}
-sh : String -> List String -> (() -> BackendTask FatalError b) -> BackendTask FatalError b
-sh command_ args_ =
-    do <| Shell.sh command_ args_
+exec : String -> List String -> (() -> BackendTask FatalError b) -> BackendTask FatalError b
+exec command_ args_ =
+    do <| Script.exec command_ args_
 
 
 {-| -}
-exec : Shell.Command stdout -> (() -> BackendTask FatalError b) -> BackendTask FatalError b
-exec command function =
-    command
-        |> Shell.exec
+command : String -> List String -> (String -> BackendTask FatalError b) -> BackendTask FatalError b
+command command_ args_ function =
+    Script.command command_ args_
         |> BackendTask.andThen function
 
 

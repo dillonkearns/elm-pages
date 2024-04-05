@@ -21,7 +21,6 @@
         "BackendTask.File",
         "BackendTask.Custom",
         "BackendTask.Env",
-        "BackendTask.Shell",
         "Stream",
         "BackendTask.Do",
         "Server.Request",

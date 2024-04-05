@@ -2,6 +2,7 @@ module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
     , writeFile
+    , command, exec
     , log, sleep, doThen, which, expectWhich, question
     , Error(..)
     )
@@ -21,6 +22,11 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 ## File System Utilities
 
 @docs writeFile
+
+
+## Shell Commands
+
+@docs command, exec
 
 
 ## Utilities
@@ -43,6 +49,7 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
+import Stream
 
 
 {-| The type for your `run` function that can be executed by `elm-pages run`.
@@ -193,9 +200,9 @@ doThen task1 task2 =
 
 {-| -}
 which : String -> BackendTask error (Maybe String)
-which command =
+which command_ =
     BackendTask.Internal.Request.request
-        { body = BackendTask.Http.jsonBody (Encode.string command)
+        { body = BackendTask.Http.jsonBody (Encode.string command_)
         , expect = BackendTask.Http.expectJson (Decode.nullable Decode.string)
         , name = "which"
         }
@@ -203,8 +210,8 @@ which command =
 
 {-| -}
 expectWhich : String -> BackendTask FatalError String
-expectWhich command =
-    which command
+expectWhich command_ =
+    which command_
         |> BackendTask.andThen
             (\maybePath ->
                 case maybePath of
@@ -215,7 +222,7 @@ expectWhich command =
                         BackendTask.fail
                             (FatalError.build
                                 { title = "Command not found"
-                                , body = "I expected to find `" ++ command ++ "`, but it was not on your PATH. Make sure it is installed and included in your PATH."
+                                , body = "I expected to find `" ++ command_ ++ "`, but it was not on your PATH. Make sure it is installed and included in your PATH."
                                 }
                             )
             )
@@ -231,3 +238,18 @@ question prompt =
         , expect = BackendTask.Http.expectJson Decode.string
         , name = "question"
         }
+
+
+{-| -}
+exec : String -> List String -> BackendTask FatalError ()
+exec command_ args_ =
+    Stream.runCommand command_ args_
+        |> BackendTask.allowFatal
+
+
+{-| -}
+command : String -> List String -> BackendTask FatalError String
+command command_ args_ =
+    Stream.captureCommand command_ args_
+        |> BackendTask.allowFatal
+        |> BackendTask.map .combined
