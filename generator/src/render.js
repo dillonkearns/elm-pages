@@ -13,13 +13,12 @@ import { compatibilityKey } from "./compatibility-key.js";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
-import { Spinnies } from './spinnies/index.js'
+import { Spinnies } from "./spinnies/index.js";
 import { default as which } from "which";
 import * as readline from "readline";
 import { spawn as spawnCallback } from "cross-spawn";
-import {ChildProcess} from 'node:child_process';
-import * as consumers from 'stream/consumers'
-import * as zlib from 'node:zlib'
+import * as consumers from "stream/consumers";
+import * as zlib from "node:zlib";
 import { Readable } from "node:stream";
 import * as validateStream from "./validate-stream.js";
 
@@ -767,16 +766,27 @@ async function runShell(req) {
   const env = { ...process.env, ...req.env };
   const captureOutput = req.body.args[0].captureOutput;
   if (req.body.args[0].commands.length === 1) {
-    return jsonResponse(req, await shell({ cwd, quiet, env, captureOutput }, req.body.args[0]));
+    return jsonResponse(
+      req,
+      await shell({ cwd, quiet, env, captureOutput }, req.body.args[0])
+    );
   } else {
-    return jsonResponse(req, await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0]));
+    return jsonResponse(
+      req,
+      await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0])
+    );
   }
 }
 
 function commandAndArgsToString(cwd, commandsAndArgs) {
-  return `$ ` + (commandsAndArgs.commands.map((commandAndArgs) => {
-    return [ commandAndArgs.command, ...commandAndArgs.args ].join(" ");
-  }).join(" | "));
+  return (
+    `$ ` +
+    commandsAndArgs.commands
+      .map((commandAndArgs) => {
+        return [commandAndArgs.command, ...commandAndArgs.args].join(" ");
+      })
+      .join(" | ")
+  );
 }
 
 export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
@@ -788,40 +798,52 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
     }
     if (!captureOutput && !quiet) {
       const subprocess = spawnCallback(command, args, {
-        stdio: quiet ? ['inherit', 'ignore', 'ignore'] : ['inherit', 'inherit', 'inherit'],
+        stdio: quiet
+          ? ["inherit", "ignore", "ignore"]
+          : ["inherit", "inherit", "inherit"],
         cwd: cwd,
         env: env,
       });
-    subprocess.on("close", async (code) => {
-      resolve({ output: "", errorCode: code, stderrOutput: "", stdoutOutput: "" });
-    });
+      subprocess.on("close", async (code) => {
+        resolve({
+          output: "",
+          errorCode: code,
+          stderrOutput: "",
+          stdoutOutput: "",
+        });
+      });
     } else {
-    const subprocess = spawnCallback(command, args, {
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: cwd,
-      env: env,
-    });
-    let commandOutput = "";
-    let stderrOutput = "";
-    let stdoutOutput = "";
+      const subprocess = spawnCallback(command, args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        cwd: cwd,
+        env: env,
+      });
+      let commandOutput = "";
+      let stderrOutput = "";
+      let stdoutOutput = "";
 
-    if (verbosity > 0 && !quiet) {
-      subprocess.stdout.pipe(process.stdout);
-      subprocess.stderr.pipe(process.stderr);
+      if (verbosity > 0 && !quiet) {
+        subprocess.stdout.pipe(process.stdout);
+        subprocess.stderr.pipe(process.stderr);
+      }
+      subprocess.stderr.on("data", function (data) {
+        commandOutput += data;
+        stderrOutput += data;
+      });
+      subprocess.stdout.on("data", function (data) {
+        commandOutput += data;
+        stdoutOutput += data;
+      });
+
+      subprocess.on("close", async (code) => {
+        resolve({
+          output: commandOutput,
+          errorCode: code,
+          stderrOutput,
+          stdoutOutput,
+        });
+      });
     }
-    subprocess.stderr.on("data", function (data) {
-      commandOutput += data;
-      stderrOutput += data;
-    });
-    subprocess.stdout.on("data", function (data) {
-      commandOutput += data;
-      stdoutOutput += data;
-    });
-
-    subprocess.on("close", async (code) => {
-      resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
-    });
-  }
   });
 }
 
@@ -832,92 +854,103 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
 /**
  * @param {{ commands: ElmCommand[] }} commandsAndArgs
  */
-export function pipeShells({ cwd, quiet, env, captureOutput }, commandsAndArgs) {
+export function pipeShells(
+  { cwd, quiet, env, captureOutput },
+  commandsAndArgs
+) {
   return new Promise((resolve, reject) => {
     if (verbosity > 1 && !quiet) {
       console.log(commandAndArgsToString(cwd, commandsAndArgs));
     }
 
-      /**
-       * @type {null | import('node:child_process').ChildProcess}
-       */
-      let previousProcess = null;
-      let currentProcess = null;
+    /**
+     * @type {null | import('node:child_process').ChildProcess}
+     */
+    let previousProcess = null;
+    let currentProcess = null;
 
-      commandsAndArgs.commands.forEach(({command, args, timeout }, index) => {
-        let isLastProcess = index === commandsAndArgs.commands.length - 1;
+    commandsAndArgs.commands.forEach(({ command, args, timeout }, index) => {
+      let isLastProcess = index === commandsAndArgs.commands.length - 1;
       /**
        * @type {import('node:child_process').ChildProcess}
        */
-        if (previousProcess === null) {
+      if (previousProcess === null) {
+        currentProcess = spawnCallback(command, args, {
+          stdio: ["inherit", "pipe", "inherit"],
+          timeout: timeout ? undefined : timeout,
+          cwd: cwd,
+          env: env,
+        });
+      } else {
+        if (isLastProcess && !captureOutput) {
           currentProcess = spawnCallback(command, args, {
-            stdio: ['inherit', 'pipe', 'inherit'],
+            stdio: quiet
+              ? ["pipe", "ignore", "ignore"]
+              : ["pipe", "inherit", "inherit"],
             timeout: timeout ? undefined : timeout,
             cwd: cwd,
             env: env,
           });
         } else {
-          if (isLastProcess && !captureOutput) {
-            currentProcess = spawnCallback(command, args, {
-              stdio: quiet ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'inherit', 'inherit'],
-              timeout: timeout ? undefined : timeout,
-              cwd: cwd,
-              env: env,
-            });
-          } else {
-            currentProcess = spawnCallback(command, args, {
-              stdio: ['pipe', 'pipe', 'pipe'],
-              timeout: timeout ? undefined : timeout,
-              cwd: cwd,
-              env: env,
-            });
-          }
-          previousProcess.stdout.pipe(currentProcess.stdin);
+          currentProcess = spawnCallback(command, args, {
+            stdio: ["pipe", "pipe", "pipe"],
+            timeout: timeout ? undefined : timeout,
+            cwd: cwd,
+            env: env,
+          });
         }
-        previousProcess = currentProcess;
+        previousProcess.stdout.pipe(currentProcess.stdin);
+      }
+      previousProcess = currentProcess;
     });
 
-    if (currentProcess === null) { reject('') }
-    else {
-        let commandOutput = "";
-        let stderrOutput = "";
-        let stdoutOutput = "";
+    if (currentProcess === null) {
+      reject("");
+    } else {
+      let commandOutput = "";
+      let stderrOutput = "";
+      let stdoutOutput = "";
 
-        if (verbosity > 0 && !quiet) {
-          currentProcess.stdout && currentProcess.stdout.pipe(process.stdout);
-          currentProcess.stderr && currentProcess.stderr.pipe(process.stderr);
-        }
+      if (verbosity > 0 && !quiet) {
+        currentProcess.stdout && currentProcess.stdout.pipe(process.stdout);
+        currentProcess.stderr && currentProcess.stderr.pipe(process.stderr);
+      }
 
-        currentProcess.stderr && currentProcess.stderr.on("data", function (data) {
-        commandOutput += data;
-        stderrOutput += data;
-      });
-      currentProcess.stdout && currentProcess.stdout.on("data", function (data) {
-        commandOutput += data;
-        stdoutOutput += data;
-      });
+      currentProcess.stderr &&
+        currentProcess.stderr.on("data", function (data) {
+          commandOutput += data;
+          stderrOutput += data;
+        });
+      currentProcess.stdout &&
+        currentProcess.stdout.on("data", function (data) {
+          commandOutput += data;
+          stdoutOutput += data;
+        });
 
       currentProcess.on("close", async (code) => {
-        resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
+        resolve({
+          output: commandOutput,
+          errorCode: code,
+          stderrOutput,
+          stdoutOutput,
+        });
       });
     }
   });
 }
 
 export async function question({ prompt }) {
-  return new Promise((resolve) =>
-    {
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
 
-      return rl.question(prompt, (answer) => {
-        rl.close();
-        resolve(answer);
-      });
-    },
-  );
+    return rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
 }
 
 async function runWriteFileJob(req) {
@@ -944,11 +977,11 @@ function runStartSpinner(req) {
   if (data.spinnerId) {
     spinnerId = data.spinnerId;
     // TODO use updateSpinnerState?
-    spinnies.update(spinnerId, { text: data.text, status: 'spinning' });
+    spinnies.update(spinnerId, { text: data.text, status: "spinning" });
   } else {
     spinnerId = Math.random().toString(36);
-      // spinnies.add(spinnerId, { text: data.text, status: data.immediateStart ? 'spinning' : 'stopped' });
-      spinnies.add(spinnerId, { text: data.text, status: 'spinning' });
+    // spinnies.add(spinnerId, { text: data.text, status: data.immediateStart ? 'spinning' : 'stopped' });
+    spinnies.add(spinnerId, { text: data.text, status: "spinning" });
     // }
   }
   return jsonResponse(req, spinnerId);
@@ -958,29 +991,34 @@ function runStopSpinner(req) {
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
   let completeFn;
-  if (completionFn === 'succeed') {
-    spinnies.succeed(spinnerId, { text: completionText })
-  } else if (completionFn === 'fail') {
-    spinnies.fail(spinnerId, { text: completionText })
+  if (completionFn === "succeed") {
+    spinnies.succeed(spinnerId, { text: completionText });
+  } else if (completionFn === "fail") {
+    spinnies.fail(spinnerId, { text: completionText });
   } else {
-    console.log('Unexpected')
+    console.log("Unexpected");
   }
   return jsonResponse(req, null);
-
 }
 
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
     const cwd = path.resolve(...req.dir);
-    const matchedPaths = await globby.globby(pattern, { ...options, stats: true, cwd });
+    const matchedPaths = await globby.globby(pattern, {
+      ...options,
+      stats: true,
+      cwd,
+    });
     patternsToWatch.add(pattern);
 
     return jsonResponse(
       req,
       matchedPaths.map((fullPath) => {
         const stats = fullPath.stats;
-        if (!stats) { return null }
+        if (!stats) {
+          return null;
+        }
         return {
           fullPath: fullPath.path,
           captures: mm.capture(pattern, fullPath.path),
@@ -992,7 +1030,7 @@ async function runGlobNew(req, patternsToWatch) {
             birthtime: Math.round(stats.birthtime.getTime()),
             fullPath: fullPath.path,
             isDirectory: stats.isDirectory(),
-          }
+          },
         };
       })
     );
