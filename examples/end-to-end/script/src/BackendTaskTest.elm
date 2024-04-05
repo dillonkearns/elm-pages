@@ -35,7 +35,7 @@ run toTest =
                                 Test.Runner.Plain tests ->
                                     case toFailures tests of
                                         [] ->
-                                            Script.log "All tests passed!"
+                                            Script.log (green "✔️ All tests passed!")
 
                                         failures ->
                                             BackendTask.fail
@@ -220,15 +220,18 @@ viewListDiff expected actual =
 viewListDiffPart : Array String -> Int -> String -> String
 viewListDiffPart otherList index listPart =
     let
-        green : Bool
-        green =
+        isGreen : Bool
+        isGreen =
             Array.get index otherList
                 |> maybeFilter (\value -> value == listPart)
                 |> Maybe.map (always True)
                 |> Maybe.withDefault False
     in
-    -- todo use `green` to set ansi color code for green or red
-    listPart
+    if isGreen then
+        green listPart
+
+    else
+        red listPart
 
 
 maybeFilter : (a -> Bool) -> Maybe a -> Maybe a
@@ -243,3 +246,13 @@ maybeFilter f m =
 
         Nothing ->
             Nothing
+
+
+green : String -> String
+green text =
+    "\u{001B}[32m" ++ text ++ "\u{001B}[0m"
+
+
+red : String -> String
+red text =
+    "\u{001B}[31m" ++ text ++ "\u{001B}[0m"
