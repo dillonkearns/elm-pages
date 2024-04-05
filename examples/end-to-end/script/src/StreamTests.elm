@@ -44,6 +44,10 @@ run =
             |> Stream.read
             |> test "custom duplex"
                 (Expect.equal "ASDF\nQWER\n")
+        , Stream.customRead "customReadStream" Encode.null
+            |> Stream.read
+            |> test "custom read"
+                (Expect.equal "Hello from customReadStream!")
         , Stream.fromString "qwer\n"
             |> Stream.pipe (Stream.customDuplex "customReadStream" Encode.null)
             |> Stream.read

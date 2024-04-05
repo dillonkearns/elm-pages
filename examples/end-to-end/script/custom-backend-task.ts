@@ -15,7 +15,7 @@ export async function upperCaseStream() {
 export async function customReadStream() {
   return new Readable({
     read(size) {
-      this.push("hello");
+      this.push("Hello from customReadStream!");
       this.push(null);
     },
   });
