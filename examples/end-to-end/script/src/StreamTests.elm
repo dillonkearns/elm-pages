@@ -15,6 +15,7 @@ run =
     testScript "Stream"
         [ Stream.fromString "asdf\nqwer\n"
             |> Stream.captureCommandWithInput "wc" [ "-l" ]
+            |> try
             |> test "capture stdin"
                 (\output ->
                     output.stdout
@@ -47,6 +48,7 @@ a = 1
 b =            2
                """
             |> Stream.captureCommandWithInput "elm-format" [ "--stdin" ]
+            |> try
             |> test "elm-format --stdin"
                 (\{ stdout } ->
                     stdout
