@@ -1,5 +1,6 @@
 module Stream exposing
-    ( Stream, command, fileRead, fileWrite, fromString, httpRead, httpWrite, pipe, read, run, stdin, stdout, gzip, readJson, unzip
+    ( Stream
+    , command, fileRead, fileWrite, fromString, httpRead, httpWrite, pipe, read, run, stdin, stdout, gzip, readJson, unzip
     , CommandOutput, captureCommandWithInput, runCommandWithInput
     , captureCommand, runCommand
     , commandWithOptions
@@ -8,9 +9,42 @@ module Stream exposing
     , customRead, customWrite, customDuplex
     )
 
-{-|
+{-| A `Stream` represents a flow of data through a pipeline.
 
-@docs Stream, command, fileRead, fileWrite, fromString, httpRead, httpWrite, pipe, read, run, stdin, stdout, gzip, readJson, unzip
+It is typically
+
+  - An input source, or Readable Stream (`Stream { read : (), write : Never }`)
+  - An output destination, or Writable Stream (`Stream { read : Never, write : () }`)
+  - And (optionally) a series of transformations in between, or Duplex Streams (`Stream { read : (), write : () }`)
+
+For example, you could have a stream that
+
+  - Reads from a file [`fileRead`](#fileRead)
+  - Unzips the contents [`unzip`](#unzip)
+  - Runs a shell command on the contents [`command`](#command)
+  - And writes the result to a network connection [`httpWrite`](#httpWrite)
+
+For example,
+
+    import Stream exposing (Stream)
+
+    example =
+        Stream.fileRead "data.txt"
+            |> Stream.unzip
+            |> Stream.command "wc" [ "-l" ]
+            |> Stream.httpWrite
+                { url = "http://example.com"
+                , method = "POST"
+                , headers = []
+                , retries = Nothing
+                , timeoutInMs = Nothing
+                }
+
+End example
+
+@docs Stream
+
+@docs command, fileRead, fileWrite, fromString, httpRead, httpWrite, pipe, read, run, stdin, stdout, gzip, readJson, unzip
 
 @docs CommandOutput, captureCommandWithInput, runCommandWithInput
 
