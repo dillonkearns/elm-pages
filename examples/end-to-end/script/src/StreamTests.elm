@@ -44,6 +44,11 @@ run =
             |> Stream.read
             |> test "custom duplex"
                 (Expect.equal "ASDF\nQWER\n")
+        , Stream.fromString "qwer\n"
+            |> Stream.pipe (Stream.customDuplex "customReadStream" Encode.null)
+            |> Stream.read
+            |> expectError "invalid stream"
+                "Expected 'customReadStream' to be a duplex stream!"
         , Stream.fileRead "elm.json"
             |> Stream.pipe Stream.gzip
             |> Stream.pipe (Stream.fileWrite zipFile)
@@ -88,6 +93,25 @@ test name toExpectation task =
             (\data ->
                 Test.test name <|
                     \() -> toExpectation data
+            )
+
+
+expectError : String -> String -> BackendTask FatalError a -> BackendTask FatalError Test.Test
+expectError name message task =
+    task
+        |> BackendTask.toResult
+        |> BackendTask.map
+            (\result ->
+                Test.test name <|
+                    \() ->
+                        case result of
+                            Ok data ->
+                                Expect.fail "Expected a failure, but got success!"
+
+                            Err error ->
+                                error
+                                    |> Expect.equal
+                                        (FatalError.fromString message)
             )
 
 

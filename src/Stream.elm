@@ -193,8 +193,16 @@ read stream =
     BackendTask.Internal.Request.request
         { name = "stream"
         , body = BackendTask.Http.jsonBody (pipelineEncoder stream "text")
-        , expect = BackendTask.Http.expectJson Decode.string
+        , expect =
+            BackendTask.Http.expectJson
+                (Decode.oneOf
+                    [ Decode.field "error" Decode.string
+                        |> Decode.map (FatalError.fromString >> Err)
+                    , Decode.string |> Decode.map Ok
+                    ]
+                )
         }
+        |> BackendTask.andThen BackendTask.fromResult
 
 
 {-| -}

@@ -1,4 +1,4 @@
-import { Transform } from "node:stream";
+import { Transform, Readable } from "node:stream";
 
 export async function hello(input, { cwd, env }) {
   return `Hello!`;
@@ -12,6 +12,11 @@ export async function upperCaseStream() {
   });
 }
 
-export async function readStreamNotADuplex() {
-  return process.stdin;
+export async function customReadStream() {
+  return new Readable({
+    read(size) {
+      this.push("hello");
+      this.push(null);
+    },
+  });
 }
