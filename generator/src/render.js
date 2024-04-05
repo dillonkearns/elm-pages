@@ -17,6 +17,7 @@ import { Spinnies } from './spinnies/index.js'
 import { default as which } from "which";
 import * as readline from "readline";
 import { spawn as spawnCallback } from "cross-spawn";
+import {ChildProcess} from 'node:child_process';
 import * as consumers from 'stream/consumers'
 import * as zlib from 'node:zlib'
 import { Readable } from "node:stream";
@@ -589,24 +590,68 @@ function runStream(req) {
 
       parts.forEach((part, index) => {
         let isLastProcess = index === parts.length - 1;
-        let thisStream = pipePartToStream(lastStream, part, { cwd, quiet, env });
+        let thisStream;
+        if (isLastProcess && (kind === "command" || kind === "commandCode")) {
+            const {command, args} = part;
+            let stdio;
+            if (kind === "command") {
+              stdio = ["pipe", "pipe", "pipe"];
+            } else if (kind === "commandCode") {
+              stdio = quiet ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'inherit', 'inherit'];
+            } else {
+              throw new Error(`Unknown kind: ${kind}`);
+            }
+            const newProcess = spawnCallback(command, args, {
+              stdio,
+              cwd: cwd,
+              env: env,
+            });
+            lastStream && lastStream.pipe(newProcess.stdin);
+            if (kind === "command") {
+              let stdoutOutput = "";
+              let stderrOutput = "";
+              let combinedOutput = "";
+              newProcess.stderr.on("data", function (data) {
+                stderrOutput += data;
+                combinedOutput += data;
+              });
+              newProcess.stdout.on("data", function (data) {
+                stdoutOutput += data;
+                combinedOutput += data;
+              });
+              newProcess.on("close", async (exitCode) => {
+                  resolve(jsonResponse(req, { stdoutOutput, stderrOutput, combinedOutput, exitCode }));
+              });
+            } else {
+              newProcess.on("close", async (exitCode) => {
+                  resolve(jsonResponse(req, { exitCode }));
+              });
+            }
+        } else {
+          thisStream = pipePartToStream(lastStream, part, { cwd, quiet, env });
+        }
         lastStream = thisStream;
       });
       if (kind === "json") {
         resolve(jsonResponse(req, await consumers.json(lastStream)));
       } else if (kind === "text") {
         resolve(jsonResponse(req, await consumers.text(lastStream)));
-      } else {
-        lastStream.once("finish", async () => {
+      } else if (kind === "none") {
+        // lastStream.once("finish", async () => {
+        //   resolve(jsonResponse(req, null));
+        // });
+        lastStream.once("close", () => {
           resolve(jsonResponse(req, null));
         });
+      } else if (kind === "command") {
+        // already handled in parts.forEach
       }
 
-      lastStream.once("error", (error) => {
-        console.log('Stream error!');
-        console.error(error);
-        reject(jsonResponse(req, null));
-      });
+      // lastStream.once("error", (error) => {
+      //   console.log('Stream error!');
+      //   console.error(error);
+      //   reject(jsonResponse(req, null));
+      // });
 
     } catch (error) {
       console.trace(error);
@@ -638,11 +683,28 @@ function pipePartToStream(lastStream, part, { cwd, quiet, env }) {
   } else if (part.name === "fileWrite") {
     return lastStream.pipe(fs.createWriteStream(path.resolve(part.path)));
   } else if (part.name === "command") {
-    const {command, args} = part;
+    const {command, args, allowNon0Status} = part;
+    /**
+     * @type {import('node:child_process').ChildProcess}
+     */
     const newProcess = spawnCallback(command, args, {
       stdio: ["pipe", "pipe", "pipe"],
       cwd: cwd,
       env: env,
+    });
+    newProcess.on("error", (error) => {
+      console.error("ERROR in pipeline!", error);
+      process.exit(1);
+    });
+    newProcess.on("exit", (code) => {
+      if (code !== 0) {
+        if (allowNon0Status) {
+
+        } else {
+          console.error("ERROR in exit code!", code);
+          process.exit(1);
+        }
+      }
     });
     lastStream && lastStream.pipe(newProcess.stdin);
     return newProcess.stdout;
