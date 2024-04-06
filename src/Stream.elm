@@ -99,7 +99,7 @@ stdin =
 
 
 {-| -}
-stdout : Stream { read : Never, write : () }
+stdout : Stream { read : (), write : () }
 stdout =
     single "stdout" []
 
@@ -177,16 +177,22 @@ httpWrite :
     , retries : Maybe Int
     , timeoutInMs : Maybe Int
     }
-    -> Stream { read : Never, write : () }
+    -> Stream { read : read, write : () }
 httpWrite string =
-    single "httpWrite" []
+    single "httpWrite"
+        [ ( "url", Encode.string string.url )
+        , ( "method", Encode.string string.method )
+        , ( "headers", Encode.list (\( key, value ) -> Encode.object [ ( "key", Encode.string key ), ( "value", Encode.string value ) ]) string.headers )
+        , ( "retries", nullable Encode.int string.retries )
+        , ( "timeoutInMs", nullable Encode.int string.timeoutInMs )
+        ]
 
 
 {-| -}
 pipe :
-    Stream { read : toReadable, write : toWriteable }
+    Stream { read : (), write : toWriteable }
     -> Stream { read : (), write : fromWriteable }
-    -> Stream { read : toReadable, write : toWriteable }
+    -> Stream { read : finalReadable, write : finalWriteable }
 pipe (Stream to) (Stream from) =
     Stream (from ++ to)
 

@@ -21,6 +21,7 @@ import * as consumers from "stream/consumers";
 import * as zlib from "node:zlib";
 import { Readable } from "node:stream";
 import * as validateStream from "./validate-stream.js";
+import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 
 let verbosity = 2;
 const spinnies = new Spinnies();
@@ -726,6 +727,23 @@ async function pipePartToStream(
     return lastStream.pipe(zlib.createUnzip());
   } else if (part.name === "fileWrite") {
     return lastStream.pipe(fs.createWriteStream(path.resolve(part.path)));
+  } else if (part.name === "httpWrite") {
+    const makeFetchHappen = makeFetchHappenOriginal.defaults({
+      // cache: mode === "build" ? "no-cache" : "default",
+      cache: "default",
+    });
+    const fetchRead = (
+      await makeFetchHappen(part.url, {
+        body: lastStream,
+        duplex: "half",
+        redirect: "follow",
+        method: part.method,
+        headers: part.headers,
+        retry: part.retries,
+        timeout: part.timeoutInMs,
+      })
+    ).body;
+    return fetchRead;
   } else if (part.name === "command") {
     const { command, args, allowNon0Status } = part;
     /**
