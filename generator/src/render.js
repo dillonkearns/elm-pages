@@ -477,57 +477,80 @@ async function runInternalJob(
   patternsToWatch
 ) {
   try {
-    if (requestToPerform.url === "elm-pages-internal://log") {
-      return [requestHash, await runLogJob(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://read-file") {
-      return [
-        requestHash,
-        await readFileJobNew(requestToPerform, patternsToWatch),
-      ];
-    } else if (requestToPerform.url === "elm-pages-internal://glob") {
-      return [requestHash, await runGlobNew(requestToPerform, patternsToWatch)];
-    } else if (requestToPerform.url === "elm-pages-internal://randomSeed") {
-      return [
-        requestHash,
-        jsonResponse(
-          requestToPerform,
-          crypto.getRandomValues(new Uint32Array(1))[0]
-        ),
-      ];
-    } else if (requestToPerform.url === "elm-pages-internal://now") {
-      return [requestHash, jsonResponse(requestToPerform, Date.now())];
-    } else if (requestToPerform.url === "elm-pages-internal://env") {
-      return [requestHash, await runEnvJob(requestToPerform, patternsToWatch)];
-    } else if (requestToPerform.url === "elm-pages-internal://encrypt") {
-      return [
-        requestHash,
-        await runEncryptJob(requestToPerform, patternsToWatch),
-      ];
-    } else if (requestToPerform.url === "elm-pages-internal://decrypt") {
-      return [
-        requestHash,
-        await runDecryptJob(requestToPerform, patternsToWatch),
-      ];
-    } else if (requestToPerform.url === "elm-pages-internal://write-file") {
-      return [requestHash, await runWriteFileJob(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://sleep") {
-      return [requestHash, await runSleep(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://which") {
-      return [requestHash, await runWhich(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://question") {
-      return [requestHash, await runQuestion(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://shell") {
-      return [requestHash, await runShell(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://stream") {
-      return [requestHash, await runStream(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
-      return [requestHash, runStartSpinner(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
-      return [requestHash, runStopSpinner(requestToPerform)];
-    } else {
-      throw `Unexpected internal BackendTask request format: ${kleur.yellow(
-        JSON.stringify(2, null, requestToPerform)
-      )}`;
+    switch (requestToPerform.url) {
+      case "elm-pages-internal://log":
+        return [requestHash, await runLogJob(requestToPerform)];
+
+      case "elm-pages-internal://read-file":
+        return [
+          requestHash,
+          await readFileJobNew(requestToPerform, patternsToWatch),
+        ];
+
+      case "elm-pages-internal://glob":
+        return [
+          requestHash,
+          await runGlobNew(requestToPerform, patternsToWatch),
+        ];
+
+      case "elm-pages-internal://randomSeed":
+        return [
+          requestHash,
+          jsonResponse(
+            requestToPerform,
+            crypto.getRandomValues(new Uint32Array(1))[0]
+          ),
+        ];
+
+      case "elm-pages-internal://now":
+        return [requestHash, jsonResponse(requestToPerform, Date.now())];
+
+      case "elm-pages-internal://env":
+        return [
+          requestHash,
+          await runEnvJob(requestToPerform, patternsToWatch),
+        ];
+
+      case "elm-pages-internal://encrypt":
+        return [
+          requestHash,
+          await runEncryptJob(requestToPerform, patternsToWatch),
+        ];
+
+      case "elm-pages-internal://decrypt":
+        return [
+          requestHash,
+          await runDecryptJob(requestToPerform, patternsToWatch),
+        ];
+
+      case "elm-pages-internal://write-file":
+        return [requestHash, await runWriteFileJob(requestToPerform)];
+
+      case "elm-pages-internal://sleep":
+        return [requestHash, await runSleep(requestToPerform)];
+
+      case "elm-pages-internal://which":
+        return [requestHash, await runWhich(requestToPerform)];
+
+      case "elm-pages-internal://question":
+        return [requestHash, await runQuestion(requestToPerform)];
+
+      case "elm-pages-internal://shell":
+        return [requestHash, await runShell(requestToPerform)];
+
+      case "elm-pages-internal://stream":
+        return [requestHash, await runStream(requestToPerform)];
+
+      case "elm-pages-internal://start-spinner":
+        return [requestHash, runStartSpinner(requestToPerform)];
+
+      case "elm-pages-internal://stop-spinner":
+        return [requestHash, runStopSpinner(requestToPerform)];
+
+      default:
+        throw `Unexpected internal BackendTask request format: ${kleur.yellow(
+          JSON.stringify(2, null, requestToPerform)
+        )}`;
     }
   } catch (error) {
     sendError(app, error);
