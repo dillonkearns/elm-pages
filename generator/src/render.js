@@ -13,16 +13,14 @@ import { compatibilityKey } from "./compatibility-key.js";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
-import { Spinnies } from './spinnies/index.js'
+import { Spinnies } from "./spinnies/index.js";
 import { default as which } from "which";
 import * as readline from "readline";
 import { spawn as spawnCallback } from "cross-spawn";
-import {ChildProcess} from 'node:child_process';
-import * as consumers from 'stream/consumers'
-import * as zlib from 'node:zlib'
+import { ChildProcess } from "node:child_process";
+import * as consumers from "stream/consumers";
+import * as zlib from "node:zlib";
 import { Readable } from "node:stream";
-
-
 
 let verbosity = 2;
 const spinnies = new Spinnies();
@@ -581,52 +579,61 @@ async function runQuestion(req) {
 function runStream(req) {
   return new Promise(async (resolve, reject) => {
     try {
-    const cwd = path.resolve(...req.dir);
-    const quiet = req.quiet;
-    const env = { ...process.env, ...req.env };
-    const kind = req.body.args[0].kind;
-    const parts = req.body.args[0].parts;
-    let lastStream = null;
+      const cwd = path.resolve(...req.dir);
+      const quiet = req.quiet;
+      const env = { ...process.env, ...req.env };
+      const kind = req.body.args[0].kind;
+      const parts = req.body.args[0].parts;
+      let lastStream = null;
 
       parts.forEach((part, index) => {
         let isLastProcess = index === parts.length - 1;
         let thisStream;
         if (isLastProcess && (kind === "command" || kind === "commandCode")) {
-            const {command, args} = part;
-            let stdio;
-            if (kind === "command") {
-              stdio = ["pipe", "pipe", "pipe"];
-            } else if (kind === "commandCode") {
-              stdio = quiet ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'inherit', 'inherit'];
-            } else {
-              throw new Error(`Unknown kind: ${kind}`);
-            }
-            const newProcess = spawnCallback(command, args, {
-              stdio,
-              cwd: cwd,
-              env: env,
+          const { command, args } = part;
+          let stdio;
+          if (kind === "command") {
+            stdio = ["pipe", "pipe", "pipe"];
+          } else if (kind === "commandCode") {
+            stdio = quiet
+              ? ["pipe", "ignore", "ignore"]
+              : ["pipe", "inherit", "inherit"];
+          } else {
+            throw new Error(`Unknown kind: ${kind}`);
+          }
+          const newProcess = spawnCallback(command, args, {
+            stdio,
+            cwd: cwd,
+            env: env,
+          });
+          lastStream && lastStream.pipe(newProcess.stdin);
+          if (kind === "command") {
+            let stdoutOutput = "";
+            let stderrOutput = "";
+            let combinedOutput = "";
+            newProcess.stderr.on("data", function (data) {
+              stderrOutput += data;
+              combinedOutput += data;
             });
-            lastStream && lastStream.pipe(newProcess.stdin);
-            if (kind === "command") {
-              let stdoutOutput = "";
-              let stderrOutput = "";
-              let combinedOutput = "";
-              newProcess.stderr.on("data", function (data) {
-                stderrOutput += data;
-                combinedOutput += data;
-              });
-              newProcess.stdout.on("data", function (data) {
-                stdoutOutput += data;
-                combinedOutput += data;
-              });
-              newProcess.on("close", async (exitCode) => {
-                  resolve(jsonResponse(req, { stdoutOutput, stderrOutput, combinedOutput, exitCode }));
-              });
-            } else {
-              newProcess.on("close", async (exitCode) => {
-                  resolve(jsonResponse(req, { exitCode }));
-              });
-            }
+            newProcess.stdout.on("data", function (data) {
+              stdoutOutput += data;
+              combinedOutput += data;
+            });
+            newProcess.on("close", async (exitCode) => {
+              resolve(
+                jsonResponse(req, {
+                  stdoutOutput,
+                  stderrOutput,
+                  combinedOutput,
+                  exitCode,
+                })
+              );
+            });
+          } else {
+            newProcess.on("close", async (exitCode) => {
+              resolve(jsonResponse(req, { exitCode }));
+            });
+          }
         } else {
           thisStream = pipePartToStream(lastStream, part, { cwd, quiet, env });
         }
@@ -652,7 +659,6 @@ function runStream(req) {
       //   console.error(error);
       //   reject(jsonResponse(req, null));
       // });
-
     } catch (error) {
       console.trace(error);
       process.exit(1);
@@ -661,11 +667,11 @@ function runStream(req) {
 }
 
 /**
- * 
- * @param {import('node:stream').Stream} lastStream 
- * @param {{ name: string }} part 
- * @param {{cwd: string, quiet: boolean, env: object}} param2 
- * @returns 
+ *
+ * @param {import('node:stream').Stream} lastStream
+ * @param {{ name: string }} part
+ * @param {{cwd: string, quiet: boolean, env: object}} param2
+ * @returns
  */
 function pipePartToStream(lastStream, part, { cwd, quiet, env }) {
   if (verbosity > 1 && !quiet) {
@@ -683,7 +689,7 @@ function pipePartToStream(lastStream, part, { cwd, quiet, env }) {
   } else if (part.name === "fileWrite") {
     return lastStream.pipe(fs.createWriteStream(path.resolve(part.path)));
   } else if (part.name === "command") {
-    const {command, args, allowNon0Status} = part;
+    const { command, args, allowNon0Status } = part;
     /**
      * @type {import('node:child_process').ChildProcess}
      */
@@ -699,7 +705,6 @@ function pipePartToStream(lastStream, part, { cwd, quiet, env }) {
     newProcess.on("exit", (code) => {
       if (code !== 0) {
         if (allowNon0Status) {
-
         } else {
           console.error("ERROR in exit code!", code);
           process.exit(1);
@@ -722,16 +727,27 @@ async function runShell(req) {
   const env = { ...process.env, ...req.env };
   const captureOutput = req.body.args[0].captureOutput;
   if (req.body.args[0].commands.length === 1) {
-    return jsonResponse(req, await shell({ cwd, quiet, env, captureOutput }, req.body.args[0]));
+    return jsonResponse(
+      req,
+      await shell({ cwd, quiet, env, captureOutput }, req.body.args[0])
+    );
   } else {
-    return jsonResponse(req, await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0]));
+    return jsonResponse(
+      req,
+      await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0])
+    );
   }
 }
 
 function commandAndArgsToString(cwd, commandsAndArgs) {
-  return `$ ` + (commandsAndArgs.commands.map((commandAndArgs) => {
-    return [ commandAndArgs.command, ...commandAndArgs.args ].join(" ");
-  }).join(" | "));
+  return (
+    `$ ` +
+    commandsAndArgs.commands
+      .map((commandAndArgs) => {
+        return [commandAndArgs.command, ...commandAndArgs.args].join(" ");
+      })
+      .join(" | ")
+  );
 }
 
 export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
@@ -743,40 +759,52 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
     }
     if (!captureOutput && !quiet) {
       const subprocess = spawnCallback(command, args, {
-        stdio: quiet ? ['inherit', 'ignore', 'ignore'] : ['inherit', 'inherit', 'inherit'],
+        stdio: quiet
+          ? ["inherit", "ignore", "ignore"]
+          : ["inherit", "inherit", "inherit"],
         cwd: cwd,
         env: env,
       });
-    subprocess.on("close", async (code) => {
-      resolve({ output: "", errorCode: code, stderrOutput: "", stdoutOutput: "" });
-    });
+      subprocess.on("close", async (code) => {
+        resolve({
+          output: "",
+          errorCode: code,
+          stderrOutput: "",
+          stdoutOutput: "",
+        });
+      });
     } else {
-    const subprocess = spawnCallback(command, args, {
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: cwd,
-      env: env,
-    });
-    let commandOutput = "";
-    let stderrOutput = "";
-    let stdoutOutput = "";
+      const subprocess = spawnCallback(command, args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        cwd: cwd,
+        env: env,
+      });
+      let commandOutput = "";
+      let stderrOutput = "";
+      let stdoutOutput = "";
 
-    if (verbosity > 0 && !quiet) {
-      subprocess.stdout.pipe(process.stdout);
-      subprocess.stderr.pipe(process.stderr);
+      if (verbosity > 0 && !quiet) {
+        subprocess.stdout.pipe(process.stdout);
+        subprocess.stderr.pipe(process.stderr);
+      }
+      subprocess.stderr.on("data", function (data) {
+        commandOutput += data;
+        stderrOutput += data;
+      });
+      subprocess.stdout.on("data", function (data) {
+        commandOutput += data;
+        stdoutOutput += data;
+      });
+
+      subprocess.on("close", async (code) => {
+        resolve({
+          output: commandOutput,
+          errorCode: code,
+          stderrOutput,
+          stdoutOutput,
+        });
+      });
     }
-    subprocess.stderr.on("data", function (data) {
-      commandOutput += data;
-      stderrOutput += data;
-    });
-    subprocess.stdout.on("data", function (data) {
-      commandOutput += data;
-      stdoutOutput += data;
-    });
-
-    subprocess.on("close", async (code) => {
-      resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
-    });
-  }
   });
 }
 
@@ -787,92 +815,103 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
 /**
  * @param {{ commands: ElmCommand[] }} commandsAndArgs
  */
-export function pipeShells({ cwd, quiet, env, captureOutput }, commandsAndArgs) {
+export function pipeShells(
+  { cwd, quiet, env, captureOutput },
+  commandsAndArgs
+) {
   return new Promise((resolve, reject) => {
     if (verbosity > 1 && !quiet) {
       console.log(commandAndArgsToString(cwd, commandsAndArgs));
     }
 
-      /**
-       * @type {null | import('node:child_process').ChildProcess}
-       */
-      let previousProcess = null;
-      let currentProcess = null;
+    /**
+     * @type {null | import('node:child_process').ChildProcess}
+     */
+    let previousProcess = null;
+    let currentProcess = null;
 
-      commandsAndArgs.commands.forEach(({command, args, timeout }, index) => {
-        let isLastProcess = index === commandsAndArgs.commands.length - 1;
+    commandsAndArgs.commands.forEach(({ command, args, timeout }, index) => {
+      let isLastProcess = index === commandsAndArgs.commands.length - 1;
       /**
        * @type {import('node:child_process').ChildProcess}
        */
-        if (previousProcess === null) {
+      if (previousProcess === null) {
+        currentProcess = spawnCallback(command, args, {
+          stdio: ["inherit", "pipe", "inherit"],
+          timeout: timeout ? undefined : timeout,
+          cwd: cwd,
+          env: env,
+        });
+      } else {
+        if (isLastProcess && !captureOutput) {
           currentProcess = spawnCallback(command, args, {
-            stdio: ['inherit', 'pipe', 'inherit'],
+            stdio: quiet
+              ? ["pipe", "ignore", "ignore"]
+              : ["pipe", "inherit", "inherit"],
             timeout: timeout ? undefined : timeout,
             cwd: cwd,
             env: env,
           });
         } else {
-          if (isLastProcess && !captureOutput) {
-            currentProcess = spawnCallback(command, args, {
-              stdio: quiet ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'inherit', 'inherit'],
-              timeout: timeout ? undefined : timeout,
-              cwd: cwd,
-              env: env,
-            });
-          } else {
-            currentProcess = spawnCallback(command, args, {
-              stdio: ['pipe', 'pipe', 'pipe'],
-              timeout: timeout ? undefined : timeout,
-              cwd: cwd,
-              env: env,
-            });
-          }
-          previousProcess.stdout.pipe(currentProcess.stdin);
+          currentProcess = spawnCallback(command, args, {
+            stdio: ["pipe", "pipe", "pipe"],
+            timeout: timeout ? undefined : timeout,
+            cwd: cwd,
+            env: env,
+          });
         }
-        previousProcess = currentProcess;
+        previousProcess.stdout.pipe(currentProcess.stdin);
+      }
+      previousProcess = currentProcess;
     });
 
-    if (currentProcess === null) { reject('') }
-    else {
-        let commandOutput = "";
-        let stderrOutput = "";
-        let stdoutOutput = "";
+    if (currentProcess === null) {
+      reject("");
+    } else {
+      let commandOutput = "";
+      let stderrOutput = "";
+      let stdoutOutput = "";
 
-        if (verbosity > 0 && !quiet) {
-          currentProcess.stdout && currentProcess.stdout.pipe(process.stdout);
-          currentProcess.stderr && currentProcess.stderr.pipe(process.stderr);
-        }
+      if (verbosity > 0 && !quiet) {
+        currentProcess.stdout && currentProcess.stdout.pipe(process.stdout);
+        currentProcess.stderr && currentProcess.stderr.pipe(process.stderr);
+      }
 
-        currentProcess.stderr && currentProcess.stderr.on("data", function (data) {
-        commandOutput += data;
-        stderrOutput += data;
-      });
-      currentProcess.stdout && currentProcess.stdout.on("data", function (data) {
-        commandOutput += data;
-        stdoutOutput += data;
-      });
+      currentProcess.stderr &&
+        currentProcess.stderr.on("data", function (data) {
+          commandOutput += data;
+          stderrOutput += data;
+        });
+      currentProcess.stdout &&
+        currentProcess.stdout.on("data", function (data) {
+          commandOutput += data;
+          stdoutOutput += data;
+        });
 
       currentProcess.on("close", async (code) => {
-        resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
+        resolve({
+          output: commandOutput,
+          errorCode: code,
+          stderrOutput,
+          stdoutOutput,
+        });
       });
     }
   });
 }
 
 export async function question({ prompt }) {
-  return new Promise((resolve) =>
-    {
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
 
-      return rl.question(prompt, (answer) => {
-        rl.close();
-        resolve(answer);
-      });
-    },
-  );
+    return rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
 }
 
 async function runWriteFileJob(req) {
@@ -899,11 +938,11 @@ function runStartSpinner(req) {
   if (data.spinnerId) {
     spinnerId = data.spinnerId;
     // TODO use updateSpinnerState?
-    spinnies.update(spinnerId, { text: data.text, status: 'spinning' });
+    spinnies.update(spinnerId, { text: data.text, status: "spinning" });
   } else {
     spinnerId = Math.random().toString(36);
-      // spinnies.add(spinnerId, { text: data.text, status: data.immediateStart ? 'spinning' : 'stopped' });
-      spinnies.add(spinnerId, { text: data.text, status: 'spinning' });
+    // spinnies.add(spinnerId, { text: data.text, status: data.immediateStart ? 'spinning' : 'stopped' });
+    spinnies.add(spinnerId, { text: data.text, status: "spinning" });
     // }
   }
   return jsonResponse(req, spinnerId);
@@ -913,29 +952,34 @@ function runStopSpinner(req) {
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
   let completeFn;
-  if (completionFn === 'succeed') {
-    spinnies.succeed(spinnerId, { text: completionText })
-  } else if (completionFn === 'fail') {
-    spinnies.fail(spinnerId, { text: completionText })
+  if (completionFn === "succeed") {
+    spinnies.succeed(spinnerId, { text: completionText });
+  } else if (completionFn === "fail") {
+    spinnies.fail(spinnerId, { text: completionText });
   } else {
-    console.log('Unexpected')
+    console.log("Unexpected");
   }
   return jsonResponse(req, null);
-
 }
 
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
     const cwd = path.resolve(...req.dir);
-    const matchedPaths = await globby.globby(pattern, { ...options, stats: true, cwd });
+    const matchedPaths = await globby.globby(pattern, {
+      ...options,
+      stats: true,
+      cwd,
+    });
     patternsToWatch.add(pattern);
 
     return jsonResponse(
       req,
       matchedPaths.map((fullPath) => {
         const stats = fullPath.stats;
-        if (!stats) { return null }
+        if (!stats) {
+          return null;
+        }
         return {
           fullPath: fullPath.path,
           captures: mm.capture(pattern, fullPath.path),
@@ -947,7 +991,7 @@ async function runGlobNew(req, patternsToWatch) {
             birthtime: Math.round(stats.birthtime.getTime()),
             fullPath: fullPath.path,
             isDirectory: stats.isDirectory(),
-          }
+          },
         };
       })
     );
