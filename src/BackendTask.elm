@@ -125,16 +125,19 @@ type alias BackendTask error value =
 {-| Transform a request into an arbitrary value. The same underlying task will be performed,
 but mapping allows you to change the resulting values by applying functions to the results.
 
-    import BackendTask
+    import BackendTask exposing (BackendTask)
     import BackendTask.Http
-    import Json.Decode as Decode exposing (Decoder)
+    import FatalError exposing (FatalError)
+    import Json.Decode as Decode
 
+    starsMessage : BackendTask FatalError String
     starsMessage =
         BackendTask.Http.getJson
             "https://api.github.com/repos/dillonkearns/elm-pages"
             (Decode.field "stargazers_count" Decode.int)
             |> BackendTask.map
                 (\stars -> "⭐️ " ++ String.fromInt stars)
+            |> BackendTask.allowFatal
 
 -}
 map : (a -> b) -> BackendTask error a -> BackendTask error b
@@ -277,9 +280,10 @@ resolve =
 
 {-| Turn a list of `BackendTask`s into a single one.
 
-    import BackendTask
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Http
     import FatalError exposing (FatalError)
-    import Json.Decode as Decode exposing (Decoder)
+    import Json.Decode as Decode
 
     type alias Pokemon =
         { name : String
@@ -438,9 +442,10 @@ map2 fn request1 request2 =
 {-| Build off of the response from a previous `BackendTask` request to build a follow-up request. You can use the data
 from the previous response to build up the URL, headers, etc. that you send to the subsequent request.
 
-    import BackendTask
+    import BackendTask exposing (BackendTask)
+    import BackendTask.Http
     import FatalError exposing (FatalError)
-    import Json.Decode as Decode exposing (Decoder)
+    import Json.Decode as Decode
 
     licenseData : BackendTask FatalError String
     licenseData =
