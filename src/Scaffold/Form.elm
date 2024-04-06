@@ -31,7 +31,7 @@ import Elm.Annotation as Type
 import Elm.Declare
 import Elm.Op
 import List.Extra
-import Result.Extra
+import Vendored.Result.Extra
 
 
 {-| -}
@@ -188,8 +188,7 @@ restArgsParser =
         |> Cli.Option.validateMap
             (\items ->
                 items
-                    |> List.map parseField
-                    |> Result.Extra.combine
+                    |> Vendored.Result.Extra.combineMap parseField
             )
 
 

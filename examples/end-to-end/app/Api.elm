@@ -12,7 +12,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages
 import Random
-import Result.Extra
+import Vendored.Result.Extra
 import Route exposing (Route)
 import Server.Request as Request
 import Server.Response as Response exposing (Response)
@@ -86,7 +86,7 @@ xmlDecoder =
                 ( True, Just xmlString ) ->
                     xmlString
                         |> Xml.Decode.run dataDecoder
-                        |> Result.Extra.merge
+                        |> Vendored.Result.Extra.merge
                         |> Response.plainText
                         |> BackendTask.succeed
 
@@ -114,7 +114,7 @@ multipleContentTypes =
                 ( Just xmlString, True ) ->
                     xmlString
                         |> Xml.Decode.run dataDecoder
-                        |> Result.Extra.merge
+                        |> Vendored.Result.Extra.merge
                         |> Response.plainText
                         |> BackendTask.succeed
 
