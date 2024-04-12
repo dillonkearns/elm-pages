@@ -9,7 +9,7 @@ import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Script as Script exposing (Script)
-import Stream exposing (Stream)
+import Stream exposing (Stream, defaultCommandOptions)
 import Test
 
 
@@ -96,13 +96,32 @@ b =
         , Stream.fileRead "elm.json"
             |> Stream.pipe
                 (Stream.command "jq"
-                    [ ".\"source-directories\"[0]"
+                    [ """."source-directories"[0]"""
                     ]
                 )
             |> Stream.readJson Decode.string
             |> try
             |> test "read command output as JSON"
                 (.body >> Expect.equal "src")
+        , Stream.fromString "invalid elm module"
+            |> Stream.pipe
+                (Stream.commandWithOptions (defaultCommandOptions |> Stream.allowNon0Status)
+                    "elm-format"
+                    [ "--stdin" ]
+                )
+            |> Stream.read
+            |> try
+            |> test "stderr"
+                (Expect.equal
+                    { body = ""
+                    , metadata =
+                        { exitCode = 1
+                        , stdout = ""
+                        , stderr = "Unable to parse file <STDIN>:1:13 To see a detailed explanation, run elm make on the file.\n"
+                        , combined = "Unable to parse file <STDIN>:1:13 To see a detailed explanation, run elm make on the file.\n"
+                        }
+                    }
+                )
         ]
 
 

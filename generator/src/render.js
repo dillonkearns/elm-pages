@@ -580,8 +580,10 @@ async function runWhich(req) {
 async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
+
 function runStream(req, portsFile) {
   return new Promise(async (resolve) => {
+    let metadataResponse = null;
     let lastStream = null;
     try {
       const cwd = path.resolve(...req.dir);
@@ -647,7 +649,7 @@ function runStream(req, portsFile) {
             });
           }
         } else {
-          thisStream = await pipePartToStream(
+          const { stream, metadata } = await pipePartToStream(
             lastStream,
             part,
             { cwd, quiet, env },
@@ -655,6 +657,8 @@ function runStream(req, portsFile) {
             (value) => resolve(jsonResponse(req, value)),
             isLastProcess
           );
+          metadataResponse = metadata;
+          thisStream = stream;
         }
         lastStream = thisStream;
         index += 1;
@@ -663,43 +667,25 @@ function runStream(req, portsFile) {
         resolve(
           jsonResponse(req, {
             body: await consumers.json(lastStream),
-            metadata: {
-              // TODO
-              stdoutOutput: "",
-              stderrOutput: "",
-              combinedOutput: "",
-              exitCode: 0,
-            },
+            metadata: await metadataResponse,
           })
         );
       } else if (kind === "text") {
         resolve(
           jsonResponse(req, {
             body: await consumers.text(lastStream),
-            metadata: {
-              // TODO
-              stdoutOutput: "",
-              stderrOutput: "",
-              combinedOutput: "",
-              exitCode: 0,
-            },
+            metadata: await metadataResponse,
           })
         );
       } else if (kind === "none") {
         // lastStream.once("finish", async () => {
         //   resolve(jsonResponse(req, null));
         // });
-        lastStream.once("close", () => {
+        lastStream.once("close", async () => {
           resolve(
             jsonResponse(req, {
               body: null,
-              metadata: {
-                // TODO
-                stdoutOutput: "",
-                stderrOutput: "",
-                combinedOutput: "",
-                exitCode: 0,
-              },
+              metadata: await metadataResponse,
             })
           );
         });
@@ -727,7 +713,7 @@ function runStream(req, portsFile) {
  * @param {import('node:stream').Stream} lastStream
  * @param {{ name: string }} part
  * @param {{cwd: string, quiet: boolean, env: object}} param2
- * @returns
+ * @returns {Promise<{stream: import('node:stream').Stream, metadata: any}>}
  */
 async function pipePartToStream(
   lastStream,
@@ -740,37 +726,44 @@ async function pipePartToStream(
   if (verbosity > 1 && !quiet) {
   }
   if (part.name === "stdout") {
-    return lastStream.pipe(process.stdout);
+    return { stream: lastStream.pipe(process.stdout) };
   } else if (part.name === "stderr") {
-    return lastStream.pipe(process.stderr);
+    return { stream: lastStream.pipe(process.stderr) };
   } else if (part.name === "stdin") {
-    return process.stdin;
+    return { stream: process.stdin };
   } else if (part.name === "fileRead") {
-    return fs.createReadStream(path.resolve(cwd, part.path));
+    return { stream: fs.createReadStream(path.resolve(cwd, part.path)) };
   } else if (part.name === "customDuplex") {
-    // console.log(part);
     const newLocal = await portsFile[part.portName](part.input, {
       cwd,
       quiet,
       env,
     });
     if (validateStream.isDuplexStream(newLocal)) {
-      console.log("Piping to duplex stream!", part.portName);
       lastStream.pipe(newLocal);
-      return newLocal;
+      return { stream: newLocal };
     } else {
       throw `Expected '${part.portName}' to be a duplex stream!`;
     }
   } else if (part.name === "customRead") {
-    return portsFile[part.portName](part.input, { cwd, quiet, env });
+    return {
+      metadata: null,
+      stream: await portsFile[part.portName](part.input, { cwd, quiet, env }),
+    };
   } else if (part.name === "customWrite") {
-    return portsFile[part.portName](part.input, { cwd, quiet, env });
+    return {
+      metadata: null,
+      stream: await portsFile[part.portName](part.input, { cwd, quiet, env }),
+    };
   } else if (part.name === "gzip") {
-    return lastStream.pipe(zlib.createGzip());
+    return { metadata: null, stream: lastStream.pipe(zlib.createGzip()) };
   } else if (part.name === "unzip") {
-    return lastStream.pipe(zlib.createUnzip());
+    return { metadata: null, stream: lastStream.pipe(zlib.createUnzip()) };
   } else if (part.name === "fileWrite") {
-    return lastStream.pipe(fs.createWriteStream(path.resolve(part.path)));
+    return {
+      metadata: null,
+      stream: lastStream.pipe(fs.createWriteStream(path.resolve(part.path))),
+    };
   } else if (part.name === "httpWrite") {
     const makeFetchHappen = makeFetchHappenOriginal.defaults({
       // cache: mode === "build" ? "no-cache" : "default",
@@ -793,8 +786,7 @@ async function pipePartToStream(
       url: response.url,
       statusText: response.statusText,
     };
-    // return { stream: response.body, metadata };
-    return response.body;
+    return { metadata, stream: response.body };
   } else if (part.name === "command") {
     const { command, args, allowNon0Status } = part;
     /**
@@ -809,21 +801,33 @@ async function pipePartToStream(
     //   console.error("ERROR in pipeline!", error);
     //   process.exit(1);
     // });
-    // newProcess.on("exit", (code) => {
-    //   console.log("Exit code:", code);
-    //   if (code !== 0) {
-    //     if (allowNon0Status) {
-    //     } else {
-    //       // TODO return correct body... or why is exit code 1?
-    //       console.error("ERROR in exit code!", code);
-    //       process.exit(1);
-    //     }
-    //   }
-    // });
+    let stderrOutput = "";
+    let combinedOutput = "";
+    newProcess.stderr.on("data", (data) => {
+      stderrOutput += data;
+      combinedOutput += data;
+    });
+
     lastStream && lastStream.pipe(newProcess.stdin);
-    return newProcess.stdout;
+    if (isLastProcess) {
+      return {
+        stream: newProcess.stdout,
+        metadata: new Promise((resolve) => {
+          newProcess.on("exit", (code) => {
+            resolve({
+              exitCode: code,
+              stdoutOutput: "",
+              stderrOutput,
+              combinedOutput,
+            });
+          });
+        }),
+      };
+    } else {
+      return { metadata: null, stream: newProcess.stdout };
+    }
   } else if (part.name === "fromString") {
-    return Readable.from([part.string]);
+    return { stream: Readable.from([part.string]) };
   } else {
     // console.error(`Unknown stream part: ${part.name}!`);
     // process.exit(1);
