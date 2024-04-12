@@ -24,7 +24,7 @@ For example, you could have a stream that
   - Reads from a file [`fileRead`](#fileRead)
   - Unzips the contents [`unzip`](#unzip)
   - Runs a shell command on the contents [`command`](#command)
-  - And writes the result to a network connection [`httpWrite`](#http)
+  - And writes the result to a network connection [`http`](#http)
 
 For example,
 
@@ -34,13 +34,14 @@ For example,
         Stream.fileRead "data.txt"
             |> Stream.unzip
             |> Stream.command "wc" [ "-l" ]
-            |> Stream.httpWrite
+            |> Stream.http
                 { url = "http://example.com"
                 , method = "POST"
                 , headers = []
                 , retries = Nothing
                 , timeoutInMs = Nothing
                 }
+            |> Stream.run
 
 End example
 
