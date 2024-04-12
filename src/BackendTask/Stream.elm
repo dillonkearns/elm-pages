@@ -1,4 +1,4 @@
-module Stream exposing
+module BackendTask.Stream exposing
     ( Stream
     , fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
     , CommandOutput
@@ -28,7 +28,7 @@ For example, you could have a stream that
 
 For example,
 
-    import Stream exposing (Stream)
+    import BackendTask.Stream as Stream exposing (Stream)
 
     example =
         Stream.fileRead "data.txt"

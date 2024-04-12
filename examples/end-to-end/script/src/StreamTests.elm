@@ -3,13 +3,13 @@ module StreamTests exposing (run)
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import BackendTask.Http
+import BackendTask.Stream as Stream exposing (Stream, defaultCommandOptions)
 import BackendTaskTest exposing (testScript)
 import Expect
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Script as Script exposing (Script)
-import Stream exposing (Stream, defaultCommandOptions)
 import Test
 
 

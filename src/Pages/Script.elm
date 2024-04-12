@@ -43,13 +43,13 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
+import BackendTask.Stream as Stream
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Internal.Script
-import Stream
 
 
 {-| The type for your `run` function that can be executed by `elm-pages run`.
