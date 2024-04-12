@@ -17,18 +17,19 @@ run : Script
 run =
     testScript "Stream"
         [ Stream.fromString "asdf\nqwer\n"
-            |> Stream.captureCommandWithInput "wc" [ "-l" ]
+            |> Stream.pipe (Stream.command "wc" [ "-l" ])
+            |> Stream.read
             |> try
             |> test "capture stdin"
-                (\output ->
-                    output.stdout
+                (\{ body } ->
+                    body
                         |> String.trim
                         |> Expect.equal
                             "2"
                 )
         , Stream.fromString "asdf\nqwer\n"
-            |> Stream.runCommandWithInput "wc" [ "-l" ]
-            |> try
+            |> Stream.pipe (Stream.command "wc" [ "-l" ])
+            |> Stream.run
             |> test "run stdin"
                 (\() ->
                     Expect.pass
@@ -42,15 +43,18 @@ run =
         , Stream.fromString "asdf\nqwer\n"
             |> Stream.pipe (Stream.customDuplex "upperCaseStream" Encode.null)
             |> Stream.read
+            |> try
             |> test "custom duplex"
-                (Expect.equal "ASDF\nQWER\n")
+                (.body >> Expect.equal "ASDF\nQWER\n")
         , Stream.customRead "customReadStream" Encode.null
             |> Stream.read
+            |> try
             |> test "custom read"
-                (Expect.equal "Hello from customReadStream!")
+                (.body >> Expect.equal "Hello from customReadStream!")
         , Stream.fromString "qwer\n"
             |> Stream.pipe (Stream.customDuplex "customReadStream" Encode.null)
             |> Stream.read
+            |> try
             |> expectError "invalid stream"
                 "Expected 'customReadStream' to be a duplex stream!"
         , Stream.fileRead "elm.json"
@@ -62,19 +66,21 @@ run =
                     Stream.fileRead zipFile
                         |> Stream.pipe Stream.unzip
                         |> Stream.readJson (Decode.field "type" Decode.string)
+                        |> try
                 )
-            |> test "zip and unzip" (Expect.equal "application")
+            |> test "zip and unzip" (.body >> Expect.equal "application")
         , Stream.fromString
             """module            Foo
        
 a = 1
 b =            2
                """
-            |> Stream.captureCommandWithInput "elm-format" [ "--stdin" ]
+            |> Stream.pipe (Stream.command "elm-format" [ "--stdin" ])
+            |> Stream.read
             |> try
             |> test "elm-format --stdin"
-                (\{ stdout } ->
-                    stdout
+                (\{ metadata, body } ->
+                    body
                         |> Expect.equal
                             """module Foo exposing (a, b)
 
@@ -87,12 +93,24 @@ b =
     2
 """
                 )
+        , Stream.fileRead "elm.json"
+            |> Stream.pipe
+                (Stream.command "jq"
+                    [ ".\"source-directories\"[0]"
+                    ]
+                )
+            |> Stream.readJson Decode.string
+            |> try
+            |> test "read command output as JSON"
+                (.body >> Expect.equal "src")
         ]
 
 
 test : String -> (a -> Expect.Expectation) -> BackendTask FatalError a -> BackendTask FatalError Test.Test
 test name toExpectation task =
-    task
+    --Script.log name
+    BackendTask.succeed ()
+        |> Script.doThen task
         |> BackendTask.map
             (\data ->
                 Test.test name <|
@@ -115,7 +133,11 @@ expectError name message task =
                             Err error ->
                                 error
                                     |> Expect.equal
-                                        (FatalError.fromString message)
+                                        (FatalError.build
+                                            { title = "Stream Error"
+                                            , body = message
+                                            }
+                                        )
             )
 
 

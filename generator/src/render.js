@@ -594,7 +594,11 @@ function runStream(req, portsFile) {
       for (const part of parts) {
         let isLastProcess = index === parts.length - 1;
         let thisStream;
-        if (isLastProcess && (kind === "command" || kind === "commandCode")) {
+        if (
+          false &&
+          isLastProcess &&
+          (kind === "command" || kind === "commandCode")
+        ) {
           const { command, args } = part;
           let stdio;
           if (kind === "command") {
@@ -627,10 +631,13 @@ function runStream(req, portsFile) {
             newProcess.on("close", async (exitCode) => {
               resolve(
                 jsonResponse(req, {
-                  stdoutOutput,
-                  stderrOutput,
-                  combinedOutput,
-                  exitCode,
+                  body: "TODO",
+                  metadata: {
+                    stdoutOutput,
+                    stderrOutput,
+                    combinedOutput,
+                    exitCode,
+                  },
                 })
               );
             });
@@ -645,22 +652,56 @@ function runStream(req, portsFile) {
             part,
             { cwd, quiet, env },
             portsFile,
-            (value) => resolve(jsonResponse(req, value))
+            (value) => resolve(jsonResponse(req, value)),
+            isLastProcess
           );
         }
         lastStream = thisStream;
         index += 1;
       }
       if (kind === "json") {
-        resolve(jsonResponse(req, await consumers.json(lastStream)));
+        resolve(
+          jsonResponse(req, {
+            body: await consumers.json(lastStream),
+            metadata: {
+              // TODO
+              stdoutOutput: "",
+              stderrOutput: "",
+              combinedOutput: "",
+              exitCode: 0,
+            },
+          })
+        );
       } else if (kind === "text") {
-        resolve(jsonResponse(req, await consumers.text(lastStream)));
+        resolve(
+          jsonResponse(req, {
+            body: await consumers.text(lastStream),
+            metadata: {
+              // TODO
+              stdoutOutput: "",
+              stderrOutput: "",
+              combinedOutput: "",
+              exitCode: 0,
+            },
+          })
+        );
       } else if (kind === "none") {
         // lastStream.once("finish", async () => {
         //   resolve(jsonResponse(req, null));
         // });
         lastStream.once("close", () => {
-          resolve(jsonResponse(req, null));
+          resolve(
+            jsonResponse(req, {
+              body: null,
+              metadata: {
+                // TODO
+                stdoutOutput: "",
+                stderrOutput: "",
+                combinedOutput: "",
+                exitCode: 0,
+              },
+            })
+          );
         });
       } else if (kind === "command") {
         // already handled in parts.forEach
@@ -693,12 +734,15 @@ async function pipePartToStream(
   part,
   { cwd, quiet, env },
   portsFile,
-  resolve
+  resolve,
+  isLastProcess
 ) {
   if (verbosity > 1 && !quiet) {
   }
   if (part.name === "stdout") {
     return lastStream.pipe(process.stdout);
+  } else if (part.name === "stderr") {
+    return lastStream.pipe(process.stderr);
   } else if (part.name === "stdin") {
     return process.stdin;
   } else if (part.name === "fileRead") {
@@ -732,18 +776,25 @@ async function pipePartToStream(
       // cache: mode === "build" ? "no-cache" : "default",
       cache: "default",
     });
-    const fetchRead = (
-      await makeFetchHappen(part.url, {
-        body: lastStream,
-        duplex: "half",
-        redirect: "follow",
-        method: part.method,
-        headers: part.headers,
-        retry: part.retries,
-        timeout: part.timeoutInMs,
-      })
-    ).body;
-    return fetchRead;
+    const response = await makeFetchHappen(part.url, {
+      body: lastStream,
+      duplex: "half",
+      redirect: "follow",
+      method: part.method,
+      headers: part.headers,
+      retry: part.retries,
+      timeout: part.timeoutInMs,
+    });
+    // TODO what if there is an error?
+    let metadata = {
+      headers: Object.fromEntries(response.headers.entries()),
+      statusCode: response.status,
+      // bodyKind,
+      url: response.url,
+      statusText: response.statusText,
+    };
+    // return { stream: response.body, metadata };
+    return response.body;
   } else if (part.name === "command") {
     const { command, args, allowNon0Status } = part;
     /**
@@ -754,19 +805,21 @@ async function pipePartToStream(
       cwd: cwd,
       env: env,
     });
-    newProcess.on("error", (error) => {
-      console.error("ERROR in pipeline!", error);
-      process.exit(1);
-    });
-    newProcess.on("exit", (code) => {
-      if (code !== 0) {
-        if (allowNon0Status) {
-        } else {
-          console.error("ERROR in exit code!", code);
-          process.exit(1);
-        }
-      }
-    });
+    // newProcess.on("error", (error) => {
+    //   console.error("ERROR in pipeline!", error);
+    //   process.exit(1);
+    // });
+    // newProcess.on("exit", (code) => {
+    //   console.log("Exit code:", code);
+    //   if (code !== 0) {
+    //     if (allowNon0Status) {
+    //     } else {
+    //       // TODO return correct body... or why is exit code 1?
+    //       console.error("ERROR in exit code!", code);
+    //       process.exit(1);
+    //     }
+    //   }
+    // });
     lastStream && lastStream.pipe(newProcess.stdin);
     return newProcess.stdout;
   } else if (part.name === "fromString") {
@@ -900,7 +953,7 @@ export function pipeShells(
           env: env,
         });
       } else {
-        if (isLastProcess && !captureOutput) {
+        if (isLastProcess && !captureOutput && false) {
           currentProcess = spawnCallback(command, args, {
             stdio: quiet
               ? ["pipe", "ignore", "ignore"]
