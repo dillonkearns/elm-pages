@@ -1,9 +1,9 @@
 module Stream exposing
     ( Stream
-    , fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, readJson, unzip
+    , fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
     , CommandOutput
     , command
-    , read, run
+    , read, readJson, run
     , Error(..)
     , commandWithOptions
     , CommandOptions, defaultCommandOptions, allowNon0Status, inheritUnused, withOutput, withTimeout
@@ -46,7 +46,7 @@ End example
 
 @docs Stream
 
-@docs fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, readJson, unzip
+@docs fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
 
 @docs CommandOutput
 
@@ -58,7 +58,7 @@ End example
 
 ## Running Streams
 
-@docs read, run
+@docs read, readJson, run
 
 @docs Error
 
