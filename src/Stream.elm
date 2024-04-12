@@ -1,8 +1,9 @@
 module Stream exposing
     ( Stream
-    , command, fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, readJson, unzip
+    , fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, readJson, unzip
     , CommandOutput
-    , captureCommand, runCommand, read, run
+    , command
+    , read, run
     , Error(..)
     , commandWithOptions
     , CommandOptions, defaultCommandOptions, allowNon0Status, inheritUnused, withOutput, withTimeout
@@ -45,14 +46,19 @@ End example
 
 @docs Stream
 
-@docs command, fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, readJson, unzip
+@docs fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, readJson, unzip
 
 @docs CommandOutput
 
 
-## Running Commands
+## Shell Commands
 
-@docs captureCommand, runCommand, read, run
+@docs command
+
+
+## Running Streams
+
+@docs read, run
 
 @docs Error
 
@@ -591,24 +597,6 @@ runCommand_ command_ args_ maybeStream =
                             exitCode
                         )
             )
-
-
-{-| -}
-captureCommand :
-    String
-    -> List String
-    -> BackendTask { fatal : FatalError, recoverable : { code : Int, output : CommandOutput } } CommandOutput
-captureCommand command_ args_ =
-    captureCommand_ command_ args_ Nothing
-
-
-{-| -}
-runCommand :
-    String
-    -> List String
-    -> BackendTask { fatal : FatalError, recoverable : Int } ()
-runCommand command_ args_ =
-    runCommand_ command_ args_ Nothing
 
 
 commandToString : String -> List String -> String

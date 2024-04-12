@@ -243,13 +243,14 @@ question prompt =
 {-| -}
 exec : String -> List String -> BackendTask FatalError ()
 exec command_ args_ =
-    Stream.runCommand command_ args_
-        |> BackendTask.allowFatal
+    Stream.command command_ args_
+        |> Stream.run
 
 
 {-| -}
 command : String -> List String -> BackendTask FatalError String
 command command_ args_ =
-    Stream.captureCommand command_ args_
+    Stream.command command_ args_
+        |> Stream.read
+        |> BackendTask.map (.metadata >> .combined)
         |> BackendTask.allowFatal
-        |> BackendTask.map .combined
