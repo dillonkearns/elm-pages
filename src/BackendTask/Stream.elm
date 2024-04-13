@@ -1,13 +1,12 @@
 module BackendTask.Stream exposing
     ( Stream
     , fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
-    , CommandOutput
     , command
     , read, readJson, run
     , Error(..)
     , commandWithOptions
-    , CommandOptions, defaultCommandOptions, allowNon0Status, inheritUnused, withOutput, withTimeout
-    , OutputChannel(..)
+    , StderrOutput(..)
+    , CommandOptions, defaultCommandOptions, allowNon0Status, withOutput, withTimeout
     , customRead, customWrite, customDuplex
     )
 
@@ -49,8 +48,6 @@ End example
 
 @docs fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
 
-@docs CommandOutput
-
 
 ## Shell Commands
 
@@ -68,9 +65,9 @@ End example
 
 @docs commandWithOptions
 
-@docs CommandOptions, defaultCommandOptions, allowNon0Status, inheritUnused, withOutput, withTimeout
+@docs StderrOutput
 
-@docs OutputChannel
+@docs CommandOptions, defaultCommandOptions, allowNon0Status, withOutput, withTimeout
 
 
 ## Custom Streams
@@ -99,9 +96,11 @@ type alias Recoverable error =
     { fatal : FatalError, recoverable : error }
 
 
-mapRecoverable : { a | fatal : b, recoverable : c } -> { fatal : b, recoverable : Error c }
-mapRecoverable { fatal, recoverable } =
-    { fatal = fatal, recoverable = CustomError recoverable }
+mapRecoverable : Maybe body -> { a | fatal : b, recoverable : c } -> { fatal : b, recoverable : Error c body }
+mapRecoverable maybeBody { fatal, recoverable } =
+    { fatal = fatal
+    , recoverable = CustomError recoverable maybeBody
+    }
 
 
 type StreamPart
@@ -285,15 +284,15 @@ fromString string =
 
 
 {-| -}
-type Error error
+type Error error body
     = StreamError String
-    | CustomError error
+    | CustomError error (Maybe body)
 
 
 {-| -}
 read :
     Stream error metadata { read : (), write : write }
-    -> BackendTask { fatal : FatalError, recoverable : Error error } { metadata : metadata, body : String }
+    -> BackendTask { fatal : FatalError, recoverable : Error error String } { metadata : metadata, body : String }
 read ((Stream ( decoderName, decoder ) pipeline) as stream) =
     BackendTask.Internal.Request.request
         { name = "stream"
@@ -331,7 +330,12 @@ read ((Stream ( decoderName, decoder ) pipeline) as stream) =
                                             (Decode.field "body" Decode.string)
 
                                     Err error ->
-                                        error |> mapRecoverable |> Err |> Decode.succeed
+                                        Decode.field "body" Decode.string
+                                            |> Decode.maybe
+                                            |> Decode.map
+                                                (\body ->
+                                                    error |> mapRecoverable body |> Err
+                                                )
                             )
                     ]
                 )
@@ -356,7 +360,7 @@ decodeLog decoder =
 readJson :
     Decoder value
     -> Stream error metadata { read : (), write : write }
-    -> BackendTask { fatal : FatalError, recoverable : Error error } { metadata : metadata, body : value }
+    -> BackendTask { fatal : FatalError, recoverable : Error error value } { metadata : metadata, body : value }
 readJson decoder ((Stream ( decoderName, metadataDecoder ) pipeline) as stream) =
     BackendTask.Internal.Request.request
         { name = "stream"
@@ -365,13 +369,22 @@ readJson decoder ((Stream ( decoderName, metadataDecoder ) pipeline) as stream) 
             BackendTask.Http.expectJson
                 (Decode.field "metadata" metadataDecoder
                     |> Decode.andThen
-                        (\result ->
-                            case result of
-                                Ok metadata ->
+                        (\result1 ->
+                            let
+                                bodyResult : Decoder (Result Decode.Error value)
+                                bodyResult =
                                     Decode.field "body" Decode.value
                                         |> Decode.map
                                             (\bodyValue ->
-                                                case Decode.decodeValue decoder bodyValue of
+                                                Decode.decodeValue decoder bodyValue
+                                            )
+                            in
+                            bodyResult
+                                |> Decode.map
+                                    (\result ->
+                                        case result1 of
+                                            Ok metadata ->
+                                                case result of
                                                     Ok body ->
                                                         Ok
                                                             { metadata = metadata
@@ -379,17 +392,18 @@ readJson decoder ((Stream ( decoderName, metadataDecoder ) pipeline) as stream) 
                                                             }
 
                                                     Err decoderError ->
-                                                        Err
-                                                            (FatalError.recoverable
-                                                                { title = "Failed to decode body"
-                                                                , body = "Failed to decode body"
-                                                                }
-                                                                (StreamError (Decode.errorToString decoderError))
-                                                            )
-                                            )
+                                                        FatalError.recoverable
+                                                            { title = "Failed to decode body"
+                                                            , body = "Failed to decode body"
+                                                            }
+                                                            (StreamError (Decode.errorToString decoderError))
+                                                            |> Err
 
-                                Err error ->
-                                    error |> mapRecoverable |> Err |> Decode.succeed
+                                            Err error ->
+                                                error
+                                                    |> mapRecoverable (Result.toMaybe result)
+                                                    |> Err
+                                    )
                         )
                 )
         }
@@ -403,32 +417,27 @@ readBytes stream =
 
 
 {-| -}
-command : String -> List String -> Stream Int CommandOutput { read : read, write : write }
+command : String -> List String -> Stream Int () { read : read, write : write }
 command command_ args_ =
     commandWithOptions defaultCommandOptions command_ args_
 
 
-commandDecoder : Bool -> ( String, Decoder (Result (Recoverable Int) CommandOutput) )
+commandDecoder : Bool -> ( String, Decoder (Result (Recoverable Int) ()) )
 commandDecoder allowNon0 =
     ( "command"
     , commandOutputDecoder
         |> Decode.map
-            (\output ->
-                if output.exitCode == 0 || allowNon0 || True then
-                    Ok
-                        { stdout = output.stdout
-                        , stderr = output.stderr
-                        , combined = output.combined
-                        , exitCode = output.exitCode
-                        }
+            (\exitCode ->
+                if exitCode == 0 || allowNon0 || True then
+                    Ok ()
 
                 else
                     Err
                         (FatalError.recoverable
                             { title = "Command Failed"
-                            , body = "Command  failed with exit code " ++ String.fromInt output.exitCode
+                            , body = "Command  failed with exit code " ++ String.fromInt exitCode
                             }
-                            output.exitCode
+                            exitCode
                         )
             )
     )
@@ -439,7 +448,7 @@ commandDecoder allowNon0 =
 
 
 {-| -}
-commandWithOptions : CommandOptions -> String -> List String -> Stream Int CommandOutput { read : read, write : write }
+commandWithOptions : CommandOptions -> String -> List String -> Stream Int () { read : read, write : write }
 commandWithOptions (CommandOptions options) command_ args_ =
     single (commandDecoder options.allowNon0Status)
         "command"
@@ -462,20 +471,12 @@ nullable encoder maybeValue =
 
 
 {-| -}
-type OutputChannel
-    = Stdout
-    | Stderr
-    | Both
-
-
-{-| -}
 type CommandOptions
     = CommandOptions CommandOptions_
 
 
 type alias CommandOptions_ =
-    { output : OutputChannel
-    , inheritUnused : Bool
+    { output : StderrOutput
     , allowNon0Status : Bool
     , timeoutInMs : Maybe Int
     }
@@ -485,15 +486,14 @@ type alias CommandOptions_ =
 defaultCommandOptions : CommandOptions
 defaultCommandOptions =
     CommandOptions
-        { output = Stdout
-        , inheritUnused = False
+        { output = PrintStderr
         , allowNon0Status = False
         , timeoutInMs = Nothing
         }
 
 
 {-| -}
-withOutput : OutputChannel -> CommandOptions -> CommandOptions
+withOutput : StderrOutput -> CommandOptions -> CommandOptions
 withOutput output (CommandOptions cmd) =
     CommandOptions { cmd | output = output }
 
@@ -510,45 +510,37 @@ withTimeout timeoutMs (CommandOptions cmd) =
     CommandOptions { cmd | timeoutInMs = Just timeoutMs }
 
 
-{-| -}
-inheritUnused : CommandOptions -> CommandOptions
-inheritUnused (CommandOptions cmd) =
-    CommandOptions { cmd | inheritUnused = True }
-
-
-encodeChannel : OutputChannel -> Encode.Value
+encodeChannel : StderrOutput -> Encode.Value
 encodeChannel output =
     Encode.string
         (case output of
-            Stdout ->
-                "stdout"
+            IgnoreStderr ->
+                "Ignore"
 
-            Stderr ->
-                "stderr"
+            PrintStderr ->
+                "Print"
 
-            Both ->
-                "both"
+            MergeStderrAndStdout ->
+                "MergeWithStdout"
+
+            StderrInsteadOfStdout ->
+                "InsteadOfStdout"
         )
 
 
-{-| -}
-type alias CommandOutput =
-    { stdout : String
-    , stderr : String
-    , combined : String
-    , exitCode : Int
-    }
-
-
-commandOutputDecoder : Decoder CommandOutput
+commandOutputDecoder : Decoder Int
 commandOutputDecoder =
-    Decode.map4 CommandOutput
-        (Decode.field "stdoutOutput" Decode.string)
-        (Decode.field "stderrOutput" Decode.string)
-        (Decode.field "combinedOutput" Decode.string)
-        (Decode.field "exitCode" Decode.int)
+    Decode.field "exitCode" Decode.int
 
 
 commandToString : String -> List String -> String
 commandToString command_ args_ =
     command_ ++ " " ++ String.join " " args_
+
+
+{-| -}
+type StderrOutput
+    = IgnoreStderr
+    | PrintStderr
+    | MergeStderrAndStdout
+    | StderrInsteadOfStdout

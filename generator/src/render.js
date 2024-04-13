@@ -22,6 +22,7 @@ import * as zlib from "node:zlib";
 import { Readable } from "node:stream";
 import * as validateStream from "./validate-stream.js";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
+import mergeStreams from "@sindresorhus/merge-streams";
 
 let verbosity = 2;
 const spinnies = new Spinnies();
@@ -678,26 +679,15 @@ function runStream(req, portsFile) {
           })
         );
       } else if (kind === "none") {
-        // lastStream.once("finish", async () => {
-        //   resolve(jsonResponse(req, null));
-        // });
-        lastStream.once("close", async () => {
-          resolve(
-            jsonResponse(req, {
-              body: null,
-              metadata: await metadataResponse,
-            })
-          );
-        });
+        resolve(
+          jsonResponse(req, {
+            body: null,
+            metadata: await metadataResponse,
+          })
+        );
       } else if (kind === "command") {
         // already handled in parts.forEach
       }
-
-      // lastStream.once("error", (error) => {
-      //   console.log('Stream error!');
-      //   console.error(error);
-      //   reject(jsonResponse(req, null));
-      // });
     } catch (error) {
       if (lastStream) {
         lastStream.destroy();
@@ -788,43 +778,49 @@ async function pipePartToStream(
     };
     return { metadata, stream: response.body };
   } else if (part.name === "command") {
-    const { command, args, allowNon0Status } = part;
+    const { command, args, allowNon0Status, output } = part;
     /**
      * @type {import('node:child_process').ChildProcess}
      */
+    let stderrKind = "pipe";
+    if (output === "Ignore") {
+      stderrKind = "ignore";
+    } else if (output === "Print") {
+      stderrKind = "inherit";
+    }
     const newProcess = spawnCallback(command, args, {
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: [
+        "pipe",
+        // if we are capturing stderr instead of stdout, print out stdout with `inherit`
+        output === "InsteadOfStdout" ? "inherit" : "pipe",
+        stderrKind,
+      ],
       cwd: cwd,
       env: env,
     });
-    // newProcess.on("error", (error) => {
-    //   console.error("ERROR in pipeline!", error);
-    //   process.exit(1);
-    // });
-    let stderrOutput = "";
-    let combinedOutput = "";
-    newProcess.stderr.on("data", (data) => {
-      stderrOutput += data;
-      combinedOutput += data;
-    });
 
     lastStream && lastStream.pipe(newProcess.stdin);
+    let newStream;
+    if (output === "MergeWithStdout") {
+      newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
+    } else if (output === "InsteadOfStdout") {
+      newStream = newProcess.stderr;
+    } else {
+      newStream = newProcess.stdout;
+    }
     if (isLastProcess) {
       return {
-        stream: newProcess.stdout,
+        stream: newStream,
         metadata: new Promise((resolve) => {
           newProcess.on("exit", (code) => {
             resolve({
               exitCode: code,
-              stdoutOutput: "",
-              stderrOutput,
-              combinedOutput,
             });
           });
         }),
       };
     } else {
-      return { metadata: null, stream: newProcess.stdout };
+      return { metadata: null, stream: newStream };
     }
   } else if (part.name === "fromString") {
     return { stream: Readable.from([part.string]) };

@@ -105,23 +105,28 @@ b =
                 (.body >> Expect.equal "src")
         , Stream.fromString "invalid elm module"
             |> Stream.pipe
-                (Stream.commandWithOptions (defaultCommandOptions |> Stream.allowNon0Status)
+                (Stream.commandWithOptions
+                    (defaultCommandOptions
+                        |> Stream.allowNon0Status
+                        |> Stream.withOutput Stream.MergeStderrAndStdout
+                    )
                     "elm-format"
                     [ "--stdin" ]
                 )
             |> Stream.read
             |> try
             |> test "stderr"
-                (Expect.equal
-                    { body = ""
-                    , metadata =
-                        { exitCode = 1
-                        , stdout = ""
-                        , stderr = "Unable to parse file <STDIN>:1:13 To see a detailed explanation, run elm make on the file.\n"
-                        , combined = "Unable to parse file <STDIN>:1:13 To see a detailed explanation, run elm make on the file.\n"
-                        }
-                    }
-                )
+                (.body >> Expect.equal "Unable to parse file <STDIN>:1:13 To see a detailed explanation, run elm make on the file.\n")
+        , Stream.commandWithOptions
+            (defaultCommandOptions
+                |> Stream.allowNon0Status
+            )
+            "elm-review"
+            [ "--report=json" ]
+            |> Stream.readJson (Decode.field "type" Decode.string)
+            |> try
+            |> test "elm-review"
+                (.body >> Expect.equal "review-errors")
         ]
 
 

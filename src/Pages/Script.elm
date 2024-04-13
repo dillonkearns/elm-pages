@@ -43,7 +43,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
-import BackendTask.Stream as Stream
+import BackendTask.Stream as Stream exposing (defaultCommandOptions)
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import FatalError exposing (FatalError)
@@ -250,7 +250,10 @@ exec command_ args_ =
 {-| -}
 command : String -> List String -> BackendTask FatalError String
 command command_ args_ =
-    Stream.command command_ args_
+    Stream.commandWithOptions
+        (defaultCommandOptions |> Stream.withOutput Stream.MergeStderrAndStdout)
+        command_
+        args_
         |> Stream.read
-        |> BackendTask.map (.metadata >> .combined)
+        |> BackendTask.map .body
         |> BackendTask.allowFatal
