@@ -597,71 +597,18 @@ function runStream(req, portsFile) {
       for (const part of parts) {
         let isLastProcess = index === parts.length - 1;
         let thisStream;
-        if (
-          false &&
-          isLastProcess &&
-          (kind === "command" || kind === "commandCode")
-        ) {
-          const { command, args } = part;
-          let stdio;
-          if (kind === "command") {
-            stdio = ["pipe", "pipe", "pipe"];
-          } else if (kind === "commandCode") {
-            stdio = quiet
-              ? ["pipe", "ignore", "ignore"]
-              : ["pipe", "inherit", "inherit"];
-          } else {
-            throw new Error(`Unknown kind: ${kind}`);
-          }
-          const newProcess = spawnCallback(command, args, {
-            stdio,
-            cwd: cwd,
-            env: env,
-          });
-          lastStream && lastStream.pipe(newProcess.stdin);
-          if (kind === "command") {
-            let stdoutOutput = "";
-            let stderrOutput = "";
-            let combinedOutput = "";
-            newProcess.stderr.on("data", function (data) {
-              stderrOutput += data;
-              combinedOutput += data;
-            });
-            newProcess.stdout.on("data", function (data) {
-              stdoutOutput += data;
-              combinedOutput += data;
-            });
-            newProcess.on("close", async (exitCode) => {
-              resolve(
-                jsonResponse(req, {
-                  body: "TODO",
-                  metadata: {
-                    stdoutOutput,
-                    stderrOutput,
-                    combinedOutput,
-                    exitCode,
-                  },
-                })
-              );
-            });
-          } else {
-            newProcess.on("close", async (exitCode) => {
-              resolve(jsonResponse(req, { exitCode }));
-            });
-          }
-        } else {
-          const { stream, metadata } = await pipePartToStream(
-            lastStream,
-            part,
-            { cwd, quiet, env },
-            portsFile,
-            (value) => resolve(jsonResponse(req, value)),
-            isLastProcess,
-            kind
-          );
-          metadataResponse = metadata;
-          thisStream = stream;
-        }
+        const { stream, metadata } = await pipePartToStream(
+          lastStream,
+          part,
+          { cwd, quiet, env },
+          portsFile,
+          (value) => resolve(jsonResponse(req, value)),
+          isLastProcess,
+          kind
+        );
+        metadataResponse = metadata;
+        thisStream = stream;
+
         lastStream = thisStream;
         index += 1;
       }
