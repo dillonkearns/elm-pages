@@ -641,6 +641,24 @@ toResultThing ( expect, body, maybeResponse ) =
             Err (BadBody Nothing "Unexpected combination, internal error")
 
 
+{-| -}
+type alias Metadata =
+    { url : String
+    , statusCode : Int
+    , statusText : String
+    , headers : Dict String String
+    }
+
+
+{-| -}
+type Error
+    = BadUrl String
+    | Timeout
+    | NetworkError
+    | BadStatus Metadata String
+    | BadBody (Maybe Json.Decode.Error) String
+
+
 errorToString : Error -> { title : String, body : String }
 errorToString error =
     { title = "HTTP Error"
@@ -658,8 +676,10 @@ errorToString error =
                 [ TerminalText.text "NetworkError"
                 ]
 
-            BadStatus _ string ->
-                [ TerminalText.text ("BadStatus: " ++ string)
+            BadStatus metadata string ->
+                [ TerminalText.text "BadStatus: "
+                , TerminalText.red (String.fromInt metadata.statusCode)
+                , TerminalText.text (" " ++ metadata.statusText)
                 ]
 
             BadBody _ string ->
@@ -668,21 +688,3 @@ errorToString error =
         )
             |> TerminalText.toString
     }
-
-
-{-| -}
-type alias Metadata =
-    { url : String
-    , statusCode : Int
-    , statusText : String
-    , headers : Dict String String
-    }
-
-
-{-| -}
-type Error
-    = BadUrl String
-    | Timeout
-    | NetworkError
-    | BadStatus Metadata String
-    | BadBody (Maybe Json.Decode.Error) String

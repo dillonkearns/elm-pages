@@ -79,12 +79,14 @@ End example
 import BackendTask exposing (BackendTask)
 import BackendTask.Http exposing (Body)
 import BackendTask.Internal.Request
+import Base64
 import Bytes exposing (Bytes)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Pages.Internal.StaticHttpBody
 import RequestsAndPending
+import TerminalText
 
 
 {-| -}
@@ -239,7 +241,18 @@ httpMetadataDecoder : ( String, Decoder (Result (Recoverable BackendTask.Http.Er
 httpMetadataDecoder =
     ( "http"
     , RequestsAndPending.responseDecoder
-        |> Decode.map Ok
+        |> Decode.map
+            (\thing ->
+                toBadResponse (Just thing) RequestsAndPending.WhateverBody
+                    |> Maybe.map
+                        (\httpError ->
+                            FatalError.recoverable
+                                (errorToString httpError)
+                                httpError
+                                |> Err
+                        )
+                    |> Maybe.withDefault (Ok thing)
+            )
     )
 
 
@@ -544,3 +557,87 @@ type StderrOutput
     | PrintStderr
     | MergeStderrAndStdout
     | StderrInsteadOfStdout
+
+
+toBadResponse : Maybe BackendTask.Http.Metadata -> RequestsAndPending.ResponseBody -> Maybe BackendTask.Http.Error
+toBadResponse maybeResponse body =
+    case maybeResponse of
+        Just response ->
+            if not (response.statusCode >= 200 && response.statusCode < 300) then
+                case body of
+                    RequestsAndPending.StringBody s ->
+                        BackendTask.Http.BadStatus
+                            { url = response.url
+                            , statusCode = response.statusCode
+                            , statusText = response.statusText
+                            , headers = response.headers
+                            }
+                            s
+                            |> Just
+
+                    RequestsAndPending.BytesBody bytes ->
+                        BackendTask.Http.BadStatus
+                            { url = response.url
+                            , statusCode = response.statusCode
+                            , statusText = response.statusText
+                            , headers = response.headers
+                            }
+                            (Base64.fromBytes bytes |> Maybe.withDefault "")
+                            |> Just
+
+                    RequestsAndPending.JsonBody value ->
+                        BackendTask.Http.BadStatus
+                            { url = response.url
+                            , statusCode = response.statusCode
+                            , statusText = response.statusText
+                            , headers = response.headers
+                            }
+                            (Encode.encode 0 value)
+                            |> Just
+
+                    RequestsAndPending.WhateverBody ->
+                        BackendTask.Http.BadStatus
+                            { url = response.url
+                            , statusCode = response.statusCode
+                            , statusText = response.statusText
+                            , headers = response.headers
+                            }
+                            ""
+                            |> Just
+
+            else
+                Nothing
+
+        Nothing ->
+            Nothing
+
+
+errorToString : BackendTask.Http.Error -> { title : String, body : String }
+errorToString error =
+    { title = "HTTP Error"
+    , body =
+        (case error of
+            BackendTask.Http.BadUrl string ->
+                [ TerminalText.text ("BadUrl " ++ string)
+                ]
+
+            BackendTask.Http.Timeout ->
+                [ TerminalText.text "Timeout"
+                ]
+
+            BackendTask.Http.NetworkError ->
+                [ TerminalText.text "NetworkError"
+                ]
+
+            BackendTask.Http.BadStatus metadata string ->
+                [ TerminalText.text "BadStatus: "
+                , TerminalText.red (String.fromInt metadata.statusCode)
+                , TerminalText.text (" " ++ metadata.statusText)
+                ]
+
+            BackendTask.Http.BadBody _ string ->
+                [ TerminalText.text ("BadBody: " ++ string)
+                ]
+        )
+            |> TerminalText.toString
+    }

@@ -2,14 +2,17 @@ module StreamTests exposing (run)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
-import BackendTask.Http
+import BackendTask.Http exposing (Error(..))
 import BackendTask.Stream as Stream exposing (Stream, defaultCommandOptions)
 import BackendTaskTest exposing (testScript)
+import Dict
 import Expect
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Pages.Internal.FatalError exposing (FatalError(..))
 import Pages.Script as Script exposing (Script)
+import TerminalText exposing (fromAnsiString)
 import Test
 
 
@@ -117,16 +120,42 @@ b =
             |> try
             |> test "stderr"
                 (.body >> Expect.equal "Unable to parse file <STDIN>:1:13 To see a detailed explanation, run elm make on the file.\n")
-        , Stream.commandWithOptions
-            (defaultCommandOptions
-                |> Stream.allowNon0Status
-            )
-            "elm-review"
-            [ "--report=json" ]
-            |> Stream.readJson (Decode.field "type" Decode.string)
+        , Stream.http
+            { url = "https://jsonplaceholder.typicode.com/posts/124"
+            , timeoutInMs = Nothing
+            , body = BackendTask.Http.emptyBody
+            , retries = Nothing
+            , headers = []
+            , method = "GET"
+            }
+            |> Stream.read
+            |> BackendTask.mapError .recoverable
+            |> BackendTask.toResult
+            |> test "output from HTTP"
+                (\result ->
+                    case result of
+                        Ok _ ->
+                            Expect.fail ("Expected a failure, but got success!\n\n" ++ Debug.toString result)
+
+                        Err (Stream.CustomError (BadStatus meta _) _) ->
+                            meta.statusCode
+                                |> Expect.equal 404
+
+                        _ ->
+                            Expect.fail ("Unexpected error\n\n" ++ Debug.toString result)
+                )
+        , Stream.http
+            { url = "https://jsonplaceholder.typicode.com/posts/124"
+            , timeoutInMs = Nothing
+            , body = BackendTask.Http.emptyBody
+            , retries = Nothing
+            , headers = []
+            , method = "GET"
+            }
+            |> Stream.read
             |> try
-            |> test "elm-review"
-                (.body >> Expect.equal "review-errors")
+            |> expectError "HTTP FatalError message"
+                "BadStatus: 404 Not Found"
         ]
 
 
@@ -155,13 +184,14 @@ expectError name message task =
                                 Expect.fail "Expected a failure, but got success!"
 
                             Err error ->
-                                error
-                                    |> Expect.equal
-                                        (FatalError.build
-                                            { title = "Stream Error"
-                                            , body = message
-                                            }
-                                        )
+                                let
+                                    (FatalError info) =
+                                        error
+                                in
+                                info.body
+                                    |> TerminalText.fromAnsiString
+                                    |> TerminalText.toPlainString
+                                    |> Expect.equal message
             )
 
 

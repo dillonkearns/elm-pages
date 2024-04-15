@@ -45,9 +45,9 @@ run toTest =
                                                         failures
                                                             |> List.map
                                                                 (\( label, failure ) ->
-                                                                    label ++ " | " ++ failure
+                                                                    "X " ++ label ++ "\n>>>>>> \n " ++ failure ++ "\n<<<<<<\n"
                                                                 )
-                                                            |> String.join "\n"
+                                                            |> String.join "\n\n"
                                                     }
                                                 )
 
@@ -153,7 +153,7 @@ viewReason : Reason -> String
 viewReason reason =
     case reason of
         Custom ->
-            ""
+            "Custom"
 
         Equality expected actual ->
             "Expected: " ++ expected ++ " | Actual: " ++ actual
