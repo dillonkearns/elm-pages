@@ -9407,7 +9407,8 @@
                     if ((!response.$) && (response.a.b.$ === 2)) {
                         var _v11 = response.a;
                         var redirectTo = _v11.b.a;
-                        return $author$project$Pages$Internal$Platform$startNewGetLoad_fn($author$project$Pages$Internal$Platform$currentUrlWithPath_fn(redirectTo, model), toMsg, _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect));
+                        var isAbsoluteUrl = !_Utils_eq($elm$url$Url$fromString(redirectTo), $elm$core$Maybe$Nothing);
+                        return isAbsoluteUrl ? _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$BrowserLoadUrl(redirectTo)) : $author$project$Pages$Internal$Platform$startNewGetLoad_fn($author$project$Pages$Internal$Platform$currentUrlWithPath_fn(redirectTo, model), toMsg, _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect));
                     }
                     else {
                         var $temp$config = config, $temp$appMsg = toMsg(response), $temp$model = $author$project$Pages$Internal$Platform$clearLoadingFetchersAfterDataLoad_fn(transitionId, model);
