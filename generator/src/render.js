@@ -803,7 +803,6 @@ async function pipePartToStream(
     });
 
     newProcess.once("error", (error) => {
-      console.error("ERROR!");
       resolve({ error: error.toString() });
     });
 
