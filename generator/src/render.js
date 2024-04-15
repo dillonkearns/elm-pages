@@ -656,7 +656,8 @@ function runStream(req, portsFile) {
             { cwd, quiet, env },
             portsFile,
             (value) => resolve(jsonResponse(req, value)),
-            isLastProcess
+            isLastProcess,
+            kind
           );
           metadataResponse = metadata;
           thisStream = stream;
@@ -711,7 +712,8 @@ async function pipePartToStream(
   { cwd, quiet, env },
   portsFile,
   resolve,
-  isLastProcess
+  isLastProcess,
+  kind
 ) {
   if (verbosity > 1 && !quiet) {
   }
@@ -778,27 +780,29 @@ async function pipePartToStream(
     return { metadata, stream: response.body };
   } else if (part.name === "command") {
     const { command, args, allowNon0Status, output } = part;
-    /**
-     * @type {import('node:child_process').ChildProcess}
-     */
-    let stderrKind = "pipe";
+    /** @type {'ignore' | 'inherit'} } */
+    let letPrint = quiet ? "ignore" : "inherit";
+    let stderrKind = kind === "none" ? letPrint : "pipe";
     if (output === "Ignore") {
       stderrKind = "ignore";
     } else if (output === "Print") {
-      stderrKind = "inherit";
+      stderrKind = letPrint;
     }
+    /**
+     * @type {import('node:child_process').ChildProcess}
+     */
     const newProcess = spawnCallback(command, args, {
       stdio: [
         "pipe",
         // if we are capturing stderr instead of stdout, print out stdout with `inherit`
-        output === "InsteadOfStdout" ? "inherit" : "pipe",
+        output === "InsteadOfStdout" || kind === "none" ? letPrint : "pipe",
         stderrKind,
       ],
       cwd: cwd,
       env: env,
     });
 
-    newProcess.on("error", (error) => {
+    newProcess.once("error", (error) => {
       console.error("ERROR!");
       resolve({ error: error.toString() });
     });
@@ -816,7 +820,7 @@ async function pipePartToStream(
       return {
         stream: newStream,
         metadata: new Promise((resolve) => {
-          newProcess.on("exit", (code) => {
+          newProcess.once("exit", (code) => {
             resolve({
               exitCode: code,
             });
