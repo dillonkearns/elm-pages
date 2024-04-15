@@ -80,7 +80,6 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http exposing (Body)
 import BackendTask.Internal.Request
 import Base64
-import Bytes exposing (Bytes)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -297,7 +296,7 @@ run stream =
 
 
 pipelineEncoder : Stream error metadata kind -> String -> Encode.Value
-pipelineEncoder (Stream decoder parts) kind =
+pipelineEncoder (Stream _ parts) kind =
     Encode.object
         [ ( "kind", Encode.string kind )
         , ( "parts"
@@ -326,7 +325,7 @@ type Error error body
 read :
     Stream error metadata { read : (), write : write }
     -> BackendTask { fatal : FatalError, recoverable : Error error String } { metadata : metadata, body : String }
-read ((Stream ( decoderName, decoder ) pipeline) as stream) =
+read ((Stream ( _, decoder ) _) as stream) =
     BackendTask.Internal.Request.request
         { name = "stream"
 
@@ -380,7 +379,7 @@ decodeLog : Decoder a -> Decoder a
 decodeLog decoder =
     Decode.value
         |> Decode.andThen
-            (\value ->
+            (\_ ->
                 --let
                 --    _ =
                 --        Debug.log (Encode.encode 2 value) ()
@@ -394,7 +393,7 @@ readJson :
     Decoder value
     -> Stream error metadata { read : (), write : write }
     -> BackendTask { fatal : FatalError, recoverable : Error error value } { metadata : metadata, body : value }
-readJson decoder ((Stream ( decoderName, metadataDecoder ) pipeline) as stream) =
+readJson decoder ((Stream ( _, metadataDecoder ) _) as stream) =
     BackendTask.Internal.Request.request
         { name = "stream"
         , body = BackendTask.Http.jsonBody (pipelineEncoder stream "json")
@@ -441,12 +440,6 @@ readJson decoder ((Stream ( decoderName, metadataDecoder ) pipeline) as stream) 
                 )
         }
         |> BackendTask.andThen BackendTask.fromResult
-
-
-{-| -}
-readBytes : Stream error metadata { read : (), write : write } -> BackendTask FatalError Bytes
-readBytes stream =
-    BackendTask.fail (FatalError.fromString "Not implemented")
 
 
 {-| -}
@@ -566,11 +559,6 @@ commandOutputDecoder =
     Decode.field "exitCode" Decode.int
 
 
-commandToString : String -> List String -> String
-commandToString command_ args_ =
-    command_ ++ " " ++ String.join " " args_
-
-
 {-| -}
 type StderrOutput
     = IgnoreStderr
@@ -649,7 +637,7 @@ errorToString error =
                 [ TerminalText.text "NetworkError"
                 ]
 
-            BackendTask.Http.BadStatus metadata string ->
+            BackendTask.Http.BadStatus metadata _ ->
                 [ TerminalText.text "BadStatus: "
                 , TerminalText.red (String.fromInt metadata.statusCode)
                 , TerminalText.text (" " ++ metadata.statusText)

@@ -90,18 +90,19 @@ noop =
 
 {-| A continuation-style helper for [`Glob.fromString`](BackendTask-Glob#fromString).
 
-In a shell script, you can think of this as a stand-in for globbing files directly within a command. All commands in
-you run with [`BackendTask.Shell`](BackendTask-Shell) (including the [`sh`](#exec) and [`exec`](#command) helpers)
-sanitizes and escapes all arguments passed, and does not do glob expansion, so this is helpful for translating
+In a shell script, you can think of this as a stand-in for globbing files directly within a command. The [`BackendTask.Stream.command`](BackendTask-Stream#command)
+which lets you run shell commands sanitizes and escapes all arguments passed, and does not do glob expansion, so this is helpful for translating
 a shell script to Elm.
 
 This example passes a list of matching file paths along to an `rm -f` command.
 
     example : BackendTask FatalError ()
     example =
-        glob "src/**/*.elm" <| \elmFiles ->
-        log ("You have " ++ String.fromInt (List.length elmFiles) ++ " Elm files") <| \() ->
-        noop
+        glob "src/**/*.elm" <|
+            \elmFiles ->
+                log ("You have " ++ String.fromInt (List.length elmFiles) ++ " Elm files") <|
+                    \() ->
+                        noop
 
 -}
 glob : String -> (List String -> BackendTask FatalError a) -> BackendTask FatalError a
@@ -113,14 +114,16 @@ glob pattern =
 
     checkCompilationInDir : String -> BackendTask FatalError ()
     checkCompilationInDir dir =
-        glob (dir ++ "/**/*.elm") <| \elmFiles ->
-        each elmFiles
-            (\elmFile ->
-                Shell.sh "elm" [ "make", elmFile, "--output", "/dev/null" ]
-                    |> BackendTask.quiet
-            )
-        <| \_ ->
-        noop
+        glob (dir ++ "/**/*.elm") <|
+            \elmFiles ->
+                each elmFiles
+                    (\elmFile ->
+                        Shell.sh "elm" [ "make", elmFile, "--output", "/dev/null" ]
+                            |> BackendTask.quiet
+                    )
+                <|
+                    \_ ->
+                        noop
 
 -}
 each : List a -> (a -> BackendTask error b) -> (List b -> BackendTask error c) -> BackendTask error c

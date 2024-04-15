@@ -676,7 +676,7 @@ errorToString error =
                 [ TerminalText.text "NetworkError"
                 ]
 
-            BadStatus metadata string ->
+            BadStatus metadata _ ->
                 [ TerminalText.text "BadStatus: "
                 , TerminalText.red (String.fromInt metadata.statusCode)
                 , TerminalText.text (" " ++ metadata.statusText)
