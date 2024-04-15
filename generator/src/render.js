@@ -768,7 +768,6 @@ async function pipePartToStream(
       retry: part.retries,
       timeout: part.timeoutInMs,
     });
-    // TODO what if there is an error?
     let metadata = {
       headers: Object.fromEntries(response.headers.entries()),
       statusCode: response.status,
@@ -797,6 +796,11 @@ async function pipePartToStream(
       ],
       cwd: cwd,
       env: env,
+    });
+
+    newProcess.on("error", (error) => {
+      console.error("ERROR!");
+      resolve({ error: error.toString() });
     });
 
     lastStream && lastStream.pipe(newProcess.stdin);

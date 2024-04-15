@@ -272,8 +272,28 @@ run stream =
     BackendTask.Internal.Request.request
         { name = "stream"
         , body = BackendTask.Http.jsonBody (pipelineEncoder stream "none")
-        , expect = BackendTask.Http.expectJson (Decode.succeed ())
+        , expect =
+            BackendTask.Http.expectJson
+                (Decode.oneOf
+                    [ Decode.field "error" Decode.string
+                        |> Decode.andThen
+                            (\error ->
+                                Decode.succeed
+                                    (Err
+                                        (FatalError.recoverable
+                                            { title = "Stream Error"
+                                            , body = error
+                                            }
+                                            (StreamError error)
+                                        )
+                                    )
+                            )
+                    , Decode.succeed (Ok ())
+                    ]
+                )
         }
+        |> BackendTask.andThen BackendTask.fromResult
+        |> BackendTask.allowFatal
 
 
 pipelineEncoder : Stream error metadata kind -> String -> Encode.Value

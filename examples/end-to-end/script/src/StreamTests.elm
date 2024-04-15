@@ -37,6 +37,10 @@ run =
                 (\() ->
                     Expect.pass
                 )
+        , Stream.command "does-not-exist" []
+            |> Stream.run
+            |> expectError "command with error"
+                "Error: spawn does-not-exist ENOENT"
         , BackendTask.Custom.run "hello"
             Encode.null
             Decode.string
@@ -181,7 +185,10 @@ expectError name message task =
                     \() ->
                         case result of
                             Ok data ->
-                                Expect.fail "Expected a failure, but got success!"
+                                --Expect.fail "Expected a failure, but got success!"
+                                result
+                                    |> Debug.toString
+                                    |> Expect.equal "Expected a failure, but got success!"
 
                             Err error ->
                                 let
