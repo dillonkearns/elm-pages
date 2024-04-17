@@ -186,6 +186,10 @@ b =
             |> try
             |> test "writeStream meta"
                 (Expect.equal "Hi! I'm metadata from customWriteStream!")
+        , Stream.fileRead "does-not-exist"
+            |> Stream.run
+            |> expectError "file not found error"
+                "Error: ENOENT: no such file or directory, open '/Users/dillonkearns/src/github.com/dillonkearns/elm-pages/examples/end-to-end/does-not-exist'"
         ]
 
 

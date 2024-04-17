@@ -1,4 +1,4 @@
-import { Transform, Readable } from "node:stream";
+import { Writable, Transform, Readable } from "node:stream";
 
 export async function hello(input, { cwd, env }) {
   return `Hello!`;
@@ -26,9 +26,17 @@ export async function customReadStream() {
 
 export async function customWrite(input) {
   return {
-    stream: process.stdout,
+    stream: stdout(),
     metadata: () => {
       return "Hi! I'm metadata from customWriteStream!";
     },
   };
+}
+
+function stdout() {
+  return new Writable({
+    write(chunk, encoding, callback) {
+      process.stdout.write(chunk, callback);
+    },
+  });
 }
