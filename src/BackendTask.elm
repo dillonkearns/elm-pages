@@ -154,7 +154,7 @@ and is relevant for the following types of `BackendTask`s:
 
   - Reading files ([`BackendTask.File`](BackendTask-File))
   - Running glob patterns ([`BackendTask.Glob`](BackendTask-Glob))
-  - Executing shell commands ([`BackendTask.Shell`](BackendTask-Shell))
+  - Executing shell commands ([`BackendTask.Stream.command`](BackendTask-Stream#command)) and [`Pages.Script.sh`](Pages-Script#command)
 
 See the BackendTask Context section for more about how setting context works.
 
