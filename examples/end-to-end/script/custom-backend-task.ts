@@ -5,11 +5,14 @@ export async function hello(input, { cwd, env }) {
 }
 
 export async function upperCaseStream() {
-  return new Transform({
-    transform(chunk, encoding, callback) {
-      callback(null, chunk.toString().toUpperCase());
-    },
-  });
+  return {
+    metadata: () => "Hi! I'm metadata from upperCaseStream!",
+    stream: new Transform({
+      transform(chunk, encoding, callback) {
+        callback(null, chunk.toString().toUpperCase());
+      },
+    }),
+  };
 }
 
 export async function customReadStream() {
@@ -19,4 +22,13 @@ export async function customReadStream() {
       this.push(null);
     },
   });
+}
+
+export async function customWrite(input) {
+  return {
+    stream: process.stdout,
+    metadata: () => {
+      return "Hi! I'm metadata from customWriteStream!";
+    },
+  };
 }

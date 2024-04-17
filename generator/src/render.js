@@ -616,21 +616,21 @@ function runStream(req, portsFile) {
         resolve(
           jsonResponse(req, {
             body: await consumers.json(lastStream),
-            metadata: await metadataResponse,
+            metadata: await tryCallingFunction(metadataResponse),
           })
         );
       } else if (kind === "text") {
         resolve(
           jsonResponse(req, {
             body: await consumers.text(lastStream),
-            metadata: await metadataResponse,
+            metadata: await tryCallingFunction(metadataResponse),
           })
         );
       } else if (kind === "none") {
         resolve(
           jsonResponse(req, {
             body: null,
-            metadata: await metadataResponse,
+            metadata: await tryCallingFunction(metadataResponse),
           })
         );
       } else if (kind === "command") {
@@ -644,6 +644,21 @@ function runStream(req, portsFile) {
       resolve(jsonResponse(req, { error: error.toString() }));
     }
   });
+}
+
+async function tryCallingFunction(func) {
+  if (func) {
+    // if is promise
+    if (func.then) {
+      return await func;
+    }
+    // if is function
+    else if (typeof func === "function") {
+      return await func();
+    }
+  } else {
+    return func;
+  }
 }
 
 /**
@@ -678,9 +693,9 @@ async function pipePartToStream(
       quiet,
       env,
     });
-    if (validateStream.isDuplexStream(newLocal)) {
-      lastStream.pipe(newLocal);
-      return { stream: newLocal };
+    if (validateStream.isDuplexStream(newLocal.stream)) {
+      lastStream.pipe(newLocal.stream);
+      return newLocal;
     } else {
       throw `Expected '${part.portName}' to be a duplex stream!`;
     }
@@ -690,10 +705,18 @@ async function pipePartToStream(
       stream: await portsFile[part.portName](part.input, { cwd, quiet, env }),
     };
   } else if (part.name === "customWrite") {
-    return {
-      metadata: null,
-      stream: await portsFile[part.portName](part.input, { cwd, quiet, env }),
-    };
+    const newLocal = await portsFile[part.portName](part.input, {
+      cwd,
+      quiet,
+      env,
+    });
+    if (!validateStream.isWritableStream(newLocal.stream)) {
+      console.error("Expected a writable stream!");
+      resolve({ error: "Expected a writable stream!" });
+    } else {
+      lastStream && lastStream.pipe(newLocal.stream);
+    }
+    return newLocal;
   } else if (part.name === "gzip") {
     return { metadata: null, stream: lastStream.pipe(zlib.createGzip()) };
   } else if (part.name === "unzip") {
@@ -717,12 +740,14 @@ async function pipePartToStream(
       retry: part.retries,
       timeout: part.timeoutInMs,
     });
-    let metadata = {
-      headers: Object.fromEntries(response.headers.entries()),
-      statusCode: response.status,
-      // bodyKind,
-      url: response.url,
-      statusText: response.statusText,
+    let metadata = () => {
+      return {
+        headers: Object.fromEntries(response.headers.entries()),
+        statusCode: response.status,
+        // bodyKind,
+        url: response.url,
+        statusText: response.statusText,
+      };
     };
     return { metadata, stream: response.body };
   } else if (part.name === "command") {
@@ -777,7 +802,7 @@ async function pipePartToStream(
       return { metadata: null, stream: newStream };
     }
   } else if (part.name === "fromString") {
-    return { stream: Readable.from([part.string]) };
+    return { stream: Readable.from([part.string]), metadata: null };
   } else {
     // console.error(`Unknown stream part: ${part.name}!`);
     // process.exit(1);

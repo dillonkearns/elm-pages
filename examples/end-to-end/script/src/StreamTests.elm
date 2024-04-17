@@ -160,6 +160,32 @@ b =
             |> try
             |> expectError "HTTP FatalError message"
                 "BadStatus: 404 Not Found"
+        , Stream.fromString "This is input..."
+            |> Stream.pipe
+                (Stream.customTransformWithMeta
+                    "upperCaseStream"
+                    Encode.null
+                    (Decode.string |> Decode.map Ok)
+                )
+            |> Stream.read
+            |> try
+            |> test "duplex meta"
+                (Expect.equal
+                    { metadata = "Hi! I'm metadata from upperCaseStream!"
+                    , body = "THIS IS INPUT..."
+                    }
+                )
+        , Stream.fromString "This is input to writeStream!\n"
+            |> Stream.pipe
+                (Stream.customWriteWithMeta
+                    "customWrite"
+                    Encode.null
+                    (Decode.string |> Decode.map Ok)
+                )
+            |> Stream.readMetadata
+            |> try
+            |> test "writeStream meta"
+                (Expect.equal "Hi! I'm metadata from customWriteStream!")
         ]
 
 
