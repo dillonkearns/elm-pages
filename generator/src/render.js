@@ -653,7 +653,7 @@ function runStream(req, portsFile) {
       }
       /**
        *
-       * @param {import('node:stream').Stream} lastStream
+       * @param {import('node:stream').Stream?} lastStream
        * @param {{ name: string }} part
        * @param {{cwd: string, quiet: boolean, env: object}} param2
        * @returns {Promise<{stream: import('node:stream').Stream, metadata?: any}>}
@@ -670,9 +670,9 @@ function runStream(req, portsFile) {
         if (verbosity > 1 && !quiet) {
         }
         if (part.name === "stdout") {
-          return { stream: lastStream.pipe(stdout()) };
+          return { stream: pipeIfPossible(lastStream, stdout()) };
         } else if (part.name === "stderr") {
-          return { stream: lastStream.pipe(stderr()) };
+          return { stream: pipeIfPossible(lastStream, stderr()) };
         } else if (part.name === "stdin") {
           return { stream: process.stdin };
         } else if (part.name === "fileRead") {
@@ -689,7 +689,7 @@ function runStream(req, portsFile) {
             env,
           });
           if (validateStream.isDuplexStream(newLocal.stream)) {
-            lastStream.pipe(newLocal.stream);
+            pipeIfPossible(lastStream, newLocal.stream);
             return newLocal;
           } else {
             throw `Expected '${part.portName}' to be a duplex stream!`;
@@ -713,15 +713,22 @@ function runStream(req, portsFile) {
             console.error("Expected a writable stream!");
             resolve({ error: "Expected a writable stream!" });
           } else {
-            lastStream && lastStream.pipe(newLocal.stream);
+            pipeIfPossible(lastStream, newLocal.stream);
           }
           return newLocal;
         } else if (part.name === "gzip") {
-          return { metadata: null, stream: lastStream.pipe(zlib.createGzip()) };
+          const gzip = zlib.createGzip();
+          if (!lastStream) {
+            gzip.end();
+          }
+          return {
+            metadata: null,
+            stream: pipeIfPossible(lastStream, gzip),
+          };
         } else if (part.name === "unzip") {
           return {
             metadata: null,
-            stream: lastStream.pipe(zlib.createUnzip()),
+            stream: pipeIfPossible(lastStream, zlib.createUnzip()),
           };
         } else if (part.name === "fileWrite") {
           const destinationPath = path.resolve(part.path);
@@ -739,7 +746,7 @@ function runStream(req, portsFile) {
           });
           return {
             metadata: null,
-            stream: lastStream.pipe(newLocal),
+            stream: pipeIfPossible(lastStream, newLocal),
           };
         } else if (part.name === "httpWrite") {
           const makeFetchHappen = makeFetchHappenOriginal.defaults({
@@ -795,7 +802,7 @@ function runStream(req, portsFile) {
             resolve({ error: error.toString() });
           });
 
-          lastStream && lastStream.pipe(newProcess.stdin);
+          pipeIfPossible(lastStream, newProcess.stdin);
           let newStream;
           if (output === "MergeWithStdout") {
             newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
@@ -834,6 +841,18 @@ function runStream(req, portsFile) {
       resolve(jsonResponse(req, { error: error.toString() }));
     }
   });
+}
+
+/**
+ * @param { import('stream').Stream? } input
+ * @param {import('stream').Writable | import('stream').Duplex} destination
+ */
+function pipeIfPossible(input, destination) {
+  if (input) {
+    return input.pipe(destination);
+  } else {
+    return destination;
+  }
 }
 
 function stdout() {

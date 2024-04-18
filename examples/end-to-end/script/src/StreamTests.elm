@@ -195,6 +195,14 @@ b =
             |> Stream.run
             |> expectError "invalid file write destination"
                 "Error: ENOENT: no such file or directory, mkdir '/this'"
+        , Stream.gzip
+            |> Stream.read
+            |> try
+            |> BackendTask.do
+            |> test "gzip alone is no-op"
+                (\() ->
+                    Expect.pass
+                )
         ]
 
 
