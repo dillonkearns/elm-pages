@@ -190,6 +190,11 @@ b =
             |> Stream.run
             |> expectError "file not found error"
                 "Error: ENOENT: no such file or directory, open '/Users/dillonkearns/src/github.com/dillonkearns/elm-pages/examples/end-to-end/does-not-exist'"
+        , Stream.fromString "This is input..."
+            |> Stream.pipe (Stream.fileWrite "/this/is/invalid.txt")
+            |> Stream.run
+            |> expectError "invalid file write destination"
+                "Error: ENOENT: no such file or directory, mkdir '/this'"
         ]
 
 

@@ -724,11 +724,22 @@ function runStream(req, portsFile) {
             stream: lastStream.pipe(zlib.createUnzip()),
           };
         } else if (part.name === "fileWrite") {
+          const destinationPath = path.resolve(part.path);
+          try {
+            await fsPromises.mkdir(path.dirname(destinationPath), {
+              recursive: true,
+            });
+          } catch (error) {
+            resolve({ error: error.toString() });
+          }
+          const newLocal = fs.createWriteStream(destinationPath);
+          newLocal.once("error", (error) => {
+            newLocal.close();
+            resolve({ error: error.toString() });
+          });
           return {
             metadata: null,
-            stream: lastStream.pipe(
-              fs.createWriteStream(path.resolve(part.path))
-            ),
+            stream: lastStream.pipe(newLocal),
           };
         } else if (part.name === "httpWrite") {
           const makeFetchHappen = makeFetchHappenOriginal.defaults({
