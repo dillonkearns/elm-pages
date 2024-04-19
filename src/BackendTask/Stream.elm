@@ -124,7 +124,45 @@ unit =
     ( "unit", Decode.succeed (Ok ()) )
 
 
-{-| -}
+{-| The `stdin` from the process. When you execute an `elm-pages` script, this will be the value that is piped in to it. For example, given this script module:
+
+    module CountLines exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.stdin
+                |> Stream.read
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\{ body } ->
+                        body
+                            |> String.lines
+                            |> List.length
+                            |> String.fromInt
+                            |> Script.log
+                    )
+            )
+
+If you run the script without any stdin, it will wait until stdin is closed.
+
+```shell
+elm-pages run script/src/CountLines.elm
+# pressing ctrl-d (or your platform-specific way of closing stdin) will print the number of lines in the input
+```
+
+Or you can pipe to it and it will read that input:
+
+```shell
+ls | elm-pages run script/src/CountLines.elm
+# prints the number of files in the current directory
+```
+
+-}
 stdin : Stream () () { read : (), write : Never }
 stdin =
     single unit "stdin" []
