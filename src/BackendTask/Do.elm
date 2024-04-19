@@ -108,9 +108,11 @@ This example passes a list of matching file paths along to an `rm -f` command.
     example =
         glob "src/**/*.elm" <|
             \elmFiles ->
-                log ("You have " ++ String.fromInt (List.length elmFiles) ++ " Elm files") <|
+                log ("Going to delete " ++ String.fromInt (List.length elmFiles) ++ " Elm files") <|
                     \() ->
-                        noop
+                        exec "rm" ("-f" :: elmFiles) <|
+                            \() ->
+                                noop
 
 -}
 glob : String -> (List String -> BackendTask FatalError a) -> BackendTask FatalError a
