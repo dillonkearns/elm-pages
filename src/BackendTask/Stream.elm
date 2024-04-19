@@ -231,7 +231,23 @@ fileRead path =
     single unit "fileRead" [ ( "path", Encode.string path ) ]
 
 
-{-| -}
+{-| Write a Stream to a file.
+
+    module WriteFile exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "logs.txt"
+                |> Stream.pipe (Stream.command "grep" [ "error" ])
+                |> Stream.pipe (Stream.fileWrite "errors.txt")
+            )
+
+-}
 fileWrite : String -> Stream () () { read : Never, write : () }
 fileWrite path =
     single unit "fileWrite" [ ( "path", Encode.string path ) ]
