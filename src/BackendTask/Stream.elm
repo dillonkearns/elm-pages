@@ -455,7 +455,46 @@ pipelineEncoder (Stream _ parts) kind =
         ]
 
 
-{-| -}
+{-| A handy way to turn either a hardcoded String, or any other value from Elm into a Stream.
+
+    module HelloWorld exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fromString "Hello, World!"
+                |> Stream.stdout
+                |> Stream.run
+                |> BackendTask.allowFatal
+            )
+
+A more programmatic use of `fromString` to use the result of a previous `BackendTask` to a `Stream`:
+
+    module HelloWorld exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Glob.fromString "src/**/*.elm"
+                |> BackendTask.andThen
+                    (\elmFiles ->
+                        elmFiles
+                            |> String.join ", "
+                            |> Stream.fromString
+                            |> Stream.pipe Stream.stdout
+                            |> Stream.run
+                    )
+            )
+
+-}
 fromString : String -> Stream () () { read : (), write : Never }
 fromString string =
     single unit "fromString" [ ( "string", Encode.string string ) ]
