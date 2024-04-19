@@ -1,5 +1,6 @@
 module BackendTask.Do exposing
     ( do
+    , allowFatal
     , noop
     , exec, command
     , glob, log, env
@@ -25,6 +26,7 @@ apply continuation-style formatting to your Elm code:
 You can see more discussion of continuation style in Elm in this Discourse post: <https://discourse.elm-lang.org/t/experimental-json-decoding-api/2121>.
 
 @docs do
+@docs allowFatal
 
 
 ## Defining Your Own Continuation Utilities
@@ -86,6 +88,12 @@ do fn requestInfo =
 noop : BackendTask error ()
 noop =
     BackendTask.succeed ()
+
+
+{-| -}
+allowFatal : BackendTask { error | fatal : FatalError } data -> (data -> BackendTask FatalError b) -> BackendTask FatalError b
+allowFatal =
+    do << BackendTask.allowFatal
 
 
 {-| A continuation-style helper for [`Glob.fromString`](BackendTask-Glob#fromString).
