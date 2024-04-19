@@ -168,19 +168,63 @@ stdin =
     single unit "stdin" []
 
 
-{-| -}
+{-| Streaming through to stdout can be a convenient way to print a pipeline directly without going through to Elm.
+
+    module UnzipFile exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "data.gzip.txt"
+                |> Stream.pipe Stream.unzip
+                |> Stream.pipe Stream.stdout
+                |> Stream.run
+                |> BackendTask.allowFatal
+            )
+
+-}
 stdout : Stream () () { read : Never, write : () }
 stdout =
     single unit "stdout" []
 
 
-{-| -}
+{-| Similar to [`stdout`](#stdout), but writes to `stderr` instead.
+-}
 stderr : Stream () () { read : Never, write : () }
 stderr =
     single unit "stderr" []
 
 
-{-| -}
+{-| Open a file's contents as a Stream.
+
+    module ReadFile exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "elm.json"
+                |> Stream.readJson (Decode.field "source-directories" (Decode.list Decode.string))
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\{ body } ->
+                        Script.log
+                            ("The source directories are: "
+                                ++ String.join ", " body
+                            )
+                    )
+            )
+
+If you want to read a file but don't need to use any of the other Stream functions, you can use [`BackendTask.File.read`](BackendTask-File#rawFile) instead.
+
+-}
 fileRead : String -> Stream () () { read : (), write : Never }
 fileRead path =
     -- TODO revisit the error type instead of ()?
