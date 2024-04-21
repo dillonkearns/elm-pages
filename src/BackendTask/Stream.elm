@@ -94,7 +94,8 @@ import RequestsAndPending
 import TerminalText
 
 
-{-| -}
+{-| Once you've defined a `Stream`, it can be turned into a `BackendTask` that will run it (and optionally read its output and metadata).
+-}
 type Stream error metadata kind
     = Stream ( String, Decoder (Result (Recoverable error) metadata) ) (List StreamPart)
 
@@ -359,7 +360,12 @@ httpWithInput string =
         ]
 
 
-{-| Uses a regular HTTP request body (not a Stream), streams the HTTP response body.
+{-| Uses a regular HTTP request body (not a `Stream`). Streams the HTTP response body.
+
+If you want to pass a stream as the request body, use [`httpWithInput`](#httpWithInput) instead.
+
+If you don't need to stream the response body, you can use the functions from [`BackendTask.Http`](BackendTask-Http) instead.
+
 -}
 http :
     { url : String
@@ -401,7 +407,26 @@ httpMetadataDecoder =
     )
 
 
-{-| -}
+{-| You can build up a pipeline of streams by using the `pipe` function.
+
+The stream you are piping to must be writable (`{ write : () }`),
+and the stream you are piping from must be readable (`{ read : () }`).
+
+    module HelloWorld exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fromString "Hello, World!"
+                |> Stream.stdout
+                |> Stream.run
+            )
+
+-}
 pipe :
     Stream errorTo metaTo { read : toReadable, write : () }
     -> Stream errorFrom metaFrom { read : (), write : fromWriteable }
@@ -410,7 +435,18 @@ pipe (Stream decoderTo to) (Stream _ from) =
     Stream decoderTo (from ++ to)
 
 
-{-| -}
+{-| Gives a `BackendTask` to execute the `Stream`, ignoring its body and metadata.
+
+This is useful if you only want the side-effect from the `Stream` and don't need to programmatically use its
+output. For example, if the end result you want is:
+
+  - Printing to the console
+  - Writing to a file
+  - Making an HTTP request
+
+If you need to read the output of the `Stream`, use [`read`](#read), [`readJson`](#readJson), or [`readMetadata`](#readMetadata) instead.
+
+-}
 run : Stream error metadata kind -> BackendTask FatalError ()
 run stream =
     -- TODO give access to recoverable error here instead of just FatalError
@@ -500,13 +536,23 @@ fromString string =
     single unit "fromString" [ ( "string", Encode.string string ) ]
 
 
-{-| -}
+{-| Running or reading a `Stream` can give one of two kinds of error:
+
+  - `StreamError String` - when something in the middle of the stream fails
+  - `CustomError error body` - when the `Stream` fails with a custom error
+
+A `CustomError` can only come from the final part of the stream.
+
+You can define your own custom errors by decoding metadata to an `Err` in the `...WithMeta` helpers.
+
+-}
 type Error error body
     = StreamError String
     | CustomError error (Maybe body)
 
 
-{-| -}
+{-| Read the body of the `Stream` as text.
+-}
 read :
     Stream error metadata { read : (), write : write }
     -> BackendTask { fatal : FatalError, recoverable : Error error String } { metadata : metadata, body : String }
@@ -569,7 +615,8 @@ read ((Stream ( _, decoder ) _) as stream) =
         |> BackendTask.andThen BackendTask.fromResult
 
 
-{-| -}
+{-| Ignore the body of the `Stream`, while capturing the metadata from the final part of the Stream.
+-}
 readMetadata :
     Stream error metadata { read : read, write : write }
     -> BackendTask { fatal : FatalError, recoverable : Error error String } metadata
@@ -633,7 +680,28 @@ decodeLog decoder =
             )
 
 
-{-| -}
+{-| Read the body of the `Stream` as JSON.
+
+    module ReadJson exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Json.Decode as Decode
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "data.json"
+                |> Stream.readJson (Decode.field "name" Decode.string)
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\{ body } ->
+                        Script.log ("The name is: " ++ body)
+                    )
+            )
+
+-}
 readJson :
     Decoder value
     -> Stream error metadata { read : (), write : write }
@@ -687,7 +755,29 @@ readJson decoder ((Stream ( _, metadataDecoder ) _) as stream) =
         |> BackendTask.andThen BackendTask.fromResult
 
 
-{-| -}
+{-| Run a command (or `child_process`). The command's output becomes the body of the `Stream`.
+
+Note that the command does not execute through a shell but rather directly executes a child process. That means that
+special shell syntax will have no effect, but instead will be interpreted as literal characters in arguments to the command.
+
+So instead of `grep error < log.txt`, you would use
+
+    module GrepErrors exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "log.txt"
+                |> Stream.pipe (Stream.command "grep" [ "error" ])
+                |> Stream.stdout
+                |> Stream.run
+            )
+
+-}
 command : String -> List String -> Stream Int () { read : read, write : write }
 command command_ args_ =
     commandWithOptions defaultCommandOptions command_ args_
