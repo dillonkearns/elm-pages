@@ -959,7 +959,32 @@ commandDecoder allowNon0 =
 -- on error, give CommandOutput as well
 
 
-{-| -}
+{-| Pass in custom [`CommandOptions`](#CommandOptions) to configure the behavior of the command.
+
+For example, `grep` will return a non-zero status code if it doesn't find any matches. To ignore the non-zero status code and proceed with
+empty output, you can use `allowNon0Status`.
+
+    module GrepErrors exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "log.txt"
+                |> Stream.pipe
+                    (Stream.commandWithOptions
+                        (Stream.defaultCommandOptions |> Stream.allowNon0Status)
+                        "grep"
+                        [ "error" ]
+                    )
+                |> Stream.pipe Stream.stdout
+                |> Stream.run
+            )
+
+-}
 commandWithOptions : CommandOptions -> String -> List String -> Stream Int () { read : read, write : write }
 commandWithOptions (CommandOptions options) command_ args_ =
     single (commandDecoder options.allowNon0Status)
@@ -982,7 +1007,8 @@ nullable encoder maybeValue =
             Encode.null
 
 
-{-| -}
+{-| Configuration for [`commandWithOptions`](#commandWithOptions).
+-}
 type CommandOptions
     = CommandOptions CommandOptions_
 
@@ -994,7 +1020,9 @@ type alias CommandOptions_ =
     }
 
 
-{-| -}
+{-| The default options that are used for [`command`](#command). Used to build up `CommandOptions`
+to pass in to [`commandWithOptions`](#commandWithOptions).
+-}
 defaultCommandOptions : CommandOptions
 defaultCommandOptions =
     CommandOptions
@@ -1004,19 +1032,26 @@ defaultCommandOptions =
         }
 
 
-{-| -}
+{-| Configure the [`StderrOutput`](#StderrOutput) behavior.
+-}
 withOutput : StderrOutput -> CommandOptions -> CommandOptions
 withOutput output (CommandOptions cmd) =
     CommandOptions { cmd | output = output }
 
 
-{-| -}
+{-| By default, the `Stream` will halt with an error if a command returns a non-zero status code.
+
+With `allowNon0Status`, the stream will continue without an error if the command returns a non-zero status code.
+
+-}
 allowNon0Status : CommandOptions -> CommandOptions
 allowNon0Status (CommandOptions cmd) =
     CommandOptions { cmd | allowNon0Status = True }
 
 
-{-| -}
+{-| By default, commands do not have a timeout. This will set the timeout, in milliseconds, for the given command. If that duration is exceeded,
+the `Stream` will fail with an error.
+-}
 withTimeout : Int -> CommandOptions -> CommandOptions
 withTimeout timeoutMs (CommandOptions cmd) =
     CommandOptions { cmd | timeoutInMs = Just timeoutMs }
@@ -1045,10 +1080,17 @@ commandOutputDecoder =
     Decode.field "exitCode" Decode.int
 
 
-{-| -}
+{-| The output configuration for [`withOutput`](#withOutput). The default is `PrintStderr`.
+
+  - `PrintStderr` - Print (but do not pass along) the `stderr` output of the command. Only `stdout` will be passed along as the body of the stream.
+  - `IgnoreStderr` - Ignore the `stderr` output of the command, only include `stdout`
+  - `MergeStderrAndStdout` - Both `stderr` and `stdout` will be passed along as the body of the stream.
+  - `StderrInsteadOfStdout` - Only `stderr` will be passed along as the body of the stream. `stdout` will be ignored.
+
+-}
 type StderrOutput
-    = IgnoreStderr
-    | PrintStderr
+    = PrintStderr
+    | IgnoreStderr
     | MergeStderrAndStdout
     | StderrInsteadOfStdout
 
