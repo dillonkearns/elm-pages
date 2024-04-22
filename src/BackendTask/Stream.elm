@@ -1,12 +1,14 @@
 module BackendTask.Stream exposing
     ( Stream
-    , fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
+    , pipe
+    , fileRead, fileWrite, fromString, http, httpWithInput, stdin, stdout, stderr
     , read, readJson, readMetadata, run
     , Error(..)
     , command
     , commandWithOptions
     , StderrOutput(..)
     , CommandOptions, defaultCommandOptions, allowNon0Status, withOutput, withTimeout
+    , gzip, unzip
     , customRead, customWrite, customDuplex
     , customReadWithMeta, customTransformWithMeta, customWriteWithMeta
     )
@@ -47,7 +49,9 @@ End example
 
 @docs Stream
 
-@docs fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
+@docs pipe
+
+@docs fileRead, fileWrite, fromString, http, httpWithInput, stdin, stdout, stderr
 
 
 ## Running Streams
@@ -117,6 +121,33 @@ messages which will be cleared and updated in place.
 
 To ignore the output (3), use [`Stream.run`](#run) with `BackendTask.quiet`. This will run the command without printing anything to the console.
 You can also use [`Stream.read`](#read) and ignore the captured output, but this is less efficient than using `BackendTask.quiet` with `Stream.run`.
+
+
+## Compression Helpers
+
+    module CompressionDemo exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "elm.json"
+                |> Stream.pipe Stream.gzip
+                |> Stream.pipe (Stream.fileWrite "elm.json.gz")
+                |> Stream.run
+                |> BackendTask.andThen
+                    (\_ ->
+                        Stream.fileRead "elm.json.gz"
+                            |> Stream.pipe Stream.unzip
+                            |> Stream.pipe Stream.stdout
+                            |> Stream.run
+                    )
+            )
+
+@docs gzip, unzip
 
 
 ## Custom Streams
@@ -374,13 +405,21 @@ customDuplex name input =
         ]
 
 
-{-| -}
+{-| Transforms the input with gzip compression.
+
+Under the hood this builds a Stream using Node's [`zlib.createGzip`](https://nodejs.org/api/zlib.html#zlibcreategzipoptions).
+
+-}
 gzip : Stream () () { read : (), write : () }
 gzip =
     single unit "gzip" []
 
 
-{-| -}
+{-| Transforms the input by auto-detecting the header and decompressing either a Gzip- or Deflate-compressed stream.
+
+Under the hood, this builds a Stream using Node's [`zlib.createUnzip`](https://nodejs.org/api/zlib.html#zlibcreateunzip).
+
+-}
 unzip : Stream () () { read : (), write : () }
 unzip =
     single unit "unzip" []
