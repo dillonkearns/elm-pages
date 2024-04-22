@@ -228,7 +228,23 @@ expectWhich command_ =
             )
 
 
-{-| -}
+{-|
+
+    module QuestionDemo exposing (run)
+
+    import BackendTask
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Script.question "What is your name? "
+                |> BackendTask.andThen
+                    (\name ->
+                        Script.log ("Hello, " ++ name ++ "!")
+                    )
+            )
+
+-}
 question : String -> BackendTask error String
 question prompt =
     BackendTask.Internal.Request.request

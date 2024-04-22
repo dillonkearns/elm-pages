@@ -229,7 +229,12 @@ inDir dir backendTask =
                 (\a b -> lookupFn a b |> inDir dir)
 
 
-{-| -}
+{-| Sets the verbosity level to `quiet` in the context of the given `BackendTask` (including all nested `BackendTask`s and continuations within it).
+
+This will turn off performance timing logs. It will also prevent shell commands from printing their output to the console when they are run
+(see [`BackendTask.Stream.command`](BackendTask-Stream#command)).
+
+-}
 quiet : BackendTask error value -> BackendTask error value
 quiet backendTask =
     -- elm-review: known-unoptimized-recursion
