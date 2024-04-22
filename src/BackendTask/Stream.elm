@@ -152,6 +152,85 @@ You can also use [`Stream.read`](#read) and ignore the captured output, but this
 
 ## Custom Streams
 
+[`BackendTask.Custom`](BackendTask-Custom) lets you define custom `BackendTask`s from async NodeJS functions in your `custom-backend-task` file.
+Similarly, you can define custom streams with async functions in your `custom-backend-task` file, returning native NodeJS Streams, and optionally functions to extract metadata.
+
+```js
+import { Writable, Transform, Readable } from "node:stream";
+
+export async function upperCaseStream(input, { cwd, env, quiet }) {
+  return {
+    metadata: () => "Hi! I'm metadata from upperCaseStream!",
+    stream: new Transform({
+      transform(chunk, encoding, callback) {
+        callback(null, chunk.toString().toUpperCase());
+      },
+    }),
+  };
+}
+
+export async function customReadStream(input) {
+  return new Readable({
+    read(size) {
+      this.push("Hello from customReadStream!");
+      this.push(null);
+    },
+  });
+}
+
+export async function customWriteStream(input, { cwd, env, quiet }) {
+  return {
+    stream: new Writable({
+      write(chunk, encoding, callback) {
+        console.error("...received chunk...");
+        console.log(chunk.toString());
+        callback();
+      },
+    }),
+    metadata: () => {
+      return "Hi! I'm metadata from customWriteStream!";
+    },
+  };
+}
+```
+
+    module CustomStreamDemo exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.customRead "customReadStream" Encode.null
+                |> Stream.pipe (Stream.customDuplex "upperCaseStream" Encode.null)
+                |> Stream.pipe (Stream.customWrite "customWriteStream" Encode.null)
+                |> Stream.run
+            )
+
+    To extract the metadata from the custom stream, you can use the `...WithMeta` functions:
+
+    module CustomStreamDemoWithMeta exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.customReadWithMeta "customReadStream" Encode.null Decode.succeed
+                |> Stream.pipe (Stream.customTransformWithMeta "upperCaseStream" Encode.null Decode.succeed)
+                |> Stream.readMetadata
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\metadata ->
+                        Script.log ("Metadata: " ++ metadata)
+                    )
+            )
+        --> Script.log "Metadata: Hi! I'm metadata from upperCaseStream!"
+
 @docs customRead, customWrite, customDuplex
 
 
@@ -333,7 +412,8 @@ fileWrite path =
     single unit "fileWrite" [ ( "path", Encode.string path ) ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `ReadableStream` it returns.
+-}
 customRead : String -> Encode.Value -> Stream () () { read : (), write : Never }
 customRead name input =
     single unit
@@ -343,7 +423,8 @@ customRead name input =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `WritableStream` it returns.
+-}
 customWrite : String -> Encode.Value -> Stream () () { read : Never, write : () }
 customWrite name input =
     single unit
@@ -353,7 +434,8 @@ customWrite name input =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `DuplexStream` it returns.
+-}
 customReadWithMeta :
     String
     -> Encode.Value
@@ -367,7 +449,8 @@ customReadWithMeta name input decoder =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `WritableStream` and metadata function it returns.
+-}
 customWriteWithMeta :
     String
     -> Encode.Value
@@ -381,7 +464,8 @@ customWriteWithMeta name input decoder =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `DuplexStream` and metadata function it returns.
+-}
 customTransformWithMeta :
     String
     -> Encode.Value
@@ -395,7 +479,8 @@ customTransformWithMeta name input decoder =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `DuplexStream` it returns.
+-}
 customDuplex : String -> Encode.Value -> Stream () () { read : (), write : () }
 customDuplex name input =
     single unit
