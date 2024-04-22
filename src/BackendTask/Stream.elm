@@ -1,9 +1,9 @@
 module BackendTask.Stream exposing
     ( Stream
     , fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
-    , command
     , read, readJson, readMetadata, run
     , Error(..)
+    , command
     , commandWithOptions
     , StderrOutput(..)
     , CommandOptions, defaultCommandOptions, allowNon0Status, withOutput, withTimeout
@@ -50,16 +50,36 @@ End example
 @docs fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
 
 
-## Shell Commands
-
-@docs command
-
-
 ## Running Streams
 
 @docs read, readJson, readMetadata, run
 
 @docs Error
+
+
+## Shell Commands
+
+Note that the commands do not execute through a shell but rather directly executes a child process. That means that
+special shell syntax will have no effect, but instead will be interpreted as literal characters in arguments to the command.
+
+So instead of `grep error < log.txt`, you would use
+
+    module GrepErrors exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "log.txt"
+                |> Stream.pipe (Stream.command "grep" [ "error" ])
+                |> Stream.stdout
+                |> Stream.run
+            )
+
+@docs command
 
 
 ## Command Options
@@ -69,6 +89,34 @@ End example
 @docs StderrOutput
 
 @docs CommandOptions, defaultCommandOptions, allowNon0Status, withOutput, withTimeout
+
+
+## Command Output Strategies
+
+There are 3 things that effect the output behavior of a command:
+
+  - The verbosity of the `BackendTask` context ([`BackendTask.quiet`](BackendTask#quiet))
+  - Whether the `Stream` output is ignored ([`Stream.run`](#run)), or read ([`Stream.read`](#read))
+  - [`withOutput`](#withOutput) (allows you to use stdout, stderr, or both)
+
+With `BackendTask.quiet`, the output of the command will not print as it runs, but you still read it in Elm if you read the `Stream` (instead of using [`Stream.run`](#run)).
+
+There are 3 ways to handle the output of a command:
+
+1.  Read the output but don't print
+2.  Print the output but don't read
+3.  Ignore the output
+
+To read the output (1), use [`Stream.read`](#read) or [`Stream.readJson`](#readJson). This will give you the output as a String or JSON object.
+Regardless of whether you use `BackendTask.quiet`, the output will be read and returned to Elm.
+
+To let the output from the command natively print to the console (2), use [`Stream.run`](#run) without setting `BackendTask.quiet`. Based on
+the command's `withOutput` configuration, either stderr, stdout, or both will print to the console. The native output will
+sometimes be treated more like running the command directly in the terminal, for example `elm make` will print progress
+messages which will be cleared and updated in place.
+
+To ignore the output (3), use [`Stream.run`](#run) with `BackendTask.quiet`. This will run the command without printing anything to the console.
+You can also use [`Stream.read`](#read) and ignore the captured output, but this is less efficient than using `BackendTask.quiet` with `Stream.run`.
 
 
 ## Custom Streams
@@ -756,27 +804,6 @@ readJson decoder ((Stream ( _, metadataDecoder ) _) as stream) =
 
 
 {-| Run a command (or `child_process`). The command's output becomes the body of the `Stream`.
-
-Note that the command does not execute through a shell but rather directly executes a child process. That means that
-special shell syntax will have no effect, but instead will be interpreted as literal characters in arguments to the command.
-
-So instead of `grep error < log.txt`, you would use
-
-    module GrepErrors exposing (run)
-
-    import BackendTask
-    import BackendTask.Stream as Stream
-    import Pages.Script as Script exposing (Script)
-
-    run : Script
-    run =
-        Script.withoutCliOptions
-            (Stream.fileRead "log.txt"
-                |> Stream.pipe (Stream.command "grep" [ "error" ])
-                |> Stream.stdout
-                |> Stream.run
-            )
-
 -}
 command : String -> List String -> Stream Int () { read : read, write : write }
 command command_ args_ =
