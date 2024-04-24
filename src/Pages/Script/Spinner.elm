@@ -4,12 +4,11 @@ module Pages.Script.Spinner exposing
     , runSteps
     , Options, options
     , CompletionIcon(..)
-    , withImmediateStart, withOnCompletion
+    , withOnCompletion
     , runTask, runTaskWithOptions
     , Spinner
     , runTaskExisting, spinner, start
     , showStep
-    , withNamedAnimation
     )
 
 {-|
@@ -51,7 +50,7 @@ its spinner will show a failure, and the remaining steps will not be run and wil
 
 @docs CompletionIcon
 
-@docs withImmediateStart, withOnCompletion
+@docs withOnCompletion
 
 
 ## Running Tasks
@@ -72,11 +71,6 @@ its spinner will show a failure, and the remaining steps will not be run and wil
 ## Low-Level
 
 @docs showStep
-
-
-## TODO remove?
-
-@docs withNamedAnimation
 
 -}
 
@@ -107,7 +101,25 @@ type Options error value
         }
 
 
-{-| -}
+{-| Set the completion icon and text based on the result of the task.
+
+    import Pages.Script.Spinner as Spinner
+
+    example =
+        Spinner.options "Fetching data"
+            |> Spinner.withOnCompletion
+                (\result ->
+                    case result of
+                        Ok _ ->
+                            ( Spinner.Succeed, "Fetched data!" )
+
+                        Err _ ->
+                            ( Spinner.Fail
+                            , Just "Could not fetch data."
+                            )
+                )
+
+-}
 withOnCompletion : (Result error value -> ( CompletionIcon, Maybe String )) -> Options error value -> Options error value
 withOnCompletion function (Options options_) =
     Options { options_ | onCompletion = function }
@@ -118,7 +130,14 @@ type Spinner error value
     = Spinner String (Options error value)
 
 
-{-| -}
+{-| The default options for a spinner. The spinner `text` is a required argument and will be displayed as the step name.
+
+    import Pages.Script.Spinner as Spinner
+
+    example =
+        Spinner.options "Compile Main.elm"
+
+-}
 options : String -> Options error value
 options text =
     Options
@@ -136,10 +155,11 @@ options text =
         }
 
 
-{-| -}
-withNamedAnimation : String -> Options error value -> Options error value
-withNamedAnimation animationName (Options options_) =
-    Options { options_ | animation = Just animationName }
+
+--{-| -}
+--withNamedAnimation : String -> Options error value -> Options error value
+--withNamedAnimation animationName (Options options_) =
+--    Options { options_ | animation = Just animationName }
 
 
 {-| A low-level helper for showing a step and getting back a `Spinner` reference which you can later use to `start` the spinner.
@@ -182,17 +202,18 @@ start (Spinner spinnerId _) =
         }
 
 
-{-| -}
-withImmediateStart : Options error value -> Options error value
-withImmediateStart (Options options_) =
-    Options { options_ | immediateStart = True }
+
+--{-| -}
+--withImmediateStart : Options error value -> Options error value
+--withImmediateStart (Options options_) =
+--    Options { options_ | immediateStart = True }
 
 
 {-| -}
 runTaskWithOptions : Options error value -> BackendTask error value -> BackendTask error value
 runTaskWithOptions (Options options_) backendTask =
     Options options_
-        |> withImmediateStart
+        --|> withImmediateStart
         |> showStep
         |> BackendTask.andThen
             (\(Spinner spinnerId _) ->
@@ -249,7 +270,7 @@ runTask text backendTask =
                     ( Succeed, Nothing )
 
                 Err _ ->
-                    ( Fail, Just "Uh oh! Failed to fetch" )
+                    ( Fail, Nothing )
         )
         backendTask
 
@@ -264,7 +285,7 @@ runTaskExisting (Spinner spinnerId (Options options_)) backendTask =
                 (Encode.object
                     [ ( "text", Encode.string options_.text )
                     , ( "spinnerId", Encode.string spinnerId )
-                    , ( "immediateStart", Encode.bool True )
+                    , ( "immediateStart", Encode.bool options_.immediateStart )
                     , ( "spinner", Encode.string "line" )
                     ]
                 )
