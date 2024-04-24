@@ -203,6 +203,12 @@ b =
                 (\() ->
                     Expect.pass
                 )
+        , Script.exec "does-not-exist-exec" []
+            |> expectError "exec with non-0 fails"
+                "Error: spawn does-not-exist-exec ENOENT"
+        , Script.command "does-not-exist-command" []
+            |> expectError "command with non-0 fails"
+                "Error: spawn does-not-exist-command ENOENT"
         ]
 
 

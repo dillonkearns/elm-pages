@@ -628,6 +628,8 @@ function runStream(req, portsFile) {
         );
       } else if (kind === "none") {
         if (!lastStream) {
+          // ensure all error handling gets a chance to fire before resolving successfully
+          await tryCallingFunction(metadataResponse);
           resolve(jsonResponse(req, { body: null }));
         } else {
           let resolvedMeta = await tryCallingFunction(metadataResponse);
@@ -742,6 +744,7 @@ function runStream(req, portsFile) {
           const newLocal = fs.createWriteStream(destinationPath);
           newLocal.once("error", (error) => {
             newLocal.close();
+            newLocal.removeAllListeners();
             resolve({ error: error.toString() });
           });
           return {
@@ -798,10 +801,6 @@ function runStream(req, portsFile) {
             env: env,
           });
 
-          newProcess.once("error", (error) => {
-            resolve({ error: error.toString() });
-          });
-
           pipeIfPossible(lastStream, newProcess.stdin);
           let newStream;
           if (output === "MergeWithStdout") {
@@ -811,12 +810,25 @@ function runStream(req, portsFile) {
           } else {
             newStream = newProcess.stdout;
           }
+
+          newProcess.once("error", (error) => {
+            newStream && newStream.end();
+            newProcess.removeAllListeners();
+            resolve({ error: error.toString() });
+          });
           if (isLastProcess) {
             return {
               stream: newStream,
-              metadata: new Promise((resolve) => {
+              metadata: new Promise((resoveMeta) => {
                 newProcess.once("exit", (code) => {
-                  resolve({
+                  if (code !== 0 && !allowNon0Status) {
+                    newStream && newStream.end();
+                    resolve({
+                      error: `Command ${command} exited with code ${code}`,
+                    });
+                  }
+
+                  resoveMeta({
                     exitCode: code,
                   });
                 });
