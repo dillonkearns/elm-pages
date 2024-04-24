@@ -1,8 +1,82 @@
-module Pages.Script.Spinner exposing (CompletionIcon(..), Options, Spinner, Steps(..), options, runSteps, runTask, runTaskExisting, runTaskWithOptions, showStep, spinner, start, steps, withImmediateStart, withNamedAnimation, withOnCompletion, withStep, withStepWithOptions)
+module Pages.Script.Spinner exposing
+    ( Steps(..), steps, withStep
+    , withStepWithOptions
+    , runSteps
+    , Options, options
+    , CompletionIcon(..)
+    , withImmediateStart, withOnCompletion
+    , runTask, runTaskWithOptions
+    , Spinner
+    , runTaskExisting, spinner, start
+    , showStep
+    , withNamedAnimation
+    )
 
 {-|
 
-@docs CompletionIcon, Options, Spinner, Steps, options, runSteps, runTask, runTaskExisting, runTaskWithOptions, showStep, spinner, start, steps, withImmediateStart, withNamedAnimation, withOnCompletion, withStep, withStepWithOptions
+
+## Running Steps
+
+The easiest way to use spinners is to define a series of [`Steps`](#Steps) and then run them with [`runSteps`](#runSteps).
+
+Steps are a sequential series of `BackendTask`s that are run one after the other. If a step fails (has a [`FatalError`](FatalError)),
+its spinner will show a failure, and the remaining steps will not be run and will be displayed as cancelled (the step name in gray).
+
+    module StepsDemo exposing (run)
+
+    import BackendTask exposing (BackendTask)
+    import Pages.Script as Script exposing (Script)
+    import Pages.Script.Spinner as Spinner
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Spinner.steps
+                |> Spinner.withStep "Compile Main.elm" (\() -> Script.exec "elm" [ "make", "src/Main.elm", "--output=/dev/null" ])
+                |> Spinner.withStep "Verify formatting" (\() -> Script.exec "elm-format" [ "--validate", "src/" ])
+                |> Spinner.withStep "elm-review" (\() -> Script.exec "elm-review" [])
+                |> Spinner.runSteps
+            )
+
+@docs Steps, steps, withStep
+
+@docs withStepWithOptions
+
+@docs runSteps
+
+
+## Configuring Steps
+
+@docs Options, options
+
+@docs CompletionIcon
+
+@docs withImmediateStart, withOnCompletion
+
+
+## Running Tasks
+
+@docs runTask, runTaskWithOptions
+
+
+## Other
+
+@docs Spinner
+
+
+## Standalone Step
+
+@docs runTaskExisting, spinner, start
+
+
+## Low-Level
+
+@docs showStep
+
+
+## TODO remove?
+
+@docs withNamedAnimation
 
 -}
 
@@ -320,18 +394,21 @@ encodeCompletionIcon completionIcon =
             "custom"
 
 
-{-| -}
+{-| The definition of a series of `BackendTask`s to run, with a spinner for each step.
+-}
 type Steps error value
     = Steps (BackendTask error value)
 
 
-{-| -}
+{-| Initialize an empty series of `Steps`.
+-}
 steps : Steps FatalError ()
 steps =
     Steps (BackendTask.succeed ())
 
 
-{-| -}
+{-| Add a `Step`. See [`withStepWithOptions`](#withStepWithOptions) to configure the step's spinner.
+-}
 withStep : String -> (oldValue -> BackendTask FatalError newValue) -> Steps FatalError oldValue -> Steps FatalError newValue
 withStep text backendTask steps_ =
     case steps_ of
@@ -349,7 +426,8 @@ withStep text backendTask steps_ =
                 )
 
 
-{-| -}
+{-| Add a step with custom [`Options`](#Options).
+-}
 withStepWithOptions : Options FatalError newValue -> (oldValue -> BackendTask FatalError newValue) -> Steps FatalError oldValue -> Steps FatalError newValue
 withStepWithOptions options_ backendTask steps_ =
     case steps_ of
@@ -367,7 +445,8 @@ withStepWithOptions options_ backendTask steps_ =
                 )
 
 
-{-| -}
+{-| Perform the `Steps` in sequence.
+-}
 runSteps : Steps FatalError value -> BackendTask FatalError value
 runSteps (Steps steps_) =
     steps_
