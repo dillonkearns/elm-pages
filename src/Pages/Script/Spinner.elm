@@ -7,8 +7,7 @@ module Pages.Script.Spinner exposing
     , withOnCompletion
     , runTask, runTaskWithOptions
     , Spinner
-    , runTaskExisting, spinner, start
-    , showStep
+    , showStep, runTaskExisting, start
     )
 
 {-|
@@ -53,7 +52,7 @@ its spinner will show a failure, and the remaining steps will not be run and wil
 @docs withOnCompletion
 
 
-## Running Tasks
+## Running with BackendTask
 
 @docs runTask, runTaskWithOptions
 
@@ -63,14 +62,9 @@ its spinner will show a failure, and the remaining steps will not be run and wil
 @docs Spinner
 
 
-## Standalone Step
-
-@docs runTaskExisting, spinner, start
-
-
 ## Low-Level
 
-@docs showStep
+@docs showStep, runTaskExisting, start
 
 -}
 
@@ -82,16 +76,17 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 
 
-{-| -}
+{-| An icon used to indicate the completion status of a step. Set by using [`withOnCompletion`](#withOnCompletion).
+-}
 type CompletionIcon
     = Succeed
     | Fail
     | Warn
     | Info
-    | Custom String
 
 
-{-| -}
+{-| Configuration that can be used with [`runTaskWithOptions`](#runTaskWithOptions) and [`withStepWithOptions`](#withStepWithOptions).
+-}
 type Options error value
     = Options
         { text : String
@@ -162,7 +157,42 @@ options text =
 --    Options { options_ | animation = Just animationName }
 
 
-{-| A low-level helper for showing a step and getting back a `Spinner` reference which you can later use to `start` the spinner.
+{-| `showStep` gives you a `Spinner` reference which you can use to start the spinner later with `start`.
+
+Most use cases can be achieved more easily using more high-level helpers, like [`runTask`](#runTask) or [`steps`](#steps).
+`showStep` can be useful if you have more dynamic steps that you want to reveal over time.
+
+    module ShowStepDemo exposing (run)
+
+    import BackendTask exposing (BackendTask)
+    import Pages.Script as Script exposing (Script, doThen, sleep)
+    import Pages.Script.Spinner as Spinner
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (BackendTask.succeed
+                (\spinner1 spinner2 spinner3 ->
+                    sleep 3000
+                        |> Spinner.runTaskExisting spinner1
+                        |> doThen
+                            (sleep 3000
+                                |> Spinner.runTaskExisting spinner2
+                                |> doThen
+                                    (sleep 3000
+                                        |> Spinner.runTaskExisting spinner3
+                                    )
+                            )
+                )
+                |> BackendTask.andMap
+                    (Spinner.options "Step 1" |> Spinner.showStep)
+                |> BackendTask.andMap
+                    (Spinner.options "Step 2" |> Spinner.showStep)
+                |> BackendTask.andMap
+                    (Spinner.options "Step 3" |> Spinner.showStep)
+                |> BackendTask.andThen identity
+            )
+
 -}
 showStep : Options error value -> BackendTask error (Spinner error value)
 showStep (Options options_) =
@@ -410,9 +440,6 @@ encodeCompletionIcon completionIcon =
 
         Info ->
             "info"
-
-        Custom _ ->
-            "custom"
 
 
 {-| The definition of a series of `BackendTask`s to run, with a spinner for each step.
