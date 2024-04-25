@@ -6,7 +6,7 @@ module Pages.Script.Spinner exposing
     , CompletionIcon(..)
     , withOnCompletion
     , runTask, runTaskWithOptions
-    , showStep, runTaskExisting, start, Spinner
+    , showStep, runSpinnerWithTask, Spinner
     )
 
 {-|
@@ -58,7 +58,7 @@ its spinner will show a failure, and the remaining steps will not be run and wil
 
 ## Low-Level
 
-@docs showStep, runTaskExisting, start, Spinner
+@docs showStep, runSpinnerWithTask, Spinner
 
 -}
 
@@ -151,7 +151,7 @@ options text =
 --    Options { options_ | animation = Just animationName }
 
 
-{-| `showStep` gives you a `Spinner` reference which you can use to start the spinner later with `start`.
+{-| `showStep` gives you a `Spinner` reference which you can use to start the spinner later with `runSpinnerWithTask`.
 
 Most use cases can be achieved more easily using more high-level helpers, like [`runTask`](#runTask) or [`steps`](#steps).
 `showStep` can be useful if you have more dynamic steps that you want to reveal over time.
@@ -168,13 +168,13 @@ Most use cases can be achieved more easily using more high-level helpers, like [
             (BackendTask.succeed
                 (\spinner1 spinner2 spinner3 ->
                     sleep 3000
-                        |> Spinner.runTaskExisting spinner1
+                        |> Spinner.runSpinnerWithTask spinner1
                         |> doThen
                             (sleep 3000
-                                |> Spinner.runTaskExisting spinner2
+                                |> Spinner.runSpinnerWithTask spinner2
                                 |> doThen
                                     (sleep 3000
-                                        |> Spinner.runTaskExisting spinner3
+                                        |> Spinner.runSpinnerWithTask spinner3
                                     )
                             )
                 )
@@ -207,22 +207,6 @@ showStep (Options options_) =
                     (\s -> Spinner s (Options options_))
                     Decode.string
                 )
-        }
-
-
-{-| -}
-start : Spinner error1 value1 -> BackendTask error ()
-start (Spinner spinnerId _) =
-    BackendTask.Internal.Request.request
-        { name = "start-spinner"
-        , body =
-            BackendTask.Http.jsonBody
-                ([ ( "spinnerId", Encode.string spinnerId )
-                 ]
-                    |> Encode.object
-                )
-        , expect =
-            BackendTask.Http.expectJson (Decode.succeed ())
         }
 
 
@@ -284,7 +268,32 @@ runTaskWithOptions (Options options_) backendTask =
             )
 
 
-{-| -}
+{-| Run a `BackendTask` with a spinner. The spinner will show a success icon if the task succeeds, and a failure icon if the task fails.
+
+It's often easier to use [`steps`](#steps) when possible.
+
+        module SequentialSteps exposing (run)
+
+        import Pages.Script as Script exposing (Script, doThen, sleep)
+        import Pages.Script.Spinner as Spinner
+
+
+        run : Script
+        run =
+            Script.withoutCliOptions
+                (sleep 3000
+                    |> Spinner.runTask "Step 1..."
+                    |> doThen
+                        (sleep 3000
+                            |> Spinner.runTask "Step 2..."
+                            |> doThen
+                                (sleep 3000
+                                    |> Spinner.runTask "Step 3..."
+                                )
+                        )
+                )
+
+-}
 runTask : String -> BackendTask error value -> BackendTask error value
 runTask text backendTask =
     spinner text
@@ -299,9 +308,11 @@ runTask text backendTask =
         backendTask
 
 
-{-| -}
-runTaskExisting : Spinner error value -> BackendTask error value -> BackendTask error value
-runTaskExisting (Spinner spinnerId (Options options_)) backendTask =
+{-| After calling `showStep` to get a reference to a `Spinner`, use `runSpinnerWithTask` to run a `BackendTask` and show a failure or success
+completion status once it is done.
+-}
+runSpinnerWithTask : Spinner error value -> BackendTask error value -> BackendTask error value
+runSpinnerWithTask (Spinner spinnerId (Options options_)) backendTask =
     BackendTask.Internal.Request.request
         { name = "start-spinner"
         , body =
@@ -458,7 +469,7 @@ withStep text backendTask steps_ =
             Steps
                 (BackendTask.map2
                     (\pipelineValue newSpinner ->
-                        runTaskExisting
+                        runSpinnerWithTask
                             newSpinner
                             (backendTask pipelineValue)
                     )
@@ -477,7 +488,7 @@ withStepWithOptions options_ backendTask steps_ =
             Steps
                 (BackendTask.map2
                     (\pipelineValue newSpinner ->
-                        runTaskExisting
+                        runSpinnerWithTask
                             newSpinner
                             (backendTask pipelineValue)
                     )
