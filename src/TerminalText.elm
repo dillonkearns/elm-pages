@@ -11,6 +11,7 @@ module TerminalText exposing
     , red
     , resetColors
     , text
+    , toPlainString
     , toString
     , toString_
     , yellow
@@ -107,6 +108,13 @@ toString_ (Style ansiStyle innerText) =
         , innerText
         , resetColors
         ]
+
+
+toPlainString : List Text -> String
+toPlainString list =
+    list
+        |> List.map (\(Style _ inner) -> inner)
+        |> String.concat
 
 
 fromAnsiString : String -> List Text

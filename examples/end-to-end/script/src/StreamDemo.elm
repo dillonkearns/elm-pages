@@ -1,10 +1,10 @@
 module StreamDemo exposing (run)
 
 import BackendTask exposing (BackendTask)
+import BackendTask.Stream as Stream exposing (Stream)
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
 import Pages.Script as Script exposing (Script)
-import Stream exposing (Stream)
 
 
 run : Script

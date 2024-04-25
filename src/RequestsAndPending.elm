@@ -1,4 +1,4 @@
-module RequestsAndPending exposing (HttpError(..), RawResponse, RequestsAndPending, Response(..), ResponseBody(..), bodyEncoder, get)
+module RequestsAndPending exposing (HttpError(..), RawResponse, RequestsAndPending, Response(..), ResponseBody(..), bodyEncoder, get, responseDecoder)
 
 import Base64
 import Bytes exposing (Bytes)

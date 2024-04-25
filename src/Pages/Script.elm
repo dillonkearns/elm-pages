@@ -2,6 +2,7 @@ module Pages.Script exposing
     ( Script
     , withCliOptions, withoutCliOptions
     , writeFile
+    , command, exec
     , log, sleep, doThen, which, expectWhich, question
     , Error(..)
     )
@@ -23,6 +24,11 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 @docs writeFile
 
 
+## Shell Commands
+
+@docs command, exec
+
+
 ## Utilities
 
 @docs log, sleep, doThen, which, expectWhich, question
@@ -37,6 +43,7 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
+import BackendTask.Stream as Stream exposing (defaultCommandOptions)
 import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import FatalError exposing (FatalError)
@@ -168,7 +175,23 @@ withCliOptions config execute =
         )
 
 
-{-| -}
+{-| Sleep for a number of milliseconds.
+
+    module MyScript exposing (run)
+
+    import BackendTask
+    import Pages.Script as Script
+
+    run =
+        Script.withoutCliOptions
+            (Script.log "Hello..."
+                |> Script.doThen
+                    (Script.sleep 1000)
+                |> Script.doThen
+                    (Script.log "World!")
+            )
+
+-}
 sleep : Int -> BackendTask error ()
 sleep int =
     BackendTask.Internal.Request.request
@@ -184,27 +207,68 @@ sleep int =
         }
 
 
-{-| -}
+{-| Run a command with no output, then run another command.
+
+    module MyScript exposing (run)
+
+    import BackendTask
+    import Pages.Script as Script
+
+    run =
+        Script.withoutCliOptions
+            (Script.log "Hello!"
+                |> Script.doThen
+                    (Script.log "World!")
+            )
+
+-}
 doThen : BackendTask error value -> BackendTask error () -> BackendTask error value
 doThen task1 task2 =
     task2
         |> BackendTask.andThen (\() -> task1)
 
 
-{-| -}
+{-| Same as [`expectWhich`](#expectWhich), but returns `Nothing` if the command is not found instead of failing with a [`FatalError`](FatalError).
+-}
 which : String -> BackendTask error (Maybe String)
-which command =
+which command_ =
     BackendTask.Internal.Request.request
-        { body = BackendTask.Http.jsonBody (Encode.string command)
+        { body = BackendTask.Http.jsonBody (Encode.string command_)
         , expect = BackendTask.Http.expectJson (Decode.nullable Decode.string)
         , name = "which"
         }
 
 
-{-| -}
+{-| Check if a command is available on the system. If it is, return the full path to the command, otherwise fail with a [`FatalError`](FatalError).
+
+    module MyScript exposing (run)
+
+    import BackendTask
+    import Pages.Script as Script
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Script.expectWhich "elm-review"
+                |> BackendTask.andThen
+                    (\path ->
+                        Script.log ("The path to `elm-review` is: " ++ path)
+                    )
+            )
+
+If you run it with a command that is not available, you will see an error like this:
+
+    Script.expectWhich "hype-script"
+
+```shell
+-- COMMAND NOT FOUND ---------------
+I expected to find `hype-script`, but it was not on your PATH. Make sure it is installed and included in your PATH.
+```
+
+-}
 expectWhich : String -> BackendTask FatalError String
-expectWhich command =
-    which command
+expectWhich command_ =
+    which command_
         |> BackendTask.andThen
             (\maybePath ->
                 case maybePath of
@@ -215,13 +279,29 @@ expectWhich command =
                         BackendTask.fail
                             (FatalError.build
                                 { title = "Command not found"
-                                , body = "I expected to find `" ++ command ++ "`, but it was not on your PATH. Make sure it is installed and included in your PATH."
+                                , body = "I expected to find `" ++ command_ ++ "`, but it was not on your PATH. Make sure it is installed and included in your PATH."
                                 }
                             )
             )
 
 
-{-| -}
+{-|
+
+    module QuestionDemo exposing (run)
+
+    import BackendTask
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Script.question "What is your name? "
+                |> BackendTask.andThen
+                    (\name ->
+                        Script.log ("Hello, " ++ name ++ "!")
+                    )
+            )
+
+-}
 question : String -> BackendTask error String
 question prompt =
     BackendTask.Internal.Request.request
@@ -231,3 +311,53 @@ question prompt =
         , expect = BackendTask.Http.expectJson Decode.string
         , name = "question"
         }
+
+
+{-| Like [`command`](#command), but prints stderr and stdout to the console as the command runs instead of capturing them.
+
+    module MyScript exposing (run)
+
+    import BackendTask
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Script.exec "ls" [])
+
+-}
+exec : String -> List String -> BackendTask FatalError ()
+exec command_ args_ =
+    Stream.command command_ args_
+        |> Stream.run
+
+
+{-| Run a single command and return stderr and stdout combined as a single String.
+
+If you want to do more advanced things like piping together multiple commands in a pipeline, or piping in a file to a command, etc., see the [`Stream`](BackendTask-Stream) module.
+
+    module MyScript exposing (run)
+
+    import BackendTask
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Script.command "ls" []
+                |> BackendTask.andThen
+                    (\files ->
+                        Script.log ("Files: " ++ files)
+                    )
+            )
+
+-}
+command : String -> List String -> BackendTask FatalError String
+command command_ args_ =
+    Stream.commandWithOptions
+        (defaultCommandOptions |> Stream.withOutput Stream.MergeStderrAndStdout)
+        command_
+        args_
+        |> Stream.read
+        |> BackendTask.map .body
+        |> BackendTask.allowFatal

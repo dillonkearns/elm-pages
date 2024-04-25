@@ -502,8 +502,17 @@ update config appMsg model =
         ProcessFetchResponse transitionId response toMsg ->
             case response of
                 Ok ( _, ResponseSketch.Redirect redirectTo ) ->
-                    ( model, NoEffect )
-                        |> startNewGetLoad (currentUrlWithPath redirectTo model) toMsg
+                    let
+                        isAbsoluteUrl : Bool
+                        isAbsoluteUrl =
+                            Url.fromString redirectTo /= Nothing
+                    in
+                    if isAbsoluteUrl then
+                        ( model, BrowserLoadUrl redirectTo )
+
+                    else
+                        ( model, NoEffect )
+                            |> startNewGetLoad (currentUrlWithPath redirectTo model) toMsg
 
                 _ ->
                     update config (toMsg response) (clearLoadingFetchersAfterDataLoad transitionId model)
