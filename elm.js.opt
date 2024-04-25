@@ -7057,8 +7057,8 @@
             return $author$project$BackendTask$succeed($author$project$Server$Response$plainText("TODO"));
         }
         else {
-            var justRoute_1_0 = maybeRoute.a;
-            if (!justRoute_1_0) {
+            var justRoute = maybeRoute.a;
+            if (!justRoute) {
                 return $author$project$BackendTask$map_fn($author$project$Server$Response$map($author$project$Main$ActionDataSubPage), A2($author$project$Route$SubPage$route.b$, requestPayload, {}));
             }
             else {
@@ -9786,8 +9786,8 @@
             return $elm$bytes$Bytes$Decode$fail;
         }
         else {
-            var route_1_0 = route.a;
-            if (!route_1_0) {
+            var route0 = route.a;
+            if (!route0) {
                 return $elm$bytes$Bytes$Decode$map_fn($author$project$Main$DataSubPage, $author$project$Route$SubPage$w3_decode_Data);
             }
             else {
@@ -9913,8 +9913,8 @@
             return $author$project$BackendTask$succeed($author$project$Server$Response$mapError_fn($elm$core$Basics$never, $author$project$Server$Response$withStatusCode_fn(404, $author$project$Server$Response$render($author$project$Main$Data404NotFoundPage____))));
         }
         else {
-            var justRoute_1_0 = maybeRoute.a;
-            if (!justRoute_1_0) {
+            var justRoute = maybeRoute.a;
+            if (!justRoute) {
                 return $author$project$BackendTask$map_fn($author$project$Server$Response$map($author$project$Main$DataSubPage), A2($author$project$Route$SubPage$route.gf, requestPayload, {}));
             }
             else {
@@ -10390,8 +10390,8 @@
             return $author$project$BackendTask$succeed($elm$core$Maybe$Nothing);
         }
         else {
-            var route_1_0 = maybeRoute.a;
-            if (!route_1_0) {
+            var route = maybeRoute.a;
+            if (!route) {
                 return A3($author$project$Route$SubPage$route.hc, {
                     ib: _List_fromArray(["SubPage"]),
                     iu: {
@@ -10520,7 +10520,7 @@
                 return errorPage;
             }
             else {
-                var otherwise_1_1_3_0_0 = pageData;
+                var otherwise = pageData;
                 return $author$project$ErrorPage$notFound;
             }
         }()));
@@ -10979,8 +10979,8 @@
                 return $author$project$Main$initErrorPage(pageData);
             }
             else {
-                var justRouteAndPath_2_0 = _v2.a;
-                var _v3 = _Utils_Tuple2(justRouteAndPath_2_0.a, pageData);
+                var justRouteAndPath = _v2.a;
+                var _v3 = _Utils_Tuple2(justRouteAndPath.a, pageData);
                 _v3$2: while (true) {
                     if (!_v3.a) {
                         if (!_v3.b.$) {
@@ -11000,9 +11000,7 @@
                                 gf: thisPageData,
                                 ez: $elm$core$Maybe$Nothing,
                                 eB: $elm$core$Dict$empty,
-                                dO: function ($) {
-                                    return $.dO;
-                                }(justRouteAndPath_2_0.b),
+                                dO: justRouteAndPath.b.dO,
                                 eO: {},
                                 dQ: sharedData,
                                 kE: $author$project$Pages$Fetcher$submit($author$project$Route$SubPage$w3_decode_ActionData),
@@ -11033,9 +11031,7 @@
                                 gf: thisPageData,
                                 ez: $elm$core$Maybe$Nothing,
                                 eB: $elm$core$Dict$empty,
-                                dO: function ($) {
-                                    return $.dO;
-                                }(justRouteAndPath_2_0.b),
+                                dO: justRouteAndPath.b.dO,
                                 eO: {},
                                 dQ: sharedData,
                                 kE: $author$project$Pages$Fetcher$submit($author$project$Route$Index$w3_decode_ActionData),
@@ -11177,15 +11173,15 @@
             return $elm$core$Platform$Sub$none;
         }
         else {
-            var justRoute_1_0 = route.a;
-            if (!justRoute_1_0) {
+            var justRoute = route.a;
+            if (!justRoute) {
                 var _v2 = model.ac;
                 if (!_v2.$) {
                     var templateModel = _v2.a;
                     return _Platform_map_fn($author$project$Main$MsgSubPage, A4($author$project$Route$SubPage$route.gL, {}, path, templateModel, model.A));
                 }
                 else {
-                    var otherwise_1_0_1_1_1_0 = _v2;
+                    var otherwise = _v2;
                     return $elm$core$Platform$Sub$none;
                 }
             }
@@ -11196,7 +11192,7 @@
                     return _Platform_map_fn($author$project$Main$MsgIndex, A4($author$project$Route$Index$route.gL, {}, path, templateModel, model.A));
                 }
                 else {
-                    var otherwise_1_0_1_1_1_0 = _v3;
+                    var otherwise = _v3;
                     return $elm$core$Platform$Sub$none;
                 }
             }
@@ -11219,8 +11215,8 @@
                 return _Utils_Tuple2(model.A, $author$project$Effect$none);
             }
             else {
-                var sharedMsg_3 = c.a;
-                return A2($author$project$Shared$template.e1, sharedMsg_3, model.A);
+                var sharedMsg = c.a;
+                return A2($author$project$Shared$template.e1, sharedMsg, model.A);
             }
         }());
     }, $author$project$Main$fooFn = F4($author$project$Main$fooFn_fn);
@@ -11331,16 +11327,15 @@
                 }));
                 var updatedModel = _v4.a;
                 var cmd = _v4.b;
-                var _v5 = navigationKey;
-                var _v6 = $author$project$Shared$template.ik;
-                if (_v6.$ === 1) {
+                var _v5 = $author$project$Shared$template.ik;
+                if (_v5.$ === 1) {
                     return _Utils_Tuple2(updatedModel, cmd);
                 }
                 else {
-                    var thingy_3 = _v6.a;
-                    var _v7 = A2($author$project$Shared$template.e1, thingy_3({ aJ: record.aJ, dO: record.dO, aU: record.aU }), model.A);
-                    var updatedGlobalModel = _v7.a;
-                    var globalCmd = _v7.b;
+                    var thingy = _v5.a;
+                    var _v6 = A2($author$project$Shared$template.e1, thingy({ aJ: record.aJ, dO: record.dO, aU: record.aU }), model.A);
+                    var updatedGlobalModel = _v6.a;
+                    var globalCmd = _v6.b;
                     return _Utils_Tuple2(_Utils_update(updatedModel, { A: updatedGlobalModel }), $author$project$Effect$batch(_List_fromArray([
                         cmd,
                         $author$project$Effect$map_fn($author$project$Main$MsgGlobal, globalCmd)
@@ -11348,21 +11343,21 @@
                 }
             case 0:
                 var msg_ = msg.a;
-                var _v8 = _Utils_Tuple3(model.ac, pageData, $elm$core$Maybe$map3_fn($author$project$Main$toTriple, $elm$core$Maybe$andThen_fn(function ($) {
+                var _v7 = _Utils_Tuple3(model.ac, pageData, $elm$core$Maybe$map3_fn($author$project$Main$toTriple, $elm$core$Maybe$andThen_fn(function ($) {
                     return $.aY;
                 }, model.a$), $elm$core$Maybe$andThen_fn(function ($) {
                     return $.cl;
                 }, model.a$), $elm$core$Maybe$map_fn(function ($) {
                     return $.dO;
                 }, model.a$)));
-                if ((((!_v8.a.$) && (!_v8.b.$)) && (!_v8.c.$)) && (!_v8.c.a.a)) {
-                    var pageModel = _v8.a.a;
-                    var thisPageData = _v8.b.a;
-                    var _v9 = _v8.c.a;
-                    var _v10 = _v9.a;
-                    var pageUrl = _v9.b;
-                    var justPage = _v9.c;
-                    var _v11 = $author$project$Main$fooFn_fn($author$project$Main$ModelSubPage, $author$project$Main$MsgSubPage, model, A4($author$project$Route$SubPage$route.e1, {
+                if ((((!_v7.a.$) && (!_v7.b.$)) && (!_v7.c.$)) && (!_v7.c.a.a)) {
+                    var pageModel = _v7.a.a;
+                    var thisPageData = _v7.b.a;
+                    var _v8 = _v7.c.a;
+                    var _v9 = _v8.a;
+                    var pageUrl = _v8.b;
+                    var justPage = _v8.c;
+                    var _v10 = $author$project$Main$fooFn_fn($author$project$Main$ModelSubPage, $author$project$Main$MsgSubPage, model, A4($author$project$Route$SubPage$route.e1, {
                         b$: $elm$core$Maybe$Nothing,
                         ec: $elm$core$Dict$map_fn(function (mapUnpack) {
                             return $author$project$Pages$ConcurrentSubmission$map(function (mapUnpack0) {
@@ -11386,9 +11381,10 @@
                         },
                         kJ: $elm$core$Maybe$Just(pageUrl)
                     }, msg_, pageModel, model.A));
-                    var updatedPageModel = _v11.a;
-                    var pageCmd = _v11.b;
-                    var _v12 = _v11.c;
+                    var updatedPageModel = _v10.a;
+                    var pageCmd = _v10.b;
+                    var globalModelAndCmd = _v10.c;
+                    var _v12 = globalModelAndCmd;
                     var newGlobalModel = _v12.a;
                     var newGlobalCmd = _v12.b;
                     return _Utils_Tuple2(_Utils_update(model, { A: newGlobalModel, ac: updatedPageModel }), $author$project$Effect$batch(_List_fromArray([
@@ -11401,21 +11397,21 @@
                 }
             default:
                 var msg_ = msg.a;
-                var _v14 = _Utils_Tuple3(model.ac, pageData, $elm$core$Maybe$map3_fn($author$project$Main$toTriple, $elm$core$Maybe$andThen_fn(function ($) {
+                var _v13 = _Utils_Tuple3(model.ac, pageData, $elm$core$Maybe$map3_fn($author$project$Main$toTriple, $elm$core$Maybe$andThen_fn(function ($) {
                     return $.aY;
                 }, model.a$), $elm$core$Maybe$andThen_fn(function ($) {
                     return $.cl;
                 }, model.a$), $elm$core$Maybe$map_fn(function ($) {
                     return $.dO;
                 }, model.a$)));
-                if ((((_v14.a.$ === 1) && (_v14.b.$ === 1)) && (!_v14.c.$)) && (_v14.c.a.a === 1)) {
-                    var pageModel = _v14.a.a;
-                    var thisPageData = _v14.b.a;
-                    var _v15 = _v14.c.a;
-                    var _v16 = _v15.a;
-                    var pageUrl = _v15.b;
-                    var justPage = _v15.c;
-                    var _v17 = $author$project$Main$fooFn_fn($author$project$Main$ModelIndex, $author$project$Main$MsgIndex, model, A4($author$project$Route$Index$route.e1, {
+                if ((((_v13.a.$ === 1) && (_v13.b.$ === 1)) && (!_v13.c.$)) && (_v13.c.a.a === 1)) {
+                    var pageModel = _v13.a.a;
+                    var thisPageData = _v13.b.a;
+                    var _v14 = _v13.c.a;
+                    var _v15 = _v14.a;
+                    var pageUrl = _v14.b;
+                    var justPage = _v14.c;
+                    var _v16 = $author$project$Main$fooFn_fn($author$project$Main$ModelIndex, $author$project$Main$MsgIndex, model, A4($author$project$Route$Index$route.e1, {
                         b$: $elm$core$Maybe$Nothing,
                         ec: $elm$core$Dict$map_fn(function (mapUnpack) {
                             return $author$project$Pages$ConcurrentSubmission$map(function (mapUnpack0) {
@@ -11439,9 +11435,10 @@
                         },
                         kJ: $elm$core$Maybe$Just(pageUrl)
                     }, msg_, pageModel, model.A));
-                    var updatedPageModel = _v17.a;
-                    var pageCmd = _v17.b;
-                    var _v18 = _v17.c;
+                    var updatedPageModel = _v16.a;
+                    var pageCmd = _v16.b;
+                    var globalModelAndCmd = _v16.c;
+                    var _v18 = globalModelAndCmd;
                     var newGlobalModel = _v18.a;
                     var newGlobalCmd = _v18.b;
                     return _Utils_Tuple2(_Utils_update(model, { A: newGlobalModel, ac: updatedPageModel }), $author$project$Effect$batch(_List_fromArray([
@@ -11730,7 +11727,7 @@
                     break _v0$3;
             }
         }
-        var otherwise_1_0_0 = _v0;
+        var otherwise = _v0;
         return {
             fD: _List_Nil,
             bZ: function (_v8) {
