@@ -12,3 +12,4 @@ cypress/screenshots
 .idea
 generated/
 
+elm-review-report.gz.json
