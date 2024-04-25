@@ -25,6 +25,7 @@
   "author": "Dillon Kearns",
   "license": "BSD-3-Clause",
   "dependencies": {
+    "@sindresorhus/merge-streams": "^3.0.0",
     "busboy": "^1.6.0",
     "chokidar": "^3.5.3",
     "cli-cursor": "^4.0.0",
