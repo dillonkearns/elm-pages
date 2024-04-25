@@ -75,6 +75,26 @@ all =
             ]
         }
     , globTestCase
+        { name = "capture leading ./"
+        , glob =
+            Glob.succeed
+                (\first second wildcardPart ->
+                    { first = first
+                    , second = second
+                    , wildcard = wildcardPart
+                    }
+                )
+                |> Glob.capture (Glob.literal "./glob-test-cases/")
+                |> Glob.capture (Glob.literal "content1/")
+                |> Glob.capture Glob.wildcard
+        , expected =
+            [ { first = "./glob-test-cases/"
+              , second = "content1/"
+              , wildcard = "about.md"
+              }
+            ]
+        }
+    , globTestCase
         { name = "capture"
         , glob =
             Glob.succeed identity
