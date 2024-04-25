@@ -367,19 +367,31 @@ async function requireElm(compiledElmPath) {
 }
 
 /**
+ * @param {string} expectedFilePath
  * @param {string} moduleName
  */
-function generatorWrapperFile(moduleName) {
+async function generatorWrapperFile(expectedFilePath, moduleName) {
+  const moduleContent = await fs.promises.readFile(expectedFilePath, {
+    encoding: "utf-8",
+  });
+
+  const hasRun = /^run\s*=/m.test(moduleContent);
+  const hasMain = /^main\s*=/m.test(moduleContent);
+
+  const { data, app } =
+    hasMain && !hasRun
+      ? { data: "main", app: "statefulApp" }
+      : { data: "run", app: "app" };
+
   return `port module ScriptMain exposing (main)
 
 import Pages.Internal.Platform.GeneratorApplication
 import ${moduleName}
 
 
-main : Pages.Internal.Platform.GeneratorApplication.Program
 main =
-    Pages.Internal.Platform.GeneratorApplication.app
-        { data = ${moduleName}.run
+    Pages.Internal.Platform.GeneratorApplication.${app}
+        { data = ${moduleName}.${data}
         , toJsPort = toJsPort
         , fromJsPort = fromJsPort identity
         , gotBatchSub = gotBatchSub identity
@@ -396,6 +408,11 @@ port fromJsPort : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> msg
 port gotBatchSub : (Pages.Internal.Platform.GeneratorApplication.JsonValue -> msg) -> Sub msg
 `;
 }
+
+/**
+ * @param {any} value
+ * @param {any[]} previous
+ */
 function collect(value, previous) {
   return previous.concat([value]);
 }
@@ -429,7 +446,7 @@ async function compileElmForScript(elmModulePath) {
     path.join(
       `${projectDirectory}/elm-stuff/elm-pages/.elm-pages/ScriptMain.elm`
     ),
-    generatorWrapperFile(moduleName)
+    await generatorWrapperFile(expectedFilePath, moduleName)
   );
   let executableName = await lamderaOrElmFallback();
   try {
