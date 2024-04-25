@@ -1081,11 +1081,24 @@ encodeOptions options =
 -}
 toBackendTaskWithOptions : Options -> Glob a -> BackendTask error (List a)
 toBackendTaskWithOptions options glob =
+    let
+        pattern : String
+        pattern =
+            BackendTask.Internal.Glob.toPattern glob
+    in
     BackendTask.Internal.Request.request
         { name = "glob"
         , body =
             Encode.object
-                [ ( "pattern", Encode.string <| BackendTask.Internal.Glob.toPattern glob )
+                [ ( "pattern"
+                  , Encode.string <|
+                        -- workaround for https://github.com/micromatch/micromatch/issues/217
+                        if String.startsWith "./" pattern then
+                            String.dropLeft 2 pattern
+
+                        else
+                            pattern
+                  )
                 , ( "options", encodeOptions options )
                 ]
                 |> BackendTask.Http.jsonBody
