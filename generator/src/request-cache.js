@@ -92,12 +92,13 @@ export function lookupOrPerform(
             }),
           });
         } else {
-          console.time(`BackendTask.Custom.run "${portName}"`);
+          !rawRequest.quiet &&
+            console.time(`BackendTask.Custom.run "${portName}"`);
           let context = {
             cwd: path.resolve(...rawRequest.dir),
             quiet: rawRequest.quiet,
             env: { ...process.env, ...rawRequest.env },
-          }
+          };
           try {
             resolve({
               kind: "response-json",
@@ -134,7 +135,8 @@ export function lookupOrPerform(
               });
             }
           }
-          console.timeEnd(`BackendTask.Custom.run "${portName}"`);
+          !rawRequest.quiet &&
+            console.timeEnd(`BackendTask.Custom.run "${portName}"`);
         }
       } catch (error) {
         console.trace(error);
@@ -145,7 +147,7 @@ export function lookupOrPerform(
       }
     } else {
       try {
-        console.time(`fetch ${request.url}`);
+        !rawRequest.quiet && console.time(`fetch ${request.url}`);
         const response = await safeFetch(makeFetchHappen, request.url, {
           method: request.method,
           body: request.body,
@@ -156,7 +158,7 @@ export function lookupOrPerform(
           ...rawRequest.cacheOptions,
         });
 
-        console.timeEnd(`fetch ${request.url}`);
+        !rawRequest.quiet && console.timeEnd(`fetch ${request.url}`);
         const expectString = request.headers["elm-pages-internal"];
 
         let body;

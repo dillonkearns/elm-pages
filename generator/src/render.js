@@ -13,16 +13,16 @@ import { compatibilityKey } from "./compatibility-key.js";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import { restoreColorSafe } from "./error-formatter.js";
-import { Spinnies } from './spinnies/index.js'
+import { Spinnies } from "./spinnies/index.js";
 import { default as which } from "which";
 import * as readline from "readline";
 import { spawn as spawnCallback } from "cross-spawn";
-import {ChildProcess} from 'node:child_process';
-import * as consumers from 'stream/consumers'
-import * as zlib from 'node:zlib'
-import { Readable } from "node:stream";
-
-
+import * as consumers from "stream/consumers";
+import * as zlib from "node:zlib";
+import { Readable, Writable } from "node:stream";
+import * as validateStream from "./validate-stream.js";
+import { default as makeFetchHappenOriginal } from "make-fetch-happen";
+import mergeStreams from "@sindresorhus/merge-streams";
 
 let verbosity = 2;
 const spinnies = new Spinnies();
@@ -197,7 +197,8 @@ function runGeneratorAppHelp(
                     mode,
                     requestToPerform,
                     hasFsAccess,
-                    patternsToWatch
+                    patternsToWatch,
+                    portsFile
                   );
                 } else {
                   return runHttpJob(
@@ -335,7 +336,8 @@ function runElmApp(
                     mode,
                     requestToPerform,
                     hasFsAccess,
-                    patternsToWatch
+                    patternsToWatch,
+                    portsFile
                   );
                 } else {
                   return runHttpJob(
@@ -476,7 +478,8 @@ async function runInternalJob(
   mode,
   requestToPerform,
   hasFsAccess,
-  patternsToWatch
+  patternsToWatch,
+  portsFile
 ) {
   try {
     if (requestToPerform.url === "elm-pages-internal://log") {
@@ -521,7 +524,7 @@ async function runInternalJob(
     } else if (requestToPerform.url === "elm-pages-internal://shell") {
       return [requestHash, await runShell(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://stream") {
-      return [requestHash, await runStream(requestToPerform)];
+      return [requestHash, await runStream(requestToPerform, portsFile)];
     } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
       return [requestHash, runStartSpinner(requestToPerform)];
     } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
@@ -578,143 +581,323 @@ async function runWhich(req) {
 async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
-function runStream(req) {
-  return new Promise(async (resolve, reject) => {
-    try {
-    const cwd = path.resolve(...req.dir);
-    const quiet = req.quiet;
-    const env = { ...process.env, ...req.env };
-    const kind = req.body.args[0].kind;
-    const parts = req.body.args[0].parts;
-    let lastStream = null;
 
-      parts.forEach((part, index) => {
+function runStream(req, portsFile) {
+  return new Promise(async (resolve) => {
+    let metadataResponse = null;
+    let lastStream = null;
+    try {
+      const cwd = path.resolve(...req.dir);
+      const quiet = req.quiet;
+      const env = { ...process.env, ...req.env };
+      const kind = req.body.args[0].kind;
+      const parts = req.body.args[0].parts;
+      let index = 0;
+
+      for (const part of parts) {
         let isLastProcess = index === parts.length - 1;
         let thisStream;
-        if (isLastProcess && (kind === "command" || kind === "commandCode")) {
-            const {command, args} = part;
-            let stdio;
-            if (kind === "command") {
-              stdio = ["pipe", "pipe", "pipe"];
-            } else if (kind === "commandCode") {
-              stdio = quiet ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'inherit', 'inherit'];
-            } else {
-              throw new Error(`Unknown kind: ${kind}`);
-            }
-            const newProcess = spawnCallback(command, args, {
-              stdio,
-              cwd: cwd,
-              env: env,
-            });
-            lastStream && lastStream.pipe(newProcess.stdin);
-            if (kind === "command") {
-              let stdoutOutput = "";
-              let stderrOutput = "";
-              let combinedOutput = "";
-              newProcess.stderr.on("data", function (data) {
-                stderrOutput += data;
-                combinedOutput += data;
-              });
-              newProcess.stdout.on("data", function (data) {
-                stdoutOutput += data;
-                combinedOutput += data;
-              });
-              newProcess.on("close", async (exitCode) => {
-                  resolve(jsonResponse(req, { stdoutOutput, stderrOutput, combinedOutput, exitCode }));
-              });
-            } else {
-              newProcess.on("close", async (exitCode) => {
-                  resolve(jsonResponse(req, { exitCode }));
-              });
-            }
-        } else {
-          thisStream = pipePartToStream(lastStream, part, { cwd, quiet, env });
-        }
+        const { stream, metadata } = await pipePartToStream(
+          lastStream,
+          part,
+          { cwd, quiet, env },
+          portsFile,
+          (value) => resolve(jsonResponse(req, value)),
+          isLastProcess,
+          kind
+        );
+        metadataResponse = metadata;
+        thisStream = stream;
+
         lastStream = thisStream;
-      });
+        index += 1;
+      }
       if (kind === "json") {
-        resolve(jsonResponse(req, await consumers.json(lastStream)));
+        resolve(
+          jsonResponse(req, {
+            body: await consumers.json(lastStream),
+            metadata: await tryCallingFunction(metadataResponse),
+          })
+        );
       } else if (kind === "text") {
-        resolve(jsonResponse(req, await consumers.text(lastStream)));
+        resolve(
+          jsonResponse(req, {
+            body: await consumers.text(lastStream),
+            metadata: await tryCallingFunction(metadataResponse),
+          })
+        );
       } else if (kind === "none") {
-        // lastStream.once("finish", async () => {
-        //   resolve(jsonResponse(req, null));
-        // });
-        lastStream.once("close", () => {
-          resolve(jsonResponse(req, null));
-        });
+        if (!lastStream) {
+          // ensure all error handling gets a chance to fire before resolving successfully
+          await tryCallingFunction(metadataResponse);
+          resolve(jsonResponse(req, { body: null }));
+        } else {
+          let resolvedMeta = await tryCallingFunction(metadataResponse);
+          lastStream.once("finish", async () => {
+            resolve(
+              jsonResponse(req, {
+                body: null,
+                metadata: resolvedMeta,
+              })
+            );
+          });
+          lastStream.once("end", async () => {
+            resolve(
+              jsonResponse(req, {
+                body: null,
+                metadata: resolvedMeta,
+              })
+            );
+          });
+        }
       } else if (kind === "command") {
         // already handled in parts.forEach
       }
+      /**
+       *
+       * @param {import('node:stream').Stream?} lastStream
+       * @param {{ name: string }} part
+       * @param {{cwd: string, quiet: boolean, env: object}} param2
+       * @returns {Promise<{stream: import('node:stream').Stream, metadata?: any}>}
+       */
+      async function pipePartToStream(
+        lastStream,
+        part,
+        { cwd, quiet, env },
+        portsFile,
+        resolve,
+        isLastProcess,
+        kind
+      ) {
+        if (verbosity > 1 && !quiet) {
+        }
+        if (part.name === "stdout") {
+          return { stream: pipeIfPossible(lastStream, stdout()) };
+        } else if (part.name === "stderr") {
+          return { stream: pipeIfPossible(lastStream, stderr()) };
+        } else if (part.name === "stdin") {
+          return { stream: process.stdin };
+        } else if (part.name === "fileRead") {
+          const newLocal = fs.createReadStream(path.resolve(cwd, part.path));
+          newLocal.once("error", (error) => {
+            newLocal.close();
+            resolve({ error: error.toString() });
+          });
+          return { stream: newLocal };
+        } else if (part.name === "customDuplex") {
+          const newLocal = await portsFile[part.portName](part.input, {
+            cwd,
+            quiet,
+            env,
+          });
+          if (validateStream.isDuplexStream(newLocal.stream)) {
+            pipeIfPossible(lastStream, newLocal.stream);
+            return newLocal;
+          } else {
+            throw `Expected '${part.portName}' to be a duplex stream!`;
+          }
+        } else if (part.name === "customRead") {
+          return {
+            metadata: null,
+            stream: await portsFile[part.portName](part.input, {
+              cwd,
+              quiet,
+              env,
+            }),
+          };
+        } else if (part.name === "customWrite") {
+          const newLocal = await portsFile[part.portName](part.input, {
+            cwd,
+            quiet,
+            env,
+          });
+          if (!validateStream.isWritableStream(newLocal.stream)) {
+            console.error("Expected a writable stream!");
+            resolve({ error: "Expected a writable stream!" });
+          } else {
+            pipeIfPossible(lastStream, newLocal.stream);
+          }
+          return newLocal;
+        } else if (part.name === "gzip") {
+          const gzip = zlib.createGzip();
+          if (!lastStream) {
+            gzip.end();
+          }
+          return {
+            metadata: null,
+            stream: pipeIfPossible(lastStream, gzip),
+          };
+        } else if (part.name === "unzip") {
+          return {
+            metadata: null,
+            stream: pipeIfPossible(lastStream, zlib.createUnzip()),
+          };
+        } else if (part.name === "fileWrite") {
+          const destinationPath = path.resolve(part.path);
+          try {
+            await fsPromises.mkdir(path.dirname(destinationPath), {
+              recursive: true,
+            });
+          } catch (error) {
+            resolve({ error: error.toString() });
+          }
+          const newLocal = fs.createWriteStream(destinationPath);
+          newLocal.once("error", (error) => {
+            newLocal.close();
+            newLocal.removeAllListeners();
+            resolve({ error: error.toString() });
+          });
+          return {
+            metadata: null,
+            stream: pipeIfPossible(lastStream, newLocal),
+          };
+        } else if (part.name === "httpWrite") {
+          const makeFetchHappen = makeFetchHappenOriginal.defaults({
+            // cache: mode === "build" ? "no-cache" : "default",
+            cache: "default",
+          });
+          const response = await makeFetchHappen(part.url, {
+            body: lastStream,
+            duplex: "half",
+            redirect: "follow",
+            method: part.method,
+            headers: part.headers,
+            retry: part.retries,
+            timeout: part.timeoutInMs,
+          });
+          let metadata = () => {
+            return {
+              headers: Object.fromEntries(response.headers.entries()),
+              statusCode: response.status,
+              // bodyKind,
+              url: response.url,
+              statusText: response.statusText,
+            };
+          };
+          return { metadata, stream: response.body };
+        } else if (part.name === "command") {
+          const { command, args, allowNon0Status, output } = part;
+          /** @type {'ignore' | 'inherit'} } */
+          let letPrint = quiet ? "ignore" : "inherit";
+          let stderrKind = kind === "none" ? letPrint : "pipe";
+          if (output === "Ignore") {
+            stderrKind = "ignore";
+          } else if (output === "Print") {
+            stderrKind = letPrint;
+          }
+          /**
+           * @type {import('node:child_process').ChildProcess}
+           */
+          const newProcess = spawnCallback(command, args, {
+            stdio: [
+              "pipe",
+              // if we are capturing stderr instead of stdout, print out stdout with `inherit`
+              output === "InsteadOfStdout" || kind === "none"
+                ? letPrint
+                : "pipe",
+              stderrKind,
+            ],
+            cwd: cwd,
+            env: env,
+          });
 
-      // lastStream.once("error", (error) => {
-      //   console.log('Stream error!');
-      //   console.error(error);
-      //   reject(jsonResponse(req, null));
-      // });
+          pipeIfPossible(lastStream, newProcess.stdin);
+          let newStream;
+          if (output === "MergeWithStdout") {
+            newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
+          } else if (output === "InsteadOfStdout") {
+            newStream = newProcess.stderr;
+          } else {
+            newStream = newProcess.stdout;
+          }
 
+          newProcess.once("error", (error) => {
+            newStream && newStream.end();
+            newProcess.removeAllListeners();
+            resolve({ error: error.toString() });
+          });
+          if (isLastProcess) {
+            return {
+              stream: newStream,
+              metadata: new Promise((resoveMeta) => {
+                newProcess.once("exit", (code) => {
+                  if (code !== 0 && !allowNon0Status) {
+                    newStream && newStream.end();
+                    resolve({
+                      error: `Command ${command} exited with code ${code}`,
+                    });
+                  }
+
+                  resoveMeta({
+                    exitCode: code,
+                  });
+                });
+              }),
+            };
+          } else {
+            return { metadata: null, stream: newStream };
+          }
+        } else if (part.name === "fromString") {
+          return { stream: Readable.from([part.string]), metadata: null };
+        } else {
+          // console.error(`Unknown stream part: ${part.name}!`);
+          // process.exit(1);
+          throw `Unknown stream part: ${part.name}!`;
+        }
+      }
     } catch (error) {
-      console.trace(error);
-      process.exit(1);
+      if (lastStream) {
+        lastStream.destroy();
+      }
+
+      resolve(jsonResponse(req, { error: error.toString() }));
     }
   });
 }
 
 /**
- * 
- * @param {import('node:stream').Stream} lastStream 
- * @param {{ name: string }} part 
- * @param {{cwd: string, quiet: boolean, env: object}} param2 
- * @returns 
+ * @param { import('stream').Stream? } input
+ * @param {import('stream').Writable | import('stream').Duplex} destination
  */
-function pipePartToStream(lastStream, part, { cwd, quiet, env }) {
-  if (verbosity > 1 && !quiet) {
-  }
-  if (part.name === "stdout") {
-    return lastStream.pipe(process.stdout);
-  } else if (part.name === "stdin") {
-    return process.stdin;
-  } else if (part.name === "fileRead") {
-    return fs.createReadStream(path.resolve(cwd, part.path));
-  } else if (part.name === "gzip") {
-    return lastStream.pipe(zlib.createGzip());
-  } else if (part.name === "unzip") {
-    return lastStream.pipe(zlib.createUnzip());
-  } else if (part.name === "fileWrite") {
-    return lastStream.pipe(fs.createWriteStream(path.resolve(part.path)));
-  } else if (part.name === "command") {
-    const {command, args, allowNon0Status} = part;
-    /**
-     * @type {import('node:child_process').ChildProcess}
-     */
-    const newProcess = spawnCallback(command, args, {
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: cwd,
-      env: env,
-    });
-    newProcess.on("error", (error) => {
-      console.error("ERROR in pipeline!", error);
-      process.exit(1);
-    });
-    newProcess.on("exit", (code) => {
-      if (code !== 0) {
-        if (allowNon0Status) {
-
-        } else {
-          console.error("ERROR in exit code!", code);
-          process.exit(1);
-        }
-      }
-    });
-    lastStream && lastStream.pipe(newProcess.stdin);
-    return newProcess.stdout;
-  } else if (part.name === "fromString") {
-    return Readable.from([part.string]);
+function pipeIfPossible(input, destination) {
+  if (input) {
+    return input.pipe(destination);
   } else {
-    console.error(`Unknown stream part: ${part.name}!`);
-    process.exit(1);
+    return destination;
   }
 }
+
+function stdout() {
+  return new Writable({
+    write(chunk, encoding, callback) {
+      process.stdout.write(chunk, callback);
+    },
+  });
+}
+function stderr() {
+  return new Writable({
+    write(chunk, encoding, callback) {
+      process.stderr.write(chunk, callback);
+    },
+  });
+}
+
+async function tryCallingFunction(func) {
+  if (func) {
+    // if is promise
+    if (func.then) {
+      return await func;
+    }
+    // if is function
+    else if (typeof func === "function") {
+      return await func();
+    }
+  } else {
+    return func;
+  }
+}
+
+
 
 async function runShell(req) {
   const cwd = path.resolve(...req.dir);
@@ -722,16 +905,27 @@ async function runShell(req) {
   const env = { ...process.env, ...req.env };
   const captureOutput = req.body.args[0].captureOutput;
   if (req.body.args[0].commands.length === 1) {
-    return jsonResponse(req, await shell({ cwd, quiet, env, captureOutput }, req.body.args[0]));
+    return jsonResponse(
+      req,
+      await shell({ cwd, quiet, env, captureOutput }, req.body.args[0])
+    );
   } else {
-    return jsonResponse(req, await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0]));
+    return jsonResponse(
+      req,
+      await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0])
+    );
   }
 }
 
 function commandAndArgsToString(cwd, commandsAndArgs) {
-  return `$ ` + (commandsAndArgs.commands.map((commandAndArgs) => {
-    return [ commandAndArgs.command, ...commandAndArgs.args ].join(" ");
-  }).join(" | "));
+  return (
+    `$ ` +
+    commandsAndArgs.commands
+      .map((commandAndArgs) => {
+        return [commandAndArgs.command, ...commandAndArgs.args].join(" ");
+      })
+      .join(" | ")
+  );
 }
 
 export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
@@ -743,40 +937,52 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
     }
     if (!captureOutput && !quiet) {
       const subprocess = spawnCallback(command, args, {
-        stdio: quiet ? ['inherit', 'ignore', 'ignore'] : ['inherit', 'inherit', 'inherit'],
+        stdio: quiet
+          ? ["inherit", "ignore", "ignore"]
+          : ["inherit", "inherit", "inherit"],
         cwd: cwd,
         env: env,
       });
-    subprocess.on("close", async (code) => {
-      resolve({ output: "", errorCode: code, stderrOutput: "", stdoutOutput: "" });
-    });
+      subprocess.on("close", async (code) => {
+        resolve({
+          output: "",
+          errorCode: code,
+          stderrOutput: "",
+          stdoutOutput: "",
+        });
+      });
     } else {
-    const subprocess = spawnCallback(command, args, {
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: cwd,
-      env: env,
-    });
-    let commandOutput = "";
-    let stderrOutput = "";
-    let stdoutOutput = "";
+      const subprocess = spawnCallback(command, args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        cwd: cwd,
+        env: env,
+      });
+      let commandOutput = "";
+      let stderrOutput = "";
+      let stdoutOutput = "";
 
-    if (verbosity > 0 && !quiet) {
-      subprocess.stdout.pipe(process.stdout);
-      subprocess.stderr.pipe(process.stderr);
+      if (verbosity > 0 && !quiet) {
+        subprocess.stdout.pipe(process.stdout);
+        subprocess.stderr.pipe(process.stderr);
+      }
+      subprocess.stderr.on("data", function (data) {
+        commandOutput += data;
+        stderrOutput += data;
+      });
+      subprocess.stdout.on("data", function (data) {
+        commandOutput += data;
+        stdoutOutput += data;
+      });
+
+      subprocess.on("close", async (code) => {
+        resolve({
+          output: commandOutput,
+          errorCode: code,
+          stderrOutput,
+          stdoutOutput,
+        });
+      });
     }
-    subprocess.stderr.on("data", function (data) {
-      commandOutput += data;
-      stderrOutput += data;
-    });
-    subprocess.stdout.on("data", function (data) {
-      commandOutput += data;
-      stdoutOutput += data;
-    });
-
-    subprocess.on("close", async (code) => {
-      resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
-    });
-  }
   });
 }
 
@@ -787,92 +993,103 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
 /**
  * @param {{ commands: ElmCommand[] }} commandsAndArgs
  */
-export function pipeShells({ cwd, quiet, env, captureOutput }, commandsAndArgs) {
+export function pipeShells(
+  { cwd, quiet, env, captureOutput },
+  commandsAndArgs
+) {
   return new Promise((resolve, reject) => {
     if (verbosity > 1 && !quiet) {
       console.log(commandAndArgsToString(cwd, commandsAndArgs));
     }
 
-      /**
-       * @type {null | import('node:child_process').ChildProcess}
-       */
-      let previousProcess = null;
-      let currentProcess = null;
+    /**
+     * @type {null | import('node:child_process').ChildProcess}
+     */
+    let previousProcess = null;
+    let currentProcess = null;
 
-      commandsAndArgs.commands.forEach(({command, args, timeout }, index) => {
-        let isLastProcess = index === commandsAndArgs.commands.length - 1;
+    commandsAndArgs.commands.forEach(({ command, args, timeout }, index) => {
+      let isLastProcess = index === commandsAndArgs.commands.length - 1;
       /**
        * @type {import('node:child_process').ChildProcess}
        */
-        if (previousProcess === null) {
+      if (previousProcess === null) {
+        currentProcess = spawnCallback(command, args, {
+          stdio: ["inherit", "pipe", "inherit"],
+          timeout: timeout ? undefined : timeout,
+          cwd: cwd,
+          env: env,
+        });
+      } else {
+        if (isLastProcess && !captureOutput && false) {
           currentProcess = spawnCallback(command, args, {
-            stdio: ['inherit', 'pipe', 'inherit'],
+            stdio: quiet
+              ? ["pipe", "ignore", "ignore"]
+              : ["pipe", "inherit", "inherit"],
             timeout: timeout ? undefined : timeout,
             cwd: cwd,
             env: env,
           });
         } else {
-          if (isLastProcess && !captureOutput) {
-            currentProcess = spawnCallback(command, args, {
-              stdio: quiet ? ['pipe', 'ignore', 'ignore'] : ['pipe', 'inherit', 'inherit'],
-              timeout: timeout ? undefined : timeout,
-              cwd: cwd,
-              env: env,
-            });
-          } else {
-            currentProcess = spawnCallback(command, args, {
-              stdio: ['pipe', 'pipe', 'pipe'],
-              timeout: timeout ? undefined : timeout,
-              cwd: cwd,
-              env: env,
-            });
-          }
-          previousProcess.stdout.pipe(currentProcess.stdin);
+          currentProcess = spawnCallback(command, args, {
+            stdio: ["pipe", "pipe", "pipe"],
+            timeout: timeout ? undefined : timeout,
+            cwd: cwd,
+            env: env,
+          });
         }
-        previousProcess = currentProcess;
+        previousProcess.stdout.pipe(currentProcess.stdin);
+      }
+      previousProcess = currentProcess;
     });
 
-    if (currentProcess === null) { reject('') }
-    else {
-        let commandOutput = "";
-        let stderrOutput = "";
-        let stdoutOutput = "";
+    if (currentProcess === null) {
+      reject("");
+    } else {
+      let commandOutput = "";
+      let stderrOutput = "";
+      let stdoutOutput = "";
 
-        if (verbosity > 0 && !quiet) {
-          currentProcess.stdout && currentProcess.stdout.pipe(process.stdout);
-          currentProcess.stderr && currentProcess.stderr.pipe(process.stderr);
-        }
+      if (verbosity > 0 && !quiet) {
+        currentProcess.stdout && currentProcess.stdout.pipe(process.stdout);
+        currentProcess.stderr && currentProcess.stderr.pipe(process.stderr);
+      }
 
-        currentProcess.stderr && currentProcess.stderr.on("data", function (data) {
-        commandOutput += data;
-        stderrOutput += data;
-      });
-      currentProcess.stdout && currentProcess.stdout.on("data", function (data) {
-        commandOutput += data;
-        stdoutOutput += data;
-      });
+      currentProcess.stderr &&
+        currentProcess.stderr.on("data", function (data) {
+          commandOutput += data;
+          stderrOutput += data;
+        });
+      currentProcess.stdout &&
+        currentProcess.stdout.on("data", function (data) {
+          commandOutput += data;
+          stdoutOutput += data;
+        });
 
       currentProcess.on("close", async (code) => {
-        resolve({ output: commandOutput, errorCode: code, stderrOutput, stdoutOutput });
+        resolve({
+          output: commandOutput,
+          errorCode: code,
+          stderrOutput,
+          stdoutOutput,
+        });
       });
     }
   });
 }
 
 export async function question({ prompt }) {
-  return new Promise((resolve) =>
-    {
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
 
-      return rl.question(prompt, (answer) => {
-        rl.close();
-        resolve(answer);
-      });
-    },
-  );
+    return rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
 }
 
 async function runWriteFileJob(req) {
@@ -899,11 +1116,11 @@ function runStartSpinner(req) {
   if (data.spinnerId) {
     spinnerId = data.spinnerId;
     // TODO use updateSpinnerState?
-    spinnies.update(spinnerId, { text: data.text, status: 'spinning' });
+    spinnies.update(spinnerId, { text: data.text, status: "spinning" });
   } else {
     spinnerId = Math.random().toString(36);
-      // spinnies.add(spinnerId, { text: data.text, status: data.immediateStart ? 'spinning' : 'stopped' });
-      spinnies.add(spinnerId, { text: data.text, status: 'spinning' });
+    // spinnies.add(spinnerId, { text: data.text, status: data.immediateStart ? 'spinning' : 'stopped' });
+    spinnies.add(spinnerId, { text: data.text, status: "spinning" });
     // }
   }
   return jsonResponse(req, spinnerId);
@@ -913,29 +1130,34 @@ function runStopSpinner(req) {
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
   let completeFn;
-  if (completionFn === 'succeed') {
-    spinnies.succeed(spinnerId, { text: completionText })
-  } else if (completionFn === 'fail') {
-    spinnies.fail(spinnerId, { text: completionText })
+  if (completionFn === "succeed") {
+    spinnies.succeed(spinnerId, { text: completionText });
+  } else if (completionFn === "fail") {
+    spinnies.fail(spinnerId, { text: completionText });
   } else {
-    console.log('Unexpected')
+    console.log("Unexpected");
   }
   return jsonResponse(req, null);
-
 }
 
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
     const cwd = path.resolve(...req.dir);
-    const matchedPaths = await globby.globby(pattern, { ...options, stats: true, cwd });
+    const matchedPaths = await globby.globby(pattern, {
+      ...options,
+      stats: true,
+      cwd,
+    });
     patternsToWatch.add(pattern);
 
     return jsonResponse(
       req,
       matchedPaths.map((fullPath) => {
         const stats = fullPath.stats;
-        if (!stats) { return null }
+        if (!stats) {
+          return null;
+        }
         return {
           fullPath: fullPath.path,
           captures: mm.capture(pattern, fullPath.path),
@@ -947,7 +1169,7 @@ async function runGlobNew(req, patternsToWatch) {
             birthtime: Math.round(stats.birthtime.getTime()),
             fullPath: fullPath.path,
             isDirectory: stats.isDirectory(),
-          }
+          },
         };
       })
     );
