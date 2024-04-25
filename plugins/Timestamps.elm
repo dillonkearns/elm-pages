@@ -7,8 +7,8 @@ import Json.Decode as Decode
 import Json.Decode.Extra
 import Json.Encode
 import List.Extra
-import Result.Extra
 import Time
+import Vendored.Result.Extra
 
 
 type alias Timestamps =
@@ -23,8 +23,7 @@ data filePath =
         (Json.Encode.string filePath)
         (Decode.string
             |> Decode.map (String.trim >> String.split "\n")
-            |> Decode.map (List.map secondsStringToPosix)
-            |> Decode.map Result.Extra.combine
+            |> Decode.map (Vendored.Result.Extra.combineMap secondsStringToPosix)
             |> Decode.map
                 (Result.withDefault
                     [ Time.millisToPosix 0
