@@ -5,8 +5,8 @@ module BackendTask exposing
     , andThen, resolve, combine
     , andMap
     , map2, map3, map4, map5, map6, map7, map8, map9
-    , allowFatal, mapError, onError, toResult, failIf
-    , do, doEach, sequence
+    , allowFatal, mapError, onError, toResult
+    , do, doEach, sequence, failIf
     , inDir, quiet, withEnv
     )
 
@@ -84,12 +84,12 @@ Any place in your `elm-pages` app where the framework lets you pass in a value o
 
 ## FatalError Handling
 
-@docs allowFatal, mapError, onError, toResult, failIf
+@docs allowFatal, mapError, onError, toResult
 
 
 ## Scripting
 
-@docs do, doEach, sequence
+@docs do, doEach, sequence, failIf
 
 
 ## BackendTask Context
@@ -157,7 +157,7 @@ and is relevant for the following types of `BackendTask`s:
 
   - Reading files ([`BackendTask.File`](BackendTask-File))
   - Running glob patterns ([`BackendTask.Glob`](BackendTask-Glob))
-  - Executing shell commands ([`BackendTask.Shell`](BackendTask-Shell))
+  - Executing shell commands ([`BackendTask.Stream.command`](BackendTask-Stream#command)) and [`Pages.Script.sh`](Pages-Script#command)
 
 See the BackendTask Context section for more about how setting context works.
 
@@ -232,7 +232,12 @@ inDir dir backendTask =
                 (\a b -> lookupFn a b |> inDir dir)
 
 
-{-| -}
+{-| Sets the verbosity level to `quiet` in the context of the given `BackendTask` (including all nested `BackendTask`s and continuations within it).
+
+This will turn off performance timing logs. It will also prevent shell commands from printing their output to the console when they are run
+(see [`BackendTask.Stream.command`](BackendTask-Stream#command)).
+
+-}
 quiet : BackendTask error value -> BackendTask error value
 quiet backendTask =
     -- elm-review: known-unoptimized-recursion
@@ -340,7 +345,11 @@ combineHelp items =
     List.foldl (map2 (::)) (succeed []) items |> map List.reverse
 
 
-{-| -}
+{-| Perform a List of `BackendTask`s with no output, one-by-one sequentially.
+
+Same as [`sequence`](#sequence), except it ignores the resulting value of each `BackendTask`.
+
+-}
 doEach : List (BackendTask error ()) -> BackendTask error ()
 doEach items =
     items
@@ -356,7 +365,12 @@ do backendTask =
         |> map (\_ -> ())
 
 
-{-| -}
+{-| Perform a List of `BackendTask`s one-by-one sequentially. [`combine`](#combine) will perform them all in parallel, which is
+typically a better default when you aren't sure which you want.
+
+Same as [`doEach`](#doEach), except it ignores the resulting value of each `BackendTask`.
+
+-}
 sequence : List (BackendTask error value) -> BackendTask error (List value)
 sequence items =
     items
@@ -726,7 +740,8 @@ toResult backendTask =
         |> onError (Err >> succeed)
 
 
-{-| -}
+{-| If the condition is true, fail with the given `FatalError`. Otherwise, succeed with `()`.
+-}
 failIf : Bool -> FatalError -> BackendTask FatalError ()
 failIf condition fatalError =
     if condition then
