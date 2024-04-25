@@ -1092,6 +1092,7 @@ toBackendTaskWithOptions options glob =
             Encode.object
                 [ ( "pattern"
                   , Encode.string <|
+                        -- workaround for https://github.com/micromatch/micromatch/issues/217
                         if String.startsWith "./" pattern then
                             String.dropLeft 2 pattern
 
