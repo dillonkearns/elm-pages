@@ -6,8 +6,7 @@ module Pages.Script.Spinner exposing
     , CompletionIcon(..)
     , withOnCompletion
     , runTask, runTaskWithOptions
-    , Spinner
-    , showStep, runTaskExisting, start
+    , showStep, runTaskExisting, start, Spinner
     )
 
 {-|
@@ -57,14 +56,9 @@ its spinner will show a failure, and the remaining steps will not be run and wil
 @docs runTask, runTaskWithOptions
 
 
-## Other
-
-@docs Spinner
-
-
 ## Low-Level
 
-@docs showStep, runTaskExisting, start
+@docs showStep, runTaskExisting, start, Spinner
 
 -}
 
