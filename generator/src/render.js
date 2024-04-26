@@ -772,16 +772,22 @@ function runStream(req, portsFile) {
             retry: part.retries,
             timeout: part.timeoutInMs,
           });
-          let metadata = () => {
-            return {
-              headers: Object.fromEntries(response.headers.entries()),
-              statusCode: response.status,
-              // bodyKind,
-              url: response.url,
-              statusText: response.statusText,
+          if (!isLastProcess && !response.ok) {
+            resolve({
+              error: `HTTP request failed: ${response.status} ${response.statusText}`,
+            });
+          } else {
+            let metadata = () => {
+              return {
+                headers: Object.fromEntries(response.headers.entries()),
+                statusCode: response.status,
+                // bodyKind,
+                url: response.url,
+                statusText: response.statusText,
+              };
             };
-          };
-          return { metadata, stream: response.body };
+            return { metadata, stream: response.body };
+          }
         } else if (part.name === "command") {
           const { command, args, allowNon0Status, output } = part;
           /** @type {'ignore' | 'inherit'} } */

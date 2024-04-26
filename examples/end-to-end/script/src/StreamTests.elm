@@ -160,6 +160,20 @@ b =
             |> try
             |> expectError "HTTP FatalError message"
                 "BadStatus: 404 Not Found"
+        , Stream.fromString "Hello!"
+            |> Stream.pipe
+                (Stream.httpWithInput
+                    { url = "https://jsonplaceholder.typicode.com/posts/124"
+                    , timeoutInMs = Nothing
+                    , retries = Nothing
+                    , headers = []
+                    , method = "POST"
+                    }
+                )
+            |> Stream.pipe Stream.stdout
+            |> Stream.run
+            |> expectError "HTTP error in the middle of a stream"
+                "HTTP request failed: 404 Not Found"
         , Stream.fromString "This is input..."
             |> Stream.pipe
                 (Stream.customTransformWithMeta
