@@ -482,13 +482,18 @@ async function runInternalJob(
   portsFile
 ) {
   try {
+    const cwd = path.resolve(...requestToPerform.dir);
+    const quiet = requestToPerform.quiet;
+    const env = { ...process.env, ...requestToPerform.env };
+
+    const context = { cwd, quiet, env };
     switch (requestToPerform.url) {
       case "elm-pages-internal://log":
         return [requestHash, await runLogJob(requestToPerform)];
       case "elm-pages-internal://read-file":
         return [
           requestHash,
-          await readFileJobNew(requestToPerform, patternsToWatch),
+          await readFileJobNew(requestToPerform, patternsToWatch, context),
         ];
       case "elm-pages-internal://glob":
         return [
@@ -521,7 +526,7 @@ async function runInternalJob(
           await runDecryptJob(requestToPerform, patternsToWatch),
         ];
       case "elm-pages-internal://write-file":
-        return [requestHash, await runWriteFileJob(requestToPerform)];
+        return [requestHash, await runWriteFileJob(requestToPerform, context)];
       case "elm-pages-internal://sleep":
         return [requestHash, await runSleep(requestToPerform)];
       case "elm-pages-internal://which":
@@ -531,7 +536,10 @@ async function runInternalJob(
       case "elm-pages-internal://shell":
         return [requestHash, await runShell(requestToPerform)];
       case "elm-pages-internal://stream":
-        return [requestHash, await runStream(requestToPerform, portsFile)];
+        return [
+          requestHash,
+          await runStream(requestToPerform, portsFile, context),
+        ];
       case "elm-pages-internal://start-spinner":
         return [requestHash, runStartSpinner(requestToPerform)];
       case "elm-pages-internal://stop-spinner":
@@ -546,8 +554,9 @@ async function runInternalJob(
   }
 }
 
-async function readFileJobNew(req, patternsToWatch) {
-  const filePath = req.body.args[1];
+async function readFileJobNew(req, patternsToWatch, { cwd }) {
+  // TODO use cwd
+  const filePath = path.resolve(cwd, req.body.args[1]);
   try {
     patternsToWatch.add(filePath);
 
@@ -589,14 +598,11 @@ async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
 
-function runStream(req, portsFile) {
+function runStream(req, portsFile, context) {
   return new Promise(async (resolve) => {
     let metadataResponse = null;
     let lastStream = null;
     try {
-      const cwd = path.resolve(...req.dir);
-      const quiet = req.quiet;
-      const env = { ...process.env, ...req.env };
       const kind = req.body.args[0].kind;
       const parts = req.body.args[0].parts;
       let index = 0;
@@ -607,7 +613,7 @@ function runStream(req, portsFile) {
         const { stream, metadata } = await pipePartToStream(
           lastStream,
           part,
-          { cwd, quiet, env },
+          context,
           portsFile,
           (value) => resolve(jsonResponse(req, value)),
           isLastProcess,
@@ -910,8 +916,6 @@ async function tryCallingFunction(func) {
   }
 }
 
-
-
 async function runShell(req) {
   const cwd = path.resolve(...req.dir);
   const quiet = req.quiet;
@@ -1105,18 +1109,19 @@ export async function question({ prompt }) {
   });
 }
 
-async function runWriteFileJob(req) {
+async function runWriteFileJob(req, { cwd }) {
   const data = req.body.args[0];
+  const filePath = path.resolve(cwd, data.path);
   try {
-    await fsPromises.mkdir(path.dirname(data.path), { recursive: true });
-    await fsPromises.writeFile(data.path, data.body);
+    await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+    await fsPromises.writeFile(filePath, data.body);
     return jsonResponse(req, null);
   } catch (error) {
     console.trace(error);
     throw {
       title: "BackendTask Error",
       message: `BackendTask.Generator.writeFile failed for file path: ${kleur.yellow(
-        data.path
+        filePath
       )}\n${kleur.red(error.toString())}`,
     };
   }
