@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.14] - 2024-04-29
+
+### Fixed
+
+- Removed invalid internal imports from generated `Main.elm` file.
+- Updated NPM dependencies.
+
+
 ## [3.0.13] - 2024-04-28
 
 ### Added
