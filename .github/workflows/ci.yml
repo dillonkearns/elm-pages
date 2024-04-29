@@ -60,9 +60,11 @@ jobs:
         run: npx --no-install elm-tooling install
       - name: Add elm-review, elm and elm-format to path
         run: realpath node_modules/.bin >> $GITHUB_PATH
-      - uses: sparksp/elm-review-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: elm-review
+        run: npx elm-review
+      # - uses: sparksp/elm-review-action@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Generator
         run: npm run build:generator
       - name: Tests
