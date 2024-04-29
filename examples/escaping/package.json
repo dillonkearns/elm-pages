@@ -13,9 +13,9 @@
   "license": "BSD-3",
   "devDependencies": {
     "elm-pages": "file:../..",
-    "elm-review": "^2.10.3",
-    "elm-tooling": "^1.15.0",
-    "esbuild": "^0.19.11",
-    "vite": "^5.0.11"
+    "elm-review": "^2.11.1",
+    "elm-tooling": "^1.15.1",
+    "esbuild": "^0.20.2",
+    "vite": "^5.2.10"
   }
 }
