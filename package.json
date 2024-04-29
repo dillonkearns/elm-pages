@@ -1,7 +1,7 @@
 {
   "name": "elm-pages",
   "type": "module",
-  "version": "3.0.13",
+  "version": "3.0.14",
   "homepage": "https://elm-pages.com",
   "moduleResolution": "node",
   "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
