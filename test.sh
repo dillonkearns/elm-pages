@@ -2,7 +2,7 @@ set -ex;
 yes | lamdera reset || true
 npm run build:generator
 npx elm-test-rs --compiler lamdera
-(cd examples/routing && yes | lamdera reset || true && rm -rf node_modules package-lock.json && npm install && npm run build && npx elm-test-rs --compiler lamdera)
+(cd examples/routing && yes | lamdera reset || true && npm ci && npm run build && npx elm-test-rs --compiler lamdera)
 (cd generator/dead-code-review && npx elm-test-rs --compiler lamdera)
 (cd generator/review && npx elm-test-rs --compiler lamdera)
 npm run test:snapshot
