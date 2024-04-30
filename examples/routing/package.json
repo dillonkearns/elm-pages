@@ -11,6 +11,7 @@
   "author": "Dillon Kearns",
   "license": "BSD-3",
   "devDependencies": {
+    "@rollup/wasm-node": "^4.17.1",
     "elm-oembed": "0.0.6",
     "elm-pages": "file:../..",
     "elm-tooling": "^1.15.1",
