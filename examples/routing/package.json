@@ -11,17 +11,11 @@
   "author": "Dillon Kearns",
   "license": "BSD-3",
   "devDependencies": {
-    "@rollup/wasm-node": "^4.17.1",
     "elm-oembed": "0.0.6",
     "elm-pages": "file:../..",
     "elm-tooling": "^1.15.1",
     "esbuild": "^0.20.2",
     "http-server": "^14.1.1",
     "vite": "^5.2.10"
-  },
-  "overrides": {
-    "vite": {
-      "rollup": "npm:@rollup/wasm-node"
-    }
   }
 }
