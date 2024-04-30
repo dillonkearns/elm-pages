@@ -16,8 +16,5 @@
     "elm-tooling": "^1.15.1",
     "esbuild": "^0.20.2",
     "http-server": "^14.1.1"
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.17.1"
   }
 }
