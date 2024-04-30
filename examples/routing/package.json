@@ -21,5 +21,8 @@
     "vite": {
       "rollup": "npm:@rollup/wasm-node"
     }
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.17.1"
   }
 }
