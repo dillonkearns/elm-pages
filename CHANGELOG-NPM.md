@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+
+## [3.0.15] - 2024-05-02
+
+### Fixed
+
+- Fix issue where command output did not pipe through correctly in the middle of a `Stream`.
+
 ## [3.0.14] - 2024-04-29
 
 ### Fixed
