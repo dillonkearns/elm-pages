@@ -100,6 +100,23 @@ b =
     2
 """
                 )
+        , Stream.fromString "module A\na=0"
+            |> Stream.pipe (Stream.command "elm-format" [ "--stdin" ])
+            |> Stream.pipe (Stream.fileWrite "formatted-elm.txt")
+            |> Stream.run
+            |> BackendTask.quiet
+            |> BackendTask.andThen
+                (\() ->
+                    Stream.fileRead "formatted-elm.txt"
+                        |> Stream.read
+                        |> try
+                )
+            |> test "write to file"
+                (\{ metadata, body } ->
+                    body
+                        |> Expect.equal
+                            "module A exposing (a)\n\n\na =\n    0\n"
+                )
         , Stream.fileRead "elm.json"
             |> Stream.pipe
                 (Stream.command "jq"

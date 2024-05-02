@@ -798,12 +798,17 @@ function runStream(req, portsFile, context) {
           const { command, args, allowNon0Status, output } = part;
           /** @type {'ignore' | 'inherit'} } */
           let letPrint = quiet ? "ignore" : "inherit";
-          let stderrKind = kind === "none" ? letPrint : "pipe";
+          let stderrKind = kind === "none" && isLastProcess ? letPrint : "pipe";
           if (output === "Ignore") {
             stderrKind = "ignore";
           } else if (output === "Print") {
             stderrKind = letPrint;
           }
+
+          const stdoutKind =
+            (output === "InsteadOfStdout" || kind === "none") && isLastProcess
+              ? letPrint
+              : "pipe";
           /**
            * @type {import('node:child_process').ChildProcess}
            */
@@ -811,9 +816,7 @@ function runStream(req, portsFile, context) {
             stdio: [
               "pipe",
               // if we are capturing stderr instead of stdout, print out stdout with `inherit`
-              output === "InsteadOfStdout" || kind === "none"
-                ? letPrint
-                : "pipe",
+              stdoutKind,
               stderrKind,
             ],
             cwd: cwd,
