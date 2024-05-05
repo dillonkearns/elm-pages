@@ -74,6 +74,7 @@ async function main() {
     )
     .option("--base <basePath>", "serve site under a base path", "/")
     .option("--https", "uses a https server")
+    .option("--fallback-url <url>", "fallback url to proxy unhandled requests")
     .action(async (options) => {
       options.base = normalizeUrl(options.base);
       await dev.start(options);
