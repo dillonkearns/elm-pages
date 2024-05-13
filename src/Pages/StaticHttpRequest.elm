@@ -1,7 +1,9 @@
 module Pages.StaticHttpRequest exposing (Error(..), MockResolver, RawRequest(..), Status(..), cacheRequestResolution, mockResolve, toBuildError)
 
 import BuildError exposing (BuildError)
+import FatalError exposing (FatalError)
 import Json.Encode
+import Pages.Internal.FatalError
 import Pages.StaticHttp.Request
 import RequestsAndPending exposing (RequestsAndPending)
 import TerminalText as Terminal
@@ -15,11 +17,13 @@ type alias MockResolver =
 type RawRequest error value
     = Request (List Pages.StaticHttp.Request.Request) (Maybe MockResolver -> RequestsAndPending -> RawRequest error value)
     | ApiRoute (Result error value)
+    | InternalError FatalError
 
 
 type Error
     = DecoderError String
     | UserCalledStaticHttpFail String
+    | InternalFailure FatalError
 
 
 toBuildError : String -> Error -> BuildError
@@ -43,17 +47,35 @@ toBuildError path error =
             , fatal = True
             }
 
+        InternalFailure (Pages.Internal.FatalError.FatalError buildError) ->
+            { title = "Internal error"
+            , message =
+                [ Terminal.text <| "Please report this error!"
+                , Terminal.text ""
+                , Terminal.text ""
+                , Terminal.text buildError.body
+                ]
+            , path = path
+            , fatal = True
+            }
 
-mockResolve : RawRequest error value -> MockResolver -> Result error value
-mockResolve request mockResolver =
+
+mockResolve : (FatalError -> error) -> RawRequest error value -> MockResolver -> Result error value
+mockResolve onInternalError request mockResolver =
     case request of
         Request _ lookupFn ->
-            case lookupFn (Just mockResolver) (Json.Encode.object []) of
-                nextRequest ->
-                    mockResolve nextRequest mockResolver
+            let
+                nextRequest : RawRequest error value
+                nextRequest =
+                    lookupFn (Just mockResolver) (Json.Encode.object [])
+            in
+            mockResolve onInternalError nextRequest mockResolver
 
         ApiRoute value ->
             value
+
+        InternalError err ->
+            Err (onInternalError err)
 
 
 cacheRequestResolution :
@@ -71,6 +93,9 @@ cacheRequestResolution request rawResponses =
 
         ApiRoute value ->
             Complete value
+
+        InternalError err ->
+            HasPermanentError (InternalFailure err)
 
 
 type Status error value

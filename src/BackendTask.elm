@@ -143,6 +143,9 @@ but mapping allows you to change the resulting values by applying functions to t
 map : (a -> b) -> BackendTask error a -> BackendTask error b
 map fn requestInfo =
     case requestInfo of
+        InternalError err ->
+            InternalError err
+
         ApiRoute value ->
             ApiRoute (Result.map fn value)
 
@@ -221,6 +224,9 @@ inDir dir backendTask =
     -- elm-review: known-unoptimized-recursion
     -- TODO try to find a way to optimize tail-call recursion here
     case backendTask of
+        InternalError _ ->
+            backendTask
+
         ApiRoute _ ->
             backendTask
 
@@ -243,6 +249,9 @@ quiet backendTask =
     -- elm-review: known-unoptimized-recursion
     -- TODO try to find a way to optimize tail-call recursion here
     case backendTask of
+        InternalError _ ->
+            backendTask
+
         ApiRoute _ ->
             backendTask
 
@@ -260,6 +269,9 @@ withEnv key value backendTask =
     -- elm-review: known-unoptimized-recursion
     -- TODO try to find a way to optimize tail-call recursion here
     case backendTask of
+        InternalError _ ->
+            backendTask
+
         ApiRoute _ ->
             backendTask
 
@@ -422,6 +434,12 @@ map2 fn request1 request2 =
     -- elm-review: known-unoptimized-recursion
     -- TODO try to find a way to optimize tail-call recursion here
     case ( request1, request2 ) of
+        ( InternalError err1, _ ) ->
+            InternalError err1
+
+        ( _, InternalError err2 ) ->
+            InternalError err2
+
         ( ApiRoute value1, ApiRoute value2 ) ->
             ApiRoute (Result.map2 fn value1 value2)
 
@@ -478,6 +496,9 @@ andThen fn requestInfo =
     -- elm-review: known-unoptimized-recursion
     -- TODO try to find a way to optimize recursion here
     case requestInfo of
+        InternalError errA ->
+            InternalError errA
+
         ApiRoute a ->
             case a of
                 Ok okA ->
@@ -503,6 +524,9 @@ onError : (error -> BackendTask mappedError value) -> BackendTask error value ->
 onError fromError backendTask =
     -- elm-review: known-unoptimized-recursion
     case backendTask of
+        InternalError err ->
+            InternalError err
+
         ApiRoute a ->
             case a of
                 Ok okA ->
@@ -569,6 +593,9 @@ fromResult result =
 mapError : (error -> errorMapped) -> BackendTask error value -> BackendTask errorMapped value
 mapError mapFn requestInfo =
     case requestInfo of
+        InternalError internal ->
+            InternalError internal
+
         ApiRoute value ->
             ApiRoute (Result.mapError mapFn value)
 
