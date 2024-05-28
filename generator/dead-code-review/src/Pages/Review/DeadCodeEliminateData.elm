@@ -145,7 +145,7 @@ declarationVisitor node context =
                                             (\recordSetter ->
                                                 case Node.value recordSetter of
                                                     ( keyNode, valueNode ) ->
-                                                        if Node.value keyNode == "data" || Node.value keyNode == "action" then
+                                                        if Node.value keyNode == "data" || Node.value keyNode == "action" || Node.value keyNode == "pages" then
                                                             if isAlreadyApplied context.lookupTable (Node.value valueNode) then
                                                                 Nothing
 
@@ -203,7 +203,7 @@ expressionVisitor node context =
                                     (\recordSetter ->
                                         case Node.value recordSetter of
                                             ( keyNode, valueNode ) ->
-                                                if Node.value keyNode == "data" || Node.value keyNode == "action" then
+                                                if Node.value keyNode == "data" || Node.value keyNode == "action" || Node.value keyNode == "pages" then
                                                     if isAlreadyApplied context.lookupTable (Node.value valueNode) then
                                                         Nothing
 
