@@ -47,7 +47,7 @@
       "stil4m/structured-writer": "1.0.3",
       "the-sett/elm-pretty-printer": "3.1.0",
       "the-sett/elm-syntax-dsl": "6.0.2",
-      "wolfadex/elm-ansi": "3.0.0 <= v < 4.0.0"
+      "wolfadex/elm-ansi": "3.0.0"
     }
   },
   "test-dependencies": {
