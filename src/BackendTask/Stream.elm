@@ -1,12 +1,14 @@
 module BackendTask.Stream exposing
     ( Stream
-    , fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
-    , command
+    , pipe
+    , fileRead, fileWrite, fromString, http, httpWithInput, stdin, stdout, stderr
     , read, readJson, readMetadata, run
     , Error(..)
+    , command
     , commandWithOptions
     , StderrOutput(..)
     , CommandOptions, defaultCommandOptions, allowNon0Status, withOutput, withTimeout
+    , gzip, unzip
     , customRead, customWrite, customDuplex
     , customReadWithMeta, customTransformWithMeta, customWriteWithMeta
     )
@@ -47,12 +49,9 @@ End example
 
 @docs Stream
 
-@docs fileRead, fileWrite, fromString, http, httpWithInput, pipe, stdin, stdout, stderr, gzip, unzip
+@docs pipe
 
-
-## Shell Commands
-
-@docs command
+@docs fileRead, fileWrite, fromString, http, httpWithInput, stdin, stdout, stderr
 
 
 ## Running Streams
@@ -60,6 +59,31 @@ End example
 @docs read, readJson, readMetadata, run
 
 @docs Error
+
+
+## Shell Commands
+
+Note that the commands do not execute through a shell but rather directly executes a child process. That means that
+special shell syntax will have no effect, but instead will be interpreted as literal characters in arguments to the command.
+
+So instead of `grep error < log.txt`, you would use
+
+    module GrepErrors exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "log.txt"
+                |> Stream.pipe (Stream.command "grep" [ "error" ])
+                |> Stream.stdout
+                |> Stream.run
+            )
+
+@docs command
 
 
 ## Command Options
@@ -71,7 +95,141 @@ End example
 @docs CommandOptions, defaultCommandOptions, allowNon0Status, withOutput, withTimeout
 
 
+## Command Output Strategies
+
+There are 3 things that effect the output behavior of a command:
+
+  - The verbosity of the `BackendTask` context ([`BackendTask.quiet`](BackendTask#quiet))
+  - Whether the `Stream` output is ignored ([`Stream.run`](#run)), or read ([`Stream.read`](#read))
+  - [`withOutput`](#withOutput) (allows you to use stdout, stderr, or both)
+
+With `BackendTask.quiet`, the output of the command will not print as it runs, but you still read it in Elm if you read the `Stream` (instead of using [`Stream.run`](#run)).
+
+There are 3 ways to handle the output of a command:
+
+1.  Read the output but don't print
+2.  Print the output but don't read
+3.  Ignore the output
+
+To read the output (1), use [`Stream.read`](#read) or [`Stream.readJson`](#readJson). This will give you the output as a String or JSON object.
+Regardless of whether you use `BackendTask.quiet`, the output will be read and returned to Elm.
+
+To let the output from the command natively print to the console (2), use [`Stream.run`](#run) without setting `BackendTask.quiet`. Based on
+the command's `withOutput` configuration, either stderr, stdout, or both will print to the console. The native output will
+sometimes be treated more like running the command directly in the terminal, for example `elm make` will print progress
+messages which will be cleared and updated in place.
+
+To ignore the output (3), use [`Stream.run`](#run) with `BackendTask.quiet`. This will run the command without printing anything to the console.
+You can also use [`Stream.read`](#read) and ignore the captured output, but this is less efficient than using `BackendTask.quiet` with `Stream.run`.
+
+
+## Compression Helpers
+
+    module CompressionDemo exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "elm.json"
+                |> Stream.pipe Stream.gzip
+                |> Stream.pipe (Stream.fileWrite "elm.json.gz")
+                |> Stream.run
+                |> BackendTask.andThen
+                    (\_ ->
+                        Stream.fileRead "elm.json.gz"
+                            |> Stream.pipe Stream.unzip
+                            |> Stream.pipe Stream.stdout
+                            |> Stream.run
+                    )
+            )
+
+@docs gzip, unzip
+
+
 ## Custom Streams
+
+[`BackendTask.Custom`](BackendTask-Custom) lets you define custom `BackendTask`s from async NodeJS functions in your `custom-backend-task` file.
+Similarly, you can define custom streams with async functions in your `custom-backend-task` file, returning native NodeJS Streams, and optionally functions to extract metadata.
+
+```js
+import { Writable, Transform, Readable } from "node:stream";
+
+export async function upperCaseStream(input, { cwd, env, quiet }) {
+  return {
+    metadata: () => "Hi! I'm metadata from upperCaseStream!",
+    stream: new Transform({
+      transform(chunk, encoding, callback) {
+        callback(null, chunk.toString().toUpperCase());
+      },
+    }),
+  };
+}
+
+export async function customReadStream(input) {
+  return new Readable({
+    read(size) {
+      this.push("Hello from customReadStream!");
+      this.push(null);
+    },
+  });
+}
+
+export async function customWriteStream(input, { cwd, env, quiet }) {
+  return {
+    stream: new Writable({
+      write(chunk, encoding, callback) {
+        console.error("...received chunk...");
+        console.log(chunk.toString());
+        callback();
+      },
+    }),
+    metadata: () => {
+      return "Hi! I'm metadata from customWriteStream!";
+    },
+  };
+}
+```
+
+    module CustomStreamDemo exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.customRead "customReadStream" Encode.null
+                |> Stream.pipe (Stream.customDuplex "upperCaseStream" Encode.null)
+                |> Stream.pipe (Stream.customWrite "customWriteStream" Encode.null)
+                |> Stream.run
+            )
+
+    To extract the metadata from the custom stream, you can use the `...WithMeta` functions:
+
+    module CustomStreamDemoWithMeta exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.customReadWithMeta "customReadStream" Encode.null Decode.succeed
+                |> Stream.pipe (Stream.customTransformWithMeta "upperCaseStream" Encode.null Decode.succeed)
+                |> Stream.readMetadata
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\metadata ->
+                        Script.log ("Metadata: " ++ metadata)
+                    )
+            )
+        --> Script.log "Metadata: Hi! I'm metadata from upperCaseStream!"
 
 @docs customRead, customWrite, customDuplex
 
@@ -94,7 +252,8 @@ import RequestsAndPending
 import TerminalText
 
 
-{-| -}
+{-| Once you've defined a `Stream`, it can be turned into a `BackendTask` that will run it (and optionally read its output and metadata).
+-}
 type Stream error metadata kind
     = Stream ( String, Decoder (Result (Recoverable error) metadata) ) (List StreamPart)
 
@@ -124,38 +283,137 @@ unit =
     ( "unit", Decode.succeed (Ok ()) )
 
 
-{-| -}
+{-| The `stdin` from the process. When you execute an `elm-pages` script, this will be the value that is piped in to it. For example, given this script module:
+
+    module CountLines exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.stdin
+                |> Stream.read
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\{ body } ->
+                        body
+                            |> String.lines
+                            |> List.length
+                            |> String.fromInt
+                            |> Script.log
+                    )
+            )
+
+If you run the script without any stdin, it will wait until stdin is closed.
+
+```shell
+elm-pages run script/src/CountLines.elm
+# pressing ctrl-d (or your platform-specific way of closing stdin) will print the number of lines in the input
+```
+
+Or you can pipe to it and it will read that input:
+
+```shell
+ls | elm-pages run script/src/CountLines.elm
+# prints the number of files in the current directory
+```
+
+-}
 stdin : Stream () () { read : (), write : Never }
 stdin =
     single unit "stdin" []
 
 
-{-| -}
+{-| Streaming through to stdout can be a convenient way to print a pipeline directly without going through to Elm.
+
+    module UnzipFile exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "data.gzip.txt"
+                |> Stream.pipe Stream.unzip
+                |> Stream.pipe Stream.stdout
+                |> Stream.run
+                |> BackendTask.allowFatal
+            )
+
+-}
 stdout : Stream () () { read : Never, write : () }
 stdout =
     single unit "stdout" []
 
 
-{-| -}
+{-| Similar to [`stdout`](#stdout), but writes to `stderr` instead.
+-}
 stderr : Stream () () { read : Never, write : () }
 stderr =
     single unit "stderr" []
 
 
-{-| -}
+{-| Open a file's contents as a Stream.
+
+    module ReadFile exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "elm.json"
+                |> Stream.readJson (Decode.field "source-directories" (Decode.list Decode.string))
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\{ body } ->
+                        Script.log
+                            ("The source directories are: "
+                                ++ String.join ", " body
+                            )
+                    )
+            )
+
+If you want to read a file but don't need to use any of the other Stream functions, you can use [`BackendTask.File.read`](BackendTask-File#rawFile) instead.
+
+-}
 fileRead : String -> Stream () () { read : (), write : Never }
 fileRead path =
     -- TODO revisit the error type instead of ()?
     single unit "fileRead" [ ( "path", Encode.string path ) ]
 
 
-{-| -}
+{-| Write a Stream to a file.
+
+    module WriteFile exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "logs.txt"
+                |> Stream.pipe (Stream.command "grep" [ "error" ])
+                |> Stream.pipe (Stream.fileWrite "errors.txt")
+            )
+
+-}
 fileWrite : String -> Stream () () { read : Never, write : () }
 fileWrite path =
     single unit "fileWrite" [ ( "path", Encode.string path ) ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `ReadableStream` it returns.
+-}
 customRead : String -> Encode.Value -> Stream () () { read : (), write : Never }
 customRead name input =
     single unit
@@ -165,7 +423,8 @@ customRead name input =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `WritableStream` it returns.
+-}
 customWrite : String -> Encode.Value -> Stream () () { read : Never, write : () }
 customWrite name input =
     single unit
@@ -175,7 +434,8 @@ customWrite name input =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `DuplexStream` it returns.
+-}
 customReadWithMeta :
     String
     -> Encode.Value
@@ -189,7 +449,8 @@ customReadWithMeta name input decoder =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `WritableStream` and metadata function it returns.
+-}
 customWriteWithMeta :
     String
     -> Encode.Value
@@ -203,7 +464,8 @@ customWriteWithMeta name input decoder =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `DuplexStream` and metadata function it returns.
+-}
 customTransformWithMeta :
     String
     -> Encode.Value
@@ -217,7 +479,8 @@ customTransformWithMeta name input decoder =
         ]
 
 
-{-| -}
+{-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `DuplexStream` it returns.
+-}
 customDuplex : String -> Encode.Value -> Stream () () { read : (), write : () }
 customDuplex name input =
     single unit
@@ -227,13 +490,21 @@ customDuplex name input =
         ]
 
 
-{-| -}
+{-| Transforms the input with gzip compression.
+
+Under the hood this builds a Stream using Node's [`zlib.createGzip`](https://nodejs.org/api/zlib.html#zlibcreategzipoptions).
+
+-}
 gzip : Stream () () { read : (), write : () }
 gzip =
     single unit "gzip" []
 
 
-{-| -}
+{-| Transforms the input by auto-detecting the header and decompressing either a Gzip- or Deflate-compressed stream.
+
+Under the hood, this builds a Stream using Node's [`zlib.createUnzip`](https://nodejs.org/api/zlib.html#zlibcreateunzip).
+
+-}
 unzip : Stream () () { read : (), write : () }
 unzip =
     single unit "unzip" []
@@ -261,7 +532,12 @@ httpWithInput string =
         ]
 
 
-{-| Uses a regular HTTP request body (not a Stream), streams the HTTP response body.
+{-| Uses a regular HTTP request body (not a `Stream`). Streams the HTTP response body.
+
+If you want to pass a stream as the request body, use [`httpWithInput`](#httpWithInput) instead.
+
+If you don't need to stream the response body, you can use the functions from [`BackendTask.Http`](BackendTask-Http) instead.
+
 -}
 http :
     { url : String
@@ -303,7 +579,26 @@ httpMetadataDecoder =
     )
 
 
-{-| -}
+{-| You can build up a pipeline of streams by using the `pipe` function.
+
+The stream you are piping to must be writable (`{ write : () }`),
+and the stream you are piping from must be readable (`{ read : () }`).
+
+    module HelloWorld exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fromString "Hello, World!"
+                |> Stream.stdout
+                |> Stream.run
+            )
+
+-}
 pipe :
     Stream errorTo metaTo { read : toReadable, write : () }
     -> Stream errorFrom metaFrom { read : (), write : fromWriteable }
@@ -312,7 +607,18 @@ pipe (Stream decoderTo to) (Stream _ from) =
     Stream decoderTo (from ++ to)
 
 
-{-| -}
+{-| Gives a `BackendTask` to execute the `Stream`, ignoring its body and metadata.
+
+This is useful if you only want the side-effect from the `Stream` and don't need to programmatically use its
+output. For example, if the end result you want is:
+
+  - Printing to the console
+  - Writing to a file
+  - Making an HTTP request
+
+If you need to read the output of the `Stream`, use [`read`](#read), [`readJson`](#readJson), or [`readMetadata`](#readMetadata) instead.
+
+-}
 run : Stream error metadata kind -> BackendTask FatalError ()
 run stream =
     -- TODO give access to recoverable error here instead of just FatalError
@@ -357,19 +663,68 @@ pipelineEncoder (Stream _ parts) kind =
         ]
 
 
-{-| -}
+{-| A handy way to turn either a hardcoded String, or any other value from Elm into a Stream.
+
+    module HelloWorld exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fromString "Hello, World!"
+                |> Stream.stdout
+                |> Stream.run
+                |> BackendTask.allowFatal
+            )
+
+A more programmatic use of `fromString` to use the result of a previous `BackendTask` to a `Stream`:
+
+    module HelloWorld exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Glob.fromString "src/**/*.elm"
+                |> BackendTask.andThen
+                    (\elmFiles ->
+                        elmFiles
+                            |> String.join ", "
+                            |> Stream.fromString
+                            |> Stream.pipe Stream.stdout
+                            |> Stream.run
+                    )
+            )
+
+-}
 fromString : String -> Stream () () { read : (), write : Never }
 fromString string =
     single unit "fromString" [ ( "string", Encode.string string ) ]
 
 
-{-| -}
+{-| Running or reading a `Stream` can give one of two kinds of error:
+
+  - `StreamError String` - when something in the middle of the stream fails
+  - `CustomError error body` - when the `Stream` fails with a custom error
+
+A `CustomError` can only come from the final part of the stream.
+
+You can define your own custom errors by decoding metadata to an `Err` in the `...WithMeta` helpers.
+
+-}
 type Error error body
     = StreamError String
     | CustomError error (Maybe body)
 
 
-{-| -}
+{-| Read the body of the `Stream` as text.
+-}
 read :
     Stream error metadata { read : (), write : write }
     -> BackendTask { fatal : FatalError, recoverable : Error error String } { metadata : metadata, body : String }
@@ -432,7 +787,8 @@ read ((Stream ( _, decoder ) _) as stream) =
         |> BackendTask.andThen BackendTask.fromResult
 
 
-{-| -}
+{-| Ignore the body of the `Stream`, while capturing the metadata from the final part of the Stream.
+-}
 readMetadata :
     Stream error metadata { read : read, write : write }
     -> BackendTask { fatal : FatalError, recoverable : Error error String } metadata
@@ -496,7 +852,28 @@ decodeLog decoder =
             )
 
 
-{-| -}
+{-| Read the body of the `Stream` as JSON.
+
+    module ReadJson exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Json.Decode as Decode
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "data.json"
+                |> Stream.readJson (Decode.field "name" Decode.string)
+                |> BackendTask.allowFatal
+                |> BackendTask.andThen
+                    (\{ body } ->
+                        Script.log ("The name is: " ++ body)
+                    )
+            )
+
+-}
 readJson :
     Decoder value
     -> Stream error metadata { read : (), write : write }
@@ -550,7 +927,8 @@ readJson decoder ((Stream ( _, metadataDecoder ) _) as stream) =
         |> BackendTask.andThen BackendTask.fromResult
 
 
-{-| -}
+{-| Run a command (or `child_process`). The command's output becomes the body of the `Stream`.
+-}
 command : String -> List String -> Stream Int () { read : read, write : write }
 command command_ args_ =
     commandWithOptions defaultCommandOptions command_ args_
@@ -581,7 +959,32 @@ commandDecoder allowNon0 =
 -- on error, give CommandOutput as well
 
 
-{-| -}
+{-| Pass in custom [`CommandOptions`](#CommandOptions) to configure the behavior of the command.
+
+For example, `grep` will return a non-zero status code if it doesn't find any matches. To ignore the non-zero status code and proceed with
+empty output, you can use `allowNon0Status`.
+
+    module GrepErrors exposing (run)
+
+    import BackendTask
+    import BackendTask.Stream as Stream
+    import Pages.Script as Script exposing (Script)
+
+    run : Script
+    run =
+        Script.withoutCliOptions
+            (Stream.fileRead "log.txt"
+                |> Stream.pipe
+                    (Stream.commandWithOptions
+                        (Stream.defaultCommandOptions |> Stream.allowNon0Status)
+                        "grep"
+                        [ "error" ]
+                    )
+                |> Stream.pipe Stream.stdout
+                |> Stream.run
+            )
+
+-}
 commandWithOptions : CommandOptions -> String -> List String -> Stream Int () { read : read, write : write }
 commandWithOptions (CommandOptions options) command_ args_ =
     single (commandDecoder options.allowNon0Status)
@@ -604,7 +1007,8 @@ nullable encoder maybeValue =
             Encode.null
 
 
-{-| -}
+{-| Configuration for [`commandWithOptions`](#commandWithOptions).
+-}
 type CommandOptions
     = CommandOptions CommandOptions_
 
@@ -616,7 +1020,9 @@ type alias CommandOptions_ =
     }
 
 
-{-| -}
+{-| The default options that are used for [`command`](#command). Used to build up `CommandOptions`
+to pass in to [`commandWithOptions`](#commandWithOptions).
+-}
 defaultCommandOptions : CommandOptions
 defaultCommandOptions =
     CommandOptions
@@ -626,19 +1032,26 @@ defaultCommandOptions =
         }
 
 
-{-| -}
+{-| Configure the [`StderrOutput`](#StderrOutput) behavior.
+-}
 withOutput : StderrOutput -> CommandOptions -> CommandOptions
 withOutput output (CommandOptions cmd) =
     CommandOptions { cmd | output = output }
 
 
-{-| -}
+{-| By default, the `Stream` will halt with an error if a command returns a non-zero status code.
+
+With `allowNon0Status`, the stream will continue without an error if the command returns a non-zero status code.
+
+-}
 allowNon0Status : CommandOptions -> CommandOptions
 allowNon0Status (CommandOptions cmd) =
     CommandOptions { cmd | allowNon0Status = True }
 
 
-{-| -}
+{-| By default, commands do not have a timeout. This will set the timeout, in milliseconds, for the given command. If that duration is exceeded,
+the `Stream` will fail with an error.
+-}
 withTimeout : Int -> CommandOptions -> CommandOptions
 withTimeout timeoutMs (CommandOptions cmd) =
     CommandOptions { cmd | timeoutInMs = Just timeoutMs }
@@ -667,10 +1080,17 @@ commandOutputDecoder =
     Decode.field "exitCode" Decode.int
 
 
-{-| -}
+{-| The output configuration for [`withOutput`](#withOutput). The default is `PrintStderr`.
+
+  - `PrintStderr` - Print (but do not pass along) the `stderr` output of the command. Only `stdout` will be passed along as the body of the stream.
+  - `IgnoreStderr` - Ignore the `stderr` output of the command, only include `stdout`
+  - `MergeStderrAndStdout` - Both `stderr` and `stdout` will be passed along as the body of the stream.
+  - `StderrInsteadOfStdout` - Only `stderr` will be passed along as the body of the stream. `stdout` will be ignored.
+
+-}
 type StderrOutput
-    = IgnoreStderr
-    | PrintStderr
+    = PrintStderr
+    | IgnoreStderr
     | MergeStderrAndStdout
     | StderrInsteadOfStdout
 

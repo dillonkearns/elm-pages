@@ -3,18 +3,22 @@ module GenerateMain exposing (..)
 import Elm exposing (File)
 import Elm.Annotation as Type
 import Elm.Case
+import Elm.Case.Branch
 import Elm.Declare
 import Elm.Extra exposing (expose, fnIgnore, topLevelValue)
 import Elm.Let
 import Elm.Op
-import Elm.Pattern
+import Gen.Api
 import Gen.ApiRoute
 import Gen.BackendTask
 import Gen.Basics
 import Gen.Bytes
 import Gen.Bytes.Decode
 import Gen.Bytes.Encode
+import Gen.Debug
 import Gen.Dict
+import Gen.Effect
+import Gen.ErrorPage
 import Gen.Head
 import Gen.Html
 import Gen.Json.Decode
@@ -27,15 +31,18 @@ import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.Platform.Cli
 import Gen.Pages.Internal.RoutePattern
-import Gen.Pages.Navigation
 import Gen.Pages.PageUrl
 import Gen.PagesMsg
+import Gen.Platform.Sub
 import Gen.Server.Request
 import Gen.Server.Response
+import Gen.Shared
+import Gen.Site
 import Gen.String
 import Gen.Tuple
 import Gen.Url
 import Gen.UrlPath
+import Gen.View
 import Pages.Internal.RoutePattern as RoutePattern exposing (RoutePattern)
 import String.Case
 
@@ -67,7 +74,7 @@ otherFile routes phaseString =
             , update = update.value []
             , subscriptions = subscriptions.value []
             , sharedData =
-                Elm.value { name = "template", importFrom = [ "Shared" ], annotation = Nothing }
+                Gen.Shared.values_.template
                     |> Elm.get "data"
             , data = dataForRoute.value []
             , action = action.value []
@@ -81,7 +88,7 @@ otherFile routes phaseString =
 
                     Cli ->
                         getStaticRoutes.reference
-                            |> Gen.BackendTask.map (Gen.List.call_.map (Elm.val "Just"))
+                            |> Gen.BackendTask.map (Gen.List.call_.map (Elm.functionReduced "x" Gen.Maybe.make_.just))
             , urlToRoute =
                 Elm.value
                     { annotation = Nothing
@@ -111,19 +118,13 @@ otherFile routes phaseString =
                         Elm.nothing
 
                     Cli ->
-                        Elm.just
-                            (Elm.value
-                                { name = "config"
-                                , annotation = Nothing
-                                , importFrom = [ "Site" ]
-                                }
-                            )
+                        Elm.just Gen.Site.values_.config
             , toJsPort = Elm.val "toJsPort"
             , fromJsPort = applyIdentityTo (Elm.val "fromJsPort")
             , gotBatchSub =
                 case phase of
                     Browser ->
-                        subNone
+                        Gen.Platform.Sub.values_.none
 
                     Cli ->
                         applyIdentityTo (Elm.val "gotBatchSub")
@@ -141,10 +142,9 @@ otherFile routes phaseString =
                                 Elm.Op.cons pathsToGenerateHandler.reference
                                     (Elm.Op.cons routePatterns.reference
                                         (Elm.Op.cons apiPatterns.reference
-                                            (Elm.apply (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
-                                                [ getStaticRoutes.reference
-                                                , htmlToString
-                                                ]
+                                            (Gen.Api.call_.routes
+                                                getStaticRoutes.reference
+                                                htmlToString
                                             )
                                         )
                                     )
@@ -169,36 +169,11 @@ otherFile routes phaseString =
 
                     Cli ->
                         Elm.just (globalHeadTags.value [])
-            , cmdToEffect =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "fromCmd"
-                    , importFrom = [ "Effect" ]
-                    }
-            , perform =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "perform"
-                    , importFrom = [ "Effect" ]
-                    }
-            , errorStatusCode =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "statusCode"
-                    , importFrom = [ "ErrorPage" ]
-                    }
-            , notFoundPage =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "notFound"
-                    , importFrom = [ "ErrorPage" ]
-                    }
-            , internalError =
-                Elm.value
-                    { annotation = Nothing
-                    , name = "internalError"
-                    , importFrom = [ "ErrorPage" ]
-                    }
+            , cmdToEffect = Gen.Effect.values_.fromCmd
+            , perform = Gen.Effect.values_.perform
+            , errorStatusCode = Gen.ErrorPage.values_.statusCode
+            , notFoundPage = Gen.ErrorPage.values_.notFound
+            , internalError = Gen.ErrorPage.values_.internalError
             , errorPageToData = Elm.val "DataErrorPage____"
             , notFoundRoute = Elm.nothing
             }
@@ -260,10 +235,125 @@ otherFile routes phaseString =
                 (\args ->
                     case args of
                         [ pageFormState, concurrentSubmissions, navigation, page, maybePageUrl, globalData, pageData, actionData ] ->
+                            let
+                                routeToBranch route =
+                                    Elm.Case.Branch.tuple
+                                        (Elm.Case.Branch.variant1 "Just" (routeToSyntaxPattern route) identity)
+                                        (Elm.Case.Branch.variant1 (prefixedRouteType "Data" route) (Elm.Case.Branch.var "data") identity)
+                                        |> Elm.Case.Branch.map
+                                            (\( maybeRouteParams, data ) ->
+                                                Elm.Let.letIn
+                                                    (\actionDataOrNothing ->
+                                                        Elm.record
+                                                            [ ( "view"
+                                                              , Elm.fn ( "model", Nothing )
+                                                                    (\model ->
+                                                                        Elm.Case.custom (model |> Elm.get "page")
+                                                                            Type.unit
+                                                                            [ destructureRouteVariant Model "subModel" route
+                                                                                |> Elm.Case.Branch.map
+                                                                                    (\subModel ->
+                                                                                        Elm.apply
+                                                                                            (Gen.Shared.values_.template
+                                                                                                |> Elm.get "view"
+                                                                                            )
+                                                                                            [ globalData
+                                                                                            , page
+                                                                                            , model |> Elm.get "global"
+                                                                                            , Elm.fn ( "myMsg", Nothing )
+                                                                                                (\myMsg ->
+                                                                                                    Gen.PagesMsg.fromMsg
+                                                                                                        (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
+                                                                                                )
+                                                                                            , Gen.View.call_.map
+                                                                                                (Elm.functionReduced
+                                                                                                    "innerPageMsg"
+                                                                                                    (Gen.PagesMsg.call_.map (route |> routeVariantExpression Msg))
+                                                                                                )
+                                                                                                (Elm.apply (route |> routeTemplateFunction "view")
+                                                                                                    [ model |> Elm.get "global"
+                                                                                                    , subModel
+                                                                                                    , Elm.record
+                                                                                                        [ ( "data", data )
+                                                                                                        , ( "sharedData", globalData )
+                                                                                                        , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
+                                                                                                        , ( "action", Gen.Maybe.andThen actionDataOrNothing actionData )
+                                                                                                        , ( "path", page |> Elm.get "path" )
+                                                                                                        , ( "url", maybePageUrl )
+                                                                                                        , ( "submit"
+                                                                                                          , Elm.functionReduced
+                                                                                                                "fetcherArg"
+                                                                                                                (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route))
+                                                                                                          )
+                                                                                                        , ( "navigation", navigation )
+                                                                                                        , ( "concurrentSubmissions"
+                                                                                                          , concurrentSubmissions
+                                                                                                                |> Gen.Dict.map
+                                                                                                                    (\_ fetcherState ->
+                                                                                                                        fetcherState
+                                                                                                                            |> Gen.Pages.ConcurrentSubmission.map (\ad -> actionDataOrNothing ad)
+                                                                                                                    )
+                                                                                                          )
+                                                                                                        , ( "pageFormState", pageFormState )
+                                                                                                        ]
+                                                                                                    ]
+                                                                                                )
+                                                                                            ]
+                                                                                    )
+                                                                            , Elm.Case.Branch.ignore modelMismatchView.value
+                                                                            ]
+                                                                    )
+                                                              )
+                                                            , ( "head"
+                                                              , case phase of
+                                                                    Browser ->
+                                                                        Elm.list []
+
+                                                                    Cli ->
+                                                                        Elm.apply
+                                                                            (route
+                                                                                |> routeTemplateFunction "head"
+                                                                            )
+                                                                            [ Elm.record
+                                                                                [ ( "data", data )
+                                                                                , ( "sharedData", globalData )
+                                                                                , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
+                                                                                , ( "action", Elm.nothing )
+                                                                                , ( "path", page |> Elm.get "path" )
+                                                                                , ( "url", Elm.nothing )
+                                                                                , ( "submit", Elm.functionReduced "value" (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
+                                                                                , ( "navigation", Elm.nothing )
+                                                                                , ( "concurrentSubmissions", Gen.Dict.empty )
+                                                                                , ( "pageFormState", Gen.Dict.empty )
+                                                                                ]
+                                                                            ]
+                                                              )
+                                                            ]
+                                                    )
+                                                    |> Elm.Let.fn "actionDataOrNothing"
+                                                        ( "thisActionData", Nothing )
+                                                        (\thisActionData ->
+                                                            Elm.Case.custom thisActionData
+                                                                Type.unit
+                                                                (ignoreBranchIfNeeded
+                                                                    { primary =
+                                                                        destructureRouteVariant ActionData "justActionData" route
+                                                                            |> Elm.Case.Branch.map
+                                                                                (\justActionData ->
+                                                                                    Elm.just justActionData
+                                                                                )
+                                                                    , otherwise = Elm.nothing
+                                                                    }
+                                                                    routes
+                                                                )
+                                                        )
+                                                    |> Elm.Let.toExpression
+                                            )
+                            in
                             Elm.Case.custom (Elm.tuple (page |> Elm.get "route") pageData)
                                 Type.unit
-                                ([ Elm.Pattern.tuple Elm.Pattern.ignore (Elm.Pattern.variant1 "DataErrorPage____" (Elm.Pattern.var "data"))
-                                    |> Elm.Case.patternToBranch
+                                ((Elm.Case.Branch.tuple (Elm.Case.Branch.ignore ()) (Elm.Case.Branch.variant1 "DataErrorPage____" (Elm.Case.Branch.var "data") identity)
+                                    |> Elm.Case.Branch.map
                                         (\( (), data ) ->
                                             Elm.record
                                                 [ ( "view"
@@ -271,181 +361,42 @@ otherFile routes phaseString =
                                                         (\model ->
                                                             Elm.Case.custom (model |> Elm.get "page")
                                                                 Type.unit
-                                                                [ Elm.Pattern.variant1 "ModelErrorPage____"
-                                                                    (Elm.Pattern.var "subModel")
-                                                                    |> Elm.Case.patternToBranch
-                                                                        (\subModel ->
-                                                                            Elm.apply
-                                                                                (Elm.value
-                                                                                    { importFrom = [ "Shared" ]
-                                                                                    , name = "template"
-                                                                                    , annotation = Nothing
-                                                                                    }
-                                                                                    |> Elm.get "view"
+                                                                [ Elm.Case.Branch.variant1 "ModelErrorPage____" (Elm.Case.Branch.var "subModel") <|
+                                                                    \subModel ->
+                                                                        Elm.apply
+                                                                            (Gen.Shared.values_.template
+                                                                                |> Elm.get "view"
+                                                                            )
+                                                                            [ globalData
+                                                                            , page
+                                                                            , model |> Elm.get "global"
+                                                                            , Elm.fn ( "myMsg", Nothing )
+                                                                                (\myMsg ->
+                                                                                    Gen.PagesMsg.fromMsg
+                                                                                        (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
                                                                                 )
-                                                                                [ globalData
-                                                                                , page
-                                                                                , model |> Elm.get "global"
-                                                                                , Elm.fn ( "myMsg", Nothing )
+                                                                            , Gen.View.call_.map
+                                                                                (Elm.functionReduced "myMsg"
                                                                                     (\myMsg ->
                                                                                         Gen.PagesMsg.fromMsg
-                                                                                            (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
+                                                                                            (Elm.apply (Elm.val "MsgErrorPage____") [ myMsg ])
                                                                                     )
-                                                                                , Elm.apply
-                                                                                    (Elm.value { importFrom = [ "View" ], name = "map", annotation = Nothing })
-                                                                                    [ Elm.functionReduced "myMsg"
-                                                                                        (\myMsg ->
-                                                                                            Gen.PagesMsg.fromMsg
-                                                                                                (Elm.apply (Elm.val "MsgErrorPage____") [ myMsg ])
-                                                                                        )
-                                                                                    , Elm.apply
-                                                                                        (Elm.value
-                                                                                            { importFrom = [ "ErrorPage" ]
-                                                                                            , name = "view"
-                                                                                            , annotation = Nothing
-                                                                                            }
-                                                                                        )
-                                                                                        [ data
-                                                                                        , subModel
-                                                                                        ]
-                                                                                    ]
-                                                                                ]
-                                                                        )
-                                                                , Elm.Pattern.ignore
-                                                                    |> Elm.Case.patternToBranch
-                                                                        (\() ->
-                                                                            modelMismatchView.value
-                                                                        )
+                                                                                )
+                                                                                (Gen.ErrorPage.call_.view
+                                                                                    data
+                                                                                    subModel
+                                                                                )
+                                                                            ]
+                                                                , Elm.Case.Branch.ignore modelMismatchView.value
                                                                 ]
                                                         )
                                                   )
                                                 , ( "head", Elm.list [] )
                                                 ]
                                         )
-                                 ]
-                                    ++ (routes
-                                            |> List.map
-                                                (\route ->
-                                                    Elm.Pattern.tuple (Elm.Pattern.variant1 "Just" (routeToSyntaxPattern route))
-                                                        (Elm.Pattern.variant1 (prefixedRouteType "Data" route) (Elm.Pattern.var "data"))
-                                                        |> Elm.Case.patternToBranch
-                                                            (\( maybeRouteParams, data ) ->
-                                                                Elm.Let.letIn
-                                                                    (\actionDataOrNothing ->
-                                                                        Elm.record
-                                                                            [ ( "view"
-                                                                              , Elm.fn ( "model", Nothing )
-                                                                                    (\model ->
-                                                                                        Elm.Case.custom (model |> Elm.get "page")
-                                                                                            Type.unit
-                                                                                            [ destructureRouteVariant Model "subModel" route
-                                                                                                |> Elm.Case.patternToBranch
-                                                                                                    (\subModel ->
-                                                                                                        Elm.apply
-                                                                                                            (Elm.value
-                                                                                                                { importFrom = [ "Shared" ]
-                                                                                                                , name = "template"
-                                                                                                                , annotation = Nothing
-                                                                                                                }
-                                                                                                                |> Elm.get "view"
-                                                                                                            )
-                                                                                                            [ globalData
-                                                                                                            , page
-                                                                                                            , model |> Elm.get "global"
-                                                                                                            , Elm.fn ( "myMsg", Nothing )
-                                                                                                                (\myMsg ->
-                                                                                                                    Gen.PagesMsg.fromMsg
-                                                                                                                        (Elm.apply (Elm.val "MsgGlobal") [ myMsg ])
-                                                                                                                )
-                                                                                                            , Elm.apply
-                                                                                                                (Elm.value { importFrom = [ "View" ], name = "map", annotation = Nothing })
-                                                                                                                [ Elm.functionReduced
-                                                                                                                    "innerPageMsg"
-                                                                                                                    (Gen.PagesMsg.call_.map (route |> routeVariantExpression Msg))
-                                                                                                                , Elm.apply (route |> routeTemplateFunction "view")
-                                                                                                                    [ model |> Elm.get "global"
-                                                                                                                    , subModel
-                                                                                                                    , Elm.record
-                                                                                                                        [ ( "data", data )
-                                                                                                                        , ( "sharedData", globalData )
-                                                                                                                        , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
-                                                                                                                        , ( "action", Gen.Maybe.andThen actionDataOrNothing actionData )
-                                                                                                                        , ( "path", page |> Elm.get "path" )
-                                                                                                                        , ( "url", maybePageUrl )
-                                                                                                                        , ( "submit"
-                                                                                                                          , Elm.functionReduced
-                                                                                                                                "fetcherArg"
-                                                                                                                                (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route))
-                                                                                                                          )
-                                                                                                                        , ( "navigation", navigation )
-                                                                                                                        , ( "concurrentSubmissions"
-                                                                                                                          , concurrentSubmissions
-                                                                                                                                |> Gen.Dict.map
-                                                                                                                                    (\_ fetcherState ->
-                                                                                                                                        fetcherState
-                                                                                                                                            |> Gen.Pages.ConcurrentSubmission.map (\ad -> actionDataOrNothing ad)
-                                                                                                                                    )
-                                                                                                                          )
-                                                                                                                        , ( "pageFormState", pageFormState )
-                                                                                                                        ]
-                                                                                                                    ]
-                                                                                                                ]
-                                                                                                            ]
-                                                                                                    )
-                                                                                            , Elm.Pattern.ignore
-                                                                                                |> Elm.Case.patternToBranch
-                                                                                                    (\() ->
-                                                                                                        modelMismatchView.value
-                                                                                                    )
-                                                                                            ]
-                                                                                    )
-                                                                              )
-                                                                            , ( "head"
-                                                                              , case phase of
-                                                                                    Browser ->
-                                                                                        Elm.list []
-
-                                                                                    Cli ->
-                                                                                        Elm.apply
-                                                                                            (route
-                                                                                                |> routeTemplateFunction "head"
-                                                                                            )
-                                                                                            [ Elm.record
-                                                                                                [ ( "data", data )
-                                                                                                , ( "sharedData", globalData )
-                                                                                                , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
-                                                                                                , ( "action", Elm.nothing )
-                                                                                                , ( "path", page |> Elm.get "path" )
-                                                                                                , ( "url", Elm.nothing )
-                                                                                                , ( "submit", Elm.functionReduced "value" (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
-                                                                                                , ( "navigation", Elm.nothing )
-                                                                                                , ( "concurrentSubmissions", Gen.Dict.empty )
-                                                                                                , ( "pageFormState", Gen.Dict.empty )
-                                                                                                ]
-                                                                                            ]
-                                                                              )
-                                                                            ]
-                                                                    )
-                                                                    |> Elm.Let.fn "actionDataOrNothing"
-                                                                        ( "thisActionData", Nothing )
-                                                                        (\thisActionData ->
-                                                                            Elm.Case.custom thisActionData
-                                                                                Type.unit
-                                                                                (ignoreBranchIfNeeded
-                                                                                    { primary =
-                                                                                        destructureRouteVariant ActionData "justActionData" route
-                                                                                            |> Elm.Case.patternToBranch
-                                                                                                (\justActionData ->
-                                                                                                    Elm.just justActionData
-                                                                                                )
-                                                                                    , otherwise = Elm.nothing
-                                                                                    }
-                                                                                    routes
-                                                                                )
-                                                                        )
-                                                                    |> Elm.Let.toExpression
-                                                            )
-                                                )
+                                 )
+                                    :: (routes
+                                            |> List.map routeToBranch
                                        )
                                     ++ [ Elm.Case.otherwise
                                             (\_ ->
@@ -497,7 +448,7 @@ otherFile routes phaseString =
             , valueFrom : List String -> Elm.Expression
             }
         modelMismatchView =
-            Elm.Declare.topLevelValue "modelMismatchView"
+            Elm.Declare.value "modelMismatchView"
                 (Elm.record
                     [ ( "title", Elm.string "Model mismatch" )
                     , ( "body", [ Gen.Html.text "Model mismatch" ] |> Elm.list )
@@ -516,23 +467,19 @@ otherFile routes phaseString =
                 ( "path", pathType |> Just )
                 ( "model", Type.named [] "Model" |> Just )
                 (\route path model ->
-                    subBatch
+                    Gen.Platform.Sub.batch
                         [ Elm.apply
-                            (Elm.value
-                                { importFrom = [ "Shared" ]
-                                , name = "template"
-                                , annotation = Nothing
-                                }
+                            (Gen.Shared.values_.template
                                 |> Elm.get "subscriptions"
                             )
                             [ path
                             , model
                                 |> Elm.get "global"
                             ]
-                            |> subMap (Elm.val "MsgGlobal")
+                            |> Gen.Platform.Sub.call_.map (Elm.val "MsgGlobal")
                         , templateSubscriptions.call route path model
                         ]
-                        |> Elm.withType (subType (Type.named [] "Msg"))
+                        |> Elm.withType (Gen.Platform.Sub.annotation_.sub (Type.named [] "Msg"))
                 )
 
         onActionData :
@@ -552,7 +499,7 @@ otherFile routes phaseString =
                                 (\route ->
                                     route
                                         |> destructureRouteVariant ActionData "thisActionData"
-                                        |> Elm.Case.patternToBranch
+                                        |> Elm.Case.Branch.map
                                             (\thisActionData ->
                                                 (Elm.value
                                                     { annotation = Nothing
@@ -586,7 +533,7 @@ otherFile routes phaseString =
                 ( "model", Type.named [] "Model" |> Just )
                 (\maybeRoute path model ->
                     Elm.Case.maybe maybeRoute
-                        { nothing = subNone
+                        { nothing = Gen.Platform.Sub.values_.none
                         , just =
                             ( "justRoute"
                             , \justRoute ->
@@ -596,7 +543,7 @@ otherFile routes phaseString =
                                             Type.unit
                                             [ route
                                                 |> destructureRouteVariant Model "templateModel"
-                                                |> Elm.Case.patternToBranch
+                                                |> Elm.Case.Branch.map
                                                     (\templateModel ->
                                                         Elm.apply
                                                             (Elm.value
@@ -611,14 +558,14 @@ otherFile routes phaseString =
                                                             , templateModel
                                                             , model |> Elm.get "global"
                                                             ]
-                                                            |> subMap (route |> routeVariantExpression Msg)
+                                                            |> Gen.Platform.Sub.call_.map (route |> routeVariantExpression Msg)
                                                     )
-                                            , Elm.Case.otherwise (\_ -> subNone)
+                                            , Elm.Case.otherwise (\_ -> Gen.Platform.Sub.values_.none)
                                             ]
                                     )
                             )
                         }
-                        |> Elm.withType (subType (Type.named [] "Msg"))
+                        |> Elm.withType (Gen.Platform.Sub.annotation_.sub (Type.named [] "Msg"))
                 )
 
         dataForRoute :
@@ -763,27 +710,14 @@ otherFile routes phaseString =
                                             , ( "current", maybePagePath )
                                             ]
                                         )
-                                        (Elm.apply
-                                            (Elm.value
-                                                { annotation = Nothing
-                                                , name = "batch"
-                                                , importFrom = [ "Effect" ]
-                                                }
-                                            )
-                                            [ Elm.list
+                                        (Gen.Effect.call_.batch
+                                            (Elm.list
                                                 [ templateCmd
-                                                , Elm.apply
-                                                    (Elm.value
-                                                        { annotation = Nothing
-                                                        , importFrom = [ "Effect" ]
-                                                        , name = "map"
-                                                        }
-                                                    )
-                                                    [ Elm.val "MsgGlobal"
-                                                    , globalCmd
-                                                    ]
+                                                , Gen.Effect.call_.map
+                                                    (Elm.val "MsgGlobal")
+                                                    globalCmd
                                                 ]
-                                            ]
+                                            )
                                         )
                                 )
                                 |> Elm.Let.tuple "templateModel"
@@ -802,10 +736,10 @@ otherFile routes phaseString =
                                                     ((routes
                                                         |> List.map
                                                             (\route ->
-                                                                Elm.Pattern.tuple
+                                                                Elm.Case.Branch.tuple
                                                                     (routeToSyntaxPattern route)
                                                                     (route |> destructureRouteVariant Data "thisPageData")
-                                                                    |> Elm.Case.patternToBranch
+                                                                    |> Elm.Case.Branch.map
                                                                         (\( maybeRouteParams, thisPageData ) ->
                                                                             Elm.apply
                                                                                 (Elm.value
@@ -829,7 +763,7 @@ otherFile routes phaseString =
                                                                                                             { primary =
                                                                                                                 route
                                                                                                                     |> destructureRouteVariant ActionData "thisActionData"
-                                                                                                                    |> Elm.Case.patternToBranch
+                                                                                                                    |> Elm.Case.Branch.map
                                                                                                                         (\thisActionData ->
                                                                                                                             Elm.just thisActionData
                                                                                                                         )
@@ -841,19 +775,16 @@ otherFile routes phaseString =
                                                                                       )
                                                                                     , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                     , ( "path"
-                                                                                      , Elm.apply (Elm.val ".path") [ justRouteAndPath |> Gen.Tuple.second ]
+                                                                                      , justRouteAndPath
+                                                                                            |> Gen.Tuple.second
+                                                                                            |> Elm.get "path"
                                                                                       )
                                                                                     , ( "url"
                                                                                       , Gen.Maybe.andThen (Elm.get "pageUrl") maybePagePath
                                                                                       )
                                                                                     , ( "submit"
                                                                                       , Elm.apply
-                                                                                            (Elm.value
-                                                                                                { importFrom = [ "Pages", "Fetcher" ]
-                                                                                                , name = "submit"
-                                                                                                , annotation = Nothing
-                                                                                                }
-                                                                                            )
+                                                                                            Gen.Pages.Fetcher.values_.submit
                                                                                             [ route |> decodeRouteType ActionData
                                                                                             ]
                                                                                       )
@@ -865,14 +796,14 @@ otherFile routes phaseString =
                                                                                 |> Gen.Tuple.call_.mapBoth
                                                                                     (route |> routeVariantExpression Model)
                                                                                     (Elm.apply
-                                                                                        (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing })
+                                                                                        Gen.Effect.values_.map
                                                                                         [ route |> routeVariantExpression Msg
                                                                                         ]
                                                                                     )
                                                                         )
                                                             )
                                                      )
-                                                        ++ [ Elm.Pattern.ignore |> Elm.Case.patternToBranch (\() -> initErrorPage.call pageData)
+                                                        ++ [ Elm.Case.Branch.ignore (initErrorPage.call pageData)
                                                            ]
                                                     )
                                             )
@@ -885,15 +816,11 @@ otherFile routes phaseString =
                             (currentGlobalModel
                                 |> Gen.Maybe.map
                                     (\m ->
-                                        Elm.tuple m (Elm.value { annotation = Nothing, importFrom = [ "Effect" ], name = "none" })
+                                        Elm.tuple m Gen.Effect.values_.none
                                     )
                                 |> Gen.Maybe.withDefault
                                     (Elm.apply
-                                        (Elm.value
-                                            { importFrom = [ "Shared" ]
-                                            , name = "template"
-                                            , annotation = Nothing
-                                            }
+                                        (Gen.Shared.values_.template
                                             |> Elm.get "init"
                                         )
                                         [ userFlags, maybePagePath ]
@@ -932,302 +859,273 @@ otherFile routes phaseString =
                 (\args ->
                     case args of
                         [ pageFormState, concurrentSubmissions, navigation, sharedData, pageData, navigationKey, msg, model ] ->
-                            Elm.Case.custom msg
-                                Type.unit
-                                ([ Elm.Pattern.variant1 "MsgErrorPage____" (Elm.Pattern.var "msg_")
-                                    |> Elm.Case.patternToBranch
-                                        (\msg_ ->
-                                            Elm.Let.letIn
-                                                (\( updatedPageModel, pageCmd ) ->
-                                                    Elm.tuple
-                                                        (Elm.updateRecord
-                                                            [ ( "page", updatedPageModel )
-                                                            ]
-                                                            model
+                            let
+                                routeToBranch route =
+                                    (route |> destructureRouteVariant Msg "msg_")
+                                        |> Elm.Case.Branch.map
+                                            (\msg_ ->
+                                                Elm.Case.custom
+                                                    (Elm.triple
+                                                        (model |> Elm.get "page")
+                                                        pageData
+                                                        (Gen.Maybe.call_.map3
+                                                            (toTriple.value [])
+                                                            (model
+                                                                |> Elm.get "current"
+                                                                |> Gen.Maybe.andThen
+                                                                    (Elm.get "metadata")
+                                                            )
+                                                            (model
+                                                                |> Elm.get "current"
+                                                                |> Gen.Maybe.andThen
+                                                                    (Elm.get "pageUrl")
+                                                            )
+                                                            (model
+                                                                |> Elm.get "current"
+                                                                |> Gen.Maybe.map
+                                                                    (Elm.get "path")
+                                                            )
                                                         )
-                                                        pageCmd
-                                                )
-                                                |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "updatedPageModel") (Elm.Pattern.var "pageCmd"))
-                                                    (Elm.Case.custom (Elm.tuple (model |> Elm.get "page") pageData)
-                                                        Type.unit
-                                                        [ Elm.Pattern.tuple (Elm.Pattern.variant1 "ModelErrorPage____" (Elm.Pattern.var "pageModel"))
-                                                            (Elm.Pattern.variant1 "DataErrorPage____" (Elm.Pattern.var "thisPageData"))
-                                                            |> Elm.Case.patternToBranch
-                                                                (\( pageModel, thisPageData ) ->
-                                                                    Elm.apply
-                                                                        (Elm.value
-                                                                            { importFrom = [ "ErrorPage" ]
-                                                                            , name = "update"
-                                                                            , annotation = Nothing
-                                                                            }
-                                                                        )
-                                                                        [ thisPageData
-                                                                        , msg_
-                                                                        , pageModel
-                                                                        ]
-                                                                        |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____")
-                                                                            (effectMap_ (Elm.val "MsgErrorPage____"))
-                                                                )
-                                                        , Elm.Pattern.ignore
-                                                            |> Elm.Case.patternToBranch
-                                                                (\() ->
-                                                                    Elm.tuple (model |> Elm.get "page") effectNone
-                                                                )
-                                                        ]
                                                     )
-                                                |> Elm.Let.toExpression
-                                        )
-                                 , Elm.Pattern.variant1 "MsgGlobal" (Elm.Pattern.var "msg_")
-                                    |> Elm.Case.patternToBranch
-                                        (\msg_ ->
-                                            Elm.Let.letIn
-                                                (\( sharedModel, globalCmd ) ->
-                                                    Elm.tuple
-                                                        (Elm.updateRecord [ ( "global", sharedModel ) ] model)
-                                                        (effectMap (Elm.val "MsgGlobal") globalCmd)
-                                                )
-                                                |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "sharedModel") (Elm.Pattern.var "globalCmd"))
-                                                    (Elm.apply
-                                                        (Elm.value
-                                                            { importFrom = [ "Shared" ]
-                                                            , name = "template"
-                                                            , annotation = Nothing
-                                                            }
-                                                            |> Elm.get "update"
+                                                    Type.unit
+                                                    [ Elm.Case.Branch.triple
+                                                        (route |> destructureRouteVariant Model "pageModel")
+                                                        (route |> destructureRouteVariant Data "thisPageData")
+                                                        (Elm.Case.Branch.variant1
+                                                            "Just"
+                                                            (Elm.Case.Branch.triple
+                                                                (routeToSyntaxPattern route)
+                                                                (Elm.Case.Branch.var "pageUrl")
+                                                                (Elm.Case.Branch.var "justPage")
+                                                            )
+                                                            identity
                                                         )
-                                                        [ msg_, model |> Elm.get "global" ]
-                                                    )
-                                                |> Elm.Let.toExpression
-                                        )
-                                 , Elm.Pattern.variant1 "OnPageChange" (Elm.Pattern.var "record")
-                                    |> Elm.Case.patternToBranch
-                                        (\record ->
-                                            Elm.Let.letIn
-                                                (\() ( updatedModel, cmd ) ->
-                                                    Elm.Case.maybe
-                                                        (Elm.value { importFrom = [ "Shared" ], name = "template", annotation = Nothing }
-                                                            |> Elm.get "onPageChange"
-                                                        )
-                                                        { nothing = Elm.tuple updatedModel cmd
-                                                        , just =
-                                                            ( "thingy"
-                                                            , \thingy ->
+                                                        |> Elm.Case.Branch.map
+                                                            (\( pageModel, thisPageData, ( maybeRouteParams, pageUrl, justPage ) ) ->
                                                                 Elm.Let.letIn
-                                                                    (\( updatedGlobalModel, globalCmd ) ->
-                                                                        Elm.tuple (Elm.updateRecord [ ( "global", updatedGlobalModel ) ] updatedModel)
-                                                                            (Elm.apply (Elm.value { importFrom = [ "Effect" ], name = "batch", annotation = Nothing })
-                                                                                [ Elm.list
-                                                                                    [ cmd
-                                                                                    , effectMap (Elm.val "MsgGlobal") globalCmd
-                                                                                    ]
-                                                                                ]
+                                                                    (\( updatedPageModel, pageCmd, newGLobalModelAndCmd ) ->
+                                                                        Elm.Let.letIn
+                                                                            (\( newGlobalModel, newGlobalCmd ) ->
+                                                                                Elm.tuple
+                                                                                    (model
+                                                                                        |> Elm.updateRecord
+                                                                                            [ ( "page", updatedPageModel )
+                                                                                            , ( "global", newGlobalModel )
+                                                                                            ]
+                                                                                    )
+                                                                                    (Gen.Effect.batch
+                                                                                        [ pageCmd
+                                                                                        , Gen.Effect.call_.map
+                                                                                            (Elm.val "MsgGlobal")
+                                                                                            newGlobalCmd
+                                                                                        ]
+                                                                                    )
                                                                             )
+                                                                            |> Elm.Let.tuple "newGlobalModel" "newGlobalCmd" newGLobalModelAndCmd
+                                                                            |> Elm.Let.toExpression
                                                                     )
-                                                                    |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "updatedGlobalModel") (Elm.Pattern.var "globalCmd"))
-                                                                        (Elm.apply
-                                                                            (Elm.value { importFrom = [ "Shared" ], name = "template", annotation = Nothing }
-                                                                                |> Elm.get "update"
-                                                                            )
-                                                                            [ Elm.apply thingy
+                                                                    |> Elm.Let.triple
+                                                                        "updatedPageModel"
+                                                                        "pageCmd"
+                                                                        "globalModelAndCmd"
+                                                                        (fooFn.call
+                                                                            (route |> routeVariantExpression Model)
+                                                                            (route |> routeVariantExpression Msg)
+                                                                            model
+                                                                            (Elm.apply
+                                                                                (Elm.value
+                                                                                    { annotation = Nothing
+                                                                                    , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                                                    , name = "route"
+                                                                                    }
+                                                                                    |> Elm.get "update"
+                                                                                )
                                                                                 [ Elm.record
-                                                                                    [ ( "path", record |> Elm.get "path" )
-                                                                                    , ( "query", record |> Elm.get "query" )
-                                                                                    , ( "fragment", record |> Elm.get "fragment" )
+                                                                                    [ ( "data", thisPageData )
+                                                                                    , ( "sharedData", sharedData )
+                                                                                    , ( "action", Elm.nothing )
+                                                                                    , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
+                                                                                    , ( "path", justPage |> Elm.get "path" )
+                                                                                    , ( "url", Elm.just pageUrl )
+                                                                                    , ( "submit", Elm.fn ( "options", Nothing ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
+                                                                                    , ( "navigation", navigation )
+                                                                                    , ( "concurrentSubmissions"
+                                                                                      , concurrentSubmissions
+                                                                                            |> Gen.Dict.map
+                                                                                                (\_ fetcherState ->
+                                                                                                    fetcherState
+                                                                                                        |> Gen.Pages.ConcurrentSubmission.map
+                                                                                                            (\ad ->
+                                                                                                                Elm.Case.custom ad
+                                                                                                                    Type.unit
+                                                                                                                    (ignoreBranchIfNeeded
+                                                                                                                        { primary =
+                                                                                                                            route
+                                                                                                                                |> destructureRouteVariant ActionData "justActionData"
+                                                                                                                                |> Elm.Case.Branch.map
+                                                                                                                                    (\justActionData ->
+                                                                                                                                        Elm.just justActionData
+                                                                                                                                    )
+                                                                                                                        , otherwise = Elm.nothing
+                                                                                                                        }
+                                                                                                                        routes
+                                                                                                                    )
+                                                                                                            )
+                                                                                                )
+                                                                                      )
+                                                                                    , ( "pageFormState", pageFormState )
                                                                                     ]
+                                                                                , msg_
+                                                                                , pageModel
+                                                                                , model |> Elm.get "global"
                                                                                 ]
-                                                                            , model |> Elm.get "global"
-                                                                            ]
+                                                                            )
                                                                         )
                                                                     |> Elm.Let.toExpression
                                                             )
-                                                        }
-                                                )
-                                                |> Elm.Let.destructure
-                                                    -- TODO there is a bug where the Browser.Navigation.Key type wasn't imported because the argument wasn't referenced.
-                                                    -- Remove this hack when that bug is fixed
-                                                    Elm.Pattern.ignore
-                                                    navigationKey
-                                                |> Elm.Let.destructure (Elm.Pattern.tuple (Elm.Pattern.var "updatedModel") (Elm.Pattern.var "cmd"))
-                                                    (init.call
-                                                        (Elm.just (model |> Elm.get "global"))
-                                                        (Elm.value { importFrom = [ "Pages", "Flags" ], name = "PreRenderFlags", annotation = Nothing })
-                                                        sharedData
-                                                        pageData
-                                                        Elm.nothing
-                                                        (Elm.just
-                                                            (Elm.record
-                                                                [ ( "path"
-                                                                  , Elm.record
-                                                                        [ ( "path", record |> Elm.get "path" )
-                                                                        , ( "query", record |> Elm.get "query" )
-                                                                        , ( "fragment", record |> Elm.get "fragment" )
-                                                                        ]
-                                                                  )
-                                                                , ( "metadata", record |> Elm.get "metadata" )
-                                                                , ( "pageUrl"
-                                                                  , Elm.record
-                                                                        [ ( "protocol", record |> Elm.get "protocol" )
-                                                                        , ( "host", record |> Elm.get "host" )
-                                                                        , ( "port_", record |> Elm.get "port_" )
-                                                                        , ( "path", record |> Elm.get "path" )
-                                                                        , ( "query", record |> Elm.get "query" |> Gen.Maybe.map Gen.Pages.PageUrl.call_.parseQueryParams |> Gen.Maybe.withDefault Gen.Dict.empty )
-                                                                        , ( "fragment", record |> Elm.get "fragment" )
-                                                                        ]
-                                                                        |> Elm.just
-                                                                  )
-                                                                ]
+                                                    , Elm.Case.Branch.ignore
+                                                        (Elm.tuple model Gen.Effect.values_.none)
+                                                    ]
+                                            )
+                            in
+                            Elm.Case.custom msg
+                                Type.unit
+                                ([ Elm.Case.Branch.variant1 "MsgErrorPage____" (Elm.Case.Branch.var "msg_") <|
+                                    \msg_ ->
+                                        Elm.Let.letIn
+                                            (\( updatedPageModel, pageCmd ) ->
+                                                Elm.tuple
+                                                    (Elm.updateRecord
+                                                        [ ( "page", updatedPageModel )
+                                                        ]
+                                                        model
+                                                    )
+                                                    pageCmd
+                                            )
+                                            |> Elm.Let.tuple
+                                                "updatedPageModel"
+                                                "pageCmd"
+                                                (Elm.Case.custom (Elm.tuple (model |> Elm.get "page") pageData)
+                                                    Type.unit
+                                                    [ Elm.Case.Branch.tuple
+                                                        (Elm.Case.Branch.variant1 "ModelErrorPage____" (Elm.Case.Branch.var "pageModel") identity)
+                                                        (Elm.Case.Branch.variant1 "DataErrorPage____" (Elm.Case.Branch.var "thisPageData") identity)
+                                                        |> Elm.Case.Branch.map
+                                                            (\( pageModel, thisPageData ) ->
+                                                                Gen.ErrorPage.update
+                                                                    thisPageData
+                                                                    msg_
+                                                                    pageModel
+                                                                    |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____")
+                                                                        (Elm.apply Gen.Effect.values_.map [ Elm.val "MsgErrorPage____" ])
                                                             )
+                                                    , Elm.Case.Branch.ignore (Elm.tuple (model |> Elm.get "page") Gen.Effect.values_.none)
+                                                    ]
+                                                )
+                                            |> Elm.Let.toExpression
+                                 , Elm.Case.Branch.variant1 "MsgGlobal" (Elm.Case.Branch.var "msg_") <|
+                                    \msg_ ->
+                                        Elm.Let.letIn
+                                            (\( sharedModel, globalCmd ) ->
+                                                Elm.tuple
+                                                    (Elm.updateRecord [ ( "global", sharedModel ) ] model)
+                                                    (Gen.Effect.call_.map (Elm.val "MsgGlobal") globalCmd)
+                                            )
+                                            |> Elm.Let.tuple
+                                                "sharedModel"
+                                                "globalCmd"
+                                                (Elm.apply
+                                                    (Gen.Shared.values_.template
+                                                        |> Elm.get "update"
+                                                    )
+                                                    [ msg_, model |> Elm.get "global" ]
+                                                )
+                                            |> Elm.Let.toExpression
+                                 , Elm.Case.Branch.variant1 "OnPageChange" (Elm.Case.Branch.var "record") <|
+                                    \record ->
+                                        Elm.Let.letIn
+                                            (\( updatedModel, cmd ) ->
+                                                Elm.Case.maybe
+                                                    (Gen.Shared.values_.template
+                                                        |> Elm.get "onPageChange"
+                                                    )
+                                                    { nothing = Elm.tuple updatedModel cmd
+                                                    , just =
+                                                        ( "thingy"
+                                                        , \thingy ->
+                                                            Elm.Let.letIn
+                                                                (\( updatedGlobalModel, globalCmd ) ->
+                                                                    Elm.tuple (Elm.updateRecord [ ( "global", updatedGlobalModel ) ] updatedModel)
+                                                                        (Gen.Effect.batch
+                                                                            [ cmd
+                                                                            , Gen.Effect.call_.map (Elm.val "MsgGlobal") globalCmd
+                                                                            ]
+                                                                        )
+                                                                )
+                                                                |> Elm.Let.tuple
+                                                                    "updatedGlobalModel"
+                                                                    "globalCmd"
+                                                                    (Elm.apply
+                                                                        (Gen.Shared.values_.template
+                                                                            |> Elm.get "update"
+                                                                        )
+                                                                        [ Elm.apply thingy
+                                                                            [ Elm.record
+                                                                                [ ( "path", record |> Elm.get "path" )
+                                                                                , ( "query", record |> Elm.get "query" )
+                                                                                , ( "fragment", record |> Elm.get "fragment" )
+                                                                                ]
+                                                                            ]
+                                                                        , model |> Elm.get "global"
+                                                                        ]
+                                                                    )
+                                                                |> Elm.Let.toExpression
+                                                        )
+                                                    }
+                                            )
+                                            -- |> Elm.Let.destructure
+                                            --     -- TODO there is a bug where the Browser.Navigation.Key type wasn't imported because the argument wasn't referenced.
+                                            --     -- Remove this hack when that bug is fixed
+                                            --     Elm.Case.Branch.ignore
+                                            --     navigationKey
+                                            |> Elm.Let.tuple
+                                                "updatedModel"
+                                                "cmd"
+                                                (init.call
+                                                    (Elm.just (model |> Elm.get "global"))
+                                                    (Elm.value { importFrom = [ "Pages", "Flags" ], name = "PreRenderFlags", annotation = Nothing })
+                                                    sharedData
+                                                    pageData
+                                                    Elm.nothing
+                                                    (Elm.just
+                                                        (Elm.record
+                                                            [ ( "path"
+                                                              , Elm.record
+                                                                    [ ( "path", record |> Elm.get "path" )
+                                                                    , ( "query", record |> Elm.get "query" )
+                                                                    , ( "fragment", record |> Elm.get "fragment" )
+                                                                    ]
+                                                              )
+                                                            , ( "metadata", record |> Elm.get "metadata" )
+                                                            , ( "pageUrl"
+                                                              , Elm.record
+                                                                    [ ( "protocol", record |> Elm.get "protocol" )
+                                                                    , ( "host", record |> Elm.get "host" )
+                                                                    , ( "port_", record |> Elm.get "port_" )
+                                                                    , ( "path", record |> Elm.get "path" )
+                                                                    , ( "query", record |> Elm.get "query" |> Gen.Maybe.map Gen.Pages.PageUrl.call_.parseQueryParams |> Gen.Maybe.withDefault Gen.Dict.empty )
+                                                                    , ( "fragment", record |> Elm.get "fragment" )
+                                                                    ]
+                                                                    |> Elm.just
+                                                              )
+                                                            ]
                                                         )
                                                     )
-                                                |> Elm.Let.toExpression
-                                        )
+                                                )
+                                            |> Elm.Let.toExpression
                                  ]
                                     ++ (routes
-                                            |> List.map
-                                                (\route ->
-                                                    (route |> destructureRouteVariant Msg "msg_")
-                                                        |> Elm.Case.patternToBranch
-                                                            (\msg_ ->
-                                                                Elm.Case.custom
-                                                                    (Elm.triple
-                                                                        (model |> Elm.get "page")
-                                                                        pageData
-                                                                        (Gen.Maybe.call_.map3
-                                                                            (toTriple.value [])
-                                                                            (model
-                                                                                |> Elm.get "current"
-                                                                                |> Gen.Maybe.andThen
-                                                                                    (Elm.get "metadata")
-                                                                            )
-                                                                            (model
-                                                                                |> Elm.get "current"
-                                                                                |> Gen.Maybe.andThen
-                                                                                    (Elm.get "pageUrl")
-                                                                            )
-                                                                            (model
-                                                                                |> Elm.get "current"
-                                                                                |> Gen.Maybe.map
-                                                                                    (Elm.get "path")
-                                                                            )
-                                                                        )
-                                                                    )
-                                                                    Type.unit
-                                                                    [ Elm.Pattern.triple
-                                                                        (route |> destructureRouteVariant Model "pageModel")
-                                                                        (route |> destructureRouteVariant Data "thisPageData")
-                                                                        (Elm.Pattern.variant1
-                                                                            "Just"
-                                                                            (Elm.Pattern.triple
-                                                                                (routeToSyntaxPattern route)
-                                                                                (Elm.Pattern.var "pageUrl")
-                                                                                (Elm.Pattern.var "justPage")
-                                                                            )
-                                                                        )
-                                                                        |> Elm.Case.patternToBranch
-                                                                            (\( pageModel, thisPageData, ( maybeRouteParams, pageUrl, justPage ) ) ->
-                                                                                Elm.Let.letIn
-                                                                                    (\( updatedPageModel, pageCmd, ( newGlobalModel, newGlobalCmd ) ) ->
-                                                                                        Elm.tuple
-                                                                                            (model
-                                                                                                |> Elm.updateRecord
-                                                                                                    [ ( "page", updatedPageModel )
-                                                                                                    , ( "global", newGlobalModel )
-                                                                                                    ]
-                                                                                            )
-                                                                                            (Elm.apply
-                                                                                                (Elm.value
-                                                                                                    { name = "batch"
-                                                                                                    , importFrom = [ "Effect" ]
-                                                                                                    , annotation = Nothing
-                                                                                                    }
-                                                                                                )
-                                                                                                [ Elm.list
-                                                                                                    [ pageCmd
-                                                                                                    , Elm.apply
-                                                                                                        (Elm.value
-                                                                                                            { name = "map"
-                                                                                                            , importFrom = [ "Effect" ]
-                                                                                                            , annotation = Nothing
-                                                                                                            }
-                                                                                                        )
-                                                                                                        [ Elm.val "MsgGlobal"
-                                                                                                        , newGlobalCmd
-                                                                                                        ]
-                                                                                                    ]
-                                                                                                ]
-                                                                                            )
-                                                                                    )
-                                                                                    |> Elm.Let.destructure
-                                                                                        (Elm.Pattern.triple
-                                                                                            (Elm.Pattern.var "updatedPageModel")
-                                                                                            (Elm.Pattern.var "pageCmd")
-                                                                                            (Elm.Pattern.tuple (Elm.Pattern.var "newGlobalModel")
-                                                                                                (Elm.Pattern.var "newGlobalCmd")
-                                                                                            )
-                                                                                        )
-                                                                                        (fooFn.call
-                                                                                            (route |> routeVariantExpression Model)
-                                                                                            (route |> routeVariantExpression Msg)
-                                                                                            model
-                                                                                            (Elm.apply
-                                                                                                (Elm.value
-                                                                                                    { annotation = Nothing
-                                                                                                    , importFrom = "Route" :: RoutePattern.toModuleName route
-                                                                                                    , name = "route"
-                                                                                                    }
-                                                                                                    |> Elm.get "update"
-                                                                                                )
-                                                                                                [ Elm.record
-                                                                                                    [ ( "data", thisPageData )
-                                                                                                    , ( "sharedData", sharedData )
-                                                                                                    , ( "action", Elm.nothing )
-                                                                                                    , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
-                                                                                                    , ( "path", justPage |> Elm.get "path" )
-                                                                                                    , ( "url", Elm.just pageUrl )
-                                                                                                    , ( "submit", Elm.fn ( "options", Nothing ) (Gen.Pages.Fetcher.call_.submit (decodeRouteType ActionData route)) )
-                                                                                                    , ( "navigation", navigation )
-                                                                                                    , ( "concurrentSubmissions"
-                                                                                                      , concurrentSubmissions
-                                                                                                            |> Gen.Dict.map
-                                                                                                                (\_ fetcherState ->
-                                                                                                                    fetcherState
-                                                                                                                        |> Gen.Pages.ConcurrentSubmission.map
-                                                                                                                            (\ad ->
-                                                                                                                                Elm.Case.custom ad
-                                                                                                                                    Type.unit
-                                                                                                                                    (ignoreBranchIfNeeded
-                                                                                                                                        { primary =
-                                                                                                                                            route
-                                                                                                                                                |> destructureRouteVariant ActionData "justActionData"
-                                                                                                                                                |> Elm.Case.patternToBranch
-                                                                                                                                                    (\justActionData ->
-                                                                                                                                                        Elm.just justActionData
-                                                                                                                                                    )
-                                                                                                                                        , otherwise = Elm.nothing
-                                                                                                                                        }
-                                                                                                                                        routes
-                                                                                                                                    )
-                                                                                                                            )
-                                                                                                                )
-                                                                                                      )
-                                                                                                    , ( "pageFormState", pageFormState )
-                                                                                                    ]
-                                                                                                , msg_
-                                                                                                , pageModel
-                                                                                                , model |> Elm.get "global"
-                                                                                                ]
-                                                                                            )
-                                                                                        )
-                                                                                    |> Elm.Let.toExpression
-                                                                            )
-                                                                    , Elm.Pattern.ignore
-                                                                        |> Elm.Case.patternToBranch
-                                                                            (\() ->
-                                                                                Elm.tuple model effectNone
-                                                                            )
-                                                                    ]
-                                                            )
-                                                )
+                                            |> List.map routeToBranch
                                        )
                                 )
                                 |> Elm.withType
@@ -1269,32 +1167,25 @@ otherFile routes phaseString =
                 (\wrapModel wrapMsg model triple ->
                     Elm.Case.custom triple
                         Type.unit
-                        [ Elm.Pattern.triple
-                            (Elm.Pattern.var "a")
-                            (Elm.Pattern.var "b")
-                            (Elm.Pattern.var "c")
-                            |> Elm.Case.patternToBranch
+                        [ Elm.Case.Branch.triple
+                            (Elm.Case.Branch.var "a")
+                            (Elm.Case.Branch.var "b")
+                            (Elm.Case.Branch.var "c")
+                            |> Elm.Case.Branch.map
                                 (\( a, b, c ) ->
                                     Elm.triple
                                         (Elm.apply wrapModel [ a ])
-                                        (Elm.apply
-                                            (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing })
-                                            [ wrapMsg, b ]
-                                        )
+                                        (Gen.Effect.call_.map wrapMsg b)
                                         (Elm.Case.maybe c
                                             { nothing =
                                                 Elm.tuple
                                                     (model |> Elm.get "global")
-                                                    effectNone
+                                                    Gen.Effect.values_.none
                                             , just =
                                                 ( "sharedMsg"
                                                 , \sharedMsg ->
                                                     Elm.apply
-                                                        (Elm.value
-                                                            { importFrom = [ "Shared" ]
-                                                            , name = "template"
-                                                            , annotation = Nothing
-                                                            }
+                                                        (Gen.Shared.values_.template
                                                             |> Elm.get "update"
                                                         )
                                                         [ sharedMsg
@@ -1338,22 +1229,16 @@ otherFile routes phaseString =
             Elm.Declare.fn "initErrorPage"
                 ( "pageData", Type.named [] "PageData" |> Just )
                 (\pageData ->
-                    Elm.apply
-                        (Elm.value
-                            { importFrom = [ "ErrorPage" ]
-                            , name = "init"
-                            , annotation = Nothing
-                            }
-                        )
-                        [ Elm.Case.custom pageData
+                    Gen.ErrorPage.init
+                        (Elm.Case.custom pageData
                             Type.unit
                             [ Elm.Case.branch1 "DataErrorPage____"
                                 ( "errorPage", Type.unit )
                                 (\errorPage -> errorPage)
-                            , Elm.Case.otherwise (\_ -> Elm.value { importFrom = [ "ErrorPage" ], name = "notFound", annotation = Nothing })
+                            , Elm.Case.otherwise (\_ -> Gen.ErrorPage.values_.notFound)
                             ]
-                        ]
-                        |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____") (Elm.apply (Elm.value { name = "map", importFrom = [ "Effect" ], annotation = Nothing }) [ Elm.val "MsgErrorPage____" ])
+                        )
+                        |> Gen.Tuple.call_.mapBoth (Elm.val "ModelErrorPage____") (Elm.apply Gen.Effect.values_.map [ Elm.val "MsgErrorPage____" ])
                         |> Elm.withType (Type.tuple (Type.named [] "PageModel") (Type.namedWith [ "Effect" ] "Effect" [ Type.named [] "Msg" ]))
                 )
 
@@ -1423,7 +1308,7 @@ otherFile routes phaseString =
                                                                         )
                                                                             |> Just
 
-                                                                    RoutePattern.StaticParam name ->
+                                                                    RoutePattern.StaticParam _ ->
                                                                         Nothing
                                                             )
                                                         |> List.map (\( key, value ) -> Elm.tuple (Elm.string key) value)
@@ -1484,8 +1369,8 @@ otherFile routes phaseString =
                     Elm.Case.custom
                         nonEmpty
                         Type.unit
-                        [ Elm.Pattern.tuple (Elm.Pattern.var "first") (Elm.Pattern.var "rest")
-                            |> Elm.Case.patternToBranch
+                        [ Elm.Case.Branch.tuple (Elm.Case.Branch.var "first") (Elm.Case.Branch.var "rest")
+                            |> Elm.Case.Branch.map
                                 (\( first, rest ) ->
                                     append
                                         [ Elm.string "( "
@@ -1561,7 +1446,7 @@ otherFile routes phaseString =
                                 (\route ->
                                     route
                                         |> destructureRouteVariant ActionData "thisActionData"
-                                        |> Elm.Case.patternToBranch
+                                        |> Elm.Case.Branch.map
                                             (\thisActionData ->
                                                 Elm.apply
                                                     (route |> encodeRouteType ActionData)
@@ -1701,15 +1586,14 @@ otherFile routes phaseString =
                         )
                         (Elm.Op.cons routePatterns.reference
                             (Elm.Op.cons apiPatterns.reference
-                                (Elm.apply (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
-                                    [ getStaticRoutes.reference
-                                    , Elm.fn2 ( "a", Nothing ) ( "b", Nothing ) (\_ _ -> Elm.string "")
-                                    ]
+                                (Gen.Api.routes
+                                    getStaticRoutes.reference
+                                    (\_ _ -> Elm.string "")
                                 )
                             )
                             |> Gen.List.call_.map Gen.ApiRoute.values_.getBuildTimeRoutes
                             |> Gen.BackendTask.call_.combine
-                            |> Gen.BackendTask.call_.map Gen.List.values_.concat
+                            |> Gen.BackendTask.map Gen.List.call_.concat
                         )
                     )
                     |> Gen.ApiRoute.literal "all-paths.json"
@@ -1726,11 +1610,9 @@ otherFile routes phaseString =
                 (Gen.ApiRoute.succeed
                     (Gen.Json.Encode.call_.list
                         Gen.Basics.values_.identity
-                        (Elm.apply
-                            (Elm.value { name = "routes", importFrom = [ "Api" ], annotation = Nothing })
-                            [ getStaticRoutes.reference
-                            , Elm.fn2 ( "a", Nothing ) ( "b", Nothing ) (\_ _ -> Elm.string "")
-                            ]
+                        (Gen.Api.routes
+                            getStaticRoutes.reference
+                            (\_ _ -> Elm.string "")
                             |> Gen.List.call_.map Gen.ApiRoute.values_.toJson
                         )
                         |> Gen.Json.Encode.encode 0
@@ -1752,14 +1634,12 @@ otherFile routes phaseString =
         routePatterns =
             topLevelValue "routePatterns"
                 (Gen.ApiRoute.succeed
-                    (Gen.Json.Encode.call_.list
-                        (Elm.fn ( "info", Nothing )
-                            (\info ->
-                                Gen.Json.Encode.object
-                                    [ Elm.tuple (Elm.string "kind") (Gen.Json.Encode.call_.string (info |> Elm.get "kind"))
-                                    , Elm.tuple (Elm.string "pathPattern") (Gen.Json.Encode.call_.string (info |> Elm.get "pathPattern"))
-                                    ]
-                            )
+                    (Gen.Json.Encode.list
+                        (\info ->
+                            Gen.Json.Encode.object
+                                [ Elm.tuple (Elm.string "kind") (Gen.Json.Encode.call_.string (info |> Elm.get "kind"))
+                                , Elm.tuple (Elm.string "pathPattern") (Gen.Json.Encode.call_.string (info |> Elm.get "pathPattern"))
+                                ]
                         )
                         (routes
                             |> List.concatMap
@@ -1817,7 +1697,6 @@ otherFile routes phaseString =
                                           )
                                         ]
                                 )
-                            |> Elm.list
                         )
                         |> Gen.Json.Encode.encode 0
                         |> Gen.BackendTask.succeed
@@ -1853,27 +1732,16 @@ otherFile routes phaseString =
                 )
                 (\htmlToString ->
                     Elm.Op.cons
-                        (Elm.value
-                            { importFrom = [ "Site" ]
-                            , annotation = Nothing
-                            , name = "config"
-                            }
+                        (Gen.Site.values_.config
                             |> Elm.get "head"
                         )
-                        (Elm.apply
-                            (Elm.value
-                                { importFrom = [ "Api" ]
-                                , annotation = Nothing
-                                , name = "routes"
-                                }
-                            )
-                            [ getStaticRoutes.reference
-                            , htmlToString
-                            ]
+                        (Gen.Api.call_.routes
+                            getStaticRoutes.reference
+                            htmlToString
                             |> Gen.List.call_.filterMap Gen.ApiRoute.values_.getGlobalHeadTagsBackendTask
                         )
                         |> Gen.BackendTask.call_.combine
-                        |> Gen.BackendTask.call_.map Gen.List.values_.concat
+                        |> Gen.BackendTask.map Gen.List.call_.concat
                         |> Elm.withType
                             (Gen.BackendTask.annotation_.backendTask
                                 (Type.named [ "FatalError" ] "FatalError")
@@ -1995,7 +1863,7 @@ otherFile routes phaseString =
                                         )
                             )
                     )
-                    |> Gen.BackendTask.call_.map Gen.List.values_.concat
+                    |> Gen.BackendTask.map Gen.List.call_.concat
                     |> Elm.withType
                         (Gen.BackendTask.annotation_.backendTask
                             (Type.named [ "FatalError" ] "FatalError")
@@ -2188,7 +2056,7 @@ otherFile routes phaseString =
         ]
 
 
-routeToSyntaxPattern : RoutePattern -> Elm.Pattern.Pattern (Maybe Elm.Expression)
+routeToSyntaxPattern : RoutePattern -> Elm.Case.Branch.Pattern (Maybe Elm.Expression)
 routeToSyntaxPattern route =
     let
         moduleName : String
@@ -2196,12 +2064,12 @@ routeToSyntaxPattern route =
             "Route." ++ (RoutePattern.toModuleName route |> String.join "__")
     in
     if RoutePattern.hasRouteParams route then
-        Elm.Pattern.variant1 moduleName
-            (Elm.Pattern.var "routeParams" |> Elm.Pattern.map Just)
+        Elm.Case.Branch.variant1 moduleName
+            (Elm.Case.Branch.var "routeParams" |> Elm.Case.Branch.map Just)
+            identity
 
     else
-        Elm.Pattern.variant0 moduleName
-            |> Elm.Pattern.map (\() -> Nothing)
+        Elm.Case.Branch.variant0 moduleName Nothing
 
 
 type RouteVariant
@@ -2227,15 +2095,16 @@ routeVariantToString variant =
             "Msg"
 
 
-destructureRouteVariant : RouteVariant -> String -> RoutePattern -> Elm.Pattern.Pattern Elm.Expression
+destructureRouteVariant : RouteVariant -> String -> RoutePattern -> Elm.Case.Branch.Pattern Elm.Expression
 destructureRouteVariant variant varName route =
     let
         moduleName : String
         moduleName =
             routeVariantToString variant ++ (RoutePattern.toModuleName route |> String.join "__")
     in
-    Elm.Pattern.variant1 moduleName
-        (Elm.Pattern.var varName)
+    Elm.Case.Branch.variant1 moduleName
+        (Elm.Case.Branch.var varName)
+        identity
 
 
 routeVariantExpression : RouteVariant -> RoutePattern -> Elm.Expression
@@ -2255,7 +2124,7 @@ applyIdentityTo to =
 
 todo : Elm.Expression
 todo =
-    Elm.apply (Elm.val "Debug.todo") [ Elm.string "" ]
+    Gen.Debug.todo ""
 
 
 pathType : Type.Annotation
@@ -2294,34 +2163,6 @@ routePatternToExpression route =
                     )
                 |> Elm.maybe
         }
-
-
-effectNone =
-    Elm.value { annotation = Nothing, importFrom = [ "Effect" ], name = "none" }
-
-
-effectMap : Elm.Expression -> Elm.Expression -> Elm.Expression
-effectMap mapTo value =
-    Elm.apply
-        (Elm.value
-            { name = "map"
-            , importFrom = [ "Effect" ]
-            , annotation = Nothing
-            }
-        )
-        [ mapTo, value ]
-
-
-effectMap_ : Elm.Expression -> Elm.Expression
-effectMap_ mapTo =
-    Elm.apply
-        (Elm.value
-            { name = "map"
-            , importFrom = [ "Effect" ]
-            , annotation = Nothing
-            }
-        )
-        [ mapTo ]
 
 
 append : List Elm.Expression -> Elm.Expression
@@ -2367,6 +2208,18 @@ routeTemplateFunction functionName route =
         , name = "route"
         }
         |> Elm.get functionName
+
+
+ignoreBranchIfNeeded : { primary : Elm.Case.Branch, otherwise : Elm.Expression } -> List b -> List Elm.Case.Branch
+ignoreBranchIfNeeded info routes =
+    [ info.primary |> Just
+    , if List.length routes > 1 then
+        Elm.Case.Branch.ignore info.otherwise |> Just
+
+      else
+        Nothing
+    ]
+        |> List.filterMap identity
 
 
 make_ :
@@ -2469,67 +2322,3 @@ make_ programConfig_args =
             "notFoundRoute"
             programConfig_args.notFoundRoute
         ]
-
-
-ignoreBranchIfNeeded info routes =
-    [ info.primary |> Just
-    , if List.length routes > 1 then
-        Elm.Pattern.ignore |> Elm.Case.patternToBranch (\() -> info.otherwise) |> Just
-
-      else
-        Nothing
-    ]
-        |> List.filterMap identity
-
-
-subNone : Elm.Expression
-subNone =
-    Elm.value
-        { importFrom = [ "Platform", "Sub" ]
-        , name = "none"
-        , annotation = Just (subType (Type.var "msg"))
-        }
-
-
-subBatch : List Elm.Expression -> Elm.Expression
-subBatch batchArg =
-    Elm.apply
-        (Elm.value
-            { importFrom = [ "Platform", "Sub" ]
-            , name = "batch"
-            , annotation =
-                Just
-                    (Type.function
-                        [ Type.list (subType (Type.var "msg"))
-                        ]
-                        (subType (Type.var "msg"))
-                    )
-            }
-        )
-        [ Elm.list batchArg ]
-
-
-subType : Type.Annotation -> Type.Annotation
-subType inner =
-    Type.namedWith [ "Platform", "Sub" ] "Sub" [ inner ]
-
-
-subMap : Elm.Expression -> Elm.Expression -> Elm.Expression
-subMap mapArg mapArg0 =
-    Elm.apply
-        (Elm.value
-            { importFrom = [ "Platform", "Sub" ]
-            , name = "map"
-            , annotation =
-                Just
-                    (Type.function
-                        [ Type.function
-                            [ Type.var "a" ]
-                            (Type.var "msg")
-                        , subType (Type.var "a")
-                        ]
-                        (subType (Type.var "msg"))
-                    )
-            }
-        )
-        [ mapArg, mapArg0 ]

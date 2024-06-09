@@ -54,9 +54,59 @@ all =
             ]
         }
     , globTestCase
+        { name = "5 with leading ./"
+        , glob =
+            Glob.succeed
+                (\first second wildcardPart ->
+                    { first = first
+                    , second = second
+                    , wildcard = wildcardPart
+                    }
+                )
+                |> Glob.match (Glob.literal "./")
+                |> Glob.capture (Glob.literal "glob-test-cases/")
+                |> Glob.capture (Glob.literal "content1/")
+                |> Glob.capture Glob.wildcard
+        , expected =
+            [ { first = "glob-test-cases/"
+              , second = "content1/"
+              , wildcard = "about.md"
+              }
+            ]
+        }
+    , globTestCase
+        { name = "capture leading ./"
+        , glob =
+            Glob.succeed
+                (\first second wildcardPart ->
+                    { first = first
+                    , second = second
+                    , wildcard = wildcardPart
+                    }
+                )
+                |> Glob.capture (Glob.literal "./glob-test-cases/")
+                |> Glob.capture (Glob.literal "content1/")
+                |> Glob.capture Glob.wildcard
+        , expected =
+            [ { first = "./glob-test-cases/"
+              , second = "content1/"
+              , wildcard = "about.md"
+              }
+            ]
+        }
+    , globTestCase
         { name = "capture"
         , glob =
             Glob.succeed identity
+                |> Glob.capture Glob.wildcard
+                |> Glob.match (Glob.literal ".md")
+        , expected = [ "README" ]
+        }
+    , globTestCase
+        { name = "capture with leading ./"
+        , glob =
+            Glob.succeed identity
+                |> Glob.match (Glob.literal "./")
                 |> Glob.capture Glob.wildcard
                 |> Glob.match (Glob.literal ".md")
         , expected = [ "README" ]

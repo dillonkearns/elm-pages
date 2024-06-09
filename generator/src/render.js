@@ -482,65 +482,81 @@ async function runInternalJob(
   portsFile
 ) {
   try {
-    if (requestToPerform.url === "elm-pages-internal://log") {
-      return [requestHash, await runLogJob(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://read-file") {
-      return [
-        requestHash,
-        await readFileJobNew(requestToPerform, patternsToWatch),
-      ];
-    } else if (requestToPerform.url === "elm-pages-internal://glob") {
-      return [requestHash, await runGlobNew(requestToPerform, patternsToWatch)];
-    } else if (requestToPerform.url === "elm-pages-internal://randomSeed") {
-      return [
-        requestHash,
-        jsonResponse(
-          requestToPerform,
-          crypto.getRandomValues(new Uint32Array(1))[0]
-        ),
-      ];
-    } else if (requestToPerform.url === "elm-pages-internal://now") {
-      return [requestHash, jsonResponse(requestToPerform, Date.now())];
-    } else if (requestToPerform.url === "elm-pages-internal://env") {
-      return [requestHash, await runEnvJob(requestToPerform, patternsToWatch)];
-    } else if (requestToPerform.url === "elm-pages-internal://encrypt") {
-      return [
-        requestHash,
-        await runEncryptJob(requestToPerform, patternsToWatch),
-      ];
-    } else if (requestToPerform.url === "elm-pages-internal://decrypt") {
-      return [
-        requestHash,
-        await runDecryptJob(requestToPerform, patternsToWatch),
-      ];
-    } else if (requestToPerform.url === "elm-pages-internal://write-file") {
-      return [requestHash, await runWriteFileJob(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://sleep") {
-      return [requestHash, await runSleep(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://which") {
-      return [requestHash, await runWhich(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://question") {
-      return [requestHash, await runQuestion(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://shell") {
-      return [requestHash, await runShell(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://stream") {
-      return [requestHash, await runStream(requestToPerform, portsFile)];
-    } else if (requestToPerform.url === "elm-pages-internal://start-spinner") {
-      return [requestHash, runStartSpinner(requestToPerform)];
-    } else if (requestToPerform.url === "elm-pages-internal://stop-spinner") {
-      return [requestHash, runStopSpinner(requestToPerform)];
-    } else {
-      throw `Unexpected internal BackendTask request format: ${kleur.yellow(
-        JSON.stringify(2, null, requestToPerform)
-      )}`;
+    const cwd = path.resolve(...requestToPerform.dir);
+    const quiet = requestToPerform.quiet;
+    const env = { ...process.env, ...requestToPerform.env };
+
+    const context = { cwd, quiet, env };
+    switch (requestToPerform.url) {
+      case "elm-pages-internal://log":
+        return [requestHash, await runLogJob(requestToPerform)];
+      case "elm-pages-internal://read-file":
+        return [
+          requestHash,
+          await readFileJobNew(requestToPerform, patternsToWatch, context),
+        ];
+      case "elm-pages-internal://glob":
+        return [
+          requestHash,
+          await runGlobNew(requestToPerform, patternsToWatch),
+        ];
+      case "elm-pages-internal://randomSeed":
+        return [
+          requestHash,
+          jsonResponse(
+            requestToPerform,
+            crypto.getRandomValues(new Uint32Array(1))[0]
+          ),
+        ];
+      case "elm-pages-internal://now":
+        return [requestHash, jsonResponse(requestToPerform, Date.now())];
+      case "elm-pages-internal://env":
+        return [
+          requestHash,
+          await runEnvJob(requestToPerform, patternsToWatch),
+        ];
+      case "elm-pages-internal://encrypt":
+        return [
+          requestHash,
+          await runEncryptJob(requestToPerform, patternsToWatch),
+        ];
+      case "elm-pages-internal://decrypt":
+        return [
+          requestHash,
+          await runDecryptJob(requestToPerform, patternsToWatch),
+        ];
+      case "elm-pages-internal://write-file":
+        return [requestHash, await runWriteFileJob(requestToPerform, context)];
+      case "elm-pages-internal://sleep":
+        return [requestHash, await runSleep(requestToPerform)];
+      case "elm-pages-internal://which":
+        return [requestHash, await runWhich(requestToPerform)];
+      case "elm-pages-internal://question":
+        return [requestHash, await runQuestion(requestToPerform)];
+      case "elm-pages-internal://shell":
+        return [requestHash, await runShell(requestToPerform)];
+      case "elm-pages-internal://stream":
+        return [
+          requestHash,
+          await runStream(requestToPerform, portsFile, context),
+        ];
+      case "elm-pages-internal://start-spinner":
+        return [requestHash, runStartSpinner(requestToPerform)];
+      case "elm-pages-internal://stop-spinner":
+        return [requestHash, runStopSpinner(requestToPerform)];
+      default:
+        throw `Unexpected internal BackendTask request format: ${kleur.yellow(
+          JSON.stringify(2, null, requestToPerform)
+        )}`;
     }
   } catch (error) {
     sendError(app, error);
   }
 }
 
-async function readFileJobNew(req, patternsToWatch) {
-  const filePath = req.body.args[1];
+async function readFileJobNew(req, patternsToWatch, { cwd }) {
+  // TODO use cwd
+  const filePath = path.resolve(cwd, req.body.args[1]);
   try {
     patternsToWatch.add(filePath);
 
@@ -582,14 +598,11 @@ async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
 
-function runStream(req, portsFile) {
+function runStream(req, portsFile, context) {
   return new Promise(async (resolve) => {
     let metadataResponse = null;
     let lastStream = null;
     try {
-      const cwd = path.resolve(...req.dir);
-      const quiet = req.quiet;
-      const env = { ...process.env, ...req.env };
       const kind = req.body.args[0].kind;
       const parts = req.body.args[0].parts;
       let index = 0;
@@ -600,7 +613,7 @@ function runStream(req, portsFile) {
         const { stream, metadata } = await pipePartToStream(
           lastStream,
           part,
-          { cwd, quiet, env },
+          context,
           portsFile,
           (value) => resolve(jsonResponse(req, value)),
           isLastProcess,
@@ -628,6 +641,8 @@ function runStream(req, portsFile) {
         );
       } else if (kind === "none") {
         if (!lastStream) {
+          // ensure all error handling gets a chance to fire before resolving successfully
+          await tryCallingFunction(metadataResponse);
           resolve(jsonResponse(req, { body: null }));
         } else {
           let resolvedMeta = await tryCallingFunction(metadataResponse);
@@ -742,6 +757,7 @@ function runStream(req, portsFile) {
           const newLocal = fs.createWriteStream(destinationPath);
           newLocal.once("error", (error) => {
             newLocal.close();
+            newLocal.removeAllListeners();
             resolve({ error: error.toString() });
           });
           return {
@@ -762,26 +778,37 @@ function runStream(req, portsFile) {
             retry: part.retries,
             timeout: part.timeoutInMs,
           });
-          let metadata = () => {
-            return {
-              headers: Object.fromEntries(response.headers.entries()),
-              statusCode: response.status,
-              // bodyKind,
-              url: response.url,
-              statusText: response.statusText,
+          if (!isLastProcess && !response.ok) {
+            resolve({
+              error: `HTTP request failed: ${response.status} ${response.statusText}`,
+            });
+          } else {
+            let metadata = () => {
+              return {
+                headers: Object.fromEntries(response.headers.entries()),
+                statusCode: response.status,
+                // bodyKind,
+                url: response.url,
+                statusText: response.statusText,
+              };
             };
-          };
-          return { metadata, stream: response.body };
+            return { metadata, stream: response.body };
+          }
         } else if (part.name === "command") {
           const { command, args, allowNon0Status, output } = part;
           /** @type {'ignore' | 'inherit'} } */
           let letPrint = quiet ? "ignore" : "inherit";
-          let stderrKind = kind === "none" ? letPrint : "pipe";
+          let stderrKind = kind === "none" && isLastProcess ? letPrint : "pipe";
           if (output === "Ignore") {
             stderrKind = "ignore";
           } else if (output === "Print") {
             stderrKind = letPrint;
           }
+
+          const stdoutKind =
+            (output === "InsteadOfStdout" || kind === "none") && isLastProcess
+              ? letPrint
+              : "pipe";
           /**
            * @type {import('node:child_process').ChildProcess}
            */
@@ -789,17 +816,11 @@ function runStream(req, portsFile) {
             stdio: [
               "pipe",
               // if we are capturing stderr instead of stdout, print out stdout with `inherit`
-              output === "InsteadOfStdout" || kind === "none"
-                ? letPrint
-                : "pipe",
+              stdoutKind,
               stderrKind,
             ],
             cwd: cwd,
             env: env,
-          });
-
-          newProcess.once("error", (error) => {
-            resolve({ error: error.toString() });
           });
 
           pipeIfPossible(lastStream, newProcess.stdin);
@@ -811,12 +832,25 @@ function runStream(req, portsFile) {
           } else {
             newStream = newProcess.stdout;
           }
+
+          newProcess.once("error", (error) => {
+            newStream && newStream.end();
+            newProcess.removeAllListeners();
+            resolve({ error: error.toString() });
+          });
           if (isLastProcess) {
             return {
               stream: newStream,
-              metadata: new Promise((resolve) => {
+              metadata: new Promise((resoveMeta) => {
                 newProcess.once("exit", (code) => {
-                  resolve({
+                  if (code !== 0 && !allowNon0Status) {
+                    newStream && newStream.end();
+                    resolve({
+                      error: `Command ${command} exited with code ${code}`,
+                    });
+                  }
+
+                  resoveMeta({
                     exitCode: code,
                   });
                 });
@@ -884,8 +918,6 @@ async function tryCallingFunction(func) {
     return func;
   }
 }
-
-
 
 async function runShell(req) {
   const cwd = path.resolve(...req.dir);
@@ -1080,18 +1112,19 @@ export async function question({ prompt }) {
   });
 }
 
-async function runWriteFileJob(req) {
+async function runWriteFileJob(req, { cwd }) {
   const data = req.body.args[0];
+  const filePath = path.resolve(cwd, data.path);
   try {
-    await fsPromises.mkdir(path.dirname(data.path), { recursive: true });
-    await fsPromises.writeFile(data.path, data.body);
+    await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+    await fsPromises.writeFile(filePath, data.body);
     return jsonResponse(req, null);
   } catch (error) {
     console.trace(error);
     throw {
       title: "BackendTask Error",
       message: `BackendTask.Generator.writeFile failed for file path: ${kleur.yellow(
-        data.path
+        filePath
       )}\n${kleur.red(error.toString())}`,
     };
   }

@@ -160,7 +160,7 @@ import Markdown.Block as Block
 import Markdown.Html
 import Markdown.Renderer exposing (Renderer)
 import Regex
-import Result.Extra as Result
+import Vendored.Result.Extra as Result
 
 
 
@@ -904,8 +904,7 @@ foldResults markdown =
 
         OrderedList { startingIndex, items } ->
             items
-                |> List.map Result.combine
-                |> Result.combine
+                |> Result.combineMap Result.combine
                 |> Result.map
                     (\itms ->
                         OrderedList { startingIndex = startingIndex, items = itms }

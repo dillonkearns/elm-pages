@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+
+## [3.0.15] - 2024-05-02
+
+### Fixed
+
+- Fix issue where command output did not pipe through correctly in the middle of a `Stream`.
+
+## [3.0.14] - 2024-04-29
+
+### Fixed
+
+- Removed invalid internal imports from generated `Main.elm` file.
+- Updated NPM dependencies.
+
+
+## [3.0.13] - 2024-04-28
+
+### Added
+
+- Added `SKIP_ELM_CODEGEN=true` option to skip `elm-codegen install` on `elm-pages run` (scripts) to allowing speeding up script execution by a few seconds.
+- Other support for `10.1.0` release of the `elm-pages` Elm package (see `CHANGELOG-ELM.md`).
+
 ## [3.0.12] - 2024-01-10
 
 ### Fixed

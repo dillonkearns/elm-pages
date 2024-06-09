@@ -396,7 +396,7 @@ async function compileElmForScript(elmModulePath) {
   }
   // await codegen.generate("");
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
-  if (fs.existsSync("./codegen/")) {
+  if (fs.existsSync("./codegen/") && process.env.SKIP_ELM_CODEGEN !== "true") {
     await runElmCodegenInstall();
   }
 

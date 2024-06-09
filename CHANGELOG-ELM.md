@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [10.1.0] - 2024-04-28
+
+### Added
+
+- `BackendTask.Stream` API for creating and running/reading a pipeline of streams through NodeJS's native Stream APIs, including executing shell commands.
+- `Pages.Script.command` and `Pages.Script.exec` functions for running shell commands (simpler verison of the command helpers in `BackendTask.Stream`, which allow piping input to/from the commands, and piping multiple commands together).
+- `BackendTask.Glob.captureStats` for capturing `FileStats` for `Glob` matches. Can be used to capture file metadata including size, created time, last modified time, etc.
+- `BackendTask.Glob.fromString` and `BackendTask.Glob.fromStringWithOptions` allow capturing matching file paths directly from a string pattern. Useful for use with executing shell commands since there is no glob expansion in the command API.
+- `Pages.Script.Spinner` module for executing `BackendTask`s with loading spinners in `elm-pages` scripts.
+- `BackendTask.Do` module with helpers for using continuation-style in scripts or `BackendTask` definitions.
+- `BackendTask` now carries context that effects verbosity (`quiet`), working directory (`inDir`),  and environment variables (`withEnv`).
+- New functions in `BackendTask` module: `do`, `doEach`, `failIf`,  `sequence`
+- New functions in `Pages.Script` module: `doThen`, `question`, `sleep`, `which`, `expectWhich`.
+
+
+## Fixed
+
+- Redirecting to an external URL from an `action` now redirects correctly.
+- Fixed error when Glob pattern had leading `./` (see [#469](https://github.com/dillonkearns/elm-pages/pull/469))
+- Fixed `FilesAndFolders` option in `Glob` module, (see [#461](https://github.com/dillonkearns/elm-pages/pull/461))
+
 ## [10.0.3] - 2024-01-10
 
 ### Fixed

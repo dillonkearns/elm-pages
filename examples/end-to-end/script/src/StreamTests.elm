@@ -100,6 +100,23 @@ b =
     2
 """
                 )
+        , Stream.fromString "module A\na=0"
+            |> Stream.pipe (Stream.command "elm-format" [ "--stdin" ])
+            |> Stream.pipe (Stream.fileWrite "formatted-elm.txt")
+            |> Stream.run
+            |> BackendTask.quiet
+            |> BackendTask.andThen
+                (\() ->
+                    Stream.fileRead "formatted-elm.txt"
+                        |> Stream.read
+                        |> try
+                )
+            |> test "write to file"
+                (\{ metadata, body } ->
+                    body
+                        |> Expect.equal
+                            "module A exposing (a)\n\n\na =\n    0\n"
+                )
         , Stream.fileRead "elm.json"
             |> Stream.pipe
                 (Stream.command "jq"
@@ -160,6 +177,20 @@ b =
             |> try
             |> expectError "HTTP FatalError message"
                 "BadStatus: 404 Not Found"
+        , Stream.fromString "Hello!"
+            |> Stream.pipe
+                (Stream.httpWithInput
+                    { url = "https://jsonplaceholder.typicode.com/posts/124"
+                    , timeoutInMs = Nothing
+                    , retries = Nothing
+                    , headers = []
+                    , method = "POST"
+                    }
+                )
+            |> Stream.pipe Stream.stdout
+            |> Stream.run
+            |> expectError "HTTP error in the middle of a stream"
+                "HTTP request failed: 404 Not Found"
         , Stream.fromString "This is input..."
             |> Stream.pipe
                 (Stream.customTransformWithMeta
@@ -203,6 +234,12 @@ b =
                 (\() ->
                     Expect.pass
                 )
+        , Script.exec "does-not-exist-exec" []
+            |> expectError "exec with non-0 fails"
+                "Error: spawn does-not-exist-exec ENOENT"
+        , Script.command "does-not-exist-command" []
+            |> expectError "command with non-0 fails"
+                "Error: spawn does-not-exist-command ENOENT"
         ]
 
 

@@ -66,12 +66,14 @@ frontmatter frontmatterDecoder =
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
-    import Decode exposing (Decoder)
+    import FatalError exposing (FatalError)
+    import Json.Decode as Decode exposing (Decoder)
 
-    blogPost : BackendTask BlogPostMetadata
+    blogPost : BackendTask FatalError BlogPostMetadata
     blogPost =
         File.bodyWithFrontmatter blogPostDecoder
             "blog/hello-world.md"
+            |> BackendTask.allowFatal
 
     type alias BlogPostMetadata =
         { body : String
@@ -102,11 +104,13 @@ It's common to parse the body with a markdown parser or other format.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
-    import Decode exposing (Decoder)
+    import FatalError exposing (FatalError)
     import Html exposing (Html)
+    import Json.Decode as Decode
 
     example :
         BackendTask
+            FatalError
             { title : String
             , body : List (Html msg)
             }
@@ -126,6 +130,7 @@ It's common to parse the body with a markdown parser or other format.
                     )
             )
             "foo.md"
+                |> BackendTask.allowFatal
 
     markdownToView :
         String
@@ -191,13 +196,15 @@ just the metadata.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
-    import Decode exposing (Decoder)
+    import FatalError exposing (FatalError)
+    import Json.Decode as Decode exposing (Decoder)
 
-    blogPost : BackendTask BlogPostMetadata
+    blogPost : BackendTask FatalError BlogPostMetadata
     blogPost =
         File.onlyFrontmatter
             blogPostDecoder
             "blog/hello-world.md"
+            |> BackendTask.allowFatal
 
     type alias BlogPostMetadata =
         { title : String
@@ -281,10 +288,13 @@ Hey there! This is my first post :)
 ```
 
     import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
+    import FatalError exposing (FatalError)
 
-    data : BackendTask String
+    data : BackendTask FatalError String
     data =
-        bodyWithoutFrontmatter "blog/hello-world.md"
+        File.bodyWithoutFrontmatter "blog/hello-world.md"
+            |> BackendTask.allowFatal
 
 Then data will yield the value `"Hey there! This is my first post :)"`.
 
@@ -314,10 +324,12 @@ You could read a file called `hello.txt` in your root project directory like thi
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FatalError exposing (FatalError)
 
-    elmJsonFile : BackendTask String
+    elmJsonFile : BackendTask FatalError String
     elmJsonFile =
         File.rawFile "hello.txt"
+            |> BackendTask.allowFatal
 
 -}
 rawFile : String -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } String
@@ -331,8 +343,10 @@ The Decode will strip off any unused JSON data.
 
     import BackendTask exposing (BackendTask)
     import BackendTask.File as File
+    import FatalError exposing (FatalError)
+    import Json.Decode as Decode
 
-    sourceDirectories : BackendTask (List String)
+    sourceDirectories : BackendTask FatalError (List String)
     sourceDirectories =
         File.jsonFile
             (Decode.field
@@ -340,6 +354,7 @@ The Decode will strip off any unused JSON data.
                 (Decode.list Decode.string)
             )
             "elm.json"
+            |> BackendTask.allowFatal
 
 -}
 jsonFile :

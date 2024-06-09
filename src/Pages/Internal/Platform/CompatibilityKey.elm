@@ -3,4 +3,4 @@ module Pages.Internal.Platform.CompatibilityKey exposing (currentCompatibilityKe
 
 currentCompatibilityKey : Int
 currentCompatibilityKey =
-    21
+    22
