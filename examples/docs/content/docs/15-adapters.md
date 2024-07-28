@@ -177,3 +177,7 @@ function isServerSide(route) {
   );
 }
 ```
+
+## Other adapters
+
+See the [Community Experiments for v3 Adapters discussion on Github](https://github.com/dillonkearns/elm-pages/discussions/378) for other adapters.
