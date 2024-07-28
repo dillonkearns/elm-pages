@@ -1,6 +1,6 @@
 module BackendTask.File exposing
     ( bodyWithFrontmatter, bodyWithoutFrontmatter, onlyFrontmatter
-    , jsonFile, rawFile
+    , jsonFile, rawFile, binaryFile
     , FileReadError(..)
     )
 
@@ -40,7 +40,7 @@ plain old JSON in Elm.
 
 ## Reading Files Without Frontmatter
 
-@docs jsonFile, rawFile
+@docs jsonFile, rawFile, binaryFile
 
 
 ## FatalErrors
@@ -52,6 +52,8 @@ plain old JSON in Elm.
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
+import Bytes exposing (Bytes)
+import Bytes.Decode
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import TerminalText
@@ -337,6 +339,39 @@ rawFile filePath =
     read filePath (Decode.field "rawFile" Decode.string)
 
 
+{-| Get the raw file content as `Bytes`.
+
+You could read a file called `hello.jpg` in your root project directory like this:
+
+    import BackendTask exposing (BackendTask)
+    import BackendTask.File as File
+    import Bytes exposing (Bytes)
+
+    elmBinaryFile : BackendTask Bytes
+    elmBinaryFile =
+        File.binaryFile "hello.jpg"
+
+-}
+binaryFile : String -> BackendTask { fatal : FatalError, recoverable : FileReadError decoderError } Bytes
+binaryFile filePath =
+    BackendTask.Internal.Request.request
+        { name = "read-file-binary"
+        , body = BackendTask.Http.stringBody "" filePath
+        , expect =
+            Bytes.Decode.signedInt32 Bytes.BE
+                |> Bytes.Decode.andThen
+                    (\length ->
+                        if length < 0 then
+                            Bytes.Decode.fail
+
+                        else
+                            Bytes.Decode.bytes length
+                    )
+                |> BackendTask.Http.expectBytes
+        }
+        |> BackendTask.mapError (\_ -> fileNotFound filePath)
+
+
 {-| Read a file as JSON.
 
 The Decode will strip off any unused JSON data.
@@ -410,23 +445,25 @@ read filePath decoder =
         |> BackendTask.andThen BackendTask.fromResult
 
 
-errorDecoder :
+errorDecoder : String -> Decoder { fatal : FatalError, recoverable : FileReadError decoding }
+errorDecoder filePath =
+    Decode.succeed (fileNotFound filePath)
+
+
+fileNotFound :
     String
     ->
-        Decoder
-            { fatal : FatalError
-            , recoverable : FileReadError decoding
-            }
-errorDecoder filePath =
-    Decode.succeed
-        (FatalError.recoverable
-            { title = "File Doesn't Exist"
-            , body =
-                [ TerminalText.text "Couldn't find file at path `"
-                , TerminalText.yellow filePath
-                , TerminalText.text "`"
-                ]
-                    |> TerminalText.toString
-            }
-            FileDoesntExist
-        )
+        { fatal : FatalError
+        , recoverable : FileReadError decoding
+        }
+fileNotFound filePath =
+    FatalError.recoverable
+        { title = "File Doesn't Exist"
+        , body =
+            [ TerminalText.text "Couldn't find file at path `"
+            , TerminalText.yellow filePath
+            , TerminalText.text "`"
+            ]
+                |> TerminalText.toString
+        }
+        FileDoesntExist
