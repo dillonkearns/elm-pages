@@ -5,6 +5,7 @@ module Pages.Script exposing
     , command, exec
     , log, sleep, doThen, which, expectWhich, question
     , Error(..)
+    , StatefulScript, stateful, statefulWithCliOptions, exit
     )
 
 {-| An elm-pages Script is a way to execute an `elm-pages` `BackendTask`.
@@ -38,13 +39,17 @@ Read more about using the `elm-pages` CLI to run (or bundle) scripts, plus a bri
 
 @docs Error
 
+
+## Stateful scripts
+
+@docs StatefulScript, stateful, statefulWithCliOptions, exit
+
 -}
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
 import BackendTask.Internal.Request
 import BackendTask.Stream as Stream exposing (defaultCommandOptions)
-import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import FatalError exposing (FatalError)
 import Json.Decode as Decode
@@ -55,7 +60,13 @@ import Pages.Internal.Script
 {-| The type for your `run` function that can be executed by `elm-pages run`.
 -}
 type alias Script =
-    Pages.Internal.Script.Script
+    StatefulScript () Never
+
+
+{-| The type for your `run` function that can be executed by `elm-pages run` if you need a stateful script.
+-}
+type alias StatefulScript model msg =
+    Pages.Internal.Script.Script model msg
 
 
 {-| The recoverable error type for file writes. You can use `BackendTask.allowFatal` if you want to allow the program to crash
@@ -146,16 +157,7 @@ log message =
 -}
 withoutCliOptions : BackendTask FatalError () -> Script
 withoutCliOptions execute =
-    Pages.Internal.Script.Script
-        (\_ ->
-            Program.config
-                |> Program.add
-                    (OptionsParser.build ())
-                |> Program.mapConfig
-                    (\() ->
-                        execute
-                    )
-        )
+    withCliOptions Program.config (\_ -> execute)
 
 
 {-| Same as [`withoutCliOptions`](#withoutCliOptions), but allows you to define a CLI Options Parser so the user can
@@ -168,10 +170,69 @@ Read more at <https://elm-pages.com/docs/elm-pages-scripts/#adding-command-line-
 -}
 withCliOptions : Program.Config cliOptions -> (cliOptions -> BackendTask FatalError ()) -> Script
 withCliOptions config execute =
+    statefulWithCliOptions config
+        (\{ attempt } cliOptions ->
+            { init =
+                ( ()
+                , execute cliOptions
+                    |> BackendTask.andThen (\_ -> exit 0)
+                    |> attempt
+                )
+            , update = \_ _ -> ( (), Cmd.none )
+            , subscriptions = \_ -> Sub.none
+            }
+        )
+
+
+stateful :
+    ({ perform : BackendTask Never msg -> Cmd msg
+     , attempt : BackendTask FatalError msg -> Cmd msg
+     }
+     ->
+        { init : ( model, Cmd msg )
+        , update : msg -> model -> ( model, Cmd msg )
+        , subscriptions : model -> Sub msg
+        }
+    )
+    -> StatefulScript model msg
+stateful execute =
+    statefulWithCliOptions Program.config (\perform _ -> execute perform)
+
+
+statefulWithCliOptions :
+    Program.Config cliOptions
+    ->
+        ({ perform : BackendTask Never msg -> Cmd msg
+         , attempt : BackendTask FatalError msg -> Cmd msg
+         }
+         -> cliOptions
+         ->
+            { init : ( model, Cmd msg )
+            , update : msg -> model -> ( model, Cmd msg )
+            , subscriptions : model -> Sub msg
+            }
+        )
+    -> StatefulScript model msg
+statefulWithCliOptions config program =
     Pages.Internal.Script.Script
-        (\_ ->
+        (\_ perform ->
             config
-                |> Program.mapConfig execute
+                |> Program.mapConfig
+                    (\cliOptions ->
+                        let
+                            tea :
+                                { init : ( model, Cmd msg )
+                                , update : msg -> model -> ( model, Cmd msg )
+                                , subscriptions : model -> Sub msg
+                                }
+                            tea =
+                                program perform cliOptions
+                        in
+                        { init = tea.init
+                        , update = tea.update
+                        , subscriptions = tea.subscriptions
+                        }
+                    )
         )
 
 
@@ -204,6 +265,18 @@ sleep int =
                 )
         , expect =
             BackendTask.Http.expectJson (Decode.null ())
+        }
+
+
+{-| Stops the current script, the given number is the exit code.
+-}
+exit : Int -> BackendTask error msg
+exit code =
+    BackendTask.Internal.Request.request
+        { name = "exit"
+        , body = BackendTask.Http.jsonBody (Encode.int code)
+        , expect =
+            BackendTask.Http.expectJson (Decode.fail "This function doesn't return")
         }
 
 
