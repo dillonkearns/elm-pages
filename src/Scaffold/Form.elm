@@ -28,6 +28,7 @@ with the wiring form a `Form`.
 import Cli.Option
 import Elm
 import Elm.Annotation as Type
+import Elm.Arg
 import Elm.Declare
 import Elm.Op
 import List.Extra
@@ -55,113 +56,111 @@ type alias Context =
     }
 
 
-formWithFields : Bool -> List ( String, Kind ) -> ({ formState : { errors : Elm.Expression, submitting : Elm.Expression, submitAttempted : Elm.Expression, data : Elm.Expression, expression : Elm.Expression }, params : List { name : String, kind : Kind, param : Elm.Expression } } -> Elm.Expression) -> { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+formWithFields : Bool -> List ( String, Kind ) -> ({ formState : { errors : Elm.Expression, submitting : Elm.Expression, submitAttempted : Elm.Expression, data : Elm.Expression, expression : Elm.Expression }, params : List { name : String, kind : Kind, param : Elm.Expression } } -> Elm.Expression) -> Elm.Declare.Value
 formWithFields elmCssView fields viewFn =
-    Elm.Declare.function "form"
-        []
-        (\_ ->
-            fields
-                |> List.foldl
-                    (\( fieldName, kind ) chain ->
-                        chain
-                            |> Elm.Op.pipe
-                                (formField fieldName
-                                    (case kind of
-                                        FieldText ->
-                                            formFieldText
-                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
+    Elm.Declare.value "form"
+        (fields
+            |> List.foldl
+                (\( fieldName, kind ) chain ->
+                    chain
+                        |> Elm.Op.pipe
+                            (formField fieldName
+                                (case kind of
+                                    FieldText ->
+                                        formFieldText
+                                            |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
 
-                                        FieldInt ->
-                                            formFieldInt { invalid = \_ -> Elm.string "" }
-                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
+                                    FieldInt ->
+                                        formFieldInt { invalid = \_ -> Elm.string "" }
+                                            |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
 
-                                        FieldTextarea ->
-                                            formFieldText
-                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
-                                                |> Elm.Op.pipe
-                                                    (formFieldTextarea
-                                                        { rows = Elm.nothing
-                                                        , cols = Elm.nothing
-                                                        }
-                                                    )
-
-                                        FieldFloat ->
-                                            formFieldFloat { invalid = \_ -> Elm.string "" }
-                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
-
-                                        FieldTime ->
-                                            formFieldTime { invalid = \_ -> Elm.string "" }
-                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
-
-                                        FieldDate ->
-                                            formFieldDate { invalid = \_ -> Elm.string "" }
-                                                |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
-
-                                        FieldCheckbox ->
-                                            formFieldCheckbox
-                                    )
-                                )
-                    )
-                    (Elm.function (List.map fieldToParam fields)
-                        (\params ->
-                            Elm.record
-                                [ ( "combine"
-                                  , params
-                                        |> List.foldl
-                                            (\fieldExpression chain ->
-                                                chain
-                                                    |> Elm.Op.pipe (validationAndMap fieldExpression)
-                                            )
-                                            (Elm.val "ParsedForm"
-                                                |> Elm.Op.pipe validationSucceed
-                                            )
-                                  )
-                                , ( "view"
-                                  , Elm.fn ( "formState", Nothing )
-                                        (\formState ->
-                                            let
-                                                mappedParams : List { name : String, kind : Kind, param : Elm.Expression }
-                                                mappedParams =
-                                                    params
-                                                        |> List.Extra.zip fields
-                                                        |> List.map
-                                                            (\( ( name, kind ), param ) ->
-                                                                { name = name
-                                                                , kind = kind
-                                                                , param = param
-                                                                }
-                                                            )
-                                            in
-                                            viewFn
-                                                { formState =
-                                                    { errors = formState |> Elm.get "errors"
-                                                    , submitting = formState |> Elm.get "submitting"
-                                                    , submitAttempted = formState |> Elm.get "submitAttempted"
-                                                    , data = formState |> Elm.get "data"
-                                                    , expression = formState
+                                    FieldTextarea ->
+                                        formFieldText
+                                            |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
+                                            |> Elm.Op.pipe
+                                                (formFieldTextarea
+                                                    { rows = Elm.nothing
+                                                    , cols = Elm.nothing
                                                     }
-                                                , params = mappedParams
-                                                }
-                                        )
-                                  )
-                                ]
-                        )
-                        |> Elm.Op.pipe formInit
-                    )
-                |> Elm.withType
-                    (Type.namedWith [ "Form" ]
-                        (if elmCssView then
-                            "StyledHtmlForm"
+                                                )
 
-                         else
-                            "HtmlForm"
-                        )
-                        [ Type.string
-                        , Type.named [] "ParsedForm"
-                        , Type.var "input"
-                        , Type.namedWith [ "PagesMsg" ] "PagesMsg" [ Type.named [] "Msg" ]
-                        ]
+                                    FieldFloat ->
+                                        formFieldFloat { invalid = \_ -> Elm.string "" }
+                                            |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
+
+                                    FieldTime ->
+                                        formFieldTime { invalid = \_ -> Elm.string "" }
+                                            |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
+
+                                    FieldDate ->
+                                        formFieldDate { invalid = \_ -> Elm.string "" }
+                                            |> Elm.Op.pipe (formFieldRequired (Elm.string "Required"))
+
+                                    FieldCheckbox ->
+                                        formFieldCheckbox
+                                )
+                            )
+                )
+                (Elm.function (List.map fieldToParam fields)
+                    (\params ->
+                        Elm.record
+                            [ ( "combine"
+                              , params
+                                    |> List.foldl
+                                        (\fieldExpression chain ->
+                                            chain
+                                                |> Elm.Op.pipe (validationAndMap fieldExpression)
+                                        )
+                                        (Elm.val "ParsedForm"
+                                            |> Elm.Op.pipe validationSucceed
+                                        )
+                              )
+                            , ( "view"
+                              , Elm.fn (Elm.Arg.var "formState")
+                                    (\formState ->
+                                        let
+                                            mappedParams : List { name : String, kind : Kind, param : Elm.Expression }
+                                            mappedParams =
+                                                params
+                                                    |> List.Extra.zip fields
+                                                    |> List.map
+                                                        (\( ( name, kind ), param ) ->
+                                                            { name = name
+                                                            , kind = kind
+                                                            , param = param
+                                                            }
+                                                        )
+                                        in
+                                        viewFn
+                                            { formState =
+                                                { errors = formState |> Elm.get "errors"
+                                                , submitting = formState |> Elm.get "submitting"
+                                                , submitAttempted = formState |> Elm.get "submitAttempted"
+                                                , data = formState |> Elm.get "data"
+                                                , expression = formState
+                                                }
+                                            , params = mappedParams
+                                            }
+                                    )
+                              )
+                            ]
                     )
+                    |> Elm.Op.pipe formInit
+                )
+            |> Elm.withType
+                (Type.namedWith [ "Form" ]
+                    (if elmCssView then
+                        "StyledHtmlForm"
+
+                     else
+                        "HtmlForm"
+                    )
+                    [ Type.string
+                    , Type.named [] "ParsedForm"
+                    , Type.var "input"
+                    , Type.namedWith [ "PagesMsg" ] "PagesMsg" [ Type.named [] "Msg" ]
+                    ]
+                )
         )
 
 
@@ -246,29 +245,27 @@ provide { fields, view, elmCssView } =
 
     else
         let
-            form : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+            form : Elm.Declare.Value
             form =
                 formWithFields elmCssView fields view
 
-            formHandlersDeclaration : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+            formHandlersDeclaration : Elm.Declare.Value
             formHandlersDeclaration =
                 -- TODO customizable formHandlers name?
-                Elm.Declare.function "formHandlers"
-                    []
-                    (\_ ->
-                        initCombined (Elm.val "Action") (form.call [])
-                            |> Elm.withType
-                                (Type.namedWith [ "Form", "Handler" ]
-                                    "Handler"
-                                    [ Type.string
-                                    , Type.named [] "Action"
-                                    ]
-                                )
+                Elm.Declare.value "formHandlers"
+                    (initCombined (Elm.val "Action") form.value
+                        |> Elm.withType
+                            (Type.namedWith [ "Form", "Handler" ]
+                                "Handler"
+                                [ Type.string
+                                , Type.named [] "Action"
+                                ]
+                            )
                     )
         in
         Just
-            { formHandlers = formHandlersDeclaration.call []
-            , form = form.call []
+            { formHandlers = formHandlersDeclaration.value
+            , form = form.value
             , declarations =
                 [ formWithFields elmCssView fields view |> .declaration
                 , Elm.customType "Action"

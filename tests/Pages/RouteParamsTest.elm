@@ -256,4 +256,5 @@ toString : Elm.Variant -> String
 toString variants =
     Elm.customType "Route" [ variants ]
         |> Elm.ToString.declaration
-        |> .body
+        |> List.map .body
+        |> String.join "\n\n"
