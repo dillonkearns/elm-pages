@@ -34,6 +34,7 @@ async function main() {
   program
     .command("build")
     .option("--debug", "Skip terser and run elm make with --debug")
+    .option("--no-terser", "Skip terser")
     .option(
       "--base <basePath>",
       "build site to be served under a base path",

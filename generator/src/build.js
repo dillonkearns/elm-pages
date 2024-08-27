@@ -422,7 +422,7 @@ async function compileElm(options) {
     path.join(process.cwd(), "./elm-stuff/elm-pages/client")
   );
 
-  if (!options.debug) {
+  if (options.terser && !options.debug) {
     await runTerser(fullOutputPath);
   }
 }
