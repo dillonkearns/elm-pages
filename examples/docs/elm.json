@@ -37,7 +37,7 @@
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.0.1",
             "matheus23/elm-default-tailwind-modules": "4.0.1",
-            "mdgriffith/elm-codegen": "4.1.1",
+            "mdgriffith/elm-codegen": "5.0.0",
             "miniBill/elm-codec": "2.1.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "pablohirafuji/elm-syntax-highlight": "3.5.0",

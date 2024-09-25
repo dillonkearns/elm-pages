@@ -50,6 +50,7 @@ import Cli.Option as Option
 import Cli.Validate
 import Elm
 import Elm.Annotation
+import Elm.Arg
 import Elm.Declare
 import Elm.Op
 import Pages.Internal.RoutePattern as RoutePattern
@@ -541,21 +542,16 @@ userFunction :
     -> { path : String, body : String }
 userFunction moduleName definitions =
     let
-        viewFn :
-            { declaration : Elm.Declaration
-            , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-            , value : List String -> Elm.Expression
-            }
+        viewFn : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression)
         viewFn =
             case definitions.localState of
                 Just _ ->
                     Elm.Declare.fn3 "view"
-                        ( "app", Just appType )
-                        ( "shared"
-                        , Just (Elm.Annotation.named [ "Shared" ] "Model")
+                        (Elm.Arg.varWith "app" appType)
+                        (Elm.Arg.varWith "shared"
+                            (Elm.Annotation.named [ "Shared" ] "Model")
                         )
-                        ( "model", Just (Elm.Annotation.named [] "Model") )
+                        (Elm.Arg.varWith "model" (Elm.Annotation.named [] "Model"))
                         (\app shared model ->
                             definitions.view app shared model
                                 |> Elm.withType
@@ -571,17 +567,12 @@ userFunction moduleName definitions =
 
                 Nothing ->
                     let
-                        viewDeclaration :
-                            { declaration : Elm.Declaration
-                            , call : Elm.Expression -> Elm.Expression -> Elm.Expression
-                            , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                            , value : List String -> Elm.Expression
-                            }
+                        viewDeclaration : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
                         viewDeclaration =
                             Elm.Declare.fn2 "view"
-                                ( "app", Just appType )
-                                ( "shared"
-                                , Just (Elm.Annotation.named [ "Shared" ] "Model")
+                                (Elm.Arg.varWith "app" appType)
+                                (Elm.Arg.varWith "shared"
+                                    (Elm.Annotation.named [ "Shared" ] "Model")
                                 )
                                 (\app shared ->
                                     definitions.view app shared Elm.unit
@@ -595,33 +586,30 @@ userFunction moduleName definitions =
                                                 ]
                                             )
                                 )
+
+                        viewDeclarationExternal : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression)
+                        viewDeclarationExternal =
+                            Elm.Declare.fn3 "view"
+                                (Elm.Arg.varWith "app" appType)
+                                (Elm.Arg.varWith "shared"
+                                    (Elm.Annotation.named [ "Shared" ] "Model")
+                                )
+                                (Elm.Arg.varWith "model" (Elm.Annotation.named [] "Model"))
+                                (\_ _ _ ->
+                                    Elm.unit
+                                )
                     in
                     { declaration = viewDeclaration.declaration
                     , call = \app shared _ -> viewDeclaration.call app shared
-                    , callFrom = \a _ c d -> viewDeclaration.callFrom a c d
                     , value = viewDeclaration.value
+                    , internal = viewDeclarationExternal.internal
                     }
 
         localDefinitions :
             Maybe
-                { updateFn :
-                    { declaration : Elm.Declaration
-                    , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                    , value : List String -> Elm.Expression
-                    }
-                , initFn :
-                    { declaration : Elm.Declaration
-                    , call : Elm.Expression -> Elm.Expression -> Elm.Expression
-                    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                    , value : List String -> Elm.Expression
-                    }
-                , subscriptionsFn :
-                    { declaration : Elm.Declaration
-                    , call : Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                    , callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression
-                    , value : List String -> Elm.Expression
-                    }
+                { updateFn : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression)
+                , initFn : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
+                , subscriptionsFn : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression -> Elm.Expression)
                 , state : State
                 }
         localDefinitions =
@@ -630,10 +618,10 @@ userFunction moduleName definitions =
                     (\localState ->
                         { updateFn =
                             Elm.Declare.fn4 "update"
-                                ( "app", Just appType )
-                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
-                                ( "msg", Just (Elm.Annotation.named [] "Msg") )
-                                ( "model", Just (Elm.Annotation.named [] "Model") )
+                                (Elm.Arg.varWith "app" appType)
+                                (Elm.Arg.varWith "shared" (Elm.Annotation.named [ "Shared" ] "Model"))
+                                (Elm.Arg.varWith "msg" (Elm.Annotation.named [] "Msg"))
+                                (Elm.Arg.varWith "model" (Elm.Annotation.named [] "Model"))
                                 (\app shared msg model ->
                                     localState.update app shared msg model
                                         |> Elm.withType
@@ -644,8 +632,8 @@ userFunction moduleName definitions =
                                 )
                         , initFn =
                             Elm.Declare.fn2 "init"
-                                ( "app", Just appType )
-                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
+                                (Elm.Arg.varWith "app" appType)
+                                (Elm.Arg.varWith "shared" (Elm.Annotation.named [ "Shared" ] "Model"))
                                 (\shared app ->
                                     localState.init app shared
                                         |> Elm.withType
@@ -657,10 +645,10 @@ userFunction moduleName definitions =
                         , subscriptionsFn =
                             Elm.Declare.fn4
                                 "subscriptions"
-                                ( "routeParams", "RouteParams" |> Elm.Annotation.named [] |> Just )
-                                ( "path", Elm.Annotation.namedWith [ "UrlPath" ] "UrlPath" [] |> Just )
-                                ( "shared", Just (Elm.Annotation.named [ "Shared" ] "Model") )
-                                ( "model", localType "Model" |> Just )
+                                (Elm.Arg.varWith "routeParams" (Elm.Annotation.named [] "RouteParams"))
+                                (Elm.Arg.varWith "path" (Elm.Annotation.named [ "UrlPath" ] "UrlPath"))
+                                (Elm.Arg.varWith "shared" (Elm.Annotation.named [ "Shared" ] "Model"))
+                                (Elm.Arg.varWith "model" (localType "Model"))
                                 (\routeParams path shared model ->
                                     localState.subscriptions routeParams path shared model
                                         |> Elm.withType (Elm.Annotation.namedWith [] "Sub" [ localType "Msg" ])
@@ -669,7 +657,7 @@ userFunction moduleName definitions =
                         }
                     )
 
-        dataFn : { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        dataFn : Elm.Declare.Function (List Elm.Expression -> Elm.Expression)
         dataFn =
             case definitions.action of
                 Pages Nothing ->
@@ -743,7 +731,7 @@ userFunction moduleName definitions =
                                             Elm.unit
                                 )
 
-        actionFn : Maybe { declaration : Elm.Declaration, call : List Elm.Expression -> Elm.Expression, callFrom : List String -> List Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        actionFn : Maybe (Elm.Declare.Function (List Elm.Expression -> Elm.Expression))
         actionFn =
             case definitions.action of
                 Action action_ ->
@@ -778,10 +766,10 @@ userFunction moduleName definitions =
                                     (\_ -> justPagesExpression)
                             )
 
-        headFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        headFn : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
         headFn =
             Elm.Declare.fn "head"
-                ( "app", Just appType )
+                (Elm.Arg.varWith "app" appType)
                 (definitions.head
                     >> Elm.withType
                         (Elm.Annotation.list
