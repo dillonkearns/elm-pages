@@ -1,5 +1,6 @@
 import * as path from "path";
 import * as fs from "fs";
+import { Readable } from "stream";
 import { default as which } from "which";
 import * as chokidar from "chokidar";
 import { URL } from "url";
@@ -10,6 +11,7 @@ import {
 } from "./compile-elm.js";
 import * as http from "http";
 import * as https from "https";
+import { createProxyMiddleware } from "http-proxy-middleware";
 import * as codegen from "./codegen.js";
 import * as kleur from "kleur/colors";
 import { default as serveStatic } from "serve-static";
@@ -33,7 +35,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * @param {{ port: string; base: string; https: boolean; debug: boolean; }} options
+ * @param {{ port: string; base: string; https: boolean; debug: boolean; fallbackUrl?: string; }} options
  */
 export async function start(options) {
   console.error = function (...messages) {
@@ -498,6 +500,18 @@ export async function start(options) {
         pathname,
         async function (renderResult) {
           const is404 = renderResult.is404;
+          if (is404 && options.fallbackUrl) {
+            createProxyMiddleware({
+              target: options.fallbackUrl,
+              buffer: new Readable({
+                read() {
+                  this.push(body);
+                  this.push(null);
+                },
+              }),
+            })(req, res, next);
+            return;
+          }
           switch (renderResult.kind) {
             case "bytes": {
               res.writeHead(is404 ? 404 : renderResult.statusCode, {
