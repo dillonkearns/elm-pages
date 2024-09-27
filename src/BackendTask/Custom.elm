@@ -126,6 +126,7 @@ import Date
 import FatalError exposing (FatalError)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
+import Pages.StaticHttpRequest
 import TerminalText
 import Time
 
@@ -331,7 +332,6 @@ request :
     }
     -> BackendTask { fatal : FatalError, recoverable : Error } a
 request { body, expect } =
-    -- elm-review: known-unoptimized-recursion
     BackendTask.Http.request
         { url = "elm-pages-internal://port"
         , method = "GET"
@@ -343,8 +343,6 @@ request { body, expect } =
         expect
         |> BackendTask.onError
             (\error ->
-                -- TODO avoid crash here, this should be handled as an internal error
-                --request params
                 case error.recoverable of
                     BackendTask.Http.BadBody (Just jsonError) _ ->
                         { recoverable = DecodeError jsonError
@@ -353,8 +351,5 @@ request { body, expect } =
                             |> BackendTask.fail
 
                     _ ->
-                        { recoverable = Error
-                        , fatal = error.fatal
-                        }
-                            |> BackendTask.fail
+                        Pages.StaticHttpRequest.InternalError error.fatal
             )
