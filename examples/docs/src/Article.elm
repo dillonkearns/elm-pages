@@ -18,7 +18,7 @@ type alias BlogPost =
     }
 
 
-blogPostsGlob : BackendTask.BackendTask error (List { filePath : String, slug : String })
+blogPostsGlob : BackendTask.BackendTask error (List BlogPost)
 blogPostsGlob =
     Glob.succeed BlogPost
         |> Glob.captureFilePath
