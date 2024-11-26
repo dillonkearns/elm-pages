@@ -3,7 +3,6 @@
   "type": "module",
   "version": "3.0.17",
   "homepage": "https://elm-pages.com",
-  "moduleResolution": "node",
   "description": "Hybrid Elm framework with full-stack and static routes.",
   "main": "index.js",
   "scripts": {
@@ -50,12 +49,17 @@
     "which": "^5.0.0"
   },
   "devDependencies": {
+    "@types/busboy": "~1.5.4",
+    "@types/connect": "~3.4.38",
+    "@types/cookie-signature": "~1.1.2",
     "@types/cross-spawn": "^6.0.6",
     "@types/fs-extra": "^11.0.4",
+    "@types/jsesc": "~3.0.3",
     "@types/make-fetch-happen": "^10.0.4",
     "@types/micromatch": "^4.0.9",
     "@types/node": "^22.10.0",
     "@types/serve-static": "^1.15.7",
+    "@types/which": "~3.0.4",
     "cypress": "^13.16.0",
     "elm-codegen": "^0.6.1",
     "elm-optimize-level-2": "^0.3.5",
