@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
     "types": ["node"],
-    "moduleResolution": "node",
+    "module": "NodeNext",
+    "isolatedModules": true,
     "checkJs": true,
     "allowJs": true,
+    "noEmit": true,
     "strict": true,
-    "resolveJsonModule": true,
-    "lib": ["es2015", "es2017.object", "esnext", "dom"]
+    "lib": ["esnext", "dom"]
   },
   "exclude": ["node_modules", "generated"]
 }
