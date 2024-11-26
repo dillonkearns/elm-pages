@@ -4,7 +4,7 @@
   "version": "3.0.20",
   "homepage": "https://elm-pages.com",
   "moduleResolution": "node",
-  "description": "Type-safe static sites, written in pure elm with your own custom elm-markup syntax.",
+  "description": "Hybrid Elm framework with full-stack and static routes.",
   "main": "index.js",
   "scripts": {
     "start": "cd examples/end-to-end && npm i && npx elm-pages dev",
