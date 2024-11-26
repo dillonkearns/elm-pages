@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "types": ["node"],
     "module": "NodeNext",
     "isolatedModules": true,
     "checkJs": true,
