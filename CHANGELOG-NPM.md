@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.17] - 2024-l1-26
+
+### Fixed
+
+- Upgrade to latest version of Vite, as well as other dependencies (see [#498](https://github.com/dillonkearns/elm-pages/pull/498)).
+
 ## [3.0.16] - 2024-07-10
 
 ### Fixed
