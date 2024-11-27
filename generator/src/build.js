@@ -26,8 +26,17 @@ import * as globby from "globby";
 import { fileURLToPath } from "url";
 import { copyFile } from "fs/promises";
 
+/**
+ * @type {Promise<{ worker: Worker }>[]}
+ */
 let pool = [];
+/**
+ * @type {(value: unknown) => void}
+ */
 let pagesReady;
+/**
+ * @type {(reason: unknown) => void}
+ */
 let pagesErrored;
 let pages = new Promise((resolve, reject) => {
   pagesReady = resolve;
@@ -448,6 +457,8 @@ export async function render(request) {
 
 /**
  * @param {string} basePath
+ * @param {() => void} whenDone
+ * @returns {Promise<{worker: Worker}>}
  */
 function initWorker(basePath, whenDone) {
   return new Promise((resolve, reject) => {
