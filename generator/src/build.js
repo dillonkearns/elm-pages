@@ -21,8 +21,17 @@ import * as globby from "globby";
 import { fileURLToPath } from "url";
 import { copyFile } from "fs/promises";
 
+/**
+ * @type {Promise<{ worker: Worker }>[]}
+ */
 let pool = [];
+/**
+ * @type {(value: unknown) => void}
+ */
 let pagesReady;
+/**
+ * @type {(reason: unknown) => void}
+ */
 let pagesErrored;
 let pages = new Promise((resolve, reject) => {
   pagesReady = resolve;
@@ -73,7 +82,11 @@ export async function run(options) {
     // This is a temporary hack to avoid this warning. elm-pages manages compiling the Elm code without Vite's involvement, so it is external to Vite.
     // There is a pending issue to allow having external scripts in Vite, once this issue is fixed we can remove this hack:
     // https://github.com/vitejs/vite/issues/3533
-    if (messages && messages[0] && !messages[0].startsWith(`<script src="/elm.js">`)) {
+    if (
+      messages &&
+      messages[0] &&
+      !messages[0].startsWith(`<script src="/elm.js">`)
+    ) {
       console.info(...messages);
     }
   };
@@ -97,13 +110,11 @@ export async function run(options) {
         configFile: false,
         root: process.cwd(),
         base: options.base,
-        assetsInclude: [
-          '/elm-pages.js'
-        ],
+        assetsInclude: ["/elm-pages.js"],
         ssr: false,
 
         build: {
-          manifest: '___vite-manifest___.json',
+          manifest: "___vite-manifest___.json",
           outDir: "dist",
           rollupOptions: {
             input: "elm-stuff/elm-pages/index.html",
@@ -126,7 +137,10 @@ export async function run(options) {
       fullOutputPath,
       withoutExtension
     );
-    const assetManifestPath = path.join(process.cwd(), "dist/___vite-manifest___.json");
+    const assetManifestPath = path.join(
+      process.cwd(),
+      "dist/___vite-manifest___.json"
+    );
     const manifest = JSON.parse(
       await fsPromises.readFile(assetManifestPath, { encoding: "utf-8" })
     );
@@ -303,6 +317,8 @@ export async function render(request) {
 
 /**
  * @param {string} basePath
+ * @param {() => void} whenDone
+ * @returns {Promise<{worker: Worker}>}
  */
 function initWorker(basePath, whenDone) {
   return new Promise((resolve, reject) => {
@@ -686,19 +702,26 @@ function _HtmlAsJson_toJson(html) {
 
   await fsPromises.writeFile(
     ELM_FILE_PATH().replace(/\.js$/, ".cjs"),
-    applyScriptPatches(options, elmFileContent
-      .replace(
-        /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
-        `return ${forceThunksSource}
+    applyScriptPatches(
+      options,
+      elmFileContent
+        .replace(
+          /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_JSON_STRINGIFY.\)/g,
+          `return ${forceThunksSource}
   return _Json_wrap(forceThunks(html));
 `
-      )
-      .replace(`console.log('App dying')`, "")));
+        )
+        .replace(`console.log('App dying')`, "")
+    )
+  );
 }
 
 function applyScriptPatches(options, input) {
   if (options.isScript) {
-    return input.replace(`_Debug_crash(8, moduleName, region, message)`, "console.error('TODO in module `' + moduleName + '` ' + _Debug_regionToString(region) + '\\n\\n' + message); process.exitCode = 1; debugger; throw 'CRASH!';");
+    return input.replace(
+      `_Debug_crash(8, moduleName, region, message)`,
+      "console.error('TODO in module `' + moduleName + '` ' + _Debug_regionToString(region) + '\\n\\n' + message); process.exitCode = 1; debugger; throw 'CRASH!';"
+    );
   } else {
     return input;
   }
