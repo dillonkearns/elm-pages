@@ -189,7 +189,7 @@ You define your ApiRoute's in `app/Api.elm`. Here's a simple example:
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
 import Head
-import Internal.ApiRoute exposing (ApiRoute(..), ApiRouteBuilder(..))
+import Internal.ApiRoute
 import Internal.Request
 import Json.Encode
 import Pattern
@@ -214,8 +214,8 @@ single handler =
 
 {-| -}
 serverRender : ApiRouteBuilder (Server.Request.Request -> BackendTask FatalError (Server.Response.Response Never Never)) constructor -> ApiRoute Response
-serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
-    ApiRoute
+serverRender ((Internal.ApiRoute.ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
+    Internal.ApiRoute.ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
             \serverRequest path ->
@@ -246,14 +246,14 @@ serverRender ((ApiRouteBuilder patterns pattern _ _ _) as fullHandler) =
 
 {-| -}
 preRenderWithFallback : (constructor -> BackendTask FatalError (List (List String))) -> ApiRouteBuilder (BackendTask FatalError (Server.Response.Response Never Never)) constructor -> ApiRoute Response
-preRenderWithFallback buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
+preRenderWithFallback buildUrls ((Internal.ApiRoute.ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ : BackendTask FatalError (List String)
         buildTimeRoutes__ =
             buildUrls (constructor [])
                 |> BackendTask.map (List.map toString)
     in
-    ApiRoute
+    Internal.ApiRoute.ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
             \_ path ->
@@ -335,7 +335,7 @@ Note: `dist` is the output folder for `elm-pages build`, so this will be accessi
 
 -}
 preRender : (constructor -> BackendTask FatalError (List (List String))) -> ApiRouteBuilder (BackendTask FatalError String) constructor -> ApiRoute Response
-preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
+preRender buildUrls ((Internal.ApiRoute.ApiRouteBuilder patterns pattern _ toString constructor) as fullHandler) =
     let
         buildTimeRoutes__ : BackendTask FatalError (List String)
         buildTimeRoutes__ =
@@ -346,7 +346,7 @@ preRender buildUrls ((ApiRouteBuilder patterns pattern _ toString constructor) a
         preBuiltMatches =
             buildUrls (constructor [])
     in
-    ApiRoute
+    Internal.ApiRoute.ApiRoute
         { regex = Regex.fromString ("^" ++ pattern ++ "$") |> Maybe.withDefault Regex.never
         , matchesToResponse =
             \_ path ->
@@ -403,13 +403,13 @@ type alias Response =
 -}
 succeed : a -> ApiRouteBuilder a (List String)
 succeed a =
-    ApiRouteBuilder Pattern.empty "" (\_ -> a) (\_ -> "") (\list -> list)
+    Internal.ApiRoute.ApiRouteBuilder Pattern.empty "" (\_ -> a) (\_ -> "") (\list -> list)
 
 
 {-| Turn the route into a pattern in JSON format. For internal uses.
 -}
 toJson : ApiRoute response -> Json.Encode.Value
-toJson ((ApiRoute { kind }) as apiRoute) =
+toJson ((Internal.ApiRoute.ApiRoute { kind }) as apiRoute) =
     Json.Encode.object
         [ ( "pathPattern", apiRoute |> Internal.ApiRoute.toPattern |> Pattern.toJson )
         , ( "kind", Json.Encode.string kind )
@@ -419,8 +419,8 @@ toJson ((ApiRoute { kind }) as apiRoute) =
 {-| A literal String segment of a route.
 -}
 literal : String -> ApiRouteBuilder a constructor -> ApiRouteBuilder a constructor
-literal segment (ApiRouteBuilder patterns pattern handler toString constructor) =
-    ApiRouteBuilder
+literal segment (Internal.ApiRoute.ApiRouteBuilder patterns pattern handler toString constructor) =
+    Internal.ApiRoute.ApiRouteBuilder
         (Pattern.addLiteral segment patterns)
         (pattern ++ segment)
         handler
@@ -431,8 +431,8 @@ literal segment (ApiRouteBuilder patterns pattern handler toString constructor) 
 {-| A path separator within the route.
 -}
 slash : ApiRouteBuilder a constructor -> ApiRouteBuilder a constructor
-slash (ApiRouteBuilder patterns pattern handler toString constructor) =
-    ApiRouteBuilder (patterns |> Pattern.addSlash) (pattern ++ "/") handler (\arg -> toString arg ++ "/") constructor
+slash (Internal.ApiRoute.ApiRouteBuilder patterns pattern handler toString constructor) =
+    Internal.ApiRoute.ApiRouteBuilder (patterns |> Pattern.addSlash) (pattern ++ "/") handler (\arg -> toString arg ++ "/") constructor
 
 
 {-| Captures a dynamic segment from the route.
@@ -440,8 +440,8 @@ slash (ApiRouteBuilder patterns pattern handler toString constructor) =
 capture :
     ApiRouteBuilder (String -> a) constructor
     -> ApiRouteBuilder a (String -> constructor)
-capture (ApiRouteBuilder patterns pattern previousHandler toString constructor) =
-    ApiRouteBuilder
+capture (Internal.ApiRoute.ApiRouteBuilder patterns pattern previousHandler toString constructor) =
+    Internal.ApiRoute.ApiRouteBuilder
         (patterns |> Pattern.addCapture)
         (pattern ++ "(.*)")
         (\matches ->
@@ -469,19 +469,19 @@ capture (ApiRouteBuilder patterns pattern previousHandler toString constructor) 
 {-| For internal use by generated code. Not so useful in user-land.
 -}
 getBuildTimeRoutes : ApiRoute response -> BackendTask FatalError (List String)
-getBuildTimeRoutes (ApiRoute handler) =
+getBuildTimeRoutes (Internal.ApiRoute.ApiRoute handler) =
     handler.buildTimeRoutes
 
 
 {-| Include head tags on every page's HTML.
 -}
 withGlobalHeadTags : BackendTask FatalError (List Head.Tag) -> ApiRoute response -> ApiRoute response
-withGlobalHeadTags globalHeadTags (ApiRoute handler) =
-    ApiRoute { handler | globalHeadTags = Just globalHeadTags }
+withGlobalHeadTags globalHeadTags (Internal.ApiRoute.ApiRoute handler) =
+    Internal.ApiRoute.ApiRoute { handler | globalHeadTags = Just globalHeadTags }
 
 
 {-| For internal use.
 -}
 getGlobalHeadTagsBackendTask : ApiRoute response -> Maybe (BackendTask FatalError (List Head.Tag))
-getGlobalHeadTagsBackendTask (ApiRoute handler) =
+getGlobalHeadTagsBackendTask (Internal.ApiRoute.ApiRoute handler) =
     handler.globalHeadTags
