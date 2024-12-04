@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.19] - 2024-12-04
+
+### Fixed
+
+- Fix an error in generated code with invalid imports related to an internal elm-codegen upgrade in the generator code (see [#503](https://github.com/dillonkearns/elm-pages/pull/503)).
+
 ## [3.0.18] - 2024-12-03
 
 ### Fixed
