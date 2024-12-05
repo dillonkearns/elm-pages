@@ -37,9 +37,9 @@ export async function generate(basePath) {
     copyToBoth("SiteConfig.elm"),
 
     fs.promises.writeFile("./.elm-pages/Pages.elm", uiFileContent),
-    fs.promises.copyFile(
-      path.join(__dirname, `./elm-application.json`),
-      `./elm-stuff/elm-pages/elm-application.json`
+    fs.promises.writeFile(
+      `./elm-stuff/elm-pages/elm-application.json`,
+      fs.readFileSync(path.join(__dirname, `./elm-application.json`))
     ),
     // write `Pages.elm` with cli interface
     fs.promises.writeFile(
@@ -82,9 +82,9 @@ function writeFetcherModules(basePath, fetcherData) {
 }
 
 async function newCopyBoth(modulePath) {
-  await fs.promises.copyFile(
-    path.join(__dirname, modulePath),
-    path.join(`./elm-stuff/elm-pages/client/.elm-pages/`, modulePath)
+  await fs.promises.writeFile(
+    path.join(`./elm-stuff/elm-pages/client/.elm-pages/`, modulePath),
+    fs.readFileSync(path.join(__dirname, modulePath))
   );
 }
 
@@ -197,7 +197,7 @@ async function copyFileEnsureDir(from, to) {
   await fs.promises.mkdir(path.dirname(to), {
     recursive: true,
   });
-  await fs.promises.copyFile(from, to);
+  await fs.promises.writeFile(to, fs.readFileSync(from));
 }
 
 /**
