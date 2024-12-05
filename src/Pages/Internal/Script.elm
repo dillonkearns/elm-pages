@@ -7,11 +7,20 @@ import Html exposing (Html)
 
 
 {-| -}
-type Script
+type Script model msg
     = Script
         ((Maybe { indent : Int, newLines : Bool }
           -> Html Never
           -> String
          )
-         -> Program.Config (BackendTask FatalError ())
+         ->
+            { perform : BackendTask Never msg -> Cmd msg
+            , attempt : BackendTask FatalError msg -> Cmd msg
+            }
+         ->
+            Program.Config
+                { init : ( model, Cmd msg )
+                , update : msg -> model -> ( model, Cmd msg )
+                , subscriptions : model -> Sub msg
+                }
         )
