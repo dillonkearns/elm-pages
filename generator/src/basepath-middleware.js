@@ -1,5 +1,13 @@
 // this middleware is only active when (config.base !== '/')
 
+/**
+ * @import { NextHandleFunction } from "connect";
+ */
+
+/**
+ * @param {string} base
+ * @returns {NextHandleFunction}
+ */
 export function baseMiddleware(base) {
   // Keep the named function. The name is visible in debug logs via `DEBUG=connect:dispatcher ...`
   return function viteBaseMiddleware(req, res, next) {
