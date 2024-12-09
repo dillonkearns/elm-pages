@@ -4,6 +4,7 @@ import BackendTask exposing (BackendTask)
 import BackendTask.Http exposing (Body, Expect)
 import Json.Decode exposing (Decoder)
 import Json.Encode as Encode
+import Pages.StaticHttpRequest
 
 
 request :
@@ -12,8 +13,7 @@ request :
     , expect : Expect a
     }
     -> BackendTask error a
-request ({ name, body, expect } as params) =
-    -- elm-review: known-unoptimized-recursion
+request { name, body, expect } =
     BackendTask.Http.request
         { url = "elm-pages-internal://" ++ name
         , method = "GET"
@@ -24,9 +24,8 @@ request ({ name, body, expect } as params) =
         }
         expect
         |> BackendTask.onError
-            (\_ ->
-                -- TODO avoid crash here, this should be handled as an internal error
-                request params
+            (\err ->
+                Pages.StaticHttpRequest.InternalError err.fatal
             )
 
 
