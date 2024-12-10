@@ -1,8 +1,8 @@
-module Pages.Internal.Platform.Cli exposing (Flags, Model, Msg(..), Program, cliApplication, init, requestDecoder, update, currentCompatibilityKey)
+module Pages.Internal.Platform.Cli exposing (Flags, Model, Msg(..), ProgramConfig, Program, cliApplication, init, requestDecoder, update, currentCompatibilityKey)
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs Flags, Model, Msg, Program, cliApplication, init, requestDecoder, update, currentCompatibilityKey
+@docs Flags, Model, Msg, ProgramConfig, Program, cliApplication, init, requestDecoder, update, currentCompatibilityKey
 
 -}
 
@@ -29,7 +29,7 @@ import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses
 import Pages.Internal.Platform.ToJsPayload as ToJsPayload
 import Pages.Internal.ResponseSketch as ResponseSketch
-import Pages.ProgramConfig exposing (ProgramConfig)
+import Pages.ProgramConfig
 import Pages.SiteConfig exposing (SiteConfig)
 import Pages.StaticHttp.Request
 import PagesMsg exposing (PagesMsg)
@@ -69,6 +69,11 @@ type Msg
 {-| -}
 type alias Program route =
     Platform.Program Flags (Model route) Msg
+
+
+{-| -}
+type alias ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage =
+    Pages.ProgramConfig.ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
 
 
 {-| -}

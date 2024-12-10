@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.19] - 2024-12-04
+
+### Fixed
+
+- Fix an error in generated code with invalid imports related to an internal elm-codegen upgrade in the generator code (see [#503](https://github.com/dillonkearns/elm-pages/pull/503)).
+
+## [3.0.18] - 2024-12-03
+
+### Fixed
+
+- Fix an error in generated code with invalid imports related to an internal elm-codegen upgrade in the generator code (see [#502](https://github.com/dillonkearns/elm-pages/pull/502)).
+
+## [3.0.17] - 2024-11-26
+
+### Fixed
+
+- Upgrade to latest version of Vite, as well as other dependencies (see [#498](https://github.com/dillonkearns/elm-pages/pull/498)).
+
 ## [3.0.16] - 2024-07-10
 
 ### Fixed

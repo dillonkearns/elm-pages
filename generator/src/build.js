@@ -292,8 +292,7 @@ export async function render(request) {
       processedIndexTemplate
     );
   } catch (error) {
-    console.trace(error);
-    if (error) {
+    if(error) {
       console.error(restoreColorSafe(error));
     }
     buildError = true;

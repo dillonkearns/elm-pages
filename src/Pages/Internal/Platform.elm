@@ -1,11 +1,11 @@
 module Pages.Internal.Platform exposing
-    ( Flags, Model, Msg(..), Program, application, init, update
+    ( Flags, Model, Msg(..), Program, ProgramConfig, application, init, update
     , Effect(..), RequestInfo, view
     )
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs Flags, Model, Msg, Program, application, init, update
+@docs Flags, Model, Msg, Program, ProgramConfig, application, init, update
 
 @docs Effect, RequestInfo, view
 
@@ -36,7 +36,7 @@ import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
 import Pages.Navigation
-import Pages.ProgramConfig exposing (ProgramConfig)
+import Pages.ProgramConfig
 import Pages.StaticHttpRequest as StaticHttpRequest
 import PagesMsg exposing (PagesMsg)
 import QueryParams
@@ -49,6 +49,11 @@ import UrlPath exposing (UrlPath)
 {-| -}
 type alias Program userModel userMsg pageData actionData sharedData errorPage =
     Platform.Program Flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
+
+
+{-| -}
+type alias ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage =
+    Pages.ProgramConfig.ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
 
 
 mainView :
