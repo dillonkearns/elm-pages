@@ -34,7 +34,7 @@
     "cookie-signature": "^1.2.2",
     "cross-spawn": "7.0.6",
     "devcert": "^1.2.2",
-    "elm-doc-preview": "^5.0.5",
+    "elm-doc-preview": "^6.0.0",
     "elm-hot": "^1.1.6",
     "esbuild": "^0.24.0",
     "fs-extra": "^11.2.0",
