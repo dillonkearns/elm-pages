@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - Updated version constraint so users now need to use "mdgriffith/elm-codegen": "5.0.0 <= v < 6.0.0" (be sure to update your `scripts/elm.json` as well!)
 
-## [10.1.1] - 2024-12-12
+## [10.2.0] - 2024-12-12
 
 ### Fixed
 
