@@ -9422,13 +9422,22 @@
                                 }), $author$project$Pages$Internal$Platform$Submit(payload)));
                             }
                             else {
-                                return _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect);
+                                return function () {
+                                    var _v15 = fields.eZ;
+                                    if (!_v15.$) {
+                                        var justUserMsg = _v15.a;
+                                        return A2($author$project$Pages$Internal$Platform$performUserMsg, justUserMsg, config);
+                                    }
+                                    else {
+                                        return $elm$core$Basics$identity;
+                                    }
+                                }()(_Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect));
                             }
                         case 2:
                             var formMsg = userMsg_.a;
-                            var _v15 = $dillonkearns$elm_form$Form$update_fn(formMsg, model.da);
-                            var formModel = _v15.a;
-                            var formCmd = _v15.b;
+                            var _v16 = $dillonkearns$elm_form$Form$update_fn(formMsg, model.da);
+                            var formModel = _v16.a;
+                            var formCmd = _v16.b;
                             return _Utils_Tuple2(_Utils_update(model, { da: formModel }), $author$project$Pages$Internal$Platform$RunCmd(_Platform_map_fn($author$project$Pages$Internal$Platform$UserMsg, formCmd)));
                         default:
                             return _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect);
@@ -9438,15 +9447,15 @@
                     var urlWithoutRedirectResolution = appMsg.b;
                     var maybeUserMsg = appMsg.c;
                     var updateResult = appMsg.d;
-                    var _v16 = $elm$core$Result$map2_fn($elm$core$Tuple$pair, $elm$core$Result$mapError_fn(function (_v17) {
+                    var _v17 = $elm$core$Result$map2_fn($elm$core$Tuple$pair, $elm$core$Result$mapError_fn(function (_v18) {
                         return "Http error";
                     }, updateResult), model.q);
-                    if (!_v16.$) {
-                        var _v18 = _v16.a;
-                        var _v19 = _v18.a;
-                        var newUrl = _v19.a;
-                        var newData = _v19.b;
-                        var previousPageData = _v18.b;
+                    if (!_v17.$) {
+                        var _v19 = _v17.a;
+                        var _v20 = _v19.a;
+                        var newUrl = _v20.a;
+                        var newData = _v20.b;
+                        var previousPageData = _v19.b;
                         var redirectPending = !_Utils_eq(newUrl, urlWithoutRedirectResolution);
                         if (redirectPending) {
                             return _Utils_Tuple2(_Utils_update(model, {
@@ -9470,7 +9479,7 @@
                         }
                         else {
                             var stayingOnSamePath = _Utils_eq(newUrl.d9, model.kB.d9);
-                            var _v21 = function () {
+                            var _v22 = function () {
                                 switch (newData.$) {
                                     case 0:
                                         var pageData = newData.a;
@@ -9485,11 +9494,11 @@
                                         return _Utils_Tuple3(previousPageData.q, previousPageData.cn, previousPageData.bz);
                                 }
                             }();
-                            var newPageData = _v21.a;
-                            var newSharedData = _v21.b;
-                            var newActionData = _v21.c;
+                            var newPageData = _v22.a;
+                            var newSharedData = _v22.b;
+                            var newActionData = _v22.c;
                             var onActionMsg = $elm$core$Maybe$andThen_fn(config.jZ, newActionData);
-                            var _v23 = stayingOnSamePath ? _Utils_Tuple2(previousPageData.Z, $author$project$Pages$Internal$Platform$NoEffect) : $elm$core$Tuple$mapSecond_fn($author$project$Pages$Internal$Platform$UserCmd, A8(config.dx, model.da, $author$project$Pages$Internal$Platform$toFetcherState(model.J), $elm$core$Maybe$map_fn($elm$core$Tuple$second, model.Y), newSharedData, newPageData, model.jB, config.ib({
+                            var _v24 = stayingOnSamePath ? _Utils_Tuple2(previousPageData.Z, $author$project$Pages$Internal$Platform$NoEffect) : $elm$core$Tuple$mapSecond_fn($author$project$Pages$Internal$Platform$UserCmd, A8(config.dx, model.da, $author$project$Pages$Internal$Platform$toFetcherState(model.J), $elm$core$Maybe$map_fn($elm$core$Tuple$second, model.Y), newSharedData, newPageData, model.jB, config.ib({
                                 a_: urlWithoutRedirectResolution.a_,
                                 eN: model.kB.eN,
                                 bq: config.kC(urlWithoutRedirectResolution),
@@ -9498,8 +9507,8 @@
                                 e5: model.kB.e5,
                                 ba: urlWithoutRedirectResolution.ba
                             }), previousPageData.Z));
-                            var userModel = _v23.a;
-                            var userEffect = _v23.b;
+                            var userModel = _v24.a;
+                            var userEffect = _v24.b;
                             var updatedPageData = { bz: newActionData, q: newPageData, cn: newSharedData, Z: userModel };
                             var updatedModel = (model.aK || redirectPending) ? _Utils_update(model, {
                                 q: $elm$core$Result$Ok(updatedPageData),
@@ -9544,41 +9553,41 @@
                     var pageDataBytes = appMsg.a;
                     return $elm$core$Result$withDefault_fn(function () {
                         var pageDataResult = function () {
-                            var _v32 = $elm$bytes$Bytes$Decode$decode_fn(config.i7, pageDataBytes);
-                            _v32$3: while (true) {
-                                if (!_v32.$) {
-                                    switch (_v32.a.$) {
+                            var _v33 = $elm$bytes$Bytes$Decode$decode_fn(config.i7, pageDataBytes);
+                            _v33$3: while (true) {
+                                if (!_v33.$) {
+                                    switch (_v33.a.$) {
                                         case 0:
-                                            var _v33 = _v32.a;
+                                            var _v34 = _v33.a;
                                             return $elm$core$Maybe$Nothing;
                                         case 1:
-                                            var _v34 = _v32.a;
-                                            var pageData = _v34.a;
-                                            var shared = _v34.b;
-                                            var actionData = _v34.c;
+                                            var _v35 = _v33.a;
+                                            var pageData = _v35.a;
+                                            var shared = _v35.b;
+                                            var actionData = _v35.c;
                                             return $elm$core$Maybe$Just($author$project$Pages$Internal$Platform$OkPage_fn(shared, pageData, actionData));
                                         case 3:
-                                            var notFound = _v32.a.a;
+                                            var notFound = _v33.a.a;
                                             return $elm$core$Maybe$Just($author$project$Pages$Internal$Platform$NotFound(notFound));
                                         default:
-                                            break _v32$3;
+                                            break _v33$3;
                                     }
                                 }
                                 else {
-                                    break _v32$3;
+                                    break _v33$3;
                                 }
                             }
                             return $elm$core$Maybe$Nothing;
                         }();
                         if ((!pageDataResult.$) && (!pageDataResult.a.$)) {
-                            var _v30 = pageDataResult.a;
-                            var sharedData = _v30.a;
-                            var pageData = _v30.b;
-                            var actionData = _v30.c;
+                            var _v31 = pageDataResult.a;
+                            var sharedData = _v31.a;
+                            var pageData = _v31.b;
+                            var actionData = _v31.c;
                             var userFlags = $author$project$Pages$Flags$BrowserFlags($elm$core$Result$withDefault_fn($elm$json$Json$Encode$null, _Json_run_fn(_Json_decodeField_fn("userFlags", $elm$json$Json$Decode$value), model.eo)));
                             var urls = { iT: config.iT, i5: model.kB };
                             var pagePath = $author$project$Pages$Internal$Platform$urlsToPagePath(urls);
-                            var _v31 = A5(config.eQ, userFlags, sharedData, pageData, actionData, $elm$core$Maybe$Just({
+                            var _v32 = A5(config.eQ, userFlags, sharedData, pageData, actionData, $elm$core$Maybe$Just({
                                 bq: config.kC(model.kB),
                                 cm: $elm$core$Maybe$Just({
                                     a_: model.kB.a_,
@@ -9590,8 +9599,8 @@
                                 }),
                                 d9: { a_: model.kB.a_, d9: pagePath, ba: model.kB.ba }
                             }));
-                            var userModel = _v31.a;
-                            var userCmd = _v31.b;
+                            var userModel = _v32.a;
+                            var userCmd = _v32.b;
                             var cmd = $author$project$Pages$Internal$Platform$UserCmd(userCmd);
                             return _Utils_Tuple2(_Utils_update(model, {
                                 br: $elm$core$Maybe$Nothing,
@@ -9603,22 +9612,22 @@
                         }
                     }(), $elm$core$Result$map_fn(function (pageData) {
                         var newThing = $elm$bytes$Bytes$Decode$decode_fn(config.i7, pageDataBytes);
-                        _v26$3: while (true) {
+                        _v27$3: while (true) {
                             if (!newThing.$) {
                                 switch (newThing.a.$) {
                                     case 0:
-                                        var _v27 = newThing.a;
-                                        var newPageData = _v27.a;
-                                        var newActionData = _v27.b;
+                                        var _v28 = newThing.a;
+                                        var newPageData = _v28.a;
+                                        var newActionData = _v28.b;
                                         return _Utils_Tuple2(_Utils_update(model, {
                                             br: $elm$core$Maybe$Nothing,
                                             q: $elm$core$Result$Ok({ bz: newActionData, q: newPageData, cn: pageData.cn, Z: pageData.Z })
                                         }), $author$project$Pages$Internal$Platform$NoEffect);
                                     case 1:
-                                        var _v28 = newThing.a;
-                                        var newPageData = _v28.a;
-                                        var newSharedData = _v28.b;
-                                        var newActionData = _v28.c;
+                                        var _v29 = newThing.a;
+                                        var newPageData = _v29.a;
+                                        var newSharedData = _v29.b;
+                                        var newActionData = _v29.c;
                                         return _Utils_Tuple2(_Utils_update(model, {
                                             br: $elm$core$Maybe$Nothing,
                                             q: $elm$core$Result$Ok({ bz: newActionData, q: newPageData, cn: newSharedData, Z: pageData.Z })
@@ -9629,11 +9638,11 @@
                                             br: $elm$core$Maybe$Just(info)
                                         }), $author$project$Pages$Internal$Platform$NoEffect);
                                     default:
-                                        break _v26$3;
+                                        break _v27$3;
                                 }
                             }
                             else {
-                                break _v26$3;
+                                break _v27$3;
                             }
                         }
                         return _Utils_Tuple2(model, $author$project$Pages$Internal$Platform$NoEffect);
