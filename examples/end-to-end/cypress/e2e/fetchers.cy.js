@@ -1,6 +1,12 @@
 /// <reference types="Cypress" />
 
 context("fetchers", () => {
+  it("sends Msg for invalid item", () => {
+    cy.visit("/fetcher");
+    cy.contains("Ready");
+    addItem("");
+    cy.contains("Errors: [Required]");
+  });
   it.skip("add items to list", () => {
     cy.visit("/fetcher");
     cy.contains("Ready");
@@ -20,7 +26,9 @@ context("fetchers", () => {
 
 function addItem(itemName) {
   cy.get("input[name=name]").clear({ force: true });
-  cy.get("input[name=name]").type(itemName, { force: true });
+  if (itemName !== "") {
+    cy.get("input[name=name]").type(itemName, { force: true });
+  }
   cy.contains("Submit").click();
 }
 

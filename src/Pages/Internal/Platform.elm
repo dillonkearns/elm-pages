@@ -572,8 +572,14 @@ update config appMsg model =
                                    )
 
                     else
-                        -- TODO should the user msg still be run if the form is invalid?
                         ( model, NoEffect )
+                            |> (case fields.msg of
+                                    Just justUserMsg ->
+                                        performUserMsg justUserMsg config
+
+                                    Nothing ->
+                                        identity
+                               )
 
                 Pages.Internal.Msg.FormMsg formMsg ->
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`
