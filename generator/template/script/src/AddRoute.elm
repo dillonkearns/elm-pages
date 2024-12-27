@@ -22,6 +22,7 @@ import Gen.List
 import Gen.Maybe
 import Gen.Pages.Form as PagesForm
 import Gen.Pages.Script
+import Gen.Platform.Sub
 import Gen.Server.Request as Request
 import Gen.Server.Response as Response
 import Gen.View
@@ -253,7 +254,7 @@ createFile { moduleName, fields } =
                     Elm.tuple (Elm.record []) Effect.none
             , subscriptions =
                 \{ routeParams, path, shared, model } ->
-                    Elm.val "Sub.none"
+                    Gen.Platform.Sub.none
             , model =
                 Alias (Type.record [])
             , msg =
