@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.19] - 2024-12-27
+
+### Fixed
+
+- Move `vite` to NPM dependency (instead of `devDependency`) to fix errors when running as standalone tool outside of a vite project folder
+- Update `elm-pages init` contents
+
 ## [3.0.19] - 2024-12-04
 
 ### Fixed
