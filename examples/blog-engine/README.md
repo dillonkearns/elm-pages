@@ -17,7 +17,7 @@
       ```bash
       export BLOG_DATABASE_URL=postgresql://postgres:postgres@localhost/postgres
       ```
-   2. To set up the database tables configured in `schema.prisma`, run
+   2. To set up the database tables configured in `prisma/schema.prisma`, run
       ```bash
       npx prisma migrate dev --name init
       ```
