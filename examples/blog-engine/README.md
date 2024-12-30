@@ -1,8 +1,8 @@
 # Blog Engine
 
 ## To run locally
-1. Run `npm i` in `elm-pages` root if you have not already.
-2. Run `npm i` in this project directory.
+1. Run `npm i` and then `npm run build:generator` in `elm-pages` root if you have not already.
+2. Run `npm i` and then `npm run build` in this project directory.
 3. This project requires a database and uses `prisma` to interact with it.
    1. Have a Postgres database running. One way to do this is to have docker installed and run these command:
       ```bash
