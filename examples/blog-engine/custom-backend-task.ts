@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/index.js";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 const prisma = new PrismaClient();
 
