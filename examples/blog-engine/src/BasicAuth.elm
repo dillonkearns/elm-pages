@@ -2,7 +2,7 @@ module BasicAuth exposing (withBasicAuth)
 
 import BackendTask exposing (BackendTask)
 import Base64
-import Server.Request as Request exposing (Parser)
+import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 
 
@@ -25,31 +25,26 @@ parseAuth base64Auth =
 
 
 withBasicAuth :
-    Parser requestData
-    -> (requestData -> { username : String, password : String } -> BackendTask error Bool)
-    -> (requestData -> BackendTask error (Response data errorPage))
-    -> Parser (BackendTask error (Response data errorPage))
-withBasicAuth userRequestParser checkAuth successResponse =
-    Request.map2
-        (\base64Auth userRequestData ->
-            case base64Auth |> Maybe.andThen parseAuth of
-                Just userPass ->
-                    checkAuth userRequestData userPass
-                        |> BackendTask.andThen
-                            (\authSucceeded ->
-                                if authSucceeded then
-                                    successResponse userRequestData
+    ({ username : String, password : String } -> BackendTask error Bool)
+    -> BackendTask error (Response data errorPage)
+    -> Request
+    -> BackendTask error (Response data errorPage)
+withBasicAuth checkAuth successResponse request =
+    case request |> Request.header "authorization" |> Maybe.andThen parseAuth of
+        Just userPass ->
+            checkAuth userPass
+                |> BackendTask.andThen
+                    (\authSucceeded ->
+                        if authSucceeded then
+                            successResponse
 
-                                else
-                                    requireBasicAuth |> BackendTask.succeed
-                            )
+                        else
+                            requireBasicAuth |> BackendTask.succeed
+                    )
 
-                Nothing ->
-                    requireBasicAuth
-                        |> BackendTask.succeed
-        )
-        (Request.optionalHeader "authorization")
-        userRequestParser
+        Nothing ->
+            requireBasicAuth
+                |> BackendTask.succeed
 
 
 requireBasicAuth : Response data errorPage
