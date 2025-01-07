@@ -390,19 +390,24 @@ async function runJob(
   patternsToWatch,
   portsFile
 ) {
-  if (
-    requestToPerform.url !== "elm-pages-internal://port" &&
-    requestToPerform.url.startsWith("elm-pages-internal://")
-  ) {
-    return runInternalJob(
-      requestHash,
-      app,
-      requestToPerform,
-      patternsToWatch,
-      portsFile
-    );
-  } else {
-    return runHttpJob(requestHash, portsFile, mode, requestToPerform);
+  try {
+    if (
+      requestToPerform.url !== "elm-pages-internal://port" &&
+      requestToPerform.url.startsWith("elm-pages-internal://")
+    ) {
+      return runInternalJob(
+        requestHash,
+        app,
+        requestToPerform,
+        patternsToWatch,
+        portsFile
+      );
+    } else {
+      return runHttpJob(requestHash, portsFile, mode, requestToPerform);
+    }
+  } catch (error) {
+    sendError(app, error);
+    return [requestHash, jsonResponse(requestToPerform, null)];
   }
 }
 
@@ -416,38 +421,33 @@ async function runJob(
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
 async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
-  try {
-    const lookupResponse = await lookupOrPerform(
-      portsFile,
-      mode,
-      requestToPerform
-    );
+  const lookupResponse = await lookupOrPerform(
+    portsFile,
+    mode,
+    requestToPerform
+  );
 
-    if (lookupResponse.kind === "cache-response-path") {
-      const responseFilePath = lookupResponse.value;
-      return [
-        requestHash,
-        {
-          request: requestToPerform,
-          response: JSON.parse(
-            (await fs.promises.readFile(responseFilePath, "utf8")).toString()
-          ),
-        },
-      ];
-    } else if (lookupResponse.kind === "response-json") {
-      return [
-        requestHash,
-        {
-          request: requestToPerform,
-          response: lookupResponse.value,
-        },
-      ];
-    } else {
-      throw `Unexpected kind ${lookupResponse}`;
-    }
-  } catch (error) {
-    console.log("@@@ERROR", error);
-    // sendError(app, error);
+  if (lookupResponse.kind === "cache-response-path") {
+    const responseFilePath = lookupResponse.value;
+    return [
+      requestHash,
+      {
+        request: requestToPerform,
+        response: JSON.parse(
+          (await fs.promises.readFile(responseFilePath, "utf8")).toString()
+        ),
+      },
+    ];
+  } else if (lookupResponse.kind === "response-json") {
+    return [
+      requestHash,
+      {
+        request: requestToPerform,
+        response: lookupResponse.value,
+      },
+    ];
+  } else {
+    throw `Unexpected kind ${lookupResponse}`;
   }
 }
 
@@ -465,77 +465,66 @@ async function runInternalJob(
   patternsToWatch,
   portsFile
 ) {
-  try {
-    const cwd = path.resolve(...requestToPerform.dir);
-    const quiet = requestToPerform.quiet;
-    const env = { ...process.env, ...requestToPerform.env };
+  const cwd = path.resolve(...requestToPerform.dir);
+  const quiet = requestToPerform.quiet;
+  const env = { ...process.env, ...requestToPerform.env };
 
-    const context = { cwd, quiet, env };
-    switch (requestToPerform.url) {
-      case "elm-pages-internal://log":
-        return [requestHash, await runLogJob(requestToPerform)];
-      case "elm-pages-internal://read-file":
-        return [
-          requestHash,
-          await readFileJobNew(requestToPerform, patternsToWatch, context),
-        ];
-      case "elm-pages-internal://glob":
-        return [
-          requestHash,
-          await runGlobNew(requestToPerform, patternsToWatch),
-        ];
-      case "elm-pages-internal://randomSeed":
-        return [
-          requestHash,
-          jsonResponse(
-            requestToPerform,
-            crypto.getRandomValues(new Uint32Array(1))[0]
-          ),
-        ];
-      case "elm-pages-internal://now":
-        return [requestHash, jsonResponse(requestToPerform, Date.now())];
-      case "elm-pages-internal://env":
-        return [
-          requestHash,
-          await runEnvJob(requestToPerform, patternsToWatch),
-        ];
-      case "elm-pages-internal://encrypt":
-        return [
-          requestHash,
-          await runEncryptJob(requestToPerform, patternsToWatch),
-        ];
-      case "elm-pages-internal://decrypt":
-        return [
-          requestHash,
-          await runDecryptJob(requestToPerform, patternsToWatch),
-        ];
-      case "elm-pages-internal://write-file":
-        return [requestHash, await runWriteFileJob(requestToPerform, context)];
-      case "elm-pages-internal://sleep":
-        return [requestHash, await runSleep(requestToPerform)];
-      case "elm-pages-internal://which":
-        return [requestHash, await runWhich(requestToPerform)];
-      case "elm-pages-internal://question":
-        return [requestHash, await runQuestion(requestToPerform)];
-      case "elm-pages-internal://shell":
-        return [requestHash, await runShell(requestToPerform)];
-      case "elm-pages-internal://stream":
-        return [
-          requestHash,
-          await runStream(requestToPerform, portsFile, context),
-        ];
-      case "elm-pages-internal://start-spinner":
-        return [requestHash, runStartSpinner(requestToPerform)];
-      case "elm-pages-internal://stop-spinner":
-        return [requestHash, runStopSpinner(requestToPerform)];
-      default:
-        throw `Unexpected internal BackendTask request format: ${kleur.yellow(
-          JSON.stringify(2, null, requestToPerform)
-        )}`;
-    }
-  } catch (error) {
-    sendError(app, error);
-    return [requestHash, jsonResponse(requestToPerform, null)];
+  const context = { cwd, quiet, env };
+  switch (requestToPerform.url) {
+    case "elm-pages-internal://log":
+      return [requestHash, await runLogJob(requestToPerform)];
+    case "elm-pages-internal://read-file":
+      return [
+        requestHash,
+        await readFileJobNew(requestToPerform, patternsToWatch, context),
+      ];
+    case "elm-pages-internal://glob":
+      return [requestHash, await runGlobNew(requestToPerform, patternsToWatch)];
+    case "elm-pages-internal://randomSeed":
+      return [
+        requestHash,
+        jsonResponse(
+          requestToPerform,
+          crypto.getRandomValues(new Uint32Array(1))[0]
+        ),
+      ];
+    case "elm-pages-internal://now":
+      return [requestHash, jsonResponse(requestToPerform, Date.now())];
+    case "elm-pages-internal://env":
+      return [requestHash, await runEnvJob(requestToPerform, patternsToWatch)];
+    case "elm-pages-internal://encrypt":
+      return [
+        requestHash,
+        await runEncryptJob(requestToPerform, patternsToWatch),
+      ];
+    case "elm-pages-internal://decrypt":
+      return [
+        requestHash,
+        await runDecryptJob(requestToPerform, patternsToWatch),
+      ];
+    case "elm-pages-internal://write-file":
+      return [requestHash, await runWriteFileJob(requestToPerform, context)];
+    case "elm-pages-internal://sleep":
+      return [requestHash, await runSleep(requestToPerform)];
+    case "elm-pages-internal://which":
+      return [requestHash, await runWhich(requestToPerform)];
+    case "elm-pages-internal://question":
+      return [requestHash, await runQuestion(requestToPerform)];
+    case "elm-pages-internal://shell":
+      return [requestHash, await runShell(requestToPerform)];
+    case "elm-pages-internal://stream":
+      return [
+        requestHash,
+        await runStream(requestToPerform, portsFile, context),
+      ];
+    case "elm-pages-internal://start-spinner":
+      return [requestHash, runStartSpinner(requestToPerform)];
+    case "elm-pages-internal://stop-spinner":
+      return [requestHash, runStopSpinner(requestToPerform)];
+    default:
+      throw `Unexpected internal BackendTask request format: ${kleur.yellow(
+        JSON.stringify(2, null, requestToPerform)
+      )}`;
   }
 }
 
