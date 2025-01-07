@@ -35,7 +35,7 @@
             "robinheghan/fnv1a": "1.0.0",
             "rtfeldman/elm-css": "18.0.0",
             "the-sett/elm-syntax-dsl": "6.0.2",
-            "vito/elm-ansi": "10.0.1"
+            "wolfadex/elm-ansi": "3.0.0"
         },
         "indirect": {
             "Chadtech/elm-bool-extra": "2.4.2",
