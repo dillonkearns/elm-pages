@@ -479,6 +479,7 @@ function stringResponse(request, string) {
     response: { bodyKind: "string", body: string },
   };
 }
+
 function jsonResponse(request, json) {
   return {
     request,
@@ -910,6 +911,7 @@ function stdout() {
     },
   });
 }
+
 function stderr() {
   return new Writable({
     write(chunk, encoding, callback) {
@@ -1176,42 +1178,37 @@ function runStopSpinner(req) {
 }
 
 async function runGlobNew(req, patternsToWatch) {
-  try {
-    const { pattern, options } = req.body.args[0];
-    const cwd = path.resolve(...req.dir);
-    const matchedPaths = await globby.globby(pattern, {
-      ...options,
-      stats: true,
-      cwd,
-    });
-    patternsToWatch.add(pattern);
+  const { pattern, options } = req.body.args[0];
+  const cwd = path.resolve(...req.dir);
+  const matchedPaths = await globby.globby(pattern, {
+    ...options,
+    stats: true,
+    cwd,
+  });
+  patternsToWatch.add(pattern);
 
-    return jsonResponse(
-      req,
-      matchedPaths.map((fullPath) => {
-        const stats = fullPath.stats;
-        if (!stats) {
-          return null;
-        }
-        return {
+  return jsonResponse(
+    req,
+    matchedPaths.map((fullPath) => {
+      const stats = fullPath.stats;
+      if (!stats) {
+        return null;
+      }
+      return {
+        fullPath: fullPath.path,
+        captures: mm.capture(pattern, fullPath.path),
+        fileStats: {
+          size: stats.size,
+          atime: Math.round(stats.atime.getTime()),
+          mtime: Math.round(stats.mtime.getTime()),
+          ctime: Math.round(stats.ctime.getTime()),
+          birthtime: Math.round(stats.birthtime.getTime()),
           fullPath: fullPath.path,
-          captures: mm.capture(pattern, fullPath.path),
-          fileStats: {
-            size: stats.size,
-            atime: Math.round(stats.atime.getTime()),
-            mtime: Math.round(stats.mtime.getTime()),
-            ctime: Math.round(stats.ctime.getTime()),
-            birthtime: Math.round(stats.birthtime.getTime()),
-            fullPath: fullPath.path,
-            isDirectory: stats.isDirectory(),
-          },
-        };
-      })
-    );
-  } catch (e) {
-    console.log(`Error performing glob '${JSON.stringify(req.body)}'`);
-    throw e;
-  }
+          isDirectory: stats.isDirectory(),
+        },
+      };
+    })
+  );
 }
 
 async function runLogJob(req) {
@@ -1223,6 +1220,7 @@ async function runLogJob(req) {
     throw e;
   }
 }
+
 async function runEnvJob(req, patternsToWatch) {
   try {
     const expectedEnv = req.body.args[0];
@@ -1232,6 +1230,7 @@ async function runEnvJob(req, patternsToWatch) {
     throw e;
   }
 }
+
 async function runEncryptJob(req, patternsToWatch) {
   try {
     return jsonResponse(
@@ -1249,6 +1248,7 @@ async function runEncryptJob(req, patternsToWatch) {
     };
   }
 }
+
 async function runDecryptJob(req, patternsToWatch) {
   try {
     // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
@@ -1279,6 +1279,7 @@ function sendError(app, error) {
     data: error,
   });
 }
+
 function tryDecodeCookie(input, secrets) {
   if (secrets.length > 0) {
     const signed = cookie.unsign(input, secrets[0]);
