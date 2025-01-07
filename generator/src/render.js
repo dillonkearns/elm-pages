@@ -194,22 +194,7 @@ function runGeneratorAppHelp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
-        app.ports.gotBatchSub.send(
-          Object.fromEntries(
-            await Promise.all(
-              fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                runJob(
-                  requestHash,
-                  requestToPerform,
-                  app,
-                  mode,
-                  patternsToWatch,
-                  portsFile
-                );
-              })
-            )
-          )
-        );
+        doHttp(app, fromElm, mode, patternsToWatch, portsFile);
       } else if (fromElm.tag === "Errors") {
         spinnies.stopAll();
         reject(fromElm.args[0].errorsJson);
@@ -316,22 +301,7 @@ function runElmApp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
-        app.ports.gotBatchSub.send(
-          Object.fromEntries(
-            await Promise.all(
-              fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                runJob(
-                  requestHash,
-                  requestToPerform,
-                  app,
-                  mode,
-                  patternsToWatch,
-                  portsFile
-                );
-              })
-            )
-          )
-        );
+        doHttp(app, fromElm, mode, patternsToWatch, portsFile);
       } else if (fromElm.tag === "Errors") {
         spinnies.stopAll();
         reject(fromElm.args[0].errorsJson);
@@ -382,32 +352,49 @@ async function outputString(
   };
 }
 
-async function runJob(
-  requestHash,
-  requestToPerform,
-  app,
-  mode,
-  patternsToWatch,
-  portsFile
-) {
+async function doHttp(app, fromElm, mode, patternsToWatch, portsFile) {
+  const promises = fromElm.args[0].map(
+    async ([requestHash, requestToPerform]) => {
+      const response = await runJob(
+        requestToPerform,
+        app,
+        mode,
+        patternsToWatch,
+        portsFile
+      );
+      return [
+        requestHash,
+        {
+          request: requestToPerform,
+          response: response,
+        },
+      ];
+    }
+  );
+  const entries = await Promise.all(promises);
+  app.ports.gotBatchSub.send(Object.fromEntries(entries));
+}
+
+async function runJob(requestToPerform, app, mode, patternsToWatch, portsFile) {
   try {
     if (
       requestToPerform.url !== "elm-pages-internal://port" &&
       requestToPerform.url.startsWith("elm-pages-internal://")
     ) {
-      return runInternalJob(
-        requestHash,
-        app,
-        requestToPerform,
-        patternsToWatch,
-        portsFile
-      );
+      return {
+        bodyKind: "json",
+        body: await runInternalJob(
+          requestToPerform,
+          patternsToWatch,
+          portsFile
+        ),
+      };
     } else {
-      return runHttpJob(requestHash, portsFile, mode, requestToPerform);
+      return await runHttpJob(requestToPerform, mode, portsFile);
     }
   } catch (error) {
     sendError(app, error);
-    return [requestHash, jsonResponse(requestToPerform, null)];
+    return { bodyKind: "json", body: null };
   }
 }
 
@@ -415,12 +402,10 @@ async function runJob(
 /** @typedef {HeadTag | JsonLdTag} SeoTag */
 /** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
 /** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
-
 /** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
-
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
-async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
+async function runHttpJob(requestToPerform, mode, portsFile) {
   const lookupResponse = await lookupOrPerform(
     portsFile,
     mode,
@@ -429,42 +414,17 @@ async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
 
   if (lookupResponse.kind === "cache-response-path") {
     const responseFilePath = lookupResponse.value;
-    return [
-      requestHash,
-      {
-        request: requestToPerform,
-        response: JSON.parse(
-          (await fs.promises.readFile(responseFilePath, "utf8")).toString()
-        ),
-      },
-    ];
+    return JSON.parse(
+      (await fs.promises.readFile(responseFilePath, "utf8")).toString()
+    );
   } else if (lookupResponse.kind === "response-json") {
-    return [
-      requestHash,
-      {
-        request: requestToPerform,
-        response: lookupResponse.value,
-      },
-    ];
+    return lookupResponse.value;
   } else {
     throw `Unexpected kind ${lookupResponse}`;
   }
 }
 
-function jsonResponse(request, json) {
-  return {
-    request,
-    response: { bodyKind: "json", body: json },
-  };
-}
-
-async function runInternalJob(
-  requestHash,
-  app,
-  requestToPerform,
-  patternsToWatch,
-  portsFile
-) {
+async function runInternalJob(requestToPerform, patternsToWatch, portsFile) {
   const cwd = path.resolve(...requestToPerform.dir);
   const quiet = requestToPerform.quiet;
   const env = { ...process.env, ...requestToPerform.env };
@@ -472,55 +432,37 @@ async function runInternalJob(
   const context = { cwd, quiet, env };
   switch (requestToPerform.url) {
     case "elm-pages-internal://log":
-      return [requestHash, await runLogJob(requestToPerform)];
+      return await runLogJob(requestToPerform);
     case "elm-pages-internal://read-file":
-      return [
-        requestHash,
-        await readFileJobNew(requestToPerform, patternsToWatch, context),
-      ];
+      return await readFileJobNew(requestToPerform, patternsToWatch, context);
     case "elm-pages-internal://glob":
-      return [requestHash, await runGlobNew(requestToPerform, patternsToWatch)];
+      return await runGlobNew(requestToPerform, patternsToWatch);
     case "elm-pages-internal://randomSeed":
-      return [
-        requestHash,
-        jsonResponse(
-          requestToPerform,
-          crypto.getRandomValues(new Uint32Array(1))[0]
-        ),
-      ];
+      return crypto.getRandomValues(new Uint32Array(1))[0];
     case "elm-pages-internal://now":
-      return [requestHash, jsonResponse(requestToPerform, Date.now())];
+      return Date.now();
     case "elm-pages-internal://env":
-      return [requestHash, await runEnvJob(requestToPerform, patternsToWatch)];
+      return await runEnvJob(requestToPerform);
     case "elm-pages-internal://encrypt":
-      return [
-        requestHash,
-        await runEncryptJob(requestToPerform, patternsToWatch),
-      ];
+      return await runEncryptJob(requestToPerform);
     case "elm-pages-internal://decrypt":
-      return [
-        requestHash,
-        await runDecryptJob(requestToPerform, patternsToWatch),
-      ];
+      return await runDecryptJob(requestToPerform);
     case "elm-pages-internal://write-file":
-      return [requestHash, await runWriteFileJob(requestToPerform, context)];
+      return await runWriteFileJob(requestToPerform, context);
     case "elm-pages-internal://sleep":
-      return [requestHash, await runSleep(requestToPerform)];
+      return await runSleep(requestToPerform);
     case "elm-pages-internal://which":
-      return [requestHash, await runWhich(requestToPerform)];
+      return await runWhich(requestToPerform);
     case "elm-pages-internal://question":
-      return [requestHash, await runQuestion(requestToPerform)];
+      return await runQuestion(requestToPerform);
     case "elm-pages-internal://shell":
-      return [requestHash, await runShell(requestToPerform)];
+      return await runShell(requestToPerform);
     case "elm-pages-internal://stream":
-      return [
-        requestHash,
-        await runStream(requestToPerform, portsFile, context),
-      ];
+      return await runStream(requestToPerform, portsFile, context);
     case "elm-pages-internal://start-spinner":
-      return [requestHash, runStartSpinner(requestToPerform)];
+      return runStartSpinner(requestToPerform);
     case "elm-pages-internal://stop-spinner":
-      return [requestHash, runStopSpinner(requestToPerform)];
+      return runStopSpinner(requestToPerform);
     default:
       throw `Unexpected internal BackendTask request format: ${kleur.yellow(
         JSON.stringify(2, null, requestToPerform)
@@ -538,15 +480,15 @@ async function readFileJobNew(req, patternsToWatch, { cwd }) {
     // TODO does this throw an error if there is invalid frontmatter?
     const parsedFile = matter(fileContents);
 
-    return jsonResponse(req, {
+    return {
       parsedFrontmatter: parsedFile.data,
       withoutFrontmatter: parsedFile.content,
       rawFile: fileContents,
-    });
+    };
   } catch (error) {
-    return jsonResponse(req, {
+    return {
       errorCode: error.code,
-    });
+    };
   }
 }
 
@@ -554,7 +496,7 @@ function runSleep(req) {
   const { milliseconds } = req.body.args[0];
   return new Promise((resolve) => {
     setTimeout(() => {
-      resolve(jsonResponse(req, null));
+      resolve(null);
     }, milliseconds);
   });
 }
@@ -562,14 +504,14 @@ function runSleep(req) {
 async function runWhich(req) {
   const command = req.body.args[0];
   try {
-    return jsonResponse(req, await which(command));
+    return await which(command);
   } catch (error) {
-    return jsonResponse(req, null);
+    return null;
   }
 }
 
 async function runQuestion(req) {
-  return jsonResponse(req, await question(req.body.args[0]));
+  return await question(req.body.args[0]);
 }
 
 function runStream(req, portsFile, context) {
@@ -589,7 +531,7 @@ function runStream(req, portsFile, context) {
           part,
           context,
           portsFile,
-          (value) => resolve(jsonResponse(req, value)),
+          resolve,
           isLastProcess,
           kind
         );
@@ -600,41 +542,33 @@ function runStream(req, portsFile, context) {
         index += 1;
       }
       if (kind === "json") {
-        resolve(
-          jsonResponse(req, {
-            body: await consumers.json(lastStream),
-            metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
+        resolve({
+          body: await consumers.json(lastStream),
+          metadata: await tryCallingFunction(metadataResponse),
+        });
       } else if (kind === "text") {
-        resolve(
-          jsonResponse(req, {
-            body: await consumers.text(lastStream),
-            metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
+        resolve({
+          body: await consumers.text(lastStream),
+          metadata: await tryCallingFunction(metadataResponse),
+        });
       } else if (kind === "none") {
         if (!lastStream) {
           // ensure all error handling gets a chance to fire before resolving successfully
           await tryCallingFunction(metadataResponse);
-          resolve(jsonResponse(req, { body: null }));
+          resolve({ body: null });
         } else {
           let resolvedMeta = await tryCallingFunction(metadataResponse);
           lastStream.once("finish", async () => {
-            resolve(
-              jsonResponse(req, {
-                body: null,
-                metadata: resolvedMeta,
-              })
-            );
+            resolve({
+              body: null,
+              metadata: resolvedMeta,
+            });
           });
           lastStream.once("end", async () => {
-            resolve(
-              jsonResponse(req, {
-                body: null,
-                metadata: resolvedMeta,
-              })
-            );
+            resolve({
+              body: null,
+              metadata: resolvedMeta,
+            });
           });
         }
       } else if (kind === "command") {
@@ -846,7 +780,7 @@ function runStream(req, portsFile, context) {
         lastStream.destroy();
       }
 
-      resolve(jsonResponse(req, { error: error.toString() }));
+      resolve({ error: error.toString() });
     }
   });
 }
@@ -900,14 +834,11 @@ async function runShell(req) {
   const env = { ...process.env, ...req.env };
   const captureOutput = req.body.args[0].captureOutput;
   if (req.body.args[0].commands.length === 1) {
-    return jsonResponse(
-      req,
-      await shell({ cwd, quiet, env, captureOutput }, req.body.args[0])
-    );
+    return await shell({ cwd, quiet, env, captureOutput }, req.body.args[0]);
   } else {
-    return jsonResponse(
-      req,
-      await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0])
+    return await pipeShells(
+      { cwd, quiet, env, captureOutput },
+      req.body.args[0]
     );
   }
 }
@@ -986,6 +917,7 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
  */
 
 /**
+ * @param {*} _
  * @param {{ commands: ElmCommand[] }} commandsAndArgs
  */
 export function pipeShells(
@@ -1093,7 +1025,7 @@ async function runWriteFileJob(req, { cwd }) {
   try {
     await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
     await fsPromises.writeFile(filePath, data.body);
-    return jsonResponse(req, null);
+    return null;
   } catch (error) {
     console.trace(error);
     throw {
@@ -1119,13 +1051,12 @@ function runStartSpinner(req) {
     spinnies.add(spinnerId, { text: data.text, status: "spinning" });
     // }
   }
-  return jsonResponse(req, spinnerId);
+  return spinnerId;
 }
 
 function runStopSpinner(req) {
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
-  let completeFn;
   if (completionFn === "succeed") {
     spinnies.succeed(spinnerId, { text: completionText });
   } else if (completionFn === "fail") {
@@ -1133,7 +1064,7 @@ function runStopSpinner(req) {
   } else {
     console.log("Unexpected");
   }
-  return jsonResponse(req, null);
+  return null;
 }
 
 async function runGlobNew(req, patternsToWatch) {
@@ -1146,58 +1077,52 @@ async function runGlobNew(req, patternsToWatch) {
   });
   patternsToWatch.add(pattern);
 
-  return jsonResponse(
-    req,
-    matchedPaths.map((fullPath) => {
-      const stats = fullPath.stats;
-      if (!stats) {
-        return null;
-      }
-      return {
+  return matchedPaths.map((fullPath) => {
+    const stats = fullPath.stats;
+    if (!stats) {
+      return null;
+    }
+    return {
+      fullPath: fullPath.path,
+      captures: mm.capture(pattern, fullPath.path),
+      fileStats: {
+        size: stats.size,
+        atime: Math.round(stats.atime.getTime()),
+        mtime: Math.round(stats.mtime.getTime()),
+        ctime: Math.round(stats.ctime.getTime()),
+        birthtime: Math.round(stats.birthtime.getTime()),
         fullPath: fullPath.path,
-        captures: mm.capture(pattern, fullPath.path),
-        fileStats: {
-          size: stats.size,
-          atime: Math.round(stats.atime.getTime()),
-          mtime: Math.round(stats.mtime.getTime()),
-          ctime: Math.round(stats.ctime.getTime()),
-          birthtime: Math.round(stats.birthtime.getTime()),
-          fullPath: fullPath.path,
-          isDirectory: stats.isDirectory(),
-        },
-      };
-    })
-  );
+        isDirectory: stats.isDirectory(),
+      },
+    };
+  });
 }
 
 async function runLogJob(req) {
   try {
     console.log(req.body.args[0].message);
-    return jsonResponse(req, null);
+    return null;
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
   }
 }
 
-async function runEnvJob(req, patternsToWatch) {
+async function runEnvJob(req) {
   try {
     const expectedEnv = req.body.args[0];
-    return jsonResponse(req, process.env[expectedEnv] || null);
+    return process.env[expectedEnv] || null;
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
   }
 }
 
-async function runEncryptJob(req, patternsToWatch) {
+async function runEncryptJob(req) {
   try {
-    return jsonResponse(
-      req,
-      cookie.sign(
-        JSON.stringify(req.body.args[0].values, null, 0),
-        req.body.args[0].secret
-      )
+    return cookie.sign(
+      JSON.stringify(req.body.args[0].values, null, 0),
+      req.body.args[0].secret
     );
   } catch (e) {
     throw {
@@ -1208,7 +1133,7 @@ async function runEncryptJob(req, patternsToWatch) {
   }
 }
 
-async function runDecryptJob(req, patternsToWatch) {
+async function runDecryptJob(req) {
   try {
     // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
     const signed = tryDecodeCookie(
@@ -1216,7 +1141,7 @@ async function runDecryptJob(req, patternsToWatch) {
       req.body.args[0].secrets
     );
 
-    return jsonResponse(req, JSON.parse(signed || "null"));
+    return JSON.parse(signed || "null");
   } catch (e) {
     throw {
       title: "BackendTask Decrypt Error",
@@ -1237,6 +1162,12 @@ function sendError(app, error) {
   });
 }
 
+/**
+ *
+ * @param {string} input
+ * @param {(crypto.BinaryLike | crypto.KeyObject)[]} secrets
+ * @returns
+ */
 function tryDecodeCookie(input, secrets) {
   if (secrets.length > 0) {
     const signed = cookie.unsign(input, secrets[0]);
