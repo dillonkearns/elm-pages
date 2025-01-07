@@ -198,30 +198,14 @@ function runGeneratorAppHelp(
           Object.fromEntries(
             await Promise.all(
               fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
-                  return runInternalJob(
-                    requestHash,
-                    app,
-                    mode,
-                    requestToPerform,
-                    hasFsAccess,
-                    patternsToWatch,
-                    portsFile
-                  );
-                } else {
-                  return runHttpJob(
-                    requestHash,
-                    portsFile,
-                    app,
-                    mode,
-                    requestToPerform,
-                    hasFsAccess,
-                    requestToPerform
-                  );
-                }
+                runJob(
+                  requestHash,
+                  requestToPerform,
+                  app,
+                  mode,
+                  patternsToWatch,
+                  portsFile
+                );
               })
             )
           )
@@ -336,30 +320,14 @@ function runElmApp(
           Object.fromEntries(
             await Promise.all(
               fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
-                  return runInternalJob(
-                    requestHash,
-                    app,
-                    mode,
-                    requestToPerform,
-                    hasFsAccess,
-                    patternsToWatch,
-                    portsFile
-                  );
-                } else {
-                  return runHttpJob(
-                    requestHash,
-                    portsFile,
-                    app,
-                    mode,
-                    requestToPerform,
-                    hasFsAccess,
-                    requestToPerform
-                  );
-                }
+                runJob(
+                  requestHash,
+                  requestToPerform,
+                  app,
+                  mode,
+                  patternsToWatch,
+                  portsFile
+                );
               })
             )
           )
@@ -381,6 +349,7 @@ function runElmApp(
     } catch (error) {}
   });
 }
+
 /**
  * @param {string} basePath
  * @param {PageProgress} fromElm
@@ -413,6 +382,30 @@ async function outputString(
   };
 }
 
+async function runJob(
+  requestHash,
+  requestToPerform,
+  app,
+  mode,
+  patternsToWatch,
+  portsFile
+) {
+  if (
+    requestToPerform.url !== "elm-pages-internal://port" &&
+    requestToPerform.url.startsWith("elm-pages-internal://")
+  ) {
+    return runInternalJob(
+      requestHash,
+      app,
+      requestToPerform,
+      patternsToWatch,
+      portsFile
+    );
+  } else {
+    return runHttpJob(requestHash, portsFile, mode, requestToPerform);
+  }
+}
+
 /** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
 /** @typedef {HeadTag | JsonLdTag} SeoTag */
 /** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
@@ -422,22 +415,12 @@ async function outputString(
 
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
-async function runHttpJob(
-  requestHash,
-  portsFile,
-  app,
-  mode,
-  requestToPerform,
-  hasFsAccess,
-  useCache
-) {
+async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
   try {
     const lookupResponse = await lookupOrPerform(
       portsFile,
       mode,
-      requestToPerform,
-      hasFsAccess,
-      useCache
+      requestToPerform
     );
 
     if (lookupResponse.kind === "cache-response-path") {
@@ -468,13 +451,6 @@ async function runHttpJob(
   }
 }
 
-function stringResponse(request, string) {
-  return {
-    request,
-    response: { bodyKind: "string", body: string },
-  };
-}
-
 function jsonResponse(request, json) {
   return {
     request,
@@ -485,9 +461,7 @@ function jsonResponse(request, json) {
 async function runInternalJob(
   requestHash,
   app,
-  mode,
   requestToPerform,
-  hasFsAccess,
   patternsToWatch,
   portsFile
 ) {
@@ -561,6 +535,7 @@ async function runInternalJob(
     }
   } catch (error) {
     sendError(app, error);
+    return [requestHash, jsonResponse(requestToPerform, null)];
   }
 }
 
