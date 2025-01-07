@@ -30,7 +30,6 @@ const spinnies = new Spinnies();
 process.on("unhandledRejection", (error) => {
   console.error(error);
 });
-let foundErrors;
 
 /**
  *
@@ -54,7 +53,6 @@ export async function render(
 ) {
   // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(hasFsAccess);
   // resetInMemoryFs();
-  foundErrors = false;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   global.XMLHttpRequest = {};
@@ -89,7 +87,6 @@ export async function runGenerator(
   global.isRunningGenerator = true;
   // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
   // resetInMemoryFs();
-  foundErrors = false;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   global.XMLHttpRequest = {};
@@ -230,7 +227,6 @@ function runGeneratorAppHelp(
           )
         );
       } else if (fromElm.tag === "Errors") {
-        foundErrors = true;
         spinnies.stopAll();
         reject(fromElm.args[0].errorsJson);
       } else {
@@ -369,7 +365,6 @@ function runElmApp(
           )
         );
       } else if (fromElm.tag === "Errors") {
-        foundErrors = true;
         spinnies.stopAll();
         reject(fromElm.args[0].errorsJson);
       } else {
@@ -1272,8 +1267,6 @@ async function runDecryptJob(req, patternsToWatch) {
  * @param {{ message: string; title: string; }} error
  */
 function sendError(app, error) {
-  foundErrors = true;
-
   app.ports.fromJsPort.send({
     tag: "BuildError",
     data: error,
