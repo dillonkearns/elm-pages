@@ -84,7 +84,6 @@ export async function runGenerator(
   scriptModuleName,
   versionMessage
 ) {
-  global.isRunningGenerator = true;
   // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
   // resetInMemoryFs();
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
