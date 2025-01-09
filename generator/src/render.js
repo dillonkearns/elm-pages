@@ -32,13 +32,46 @@ process.on("unhandledRejection", (error) => {
 });
 
 /**
+ * @typedef {Errors | ApiResponse | PageProgress | DoHttp | SendApiResponse | Port | string} FromElm
+ *
+ * @typedef {{ tag: "Errors"; args: [ErrorFromElm]; }} Errors
+ * @typedef {any} ErrorFromElm
+ *
+ * @typedef {{ tag: "ApiResponse"; args: []; }} ApiResponse
+ *
+ * @typedef {{ tag: "PageProgress"; args: [ToJsSuccessPayloadNew]; }} PageProgress
+ * @typedef {{ route: string; html: string; contentJson: { [key : string]: string }; errors: string[]; head: HeadTag[]; title: string; staticHttpCache: { [key : string]: string }; is404: boolean; statusCode: number; headers : { [key: string]: string[] }; }} ToJsSuccessPayloadNew
+ *
+ * @typedef {SimpleTag | StructuredDataTag | RootModifierTag | StrippedTag} HeadTag
+ * @typedef {{ type: "head"; name: string; attributes: [string, string][]; }} SimpleTag
+ * @typedef {{ type: "json-ld"; contents: any; }} StructuredDataTag
+ * @typedef {{ type: "root"; keyValuePair: [string, string]; }} RootModifierTag
+ * @typedef {{ type: "stripped"; message: string; }} StrippedTag
+ *
+ * @typedef {{ tag: "DoHttp"; args: [[string, ElmRequest][]]; }} DoHttp
+ * @typedef {{ url: string; method: string; headers: [string, string][]; body: StaticHttpBody; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} ElmRequest
+ * @typedef {any} StaticHttpBody
+ *
+ * @typedef {{ tag: "ApiResponse"; args: [any]; }} SendApiResponse
+ *
+ * @typedef {{ tag: "Port"; args: [string]; }} Port
+ *
+ * @typedef {{ Elm: { ScriptMain: { init: (flags: { flags: ScriptFlags; }) => ElmApp; }; Main: { init: (flags : {flags : MainFlags; }) => ElmApp; }; }; }} ElmModule
+ * @typedef {{ ports: { toJsPort: { unsubscribe: (callback: (newThing: FromElm) => Promise<void>) => void; subscribe: (callback: (newThing: FromElm) => Promise<void>) => void; }; sendPageData: { unsubscribe: (callback: (newThing: FromElm) => Promise<void>) => void; subscribe: (callback: (newThing: FromElm) => Promise<void>) => void; }; gotBatchSub: { send: (arg0: { [k: string]: any; }) => void; }; }; die: () => void; }} ElmApp
+ * @typedef {{ compatibilityKey: number; argv: string[]; versionMessage: "1.2.3" }} ScriptFlags
+ * @typedef {{ compatibilityKey: number; mode: string; request: { payload: any; kind: "single-page"; jsonOnly: boolean; }; }} MainFlags
+ */
+
+/**
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @param {string} path
- * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
- * @param {(pattern: string) => void} addBackendTaskWatcher
+ * @param {{method: string;hostname: string;query: Record<string, string | undefined>;headers: Record<string, string>;host: string;pathname: string;port: number | null;protocol: string;rawUrl: string;}} request
+ * @param {(patterns: Set<string>) => void} addBackendTaskWatcher
  * @param {boolean} hasFsAccess
  * @returns
+ * @param {any} portsFile
+ * @param {string} mode
  */
 export async function render(
   portsFile,
@@ -68,7 +101,7 @@ export async function render(
 }
 
 /**
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @returns
  * @param {string[]} cliOptions
  * @param {any} portsFile
@@ -107,7 +140,7 @@ export async function runGenerator(
 
 /**
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @param {string} pagePath
  * @param {string} mode
  * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;}))>}
@@ -174,9 +207,7 @@ function runGeneratorAppHelp(
         if (isBytes) {
           resolve(outputBytes(args, contentDatPayload));
         } else {
-          resolve(
-            outputString(basePath, fromElm, isDevServer, contentDatPayload)
-          );
+          resolve(outputString(basePath, args, contentDatPayload));
         }
       } else if (fromElm.tag === "DoHttp") {
         doHttp(app, fromElm, mode, patternsToWatch, portsFile);
@@ -200,12 +231,13 @@ function runGeneratorAppHelp(
 
 /**
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @param {string} pagePath
  * @param {string} mode
  * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} request
- * @param {(pattern: string) => void} addBackendTaskWatcher
- * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
+ * @param {(patterns: Set<string>) => void} addBackendTaskWatcher
+ * @returns {Promise<({is404: boolean; } & ({kind: 'json'; contentJson: string; } | {kind: 'html'; htmlString: string; } | {kind: 'api-response'; body: string; }))>}
+ * @param {any} portsFile
  */
 function runElmApp(
   portsFile,
@@ -274,9 +306,7 @@ function runElmApp(
         if (isBytes) {
           resolve(outputBytes(args, contentDatPayload));
         } else {
-          resolve(
-            outputString(basePath, fromElm, isDevServer, contentDatPayload)
-          );
+          resolve(outputString(basePath, args, contentDatPayload));
         }
       } else if (fromElm.tag === "DoHttp") {
         doHttp(app, fromElm, mode, patternsToWatch, portsFile);
@@ -320,16 +350,10 @@ function outputBytes(args, contentDatPayload) {
 
 /**
  * @param {string} basePath
- * @param {PageProgress} fromElm
- * @param {boolean} isDevServer
+ * @param {ToJsSuccessPayloadNew} args
+ * @param {undefined} contentDatPayload
  */
-async function outputString(
-  basePath,
-  /** @type { PageProgress } */ fromElm,
-  isDevServer,
-  contentDatPayload
-) {
-  const args = fromElm.args[0];
+async function outputString(basePath, args, contentDatPayload) {
   let contentJson = {};
   contentJson["staticData"] = args.contentJson;
   contentJson["is404"] = args.is404;
@@ -350,6 +374,13 @@ async function outputString(
   };
 }
 
+/**
+ * @param {ElmApp} app
+ * @param {unknown} fromElm
+ * @param {string} mode
+ * @param {Set<any>} patternsToWatch
+ * @param {any} portsFile
+ */
 async function doHttp(app, fromElm, mode, patternsToWatch, portsFile) {
   const promises = fromElm.args[0].map(
     async ([requestHash, requestToPerform]) => {
@@ -373,6 +404,13 @@ async function doHttp(app, fromElm, mode, patternsToWatch, portsFile) {
   app.ports.gotBatchSub.send(Object.fromEntries(entries));
 }
 
+/**
+ * @param {{ url: string; }} requestToPerform
+ * @param {{ ports: { fromJsPort: { send: (arg0: { tag: string; data: any; }) => void; }; }; }} app
+ * @param {any} mode
+ * @param {any} patternsToWatch
+ * @param {any} portsFile
+ */
 async function runJob(requestToPerform, app, mode, patternsToWatch, portsFile) {
   try {
     if (
@@ -396,13 +434,11 @@ async function runJob(requestToPerform, app, mode, patternsToWatch, portsFile) {
   }
 }
 
-/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
-/** @typedef {HeadTag | JsonLdTag} SeoTag */
-/** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
-/** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
-/** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
-/** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
-
+/**
+ * @param {{ url: string; headers: { [x: string]: string; }; method: string; body: import("./request-cache.js").Body; }} requestToPerform
+ * @param {string} mode
+ * @param {Record<string, unknown>} portsFile
+ */
 async function runHttpJob(requestToPerform, mode, portsFile) {
   const lookupResponse = await lookupOrPerform(
     portsFile,
@@ -422,6 +458,11 @@ async function runHttpJob(requestToPerform, mode, portsFile) {
   }
 }
 
+/**
+ * @param {any} requestToPerform
+ * @param {Set<string>} patternsToWatch
+ * @param {any} portsFile
+ */
 async function runInternalJob(requestToPerform, patternsToWatch, portsFile) {
   const cwd = path.resolve(...requestToPerform.dir);
   const quiet = requestToPerform.quiet;
@@ -468,6 +509,11 @@ async function runInternalJob(requestToPerform, patternsToWatch, portsFile) {
   }
 }
 
+/**
+ * @param {{ body: { args: string[]; }; }} req
+ * @param {{ add: (arg0: string) => void; }} patternsToWatch
+ * @param {{ cwd: string; }} _
+ */
 async function readFileJobNew(req, patternsToWatch, { cwd }) {
   // TODO use cwd
   const filePath = path.resolve(cwd, req.body.args[1]);
@@ -490,6 +536,9 @@ async function readFileJobNew(req, patternsToWatch, { cwd }) {
   }
 }
 
+/**
+ * @param {{ body: { args: { milliseconds: any; }[]; }; }} req
+ */
 function runSleep(req) {
   const { milliseconds } = req.body.args[0];
   return new Promise((resolve) => {
@@ -499,6 +548,9 @@ function runSleep(req) {
   });
 }
 
+/**
+ * @param {{ body: { args: any[]; }; }} req
+ */
 async function runWhich(req) {
   const command = req.body.args[0];
   try {
@@ -508,10 +560,18 @@ async function runWhich(req) {
   }
 }
 
+/**
+ * @param {{ body: { args: { prompt: string; }[]; }; }} req
+ */
 async function runQuestion(req) {
   return await question(req.body.args[0]);
 }
 
+/**
+ * @param {{ body: { args: { parts: any; kind: "json"|"text"|"none"|"command"; }[]; }; }} req
+ * @param {any} portsFile
+ * @param {{ cwd: string; quiet: any; env: any; }} context
+ */
 function runStream(req, portsFile, context) {
   return new Promise(async (resolve) => {
     let metadataResponse = null;
@@ -579,7 +639,16 @@ function runStream(req, portsFile, context) {
         default:
           break;
       }
-
+      /**
+       * @param {?import('node:stream').Stream} lastStream
+       * @param {{name: string; path: any; portName: string; input?: any; }} part
+       * @param {{cwd: string;quiet: boolean;env: object;}} param2
+       * @returns {Promise<{stream: import('node:stream').Stream;metadata?: any;}>}
+       * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: object; }) => any; }} portsFile
+       * @param {{ (value: any): void; (arg0: { error: any; }): void; }} resolve
+       * @param {boolean} isLastProcess
+       * @param {string} kind
+       */
       async function pipePartToStream(
         lastStream,
         part,
@@ -823,6 +892,9 @@ function stderr() {
   });
 }
 
+/**
+ * @param {Promise<any>|function|null} func
+ */
 async function tryCallingFunction(func) {
   if (func) {
     // if is promise
@@ -838,6 +910,9 @@ async function tryCallingFunction(func) {
   }
 }
 
+/**
+ * @param {{ dir: string[]; quiet: any; env: any; body: { args: { commands: ElmCommand[]; }[]; }; }} req
+ */
 async function runShell(req) {
   const cwd = path.resolve(...req.dir);
   const quiet = req.quiet;
@@ -853,17 +928,24 @@ async function runShell(req) {
   }
 }
 
+/**
+ * @param {any} cwd
+ * @param {{ commands: any; }} commandsAndArgs
+ */
 function commandAndArgsToString(cwd, commandsAndArgs) {
   return (
     `$ ` +
     commandsAndArgs.commands
-      .map((commandAndArgs) => {
+      .map((/** @type {{ command: any; args: any; }} */ commandAndArgs) => {
         return [commandAndArgs.command, ...commandAndArgs.args].join(" ");
       })
       .join(" | ")
   );
 }
 
+/**
+ * @param {{ commands: any; }} commandAndArgs
+ */
 export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
   return new Promise((resolve, reject) => {
     const command = commandAndArgs.commands[0].command;
@@ -993,17 +1075,17 @@ export function pipeShells(
       }
 
       currentProcess.stderr &&
-        currentProcess.stderr.on("data", function (data) {
+        currentProcess.stderr.on("data", function (/** @type {string} */ data) {
           commandOutput += data;
           stderrOutput += data;
         });
       currentProcess.stdout &&
-        currentProcess.stdout.on("data", function (data) {
+        currentProcess.stdout.on("data", function (/** @type {string} */ data) {
           commandOutput += data;
           stdoutOutput += data;
         });
 
-      currentProcess.on("close", async (code) => {
+      currentProcess.on("close", async (/** @type {any} */ code) => {
         resolve({
           output: commandOutput,
           errorCode: code,
@@ -1015,6 +1097,9 @@ export function pipeShells(
   });
 }
 
+/**
+ * @param {{prompt : string}} _
+ */
 export async function question({ prompt }) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
@@ -1029,6 +1114,10 @@ export async function question({ prompt }) {
   });
 }
 
+/**
+ * @param {{ body: { args: any[]; }; }} req
+ * @param {{ cwd : string; }} _
+ */
 async function runWriteFileJob(req, { cwd }) {
   const data = req.body.args[0];
   const filePath = path.resolve(cwd, data.path);
@@ -1047,6 +1136,9 @@ async function runWriteFileJob(req, { cwd }) {
   }
 }
 
+/**
+ * @param {{ body: { args: { spinnerId: string; completionText: string; completionFn: string; text: string; }[]; }; }} req
+ */
 function runStartSpinner(req) {
   const data = req.body.args[0];
   let spinnerId;
@@ -1064,7 +1156,11 @@ function runStartSpinner(req) {
   return spinnerId;
 }
 
+/**
+ * @param {{ body: { args: { spinnerId: string; completionText: string; completionFn: string; text: string; }[] } }} req
+ */
 function runStopSpinner(req) {
+  /** @type {{ spinnerId: string; completionText: string; completionFn: string }} */
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
   if (completionFn === "succeed") {
@@ -1077,6 +1173,10 @@ function runStopSpinner(req) {
   return null;
 }
 
+/**
+ * @param {{ body: { args: { pattern: string; options: globby.Options & {objectMode : true} }[] }; dir: string[] }} req
+ * @param {Set<string>} patternsToWatch
+ */
 async function runGlobNew(req, patternsToWatch) {
   const { pattern, options } = req.body.args[0];
   const cwd = path.resolve(...req.dir);
@@ -1108,6 +1208,9 @@ async function runGlobNew(req, patternsToWatch) {
   });
 }
 
+/**
+ * @param {{ body: { args: { message: string }[] } }} req
+ */
 async function runLogJob(req) {
   try {
     console.log(req.body.args[0].message);
@@ -1118,6 +1221,9 @@ async function runLogJob(req) {
   }
 }
 
+/**
+ * @param {{ body: { args: string[] } }} req
+ */
 async function runEnvJob(req) {
   try {
     const expectedEnv = req.body.args[0];
@@ -1128,6 +1234,9 @@ async function runEnvJob(req) {
   }
 }
 
+/**
+ * @param {{ body: { args: { secret: crypto.CipherKey; values: any }[] } }} req
+ */
 async function runEncryptJob(req) {
   try {
     return cookie.sign(
@@ -1142,6 +1251,9 @@ async function runEncryptJob(req) {
   }
 }
 
+/**
+ * @param {{ body: { args: { input: string; secrets: (crypto.BinaryLike | crypto.KeyObject)[]; }[]; }; }} req
+ */
 async function runDecryptJob(req) {
   try {
     // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
