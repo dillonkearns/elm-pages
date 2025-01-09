@@ -14,7 +14,12 @@ import {
 } from "./utils.js";
 import { dots, dashes, writeStream, cleanStream } from "./utils.js";
 
+/** @typedef {{ text?: any; status?: any; indent?: any; color?: any; succeedColor?: any; failColor?: any; spinnerColor?: any; spinner?: any; disableSpins?: boolean; succeedPrefix?: any }} Options */
+
 export class Spinnies {
+  /**
+   * @param {Options} [options]
+   */
   constructor(options = {}) {
     options = purgeSpinnersOptions(options);
     this.options = {
@@ -27,6 +32,7 @@ export class Spinnies {
       disableSpins: false,
       ...options,
     };
+    /** @type {{[id: string] : Options}} */
     this.spinners = {};
     this.isCursorHidden = false;
     this.currentInterval = null;
@@ -41,10 +47,18 @@ export class Spinnies {
     this.bindSigint();
   }
 
+  /**
+   * @param {string} name
+   * @return {Options}
+   */
   pick(name) {
     return this.spinners[name];
   }
 
+  /**
+   * @param {string} name
+   * @param {Options} options
+   */
   add(name, options = {}) {
     if (typeof name !== "string")
       throw Error("A spinner reference name must be specified");
@@ -71,6 +85,10 @@ export class Spinnies {
     return this.spinners[name];
   }
 
+  /**
+   * @param {string} name
+   * @param {Options} options
+   */
   succeed(name, options = {}) {
     this.setSpinnerProperties(name, options, "succeed");
     this.updateSpinnerState();
@@ -122,6 +140,11 @@ export class Spinnies {
     );
   }
 
+  /**
+   * @param {string} name
+   * @param {SpinnerOptions} options
+   * @param {string} status
+   */
   setSpinnerProperties(name, options, status) {
     if (typeof name !== "string")
       throw Error("A spinner reference name must be specified");
@@ -177,7 +200,9 @@ export class Spinnies {
         if (status === "spinning") {
           prefixLength += frame.length + 1;
           text = breakText(text, prefixLength);
-          line = `${chalk[spinnerColor](frame)} ${color ? chalk[color](text) : text}`;
+          line = `${chalk[spinnerColor](frame)} ${
+            color ? chalk[color](text) : text
+          }`;
         } else {
           if (status === "succeed") {
             prefixLength += succeedPrefix.length + 1;
