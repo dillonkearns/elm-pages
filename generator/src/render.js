@@ -161,8 +161,11 @@ function runGeneratorAppHelp(
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
-  let app = null;
+  /**
+   * @type {(() => void) | null}
+   */
   let killApp;
+
   // Handle version flag with early return
   if (
     cliOptions.length === 1 &&
@@ -175,13 +178,15 @@ function runGeneratorAppHelp(
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
 
-    app = elmModule.Elm.ScriptMain.init({
+    /** @type {ElmApp | null} */
+    let app = elmModule.Elm.ScriptMain.init({
       flags: {
         compatibilityKey,
         argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],
         versionMessage: versionMessage || "",
       },
     });
+    app.ports.toJsPort.subscribe(portHandler);
 
     killApp = () => {
       if (app) {
@@ -192,12 +197,26 @@ function runGeneratorAppHelp(
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ newThing) {
-      let fromElm;
-      let contentDatPayload;
+    /**
+     * @param {FromElm | { oldThing: FromElm; binaryPageData: any; }} newThing
+     */
+    async function portHandler(newThing) {
+      if (!app) {
+        // The app is already dead
+        return;
+      }
 
-      fromElm = newThing;
-      if (fromElm.command === "log") {
+      let contentDatPayload;
+      let fromElm = newThing;
+
+      if (typeof newThing !== "string" && "oldThing" in newThing) {
+        fromElm = newThing.oldThing;
+        contentDatPayload = newThing.binaryPageData;
+      } else {
+        fromElm = newThing;
+      }
+
+      if (typeof fromElm === "string" || fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         // Finished successfully
@@ -218,7 +237,6 @@ function runGeneratorAppHelp(
         console.log(fromElm);
       }
     }
-    app.ports.toJsPort.subscribe(portHandler);
   }).finally(() => {
     try {
       if (killApp) {
@@ -250,8 +268,11 @@ function runElmApp(
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
-  let app = null;
+  /**
+   * @type {(() => void) | null}
+   */
   let killApp;
+
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
     const route = pagePath
@@ -259,7 +280,9 @@ function runElmApp(
       .replace(/content\.dat\/?$/, "");
 
     const modifiedRequest = { ...request, path: route };
-    app = elmModule.Elm.Main.init({
+
+    /** @type {ElmApp | null} */
+    let app = elmModule.Elm.Main.init({
       flags: {
         mode,
         compatibilityKey,
@@ -270,6 +293,8 @@ function runElmApp(
         },
       },
     });
+    app.ports.toJsPort.subscribe(portHandler);
+    app.ports.sendPageData.subscribe(portHandler);
 
     killApp = () => {
       if (app) {
@@ -281,16 +306,26 @@ function runElmApp(
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ newThing) {
-      let fromElm;
+    /**
+     * @param {FromElm | { oldThing: FromElm; binaryPageData: any; }} newThing
+     */
+    async function portHandler(newThing) {
+      if (!app) {
+        // The app is already dead
+        return;
+      }
+
       let contentDatPayload;
-      if ("oldThing" in newThing) {
+      let fromElm;
+
+      if (typeof newThing !== "string" && "oldThing" in newThing) {
         fromElm = newThing.oldThing;
         contentDatPayload = newThing.binaryPageData;
       } else {
         fromElm = newThing;
       }
-      if (fromElm.command === "log") {
+
+      if (typeof fromElm === "string" || fromElm.command === "log") {
         console.log(fromElm.value);
       } else if (fromElm.tag === "ApiResponse") {
         const args = fromElm.args[0];
@@ -317,8 +352,6 @@ function runElmApp(
         console.log(fromElm);
       }
     }
-    app.ports.toJsPort.subscribe(portHandler);
-    app.ports.sendPageData.subscribe(portHandler);
   }).finally(() => {
     addBackendTaskWatcher(patternsToWatch);
     try {
