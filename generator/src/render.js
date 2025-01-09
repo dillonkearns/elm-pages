@@ -62,8 +62,7 @@ export async function render(
     mode,
     path,
     request,
-    addBackendTaskWatcher,
-    hasFsAccess
+    addBackendTaskWatcher
   );
   return result;
 }
@@ -222,8 +221,7 @@ function runElmApp(
   mode,
   pagePath,
   request,
-  addBackendTaskWatcher,
-  hasFsAccess
+  addBackendTaskWatcher
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
