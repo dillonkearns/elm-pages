@@ -49,17 +49,83 @@ process.on("unhandledRejection", (error) => {
  * @typedef {{ type: "stripped"; message: string; }} StrippedTag
  *
  * @typedef {{ tag: "DoHttp"; args: [[string, ElmRequest][]]; }} DoHttp
- * @typedef {{ url: string; method: string; headers: [string, string][]; body: StaticHttpBody; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} ElmRequest
- * @typedef {any} StaticHttpBody
+ * @typedef {InternalRequest | GenericRequest} ElmRequest
+ *
+ * @typedef {LogRequest | WriteFileRequest | SleepRequest | WhichRequest | QuestionRequest | EncryptRequest | DecryptRequest | TimeRequest | FileReadRequest | EnvRequest | GlobRequest | RandomSeedRequest | StartSpinnerRequest | StopSpinnerRequest | StreamRequest} InternalRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://log", { message: string }>} LogRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://write-file", { path: string; body: string }>} WriteFileRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://sleep", { milliseconds: number }>} SleepRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://which", string>} WhichRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://question", { prompt: string }>} QuestionRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://encrypt", { values: any; secret: string }>} EncryptRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://decrypt", { input: string; secrets: string[] }>} DecryptRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://now", null>} TimeRequest
+ * @typedef {InternalRequestString<"elm-pages-internal://read-file">} FileReadRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://env", string>} EnvRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://glob", { pattern: string; options: GlobOptions; }>} GlobRequest
+ * @typedef {{ dot: boolean; followSymbolicLinks: boolean; caseSensitiveMatch: boolean; gitIgnore: boolean; deep?: number; onlyFiles: boolean; onlyDirectories: boolean; stats: boolean; }} GlobOptions
+ * @typedef {InternalRequestJson<"elm-pages-internal://randomSeed", null>} RandomSeedRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://start-spinner", { text: string; immediateStart: boolean; spinner?: string; spinnerId?: string; }>} StartSpinnerRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://stop-spinner", { spinnerId: string; completionFn: string; completionText: string?; }>} StopSpinnerRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://stream", { kind: string; parts: StreamPart[]}>} StreamRequest
+ *
+ * @typedef {SimplePart<"unzip"> | SimplePart<"gzip"> | SimplePart<"stdin"> | SimplePart<"stdout"> | SimplePart<"stderr"> | FromStringPart | CommandPart | HttpWritePart | FileReadPart | FileWritePart | CustomReadPart | CustomWritePart | CustomDuplexPart} StreamPart
+ * @typedef {PartWith<"fromString", { string: string; }>} FromStringPart
+ * @typedef {PartWith<"command", { command: string; args: string[]; allowNon0Status: boolean; output: "Ignore" | "Print" | "MergeWithStdout" | "InsteadOfStdout"; timeoutInMs: number?; }>} CommandPart
+ * @typedef {PartWith<"httpWrite", { url: string; method: string; headers: { key: string; value: string; }[]; body?: StaticHttpBody; retries: number?; timeoutInMs: number?; }>} HttpWritePart
+ * @typedef {PartWith<"fileRead", { path: string; }>} FileReadPart
+ * @typedef {PartWith<"fileWrite", { path: string; }>} FileWritePart
+ * @typedef {PartWith<"customRead", { portName: string; input: any; }>} CustomReadPart
+ * @typedef {PartWith<"customWrite", { portName: string; input: any; }>} CustomWritePart
+ * @typedef {PartWith<"customDuplex", { portName: string; input: any; }>} CustomDuplexPart
+ *
+ * @typedef {{ url: string; method: string; headers: [string, string][]; body: StaticHttpBody; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} GenericRequest
+ * @typedef {EmptyBody | StringBody | JsonBody | BytesBody} StaticHttpBody
+ * @typedef {{ tag: "empty"; args: [] }} EmptyBody
+ * @typedef {{ tag: "string"; args: [string, string] }} StringBody
+ * @typedef {{ tag: "json"; args: [any] }} JsonBody
+ * @typedef {{ tag: "bytes"; args: [string, string] }} BytesBody
  *
  * @typedef {{ tag: "ApiResponse"; args: [any]; }} SendApiResponse
  *
  * @typedef {{ tag: "Port"; args: [string]; }} Port
  *
  * @typedef {{ Elm: { ScriptMain: { init: (flags: { flags: ScriptFlags; }) => ElmApp; }; Main: { init: (flags : {flags : MainFlags; }) => ElmApp; }; }; }} ElmModule
- * @typedef {{ ports: { toJsPort: { unsubscribe: (callback: (newThing: FromElm) => Promise<void>) => void; subscribe: (callback: (newThing: FromElm) => Promise<void>) => void; }; sendPageData: { unsubscribe: (callback: (newThing: FromElm) => Promise<void>) => void; subscribe: (callback: (newThing: FromElm) => Promise<void>) => void; }; gotBatchSub: { send: (arg0: { [k: string]: any; }) => void; }; }; die: () => void; }} ElmApp
+ * @typedef {{ fromJsPort: FromJsPort<{ tag: string; data: any; }>; toJsPort: ToJsPort<FromElm>; sendPageData: ToJsPort<FromElm>; gotBatchSub: FromJsPort<{ [k: string]: any; }> }} Ports
+ * @typedef {{ ports: Ports; die: () => void; }} ElmApp
  * @typedef {{ compatibilityKey: number; argv: string[]; versionMessage: "1.2.3" }} ScriptFlags
  * @typedef {{ compatibilityKey: number; mode: string; request: { payload: any; kind: "single-page"; jsonOnly: boolean; }; }} MainFlags
+ */
+
+/**
+ * @template Key
+ * @typedef {{ name: Key; }} SimplePart<Key>
+ */
+
+/**
+ * @template Key
+ * @template Values
+ * @typedef {{ name: Key; } & Values} PartWith<Key,Values>
+ */
+
+/**
+ * @template Key
+ * @template Body
+ * @typedef {{ url: Key; method: string; headers: [string, string][]; body: { tag: "json"; args: [Body] }; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} InternalRequestJson<Key,Body>
+ */
+
+/**
+ * @template Key
+ * @typedef {{ url: Key; method: string; headers: [string, string][]; body: { tag: "string"; args: [string, string] }; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} InternalRequestString<Key>
+ */
+
+/**
+ * @template T
+ * @typedef {{ send: (arg0: T) => void; }} FromJsPort<T>
+ */
+/**
+ * @template T
+ * @typedef {{ unsubscribe: (callback: (arg: T) => Promise<void>) => void; subscribe: (callback: (arg: T) => Promise<void>) => void; }} ToJsPort<T>
  */
 
 /**
@@ -218,23 +284,35 @@ function runGeneratorAppHelp(
 
       if (typeof fromElm === "string" || fromElm.command === "log") {
         console.log(fromElm.value);
-      } else if (fromElm.tag === "ApiResponse") {
-        // Finished successfully
-        process.exit(0);
-      } else if (fromElm.tag === "PageProgress") {
-        const args = fromElm.args[0];
-        if (isBytes) {
-          resolve(outputBytes(args, contentDatPayload));
-        } else {
-          resolve(outputString(basePath, args, contentDatPayload));
-        }
-      } else if (fromElm.tag === "DoHttp") {
-        doHttp(app, fromElm, mode, patternsToWatch, portsFile);
-      } else if (fromElm.tag === "Errors") {
-        spinnies.stopAll();
-        reject(fromElm.args[0].errorsJson);
       } else {
-        console.log(fromElm);
+        switch (fromElm.tag) {
+          case "ApiResponse":
+            // Finished successfully
+            process.exit(0);
+            break;
+
+          case "PageProgress":
+            const args = fromElm.args[0];
+            if (isBytes) {
+              resolve(outputBytes(args, contentDatPayload));
+            } else {
+              resolve(outputString(basePath, args, contentDatPayload));
+            }
+            break;
+
+          case "DoHttp":
+            doHttp(app, fromElm, mode, patternsToWatch, portsFile);
+            break;
+
+          case "Errors":
+            spinnies.stopAll();
+            reject(fromElm.args[0].errorsJson);
+            break;
+
+          default:
+            console.log(fromElm);
+            break;
+        }
       }
     }
   }).finally(() => {
@@ -327,29 +405,42 @@ function runElmApp(
 
       if (typeof fromElm === "string" || fromElm.command === "log") {
         console.log(fromElm.value);
-      } else if (fromElm.tag === "ApiResponse") {
-        const args = fromElm.args[0];
-
-        resolve({
-          kind: "api-response",
-          is404: args.is404,
-          statusCode: args.statusCode,
-          body: args.body,
-        });
-      } else if (fromElm.tag === "PageProgress") {
-        const args = fromElm.args[0];
-        if (isBytes) {
-          resolve(outputBytes(args, contentDatPayload));
-        } else {
-          resolve(outputString(basePath, args, contentDatPayload));
-        }
-      } else if (fromElm.tag === "DoHttp") {
-        doHttp(app, fromElm, mode, patternsToWatch, portsFile);
-      } else if (fromElm.tag === "Errors") {
-        spinnies.stopAll();
-        reject(fromElm.args[0].errorsJson);
       } else {
-        console.log(fromElm);
+        switch (fromElm.tag) {
+          case "ApiResponse": {
+            const args = fromElm.args[0];
+
+            resolve({
+              kind: "api-response",
+              is404: args.is404,
+              statusCode: args.statusCode,
+              body: args.body,
+            });
+            break;
+          }
+
+          case "PageProgress": {
+            const args = fromElm.args[0];
+            if (isBytes) {
+              resolve(outputBytes(args, contentDatPayload));
+            } else {
+              resolve(outputString(basePath, args, contentDatPayload));
+            }
+            break;
+          }
+
+          case "DoHttp":
+            doHttp(app, fromElm, mode, patternsToWatch, portsFile);
+            break;
+
+          case "Errors":
+            spinnies.stopAll();
+            reject(fromElm.args[0].errorsJson);
+            break;
+
+          default:
+            console.log(fromElm);
+        }
       }
     }
   }).finally(() => {
@@ -409,7 +500,7 @@ async function outputString(basePath, args, contentDatPayload) {
 
 /**
  * @param {ElmApp} app
- * @param {unknown} fromElm
+ * @param {DoHttp} fromElm
  * @param {string} mode
  * @param {Set<any>} patternsToWatch
  * @param {any} portsFile
@@ -438,8 +529,8 @@ async function doHttp(app, fromElm, mode, patternsToWatch, portsFile) {
 }
 
 /**
- * @param {{ url: string; }} requestToPerform
- * @param {{ ports: { fromJsPort: { send: (arg0: { tag: string; data: any; }) => void; }; }; }} app
+ * @param {ElmRequest} requestToPerform
+ * @param {ElmApp} app
  * @param {any} mode
  * @param {any} patternsToWatch
  * @param {any} portsFile
@@ -468,7 +559,7 @@ async function runJob(requestToPerform, app, mode, patternsToWatch, portsFile) {
 }
 
 /**
- * @param {{ url: string; headers: { [x: string]: string; }; method: string; body: import("./request-cache.js").Body; }} requestToPerform
+ * @param {GenericRequest} requestToPerform
  * @param {string} mode
  * @param {Record<string, unknown>} portsFile
  */
@@ -492,7 +583,7 @@ async function runHttpJob(requestToPerform, mode, portsFile) {
 }
 
 /**
- * @param {any} requestToPerform
+ * @param {InternalRequest} requestToPerform
  * @param {Set<string>} patternsToWatch
  * @param {any} portsFile
  */
@@ -537,13 +628,13 @@ async function runInternalJob(requestToPerform, patternsToWatch, portsFile) {
       return runStopSpinner(requestToPerform);
     default:
       throw `Unexpected internal BackendTask request format: ${kleur.yellow(
-        JSON.stringify(2, null, requestToPerform)
+        JSON.stringify(requestToPerform, null, 2)
       )}`;
   }
 }
 
 /**
- * @param {{ body: { args: string[]; }; }} req
+ * @param {FileReadRequest} req
  * @param {{ add: (arg0: string) => void; }} patternsToWatch
  * @param {{ cwd: string; }} _
  */
@@ -570,7 +661,7 @@ async function readFileJobNew(req, patternsToWatch, { cwd }) {
 }
 
 /**
- * @param {{ body: { args: { milliseconds: any; }[]; }; }} req
+ * @param {SleepRequest} req
  */
 function runSleep(req) {
   const { milliseconds } = req.body.args[0];
@@ -582,7 +673,7 @@ function runSleep(req) {
 }
 
 /**
- * @param {{ body: { args: any[]; }; }} req
+ * @param {WhichRequest} req
  */
 async function runWhich(req) {
   const command = req.body.args[0];
@@ -594,14 +685,14 @@ async function runWhich(req) {
 }
 
 /**
- * @param {{ body: { args: { prompt: string; }[]; }; }} req
+ * @param {QuestionRequest} req
  */
 async function runQuestion(req) {
   return await question(req.body.args[0]);
 }
 
 /**
- * @param {{ body: { args: { parts: any; kind: "json"|"text"|"none"|"command"; }[]; }; }} req
+ * @param {StreamRequest} req
  * @param {any} portsFile
  * @param {{ cwd: string; quiet: any; env: any; }} context
  */
@@ -674,7 +765,7 @@ function runStream(req, portsFile, context) {
       }
       /**
        * @param {?import('node:stream').Stream} lastStream
-       * @param {{name: string; path: any; portName: string; input?: any; }} part
+       * @param {StreamPart} part
        * @param {{cwd: string;quiet: boolean;env: object;}} param2
        * @returns {Promise<{stream: import('node:stream').Stream;metadata?: any;}>}
        * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: object; }) => any; }} portsFile
@@ -944,7 +1035,7 @@ async function tryCallingFunction(func) {
 }
 
 /**
- * @param {{ dir: string[]; quiet: any; env: any; body: { args: { commands: ElmCommand[]; }[]; }; }} req
+ * @param {ShellRequest} req
  */
 async function runShell(req) {
   const cwd = path.resolve(...req.dir);
@@ -1148,7 +1239,7 @@ export async function question({ prompt }) {
 }
 
 /**
- * @param {{ body: { args: any[]; }; }} req
+ * @param {WriteFileRequest} req
  * @param {{ cwd : string; }} _
  */
 async function runWriteFileJob(req, { cwd }) {
@@ -1170,7 +1261,7 @@ async function runWriteFileJob(req, { cwd }) {
 }
 
 /**
- * @param {{ body: { args: { spinnerId: string; completionText: string; completionFn: string; text: string; }[]; }; }} req
+ * @param {StartSpinnerRequest} req
  */
 function runStartSpinner(req) {
   const data = req.body.args[0];
@@ -1190,10 +1281,10 @@ function runStartSpinner(req) {
 }
 
 /**
- * @param {{ body: { args: { spinnerId: string; completionText: string; completionFn: string; text: string; }[] } }} req
+ * @param {StopSpinnerRequest} req
  */
 function runStopSpinner(req) {
-  /** @type {{ spinnerId: string; completionText: string; completionFn: string }} */
+  /** @type {{ spinnerId: string; completionText: string?; completionFn: string }} */
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
   if (completionFn === "succeed") {
@@ -1207,7 +1298,7 @@ function runStopSpinner(req) {
 }
 
 /**
- * @param {{ body: { args: { pattern: string; options: globby.Options & {objectMode : true} }[] }; dir: string[] }} req
+ * @param {GlobRequest} req
  * @param {Set<string>} patternsToWatch
  */
 async function runGlobNew(req, patternsToWatch) {
@@ -1216,6 +1307,7 @@ async function runGlobNew(req, patternsToWatch) {
   const matchedPaths = await globby.globby(pattern, {
     ...options,
     stats: true,
+    objectMode: true,
     cwd,
   });
   patternsToWatch.add(pattern);
@@ -1242,7 +1334,7 @@ async function runGlobNew(req, patternsToWatch) {
 }
 
 /**
- * @param {{ body: { args: { message: string }[] } }} req
+ * @param {LogRequest} req
  */
 async function runLogJob(req) {
   try {
@@ -1255,7 +1347,7 @@ async function runLogJob(req) {
 }
 
 /**
- * @param {{ body: { args: string[] } }} req
+ * @param {EnvRequest} req
  */
 async function runEnvJob(req) {
   try {
@@ -1268,7 +1360,7 @@ async function runEnvJob(req) {
 }
 
 /**
- * @param {{ body: { args: { secret: crypto.CipherKey; values: any }[] } }} req
+ * @param {EncryptRequest} req
  */
 async function runEncryptJob(req) {
   try {
@@ -1285,7 +1377,7 @@ async function runEncryptJob(req) {
 }
 
 /**
- * @param {{ body: { args: { input: string; secrets: (crypto.BinaryLike | crypto.KeyObject)[]; }[]; }; }} req
+ * @param {DecryptRequest} req
  */
 async function runDecryptJob(req) {
   try {
@@ -1305,7 +1397,7 @@ async function runDecryptJob(req) {
 }
 
 /**
- * @param {{ ports: { fromJsPort: { send: (arg0: { tag: string; data: any; }) => void; }; }; }} app
+ * @param {ElmApp} app
  * @param {{ message: string; title: string; }} error
  */
 function sendError(app, error) {
