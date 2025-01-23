@@ -270,12 +270,25 @@ mapRecoverable maybeBody { fatal, recoverable } =
 
 
 type StreamPart
-    = StreamPart String (List ( String, Encode.Value ))
+    = Unzip
+    | Gzip
+    | FromString String
+    | Stdin
+    | Stdout
+    | Stderr
+    | Command CommandOptions_ String (List String)
+    | Http { url : String, method : String, headers : List ( String, String ), body : Body, retries : Maybe Int, timeoutInMs : Maybe Int }
+    | HttpWithInput { url : String, method : String, headers : List ( String, String ), retries : Maybe Int, timeoutInMs : Maybe Int }
+    | FileRead String
+    | FileWrite String
+    | CustomRead String Encode.Value
+    | CustomWrite String Encode.Value
+    | CustomDuplex String Encode.Value
 
 
-single : ( String, Decoder (Result (Recoverable error) metadata) ) -> String -> List ( String, Encode.Value ) -> Stream error metadata kind
-single decoder inner1 inner2 =
-    Stream decoder [ StreamPart inner1 inner2 ]
+single : ( String, Decoder (Result (Recoverable error) metadata) ) -> StreamPart -> Stream error metadata kind
+single decoder inner =
+    Stream decoder [ inner ]
 
 
 unit : ( String, Decoder (Result (Recoverable ()) ()) )
@@ -324,7 +337,7 @@ ls | elm-pages run script/src/CountLines.elm
 -}
 stdin : Stream () () { read : (), write : Never }
 stdin =
-    single unit "stdin" []
+    single unit Stdin
 
 
 {-| Streaming through to stdout can be a convenient way to print a pipeline directly without going through to Elm.
@@ -348,14 +361,14 @@ stdin =
 -}
 stdout : Stream () () { read : Never, write : () }
 stdout =
-    single unit "stdout" []
+    single unit Stdout
 
 
 {-| Similar to [`stdout`](#stdout), but writes to `stderr` instead.
 -}
 stderr : Stream () () { read : Never, write : () }
 stderr =
-    single unit "stderr" []
+    single unit Stderr
 
 
 {-| Open a file's contents as a Stream.
@@ -387,7 +400,7 @@ If you want to read a file but don't need to use any of the other Stream functio
 fileRead : String -> Stream () () { read : (), write : Never }
 fileRead path =
     -- TODO revisit the error type instead of ()?
-    single unit "fileRead" [ ( "path", Encode.string path ) ]
+    single unit (FileRead path)
 
 
 {-| Write a Stream to a file.
@@ -409,29 +422,21 @@ fileRead path =
 -}
 fileWrite : String -> Stream () () { read : Never, write : () }
 fileWrite path =
-    single unit "fileWrite" [ ( "path", Encode.string path ) ]
+    single unit (FileWrite path)
 
 
 {-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `ReadableStream` it returns.
 -}
 customRead : String -> Encode.Value -> Stream () () { read : (), write : Never }
 customRead name input =
-    single unit
-        "customRead"
-        [ ( "portName", Encode.string name )
-        , ( "input", input )
-        ]
+    single unit (CustomRead name input)
 
 
 {-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `WritableStream` it returns.
 -}
 customWrite : String -> Encode.Value -> Stream () () { read : Never, write : () }
 customWrite name input =
-    single unit
-        "customWrite"
-        [ ( "portName", Encode.string name )
-        , ( "input", input )
-        ]
+    single unit (CustomWrite name input)
 
 
 {-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `DuplexStream` it returns.
@@ -442,11 +447,7 @@ customReadWithMeta :
     -> Decoder (Result { fatal : FatalError, recoverable : error } metadata)
     -> Stream error metadata { read : (), write : Never }
 customReadWithMeta name input decoder =
-    single ( "", decoder )
-        "customRead"
-        [ ( "portName", Encode.string name )
-        , ( "input", input )
-        ]
+    single ( "", decoder ) (CustomRead name input)
 
 
 {-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `WritableStream` and metadata function it returns.
@@ -457,11 +458,7 @@ customWriteWithMeta :
     -> Decoder (Result { fatal : FatalError, recoverable : error } metadata)
     -> Stream error metadata { read : Never, write : () }
 customWriteWithMeta name input decoder =
-    single ( "", decoder )
-        "customWrite"
-        [ ( "portName", Encode.string name )
-        , ( "input", input )
-        ]
+    single ( "", decoder ) (CustomWrite name input)
 
 
 {-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `DuplexStream` and metadata function it returns.
@@ -472,22 +469,14 @@ customTransformWithMeta :
     -> Decoder (Result { fatal : FatalError, recoverable : error } metadata)
     -> Stream error metadata { read : (), write : () }
 customTransformWithMeta name input decoder =
-    single ( "", decoder )
-        "customDuplex"
-        [ ( "portName", Encode.string name )
-        , ( "input", input )
-        ]
+    single ( "", decoder ) (CustomDuplex name input)
 
 
 {-| Calls an async function from your `custom-backend-task` definitions and uses the NodeJS `DuplexStream` it returns.
 -}
 customDuplex : String -> Encode.Value -> Stream () () { read : (), write : () }
 customDuplex name input =
-    single unit
-        "customDuplex"
-        [ ( "portName", Encode.string name )
-        , ( "input", input )
-        ]
+    single unit (CustomDuplex name input)
 
 
 {-| Transforms the input with gzip compression.
@@ -497,7 +486,7 @@ Under the hood this builds a Stream using Node's [`zlib.createGzip`](https://nod
 -}
 gzip : Stream () () { read : (), write : () }
 gzip =
-    single unit "gzip" []
+    single unit Gzip
 
 
 {-| Transforms the input by auto-detecting the header and decompressing either a Gzip- or Deflate-compressed stream.
@@ -507,7 +496,7 @@ Under the hood, this builds a Stream using Node's [`zlib.createUnzip`](https://n
 -}
 unzip : Stream () () { read : (), write : () }
 unzip =
-    single unit "unzip" []
+    single unit Unzip
 
 
 {-| Streams the data from the input stream as the body of the HTTP request. The HTTP response body becomes the output stream.
@@ -520,16 +509,9 @@ httpWithInput :
     , timeoutInMs : Maybe Int
     }
     -> Stream BackendTask.Http.Error BackendTask.Http.Metadata { read : (), write : () }
-httpWithInput string =
+httpWithInput request =
     -- Pages.Internal.StaticHttpBody
-    single httpMetadataDecoder
-        "httpWrite"
-        [ ( "url", Encode.string string.url )
-        , ( "method", Encode.string string.method )
-        , ( "headers", Encode.list (\( key, value ) -> Encode.object [ ( "key", Encode.string key ), ( "value", Encode.string value ) ]) string.headers )
-        , ( "retries", nullable Encode.int string.retries )
-        , ( "timeoutInMs", nullable Encode.int string.timeoutInMs )
-        ]
+    single httpMetadataDecoder (HttpWithInput request)
 
 
 {-| Uses a regular HTTP request body (not a `Stream`). Streams the HTTP response body.
@@ -549,15 +531,7 @@ http :
     }
     -> Stream BackendTask.Http.Error BackendTask.Http.Metadata { read : (), write : Never }
 http request_ =
-    single httpMetadataDecoder
-        "httpWrite"
-        [ ( "url", Encode.string request_.url )
-        , ( "method", Encode.string request_.method )
-        , ( "headers", Encode.list (\( key, value ) -> Encode.object [ ( "key", Encode.string key ), ( "value", Encode.string value ) ]) request_.headers )
-        , ( "body", Pages.Internal.StaticHttpBody.encode request_.body )
-        , ( "retries", nullable Encode.int request_.retries )
-        , ( "timeoutInMs", nullable Encode.int request_.timeoutInMs )
-        ]
+    single httpMetadataDecoder (Http request_)
 
 
 httpMetadataDecoder : ( String, Decoder (Result (Recoverable BackendTask.Http.Error) BackendTask.Http.Metadata) )
@@ -653,14 +627,88 @@ pipelineEncoder : Stream error metadata kind -> String -> Encode.Value
 pipelineEncoder (Stream _ parts) kind =
     Encode.object
         [ ( "kind", Encode.string kind )
-        , ( "parts"
-          , Encode.list
-                (\(StreamPart name data) ->
-                    Encode.object (( "name", Encode.string name ) :: data)
-                )
-                parts
-          )
+        , ( "parts", Encode.list encodeStreamPart parts )
         ]
+
+
+encodeStreamPart : StreamPart -> Encode.Value
+encodeStreamPart part =
+    let
+        encode : String -> List ( String, Encode.Value ) -> Encode.Value
+        encode name fields =
+            Encode.object (( "name", Encode.string name ) :: fields)
+    in
+    case part of
+        Unzip ->
+            encode "unzip" []
+
+        Gzip ->
+            encode "gzip" []
+
+        FromString string ->
+            encode "fromString" [ ( "string", Encode.string string ) ]
+
+        Stdin ->
+            encode "stdin" []
+
+        Stdout ->
+            encode "stdout" []
+
+        Stderr ->
+            encode "stderr" []
+
+        Command options command_ args_ ->
+            encode "command"
+                [ ( "command", Encode.string command_ )
+                , ( "args", Encode.list Encode.string args_ )
+                , ( "allowNon0Status", Encode.bool options.allowNon0Status )
+                , ( "output", encodeChannel options.output )
+                , ( "timeoutInMs", nullable Encode.int options.timeoutInMs )
+                ]
+
+        Http request_ ->
+            encode "httpWrite"
+                [ ( "url", Encode.string request_.url )
+                , ( "method", Encode.string request_.method )
+                , ( "headers", Encode.list (\( key, value ) -> Encode.object [ ( "key", Encode.string key ), ( "value", Encode.string value ) ]) request_.headers )
+                , ( "body", Pages.Internal.StaticHttpBody.encode request_.body )
+                , ( "retries", nullable Encode.int request_.retries )
+                , ( "timeoutInMs", nullable Encode.int request_.timeoutInMs )
+                ]
+
+        HttpWithInput request ->
+            encode
+                "httpWrite"
+                [ ( "url", Encode.string request.url )
+                , ( "method", Encode.string request.method )
+                , ( "headers", Encode.list (\( key, value ) -> Encode.object [ ( "key", Encode.string key ), ( "value", Encode.string value ) ]) request.headers )
+                , ( "retries", nullable Encode.int request.retries )
+                , ( "timeoutInMs", nullable Encode.int request.timeoutInMs )
+                ]
+
+        FileRead path ->
+            encode "fileRead" [ ( "path", Encode.string path ) ]
+
+        FileWrite path ->
+            encode "fileWrite" [ ( "path", Encode.string path ) ]
+
+        CustomRead name input ->
+            encode "customRead"
+                [ ( "portName", Encode.string name )
+                , ( "input", input )
+                ]
+
+        CustomWrite name input ->
+            encode "customWrite"
+                [ ( "portName", Encode.string name )
+                , ( "input", input )
+                ]
+
+        CustomDuplex name input ->
+            encode "customDuplex"
+                [ ( "portName", Encode.string name )
+                , ( "input", input )
+                ]
 
 
 {-| A handy way to turn either a hardcoded String, or any other value from Elm into a Stream.
@@ -705,7 +753,7 @@ A more programmatic use of `fromString` to use the result of a previous `Backend
 -}
 fromString : String -> Stream () () { read : (), write : Never }
 fromString string =
-    single unit "fromString" [ ( "string", Encode.string string ) ]
+    single unit (FromString string)
 
 
 {-| Running or reading a `Stream` can give one of two kinds of error:
@@ -987,14 +1035,7 @@ empty output, you can use `allowNon0Status`.
 -}
 commandWithOptions : CommandOptions -> String -> List String -> Stream Int () { read : read, write : write }
 commandWithOptions (CommandOptions options) command_ args_ =
-    single (commandDecoder options.allowNon0Status)
-        "command"
-        [ ( "command", Encode.string command_ )
-        , ( "args", Encode.list Encode.string args_ )
-        , ( "allowNon0Status", Encode.bool options.allowNon0Status )
-        , ( "output", encodeChannel options.output )
-        , ( "timeoutInMs", nullable Encode.int options.timeoutInMs )
-        ]
+    single (commandDecoder options.allowNon0Status) (Command options command_ args_)
 
 
 nullable : (a -> Encode.Value) -> Maybe a -> Encode.Value
