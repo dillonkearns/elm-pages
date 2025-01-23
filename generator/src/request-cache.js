@@ -9,7 +9,7 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
 
 /**
  * @param {string} mode
- * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body; }} rawRequest
+ * @param {{ url: string; method: string; headers: [string, string][]; body: Body; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} rawRequest
  * @param {Record<string, unknown>} portsFile
  * @returns {Promise<Response>}
  */
@@ -265,7 +265,7 @@ function toElmJson(obj) {
 }
 
 /**
- * @param {{url: string; headers: {[x: string]: string}; method: string; body: Body } } elmRequest
+ * @param {{ url: string; method: string; headers: [string, string][]; body: Body; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} elmRequest
  */
 function toRequest(elmRequest) {
   const elmHeaders = Object.fromEntries(elmRequest.headers);
