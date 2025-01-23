@@ -49,7 +49,7 @@ process.on("unhandledRejection", (error) => {
  * @typedef {{ type: "stripped"; message: string; }} StrippedTag
  *
  * @typedef {{ tag: "DoHttp"; args: [[string, ElmRequest][]]; }} DoHttp
- * @typedef {InternalRequest | GenericRequest} ElmRequest
+ * @typedef {InternalRequest | import("./request-cache.js").GenericRequest} ElmRequest
  *
  * @typedef {LogRequest | WriteFileRequest | SleepRequest | WhichRequest | QuestionRequest | EncryptRequest | DecryptRequest | TimeRequest | FileReadRequest | EnvRequest | GlobRequest | RandomSeedRequest | StartSpinnerRequest | StopSpinnerRequest | StreamRequest} InternalRequest
  * @typedef {InternalRequestJson<"elm-pages-internal://log", { message: string }>} LogRequest
@@ -72,19 +72,12 @@ process.on("unhandledRejection", (error) => {
  * @typedef {SimplePart<"unzip"> | SimplePart<"gzip"> | SimplePart<"stdin"> | SimplePart<"stdout"> | SimplePart<"stderr"> | FromStringPart | CommandPart | HttpWritePart | FileReadPart | FileWritePart | CustomReadPart | CustomWritePart | CustomDuplexPart} StreamPart
  * @typedef {PartWith<"fromString", { string: string; }>} FromStringPart
  * @typedef {PartWith<"command", { command: string; args: string[]; allowNon0Status: boolean; output: "Ignore" | "Print" | "MergeWithStdout" | "InsteadOfStdout"; timeoutInMs: number?; }>} CommandPart
- * @typedef {PartWith<"httpWrite", { url: string; method: string; headers: { key: string; value: string; }[]; body?: StaticHttpBody; retries: number?; timeoutInMs: number?; }>} HttpWritePart
+ * @typedef {PartWith<"httpWrite", { url: string; method: string; headers: { key: string; value: string; }[]; body?: import("./request-cache.js").StaticHttpBody; retries: number?; timeoutInMs: number?; }>} HttpWritePart
  * @typedef {PartWith<"fileRead", { path: string; }>} FileReadPart
  * @typedef {PartWith<"fileWrite", { path: string; }>} FileWritePart
  * @typedef {PartWith<"customRead", { portName: string; input: any; }>} CustomReadPart
  * @typedef {PartWith<"customWrite", { portName: string; input: any; }>} CustomWritePart
  * @typedef {PartWith<"customDuplex", { portName: string; input: any; }>} CustomDuplexPart
- *
- * @typedef {{ url: string; method: string; headers: [string, string][]; body: StaticHttpBody; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} GenericRequest
- * @typedef {EmptyBody | StringBody | JsonBody | BytesBody} StaticHttpBody
- * @typedef {{ tag: "empty"; args: [] }} EmptyBody
- * @typedef {{ tag: "string"; args: [string, string] }} StringBody
- * @typedef {{ tag: "json"; args: [any] }} JsonBody
- * @typedef {{ tag: "bytes"; args: [string, string] }} BytesBody
  *
  * @typedef {{ tag: "ApiResponse"; args: [any]; }} SendApiResponse
  *
@@ -763,221 +756,6 @@ function runStream(req, portsFile, context) {
         default:
           break;
       }
-      /**
-       * @param {?import('node:stream').Stream} lastStream
-       * @param {StreamPart} part
-       * @param {{cwd: string;quiet: boolean;env: object;}} param2
-       * @returns {Promise<{stream: import('node:stream').Stream;metadata?: any;}>}
-       * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: object; }) => any; }} portsFile
-       * @param {{ (value: any): void; (arg0: { error: any; }): void; }} resolve
-       * @param {boolean} isLastProcess
-       * @param {string} kind
-       */
-      async function pipePartToStream(
-        lastStream,
-        part,
-        { cwd, quiet, env },
-        portsFile,
-        resolve,
-        isLastProcess,
-        kind
-      ) {
-        switch (part.name) {
-          case "stdout":
-            return { stream: pipeIfPossible(lastStream, stdout()) };
-          case "stderr":
-            return { stream: pipeIfPossible(lastStream, stderr()) };
-          case "stdin":
-            return { stream: process.stdin };
-          case "fileRead": {
-            const newLocal = fs.createReadStream(path.resolve(cwd, part.path));
-            newLocal.once("error", (error) => {
-              newLocal.close();
-              resolve({ error: error.toString() });
-            });
-            return { stream: newLocal };
-          }
-          case "customDuplex": {
-            const newLocal = await portsFile[part.portName](part.input, {
-              cwd,
-              quiet,
-              env,
-            });
-            if (validateStream.isDuplexStream(newLocal.stream)) {
-              pipeIfPossible(lastStream, newLocal.stream);
-              return newLocal;
-            } else {
-              throw `Expected '${part.portName}' to be a duplex stream!`;
-            }
-          }
-          case "customRead": {
-            return {
-              metadata: null,
-              stream: await portsFile[part.portName](part.input, {
-                cwd,
-                quiet,
-                env,
-              }),
-            };
-          }
-          case "customWrite": {
-            const newLocal = await portsFile[part.portName](part.input, {
-              cwd,
-              quiet,
-              env,
-            });
-            if (!validateStream.isWritableStream(newLocal.stream)) {
-              console.error("Expected a writable stream!");
-              resolve({ error: "Expected a writable stream!" });
-            } else {
-              pipeIfPossible(lastStream, newLocal.stream);
-            }
-            return newLocal;
-          }
-          case "gzip": {
-            const gzip = zlib.createGzip();
-            if (!lastStream) {
-              gzip.end();
-            }
-            return {
-              metadata: null,
-              stream: pipeIfPossible(lastStream, gzip),
-            };
-          }
-          case "unzip": {
-            return {
-              metadata: null,
-              stream: pipeIfPossible(lastStream, zlib.createUnzip()),
-            };
-          }
-          case "fileWrite": {
-            const destinationPath = path.resolve(part.path);
-            try {
-              await fsPromises.mkdir(path.dirname(destinationPath), {
-                recursive: true,
-              });
-            } catch (error) {
-              resolve({ error: error.toString() });
-            }
-            const newLocal = fs.createWriteStream(destinationPath);
-            newLocal.once("error", (error) => {
-              newLocal.close();
-              newLocal.removeAllListeners();
-              resolve({ error: error.toString() });
-            });
-            return {
-              metadata: null,
-              stream: pipeIfPossible(lastStream, newLocal),
-            };
-          }
-          case "httpWrite": {
-            const makeFetchHappen = makeFetchHappenOriginal.defaults({
-              // cache: mode === "build" ? "no-cache" : "default",
-              cache: "default",
-            });
-            const response = await makeFetchHappen(part.url, {
-              body: lastStream,
-              duplex: "half",
-              redirect: "follow",
-              method: part.method,
-              headers: part.headers,
-              retry: part.retries,
-              timeout: part.timeoutInMs,
-            });
-            if (!isLastProcess && !response.ok) {
-              resolve({
-                error: `HTTP request failed: ${response.status} ${response.statusText}`,
-              });
-            } else {
-              let metadata = () => {
-                return {
-                  headers: Object.fromEntries(response.headers.entries()),
-                  statusCode: response.status,
-                  // bodyKind,
-                  url: response.url,
-                  statusText: response.statusText,
-                };
-              };
-              return { metadata, stream: response.body };
-            }
-          }
-          case "command": {
-            const { command, args, allowNon0Status, output } = part;
-            /** @type {'ignore' | 'inherit'} } */
-            let letPrint = quiet ? "ignore" : "inherit";
-            let stderrKind =
-              kind === "none" && isLastProcess ? letPrint : "pipe";
-            if (output === "Ignore") {
-              stderrKind = "ignore";
-            } else if (output === "Print") {
-              stderrKind = letPrint;
-            }
-
-            const stdoutKind =
-              (output === "InsteadOfStdout" || kind === "none") && isLastProcess
-                ? letPrint
-                : "pipe";
-            /**
-             * @type {import('node:child_process').ChildProcess}
-             */
-            const newProcess = spawnCallback(command, args, {
-              stdio: [
-                "pipe",
-                // if we are capturing stderr instead of stdout, print out stdout with `inherit`
-                stdoutKind,
-                stderrKind,
-              ],
-              cwd: cwd,
-              env: env,
-            });
-
-            pipeIfPossible(lastStream, newProcess.stdin);
-            let newStream;
-            if (output === "MergeWithStdout") {
-              newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
-            } else if (output === "InsteadOfStdout") {
-              newStream = newProcess.stderr;
-            } else {
-              newStream = newProcess.stdout;
-            }
-
-            newProcess.once("error", (error) => {
-              newStream && newStream.end();
-              newProcess.removeAllListeners();
-              resolve({ error: error.toString() });
-            });
-            if (isLastProcess) {
-              return {
-                stream: newStream,
-                metadata: new Promise((resoveMeta) => {
-                  newProcess.once("exit", (code) => {
-                    if (code !== 0 && !allowNon0Status) {
-                      newStream && newStream.end();
-                      resolve({
-                        error: `Command ${command} exited with code ${code}`,
-                      });
-                    }
-
-                    resoveMeta({
-                      exitCode: code,
-                    });
-                  });
-                }),
-              };
-            } else {
-              return { metadata: null, stream: newStream };
-            }
-          }
-          case "fromString": {
-            return { stream: Readable.from([part.string]), metadata: null };
-          }
-          default: {
-            // console.error(`Unknown stream part: ${part.name}!`);
-            // process.exit(1);
-            throw `Unknown stream part: ${part.name}!`;
-          }
-        }
-      }
     } catch (error) {
       if (lastStream) {
         lastStream.destroy();
@@ -986,6 +764,223 @@ function runStream(req, portsFile, context) {
       resolve({ error: error.toString() });
     }
   });
+}
+
+/**
+ * @param {?import('node:stream').Stream} lastStream
+ * @param {StreamPart} part
+ * @param {{cwd: string; quiet: boolean; env: NodeJS.ProcessEnv; }} _
+ * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: NodeJS.ProcessEnv; }) => any; }} portsFile
+ * @param {{ (value: any): void; (arg0: { error: any; }): void; }} resolve
+ * @param {boolean} isLastProcess
+ * @param {string} kind
+ * @returns {Promise<{stream: import('node:stream').Stream; metadata?: any; }>}
+ */
+async function pipePartToStream(
+  lastStream,
+  part,
+  { cwd, quiet, env },
+  portsFile,
+  resolve,
+  isLastProcess,
+  kind
+) {
+  switch (part.name) {
+    case "stdout":
+      return { stream: pipeIfPossible(lastStream, stdout()) };
+    case "stderr":
+      return { stream: pipeIfPossible(lastStream, stderr()) };
+    case "stdin":
+      return { stream: process.stdin };
+    case "fileRead": {
+      const newLocal = fs.createReadStream(path.resolve(cwd, part.path));
+      newLocal.once("error", (error) => {
+        newLocal.close();
+        resolve({ error: error.toString() });
+      });
+      return { stream: newLocal };
+    }
+    case "customDuplex": {
+      const newLocal = await portsFile[part.portName](part.input, {
+        cwd,
+        quiet,
+        env,
+      });
+      if (validateStream.isDuplexStream(newLocal.stream)) {
+        pipeIfPossible(lastStream, newLocal.stream);
+        return newLocal;
+      } else {
+        throw `Expected '${part.portName}' to be a duplex stream!`;
+      }
+    }
+    case "customRead": {
+      return {
+        metadata: null,
+        stream: await portsFile[part.portName](part.input, {
+          cwd,
+          quiet,
+          env,
+        }),
+      };
+    }
+    case "customWrite": {
+      const newLocal = await portsFile[part.portName](part.input, {
+        cwd,
+        quiet,
+        env,
+      });
+      if (!validateStream.isWritableStream(newLocal.stream)) {
+        console.error("Expected a writable stream!");
+        resolve({ error: "Expected a writable stream!" });
+      } else {
+        pipeIfPossible(lastStream, newLocal.stream);
+      }
+      return newLocal;
+    }
+    case "gzip": {
+      const gzip = zlib.createGzip();
+      if (!lastStream) {
+        gzip.end();
+      }
+      return {
+        metadata: null,
+        stream: pipeIfPossible(lastStream, gzip),
+      };
+    }
+    case "unzip": {
+      return {
+        metadata: null,
+        stream: pipeIfPossible(lastStream, zlib.createUnzip()),
+      };
+    }
+    case "fileWrite": {
+      const destinationPath = path.resolve(part.path);
+      try {
+        await fsPromises.mkdir(path.dirname(destinationPath), {
+          recursive: true,
+        });
+      } catch (error) {
+        resolve({ error: error.toString() });
+      }
+      const newLocal = fs.createWriteStream(destinationPath);
+      newLocal.once("error", (error) => {
+        newLocal.close();
+        newLocal.removeAllListeners();
+        resolve({ error: error.toString() });
+      });
+      return {
+        metadata: null,
+        stream: pipeIfPossible(lastStream, newLocal),
+      };
+    }
+    case "httpWrite": {
+      const makeFetchHappen = makeFetchHappenOriginal.defaults({
+        // cache: mode === "build" ? "no-cache" : "default",
+        cache: "default",
+      });
+      const response = await makeFetchHappen(part.url, {
+        body: lastStream,
+        duplex: "half",
+        redirect: "follow",
+        method: part.method,
+        headers: part.headers,
+        retry: part.retries,
+        timeout: part.timeoutInMs,
+      });
+      if (!isLastProcess && !response.ok) {
+        resolve({
+          error: `HTTP request failed: ${response.status} ${response.statusText}`,
+        });
+      } else {
+        let metadata = () => {
+          return {
+            headers: Object.fromEntries(response.headers.entries()),
+            statusCode: response.status,
+            // bodyKind,
+            url: response.url,
+            statusText: response.statusText,
+          };
+        };
+        return { metadata, stream: response.body };
+      }
+      break;
+    }
+    case "command": {
+      const { command, args, allowNon0Status, output } = part;
+      /** @type {'ignore' | 'inherit'} } */
+      let letPrint = quiet ? "ignore" : "inherit";
+      /** @type {'ignore' | 'inherit' | 'pipe'} */
+      let stderrKind = kind === "none" && isLastProcess ? letPrint : "pipe";
+      if (output === "Ignore") {
+        stderrKind = "ignore";
+      } else if (output === "Print") {
+        stderrKind = letPrint;
+      }
+
+      const stdoutKind =
+        (output === "InsteadOfStdout" || kind === "none") && isLastProcess
+          ? letPrint
+          : "pipe";
+      /**
+       * @type {import('node:child_process').ChildProcess}
+       */
+      const newProcess = spawnCallback(command, args, {
+        stdio: [
+          "pipe",
+          // if we are capturing stderr instead of stdout, print out stdout with `inherit`
+          stdoutKind,
+          stderrKind,
+        ],
+        cwd: cwd,
+        env: env,
+      });
+
+      pipeIfPossible(lastStream, newProcess.stdin);
+      let newStream;
+      if (output === "MergeWithStdout") {
+        newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
+      } else if (output === "InsteadOfStdout") {
+        newStream = newProcess.stderr;
+      } else {
+        newStream = newProcess.stdout;
+      }
+
+      newProcess.once("error", (error) => {
+        newStream && newStream.end();
+        newProcess.removeAllListeners();
+        resolve({ error: error.toString() });
+      });
+      if (isLastProcess) {
+        return {
+          stream: newStream,
+          metadata: new Promise((resoveMeta) => {
+            newProcess.once("exit", (code) => {
+              if (code !== 0 && !allowNon0Status) {
+                newStream && newStream.end();
+                resolve({
+                  error: `Command ${command} exited with code ${code}`,
+                });
+              }
+
+              resoveMeta({
+                exitCode: code,
+              });
+            });
+          }),
+        };
+      } else {
+        return { metadata: null, stream: newStream };
+      }
+    }
+    case "fromString": {
+      return { stream: Readable.from([part.string]), metadata: null };
+    }
+    default: {
+      // console.error(`Unknown stream part: ${part.name}!`);
+      // process.exit(1);
+      throw `Unknown stream part: ${part.name}!`;
+    }
+  }
 }
 
 /**
@@ -1068,7 +1063,8 @@ function commandAndArgsToString(cwd, commandsAndArgs) {
 }
 
 /**
- * @param {{ commands: any; }} commandAndArgs
+ * @param {{ cwd: any; quiet: any; env: NodeJS.ProcessEnv; captureOutput: any; }} _
+ * @param {{ commands: { command: any; args: any; }[]; }} commandAndArgs
  */
 export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
   return new Promise((resolve, reject) => {
@@ -1146,45 +1142,39 @@ export function pipeShells(
     }
 
     /**
-     * @type {null | import('node:child_process').ChildProcess}
+     * @type {null | import('node:child_process').ChildProcessByStdio<any, Readable, any>}
      */
     let previousProcess = null;
+    /**
+     * @type {null | import('node:child_process').ChildProcessByStdio<any, Readable, any>}
+     */
     let currentProcess = null;
 
-    commandsAndArgs.commands.forEach(({ command, args, timeout }, index) => {
-      let isLastProcess = index === commandsAndArgs.commands.length - 1;
+    for (let index = 0; index < commandsAndArgs.commands.length; index++) {
+      const { command, args, timeout } = commandsAndArgs.commands[index];
+      let timeout_ = timeout ? timeout : undefined;
       /**
        * @type {import('node:child_process').ChildProcess}
        */
       if (previousProcess === null) {
         currentProcess = spawnCallback(command, args, {
           stdio: ["inherit", "pipe", "inherit"],
-          timeout: timeout ? undefined : timeout,
+          timeout: timeout_,
           cwd: cwd,
           env: env,
         });
       } else {
-        if (isLastProcess && !captureOutput && false) {
-          currentProcess = spawnCallback(command, args, {
-            stdio: quiet
-              ? ["pipe", "ignore", "ignore"]
-              : ["pipe", "inherit", "inherit"],
-            timeout: timeout ? undefined : timeout,
-            cwd: cwd,
-            env: env,
-          });
-        } else {
-          currentProcess = spawnCallback(command, args, {
-            stdio: ["pipe", "pipe", "pipe"],
-            timeout: timeout ? undefined : timeout,
-            cwd: cwd,
-            env: env,
-          });
-        }
+        currentProcess = spawnCallback(command, args, {
+          stdio: ["pipe", "pipe", "pipe"],
+          timeout: timeout_,
+          cwd: cwd,
+          env: env,
+        });
+
         previousProcess.stdout.pipe(currentProcess.stdin);
       }
       previousProcess = currentProcess;
-    });
+    }
 
     if (currentProcess === null) {
       reject("");
