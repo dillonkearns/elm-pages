@@ -9664,7 +9664,7 @@
     var $author$project$Pages$Internal$Platform$onViewChangeElement = function (currentUrl) {
         return $elm$html$Html$div_fn(_List_fromArray([
             $elm$virtual_dom$VirtualDom$attribute_fn("data-url", $elm$url$Url$toString(currentUrl)),
-            $elm$virtual_dom$VirtualDom$attribute_fn("display", "none")
+            _VirtualDom_style_fn("display", "none")
         ]), _List_Nil);
     };
     var $elm$virtual_dom$VirtualDom$lazy = _VirtualDom_lazy;
