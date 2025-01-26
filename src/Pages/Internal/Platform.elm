@@ -123,6 +123,7 @@ view config model =
     in
     { title = title
     , body =
+        -- NOTE: If you make changes here, also update pre-render-html.js!
         [ onViewChangeElement model.url
         , AriaLiveAnnouncer.view model.ariaNavigationAnnouncement
         ]
@@ -136,9 +137,10 @@ onViewChangeElement currentUrl =
     -- it is used from the JS-side to reliably
     -- check when Elm has changed pages
     -- (and completed rendering the view)
+    -- NOTE: If you make changes here, also update pre-render-html.js!
     Html.div
         [ Attr.attribute "data-url" (Url.toString currentUrl)
-        , Attr.attribute "display" "none"
+        , Attr.style "display" "none"
         ]
         []
 
