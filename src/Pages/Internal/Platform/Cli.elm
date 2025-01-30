@@ -1025,7 +1025,8 @@ render404Page config sharedData isDevServer path notFoundReason =
 
 bodyToString : List (Html msg) -> String
 bodyToString body =
-    body |> List.map (HtmlPrinter.htmlToString Nothing) |> String.join "\n"
+    -- NOTE: Don’t join the strings with a newline here – see pre-render-html.js.
+    body |> List.map (HtmlPrinter.htmlToString Nothing) |> String.concat
 
 
 urlToRoute : ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage -> Url -> route

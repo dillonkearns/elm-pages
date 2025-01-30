@@ -17,6 +17,7 @@ view title =
 
 mainView : String -> Html msg
 mainView title =
+    -- NOTE: If you make changes here, also update pre-render-html.js!
     Html.div
         [ Attr.id "elm-pages-announcer"
         , Attr.attribute "aria-live" "assertive"
