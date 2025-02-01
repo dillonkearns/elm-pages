@@ -344,7 +344,9 @@ async function requireElm(compiledElmPath) {
   const warnOriginal = console.warn;
   console.warn = function () {};
 
-  let Elm = (await import(url.pathToFileURL(path.resolve(compiledElmPath)).href)).default;
+  let Elm = (
+    await import(url.pathToFileURL(path.resolve(compiledElmPath)).href)
+  ).default;
   console.warn = warnOriginal;
   return Elm;
 }

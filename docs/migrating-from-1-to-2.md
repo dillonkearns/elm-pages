@@ -10,7 +10,6 @@ git submodule add -b static-files https://github.com/dillonkearns/elm-pages.git
 
 Add `"elm-pages/src"` to your `source-directories` in your `elm.json`. Delete the files that `elm-pages` generated in the `gen` folder, or remove it entirely and delete `"gen"` from `source-directories`.
 
-
 ## Install Dependencies
 
 If you'd like to migrate with the beta, you'll need to manually make sure you have these dependencies installed since Elm doesn't have a way to publish beta release packages.
@@ -21,7 +20,6 @@ elm-json install avh4/elm-color@1.0.0 danyx23/elm-mimetype@4.0.1 dillonkearns/el
 ```
 
 There is no `static` or `images` folder in `elm-pages` 2.0, just a single `public/` folder with no special post-processing.
-
 
 ```shell
 mv static public

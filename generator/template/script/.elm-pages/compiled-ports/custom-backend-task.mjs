@@ -2,6 +2,4 @@
 async function hello(name) {
   return `Hello ${name}!`;
 }
-export {
-  hello
-};
+export { hello };

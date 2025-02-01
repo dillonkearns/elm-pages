@@ -17,13 +17,15 @@ input:valid {
 
 */
 
-
-input[type=password], input[type=text], input[type=date], input[type=email] {
+input[type="password"],
+input[type="text"],
+input[type="date"],
+input[type="email"] {
   border-radius: 10px !important;
   border-color: #ccc !important;
 }
 
-input[type=checkbox] {
+input[type="checkbox"] {
   border-radius: 4px !important;
   border-color: #ccc !important;
 }

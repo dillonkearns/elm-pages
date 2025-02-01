@@ -6,7 +6,7 @@ description: You can share `elm-pages` scripts hosted in GitHub Repos or Gists, 
 
 You can share `elm-pages` scripts hosted in GitHub Repos or Gists, and run them locally with a single command.
 
- ```
+```
 npx elm-pages@latest run https://github.com/dillonkearns/elm-pages-starter/blob/master/script/src/Stars.elm
 
 622
@@ -36,7 +36,6 @@ Here is a list of all the supported formats for executing a remote script from a
 - `https://raw.githubusercontent.com/dillonkearns/elm-pages-starter/master/script/src/Stars.elm`
 - `https://raw.githubusercontent.com/dillonkearns/elm-pages-starter/blob/4bc22294053279418e37fae64a64125d6d116ded/script/src/Stars.elm`
 - `github:dillonkearns/elm-pages-starter:script/src/Stars.elm`
-
 
 ## Running a remote script from a GitHub Gist:
 
