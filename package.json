@@ -3,7 +3,6 @@
   "type": "module",
   "version": "3.1.0",
   "homepage": "https://elm-pages.com",
-  "moduleResolution": "node",
   "description": "Hybrid Elm framework with full-stack and static routes.",
   "main": "index.js",
   "scripts": {
