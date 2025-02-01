@@ -1,4 +1,3 @@
-const something = 'abcd1234'
+const something = "abcd1234";
 
-export default something
-
+export default something;

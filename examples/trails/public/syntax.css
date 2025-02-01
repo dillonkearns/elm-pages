@@ -11,7 +11,7 @@ code.elmsh {
 }
 
 code {
-  font-family: 'Roboto Mono' !important;
+  font-family: "Roboto Mono" !important;
   font-size: 20px !important;
   line-height: 28px;
 }
@@ -26,18 +26,39 @@ code {
 }
 
 .elmsh {
-    color: #f8f8f2;
-    background: #000;
+  color: #f8f8f2;
+  background: #000;
 }
-.elmsh-hl {background: #343434;}
-.elmsh-add {background: #003800;}
-.elmsh-del {background: #380000;}
-.elmsh-comm {color: #75715e;}
-.elmsh1 {color: #ae81ff;}
-.elmsh2 {color: #e6db74;}
-.elmsh3 {color: #66d9ef;}
-.elmsh4 {color: #f92672;}
-.elmsh5 {color: #a6e22e;}
-.elmsh6 {color: #ae81ff;}
-.elmsh7 {color: #fd971f;}
-
+.elmsh-hl {
+  background: #343434;
+}
+.elmsh-add {
+  background: #003800;
+}
+.elmsh-del {
+  background: #380000;
+}
+.elmsh-comm {
+  color: #75715e;
+}
+.elmsh1 {
+  color: #ae81ff;
+}
+.elmsh2 {
+  color: #e6db74;
+}
+.elmsh3 {
+  color: #66d9ef;
+}
+.elmsh4 {
+  color: #f92672;
+}
+.elmsh5 {
+  color: #a6e22e;
+}
+.elmsh6 {
+  color: #ae81ff;
+}
+.elmsh7 {
+  color: #fd971f;
+}

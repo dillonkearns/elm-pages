@@ -510,9 +510,8 @@ function hideError(velocity) {
       } catch (error) {}
     } else {
       try {
-        document.getElementById(
-          "elm-live:elmErrorBackground"
-        ).style.opacity = 0;
+        document.getElementById("elm-live:elmErrorBackground").style.opacity =
+          0;
         document.getElementById("elm-live:elmError").style.transform =
           "rotateX(90deg)";
       } catch (error) {}

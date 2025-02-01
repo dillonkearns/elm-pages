@@ -12,7 +12,8 @@
     "test:snapshot": "(cd examples/escaping && npm install && npm test) && (cd examples/base-path && npm install && npm test)",
     "cypress": "npm start & cypress run",
     "build:generator": "elm-codegen install && (cd codegen && lamdera make Generate.elm --output elm-pages-codegen.js && mv elm-pages-codegen.js elm-pages-codegen.cjs)",
-    "review": "elm-review"
+    "review": "elm-review",
+    "format": "prettier . --write --cache --cache-location='node_modules/.cache/.prettiercache' --log-level=warn"
   },
   "repository": "https://github.com/dillonkearns/elm-pages",
   "keywords": [
@@ -65,6 +66,7 @@
     "elm-tooling": "^1.15.1",
     "elm-verify-examples": "^6.0.3",
     "lamdera": "^0.19.1-1.3.2",
+    "prettier": "^3.4.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.6"
   },
