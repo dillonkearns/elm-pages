@@ -48,9 +48,10 @@ export function templateHtml(devMode, userHeadTagsTemplate) {
     ${indent(userHeadTagsTemplate({ cliVersion: packageVersion }))}
     <!-- PLACEHOLDER_HEAD_AND_DATA -->
   </head>
-  <body><div data-url="" style="display: none;"></div><div id="elm-pages-announcer" aria-live="assertive" aria-atomic="true" style="position: absolute; top: 0; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); whiteSpace: nowrap; border: 0;"></div><!-- PLACEHOLDER_HTML --></body></html>`;
+  <body><div data-elm data-url="" style="display: none;"></div><div data-elm id="elm-pages-announcer" aria-live="assertive" aria-atomic="true" style="position: absolute; top: 0; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); whiteSpace: nowrap; border: 0;"></div><!-- PLACEHOLDER_HTML --></body></html>`;
   // NOTE: The above line needs to:
   // - Be in sync with `view` in Platform.elm (render the same elements).
+  // - Have `data-elm` on each child of `<body>`.
   // - Not include any extra whitespace. Even whitespace between </body> and </html> is parsed by browsers as a text node _inside_ <body>.
   // This is to avoid unnecessary rerenders on init (when the first `view` call is diffed with the virtualized form of the above HTML).
 }
