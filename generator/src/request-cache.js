@@ -21,6 +21,14 @@ export function lookupOrPerform(
   hasFsAccess,
   useCache
 ) {
+  const uniqueTimeId =
+    Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const timeStart = (message) => {
+    !rawRequest.quiet && console.time(`${message} ${uniqueTimeId}`);
+  };
+  const timeEnd = (message) => {
+    !rawRequest.quiet && console.timeEnd(`${message} ${uniqueTimeId}`);
+  };
   const makeFetchHappen = makeFetchHappenOriginal.defaults({
     cache: mode === "build" ? "no-cache" : "default",
   });
@@ -92,8 +100,7 @@ export function lookupOrPerform(
             }),
           });
         } else {
-          !rawRequest.quiet &&
-            console.time(`BackendTask.Custom.run "${portName}"`);
+          timeStart(`BackendTask.Custom.run "${portName}"`);
           let context = {
             cwd: path.resolve(...rawRequest.dir),
             quiet: rawRequest.quiet,
@@ -135,8 +142,7 @@ export function lookupOrPerform(
               });
             }
           }
-          !rawRequest.quiet &&
-            console.timeEnd(`BackendTask.Custom.run "${portName}"`);
+          timeEnd(`BackendTask.Custom.run "${portName}"`);
         }
       } catch (error) {
         console.trace(error);
@@ -147,7 +153,7 @@ export function lookupOrPerform(
       }
     } else {
       try {
-        !rawRequest.quiet && console.time(`fetch ${request.url}`);
+        timeStart(`fetch ${request.url}`);
         const response = await safeFetch(makeFetchHappen, request.url, {
           method: request.method,
           body: request.body,
@@ -158,7 +164,7 @@ export function lookupOrPerform(
           ...rawRequest.cacheOptions,
         });
 
-        !rawRequest.quiet && console.timeEnd(`fetch ${request.url}`);
+        timeEnd(`fetch ${request.url}`);
         const expectString = request.headers["elm-pages-internal"];
 
         let body;
