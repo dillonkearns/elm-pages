@@ -1,3 +1,3 @@
 export const compatibilityKey = 22;
 
-export const packageVersion = "3.0.20";
+export const packageVersion = "3.0.21";

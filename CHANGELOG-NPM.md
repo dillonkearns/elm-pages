@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.21] - 2025-03-05
+
+### Fixed
+
+- Updated dependencies, including elm-review version used for internal rule to allow users to upgrade to latest elm-review NPM package.
+- Updated elm-pages init template.
+
 ## [3.0.19] - 2024-12-27
 
 ### Fixed
