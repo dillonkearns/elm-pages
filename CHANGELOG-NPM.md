@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- Updated dependencies, including elm-review version used for internal rule to allow users to upgrade to latest elm-review NPM package.
+- Updated dependencies, including elm-review version used for internal rule to allow users to upgrade to latest elm-review NPM package (be sure to update to the latest elm-review in your package.json as well, currently 2.13.2)
 - Updated elm-pages init template.
 
 ## [3.0.19] - 2024-12-27
