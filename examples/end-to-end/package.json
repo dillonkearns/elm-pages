@@ -11,7 +11,7 @@
   "author": "Dillon Kearns",
   "license": "BSD-3",
   "devDependencies": {
-    "cypress": "^13.16.0",
+    "cypress": "^14.1.0",
     "elm-pages": "file:../..",
     "elm-tooling": "^1.15.1",
     "http-server": "^14.1.1"

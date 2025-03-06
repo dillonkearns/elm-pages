@@ -143,7 +143,7 @@ placeholder moduleName =
                             , details =
                                 [ "" ]
                             , under =
-                                """import Html.Styled as Html"""
+                                """import Html.Styled as Html exposing (Html)"""
                             }
                             |> Review.Test.whenFixed
                                 """module View exposing (View, map, placeholder)

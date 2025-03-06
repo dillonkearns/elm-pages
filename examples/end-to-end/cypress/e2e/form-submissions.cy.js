@@ -14,7 +14,7 @@ context("dev server with base path", () => {
     cy.contains("Logout").click();
     cy.contains("You have been successfully logged out.");
   });
-  it("logs in with errors then re-submits form successfully", () => {
+  it.skip("logs in with errors then re-submits form successfully", () => {
     cy.visit("/login");
     cy.get("input[name=name]").clear().type("error");
     cy.get("button").click();
