@@ -13,4 +13,52 @@
     <script type="module" crossorigin src="/assets/index.HASH.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index.HASH.css">
   </head>
-  <body><div data-elm data-url="" style="display: none;"></div><div data-elm id="elm-pages-announcer" aria-live="assertive" aria-atomic="true" style="position: absolute; top: 0; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); whiteSpace: nowrap; border: 0;"></div><div><span class="elm-css-style-wrapper" style="display: none;"><style></style></span><label for="note"></label><div><span class="elm-css-style-wrapper" style="display: none;"><style>div > p{font-size:14px;color:rgb(255,0,0);}</style></span><div><p>Hello! 2 &gt; 1</p></div></div>&lt;script&gt;&lt;/script&gt; is unsafe in JSON unless it is escaped properly.&lt;script&gt;&lt;/script&gt; is unsafe in JSON unless it is escaped properly.<ul><li><span class="elm-css-style-wrapper" style="display: none;"><style></style></span>This is number 0</li></ul><ul><div><li><span class="elm-css-style-wrapper" style="display: none;"><style></style></span>This is nested number 0</li></div></ul></div></body></html>
+  <body><div data-elm data-url="" style="display: none;"></div><div data-elm id="elm-pages-announcer" aria-live="assertive" aria-atomic="true" style="position: absolute; top: 0; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); whiteSpace: nowrap; border: 0;"></div><div><span class="elm-css-style-wrapper" style="display: none;"><style></style></span>
+
+# label element with for attribute
+<label for="note"></label>
+
+# CSS via elm-css
+<div><span class="elm-css-style-wrapper" style="display: none;"><style>div > p{font-size:14px;color:rgb(255,0,0);}</style></span></div>
+
+# lazy and non-lazy versions render the same output
+&lt;script&gt;&lt;/script&gt; is unsafe in JSON unless it is escaped properly.&lt;script&gt;&lt;/script&gt; is unsafe in JSON unless it is escaped properly.
+
+# lazy nodes as direct children of keyed nodes
+<ul><li><span class="elm-css-style-wrapper" style="display: none;"><style></style></span>This is number 0</li></ul>
+
+# lazy nested within keyed nodes
+<ul><div><li><span class="elm-css-style-wrapper" style="display: none;"><style></style></span>This is nested number 0</li></div></ul>
+
+# invalid element name is skipped
+<!-- invalid element -->
+
+# invalid attributes are skipped, both string and boolean
+<div after="2" before="1"></div>
+
+# attribute values are escaped
+<div title="&quot;&#039;&gt;&lt;script&gt;true &amp;&amp; alert(0)&lt;/script&gt;"></div>
+
+# class attribute values are escaped (it is special cased)
+<div class="&quot;&#039;&gt;&lt;script&gt;true &amp;&amp; alert(0)&lt;/script&gt;"></div>
+
+# style attribute values are escaped (it is special cased)
+<div style="display:;&quot;&#039;&gt;&lt;script&gt;true &amp;&amp; alert(0)&lt;/script&gt;;"></div>
+
+# attribute values cannot introduce another attribute
+<div title="&quot; onclick=&quot;alert(0)"></div>
+
+# unsafe attributes are handled by the virtual-dom package
+<a data-onclick="alert(0)" href="javascript:alert(&quot;This is an XSS vector. Please use ports or web components instead.&quot;)"></a>
+
+# text is escaped
+&lt;script&gt;true &amp;&amp; alert(0)&lt;/script&gt;
+
+# children of void elements are skipped
+<img>
+
+# script tags are changed to p tags by the virtual-dom package
+<p>0 &lt; 1 &amp;&amp; alert(0)</p>
+
+# style tags are allowed, and contain raw text
+<style>body > * { html & { display: none; } }</style></div></body></html>

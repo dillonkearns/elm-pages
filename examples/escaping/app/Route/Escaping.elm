@@ -11,6 +11,7 @@ import Html.Styled as Html exposing (..)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Keyed as HtmlKeyed
 import Html.Styled.Lazy as HtmlLazy
+import Json.Encode
 import Pages.PageUrl exposing (PageUrl)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
@@ -74,6 +75,11 @@ head static =
         |> Seo.website
 
 
+snapshotComment : String -> Html msg
+snapshotComment comment =
+    Html.text ("\n\n# " ++ comment ++ "\n")
+
+
 view :
     App Data ActionData RouteParams
     -> Shared.Model
@@ -81,7 +87,9 @@ view :
 view static sharedModel =
     { title = ""
     , body =
-        [ Html.label [ Attr.for "note" ] []
+        [ snapshotComment "label element with for attribute"
+        , Html.label [ Attr.for "note" ] []
+        , snapshotComment "CSS via elm-css"
         , div []
             [ Css.Global.global
                 [ Css.Global.typeSelector "div"
@@ -93,18 +101,12 @@ view static sharedModel =
                         ]
                     ]
                 ]
-            , div []
-                [ p []
-                    [ text "Hello! 2 > 1"
-                    ]
-                ]
             ]
-
-        -- lazy and non-lazy versions render the same output
+        , snapshotComment "lazy and non-lazy versions render the same output"
         , Html.text static.data
         , HtmlLazy.lazy (.data >> text) static
-        , -- lazy nodes as direct children of keyed nodes
-          [ 1 ]
+        , snapshotComment "lazy nodes as direct children of keyed nodes"
+        , [ 1 ]
             |> List.indexedMap
                 (\index _ ->
                     ( String.fromInt index
@@ -121,8 +123,8 @@ view static sharedModel =
                     )
                 )
             |> HtmlKeyed.ul []
-        , -- lazy nested within keyed nodes
-          [ 1 ]
+        , snapshotComment "lazy nested within keyed nodes"
+        , [ 1 ]
             |> List.indexedMap
                 (\index _ ->
                     ( String.fromInt index
@@ -141,5 +143,38 @@ view static sharedModel =
                     )
                 )
             |> HtmlKeyed.ul []
+        , snapshotComment "invalid element name is skipped"
+        , Html.node "<script>alert(0)</script>" [] []
+        , snapshotComment "invalid attributes are skipped, both string and boolean"
+        , Html.div
+            [ Attr.attribute "before" "1"
+            , Attr.attribute "><script>alert(0)</script>" ""
+            , Attr.property "><script>alert(1)</script>" (Json.Encode.bool True)
+            , Attr.attribute "onclick=\"alert(0)\" title" ""
+            , Attr.attribute "after" "2"
+            ]
+            []
+        , snapshotComment "attribute values are escaped"
+        , Html.div [ Attr.title "\"'><script>true && alert(0)</script>" ] []
+        , snapshotComment "class attribute values are escaped (it is special cased)"
+        , Html.div [ Attr.class "\"'><script>true && alert(0)</script>" ] []
+        , snapshotComment "style attribute values are escaped (it is special cased)"
+        , Html.div [ Attr.style "display" ";\"'><script>true && alert(0)</script>" ] []
+        , snapshotComment "attribute values cannot introduce another attribute"
+        , Html.div [ Attr.title "\" onclick=\"alert(0)" ] []
+        , snapshotComment "unsafe attributes are handled by the virtual-dom package"
+        , Html.a
+            [ Attr.attribute "onclick" "alert(0)"
+            , Attr.href "javascript:alert(1)"
+            ]
+            []
+        , snapshotComment "text is escaped"
+        , Html.text "<script>true && alert(0)</script>"
+        , snapshotComment "children of void elements are skipped"
+        , Html.img [] [ Html.text "<script>true && alert(0)</script>" ]
+        , snapshotComment "script tags are changed to p tags by the virtual-dom package"
+        , Html.node "script" [] [ Html.text "0 < 1 && alert(0)" ]
+        , snapshotComment "style tags are allowed, and contain raw text"
+        , Html.node "style" [] [ Html.text "body > * { html & { display: none; } }" ]
         ]
     }

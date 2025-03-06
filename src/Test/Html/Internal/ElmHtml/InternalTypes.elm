@@ -2,7 +2,7 @@ module Test.Html.Internal.ElmHtml.InternalTypes exposing
     ( ElmHtml(..), TextTagRecord, NodeRecord, CustomNodeRecord, MarkdownNodeRecord
     , Facts, Tagger, EventHandler, ElementKind(..)
     , Attribute(..), AttributeRecord, NamespacedAttributeRecord, PropertyRecord, EventRecord
-    , decodeElmHtml, emptyFacts, toElementKind, decodeAttribute
+    , decodeElmHtml, emptyFacts, toElementKind, decodeAttribute, isUnsafeName
     )
 
 {-| Internal types used to represent Elm Html in pure Elm
@@ -13,7 +13,7 @@ module Test.Html.Internal.ElmHtml.InternalTypes exposing
 
 @docs Attribute, AttributeRecord, NamespacedAttributeRecord, PropertyRecord, EventRecord
 
-@docs decodeElmHtml, emptyFacts, toElementKind, decodeAttribute
+@docs decodeElmHtml, emptyFacts, toElementKind, decodeAttribute, isUnsafeName
 
 -}
 
@@ -21,6 +21,7 @@ import Dict exposing (Dict)
 import Html.Events
 import Json.Decode exposing (field)
 import Json.Encode
+import Regex exposing (Regex)
 import Test.Html.Internal.ElmHtml.Constants as Constants exposing (..)
 import Test.Html.Internal.ElmHtml.Helpers exposing (..)
 import Test.Html.Internal.ElmHtml.Markdown exposing (..)
@@ -124,6 +125,7 @@ type ElementKind
     | EscapableRawTextElements
     | ForeignElements
     | NormalElements
+    | InvalidElements
 
 
 type HtmlContext msg
@@ -510,12 +512,27 @@ escapableRawTextElements =
 -}
 
 
+unsafeName : Regex
+unsafeName =
+    {- https://github.com/preactjs/preact-render-to-string/blob/27f340b6e7d77ec7775a49a78d105cad26fa0857/src/lib/util.js#L2 -}
+    Regex.fromString "[\\s\\n\\\\/='\"\\0<>]"
+        |> Maybe.withDefault Regex.never
+
+
+isUnsafeName : String -> Bool
+isUnsafeName name =
+    Regex.contains unsafeName name
+
+
 {-| Identify the kind of element. Helper to convert an tag name into a type for
 pattern matching.
 -}
 toElementKind : String -> ElementKind
 toElementKind element =
-    if List.member element voidElements then
+    if isUnsafeName element then
+        InvalidElements
+
+    else if List.member element voidElements then
         VoidElements
 
     else if List.member element rawTextElements then
