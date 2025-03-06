@@ -6,6 +6,7 @@ import Cli.OptionsParser as OptionsParser
 import Cli.Program as Program
 import Elm
 import Elm.Annotation as Type
+import Elm.Arg
 import Elm.Case
 import Gen.BackendTask
 import Gen.Effect as Effect
@@ -69,9 +70,10 @@ createFile { moduleName } =
                 \{ shared, app, msg, model } ->
                     Elm.Case.custom msg
                         (Type.named [] "Msg")
-                        [ Elm.Case.branch0 "NoOp"
-                            (Elm.tuple model
-                                Effect.none
+                        [ Elm.Case.branch (Elm.Arg.customType "NoOp" ())
+                            (\() ->
+                                Elm.tuple model
+                                    Effect.none
                             )
                         ]
             , init =
