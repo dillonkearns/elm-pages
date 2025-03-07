@@ -115,23 +115,25 @@ nodeRecordToString options { tag, children, facts } =
                     styleValues
                         |> List.map (\( key, value ) -> key ++ ":" ++ value ++ ";")
                         |> String.join ""
-                        |> (\styleString -> "style=\"" ++ styleString ++ "\"")
+                        |> (\styleString -> "style=\"" ++ escapeHtml styleString ++ "\"")
                         |> Just
 
         classes =
             Dict.get "className" facts.stringAttributes
-                |> Maybe.map (\name -> "class=\"" ++ name ++ "\"")
+                |> Maybe.map (\name -> "class=\"" ++ escapeHtml name ++ "\"")
 
         stringAttributes =
             Dict.filter (\k v -> k /= "className") facts.stringAttributes
                 |> Dict.toList
+                |> List.filter (\( k, _ ) -> not (isUnsafeName k))
                 |> List.map (Tuple.mapFirst propertyToAttributeName)
-                |> List.map (\( k, v ) -> k ++ "=\"" ++ v ++ "\"")
+                |> List.map (\( k, v ) -> k ++ "=\"" ++ escapeHtml v ++ "\"")
                 |> String.join " "
                 |> Just
 
         boolAttributes =
             Dict.toList facts.boolAttributes
+                |> List.filter (\( k, _ ) -> not (isUnsafeName k))
                 |> List.filterMap
                     (\( k, v ) ->
                         if v then
@@ -144,6 +146,9 @@ nodeRecordToString options { tag, children, facts } =
                 |> Just
     in
     case toElementKind tag of
+        InvalidElements ->
+            [ "<!-- invalid element -->" ]
+
         {- Void elements only have a start tag; end tags must not be
            specified for void elements.
         -}
@@ -187,10 +192,15 @@ escapeRawText kind rawText =
             rawText
 
         _ ->
-            {- https://github.com/elm/virtual-dom/blob/5a5bcf48720bc7d53461b3cd42a9f19f119c5503/src/Elm/Kernel/VirtualDom.server.js#L8-L26 -}
-            rawText
-                |> String.replace "&" "&amp;"
-                |> String.replace "<" "&lt;"
-                |> String.replace ">" "&gt;"
-                |> String.replace "\"" "&quot;"
-                |> String.replace "'" "&#039;"
+            escapeHtml rawText
+
+
+escapeHtml : String -> String
+escapeHtml rawText =
+    {- https://github.com/elm/virtual-dom/blob/5a5bcf48720bc7d53461b3cd42a9f19f119c5503/src/Elm/Kernel/VirtualDom.server.js#L8-L26 -}
+    rawText
+        |> String.replace "&" "&amp;"
+        |> String.replace "<" "&lt;"
+        |> String.replace ">" "&gt;"
+        |> String.replace "\"" "&quot;"
+        |> String.replace "'" "&#039;"
