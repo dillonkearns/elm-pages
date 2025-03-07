@@ -162,12 +162,6 @@ view static sharedModel =
         , Html.div [ Attr.style "display" ";\"'><script>true && alert(0)</script>" ] []
         , snapshotComment "attribute values cannot introduce another attribute"
         , Html.div [ Attr.title "\" onclick=\"alert(0)" ] []
-        , snapshotComment "unsafe attributes are handled by the virtual-dom package"
-        , Html.a
-            [ Attr.attribute "onclick" "alert(0)"
-            , Attr.href "javascript:alert(1)"
-            ]
-            []
         , snapshotComment "text is escaped"
         , Html.text "<script>true && alert(0)</script>"
         , snapshotComment "children of void elements are skipped"

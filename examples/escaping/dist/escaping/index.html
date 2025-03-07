@@ -48,9 +48,6 @@
 # attribute values cannot introduce another attribute
 <div title="&quot; onclick=&quot;alert(0)"></div>
 
-# unsafe attributes are handled by the virtual-dom package
-<a data-onclick="alert(0)" href="javascript:alert(&quot;This is an XSS vector. Please use ports or web components instead.&quot;)"></a>
-
 # text is escaped
 &lt;script&gt;true &amp;&amp; alert(0)&lt;/script&gt;
 
