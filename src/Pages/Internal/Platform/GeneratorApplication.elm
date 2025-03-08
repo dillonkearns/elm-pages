@@ -31,8 +31,8 @@ type alias JsonValue =
 
 
 {-| -}
-type alias Program =
-    Program.StatefulProgram Model Msg (BackendTask FatalError ()) Flags
+type alias Program model msg =
+    Program.StatefulProgram (Model model msg) (Msg msg) (BackendTask FatalError ()) Flags
 
 
 {-| -}
@@ -42,103 +42,129 @@ type alias Flags =
 
 
 {-| -}
-type alias Model =
+type alias Model model msg =
     { staticResponses : BackendTask FatalError ()
     , errors : List BuildError
+    , model : model
+    , subscriptions : model -> Sub msg
     }
 
 
 {-| -}
-type Msg
+type Msg msg
     = GotDataBatch Decode.Value
     | GotBuildError BuildError
+    | Msg msg
 
 
 {-| -}
 app :
-    GeneratorProgramConfig
-    -> Program
+    GeneratorProgramConfig model msg
+    -> Program model msg
 app config =
     let
-        cliConfig : Program.Config (BackendTask FatalError ())
-        cliConfig =
+        cliConfig :
+            { perform : BackendTask Never msg -> Cmd msg }
+            ->
+                Program.Config
+                    { init : BackendTask FatalError ( model, Cmd msg )
+                    , subscriptions : model -> Sub msg
+                    , update : msg -> model -> ( model, Cmd msg )
+                    }
+        cliConfig performRecord =
             case config.data of
                 Pages.Internal.Script.Script theCliConfig ->
-                    theCliConfig HtmlPrinter.htmlToString
-    in
-    Program.stateful
-        { init =
-            \flags cliOptions ->
-                init cliOptions flags
-                    |> Tuple.mapSecond (perform config)
-        , update =
-            \_ msg model ->
-                update msg model
-                    |> Tuple.mapSecond (perform config)
-        , subscriptions =
-            \_ ->
-                Sub.batch
-                    [ config.fromJsPort
-                        |> Sub.map
-                            (\jsonValue ->
-                                let
-                                    decoder : Decode.Decoder Msg
-                                    decoder =
-                                        Decode.field "tag" Decode.string
-                                            |> Decode.andThen
-                                                (\tag ->
-                                                    case tag of
-                                                        "BuildError" ->
-                                                            Decode.field "data"
-                                                                (Decode.map2
-                                                                    (\message title ->
-                                                                        { title = title
-                                                                        , message = message
-                                                                        , fatal = True
-                                                                        , path = "" -- TODO wire in current path here
-                                                                        }
-                                                                    )
-                                                                    (Decode.field "message" Decode.string |> Decode.map Terminal.fromAnsiString)
-                                                                    (Decode.field "title" Decode.string)
-                                                                )
-                                                                |> Decode.map GotBuildError
+                    theCliConfig HtmlPrinter.htmlToString performRecord
 
-                                                        _ ->
-                                                            Decode.fail "Unhandled msg"
-                                                )
-                                in
-                                Decode.decodeValue decoder jsonValue
-                                    |> Result.mapError
-                                        (\error ->
-                                            ("From location 1: "
-                                                ++ (error
-                                                        |> Decode.errorToString
-                                                   )
+        appInit : FlagsIncludingArgv flags -> cliOptions -> ( Model () msg, Cmd (Msg Never) )
+        appInit flags cliOptions =
+            init ( (), cliOptions ) flags
+                |> Tuple.mapSecond (perform config)
+
+        appUpdate : a -> Msg msg -> unknown -> ( unknown, Cmd (Msg Never) )
+        appUpdate _ msg model =
+            update msg model
+                |> Tuple.mapSecond (perform config)
+
+        appSubscriptions : a -> Sub (Msg Never)
+        appSubscriptions _ =
+            Sub.batch
+                [ config.fromJsPort
+                    |> Sub.map
+                        (\jsonValue ->
+                            let
+                                decoder : Decode.Decoder (Msg Never)
+                                decoder =
+                                    Decode.field "tag" Decode.string
+                                        |> Decode.andThen
+                                            (\tag ->
+                                                case tag of
+                                                    "BuildError" ->
+                                                        Decode.field "data"
+                                                            (Decode.map2
+                                                                (\message title ->
+                                                                    { title = title
+                                                                    , message = message
+                                                                    , fatal = True
+                                                                    , path = "" -- TODO wire in current path here
+                                                                    }
+                                                                )
+                                                                (Decode.field "message" Decode.string |> Decode.map Terminal.fromAnsiString)
+                                                                (Decode.field "title" Decode.string)
+                                                            )
+                                                            |> Decode.map GotBuildError
+
+                                                    _ ->
+                                                        Decode.fail "Unhandled msg"
                                             )
-                                                |> BuildError.internal
-                                                |> GotBuildError
+                            in
+                            Decode.decodeValue decoder jsonValue
+                                |> Result.mapError
+                                    (\error ->
+                                        ("From location 1: "
+                                            ++ (error
+                                                    |> Decode.errorToString
+                                               )
                                         )
-                                    |> mergeResult
-                            )
-                    , config.gotBatchSub |> Sub.map GotDataBatch
-                    ]
-        , config = cliConfig
-        , printAndExitFailure =
-            \string ->
-                ToJsPayload.Errors
-                    [ { title = "Invalid CLI arguments"
-                      , path = ""
-                      , message =
-                            [ Terminal.text string
-                            ]
-                      , fatal = True
-                      }
-                    ]
-                    |> Codec.encodeToValue (ToJsPayload.successCodecNew2 "" "")
-                    |> config.toJsPort
-                    |> Cmd.map never
-        , printAndExitSuccess = \string -> config.toJsPort (Encode.string string) |> Cmd.map never
-        }
+                                            |> BuildError.internal
+                                            |> GotBuildError
+                                    )
+                                |> mergeResult
+                        )
+                , config.gotBatchSub |> Sub.map GotDataBatch
+                ]
+
+        programConfig :
+            { printAndExitFailure : String -> Cmd msg
+            , printAndExitSuccess : String -> Cmd msg
+            , init : FlagsIncludingArgv flags -> cliOptions -> ( model, Cmd msg )
+            , update : cliOptions -> msg -> model -> ( model, Cmd msg )
+            , subscriptions : model -> Sub msg
+            , config : Program.Config cliOptions
+            }
+        programConfig =
+            { init = appInit
+            , update = appUpdate
+            , subscriptions = appSubscriptions
+            , config = cliConfig
+            , printAndExitFailure =
+                \string ->
+                    ToJsPayload.Errors
+                        [ { title = "Invalid CLI arguments"
+                          , path = ""
+                          , message =
+                                [ Terminal.text string
+                                ]
+                          , fatal = True
+                          }
+                        ]
+                        |> Codec.encodeToValue (ToJsPayload.successCodecNew2 "" "")
+                        |> config.toJsPort
+                        |> Cmd.map never
+            , printAndExitSuccess = \string -> config.toJsPort (Encode.string string) |> Cmd.map never
+            }
+    in
+    Program.stateful programConfig
 
 
 mergeResult : Result a a -> a
@@ -158,12 +184,30 @@ requestDecoder =
         |> Codec.decoder
 
 
-flatten : GeneratorProgramConfig -> List Effect -> Cmd Msg
+flatten :
+    { a
+        | toJsPort : Encode.Value -> Cmd Never
+        , fromJsPort : Sub Decode.Value
+        , gotBatchSub : Sub Decode.Value
+        , sendPageData : ToJsPayload.NewThingForPort -> Cmd Never
+    }
+    -> List Effect
+    -> Cmd (Msg Never)
 flatten config list =
     Cmd.batch (flattenHelp [] config list)
 
 
-flattenHelp : List (Cmd Msg) -> GeneratorProgramConfig -> List Effect -> List (Cmd Msg)
+flattenHelp :
+    List (Cmd (Msg Never))
+    ->
+        { a
+            | toJsPort : Encode.Value -> Cmd Never
+            , fromJsPort : Sub Decode.Value
+            , gotBatchSub : Sub Decode.Value
+            , sendPageData : ToJsPayload.NewThingForPort -> Cmd Never
+        }
+    -> List Effect
+    -> List (Cmd (Msg Never))
 flattenHelp soFar config list =
     case list of
         first :: rest ->
@@ -177,9 +221,14 @@ flattenHelp soFar config list =
 
 
 perform :
-    GeneratorProgramConfig
+    { a
+        | toJsPort : Encode.Value -> Cmd Never
+        , fromJsPort : Sub Decode.Value
+        , gotBatchSub : Sub Decode.Value
+        , sendPageData : ToJsPayload.NewThingForPort -> Cmd Never
+    }
     -> Effect
-    -> Cmd Msg
+    -> Cmd (Msg Never)
 perform config effect =
     let
         canonicalSiteUrl : String
@@ -261,12 +310,12 @@ perform config effect =
 
 {-| -}
 init :
-    BackendTask FatalError ()
+    ( model, BackendTask FatalError () )
     -> FlagsIncludingArgv Flags
-    -> ( Model, Effect )
-init execute flags =
+    -> ( Model model msg, Effect )
+init ( model, execute ) flags =
     if flags.compatibilityKey == Pages.Internal.Platform.CompatibilityKey.currentCompatibilityKey then
-        initLegacy execute
+        initLegacy model execute
 
     else
         let
@@ -293,18 +342,21 @@ init execute flags =
                   , path = ""
                   }
                 ]
+            , model = model
             }
 
 
 initLegacy :
-    BackendTask FatalError ()
-    -> ( Model, Effect )
-initLegacy execute =
+    model
+    -> BackendTask FatalError ()
+    -> ( Model model msg, Effect )
+initLegacy model execute =
     let
-        initialModel : Model
+        initialModel : Model model msg
         initialModel =
             { staticResponses = execute
             , errors = []
+            , model = model
             }
     in
     StaticResponses.nextStep (Encode.object []) initialModel.staticResponses initialModel
@@ -313,8 +365,8 @@ initLegacy execute =
 
 
 updateAndSendPortIfDone :
-    Model
-    -> ( Model, Effect )
+    Model model msg
+    -> ( Model model msg, Effect )
 updateAndSendPortIfDone model =
     StaticResponses.nextStep (Encode.object [])
         model.staticResponses
@@ -324,9 +376,9 @@ updateAndSendPortIfDone model =
 
 {-| -}
 update :
-    Msg
-    -> Model
-    -> ( Model, Effect )
+    Msg msg
+    -> Model model msg
+    -> ( Model model msg, Effect )
 update msg model =
     case msg of
         GotDataBatch batch ->
@@ -337,7 +389,7 @@ update msg model =
 
         GotBuildError buildError ->
             let
-                updatedModel : Model
+                updatedModel : Model model msg
                 updatedModel =
                     { model
                         | errors =
@@ -351,9 +403,9 @@ update msg model =
 
 
 nextStepToEffect :
-    Model
+    Model model
     -> StaticResponses.NextStep route ()
-    -> ( Model, Effect )
+    -> ( Model model, Effect )
 nextStepToEffect model nextStep =
     case nextStep of
         StaticResponses.Continue httpRequests updatedStaticResponsesModel ->
