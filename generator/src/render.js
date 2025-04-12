@@ -77,12 +77,14 @@ export async function render(
  * @param {string[]} cliOptions
  * @param {any} portsFile
  * @param {string} scriptModuleName
+ * @param {string} versionString
  */
 export async function runGenerator(
   cliOptions,
   portsFile,
   elmModule,
-  scriptModuleName
+  scriptModuleName,
+  versionString
 ) {
   global.isRunningGenerator = true;
   // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
@@ -100,7 +102,8 @@ export async function runGenerator(
       scriptModuleName,
       "production",
       "",
-      true
+      true,
+      versionString
     );
     return result;
   } catch (error) {
@@ -119,6 +122,7 @@ export async function runGenerator(
  * @param {typeof import("fs") | import("memfs").IFs} fs
  * @param {boolean} hasFsAccess
  * @param {string} scriptModuleName
+ * @param {string} versionString
  */
 function runGeneratorAppHelp(
   cliOptions,
@@ -128,7 +132,8 @@ function runGeneratorAppHelp(
   scriptModuleName,
   mode,
   pagePath,
-  hasFsAccess
+  hasFsAccess,
+  versionString
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
@@ -141,7 +146,7 @@ function runGeneratorAppHelp(
       flags: {
         compatibilityKey,
         argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],
-        versionMessage: "1.2.3",
+        versionMessage: versionString || "1.2.3",
       },
     });
 
