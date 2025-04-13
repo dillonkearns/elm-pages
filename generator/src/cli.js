@@ -241,7 +241,7 @@ await renderer.runGenerator(
   customBackendTask,
   Elm,
   "${moduleName}",
-  "${options.setVersion}"
+  "${options.setVersion || "Version not set."}"
 );
         `;
         // source: https://github.com/evanw/esbuild/pull/2067#issuecomment-1073039746

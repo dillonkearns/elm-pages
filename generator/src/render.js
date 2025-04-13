@@ -139,6 +139,15 @@ function runGeneratorAppHelp(
   let patternsToWatch = new Set();
   let app = null;
   let killApp;
+  // Handle version flag with early return
+  if (
+    cliOptions.length === 1 &&
+    (cliOptions[0] === "--version" || cliOptions[0] === "-v")
+  ) {
+    console.log(versionString);
+    return Promise.resolve();
+  }
+
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
 
