@@ -155,7 +155,7 @@ function runGeneratorAppHelp(
       flags: {
         compatibilityKey,
         argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],
-        versionMessage,
+        versionMessage: versionMessage || "",
       },
     });
 
