@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.24] - 2025-04-30
+
+### Fixed
+
+- Fix missing versionString flag error which caused error in elm-pages run command. Fixes [#527](https://github.com/dillonkearns/elm-pages/issues/527).
+
 ## [3.0.23] - 2025-04-13
 
 ### Added
