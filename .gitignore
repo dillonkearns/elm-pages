@@ -11,5 +11,6 @@ cypress/videos
 cypress/screenshots
 .idea
 generated/
+.elm-pages
 
 elm-review-report.gz.json

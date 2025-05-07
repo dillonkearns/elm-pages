@@ -1,0 +1,6 @@
+{
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "elm-pages": "file:.."
+  }
+}
