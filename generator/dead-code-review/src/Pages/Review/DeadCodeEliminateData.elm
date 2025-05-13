@@ -232,33 +232,41 @@ expressionVisitor node context =
                                     [ Review.Fix.replaceRangeBy (Node.range dataValue)
                                         (key
                                             ++ " = "
-                                            ++ (case pageBuilderName of
-                                                    "preRender" ->
+                                            ++ (case (pageBuilderName, key) of
+                                                    ("preRender", "pages") ->
+                                                        referenceFunction context.importContext ( [ "BackendTask" ], "succeed" )
+                                                            ++ " []"
+                                                    
+                                                    ("preRender", _) ->
                                                         "\\_ -> "
                                                             ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                             ++ " "
                                                             ++ exceptionFromString
 
-                                                    "preRenderWithFallback" ->
+                                                    ("preRenderWithFallback", "pages") ->
+                                                        referenceFunction context.importContext ( [ "BackendTask" ], "succeed" )
+                                                            ++ " []"
+                                                    
+                                                    ("preRenderWithFallback", _) ->
                                                         "\\_ -> "
                                                             ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                             ++ " "
                                                             ++ exceptionFromString
 
-                                                    "serverRender" ->
+                                                    ("serverRender", _) ->
                                                         "\\_ _ -> "
                                                             ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                             ++ " ("
                                                             ++ referenceFunction context.importContext ( [ "FatalError" ], "fromString" )
                                                             ++ " \"\")\n        "
 
-                                                    "single" ->
+                                                    ("single", _) ->
                                                         referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                             ++ " "
                                                             ++ exceptionFromString
                                                             ++ "\n       "
 
-                                                    _ ->
+                                                    (_, _) ->
                                                         "data"
                                                )
                                         )
