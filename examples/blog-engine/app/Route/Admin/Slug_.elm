@@ -6,12 +6,13 @@ module Route.Admin.Slug_ exposing (ActionData, Data, route, RouteParams, Msg, Mo
 
 -}
 
-import BackendTask
+import BackendTask exposing (BackendTask)
 import BackendTask.Custom
 import Date exposing (Date)
 import Effect
-import ErrorPage
-import FatalError
+import Elm exposing (expose)
+import ErrorPage exposing (ErrorPage)
+import FatalError exposing (FatalError)
 import Form exposing (Validated(..))
 import Form.Field
 import Form.FieldView
@@ -22,6 +23,7 @@ import Html exposing (Html)
 import Html.Attributes
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
+import PageServerResponse exposing (PageServerResponse)
 import Pages.Form
 import PagesMsg exposing (PagesMsg)
 import Platform.Sub
@@ -100,7 +102,7 @@ type alias ActionData =
 data :
     RouteParams
     -> Request
-    -> BackendTask FatalError (ServeResponse Data ErrorPage)
+    -> BackendTask FatalError (PageServerResponse Data ErrorPage)
 data routeParams request =
     if routeParams.slug == "new" then
         Server.Response.render

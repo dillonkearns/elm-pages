@@ -3,7 +3,7 @@
     "name": "dillonkearns/elm-pages",
     "summary": "Hybrid Elm framework with full-stack and static routes.",
     "license": "BSD-3-Clause",
-    "version": "10.1.0",
+    "version": "10.2.1",
     "exposed-modules": [
         "Head",
         "Head.Seo",
@@ -71,13 +71,13 @@
         "elm-community/list-extra": "8.6.0 <= v < 9.0.0",
         "jluckyiv/elm-utc-date-strings": "1.0.0 <= v < 2.0.0",
         "justinmimbs/date": "4.0.1 <= v < 5.0.0",
-        "mdgriffith/elm-codegen": "4.0.0 <= v < 5.0.0",
+        "mdgriffith/elm-codegen": "5.0.0 <= v < 6.0.0",
         "miniBill/elm-codec": "2.0.0 <= v < 3.0.0",
         "noahzgordon/elm-color-extra": "1.0.2 <= v < 2.0.0",
         "robinheghan/fnv1a": "1.0.0 <= v < 2.0.0",
         "rtfeldman/elm-css": "18.0.0 <= v < 19.0.0",
         "the-sett/elm-syntax-dsl": "6.0.2 <= v < 7.0.0",
-        "vito/elm-ansi": "10.0.1 <= v < 11.0.0"
+        "wolfadex/elm-ansi": "3.0.0 <= v < 4.0.0"
     },
     "test-dependencies": {
         "avh4/elm-program-test": "4.0.0 <= v < 5.0.0",

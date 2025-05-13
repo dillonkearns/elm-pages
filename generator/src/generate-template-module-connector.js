@@ -66,7 +66,9 @@ export async function generateTemplateModuleConnector(basePath, phase) {
 async function runElmCodegenCli(templates, basePath, phase) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const filePath = pathToFileURL(path.join(__dirname, `../../codegen/elm-pages-codegen.cjs`)).href;
+  const filePath = pathToFileURL(
+    path.join(__dirname, `../../codegen/elm-pages-codegen.cjs`)
+  ).href;
 
   const promise = new Promise(async (resolve, reject) => {
     const elmPagesCodegen = (await import(filePath)).default.Elm.Generate;

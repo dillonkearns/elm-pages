@@ -8,7 +8,7 @@ import Dict
 import Effect
 import ErrorPage
 import FatalError exposing (FatalError)
-import Form
+import Form exposing (Validated)
 import Form.Field as Field
 import Form.FieldView as FieldView
 import Form.Handler
@@ -30,12 +30,13 @@ import View
 
 type alias Model =
     { itemIndex : Int
+    , errors : List String
     }
 
 
 type Msg
     = NoOp
-    | AddItemSubmitted
+    | AddItemSubmitted (Validated String String)
 
 
 type alias RouteParams =
@@ -59,6 +60,7 @@ init :
     -> ( Model, Effect.Effect Msg )
 init app shared =
     ( { itemIndex = 0
+      , errors = []
       }
     , Effect.none
     )
@@ -75,12 +77,23 @@ update app shared msg model =
         NoOp ->
             ( model, Effect.none )
 
-        AddItemSubmitted ->
-            ( { model
-                | itemIndex = model.itemIndex + 1
-              }
-            , Effect.none
-            )
+        AddItemSubmitted item ->
+            case item of
+                Form.Valid _ ->
+                    ( { model
+                        | itemIndex = model.itemIndex + 1
+                        , errors = []
+                      }
+                    , Effect.none
+                    )
+
+                Form.Invalid _ errors ->
+                    ( { model
+                        | itemIndex = model.itemIndex + 1
+                        , errors = errors |> Dict.toList |> List.map Tuple.second |> List.concat
+                      }
+                    , Effect.none
+                    )
 
 
 type alias Data =
@@ -241,7 +254,7 @@ view app sharedModel model =
             |> Pages.Form.renderStyledHtml
                 []
                 (Form.options ("add-item-" ++ String.fromInt model.itemIndex)
-                    |> Form.withOnSubmit (\_ -> AddItemSubmitted)
+                    |> Form.withOnSubmit (\item -> AddItemSubmitted item.parsed)
                 )
                 app
         , Html.div []
@@ -252,6 +265,9 @@ view app sharedModel model =
                         |> Pages.Form.withConcurrent
                     )
                     app
+            ]
+        , Html.p []
+            [ Html.text ("Errors: [" ++ (model.errors |> String.join ", ") ++ "]")
             ]
         , optimisticItems
             |> List.map

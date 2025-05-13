@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+
+## [10.2.1] - 2025-03-05
+
+### Fixed
+
+- Apply Simon's HTML escaping fixes to avoid HTML injection vector in cases where HTML tag names or attributes were coming from user-controlled values. See [#524](https://github.com/dillonkearns/elm-pages/pull/524).
+
+## [10.2.0] - 2024-12-12
+
+### Changed
+
+- Updated version constraint so users now need to use "mdgriffith/elm-codegen": "5.0.0 <= v < 6.0.0" (be sure to update your `scripts/elm.json` as well!)
+
+### Fixed
+
+- Fixed an issue in Form.withOnSubmit where it wasn't wired through in the platform code.
+
 ## [10.1.0] - 2024-04-28
 
 ### Added
@@ -19,10 +36,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `BackendTask.Glob.fromString` and `BackendTask.Glob.fromStringWithOptions` allow capturing matching file paths directly from a string pattern. Useful for use with executing shell commands since there is no glob expansion in the command API.
 - `Pages.Script.Spinner` module for executing `BackendTask`s with loading spinners in `elm-pages` scripts.
 - `BackendTask.Do` module with helpers for using continuation-style in scripts or `BackendTask` definitions.
-- `BackendTask` now carries context that effects verbosity (`quiet`), working directory (`inDir`),  and environment variables (`withEnv`).
-- New functions in `BackendTask` module: `do`, `doEach`, `failIf`,  `sequence`
+- `BackendTask` now carries context that effects verbosity (`quiet`), working directory (`inDir`), and environment variables (`withEnv`).
+- New functions in `BackendTask` module: `do`, `doEach`, `failIf`, `sequence`
 - New functions in `Pages.Script` module: `doThen`, `question`, `sleep`, `which`, `expectWhich`.
-
 
 ## Fixed
 
@@ -50,7 +66,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Cleaned up handling of navigating to new pages with query parameters, and navigating to links with `#`'s (named anchors). See [#389](https://github.com/dillonkearns/elm-pages/issues/389).
-    Thank you to [`@kyasu1`](https://github.com/kyasu1) for the issue report and suggested fixes!
+  Thank you to [`@kyasu1`](https://github.com/kyasu1) for the issue report and suggested fixes!
 
 ## [8.0.2] - 2021-08-03
 

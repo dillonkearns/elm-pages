@@ -15,7 +15,7 @@ context("cookies", () => {
     cy.clearCookies();
     cy.visit("http://localhost:1234/dark-mode");
     cy.contains("Current mode: Light Mode");
-    cy.get('button').click()
+    cy.get("button").click();
     cy.contains("Current mode: Dark Mode");
   });
 });

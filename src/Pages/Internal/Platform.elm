@@ -1,11 +1,11 @@
 module Pages.Internal.Platform exposing
-    ( Flags, Model, Msg(..), Program, application, init, update
+    ( Flags, Model, Msg(..), Program, ProgramConfig, application, init, update
     , Effect(..), RequestInfo, view
     )
 
 {-| Exposed for internal use only (used in generated code).
 
-@docs Flags, Model, Msg, Program, application, init, update
+@docs Flags, Model, Msg, Program, ProgramConfig, application, init, update
 
 @docs Effect, RequestInfo, view
 
@@ -35,7 +35,7 @@ import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
 import Pages.Navigation
-import Pages.ProgramConfig exposing (ProgramConfig)
+import Pages.ProgramConfig
 import Pages.StaticHttpRequest as StaticHttpRequest
 import PagesMsg exposing (PagesMsg)
 import QueryParams
@@ -48,6 +48,11 @@ import UrlPath exposing (UrlPath)
 {-| -}
 type alias Program userModel userMsg pageData actionData sharedData errorPage =
     Platform.Program Flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
+
+
+{-| -}
+type alias ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage =
+    Pages.ProgramConfig.ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
 
 
 mainView :
@@ -118,6 +123,7 @@ view config model =
     in
     { title = title
     , body =
+        -- NOTE: If you make changes here, also update pre-render-html.js!
         [ onViewChangeElement model.url
         , AriaLiveAnnouncer.view model.ariaNavigationAnnouncement
         ]
@@ -131,9 +137,10 @@ onViewChangeElement currentUrl =
     -- it is used from the JS-side to reliably
     -- check when Elm has changed pages
     -- (and completed rendering the view)
+    -- NOTE: If you make changes here, also update pre-render-html.js!
     Html.div
         [ Attr.attribute "data-url" (Url.toString currentUrl)
-        , Attr.attribute "display" "none"
+        , Attr.style "display" "none"
         ]
         []
 
@@ -567,8 +574,14 @@ update config appMsg model =
                                    )
 
                     else
-                        -- TODO should the user msg still be run if the form is invalid?
                         ( model, NoEffect )
+                            |> (case fields.msg of
+                                    Just justUserMsg ->
+                                        performUserMsg justUserMsg config
+
+                                    Nothing ->
+                                        identity
+                               )
 
                 Pages.Internal.Msg.FormMsg formMsg ->
                     -- TODO when init is called for a new page, also need to clear out client-side `pageFormState`

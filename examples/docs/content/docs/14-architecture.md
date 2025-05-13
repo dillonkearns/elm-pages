@@ -142,7 +142,7 @@ data routeParams request =
     Server.Request.succeed ()
         |> Server.Session.withSession
             { name = "session"
-            , options = Server.SetCookie.initOptions
+            , options = Server.SetCookie.options
             , secrets = BackendTask.succeed [ "my-secret" ]
             }
             (\() sessionResult ->

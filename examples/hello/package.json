@@ -6,9 +6,9 @@
     "build": "elm-pages build"
   },
   "devDependencies": {
-    "elm-optimize-level-2": "^0.3.4",
+    "elm-optimize-level-2": "^0.3.5",
     "elm-pages": "file:../..",
-    "elm-review": "^2.7.0",
-    "elm-tooling": "^1.7.0"
+    "elm-review": "^2.12.0",
+    "elm-tooling": "^1.15.1"
   }
 }

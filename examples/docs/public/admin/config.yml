@@ -9,7 +9,7 @@ collections: # A list of collections the CMS should be able to edit
   - name: "post" # Used in routes, ie.: /admin/collections/:slug/edit
     label: "Post" # Used in the UI, ie.: "New Post"
     folder: "examples/docs/content/blog" # The path to the folder where the documents are stored
-    filter: {field: "type", value: "blog"}
+    filter: { field: "type", value: "blog" }
     create: true # Allow users to create new documents in this collection
     fields: # The fields each document in this collection have
       - { label: "Title", name: "title", widget: "string" }
@@ -32,7 +32,7 @@ collections: # A list of collections the CMS should be able to edit
   - name: "docs" # Used in routes, ie.: /admin/collections/:slug/edit
     label: "Docs" # Used in the UI, ie.: "New Post"
     folder: "examples/docs/content/docs" # The path to the folder where the documents are stored
-    filter: {field: "type", value: "doc"}
+    filter: { field: "type", value: "doc" }
     create: true # Allow users to create new documents in this collection
     fields: # The fields each document in this collection have
       - { label: "Title", name: "title", widget: "string" }

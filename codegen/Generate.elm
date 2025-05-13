@@ -4,10 +4,10 @@ port module Generate exposing (main)
 
 import Elm exposing (File)
 import Elm.Annotation
+import Elm.Arg
 import Elm.Case
 import Elm.CodeGen
 import Elm.Declare
-import Elm.Extra exposing (topLevelValue)
 import Elm.Op
 import Elm.Pretty
 import Gen.Basics
@@ -64,43 +64,43 @@ file templates basePath =
             templates
                 |> List.filterMap RoutePattern.fromModuleName
 
-        segmentsToRouteFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        segmentsToRouteFn : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
         segmentsToRouteFn =
             segmentsToRoute routes
 
-        routeToPathFn : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        routeToPathFn : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
         routeToPathFn =
-            routeToPath routes
+            routeToPath routeType routes
 
-        toPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        toPath : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
         toPath =
             Elm.Declare.fn "toPath"
-                ( "route", Elm.Annotation.named [] "Route" |> Just )
+                (Elm.Arg.varWith "route" routeType.annotation)
                 (\route ->
                     Gen.UrlPath.call_.fromString
                         (Gen.String.call_.join
                             (Elm.string "/")
                             (Elm.Op.append
-                                baseUrlAsPath.reference
+                                baseUrlAsPath.value
                                 (routeToPathFn.call route)
                             )
                         )
                         |> Elm.withType (Elm.Annotation.named [ "UrlPath" ] "UrlPath")
                 )
 
-        baseUrlAsPath : { declaration : Elm.Declaration, reference : Elm.Expression, referenceFrom : List String -> Elm.Expression }
+        baseUrlAsPath : Elm.Declare.Value
         baseUrlAsPath =
-            topLevelValue
+            Elm.Declare.value
                 "baseUrlAsPath"
                 (Gen.List.call_.filter
-                    (Elm.fn ( "item", Nothing )
+                    (Elm.fn (Elm.Arg.var "item")
                         (\item ->
                             Gen.Basics.call_.not
                                 (Gen.String.call_.isEmpty item)
                         )
                     )
                     (Gen.String.call_.split (Elm.string "/")
-                        baseUrl.reference
+                        baseUrl.value
                     )
                 )
 
@@ -108,44 +108,43 @@ file templates basePath =
         urlToRoute =
             Elm.declaration "urlToRoute"
                 (Elm.fn
-                    ( "url"
-                    , Elm.Annotation.extensible "url" [ ( "path", Elm.Annotation.string ) ]
-                        |> Just
+                    (Elm.Arg.varWith "url"
+                        (Elm.Annotation.extensible "url" [ ( "path", Elm.Annotation.string ) ])
                     )
                     (\url ->
                         segmentsToRouteFn.call
                             (splitPath.call
                                 (url |> Elm.get "path")
                             )
-                            |> Elm.withType (Elm.Annotation.maybe (Elm.Annotation.named [] "Route"))
+                            |> Elm.withType (Elm.Annotation.maybe routeType.annotation)
                     )
                 )
 
         withoutBaseUrl : Elm.Declaration
         withoutBaseUrl =
             Elm.declaration "withoutBaseUrl"
-                (Elm.fn ( "path", Just Elm.Annotation.string )
+                (Elm.fn (Elm.Arg.varWith "path" Elm.Annotation.string)
                     (\path ->
                         Elm.ifThen
-                            (path |> Gen.String.call_.startsWith baseUrl.reference)
+                            (path |> Gen.String.call_.startsWith baseUrl.value)
                             (Gen.String.call_.dropLeft
-                                (Gen.String.call_.length baseUrl.reference)
+                                (Gen.String.call_.length baseUrl.value)
                                 path
                             )
                             path
                     )
                 )
 
-        toString : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        toString : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
         toString =
             Elm.Declare.fn "toString"
-                ( "route", Elm.Annotation.named [] "Route" |> Just )
+                (Elm.Arg.varWith "route" routeType.annotation)
                 (\route -> Gen.UrlPath.toAbsolute (toPath.call route) |> Elm.withType Elm.Annotation.string)
 
         redirectTo : Elm.Declaration
         redirectTo =
             Elm.declaration "redirectTo"
-                (Elm.fn ( "route", Elm.Annotation.named [] "Route" |> Just )
+                (Elm.fn (Elm.Arg.varWith "route" routeType.annotation)
                     (\route ->
                         Gen.Server.Response.call_.temporaryRedirect
                             (toString.call route)
@@ -159,17 +158,17 @@ file templates basePath =
                     )
                 )
 
-        toLink : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+        toLink : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
         toLink =
             Elm.Declare.fn2 "toLink"
-                ( "toAnchorTag"
-                , Elm.Annotation.function
-                    [ Elm.Annotation.list (Elm.Annotation.namedWith [ "Html" ] "Attribute" [ Elm.Annotation.var "msg" ])
-                    ]
-                    (Elm.Annotation.var "abc")
-                    |> Just
+                (Elm.Arg.varWith "toAnchorTag"
+                    (Elm.Annotation.function
+                        [ Elm.Annotation.list (Gen.Html.annotation_.attribute (Elm.Annotation.var "msg"))
+                        ]
+                        (Elm.Annotation.var "abc")
+                    )
                 )
-                ( "route", Just (Elm.Annotation.named [] "Route") )
+                (Elm.Arg.varWith "route" routeType.annotation)
                 (\toAnchorTag route ->
                     Elm.apply
                         toAnchorTag
@@ -186,13 +185,13 @@ file templates basePath =
         link =
             Elm.declaration "link"
                 (Elm.fn3
-                    ( "attributes", Nothing )
-                    ( "children", Nothing )
-                    ( "route", Just (Elm.Annotation.named [] "Route") )
+                    (Elm.Arg.var "attributes")
+                    (Elm.Arg.var "children")
+                    (Elm.Arg.varWith "route" routeType.annotation)
                     (\attributes children route ->
                         toLink.call
                             (Elm.fn
-                                ( "anchorAttrs", Nothing )
+                                (Elm.Arg.var "anchorAttrs")
                                 (\anchorAttrs ->
                                     Gen.Html.call_.a
                                         (Elm.Op.append anchorAttrs attributes)
@@ -203,21 +202,25 @@ file templates basePath =
                     )
                     |> Elm.withType
                         (Elm.Annotation.function
-                            [ Elm.Annotation.list (Elm.Annotation.namedWith [ "Html" ] "Attribute" [ Elm.Annotation.var "msg" ])
-                            , Elm.Annotation.list (Elm.Annotation.namedWith [ "Html" ] "Html" [ Elm.Annotation.var "msg" ])
-                            , Elm.Annotation.named [] "Route"
+                            [ Elm.Annotation.list (Gen.Html.annotation_.attribute (Elm.Annotation.var "msg"))
+                            , Elm.Annotation.list (Gen.Html.annotation_.html (Elm.Annotation.var "msg"))
+                            , routeType.annotation
                             ]
-                            (Elm.Annotation.namedWith [ "Html" ] "Html" [ Elm.Annotation.var "msg" ])
+                            (Gen.Html.annotation_.html (Elm.Annotation.var "msg"))
                         )
                 )
 
-        baseUrl : { declaration : Elm.Declaration, reference : Elm.Expression, referenceFrom : List String -> Elm.Expression }
+        baseUrl : Elm.Declare.Value
         baseUrl =
-            topLevelValue "baseUrl" (Elm.string basePath)
+            Elm.Declare.value "baseUrl" (Elm.string basePath)
+
+        routeType : Elm.Declare.Annotation
+        routeType =
+            Elm.Declare.customType "Route" (routes |> List.map RoutePattern.toVariant)
     in
     Elm.file
         [ "Route" ]
-        ([ [ Elm.customType "Route" (routes |> List.map RoutePattern.toVariant)
+        ([ [ routeType.declaration
            , segmentsToRouteFn.declaration
            , urlToRoute
            , baseUrl.declaration
@@ -231,7 +234,7 @@ file templates basePath =
            , withoutBaseUrl
            ]
             |> List.map (Elm.withDocumentation ".")
-            |> List.map expose
+            |> List.map Elm.exposeConstructor
          , [ splitPath.declaration
            , maybeToList.declaration
            ]
@@ -240,23 +243,23 @@ file templates basePath =
         )
 
 
-splitPath : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+splitPath : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
 splitPath =
     Elm.Declare.fn "splitPath"
-        ( "path", Just Gen.UrlPath.annotation_.urlPath )
+        (Elm.Arg.varWith "path" Gen.UrlPath.annotation_.urlPath)
         (\path ->
             Gen.List.call_.filter
-                (Elm.fn ( "item", Just Elm.Annotation.string )
+                (Elm.fn (Elm.Arg.varWith "item" Elm.Annotation.string)
                     (\item -> Elm.Op.notEqual item (Elm.string ""))
                 )
                 (Gen.String.call_.split (Elm.string "/") path)
         )
 
 
-maybeToList : { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+maybeToList : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
 maybeToList =
     Elm.Declare.fn "maybeToList"
-        ( "maybeString", Just (Elm.Annotation.maybe Elm.Annotation.string) )
+        (Elm.Arg.varWith "maybeString" (Elm.Annotation.maybe Elm.Annotation.string))
         (\maybeString ->
             Elm.Case.maybe maybeString
                 { nothing = Elm.list []
@@ -266,15 +269,13 @@ maybeToList =
         )
 
 
-segmentsToRoute :
-    List RoutePattern
-    -> { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
+segmentsToRoute : List RoutePattern -> Elm.Declare.Function (Elm.Expression -> Elm.Expression)
 segmentsToRoute routes =
     Elm.Declare.fn "segmentsToRoute"
-        ( "segments"
-        , Elm.Annotation.list Elm.Annotation.string |> Just
+        (Elm.Arg.varWith "segments"
+            (Elm.Annotation.list Elm.Annotation.string)
         )
-        (\segments ->
+        (\_ ->
             let
                 alreadyHasCatchallBranch : Bool
                 alreadyHasCatchallBranch =
@@ -314,11 +315,12 @@ segmentsToRoute routes =
 
 
 routeToPath :
-    List RoutePattern
-    -> { declaration : Elm.Declaration, call : Elm.Expression -> Elm.Expression, callFrom : List String -> Elm.Expression -> Elm.Expression, value : List String -> Elm.Expression }
-routeToPath routes =
+    Elm.Declare.Annotation
+    -> List RoutePattern
+    -> Elm.Declare.Function (Elm.Expression -> Elm.Expression)
+routeToPath routeType routes =
     Elm.Declare.fn "routeToPath"
-        ( "route", Just (Elm.Annotation.named [] "Route") )
+        (Elm.Arg.varWith "route" routeType.annotation)
         (\route_ ->
             Elm.Case.custom route_
                 (Elm.Annotation.list Elm.Annotation.string)
@@ -344,17 +346,26 @@ routeToPath routes =
                                         (Just [])
                             of
                                 Just staticOnlyName ->
-                                    Elm.Case.branch0 (RoutePattern.toVariantName route |> .variantName)
-                                        (staticOnlyName
-                                            |> List.map (\kebabName -> Elm.string kebabName)
-                                            |> Elm.list
-                                            |> List.singleton
-                                            |> Elm.list
+                                    Elm.Case.branch
+                                        (Elm.Arg.customType
+                                            (RoutePattern.toVariantName route |> .variantName)
+                                            ()
+                                        )
+                                        (\_ ->
+                                            staticOnlyName
+                                                |> List.map (\kebabName -> Elm.string kebabName)
+                                                |> Elm.list
+                                                |> List.singleton
+                                                |> Elm.list
                                         )
 
                                 Nothing ->
-                                    Elm.Case.branch1 (RoutePattern.toVariantName route |> .variantName)
-                                        ( "params", Elm.Annotation.record [] )
+                                    Elm.Case.branch
+                                        (Elm.Arg.customType
+                                            (RoutePattern.toVariantName route |> .variantName)
+                                            identity
+                                            |> Elm.Arg.item (Elm.Arg.varWith "params" (Elm.Annotation.record []))
+                                        )
                                         (\params ->
                                             RoutePattern.toVariantName route
                                                 |> .params
@@ -385,15 +396,6 @@ routeToPath routes =
                 |> Gen.List.call_.concat
                 |> Elm.withType (Elm.Annotation.list Elm.Annotation.string)
         )
-
-
-expose : Elm.Declaration -> Elm.Declaration
-expose declaration =
-    declaration
-        |> Elm.exposeWith
-            { exposeConstructor = True
-            , group = Nothing
-            }
 
 
 {-| Decapitalize the first letter of a string.

@@ -181,6 +181,10 @@ async function main() {
       "./myscript.mjs"
     )
     .option(
+      "--set-version <version>",
+      "Set the version string for the bundled script"
+    )
+    .option(
       "--external <package-or-pattern>",
       "build site to be served under a base path",
       collect,
@@ -236,7 +240,8 @@ await renderer.runGenerator(
   [...process.argv].splice(2),
   customBackendTask,
   Elm,
-  "${moduleName}"
+  "${moduleName}",
+  "${options.setVersion || "Version not set."}"
 );
         `;
         // source: https://github.com/evanw/esbuild/pull/2067#issuecomment-1073039746
@@ -344,7 +349,9 @@ async function requireElm(compiledElmPath) {
   const warnOriginal = console.warn;
   console.warn = function () {};
 
-  let Elm = (await import(url.pathToFileURL(path.resolve(compiledElmPath)).href)).default;
+  let Elm = (
+    await import(url.pathToFileURL(path.resolve(compiledElmPath)).href)
+  ).default;
   console.warn = warnOriginal;
   return Elm;
 }

@@ -9,6 +9,61 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.24] - 2025-04-30
+
+### Fixed
+
+- Fix missing versionString flag error which caused error in elm-pages run command. Fixes [#527](https://github.com/dillonkearns/elm-pages/issues/527).
+
+## [3.0.23] - 2025-04-13
+
+### Added
+
+- Added a `--set-version` flag to the `bundle-script` command to allow setting a custom version string for bundled scripts.
+
+## [3.0.22] - 2025-03-05
+
+### Fixed
+
+- Update Elm package version in starter template.
+
+## [3.0.21] - 2025-03-05
+
+### Fixed
+
+- Updated dependencies, including elm-review version used for internal rule to allow users to upgrade to latest elm-review NPM package (be sure to update to the latest elm-review in your package.json as well, currently 2.13.2)
+- Updated elm-pages init template.
+
+## [3.0.19] - 2024-12-27
+
+### Fixed
+
+- Move `vite` to NPM dependency (instead of `devDependency`) to fix errors when running as standalone tool outside of a vite project folder
+- Update `elm-pages init` contents
+
+## [3.0.19] - 2024-12-04
+
+### Fixed
+
+- Fix an error in generated code with invalid imports related to an internal elm-codegen upgrade in the generator code (see [#503](https://github.com/dillonkearns/elm-pages/pull/503)).
+
+## [3.0.18] - 2024-12-03
+
+### Fixed
+
+- Fix an error in generated code with invalid imports related to an internal elm-codegen upgrade in the generator code (see [#502](https://github.com/dillonkearns/elm-pages/pull/502)).
+
+## [3.0.17] - 2024-11-26
+
+### Fixed
+
+- Upgrade to latest version of Vite, as well as other dependencies (see [#498](https://github.com/dillonkearns/elm-pages/pull/498)).
+
+## [3.0.16] - 2024-07-10
+
+### Fixed
+
+- Update elm-review dependencies so projects can use latest elm-review NPM package.
 
 ## [3.0.15] - 2024-05-02
 
@@ -22,7 +77,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Removed invalid internal imports from generated `Main.elm` file.
 - Updated NPM dependencies.
-
 
 ## [3.0.13] - 2024-04-28
 

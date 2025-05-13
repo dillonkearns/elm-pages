@@ -38,7 +38,7 @@
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.0.1",
             "matheus23/elm-default-tailwind-modules": "4.0.1",
-            "mdgriffith/elm-codegen": "4.1.1",
+            "mdgriffith/elm-codegen": "5.0.0",
             "miniBill/elm-codec": "2.1.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "pablohirafuji/elm-syntax-highlight": "3.5.0",
@@ -49,7 +49,7 @@
             "the-sett/elm-syntax-dsl": "6.0.2",
             "tripokey/elm-fuzzy": "5.2.1",
             "turboMaCk/non-empty-list-alias": "1.4.0",
-            "vito/elm-ansi": "10.0.1",
+            "wolfadex/elm-ansi": "3.0.0",
             "zwilias/json-decode-exploration": "6.0.0"
         },
         "indirect": {

@@ -38,7 +38,7 @@
             "elm-community/list-extra": "8.7.0",
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.0.1",
-            "mdgriffith/elm-codegen": "4.1.1",
+            "mdgriffith/elm-codegen": "5.0.0",
             "mgold/elm-nonempty-list": "4.2.0",
             "miniBill/elm-codec": "2.1.0",
             "noahzgordon/elm-color-extra": "1.0.2",
@@ -48,7 +48,7 @@
             "the-sett/elm-pretty-printer": "3.1.0",
             "the-sett/elm-syntax-dsl": "6.0.2",
             "turboMaCk/non-empty-list-alias": "1.4.0",
-            "vito/elm-ansi": "10.0.1"
+            "wolfadex/elm-ansi": "3.0.0"
         },
         "indirect": {
             "Chadtech/elm-bool-extra": "2.4.2",

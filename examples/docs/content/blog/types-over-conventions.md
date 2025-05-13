@@ -80,9 +80,7 @@ Each file in the `content` folder will result in a new route for your static sit
 
 Now, in our `elm-pages` app, our `view` function will get the markdown that we rendered for a given page along with the corresponding `Metadata`. It's completely in our hands what we want to do with that data.
 
-
 <Oembed url="https://twitter.com/czaplic/status/928359289135046656" />
-
 
 ## Takeaways
 

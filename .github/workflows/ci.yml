@@ -25,7 +25,7 @@ jobs:
       # Re-use node_modules between runs until package-lock.json changes.
       - name: Cache node_modules
         id: cache-node_modules
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/Cypress
@@ -36,7 +36,7 @@ jobs:
       # review/elm.json changes. The Elm compiler saves downloaded Elm packages
       # to ~/.elm, and elm-tooling saves downloaded tool executables there.
       - name: Cache ~/.elm
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.elm
           key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json', 'examples/routing/elm.json', 'examples/escaping/elm.json', 'examples/base-path/elm.json') }}
@@ -83,12 +83,12 @@ jobs:
           wait-on: "http://localhost:1234"
           wait-on-timeout: 120
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-screenshots
           path: cypress/screenshots
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-videos
@@ -132,7 +132,7 @@ jobs:
   #     # Re-use node_modules between runs until package-lock.json changes.
   #     - name: Cache node_modules
   #       id: cache-node_modules
-  #       uses: actions/cache@v2
+  #       uses: actions/cache@v4
   #       with:
   #         path: |
   #           ~/.cache/Cypress
@@ -143,7 +143,7 @@ jobs:
   #     # review/elm.json changes. The Elm compiler saves downloaded Elm packages
   #     # to ~/.elm, and elm-tooling saves downloaded tool executables there.
   #     - name: Cache ~/.elm
-  #       uses: actions/cache@v2
+  #       uses: actions/cache@v4
   #       with:
   #         path: ~/.elm
   #         key: elm-windows-${{ hashFiles('elm.json', 'elm-tooling.json', 'generator/elm.json', 'review/elm.json') }}

@@ -14,7 +14,7 @@
  * this.constructor so that the native HTMLElement constructor can access the
  * current under-construction element's definition.
  */
-(function() {
+(function () {
   if (
     // No Reflect, no classes, no need for shim because native custom elements
     // require ES2015 classes or Reflect.
@@ -40,7 +40,7 @@
         [],
         /** @type {!Function} */ (this.constructor)
       );
-    }
+    },
   };
   window.HTMLElement = wrapperForTheName["HTMLElement"];
   HTMLElement.prototype = BuiltInHTMLElement.prototype;

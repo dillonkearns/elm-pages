@@ -56,7 +56,7 @@ Some of the core features include
 
 Many of the core features of `elm-pages` are designed to support these use cases.
 
-- [Forms](/docs/forms)
+- [Forms](/docs/use-the-platform#forms)
 - In-flight submissions
 - Server-side rendering
 - [Session API](https://package.elm-lang.org/packages/dillonkearns/elm-pages/latest/Server-Session)

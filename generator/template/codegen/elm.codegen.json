@@ -1,5 +1,5 @@
 {
-    "elm-codegen-version": "0.5.1",
+    "elm-codegen-version": "0.6.0",
     "codegen-helpers": {
         "packages": {
             "elm/core": "1.0.5",
