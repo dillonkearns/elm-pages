@@ -160,19 +160,44 @@ declarationVisitor node context =
                             dataFieldValue
                                 |> Maybe.map
                                     (\dataValue ->
+                                        let
+                                            keyName : String
+                                            keyName =
+                                                Node.value (Tuple.first (Node.value dataValue))
+                                                
+                                            replacement : String
+                                            replacement =
+                                                if keyName == "pages" then
+                                                    "pages = "
+                                                        ++ referenceFunction context.importContext ( [ "BackendTask" ], "succeed" )
+                                                        ++ " []"
+                                                        ++ "\n    "
+                                                else if keyName == "data" then
+                                                    "data = "
+                                                        ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                        ++ " "
+                                                        ++ exceptionFromString
+                                                        ++ "\n    "
+                                                else if keyName == "action" then
+                                                    "action = "
+                                                        ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                        ++ " "
+                                                        ++ exceptionFromString
+                                                        ++ "\n    "
+                                                else
+                                                    "data = "
+                                                        ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                        -- TODO add 'import FatalError' if not present (and use alias if present)
+                                                        ++ " "
+                                                        ++ exceptionFromString
+                                                        ++ "\n    "
+                                        in
                                         ( [ Rule.errorWithFix
                                                 { message = "Codemod"
                                                 , details = [ "" ]
                                                 }
                                                 (Node.range dataValue)
-                                                -- TODO need to replace `action` as well
-                                                [ ("data = "
-                                                    ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                    -- TODO add `import FatalError` if not present (and use alias if present)
-                                                    ++ " "
-                                                    ++ exceptionFromString
-                                                    ++ "\n    "
-                                                  )
+                                                [ replacement
                                                     |> Review.Fix.replaceRangeBy (Node.range dataValue)
                                                 ]
                                           ]
@@ -232,42 +257,27 @@ expressionVisitor node context =
                                     [ Review.Fix.replaceRangeBy (Node.range dataValue)
                                         (key
                                             ++ " = "
-                                            ++ (case (pageBuilderName, key) of
-                                                    ("preRender", "pages") ->
-                                                        referenceFunction context.importContext ( [ "BackendTask" ], "succeed" )
-                                                            ++ " []"
-                                                    
-                                                    ("preRender", _) ->
-                                                        "\\_ -> "
-                                                            ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                            ++ " "
-                                                            ++ exceptionFromString
-
-                                                    ("preRenderWithFallback", "pages") ->
-                                                        referenceFunction context.importContext ( [ "BackendTask" ], "succeed" )
-                                                            ++ " []"
-                                                    
-                                                    ("preRenderWithFallback", _) ->
-                                                        "\\_ -> "
-                                                            ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                            ++ " "
-                                                            ++ exceptionFromString
-
-                                                    ("serverRender", _) ->
-                                                        "\\_ _ -> "
-                                                            ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                            ++ " ("
-                                                            ++ referenceFunction context.importContext ( [ "FatalError" ], "fromString" )
-                                                            ++ " \"\")\n        "
-
-                                                    ("single", _) ->
-                                                        referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                            ++ " "
-                                                            ++ exceptionFromString
-                                                            ++ "\n       "
-
-                                                    (_, _) ->
-                                                        "data"
+                                            ++ (let
+                                                    isPreRender = pageBuilderName == "preRender"
+                                                    isPreRenderWithFallback = pageBuilderName == "preRenderWithFallback"
+                                                    isServerRender = pageBuilderName == "serverRender"
+                                                    isSingle = pageBuilderName == "single"
+                                                    isPages = key == "pages"
+                                                in
+                                                if isPreRender && isPages then
+                                                    referenceFunction context.importContext ( [ "BackendTask" ], "succeed" ) ++ " []"
+                                                else if isPreRender then
+                                                    "\\_ -> " ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" ) ++ " " ++ exceptionFromString
+                                                else if isPreRenderWithFallback && isPages then
+                                                    referenceFunction context.importContext ( [ "BackendTask" ], "succeed" ) ++ " []"
+                                                else if isPreRenderWithFallback then
+                                                    "\\_ -> " ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" ) ++ " " ++ exceptionFromString
+                                                else if isServerRender then
+                                                    "\\_ _ -> " ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" ) ++ " (" ++ referenceFunction context.importContext ( [ "FatalError" ], "fromString" ) ++ " \"\")\n        "
+                                                else if isSingle then
+                                                    referenceFunction context.importContext ( [ "BackendTask" ], "fail" ) ++ " " ++ exceptionFromString ++ "\n       "
+                                                else
+                                                    "data"
                                                )
                                         )
                                     ]
