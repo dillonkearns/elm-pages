@@ -84,7 +84,15 @@ mainView config model =
                         { path = ContentCache.pathForUrl urls |> UrlPath.join
                         , route = config.urlToRoute { currentUrl | path = model.currentPath }
                         }
-                        Nothing
+                        (Just
+                            { protocol = currentUrl.protocol
+                            , host = currentUrl.host
+                            , port_ = currentUrl.port_
+                            , path = ContentCache.pathForUrl urls
+                            , query = currentUrl.query |> Maybe.map QueryParams.fromString |> Maybe.withDefault Dict.empty
+                            , fragment = currentUrl.fragment
+                            }
+                        )
                         pageData.sharedData
                         pageData.pageData
                         pageData.actionData
