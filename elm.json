@@ -3,7 +3,7 @@
     "name": "dillonkearns/elm-pages",
     "summary": "Hybrid Elm framework with full-stack and static routes.",
     "license": "BSD-3-Clause",
-    "version": "10.2.1",
+    "version": "10.2.2",
     "exposed-modules": [
         "Head",
         "Head.Seo",

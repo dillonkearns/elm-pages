@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [10.2.2] - 2025-06-10
+
+### Fixed
+
+- Fixed issue where `url : Maybe PageUrl` was always `Nothing` in view function. See [#490](https://github.com/dillonkearns/elm-pages/issues/490).
+
 
 ## [10.2.1] - 2025-03-05
 
