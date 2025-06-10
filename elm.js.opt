@@ -8029,7 +8029,14 @@
                 return A8(config.be, model.da, $author$project$Pages$Internal$Platform$toFetcherState(model.J), $elm$core$Maybe$map_fn($elm$core$Tuple$second, model.Y), {
                     d9: $author$project$UrlPath$join($author$project$Pages$ContentCache$pathForUrl(urls)),
                     kj: config.kC(_Utils_update(currentUrl, { d9: model.b7 }))
-                }, $elm$core$Maybe$Nothing, pageData.cn, pageData.q, pageData.bz).be(pageData.Z);
+                }, $elm$core$Maybe$Just({
+                    a_: currentUrl.a_,
+                    eN: currentUrl.eN,
+                    d9: $author$project$Pages$ContentCache$pathForUrl(urls),
+                    e3: currentUrl.e3,
+                    e5: currentUrl.e5,
+                    ba: $elm$core$Maybe$withDefault_fn($elm$core$Dict$empty, $elm$core$Maybe$map_fn($author$project$QueryParams$fromString, currentUrl.ba))
+                }), pageData.cn, pageData.q, pageData.bz).be(pageData.Z);
             }
             else {
                 var error = _v1.a;
