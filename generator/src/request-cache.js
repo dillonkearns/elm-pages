@@ -5,21 +5,26 @@ import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 
 const defaultHttpCachePath = "./.elm-pages/http-cache";
 
-/** @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: JSON}} Response */
+/**
+ * @typedef {{kind: 'cache-response-path', value: string} | {kind: 'response-json', value: any}} Response
+ * @typedef {{ url: string; method: string; headers: [string, string][]; body: StaticHttpBody; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} GenericRequest
+ * @typedef {EmptyBody | StringBody | JsonBody | BytesBody} StaticHttpBody
+ * @typedef {{ tag: "EmptyBody"; args: [] }} EmptyBody
+ * @typedef {{ tag: "StringBody"; args: [string, string] }} StringBody
+ * @typedef {{ tag: "JsonBody"; args: [any] }} JsonBody
+ * @typedef {{ tag: "BytesBody"; args: [string, string] }} BytesBody
+ */
 
 /**
  * @param {string} mode
- * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body; }} rawRequest
+ * @param {GenericRequest} rawRequest
  * @param {Record<string, unknown>} portsFile
- * @param {boolean} hasFsAccess
  * @returns {Promise<Response>}
  */
 export function lookupOrPerform(
   portsFile,
   mode,
-  rawRequest,
-  hasFsAccess,
-  useCache
+  rawRequest
 ) {
   const uniqueTimeId =
     Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -268,7 +273,7 @@ function toElmJson(obj) {
 }
 
 /**
- * @param {{url: string; headers: {[x: string]: string}; method: string; body: Body } } elmRequest
+ * @param {GenericRequest} elmRequest
  */
 function toRequest(elmRequest) {
   const elmHeaders = Object.fromEntries(elmRequest.headers);
@@ -302,8 +307,8 @@ function toBody(body) {
 }
 
 /**
- * @param {Body} body
- * @returns Object
+ * @param {StaticHttpBody} body
+ * @returns {{ "Content-Type"?: string; }}
  */
 function toContentType(body) {
   switch (body.tag) {
@@ -355,6 +360,9 @@ async function safeFetch(makeFetchHappen, url, options) {
   }
 }
 
+/**
+ * @param {import("fs").PathLike} filePath
+ */
 async function canAccess(filePath) {
   try {
     await fsPromises.access(

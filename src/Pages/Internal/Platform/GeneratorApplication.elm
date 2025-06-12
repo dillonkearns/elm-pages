@@ -16,6 +16,7 @@ import HtmlPrinter
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.GeneratorProgramConfig exposing (GeneratorProgramConfig)
+import Pages.Internal.Platform.Common
 import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses
@@ -81,44 +82,7 @@ app config =
                     [ config.fromJsPort
                         |> Sub.map
                             (\jsonValue ->
-                                let
-                                    decoder : Decode.Decoder Msg
-                                    decoder =
-                                        Decode.field "tag" Decode.string
-                                            |> Decode.andThen
-                                                (\tag ->
-                                                    case tag of
-                                                        "BuildError" ->
-                                                            Decode.field "data"
-                                                                (Decode.map2
-                                                                    (\message title ->
-                                                                        { title = title
-                                                                        , message = message
-                                                                        , fatal = True
-                                                                        , path = "" -- TODO wire in current path here
-                                                                        }
-                                                                    )
-                                                                    (Decode.field "message" Decode.string |> Decode.map Terminal.fromAnsiString)
-                                                                    (Decode.field "title" Decode.string)
-                                                                )
-                                                                |> Decode.map GotBuildError
-
-                                                        _ ->
-                                                            Decode.fail "Unhandled msg"
-                                                )
-                                in
-                                Decode.decodeValue decoder jsonValue
-                                    |> Result.mapError
-                                        (\error ->
-                                            ("From location 1: "
-                                                ++ (error
-                                                        |> Decode.errorToString
-                                                   )
-                                            )
-                                                |> BuildError.internal
-                                                |> GotBuildError
-                                        )
-                                    |> mergeResult
+                                GotBuildError (Pages.Internal.Platform.Common.decodeBuildError jsonValue)
                             )
                     , config.gotBatchSub |> Sub.map GotDataBatch
                     ]
@@ -139,16 +103,6 @@ app config =
                     |> Cmd.map never
         , printAndExitSuccess = \string -> config.toJsPort (Encode.string string) |> Cmd.map never
         }
-
-
-mergeResult : Result a a -> a
-mergeResult r =
-    case r of
-        Ok rr ->
-            rr
-
-        Err rr ->
-            rr
 
 
 {-| -}
