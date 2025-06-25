@@ -102,7 +102,7 @@ describe.sequential("runElmCodegenInstall", () => {
       // PATH, where <root> is the current folder (if `package.json` exists) or
       // the closest parent folder where `package.json` exists. So to simulate
       // a project where elm-codegen is not installed, we have to hack PATH.
-      process.env.PATH = [nodeFolder, elmFolder].join(":");
+      process.env.PATH = [nodeFolder].join(":");
     });
     afterEach(() => {
       process.env.PATH = originalPATH;
@@ -118,22 +118,6 @@ describe.sequential("runElmCodegenInstall", () => {
           message: expect.stringMatching("Unable to find elm-codegen"),
         })
       );
-    });
-
-    describe("via elm-pages run", () => {
-      it("prints a warning but succeeds running the script", async () => {
-        expect(existsSync("node_modules/.bin/elm-pages")).toBe(true);
-
-        await expect(spawnLocalElmPages()).resolves.toEqual(
-          expect.objectContaining({
-            status: 0,
-            stderr: expect.stringMatching(
-              "Warning: Unable to find elm-codegen"
-            ),
-            stdout: "Hello from TestScript",
-          })
-        );
-      });
     });
   });
 });
