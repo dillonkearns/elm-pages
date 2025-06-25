@@ -18,10 +18,10 @@ import { runElmCodegenInstall } from "../src/elm-codegen.js";
 const originalWorkingDir = process.cwd();
 const testDir = dirname(fileURLToPath(import.meta.url));
 const originalPATH = process.env.PATH;
-const [nodeBin, elmBin, elmCodegenBin] = await Promise.all([
-  which("node"),
-  which("elm"),
-  which("elm-codegen"),
+const [nodeFolder, elmFolder, elmCodegenFolder] = await Promise.all([
+  which("node").then(dirname),
+  which("elm").then(dirname),
+  which("elm-codegen").then(dirname),
 ]);
 
 function tryAndIgnore(thunk) {
@@ -32,11 +32,10 @@ function tryAndIgnore(thunk) {
 
 function spawnLocalElmPages() {
   return new Promise((resolve) => {
-    const { status, stderr, stdout } = spawnSync(nodeBin, [
+    const { status, stderr, stdout } = spawnSync(
       "node_modules/.bin/elm-pages",
-      "run",
-      "src/TestScript.elm",
-    ]);
+      ["run", "src/TestScript.elm"]
+    );
     resolve({
       status,
       stderr: stderr.toString().trim(),
@@ -74,7 +73,7 @@ describe.sequential("runElmCodegenInstall", () => {
 
   describe("via elm-pages run", () => {
     beforeEach(() => {
-      process.env.PATH = [dirname(elmBin), dirname(elmCodegenBin)].join(":");
+      process.env.PATH = [nodeFolder, elmFolder, elmCodegenFolder].join(":");
     });
     afterEach(() => {
       process.env.PATH = originalPATH;
@@ -103,7 +102,7 @@ describe.sequential("runElmCodegenInstall", () => {
       // PATH, where <root> is the current folder (if `package.json` exists) or
       // the closest parent folder where `package.json` exists. So to simulate
       // a project where elm-codegen is not installed, we have to hack PATH.
-      process.env.PATH = dirname(elmBin);
+      process.env.PATH = [nodeFolder, elmFolder].join(":");
     });
     afterEach(() => {
       process.env.PATH = originalPATH;
