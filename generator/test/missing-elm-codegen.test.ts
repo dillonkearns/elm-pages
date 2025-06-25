@@ -1,6 +1,8 @@
 import { dirname } from "node:path";
+import { existsSync, unlinkSync } from "node:fs";
 import * as process from "node:process";
 import { fileURLToPath } from "node:url";
+import { sync as spawnSync } from "cross-spawn";
 import {
   afterAll,
   afterEach,
@@ -16,10 +18,39 @@ import { runElmCodegenInstall } from "../src/elm-codegen.js";
 const originalWorkingDir = process.cwd();
 const testDir = dirname(fileURLToPath(import.meta.url));
 const originalPATH = process.env.PATH;
+const [nodeBin, elmBin, elmCodegenBin] = await Promise.all([
+  which("node"),
+  which("elm"),
+  which("elm-codegen"),
+]);
 
+function tryAndIgnore(thunk) {
+  try {
+    return thunk();
+  } catch (_error) {}
+}
+
+function spawnLocalElmPages() {
+  return new Promise((resolve) => {
+    const { status, stderr, stdout } = spawnSync(nodeBin, [
+      "node_modules/.bin/elm-pages",
+      "run",
+      "src/TestScript.elm",
+    ]);
+    resolve({
+      status,
+      stderr: stderr.toString().trim(),
+      stdout: stdout.toString().trim(),
+    });
+  });
+}
+
+// Since we muck with process.env.PATH in these tests,
+// don't try to run them in parallel.
 describe.sequential("runElmCodegenInstall", () => {
   beforeAll(() => {
     process.chdir(`${testDir}/missing-elm-codegen`);
+    tryAndIgnore(() => unlinkSync("codegen/Gen/Basics.elm"));
   });
   afterAll(() => {
     process.chdir(originalWorkingDir);
@@ -29,10 +60,34 @@ describe.sequential("runElmCodegenInstall", () => {
     // Pre-condition: runElmCodegenInstall must be able to find `elm-codegen`.
     await expect(which("elm-codegen")).resolves.toEqual(expect.any(String));
 
-    await expect(runElmCodegenInstall()).resolves.toEqual(undefined);
+    await expect(runElmCodegenInstall()).resolves.toEqual({ success: true });
+    expect(existsSync("codegen/Gen/Basics.elm")).toBe(true);
   });
 
-  describe("when elm-codegen is missing", () => {
+  describe("via elm-pages run", () => {
+    beforeEach(() => {
+      process.env.PATH = [dirname(elmBin), dirname(elmCodegenBin)].join(":");
+    });
+    afterEach(() => {
+      process.env.PATH = originalPATH;
+    });
+
+    it("succeeds", async () => {
+      expect(existsSync("node_modules/.bin/elm-pages")).toBe(true);
+
+      await expect(spawnLocalElmPages()).resolves.toEqual(
+        expect.objectContaining({
+          status: 0,
+          stderr: "",
+          stdout: expect.stringMatching("Hello from TestScript"),
+        })
+      );
+
+      expect(existsSync("codegen/Gen/Basics.elm")).toBe(true);
+    });
+  });
+
+  describe("with elm-codegen missing", () => {
     beforeEach(() => {
       // Because the test runner is typically run via `npx` or `npm` from the
       // `generator` folder, our repository root's own `node_modules/.bin` will
@@ -40,22 +95,38 @@ describe.sequential("runElmCodegenInstall", () => {
       // PATH, where <root> is the current folder (if `package.json` exists) or
       // the closest parent folder where `package.json` exists. So to simulate
       // a project where elm-codegen is not installed, we have to hack PATH.
-      process.env.PATH = "";
+      process.env.PATH = dirname(elmBin);
     });
     afterEach(() => {
       process.env.PATH = originalPATH;
     });
 
-    it("throws a descriptive error", async () => {
+    it("returns a descriptive error", async () => {
       // Pre-condition: runElmCodegenInstall must fail to find `elm-codegen`.
       await expect(which("elm-codegen")).rejects.toThrow();
 
-      await expect(runElmCodegenInstall()).rejects.toThrow(
+      await expect(runElmCodegenInstall()).resolves.toEqual(
         expect.objectContaining({
-          name: "Error",
-          message: expect.stringContaining("ENOENT"),
+          success: false,
+          message: expect.stringMatching("Unable to find elm-codegen"),
         })
       );
+    });
+
+    describe("via elm-pages run", () => {
+      it("prints a warning but succeeds running the script", async () => {
+        expect(existsSync("node_modules/.bin/elm-pages")).toBe(true);
+
+        await expect(spawnLocalElmPages()).resolves.toEqual(
+          expect.objectContaining({
+            status: 0,
+            stderr: expect.stringMatching(
+              "Warning: Unable to find elm-codegen"
+            ),
+            stdout: "Hello from TestScript",
+          })
+        );
+      });
     });
   });
 });

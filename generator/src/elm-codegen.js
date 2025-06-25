@@ -1,19 +1,20 @@
 import { spawn as spawnCallback } from "cross-spawn";
+import which from "which";
 
-export function runElmCodegenInstall() {
-  return new Promise(async (resolve, reject) => {
-    const subprocess = spawnCallback(`elm-codegen`, ["install"], {
-      // ignore stdout
-      // stdio: ["inherit", "ignore", "inherit"],
-      //       cwd: cwd,
-    });
-    //     if (await fsHelpers.fileExists(outputPath)) {
-    //       await fsPromises.unlink(outputPath, {
-    //         force: true /* ignore errors if file doesn't exist */,
-    //       });
-    //     }
+/**
+ * @returns {Promise<{ success: true } | { success: false; message: string; error?: Error }>}
+ */
+export async function runElmCodegenInstall() {
+  try {
+    await which("elm-codegen");
+  } catch (error) {
+    return { success: false, message: "Unable to find elm-codegen on PATH" };
+  }
+
+  return new Promise((resolve) => {
+    const subprocess = spawnCallback("elm-codegen", ["install"]);
+
     let commandOutput = "";
-
     subprocess.stderr.on("data", function (data) {
       commandOutput += data;
     });
@@ -21,18 +22,18 @@ export function runElmCodegenInstall() {
       commandOutput += data;
     });
     subprocess.on("error", function (error) {
-      if (commandOutput.length > 0) {
-        console.error(commandOutput);
-      }
-      reject(error);
+      resolve({ success: false, message: "Failed to run elm-codegen", error });
     });
 
-    subprocess.on("close", async (code) => {
-      if (code == 0) {
-        resolve();
-      } else {
-        reject(commandOutput);
+    subprocess.on("close", (code) => {
+      if (code === 0) {
+        return resolve({ success: true });
       }
+      resolve({
+        success: false,
+        message: `elm-codegen exited with code ${code}`,
+        error: commandOutput.length > 0 ? new Error(commandOutput) : undefined
+      });
     });
   });
 }

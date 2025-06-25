@@ -162,8 +162,7 @@ async function main() {
           moduleName
         );
       } catch (error) {
-        console.trace(error);
-        console.log(restoreColorSafe(error));
+        printCaughtError(error);
         process.exit(1);
       }
     });
@@ -283,7 +282,7 @@ await(async()=>{let{dirname:e}=await import("path"),{fileURLToPath:i}=await impo
         });
         // await runTerser(path.resolve(cwd, options.output));
       } catch (error) {
-        console.log(restoreColorSafe(error));
+        printCaughtError(error);
         process.exit(1);
       }
     });
@@ -325,6 +324,17 @@ function safeSubscribe(program, portName, subscribeFunction) {
   program.ports &&
     program.ports[portName] &&
     program.ports[portName].subscribe(subscribeFunction);
+}
+
+/**
+ * @param {Error|string|any[]} error - Thing that was thrown and caught.
+ */
+function printCaughtError(error) {
+  if (typeof error === "string" || Array.isArray(error)) {
+    console.log(restoreColorSafe(error));
+  } else {
+    console.trace(error);
+  }
 }
 
 /**
@@ -404,7 +414,13 @@ async function compileElmForScript(elmModulePath) {
   // await codegen.generate("");
   ensureDirSync(path.join(process.cwd(), ".elm-pages", "http-response-cache"));
   if (fs.existsSync("./codegen/") && process.env.SKIP_ELM_CODEGEN !== "true") {
-    await runElmCodegenInstall();
+    const result = await runElmCodegenInstall();
+    if (!result.success) {
+      console.error(`Warning: ${result.message}.\n\nThe script may fail to compile if it imports any Gen.* modules and they are not present.\n`);
+      if (result.error) {
+        console.error(result.error);
+      }
+    }
   }
 
   ensureDirSync(`${projectDirectory}/elm-stuff`);
