@@ -20,8 +20,11 @@ export function runElmCodegenInstall() {
     subprocess.stdout.on("data", function (data) {
       commandOutput += data;
     });
-    subprocess.on("error", function () {
-      reject(commandOutput);
+    subprocess.on("error", function (error) {
+      if (commandOutput.length > 0) {
+        console.error(commandOutput);
+      }
+      reject(error);
     });
 
     subprocess.on("close", async (code) => {
