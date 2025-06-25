@@ -50,7 +50,15 @@ function spawnLocalElmPages() {
 describe.sequential("runElmCodegenInstall", () => {
   beforeAll(() => {
     process.chdir(`${testDir}/missing-elm-codegen`);
+
+    // Delete this file, if it exists, so we can make sure elm-codegen was
+    // really run (because the file will get recreated).
     tryAndIgnore(() => unlinkSync("codegen/Gen/Basics.elm"));
+
+    if (!existsSync("node_modules/")) {
+      console.log("Running npm install in test project folder");
+      spawnSync("npm", ["install"]);
+    }
   });
   afterAll(() => {
     process.chdir(originalWorkingDir);
