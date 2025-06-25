@@ -416,7 +416,7 @@ async function compileElmForScript(elmModulePath) {
   if (fs.existsSync("./codegen/") && process.env.SKIP_ELM_CODEGEN !== "true") {
     const result = await runElmCodegenInstall();
     if (!result.success) {
-      console.error(`Warning: ${result.message}.\n\nThe script may fail to compile if it imports any Gen.* modules and they are not present.\n`);
+      console.error(`Warning: ${result.message}. The script may fail to compile if it imports any Gen.* modules and they are not present.\n`);
       if (result.error) {
         console.error(result.error);
       }
