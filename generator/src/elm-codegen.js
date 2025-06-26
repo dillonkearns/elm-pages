@@ -8,7 +8,7 @@ export async function runElmCodegenInstall() {
   try {
     await which("elm-codegen");
   } catch (error) {
-    return { success: false, message: "Unable to find elm-codegen on PATH" };
+    return { success: false, message: "Unable to find elm-codegen on the PATH" };
   }
 
   return new Promise((resolve) => {
