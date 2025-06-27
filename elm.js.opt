@@ -3374,6 +3374,9 @@
     var $author$project$Pages$StaticHttpRequest$ApiRoute = function (a) {
         return { $: 1, a: a };
     };
+    var $author$project$Pages$StaticHttpRequest$InternalError = function (a) {
+        return { $: 2, a: a };
+    };
     var $author$project$Pages$StaticHttpRequest$Request_fn = function (a, b) {
         return { $: 0, a: a, b: b };
     }, $author$project$Pages$StaticHttpRequest$Request = F2($author$project$Pages$StaticHttpRequest$Request_fn);
@@ -3394,14 +3397,17 @@
         }
     }, $elm$core$Result$map = F2($elm$core$Result$map_fn);
     var $author$project$BackendTask$map_fn = function (fn, requestInfo) {
-        if (requestInfo.$ === 1) {
-            var value = requestInfo.a;
-            return $author$project$Pages$StaticHttpRequest$ApiRoute($elm$core$Result$map_fn(fn, value));
-        }
-        else {
-            var urls = requestInfo.a;
-            var lookupFn = requestInfo.b;
-            return $author$project$Pages$StaticHttpRequest$Request_fn(urls, A2($author$project$BackendTask$mapLookupFn, fn, lookupFn));
+        switch (requestInfo.$) {
+            case 2:
+                var err = requestInfo.a;
+                return $author$project$Pages$StaticHttpRequest$InternalError(err);
+            case 1:
+                var value = requestInfo.a;
+                return $author$project$Pages$StaticHttpRequest$ApiRoute($elm$core$Result$map_fn(fn, value));
+            default:
+                var urls = requestInfo.a;
+                var lookupFn = requestInfo.b;
+                return $author$project$Pages$StaticHttpRequest$Request_fn(urls, A2($author$project$BackendTask$mapLookupFn, fn, lookupFn));
         }
     }, $author$project$BackendTask$map = F2($author$project$BackendTask$map_fn);
     var $author$project$BackendTask$mapLookupFn_fn = function (fn, lookupFn, maybeMock, requests) {
@@ -8054,27 +8060,40 @@
     var $elm$json$Json$Encode$null = _Json_encodeNull;
     var $elm$json$Json$Decode$string = _Json_decodeString;
     var $author$project$Pages$StaticHttpRequest$toBuildError_fn = function (path, error) {
-        if (!error.$) {
-            var decodeErrorMessage = error.a;
-            return {
-                jl: true,
-                c3: _List_fromArray([
-                    $author$project$TerminalText$text(decodeErrorMessage)
-                ]),
-                d9: path,
-                cq: "Static Http Decoding Error"
-            };
-        }
-        else {
-            var decodeErrorMessage = error.a;
-            return {
-                jl: true,
-                c3: _List_fromArray([
-                    $author$project$TerminalText$text("I ran into a call to `BackendTask.fail` with message: " + decodeErrorMessage)
-                ]),
-                d9: path,
-                cq: "Called Static Http Fail"
-            };
+        switch (error.$) {
+            case 0:
+                var decodeErrorMessage = error.a;
+                return {
+                    jl: true,
+                    c3: _List_fromArray([
+                        $author$project$TerminalText$text(decodeErrorMessage)
+                    ]),
+                    d9: path,
+                    cq: "Static Http Decoding Error"
+                };
+            case 1:
+                var decodeErrorMessage = error.a;
+                return {
+                    jl: true,
+                    c3: _List_fromArray([
+                        $author$project$TerminalText$text("I ran into a call to `BackendTask.fail` with message: " + decodeErrorMessage)
+                    ]),
+                    d9: path,
+                    cq: "Called Static Http Fail"
+                };
+            default:
+                var buildError = error.a;
+                return {
+                    jl: true,
+                    c3: _List_fromArray([
+                        $author$project$TerminalText$text("Please report this error!"),
+                        $author$project$TerminalText$text(""),
+                        $author$project$TerminalText$text(""),
+                        $author$project$TerminalText$text(buildError.fZ)
+                    ]),
+                    d9: path,
+                    cq: "Internal error"
+                };
         }
     }, $author$project$Pages$StaticHttpRequest$toBuildError = F2($author$project$Pages$StaticHttpRequest$toBuildError_fn);
     var $elm$bytes$Bytes$Encode$encode = _Bytes_encode;
