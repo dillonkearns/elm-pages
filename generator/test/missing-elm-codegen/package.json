@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "elm-pages": "file:../../.."
+  }
+}

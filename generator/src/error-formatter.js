@@ -107,7 +107,7 @@ export const restoreColor = (error) => {
 };
 
 /**
- * @param {string} error
+ * @param {string|RootObject[]} error
  * @returns {string}
  */
 export function restoreColorSafe(error) {
