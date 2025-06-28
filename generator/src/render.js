@@ -30,17 +30,107 @@ const spinnies = new Spinnies();
 process.on("unhandledRejection", (error) => {
   console.error(error);
 });
-let foundErrors;
 
 /**
+ * @typedef {Errors | ApiResponse | PageProgress | DoHttp | SendApiResponse | Port | string} FromElm
  *
+ * @typedef {{ tag: "Errors"; args: [ErrorFromElm]; }} Errors
+ * @typedef {any} ErrorFromElm
+ *
+ * @typedef {{ tag: "ApiResponse"; args: []; }} ApiResponse
+ *
+ * @typedef {{ tag: "PageProgress"; args: [ToJsSuccessPayloadNew]; }} PageProgress
+ * @typedef {{ route: string; html: string; contentJson: { [key : string]: string }; errors: string[]; head: HeadTag[]; title: string; staticHttpCache: { [key : string]: string }; is404: boolean; statusCode: number; headers : { [key: string]: string[] }; }} ToJsSuccessPayloadNew
+ *
+ * @typedef {SimpleTag | StructuredDataTag | RootModifierTag | StrippedTag} HeadTag
+ * @typedef {{ type: "head"; name: string; attributes: [string, string][]; }} SimpleTag
+ * @typedef {{ type: "json-ld"; contents: any; }} StructuredDataTag
+ * @typedef {{ type: "root"; keyValuePair: [string, string]; }} RootModifierTag
+ * @typedef {{ type: "stripped"; message: string; }} StrippedTag
+ *
+ * @typedef {{ tag: "DoHttp"; args: [[string, ElmRequest][]]; }} DoHttp
+ * @typedef {InternalRequest | import("./request-cache.js").GenericRequest} ElmRequest
+ *
+ * @typedef {LogRequest | WriteFileRequest | SleepRequest | WhichRequest | QuestionRequest | EncryptRequest | DecryptRequest | TimeRequest | FileReadRequest | EnvRequest | GlobRequest | RandomSeedRequest | StartSpinnerRequest | StopSpinnerRequest | StreamRequest} InternalRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://log", { message: string }>} LogRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://write-file", { path: string; body: string }>} WriteFileRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://sleep", { milliseconds: number }>} SleepRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://which", string>} WhichRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://question", { prompt: string }>} QuestionRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://encrypt", { values: any; secret: string }>} EncryptRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://decrypt", { input: string; secrets: string[] }>} DecryptRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://now", null>} TimeRequest
+ * @typedef {InternalRequestString<"elm-pages-internal://read-file">} FileReadRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://env", string>} EnvRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://glob", { pattern: string; options: GlobOptions; }>} GlobRequest
+ * @typedef {{ dot: boolean; followSymbolicLinks: boolean; caseSensitiveMatch: boolean; gitIgnore: boolean; deep?: number; onlyFiles: boolean; onlyDirectories: boolean; stats: boolean; }} GlobOptions
+ * @typedef {InternalRequestJson<"elm-pages-internal://randomSeed", null>} RandomSeedRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://start-spinner", { text: string; immediateStart: boolean; spinner?: string; spinnerId?: string; }>} StartSpinnerRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://stop-spinner", { spinnerId: string; completionFn: string; completionText: string?; }>} StopSpinnerRequest
+ * @typedef {InternalRequestJson<"elm-pages-internal://stream", { kind: string; parts: StreamPart[]}>} StreamRequest
+ *
+ * @typedef {SimplePart<"unzip"> | SimplePart<"gzip"> | SimplePart<"stdin"> | SimplePart<"stdout"> | SimplePart<"stderr"> | FromStringPart | CommandPart | HttpWritePart | FileReadPart | FileWritePart | CustomReadPart | CustomWritePart | CustomDuplexPart} StreamPart
+ * @typedef {PartWith<"fromString", { string: string; }>} FromStringPart
+ * @typedef {PartWith<"command", { command: string; args: string[]; allowNon0Status: boolean; output: "Ignore" | "Print" | "MergeWithStdout" | "InsteadOfStdout"; timeoutInMs: number?; }>} CommandPart
+ * @typedef {PartWith<"httpWrite", { url: string; method: string; headers: { key: string; value: string; }[]; body?: import("./request-cache.js").StaticHttpBody; retries: number?; timeoutInMs: number?; }>} HttpWritePart
+ * @typedef {PartWith<"fileRead", { path: string; }>} FileReadPart
+ * @typedef {PartWith<"fileWrite", { path: string; }>} FileWritePart
+ * @typedef {PartWith<"customRead", { portName: string; input: any; }>} CustomReadPart
+ * @typedef {PartWith<"customWrite", { portName: string; input: any; }>} CustomWritePart
+ * @typedef {PartWith<"customDuplex", { portName: string; input: any; }>} CustomDuplexPart
+ *
+ * @typedef {{ tag: "ApiResponse"; args: [any]; }} SendApiResponse
+ *
+ * @typedef {{ tag: "Port"; args: [string]; }} Port
+ *
+ * @typedef {{ Elm: { ScriptMain: { init: (flags: { flags: ScriptFlags; }) => ElmApp; }; Main: { init: (flags : {flags : MainFlags; }) => ElmApp; }; }; }} ElmModule
+ * @typedef {{ fromJsPort: FromJsPort<{ tag: string; data: any; }>; toJsPort: ToJsPort<FromElm>; sendPageData: ToJsPort<FromElm>; gotBatchSub: FromJsPort<{ [k: string]: any; }> }} Ports
+ * @typedef {{ ports: Ports; die: () => void; }} ElmApp
+ * @typedef {{ compatibilityKey: number; argv: string[]; versionMessage: "1.2.3" }} ScriptFlags
+ * @typedef {{ compatibilityKey: number; mode: string; request: { payload: any; kind: "single-page"; jsonOnly: boolean; }; }} MainFlags
+ */
+
+/**
+ * @template Key
+ * @typedef {{ name: Key; }} SimplePart<Key>
+ */
+
+/**
+ * @template Key
+ * @template Values
+ * @typedef {{ name: Key; } & Values} PartWith<Key,Values>
+ */
+
+/**
+ * @template Key
+ * @template Body
+ * @typedef {{ url: Key; method: string; headers: [string, string][]; body: { tag: "json"; args: [Body] }; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} InternalRequestJson<Key,Body>
+ */
+
+/**
+ * @template Key
+ * @typedef {{ url: Key; method: string; headers: [string, string][]; body: { tag: "string"; args: [string, string] }; cacheOptions?: any; env: { [key : string]: string }; dir: string[]; quiet: boolean; }} InternalRequestString<Key>
+ */
+
+/**
+ * @template T
+ * @typedef {{ send: (arg0: T) => void; }} FromJsPort<T>
+ */
+/**
+ * @template T
+ * @typedef {{ unsubscribe: (callback: (arg: T) => Promise<void>) => void; subscribe: (callback: (arg: T) => Promise<void>) => void; }} ToJsPort<T>
+ */
+
+/**
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @param {string} path
- * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
- * @param {(pattern: string) => void} addBackendTaskWatcher
+ * @param {{method: string;hostname: string;query: Record<string, string | undefined>;headers: Record<string, string>;host: string;pathname: string;port: number | null;protocol: string;rawUrl: string;}} request
+ * @param {(patterns: Set<string>) => void} addBackendTaskWatcher
  * @param {boolean} hasFsAccess
  * @returns
+ * @param {any} portsFile
+ * @param {string} mode
  */
 export async function render(
   portsFile,
@@ -54,7 +144,6 @@ export async function render(
 ) {
   // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(hasFsAccess);
   // resetInMemoryFs();
-  foundErrors = false;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   global.XMLHttpRequest = {};
@@ -65,14 +154,13 @@ export async function render(
     mode,
     path,
     request,
-    addBackendTaskWatcher,
-    hasFsAccess
+    addBackendTaskWatcher
   );
   return result;
 }
 
 /**
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @returns
  * @param {string[]} cliOptions
  * @param {any} portsFile
@@ -86,10 +174,8 @@ export async function runGenerator(
   scriptModuleName,
   versionMessage
 ) {
-  global.isRunningGenerator = true;
   // const { fs, resetInMemoryFs } = require("./request-cache-fs.js")(true);
   // resetInMemoryFs();
-  foundErrors = false;
   // since init/update are never called in pre-renders, and BackendTask.Http is called using pure NodeJS HTTP fetching
   // we can provide a fake HTTP instead of xhr2 (which is otherwise needed for Elm HTTP requests from Node)
   global.XMLHttpRequest = {};
@@ -102,7 +188,6 @@ export async function runGenerator(
       scriptModuleName,
       "production",
       "",
-      true,
       versionMessage
     );
     return result;
@@ -111,16 +196,15 @@ export async function runGenerator(
     console.log(restoreColorSafe(error));
   }
 }
+
 /**
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @param {string} pagePath
  * @param {string} mode
  * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;}))>}
  * @param {string[]} cliOptions
  * @param {any} portsFile
- * @param {typeof import("fs") | import("memfs").IFs} fs
- * @param {boolean} hasFsAccess
  * @param {string} scriptModuleName
  * @param {string} versionMessage
  */
@@ -132,13 +216,15 @@ function runGeneratorAppHelp(
   scriptModuleName,
   mode,
   pagePath,
-  hasFsAccess,
   versionMessage
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
-  let app = null;
+  /**
+   * @type {(() => void) | null}
+   */
   let killApp;
+
   // Handle version flag with early return
   if (
     cliOptions.length === 1 &&
@@ -151,109 +237,96 @@ function runGeneratorAppHelp(
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
 
-    app = elmModule.Elm.ScriptMain.init({
+    /** @type {ElmApp | null} */
+    let app = elmModule.Elm.ScriptMain.init({
       flags: {
         compatibilityKey,
         argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],
         versionMessage: versionMessage || "",
       },
     });
+    app.ports.toJsPort.subscribe(portHandler);
 
     killApp = () => {
-      app.ports.toJsPort.unsubscribe(portHandler);
-      app.die();
-      app = null;
+      if (app) {
+        app.ports.toJsPort.unsubscribe(portHandler);
+        app.die();
+        app = null;
+      }
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ newThing) {
-      let fromElm;
+    /**
+     * @param {FromElm | { oldThing: FromElm; binaryPageData: any; }} newThing
+     */
+    async function portHandler(newThing) {
+      if (!app) {
+        // The app is already dead
+        return;
+      }
+
       let contentDatPayload;
+      let fromElm = newThing;
 
-      fromElm = newThing;
-      if (fromElm.command === "log") {
-        console.log(fromElm.value);
-      } else if (fromElm.tag === "ApiResponse") {
-        // Finished successfully
-        process.exit(0);
-      } else if (fromElm.tag === "PageProgress") {
-        const args = fromElm.args[0];
-
-        if (isBytes) {
-          resolve({
-            kind: "bytes",
-            is404: false,
-            contentJson: JSON.stringify({
-              staticData: args.contentJson,
-              is404: false,
-            }),
-            statusCode: args.statusCode,
-            headers: args.headers,
-            contentDatPayload,
-          });
-        } else {
-          resolve(
-            outputString(basePath, fromElm, isDevServer, contentDatPayload)
-          );
-        }
-      } else if (fromElm.tag === "DoHttp") {
-        app.ports.gotBatchSub.send(
-          Object.fromEntries(
-            await Promise.all(
-              fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
-                  return runInternalJob(
-                    requestHash,
-                    app,
-                    mode,
-                    requestToPerform,
-                    hasFsAccess,
-                    patternsToWatch,
-                    portsFile
-                  );
-                } else {
-                  return runHttpJob(
-                    requestHash,
-                    portsFile,
-                    app,
-                    mode,
-                    requestToPerform,
-                    hasFsAccess,
-                    requestToPerform
-                  );
-                }
-              })
-            )
-          )
-        );
-      } else if (fromElm.tag === "Errors") {
-        foundErrors = true;
-        spinnies.stopAll();
-        reject(fromElm.args[0].errorsJson);
+      if (typeof newThing !== "string" && "oldThing" in newThing) {
+        fromElm = newThing.oldThing;
+        contentDatPayload = newThing.binaryPageData;
       } else {
-        console.log(fromElm);
+        fromElm = newThing;
+      }
+
+      if (typeof fromElm === "string" || fromElm.command === "log") {
+        console.log(fromElm.value);
+      } else {
+        switch (fromElm.tag) {
+          case "ApiResponse":
+            // Finished successfully
+            process.exit(0);
+            break;
+
+          case "PageProgress":
+            const args = fromElm.args[0];
+            if (isBytes) {
+              resolve(outputBytes(args, contentDatPayload));
+            } else {
+              resolve(outputString(basePath, args, contentDatPayload));
+            }
+            break;
+
+          case "DoHttp":
+            doHttp(app, fromElm, mode, patternsToWatch, portsFile);
+            break;
+
+          case "Errors":
+            spinnies.stopAll();
+            reject(fromElm.args[0].errorsJson);
+            break;
+
+          default:
+            console.log(fromElm);
+            break;
+        }
       }
     }
-    app.ports.toJsPort.subscribe(portHandler);
   }).finally(() => {
     try {
-      killApp();
-      killApp = null;
+      if (killApp) {
+        killApp();
+        killApp = null;
+      }
     } catch (error) {}
   });
 }
 
 /**
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @param {string} pagePath
  * @param {string} mode
  * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} request
- * @param {(pattern: string) => void} addBackendTaskWatcher
- * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
+ * @param {(patterns: Set<string>) => void} addBackendTaskWatcher
+ * @returns {Promise<({is404: boolean; } & ({kind: 'json'; contentJson: string; } | {kind: 'html'; htmlString: string; } | {kind: 'api-response'; body: string; }))>}
+ * @param {any} portsFile
  */
 function runElmApp(
   portsFile,
@@ -262,13 +335,15 @@ function runElmApp(
   mode,
   pagePath,
   request,
-  addBackendTaskWatcher,
-  hasFsAccess
+  addBackendTaskWatcher
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
-  let app = null;
+  /**
+   * @type {(() => void) | null}
+   */
   let killApp;
+
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
     const route = pagePath
@@ -276,7 +351,9 @@ function runElmApp(
       .replace(/content\.dat\/?$/, "");
 
     const modifiedRequest = { ...request, path: route };
-    app = elmModule.Elm.Main.init({
+
+    /** @type {ElmApp | null} */
+    let app = elmModule.Elm.Main.init({
       flags: {
         mode,
         compatibilityKey,
@@ -287,117 +364,113 @@ function runElmApp(
         },
       },
     });
+    app.ports.toJsPort.subscribe(portHandler);
+    app.ports.sendPageData.subscribe(portHandler);
 
     killApp = () => {
-      app.ports.toJsPort.unsubscribe(portHandler);
-      app.ports.sendPageData.unsubscribe(portHandler);
-      app.die();
-      app = null;
+      if (app) {
+        app.ports.toJsPort.unsubscribe(portHandler);
+        app.ports.sendPageData.unsubscribe(portHandler);
+        app.die();
+        app = null;
+      }
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ newThing) {
-      let fromElm;
+    /**
+     * @param {FromElm | { oldThing: FromElm; binaryPageData: any; }} newThing
+     */
+    async function portHandler(newThing) {
+      if (!app) {
+        // The app is already dead
+        return;
+      }
+
       let contentDatPayload;
-      if ("oldThing" in newThing) {
+      let fromElm;
+
+      if (typeof newThing !== "string" && "oldThing" in newThing) {
         fromElm = newThing.oldThing;
         contentDatPayload = newThing.binaryPageData;
       } else {
         fromElm = newThing;
       }
-      if (fromElm.command === "log") {
-        console.log(fromElm.value);
-      } else if (fromElm.tag === "ApiResponse") {
-        const args = fromElm.args[0];
 
-        resolve({
-          kind: "api-response",
-          is404: args.is404,
-          statusCode: args.statusCode,
-          body: args.body,
-        });
-      } else if (fromElm.tag === "PageProgress") {
-        const args = fromElm.args[0];
-        if (isBytes) {
-          resolve({
-            kind: "bytes",
-            is404: false,
-            contentJson: JSON.stringify({
-              staticData: args.contentJson,
-              is404: false,
-            }),
-            statusCode: args.statusCode,
-            headers: args.headers,
-            contentDatPayload,
-          });
-        } else {
-          resolve(
-            outputString(basePath, fromElm, isDevServer, contentDatPayload)
-          );
-        }
-      } else if (fromElm.tag === "DoHttp") {
-        app.ports.gotBatchSub.send(
-          Object.fromEntries(
-            await Promise.all(
-              fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
-                  return runInternalJob(
-                    requestHash,
-                    app,
-                    mode,
-                    requestToPerform,
-                    hasFsAccess,
-                    patternsToWatch,
-                    portsFile
-                  );
-                } else {
-                  return runHttpJob(
-                    requestHash,
-                    portsFile,
-                    app,
-                    mode,
-                    requestToPerform,
-                    hasFsAccess,
-                    requestToPerform
-                  );
-                }
-              })
-            )
-          )
-        );
-      } else if (fromElm.tag === "Errors") {
-        foundErrors = true;
-        spinnies.stopAll();
-        reject(fromElm.args[0].errorsJson);
+      if (typeof fromElm === "string" || fromElm.command === "log") {
+        console.log(fromElm.value);
       } else {
-        console.log(fromElm);
+        switch (fromElm.tag) {
+          case "ApiResponse": {
+            const args = fromElm.args[0];
+
+            resolve({
+              kind: "api-response",
+              is404: args.is404,
+              statusCode: args.statusCode,
+              body: args.body,
+            });
+            break;
+          }
+
+          case "PageProgress": {
+            const args = fromElm.args[0];
+            if (isBytes) {
+              resolve(outputBytes(args, contentDatPayload));
+            } else {
+              resolve(outputString(basePath, args, contentDatPayload));
+            }
+            break;
+          }
+
+          case "DoHttp":
+            doHttp(app, fromElm, mode, patternsToWatch, portsFile);
+            break;
+
+          case "Errors":
+            spinnies.stopAll();
+            reject(fromElm.args[0].errorsJson);
+            break;
+
+          default:
+            console.log(fromElm);
+        }
       }
     }
-    app.ports.toJsPort.subscribe(portHandler);
-    app.ports.sendPageData.subscribe(portHandler);
   }).finally(() => {
     addBackendTaskWatcher(patternsToWatch);
     try {
-      killApp();
-      killApp = null;
+      if (killApp) {
+        killApp();
+        killApp = null;
+      }
     } catch (error) {}
   });
 }
+
+/**
+ * @param {{ route?: string; html?: string; contentJson: any; errors?: string[]; head?: HeadTag[]; title?: string; staticHttpCache?: { [key: string]: string; }; is404?: boolean; statusCode: any; headers: any; }} args
+ * @param {undefined} contentDatPayload
+ */
+function outputBytes(args, contentDatPayload) {
+  return {
+    kind: "bytes",
+    is404: false,
+    contentJson: JSON.stringify({
+      staticData: args.contentJson,
+      is404: false,
+    }),
+    statusCode: args.statusCode,
+    headers: args.headers,
+    contentDatPayload,
+  };
+}
+
 /**
  * @param {string} basePath
- * @param {PageProgress} fromElm
- * @param {boolean} isDevServer
+ * @param {ToJsSuccessPayloadNew} args
+ * @param {undefined} contentDatPayload
  */
-async function outputString(
-  basePath,
-  /** @type { PageProgress } */ fromElm,
-  isDevServer,
-  contentDatPayload
-) {
-  const args = fromElm.args[0];
+async function outputString(basePath, args, contentDatPayload) {
   let contentJson = {};
   contentJson["staticData"] = args.contentJson;
   contentJson["is404"] = args.is404;
@@ -418,156 +491,146 @@ async function outputString(
   };
 }
 
-/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
-/** @typedef {HeadTag | JsonLdTag} SeoTag */
-/** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
-/** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
-
-/** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
-
-/** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
-
-async function runHttpJob(
-  requestHash,
-  portsFile,
-  app,
-  mode,
-  requestToPerform,
-  hasFsAccess,
-  useCache
-) {
-  try {
-    const lookupResponse = await lookupOrPerform(
-      portsFile,
-      mode,
-      requestToPerform,
-      hasFsAccess,
-      useCache
-    );
-
-    if (lookupResponse.kind === "cache-response-path") {
-      const responseFilePath = lookupResponse.value;
+/**
+ * @param {ElmApp} app
+ * @param {DoHttp} fromElm
+ * @param {string} mode
+ * @param {Set<any>} patternsToWatch
+ * @param {any} portsFile
+ */
+async function doHttp(app, fromElm, mode, patternsToWatch, portsFile) {
+  const promises = fromElm.args[0].map(
+    async ([requestHash, requestToPerform]) => {
+      const response = await runJob(
+        requestToPerform,
+        app,
+        mode,
+        patternsToWatch,
+        portsFile
+      );
       return [
         requestHash,
         {
           request: requestToPerform,
-          response: JSON.parse(
-            (await fs.promises.readFile(responseFilePath, "utf8")).toString()
-          ),
+          response: response,
         },
       ];
-    } else if (lookupResponse.kind === "response-json") {
-      return [
-        requestHash,
-        {
-          request: requestToPerform,
-          response: lookupResponse.value,
-        },
-      ];
-    } else {
-      throw `Unexpected kind ${lookupResponse}`;
     }
-  } catch (error) {
-    console.log("@@@ERROR", error);
-    // sendError(app, error);
-  }
+  );
+  const entries = await Promise.all(promises);
+  app.ports.gotBatchSub.send(Object.fromEntries(entries));
 }
 
-function stringResponse(request, string) {
-  return {
-    request,
-    response: { bodyKind: "string", body: string },
-  };
-}
-function jsonResponse(request, json) {
-  return {
-    request,
-    response: { bodyKind: "json", body: json },
-  };
-}
-
-async function runInternalJob(
-  requestHash,
-  app,
-  mode,
-  requestToPerform,
-  hasFsAccess,
-  patternsToWatch,
-  portsFile
-) {
+/**
+ * @param {ElmRequest} requestToPerform
+ * @param {ElmApp} app
+ * @param {any} mode
+ * @param {any} patternsToWatch
+ * @param {any} portsFile
+ */
+async function runJob(requestToPerform, app, mode, patternsToWatch, portsFile) {
   try {
-    const cwd = path.resolve(...requestToPerform.dir);
-    const quiet = requestToPerform.quiet;
-    const env = { ...process.env, ...requestToPerform.env };
-
-    const context = { cwd, quiet, env };
-    switch (requestToPerform.url) {
-      case "elm-pages-internal://log":
-        return [requestHash, await runLogJob(requestToPerform)];
-      case "elm-pages-internal://read-file":
-        return [
-          requestHash,
-          await readFileJobNew(requestToPerform, patternsToWatch, context),
-        ];
-      case "elm-pages-internal://glob":
-        return [
-          requestHash,
-          await runGlobNew(requestToPerform, patternsToWatch),
-        ];
-      case "elm-pages-internal://randomSeed":
-        return [
-          requestHash,
-          jsonResponse(
-            requestToPerform,
-            crypto.getRandomValues(new Uint32Array(1))[0]
-          ),
-        ];
-      case "elm-pages-internal://now":
-        return [requestHash, jsonResponse(requestToPerform, Date.now())];
-      case "elm-pages-internal://env":
-        return [
-          requestHash,
-          await runEnvJob(requestToPerform, patternsToWatch),
-        ];
-      case "elm-pages-internal://encrypt":
-        return [
-          requestHash,
-          await runEncryptJob(requestToPerform, patternsToWatch),
-        ];
-      case "elm-pages-internal://decrypt":
-        return [
-          requestHash,
-          await runDecryptJob(requestToPerform, patternsToWatch),
-        ];
-      case "elm-pages-internal://write-file":
-        return [requestHash, await runWriteFileJob(requestToPerform, context)];
-      case "elm-pages-internal://sleep":
-        return [requestHash, await runSleep(requestToPerform)];
-      case "elm-pages-internal://which":
-        return [requestHash, await runWhich(requestToPerform)];
-      case "elm-pages-internal://question":
-        return [requestHash, await runQuestion(requestToPerform)];
-      case "elm-pages-internal://shell":
-        return [requestHash, await runShell(requestToPerform)];
-      case "elm-pages-internal://stream":
-        return [
-          requestHash,
-          await runStream(requestToPerform, portsFile, context),
-        ];
-      case "elm-pages-internal://start-spinner":
-        return [requestHash, runStartSpinner(requestToPerform)];
-      case "elm-pages-internal://stop-spinner":
-        return [requestHash, runStopSpinner(requestToPerform)];
-      default:
-        throw `Unexpected internal BackendTask request format: ${kleur.yellow(
-          JSON.stringify(2, null, requestToPerform)
-        )}`;
+    if (
+      requestToPerform.url !== "elm-pages-internal://port" &&
+      requestToPerform.url.startsWith("elm-pages-internal://")
+    ) {
+      return {
+        bodyKind: "json",
+        body: await runInternalJob(
+          requestToPerform,
+          patternsToWatch,
+          portsFile
+        ),
+      };
+    } else {
+      return await runHttpJob(requestToPerform, mode, portsFile);
     }
   } catch (error) {
     sendError(app, error);
+    return { bodyKind: "json", body: null };
   }
 }
 
+/**
+ * @param {GenericRequest} requestToPerform
+ * @param {string} mode
+ * @param {Record<string, unknown>} portsFile
+ */
+async function runHttpJob(requestToPerform, mode, portsFile) {
+  const lookupResponse = await lookupOrPerform(
+    portsFile,
+    mode,
+    requestToPerform
+  );
+
+  if (lookupResponse.kind === "cache-response-path") {
+    const responseFilePath = lookupResponse.value;
+    return JSON.parse(
+      (await fs.promises.readFile(responseFilePath, "utf8")).toString()
+    );
+  } else if (lookupResponse.kind === "response-json") {
+    return lookupResponse.value;
+  } else {
+    throw `Unexpected kind ${lookupResponse}`;
+  }
+}
+
+/**
+ * @param {InternalRequest} requestToPerform
+ * @param {Set<string>} patternsToWatch
+ * @param {any} portsFile
+ */
+async function runInternalJob(requestToPerform, patternsToWatch, portsFile) {
+  const cwd = path.resolve(...requestToPerform.dir);
+  const quiet = requestToPerform.quiet;
+  const env = { ...process.env, ...requestToPerform.env };
+
+  const context = { cwd, quiet, env };
+  switch (requestToPerform.url) {
+    case "elm-pages-internal://log":
+      return await runLogJob(requestToPerform);
+    case "elm-pages-internal://read-file":
+      return await readFileJobNew(requestToPerform, patternsToWatch, context);
+    case "elm-pages-internal://glob":
+      return await runGlobNew(requestToPerform, patternsToWatch);
+    case "elm-pages-internal://randomSeed":
+      return crypto.getRandomValues(new Uint32Array(1))[0];
+    case "elm-pages-internal://now":
+      return Date.now();
+    case "elm-pages-internal://env":
+      return await runEnvJob(requestToPerform);
+    case "elm-pages-internal://encrypt":
+      return await runEncryptJob(requestToPerform);
+    case "elm-pages-internal://decrypt":
+      return await runDecryptJob(requestToPerform);
+    case "elm-pages-internal://write-file":
+      return await runWriteFileJob(requestToPerform, context);
+    case "elm-pages-internal://sleep":
+      return await runSleep(requestToPerform);
+    case "elm-pages-internal://which":
+      return await runWhich(requestToPerform);
+    case "elm-pages-internal://question":
+      return await runQuestion(requestToPerform);
+    case "elm-pages-internal://shell":
+      return await runShell(requestToPerform);
+    case "elm-pages-internal://stream":
+      return await runStream(requestToPerform, portsFile, context);
+    case "elm-pages-internal://start-spinner":
+      return runStartSpinner(requestToPerform);
+    case "elm-pages-internal://stop-spinner":
+      return runStopSpinner(requestToPerform);
+    default:
+      throw `Unexpected internal BackendTask request format: ${kleur.yellow(
+        JSON.stringify(requestToPerform, null, 2)
+      )}`;
+  }
+}
+
+/**
+ * @param {FileReadRequest} req
+ * @param {{ add: (arg0: string) => void; }} patternsToWatch
+ * @param {{ cwd: string; }} _
+ */
 async function readFileJobNew(req, patternsToWatch, { cwd }) {
   // TODO use cwd
   const filePath = path.resolve(cwd, req.body.args[1]);
@@ -578,40 +641,54 @@ async function readFileJobNew(req, patternsToWatch, { cwd }) {
     // TODO does this throw an error if there is invalid frontmatter?
     const parsedFile = matter(fileContents);
 
-    return jsonResponse(req, {
+    return {
       parsedFrontmatter: parsedFile.data,
       withoutFrontmatter: parsedFile.content,
       rawFile: fileContents,
-    });
+    };
   } catch (error) {
-    return jsonResponse(req, {
+    return {
       errorCode: error.code,
-    });
+    };
   }
 }
 
+/**
+ * @param {SleepRequest} req
+ */
 function runSleep(req) {
   const { milliseconds } = req.body.args[0];
   return new Promise((resolve) => {
     setTimeout(() => {
-      resolve(jsonResponse(req, null));
+      resolve(null);
     }, milliseconds);
   });
 }
 
+/**
+ * @param {WhichRequest} req
+ */
 async function runWhich(req) {
   const command = req.body.args[0];
   try {
-    return jsonResponse(req, await which(command));
+    return await which(command);
   } catch (error) {
-    return jsonResponse(req, null);
+    return null;
   }
 }
 
+/**
+ * @param {QuestionRequest} req
+ */
 async function runQuestion(req) {
-  return jsonResponse(req, await question(req.body.args[0]));
+  return await question(req.body.args[0]);
 }
 
+/**
+ * @param {StreamRequest} req
+ * @param {any} portsFile
+ * @param {{ cwd: string; quiet: any; env: any; }} context
+ */
 function runStream(req, portsFile, context) {
   return new Promise(async (resolve) => {
     let metadataResponse = null;
@@ -629,7 +706,7 @@ function runStream(req, portsFile, context) {
           part,
           context,
           portsFile,
-          (value) => resolve(jsonResponse(req, value)),
+          resolve,
           isLastProcess,
           kind
         );
@@ -639,256 +716,271 @@ function runStream(req, portsFile, context) {
         lastStream = thisStream;
         index += 1;
       }
-      if (kind === "json") {
-        resolve(
-          jsonResponse(req, {
+      switch (kind) {
+        case "json":
+          resolve({
             body: await consumers.json(lastStream),
             metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
-      } else if (kind === "text") {
-        resolve(
-          jsonResponse(req, {
+          });
+          break;
+        case "text":
+          resolve({
             body: await consumers.text(lastStream),
             metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
-      } else if (kind === "none") {
-        if (!lastStream) {
-          // ensure all error handling gets a chance to fire before resolving successfully
-          await tryCallingFunction(metadataResponse);
-          resolve(jsonResponse(req, { body: null }));
-        } else {
-          let resolvedMeta = await tryCallingFunction(metadataResponse);
-          lastStream.once("finish", async () => {
-            resolve(
-              jsonResponse(req, {
-                body: null,
-                metadata: resolvedMeta,
-              })
-            );
           });
-          lastStream.once("end", async () => {
-            resolve(
-              jsonResponse(req, {
-                body: null,
-                metadata: resolvedMeta,
-              })
-            );
-          });
-        }
-      } else if (kind === "command") {
-        // already handled in parts.forEach
-      }
-      /**
-       *
-       * @param {import('node:stream').Stream?} lastStream
-       * @param {{ name: string }} part
-       * @param {{cwd: string, quiet: boolean, env: object}} param2
-       * @returns {Promise<{stream: import('node:stream').Stream, metadata?: any}>}
-       */
-      async function pipePartToStream(
-        lastStream,
-        part,
-        { cwd, quiet, env },
-        portsFile,
-        resolve,
-        isLastProcess,
-        kind
-      ) {
-        if (verbosity > 1 && !quiet) {
-        }
-        if (part.name === "stdout") {
-          return { stream: pipeIfPossible(lastStream, stdout()) };
-        } else if (part.name === "stderr") {
-          return { stream: pipeIfPossible(lastStream, stderr()) };
-        } else if (part.name === "stdin") {
-          return { stream: process.stdin };
-        } else if (part.name === "fileRead") {
-          const newLocal = fs.createReadStream(path.resolve(cwd, part.path));
-          newLocal.once("error", (error) => {
-            newLocal.close();
-            resolve({ error: error.toString() });
-          });
-          return { stream: newLocal };
-        } else if (part.name === "customDuplex") {
-          const newLocal = await portsFile[part.portName](part.input, {
-            cwd,
-            quiet,
-            env,
-          });
-          if (validateStream.isDuplexStream(newLocal.stream)) {
-            pipeIfPossible(lastStream, newLocal.stream);
-            return newLocal;
-          } else {
-            throw `Expected '${part.portName}' to be a duplex stream!`;
-          }
-        } else if (part.name === "customRead") {
-          return {
-            metadata: null,
-            stream: await portsFile[part.portName](part.input, {
-              cwd,
-              quiet,
-              env,
-            }),
-          };
-        } else if (part.name === "customWrite") {
-          const newLocal = await portsFile[part.portName](part.input, {
-            cwd,
-            quiet,
-            env,
-          });
-          if (!validateStream.isWritableStream(newLocal.stream)) {
-            console.error("Expected a writable stream!");
-            resolve({ error: "Expected a writable stream!" });
-          } else {
-            pipeIfPossible(lastStream, newLocal.stream);
-          }
-          return newLocal;
-        } else if (part.name === "gzip") {
-          const gzip = zlib.createGzip();
+          break;
+        case "none":
           if (!lastStream) {
-            gzip.end();
-          }
-          return {
-            metadata: null,
-            stream: pipeIfPossible(lastStream, gzip),
-          };
-        } else if (part.name === "unzip") {
-          return {
-            metadata: null,
-            stream: pipeIfPossible(lastStream, zlib.createUnzip()),
-          };
-        } else if (part.name === "fileWrite") {
-          const destinationPath = path.resolve(part.path);
-          try {
-            await fsPromises.mkdir(path.dirname(destinationPath), {
-              recursive: true,
+            // ensure all error handling gets a chance to fire before resolving successfully
+            await tryCallingFunction(metadataResponse);
+            resolve({ body: null });
+          } else {
+            let resolvedMeta = await tryCallingFunction(metadataResponse);
+            lastStream.once("finish", async () => {
+              resolve({
+                body: null,
+                metadata: resolvedMeta,
+              });
             });
-          } catch (error) {
-            resolve({ error: error.toString() });
-          }
-          const newLocal = fs.createWriteStream(destinationPath);
-          newLocal.once("error", (error) => {
-            newLocal.close();
-            newLocal.removeAllListeners();
-            resolve({ error: error.toString() });
-          });
-          return {
-            metadata: null,
-            stream: pipeIfPossible(lastStream, newLocal),
-          };
-        } else if (part.name === "httpWrite") {
-          const makeFetchHappen = makeFetchHappenOriginal.defaults({
-            // cache: mode === "build" ? "no-cache" : "default",
-            cache: "default",
-          });
-          const response = await makeFetchHappen(part.url, {
-            body: lastStream,
-            duplex: "half",
-            redirect: "follow",
-            method: part.method,
-            headers: part.headers,
-            retry: part.retries,
-            timeout: part.timeoutInMs,
-          });
-          if (!isLastProcess && !response.ok) {
-            resolve({
-              error: `HTTP request failed: ${response.status} ${response.statusText}`,
+            lastStream.once("end", async () => {
+              resolve({
+                body: null,
+                metadata: resolvedMeta,
+              });
             });
-          } else {
-            let metadata = () => {
-              return {
-                headers: Object.fromEntries(response.headers.entries()),
-                statusCode: response.status,
-                // bodyKind,
-                url: response.url,
-                statusText: response.statusText,
-              };
-            };
-            return { metadata, stream: response.body };
           }
-        } else if (part.name === "command") {
-          const { command, args, allowNon0Status, output } = part;
-          /** @type {'ignore' | 'inherit'} } */
-          let letPrint = quiet ? "ignore" : "inherit";
-          let stderrKind = kind === "none" && isLastProcess ? letPrint : "pipe";
-          if (output === "Ignore") {
-            stderrKind = "ignore";
-          } else if (output === "Print") {
-            stderrKind = letPrint;
-          }
-
-          const stdoutKind =
-            (output === "InsteadOfStdout" || kind === "none") && isLastProcess
-              ? letPrint
-              : "pipe";
-          /**
-           * @type {import('node:child_process').ChildProcess}
-           */
-          const newProcess = spawnCallback(command, args, {
-            stdio: [
-              "pipe",
-              // if we are capturing stderr instead of stdout, print out stdout with `inherit`
-              stdoutKind,
-              stderrKind,
-            ],
-            cwd: cwd,
-            env: env,
-          });
-
-          pipeIfPossible(lastStream, newProcess.stdin);
-          let newStream;
-          if (output === "MergeWithStdout") {
-            newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
-          } else if (output === "InsteadOfStdout") {
-            newStream = newProcess.stderr;
-          } else {
-            newStream = newProcess.stdout;
-          }
-
-          newProcess.once("error", (error) => {
-            newStream && newStream.end();
-            newProcess.removeAllListeners();
-            resolve({ error: error.toString() });
-          });
-          if (isLastProcess) {
-            return {
-              stream: newStream,
-              metadata: new Promise((resoveMeta) => {
-                newProcess.once("exit", (code) => {
-                  if (code !== 0 && !allowNon0Status) {
-                    newStream && newStream.end();
-                    resolve({
-                      error: `Command ${command} exited with code ${code}`,
-                    });
-                  }
-
-                  resoveMeta({
-                    exitCode: code,
-                  });
-                });
-              }),
-            };
-          } else {
-            return { metadata: null, stream: newStream };
-          }
-        } else if (part.name === "fromString") {
-          return { stream: Readable.from([part.string]), metadata: null };
-        } else {
-          // console.error(`Unknown stream part: ${part.name}!`);
-          // process.exit(1);
-          throw `Unknown stream part: ${part.name}!`;
-        }
+          break;
+        case "command":
+          // already handled in parts.forEach
+          break;
+        default:
+          break;
       }
     } catch (error) {
       if (lastStream) {
         lastStream.destroy();
       }
 
-      resolve(jsonResponse(req, { error: error.toString() }));
+      resolve({ error: error.toString() });
     }
   });
+}
+
+/**
+ * @param {?import('node:stream').Stream} lastStream
+ * @param {StreamPart} part
+ * @param {{cwd: string; quiet: boolean; env: NodeJS.ProcessEnv; }} _
+ * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: NodeJS.ProcessEnv; }) => any; }} portsFile
+ * @param {{ (value: any): void; (arg0: { error: any; }): void; }} resolve
+ * @param {boolean} isLastProcess
+ * @param {string} kind
+ * @returns {Promise<{stream: import('node:stream').Stream; metadata?: any; }>}
+ */
+async function pipePartToStream(
+  lastStream,
+  part,
+  { cwd, quiet, env },
+  portsFile,
+  resolve,
+  isLastProcess,
+  kind
+) {
+  switch (part.name) {
+    case "stdout":
+      return { stream: pipeIfPossible(lastStream, stdout()) };
+    case "stderr":
+      return { stream: pipeIfPossible(lastStream, stderr()) };
+    case "stdin":
+      return { stream: process.stdin };
+    case "fileRead": {
+      const newLocal = fs.createReadStream(path.resolve(cwd, part.path));
+      newLocal.once("error", (error) => {
+        newLocal.close();
+        resolve({ error: error.toString() });
+      });
+      return { stream: newLocal };
+    }
+    case "customDuplex": {
+      const newLocal = await portsFile[part.portName](part.input, {
+        cwd,
+        quiet,
+        env,
+      });
+      if (validateStream.isDuplexStream(newLocal.stream)) {
+        pipeIfPossible(lastStream, newLocal.stream);
+        return newLocal;
+      } else {
+        throw `Expected '${part.portName}' to be a duplex stream!`;
+      }
+    }
+    case "customRead": {
+      return {
+        metadata: null,
+        stream: await portsFile[part.portName](part.input, {
+          cwd,
+          quiet,
+          env,
+        }),
+      };
+    }
+    case "customWrite": {
+      const newLocal = await portsFile[part.portName](part.input, {
+        cwd,
+        quiet,
+        env,
+      });
+      if (!validateStream.isWritableStream(newLocal.stream)) {
+        console.error("Expected a writable stream!");
+        resolve({ error: "Expected a writable stream!" });
+      } else {
+        pipeIfPossible(lastStream, newLocal.stream);
+      }
+      return newLocal;
+    }
+    case "gzip": {
+      const gzip = zlib.createGzip();
+      if (!lastStream) {
+        gzip.end();
+      }
+      return {
+        metadata: null,
+        stream: pipeIfPossible(lastStream, gzip),
+      };
+    }
+    case "unzip": {
+      return {
+        metadata: null,
+        stream: pipeIfPossible(lastStream, zlib.createUnzip()),
+      };
+    }
+    case "fileWrite": {
+      const destinationPath = path.resolve(part.path);
+      try {
+        await fsPromises.mkdir(path.dirname(destinationPath), {
+          recursive: true,
+        });
+      } catch (error) {
+        resolve({ error: error.toString() });
+      }
+      const newLocal = fs.createWriteStream(destinationPath);
+      newLocal.once("error", (error) => {
+        newLocal.close();
+        newLocal.removeAllListeners();
+        resolve({ error: error.toString() });
+      });
+      return {
+        metadata: null,
+        stream: pipeIfPossible(lastStream, newLocal),
+      };
+    }
+    case "httpWrite": {
+      const makeFetchHappen = makeFetchHappenOriginal.defaults({
+        // cache: mode === "build" ? "no-cache" : "default",
+        cache: "default",
+      });
+      const response = await makeFetchHappen(part.url, {
+        body: lastStream,
+        duplex: "half",
+        redirect: "follow",
+        method: part.method,
+        headers: part.headers,
+        retry: part.retries,
+        timeout: part.timeoutInMs,
+      });
+      if (!isLastProcess && !response.ok) {
+        resolve({
+          error: `HTTP request failed: ${response.status} ${response.statusText}`,
+        });
+      } else {
+        let metadata = () => {
+          return {
+            headers: Object.fromEntries(response.headers.entries()),
+            statusCode: response.status,
+            // bodyKind,
+            url: response.url,
+            statusText: response.statusText,
+          };
+        };
+        return { metadata, stream: response.body };
+      }
+      break;
+    }
+    case "command": {
+      const { command, args, allowNon0Status, output } = part;
+      /** @type {'ignore' | 'inherit'} } */
+      let letPrint = quiet ? "ignore" : "inherit";
+      /** @type {'ignore' | 'inherit' | 'pipe'} */
+      let stderrKind = kind === "none" && isLastProcess ? letPrint : "pipe";
+      if (output === "Ignore") {
+        stderrKind = "ignore";
+      } else if (output === "Print") {
+        stderrKind = letPrint;
+      }
+
+      const stdoutKind =
+        (output === "InsteadOfStdout" || kind === "none") && isLastProcess
+          ? letPrint
+          : "pipe";
+      /**
+       * @type {import('node:child_process').ChildProcess}
+       */
+      const newProcess = spawnCallback(command, args, {
+        stdio: [
+          "pipe",
+          // if we are capturing stderr instead of stdout, print out stdout with `inherit`
+          stdoutKind,
+          stderrKind,
+        ],
+        cwd: cwd,
+        env: env,
+      });
+
+      pipeIfPossible(lastStream, newProcess.stdin);
+      let newStream;
+      if (output === "MergeWithStdout") {
+        newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
+      } else if (output === "InsteadOfStdout") {
+        newStream = newProcess.stderr;
+      } else {
+        newStream = newProcess.stdout;
+      }
+
+      newProcess.once("error", (error) => {
+        newStream && newStream.end();
+        newProcess.removeAllListeners();
+        resolve({ error: error.toString() });
+      });
+      if (isLastProcess) {
+        return {
+          stream: newStream,
+          metadata: new Promise((resoveMeta) => {
+            newProcess.once("exit", (code) => {
+              if (code !== 0 && !allowNon0Status) {
+                newStream && newStream.end();
+                resolve({
+                  error: `Command ${command} exited with code ${code}`,
+                });
+              }
+
+              resoveMeta({
+                exitCode: code,
+              });
+            });
+          }),
+        };
+      } else {
+        return { metadata: null, stream: newStream };
+      }
+    }
+    case "fromString": {
+      return { stream: Readable.from([part.string]), metadata: null };
+    }
+    default: {
+      // console.error(`Unknown stream part: ${part.name}!`);
+      // process.exit(1);
+      throw `Unknown stream part: ${part.name}!`;
+    }
+  }
 }
 
 /**
@@ -910,6 +1002,7 @@ function stdout() {
     },
   });
 }
+
 function stderr() {
   return new Writable({
     write(chunk, encoding, callback) {
@@ -918,6 +1011,9 @@ function stderr() {
   });
 }
 
+/**
+ * @param {Promise<any>|function|null} func
+ */
 async function tryCallingFunction(func) {
   if (func) {
     // if is promise
@@ -933,35 +1029,43 @@ async function tryCallingFunction(func) {
   }
 }
 
+/**
+ * @param {ShellRequest} req
+ */
 async function runShell(req) {
   const cwd = path.resolve(...req.dir);
   const quiet = req.quiet;
   const env = { ...process.env, ...req.env };
   const captureOutput = req.body.args[0].captureOutput;
   if (req.body.args[0].commands.length === 1) {
-    return jsonResponse(
-      req,
-      await shell({ cwd, quiet, env, captureOutput }, req.body.args[0])
-    );
+    return await shell({ cwd, quiet, env, captureOutput }, req.body.args[0]);
   } else {
-    return jsonResponse(
-      req,
-      await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0])
+    return await pipeShells(
+      { cwd, quiet, env, captureOutput },
+      req.body.args[0]
     );
   }
 }
 
+/**
+ * @param {any} cwd
+ * @param {{ commands: any; }} commandsAndArgs
+ */
 function commandAndArgsToString(cwd, commandsAndArgs) {
   return (
     `$ ` +
     commandsAndArgs.commands
-      .map((commandAndArgs) => {
+      .map((/** @type {{ command: any; args: any; }} */ commandAndArgs) => {
         return [commandAndArgs.command, ...commandAndArgs.args].join(" ");
       })
       .join(" | ")
   );
 }
 
+/**
+ * @param {{ cwd: any; quiet: any; env: NodeJS.ProcessEnv; captureOutput: any; }} _
+ * @param {{ commands: { command: any; args: any; }[]; }} commandAndArgs
+ */
 export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
   return new Promise((resolve, reject) => {
     const command = commandAndArgs.commands[0].command;
@@ -1025,6 +1129,7 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
  */
 
 /**
+ * @param {*} _
  * @param {{ commands: ElmCommand[] }} commandsAndArgs
  */
 export function pipeShells(
@@ -1037,45 +1142,39 @@ export function pipeShells(
     }
 
     /**
-     * @type {null | import('node:child_process').ChildProcess}
+     * @type {null | import('node:child_process').ChildProcessByStdio<any, Readable, any>}
      */
     let previousProcess = null;
+    /**
+     * @type {null | import('node:child_process').ChildProcessByStdio<any, Readable, any>}
+     */
     let currentProcess = null;
 
-    commandsAndArgs.commands.forEach(({ command, args, timeout }, index) => {
-      let isLastProcess = index === commandsAndArgs.commands.length - 1;
+    for (let index = 0; index < commandsAndArgs.commands.length; index++) {
+      const { command, args, timeout } = commandsAndArgs.commands[index];
+      let timeout_ = timeout ? timeout : undefined;
       /**
        * @type {import('node:child_process').ChildProcess}
        */
       if (previousProcess === null) {
         currentProcess = spawnCallback(command, args, {
           stdio: ["inherit", "pipe", "inherit"],
-          timeout: timeout ? undefined : timeout,
+          timeout: timeout_,
           cwd: cwd,
           env: env,
         });
       } else {
-        if (isLastProcess && !captureOutput && false) {
-          currentProcess = spawnCallback(command, args, {
-            stdio: quiet
-              ? ["pipe", "ignore", "ignore"]
-              : ["pipe", "inherit", "inherit"],
-            timeout: timeout ? undefined : timeout,
-            cwd: cwd,
-            env: env,
-          });
-        } else {
-          currentProcess = spawnCallback(command, args, {
-            stdio: ["pipe", "pipe", "pipe"],
-            timeout: timeout ? undefined : timeout,
-            cwd: cwd,
-            env: env,
-          });
-        }
+        currentProcess = spawnCallback(command, args, {
+          stdio: ["pipe", "pipe", "pipe"],
+          timeout: timeout_,
+          cwd: cwd,
+          env: env,
+        });
+
         previousProcess.stdout.pipe(currentProcess.stdin);
       }
       previousProcess = currentProcess;
-    });
+    }
 
     if (currentProcess === null) {
       reject("");
@@ -1090,17 +1189,17 @@ export function pipeShells(
       }
 
       currentProcess.stderr &&
-        currentProcess.stderr.on("data", function (data) {
+        currentProcess.stderr.on("data", function (/** @type {string} */ data) {
           commandOutput += data;
           stderrOutput += data;
         });
       currentProcess.stdout &&
-        currentProcess.stdout.on("data", function (data) {
+        currentProcess.stdout.on("data", function (/** @type {string} */ data) {
           commandOutput += data;
           stdoutOutput += data;
         });
 
-      currentProcess.on("close", async (code) => {
+      currentProcess.on("close", async (/** @type {any} */ code) => {
         resolve({
           output: commandOutput,
           errorCode: code,
@@ -1112,6 +1211,9 @@ export function pipeShells(
   });
 }
 
+/**
+ * @param {{prompt : string}} _
+ */
 export async function question({ prompt }) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
@@ -1126,13 +1228,17 @@ export async function question({ prompt }) {
   });
 }
 
+/**
+ * @param {WriteFileRequest} req
+ * @param {{ cwd : string; }} _
+ */
 async function runWriteFileJob(req, { cwd }) {
   const data = req.body.args[0];
   const filePath = path.resolve(cwd, data.path);
   try {
     await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
     await fsPromises.writeFile(filePath, data.body);
-    return jsonResponse(req, null);
+    return null;
   } catch (error) {
     console.trace(error);
     throw {
@@ -1144,6 +1250,9 @@ async function runWriteFileJob(req, { cwd }) {
   }
 }
 
+/**
+ * @param {StartSpinnerRequest} req
+ */
 function runStartSpinner(req) {
   const data = req.body.args[0];
   let spinnerId;
@@ -1158,13 +1267,16 @@ function runStartSpinner(req) {
     spinnies.add(spinnerId, { text: data.text, status: "spinning" });
     // }
   }
-  return jsonResponse(req, spinnerId);
+  return spinnerId;
 }
 
+/**
+ * @param {StopSpinnerRequest} req
+ */
 function runStopSpinner(req) {
+  /** @type {{ spinnerId: string; completionText: string?; completionFn: string }} */
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
-  let completeFn;
   if (completionFn === "succeed") {
     spinnies.succeed(spinnerId, { text: completionText });
   } else if (completionFn === "fail") {
@@ -1172,84 +1284,92 @@ function runStopSpinner(req) {
   } else {
     console.log("Unexpected");
   }
-  return jsonResponse(req, null);
+  return null;
 }
 
+/**
+ * @param {GlobRequest} req
+ * @param {Set<string>} patternsToWatch
+ */
 async function runGlobNew(req, patternsToWatch) {
-  try {
-    const { pattern, options } = req.body.args[0];
-    const cwd = path.resolve(...req.dir);
-    const matchedPaths = await globby.globby(pattern, {
-      ...options,
-      stats: true,
-      cwd,
-    });
-    patternsToWatch.add(pattern);
+  const { pattern, options } = req.body.args[0];
+  const cwd = path.resolve(...req.dir);
+  const matchedPaths = await globby.globby(pattern, {
+    ...options,
+    stats: true,
+    objectMode: true,
+    cwd,
+  });
+  patternsToWatch.add(pattern);
 
-    return jsonResponse(
-      req,
-      matchedPaths.map((fullPath) => {
-        const stats = fullPath.stats;
-        if (!stats) {
-          return null;
-        }
-        return {
-          fullPath: fullPath.path,
-          captures: mm.capture(pattern, fullPath.path),
-          fileStats: {
-            size: stats.size,
-            atime: Math.round(stats.atime.getTime()),
-            mtime: Math.round(stats.mtime.getTime()),
-            ctime: Math.round(stats.ctime.getTime()),
-            birthtime: Math.round(stats.birthtime.getTime()),
-            fullPath: fullPath.path,
-            isDirectory: stats.isDirectory(),
-          },
-        };
-      })
-    );
-  } catch (e) {
-    console.log(`Error performing glob '${JSON.stringify(req.body)}'`);
-    throw e;
-  }
+  return matchedPaths.map((fullPath) => {
+    const stats = fullPath.stats;
+    if (!stats) {
+      return null;
+    }
+    return {
+      fullPath: fullPath.path,
+      captures: mm.capture(pattern, fullPath.path),
+      fileStats: {
+        size: stats.size,
+        atime: Math.round(stats.atime.getTime()),
+        mtime: Math.round(stats.mtime.getTime()),
+        ctime: Math.round(stats.ctime.getTime()),
+        birthtime: Math.round(stats.birthtime.getTime()),
+        fullPath: fullPath.path,
+        isDirectory: stats.isDirectory(),
+      },
+    };
+  });
 }
 
+/**
+ * @param {LogRequest} req
+ */
 async function runLogJob(req) {
   try {
     console.log(req.body.args[0].message);
-    return jsonResponse(req, null);
+    return null;
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
   }
 }
-async function runEnvJob(req, patternsToWatch) {
+
+/**
+ * @param {EnvRequest} req
+ */
+async function runEnvJob(req) {
   try {
     const expectedEnv = req.body.args[0];
-    return jsonResponse(req, process.env[expectedEnv] || null);
+    return process.env[expectedEnv] || null;
   } catch (e) {
     console.log(`Error performing env '${JSON.stringify(req.body)}'`);
     throw e;
   }
 }
-async function runEncryptJob(req, patternsToWatch) {
+
+/**
+ * @param {EncryptRequest} req
+ */
+async function runEncryptJob(req) {
   try {
-    return jsonResponse(
-      req,
-      cookie.sign(
-        JSON.stringify(req.body.args[0].values, null, 0),
-        req.body.args[0].secret
-      )
+    return cookie.sign(
+      JSON.stringify(req.body.args[0].values, null, 0),
+      req.body.args[0].secret
     );
   } catch (e) {
     throw {
       title: "BackendTask Encrypt Error",
-      message:
-        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+      message: e.toString() + e.stack + "\n\n" + JSON.stringify(req, null, 2),
     };
   }
 }
-async function runDecryptJob(req, patternsToWatch) {
+
+/**
+ * @param {DecryptRequest} req
+ */
+async function runDecryptJob(req) {
   try {
     // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
     const signed = tryDecodeCookie(
@@ -1257,28 +1377,32 @@ async function runDecryptJob(req, patternsToWatch) {
       req.body.args[0].secrets
     );
 
-    return jsonResponse(req, JSON.parse(signed || "null"));
+    return JSON.parse(signed || "null");
   } catch (e) {
     throw {
       title: "BackendTask Decrypt Error",
-      message:
-        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+      message: e.toString() + e.stack + "\n\n" + JSON.stringify(req, null, 2),
     };
   }
 }
 
 /**
- * @param {{ ports: { fromJsPort: { send: (arg0: { tag: string; data: any; }) => void; }; }; }} app
+ * @param {ElmApp} app
  * @param {{ message: string; title: string; }} error
  */
 function sendError(app, error) {
-  foundErrors = true;
-
   app.ports.fromJsPort.send({
     tag: "BuildError",
     data: error,
   });
 }
+
+/**
+ *
+ * @param {string} input
+ * @param {(crypto.BinaryLike | crypto.KeyObject)[]} secrets
+ * @returns
+ */
 function tryDecodeCookie(input, secrets) {
   if (secrets.length > 0) {
     const signed = cookie.unsign(input, secrets[0]);
