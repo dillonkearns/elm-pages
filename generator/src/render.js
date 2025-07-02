@@ -546,7 +546,7 @@ async function runInternalJob(
       case "elm-pages-internal://stream":
         return [
           requestHash,
-          await runStream(requestToPerform, portsFile, context),
+          jsonResponse(requestToPerform, await runStream(requestToPerform, portsFile, context)),
         ];
       case "elm-pages-internal://start-spinner":
         return [requestHash, runStartSpinner(requestToPerform)];
@@ -638,7 +638,7 @@ async function runQuestion(req) {
  * @param {{ body: { args: { kind: any; parts: any; }[]; }; }} req
  * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: object; }) => any; }} portsFile
  * @param {{ cwd: string; quiet: any; env: any; }} context
- * @returns {Promise<any>}
+ * @returns {Promise<{ error : string; } | { body : any; metadata?: any; }>}
  */
 function runStream(req, portsFile, context) {
   return new Promise(async (resolve) => {
@@ -657,7 +657,7 @@ function runStream(req, portsFile, context) {
           part,
           context,
           portsFile,
-          (value) => resolve(jsonResponse(req, { error: value.toString() })),
+          (value) => resolve({ error: value.toString() }),
           isLastProcess,
           kind
         );
@@ -668,41 +668,33 @@ function runStream(req, portsFile, context) {
         index += 1;
       }
       if (kind === "json") {
-        resolve(
-          jsonResponse(req, {
-            body: await consumers.json(lastStream),
-            metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
+        resolve({
+          body: await consumers.json(lastStream),
+          metadata: await tryCallingFunction(metadataResponse),
+        });
       } else if (kind === "text") {
-        resolve(
-          jsonResponse(req, {
-            body: await consumers.text(lastStream),
-            metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
+        resolve({
+          body: await consumers.text(lastStream),
+          metadata: await tryCallingFunction(metadataResponse),
+        });
       } else if (kind === "none") {
         if (!lastStream) {
           // ensure all error handling gets a chance to fire before resolving successfully
           await tryCallingFunction(metadataResponse);
-          resolve(jsonResponse(req, { body: null }));
+          resolve({ body: null });
         } else {
           let resolvedMeta = await tryCallingFunction(metadataResponse);
           lastStream.once("finish", async () => {
-            resolve(
-              jsonResponse(req, {
-                body: null,
-                metadata: resolvedMeta,
-              })
-            );
+            resolve({
+              body: null,
+              metadata: resolvedMeta,
+            });
           });
           lastStream.once("end", async () => {
-            resolve(
-              jsonResponse(req, {
-                body: null,
-                metadata: resolvedMeta,
-              })
-            );
+            resolve({
+              body: null,
+              metadata: resolvedMeta,
+            });
           });
         }
       } else if (kind === "command") {
@@ -713,7 +705,7 @@ function runStream(req, portsFile, context) {
         lastStream.destroy();
       }
 
-      resolve(jsonResponse(req, { error: error.toString() }));
+      resolve({ error: error.toString() });
     }
   });
 }
