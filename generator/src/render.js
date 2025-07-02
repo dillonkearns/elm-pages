@@ -590,6 +590,12 @@ async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
 
+/**
+ * @param {{ body: { args: { kind: any; parts: any; }[]; }; }} req
+ * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: object; }) => any; }} portsFile
+ * @param {{ cwd: string; quiet: any; env: any; }} context
+ * @returns {Promise<any>}
+ */
 function runStream(req, portsFile, context) {
   return new Promise(async (resolve) => {
     let metadataResponse = null;
@@ -607,7 +613,7 @@ function runStream(req, portsFile, context) {
           part,
           context,
           portsFile,
-          (value) => resolve(jsonResponse(req, value)),
+          (value) => resolve(jsonResponse(req, { error: value.toString() })),
           isLastProcess,
           kind
         );
@@ -697,7 +703,7 @@ function runStream(req, portsFile, context) {
  * @param {StreamPart} part
  * @param {{cwd: string;quiet: boolean;env: object;}} param2
  * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: object; }) => any; }} portsFile
- * @param {{ (value: any): void; (arg0: { error: any; }): void; }} resolve
+ * @param {(error: any) => void} reject
  * @param {boolean} isLastProcess
  * @param {string} kind
  * @returns {Promise<{stream: import('node:stream').Stream;metadata?: any;}>}
@@ -707,7 +713,7 @@ async function pipePartToStream(
   part,
   { cwd, quiet, env },
   portsFile,
-  resolve,
+  reject,
   isLastProcess,
   kind
 ) {
@@ -724,7 +730,7 @@ async function pipePartToStream(
       const newLocal = fs.createReadStream(path.resolve(cwd, part.path));
       newLocal.once("error", (error) => {
         newLocal.close();
-        resolve({ error: error.toString() });
+        reject(error);
       });
       return { stream: newLocal };
   }
@@ -757,7 +763,7 @@ async function pipePartToStream(
     });
     if (!validateStream.isWritableStream(newLocal.stream)) {
       console.error("Expected a writable stream!");
-      resolve({ error: "Expected a writable stream!" });
+      throw "Expected a writable stream!";
     } else {
       pipeIfPossible(lastStream, newLocal.stream);
     }
@@ -774,10 +780,7 @@ async function pipePartToStream(
     };
   }
   case "unzip":
-    return {
-      metadata: null,
-      stream: pipeIfPossible(lastStream, zlib.createUnzip()),
-    };
+    return { stream: pipeIfPossible(lastStream, zlib.createUnzip()), };
   case "fileWrite": {
     const destinationPath = path.resolve(part.path);
     try {
@@ -785,18 +788,15 @@ async function pipePartToStream(
         recursive: true,
       });
     } catch (error) {
-      resolve({ error: error.toString() });
+      throw error;
     }
     const newLocal = fs.createWriteStream(destinationPath);
     newLocal.once("error", (error) => {
       newLocal.close();
       newLocal.removeAllListeners();
-      resolve({ error: error.toString() });
+      reject(error);
     });
-    return {
-      metadata: null,
-      stream: pipeIfPossible(lastStream, newLocal),
-    };
+    return { stream: pipeIfPossible(lastStream, newLocal), };
   }
   case "httpWrite": {
     const makeFetchHappen = makeFetchHappenOriginal.defaults({
@@ -813,9 +813,7 @@ async function pipePartToStream(
       timeout: part.timeoutInMs,
     });
     if (!isLastProcess && !response.ok) {
-      resolve({
-        error: `HTTP request failed: ${response.status} ${response.statusText}`,
-      });
+      throw `HTTP request failed: ${response.status} ${response.statusText}`;
     } else {
       let metadata = () => {
         return {
@@ -828,7 +826,6 @@ async function pipePartToStream(
       };
       return { metadata, stream: response.body };
     }
-    break;
   }
   case "command": {
     const { command, args, allowNon0Status, output } = part;
@@ -872,28 +869,26 @@ async function pipePartToStream(
     newProcess.once("error", (error) => {
       newStream && newStream.end();
       newProcess.removeAllListeners();
-      resolve({ error: error.toString() });
+      reject(error);
     });
     if (isLastProcess) {
       return {
         stream: newStream,
-        metadata: new Promise((resoveMeta) => {
+        metadata: new Promise((resolveMeta) => {
           newProcess.once("exit", (code) => {
             if (code !== 0 && !allowNon0Status) {
               newStream && newStream.end();
-              resolve({
-                error: `Command ${command} exited with code ${code}`,
-              });
+              reject(`Command ${command} exited with code ${code}`);
             }
 
-            resoveMeta({
+            resolveMeta({
               exitCode: code,
             });
           });
         }),
       };
     } else {
-      return { metadata: null, stream: newStream };
+      return { stream: newStream };
     }
   }
   case "fromString":
