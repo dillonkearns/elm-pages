@@ -743,8 +743,32 @@ function runStream(req, portsFile) {
 }
 
 /**
+ * @typedef {StreamPartWith<"unzip", {}> | StreamPartWith<"gzip", {}> | StreamPartWith<"stdin", {}> | StreamPartWith<"stdout", {}> | StreamPartWith<"stderr", {}> | FromStringPart | CommandPart | HttpWritePart | FileReadPart | FileWritePart | CustomReadPart | CustomWritePart | CustomDuplexPart} StreamPart
+ *
+ * @typedef {StreamPartWith<"fromString", { string: string; }>} FromStringPart
+ * @typedef {StreamPartWith<"command", { command: string; args: string[]; allowNon0Status: boolean; output: "Ignore" | "Print" | "MergeWithStdout" | "InsteadOfStdout"; timeoutInMs: number?; }>} CommandPart
+ * @typedef {StreamPartWith<"httpWrite", { url: string; method: string; headers: { key: string; value: string; }[]; body?: import("./request-cache.js").StaticHttpBody; retries: number?; timeoutInMs: number?; }>} HttpWritePart
+ * @typedef {StreamPartWith<"fileRead", { path: string; }>} FileReadPart
+ * @typedef {StreamPartWith<"fileWrite", { path: string; }>} FileWritePart
+ * @typedef {StreamPartWith<"customRead", { portName: string; input: any; }>} CustomReadPart
+ * @typedef {StreamPartWith<"customWrite", { portName: string; input: any; }>} CustomWritePart
+ * @typedef {StreamPartWith<"customDuplex", { portName: string; input: any; }>} CustomDuplexPart
+ */
+
+/**
+ * @template Key
+ * @typedef {{ name: Key; }} SimpleStreamPart<Key>
+ */
+
+/**
+ * @template Key
+ * @template Values
+ * @typedef {{ name: Key; } & Values} StreamPartWith<Key,Values>
+ */
+
+/**
  * @param {?import('node:stream').Stream} lastStream
- * @param {{name: string; path?: string}} part
+ * @param {StreamPart} part
  * @param {{cwd: string;quiet: boolean;env: object;}} param2
  * @param {{ [x: string]: (arg0: any, arg1: { cwd: string; quiet: boolean; env: object; }) => any; }} portsFile
  * @param {{ (value: any): void; (arg0: { error: any; }): void; }} resolve
