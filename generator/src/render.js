@@ -65,8 +65,7 @@ export async function render(
     mode,
     path,
     request,
-    addBackendTaskWatcher,
-    hasFsAccess
+    addBackendTaskWatcher
   );
   return result;
 }
@@ -102,7 +101,6 @@ export async function runGenerator(
       scriptModuleName,
       "production",
       "",
-      true,
       versionMessage
     );
     return result;
@@ -120,7 +118,6 @@ export async function runGenerator(
  * @param {string[]} cliOptions
  * @param {any} portsFile
  * @param {typeof import("fs") | import("memfs").IFs} fs
- * @param {boolean} hasFsAccess
  * @param {string} scriptModuleName
  * @param {string} versionMessage
  */
@@ -132,7 +129,6 @@ function runGeneratorAppHelp(
   scriptModuleName,
   mode,
   pagePath,
-  hasFsAccess,
   versionMessage
 ) {
   const isDevServer = mode !== "build";
@@ -208,9 +204,7 @@ function runGeneratorAppHelp(
                   return runInternalJob(
                     requestHash,
                     app,
-                    mode,
                     requestToPerform,
-                    hasFsAccess,
                     patternsToWatch,
                     portsFile
                   );
@@ -218,10 +212,7 @@ function runGeneratorAppHelp(
                   return runHttpJob(
                     requestHash,
                     portsFile,
-                    app,
                     mode,
-                    requestToPerform,
-                    hasFsAccess,
                     requestToPerform
                   );
                 }
@@ -262,8 +253,7 @@ function runElmApp(
   mode,
   pagePath,
   request,
-  addBackendTaskWatcher,
-  hasFsAccess
+  addBackendTaskWatcher
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
@@ -347,9 +337,7 @@ function runElmApp(
                   return runInternalJob(
                     requestHash,
                     app,
-                    mode,
                     requestToPerform,
-                    hasFsAccess,
                     patternsToWatch,
                     portsFile
                   );
@@ -357,10 +345,7 @@ function runElmApp(
                   return runHttpJob(
                     requestHash,
                     portsFile,
-                    app,
                     mode,
-                    requestToPerform,
-                    hasFsAccess,
                     requestToPerform
                   );
                 }
@@ -430,19 +415,14 @@ async function outputString(
 async function runHttpJob(
   requestHash,
   portsFile,
-  app,
   mode,
   requestToPerform,
-  hasFsAccess,
-  useCache
 ) {
   try {
     const lookupResponse = await lookupOrPerform(
       portsFile,
       mode,
-      requestToPerform,
-      hasFsAccess,
-      useCache
+      requestToPerform
     );
 
     if (lookupResponse.kind === "cache-response-path") {
@@ -489,9 +469,7 @@ function jsonResponse(request, json) {
 async function runInternalJob(
   requestHash,
   app,
-  mode,
   requestToPerform,
-  hasFsAccess,
   patternsToWatch,
   portsFile
 ) {
