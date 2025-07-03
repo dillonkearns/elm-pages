@@ -11,15 +11,12 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
  * @param {string} mode
  * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body; }} rawRequest
  * @param {Record<string, unknown>} portsFile
- * @param {boolean} hasFsAccess
  * @returns {Promise<Response>}
  */
 export function lookupOrPerform(
   portsFile,
   mode,
-  rawRequest,
-  hasFsAccess,
-  useCache
+  rawRequest
 ) {
   const uniqueTimeId =
     Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
