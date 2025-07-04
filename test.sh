@@ -11,3 +11,5 @@ elm-verify-examples --run-tests --elm-test-args '--compiler=lamdera'
 
 # This tests for an error message until https://github.com/dillonkearns/elm-pages/issues/531 is fixed
 (cd test-scripts && npm i && (npx elm-pages run src/TestInternalError.elm || true) | grep -q -- '-- Internal error ---------------')
+
+(cd test-scripts && npx elm-pages run src/TestBinaryRead.elm)
