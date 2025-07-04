@@ -1,4 +1,4 @@
-module Main exposing (run)
+module TestInternalError exposing (run)
 
 import BackendTask
 import BackendTask.Custom
