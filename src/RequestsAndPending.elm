@@ -36,10 +36,12 @@ bodyDecoder =
                             Decode.string
                                 |> Decode.andThen
                                     (\base64String ->
-                                        base64String
-                                            |> Base64.toBytes
-                                            |> Maybe.map (BytesBody >> Decode.succeed)
-                                            |> Maybe.withDefault (Decode.fail "Couldn't parse base64 string into Bytes.")
+                                        case Base64.toBytes base64String of
+                                            Just bytes ->
+                                                Decode.succeed (BytesBody bytes)
+
+                                            Nothing ->
+                                                Decode.fail "Couldn't parse base64 string into Bytes."
                                     )
 
                         "string" ->
