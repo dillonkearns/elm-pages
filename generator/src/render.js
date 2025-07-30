@@ -117,7 +117,6 @@ export async function runGenerator(
  * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;}))>}
  * @param {string[]} cliOptions
  * @param {any} portsFile
- * @param {typeof import("fs") | import("memfs").IFs} fs
  * @param {string} scriptModuleName
  * @param {string} versionMessage
  */
@@ -412,12 +411,7 @@ async function outputString(
 
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
-async function runHttpJob(
-  requestHash,
-  portsFile,
-  mode,
-  requestToPerform,
-) {
+async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
   try {
     const lookupResponse = await lookupOrPerform(
       portsFile,
