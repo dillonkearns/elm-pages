@@ -557,6 +557,8 @@ async function runInternalJob(
         return [requestHash, runStartSpinner(requestToPerform)];
       case "elm-pages-internal://stop-spinner":
         return [requestHash, runStopSpinner(requestToPerform)];
+      case "elm-pages-internal://exit":
+        process.exit(requestToPerform.body.args[0]);
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
           JSON.stringify(2, null, requestToPerform)
