@@ -106,5 +106,3 @@ function renderTemplate(template, renderResult) {
 }
 
 parentPort.on("message", run);
-
-/** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
