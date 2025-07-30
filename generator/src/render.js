@@ -1328,15 +1328,17 @@ function sendError(app, error) {
     data: error,
   });
 }
+
+/**
+ * @param {string} input
+ * @param {string[]} secrets
+ */
 function tryDecodeCookie(input, secrets) {
-  if (secrets.length > 0) {
-    const signed = cookie.unsign(input, secrets[0]);
+  for (let i = 0; i < secrets.length; i++) {
+    const signed = cookie.unsign(input, secrets[i]);
     if (signed) {
       return signed;
-    } else {
-      return tryDecodeCookie(input, secrets.slice(1));
     }
-  } else {
-    return null;
   }
+  return null;
 }
