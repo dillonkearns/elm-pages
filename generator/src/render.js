@@ -553,7 +553,7 @@ async function runInternalJob(
         return [requestHash, runStopSpinner(requestToPerform)];
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
-          JSON.stringify(2, null, requestToPerform)
+          JSON.stringify(requestToPerform, null, 2)
         )}`;
     }
   } catch (error) {
