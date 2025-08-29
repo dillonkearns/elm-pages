@@ -6,6 +6,17 @@ Thanks for checking out the contributing guide for `elm-pages`! Here are some ti
 
 ## Running (and making changes) locally
 
+### Initial setup
+
+```shell
+git clone --recurse-submodules https://github.com/dillonkearns/elm-pages.git
+cd elm-pages
+npm install
+npm run build:generator
+```
+
+### Use docs for local testing
+
 I use the elm-pages.com site to test out new ideas locally. You can do the same to see if your changes behave the way you want to.
 
 The code for the site lives in the [`examples/docs/`](https://github.com/dillonkearns/elm-pages/tree/master/examples/docs) folder in this repo.
@@ -14,6 +25,7 @@ The code for that site is wired up to use the NPM package and Elm package direct
 
 ```shell
 cd examples/docs
+npm install
 npm start # runs elm-pages develop with the NPM and Elm package code in your repo
 ```
 
