@@ -741,7 +741,9 @@ async function runAdapter(adaptFn, processedIndexTemplate) {
  * @param {string} file
  */
 function defaultPreloadForFile(file) {
-  if (file.endsWith(".js")) {
+  if (/\/elm\.[a-f0-9]+\.js$/.test(file)) {
+    return `<link rel="preload" as="script" href="${file}">`;
+  } else if (file.endsWith(".js")) {
     return `<link rel="modulepreload" crossorigin href="${file}">`;
   } else if (file.endsWith(".css")) {
     return `<link rel="preload" href="${file}" as="style">`;
