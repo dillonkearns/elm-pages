@@ -9,15 +9,11 @@ const defaultHttpCachePath = "./.elm-pages/http-cache";
 
 /**
  * @param {string} mode
- * @param {{url: string;headers: {[x: string]: string;};method: string;body: Body; }} rawRequest
- * @param {Record<string, unknown>} portsFile
+ * @param {Pages_StaticHttp_Request} rawRequest
+ * @param {unknown} portsFile
  * @returns {Promise<Response>}
  */
-export function lookupOrPerform(
-  portsFile,
-  mode,
-  rawRequest
-) {
+export function lookupOrPerform(portsFile, mode, rawRequest) {
   const uniqueTimeId =
     Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const timeStart = (message) => {
@@ -265,7 +261,7 @@ function toElmJson(obj) {
 }
 
 /**
- * @param {{url: string; headers: {[x: string]: string}; method: string; body: Body } } elmRequest
+ * @param {Pages_StaticHttp_Request} elmRequest
  */
 function toRequest(elmRequest) {
   const elmHeaders = Object.fromEntries(elmRequest.headers);
@@ -299,8 +295,8 @@ function toBody(body) {
 }
 
 /**
- * @param {Body} body
- * @returns Object
+ * @param {Pages_Internal_StaticHttpBody} body
+ * @returns {{} | { "Content-Type": string; }}
  */
 function toContentType(body) {
   switch (body.tag) {
@@ -319,7 +315,6 @@ function toContentType(body) {
   }
 }
 
-/** @typedef { { tag: 'EmptyBody'} |{ tag: 'BytesBody'; args: [string, string] } |  { tag: 'StringBody'; args: [string, string] } | {tag: 'JsonBody'; args: [ Object ] } } Body  */
 function requireUncached(mode, filePath) {
   if (mode === "dev-server") {
     // for the build command, we can skip clearing the cache because it won't change while the build is running
