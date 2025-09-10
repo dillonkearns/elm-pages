@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.25] - 2025-09-09
+
+### Fixed
+
+- Fix redundant asset fetched with script tag attributes. See [#536](https://github.com/dillonkearns/elm-pages/issues/536).
+
 ## [3.0.24] - 2025-04-30
 
 ### Fixed
