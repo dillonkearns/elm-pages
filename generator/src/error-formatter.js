@@ -74,11 +74,10 @@ function toKleurColor(color) {
 /** @typedef {{problems: {title: string; message: unknown}[]; path: string}[]} Errors } */
 
 /**
- * parseMsg :: { errors: Array } -> String
+ * `parseMsg :: { errors: Array } -> String`
  *
  * This function takes in the array of compiler errors and maps over them to generate a formatted compiler error
- **/
-/**
+ *
  * @param {RootObject} error
  * */
 export const restoreColor = (error) => {

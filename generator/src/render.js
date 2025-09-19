@@ -19,7 +19,7 @@ import * as readline from "readline";
 import { spawn as spawnCallback } from "cross-spawn";
 import * as consumers from "stream/consumers";
 import * as zlib from "node:zlib";
-import { Readable, Writable } from "node:stream";
+import { Readable, Writable, Stream, Duplex } from "node:stream";
 import * as validateStream from "./validate-stream.js";
 import { default as makeFetchHappenOriginal } from "make-fetch-happen";
 import mergeStreams from "@sindresorhus/merge-streams";
@@ -33,14 +33,15 @@ process.on("unhandledRejection", (error) => {
 let foundErrors;
 
 /**
- *
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @param {string} path
- * @param {{ method: string; hostname: string; query: Record<string, string | undefined>; headers: Record<string, string>; host: string; pathname: string; port: number | null; protocol: string; rawUrl: string; }} request
+ * @param {ParsedRequest} request
  * @param {(pattern: string) => void} addBackendTaskWatcher
  * @param {boolean} hasFsAccess
  * @returns
+ * @param {{ [x: string]: (arg0: any, arg1: Context) => any; }} portsFile
+ * @param {string} mode
  */
 export async function render(
   portsFile,
@@ -71,10 +72,10 @@ export async function render(
 }
 
 /**
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @returns
  * @param {string[]} cliOptions
- * @param {any} portsFile
+ * @param {{ [x: string]: (arg0: any, arg1: Context) => any; }} portsFile
  * @param {string} scriptModuleName
  * @param {string} versionMessage
  */
@@ -111,15 +112,14 @@ export async function runGenerator(
 }
 /**
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @param {string} pagePath
  * @param {string} mode
- * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;}))>}
  * @param {string[]} cliOptions
- * @param {any} portsFile
- * @param {typeof import("fs") | import("memfs").IFs} fs
+ * @param {{ [x: string]: (arg0: any, arg1: Context) => any; }} portsFile
  * @param {string} scriptModuleName
  * @param {string} versionMessage
+ * @returns {Promise<({is404: boolean;} & ({kind: 'json';contentJson: string;} | {kind: 'html';htmlString: string;} | {kind: 'api-response';body: string;})) | void>}
  */
 function runGeneratorAppHelp(
   cliOptions,
@@ -133,7 +133,7 @@ function runGeneratorAppHelp(
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
-  let app = null;
+  /** @type {(() => void) | null} */
   let killApp;
   // Handle version flag with early return
   if (
@@ -147,7 +147,8 @@ function runGeneratorAppHelp(
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
 
-    app = elmModule.Elm.ScriptMain.init({
+    /** @type {ScriptApp | null} */
+    let app = elmModule.Elm.ScriptMain.init({
       flags: {
         compatibilityKey,
         argv: ["", `elm-pages run ${scriptModuleName}`, ...cliOptions],
@@ -162,7 +163,10 @@ function runGeneratorAppHelp(
       // delete require.cache[require.resolve(compiledElmPath)];
     };
 
-    async function portHandler(/** @type { FromElm }  */ newThing) {
+    /**
+     * @param {FromElm} newThing
+     */
+    async function portHandler(newThing) {
       let fromElm;
       let contentDatPayload;
 
@@ -193,32 +197,26 @@ function runGeneratorAppHelp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
+        let promises = fromElm.args[0].map(
+          ([requestHash, requestToPerform]) => {
+            if (
+              requestToPerform.url !== "elm-pages-internal://port" &&
+              requestToPerform.url.startsWith("elm-pages-internal://")
+            ) {
+              return runInternalJob(
+                requestHash,
+                app,
+                requestToPerform,
+                patternsToWatch,
+                portsFile
+              );
+            } else {
+              return runHttpJob(requestHash, portsFile, mode, requestToPerform);
+            }
+          }
+        );
         app.ports.gotBatchSub.send(
-          Object.fromEntries(
-            await Promise.all(
-              fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
-                  return runInternalJob(
-                    requestHash,
-                    app,
-                    requestToPerform,
-                    patternsToWatch,
-                    portsFile
-                  );
-                } else {
-                  return runHttpJob(
-                    requestHash,
-                    portsFile,
-                    mode,
-                    requestToPerform
-                  );
-                }
-              })
-            )
-          )
+          Object.fromEntries(await Promise.all(promises))
         );
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
@@ -239,10 +237,10 @@ function runGeneratorAppHelp(
 
 /**
  * @param {string} basePath
- * @param {Object} elmModule
+ * @param {ElmModule} elmModule
  * @param {string} pagePath
  * @param {string} mode
- * @param {{ method: string; hostname: string; query: string; headers: Object; host: string; pathname: string; port: string; protocol: string; rawUrl: string; }} request
+ * @param {ParsedRequest} request
  * @param {(pattern: string) => void} addBackendTaskWatcher
  * @returns {Promise<({is404: boolean} & ( { kind: 'json'; contentJson: string} | { kind: 'html'; htmlString: string } | { kind: 'api-response'; body: string; }) )>}
  */
@@ -257,7 +255,7 @@ function runElmApp(
 ) {
   const isDevServer = mode !== "build";
   let patternsToWatch = new Set();
-  let app = null;
+  /** @type {(() => void) | null} */
   let killApp;
   return new Promise((resolve, reject) => {
     const isBytes = pagePath.match(/content\.dat\/?$/);
@@ -266,7 +264,8 @@ function runElmApp(
       .replace(/content\.dat\/?$/, "");
 
     const modifiedRequest = { ...request, path: route };
-    app = elmModule.Elm.Main.init({
+    /** @type {MainApp | null} */
+    let app = elmModule.Elm.Main.init({
       flags: {
         mode,
         compatibilityKey,
@@ -326,32 +325,27 @@ function runElmApp(
           );
         }
       } else if (fromElm.tag === "DoHttp") {
+        let promises = fromElm.args[0].map(
+          ([requestHash, requestToPerform]) => {
+            if (
+              requestToPerform.url !== "elm-pages-internal://port" &&
+              requestToPerform.url.startsWith("elm-pages-internal://")
+            ) {
+              return runInternalJob(
+                requestHash,
+                app,
+                requestToPerform,
+                patternsToWatch,
+                portsFile
+              );
+            } else {
+              return runHttpJob(requestHash, portsFile, mode, requestToPerform);
+            }
+          }
+        );
+
         app.ports.gotBatchSub.send(
-          Object.fromEntries(
-            await Promise.all(
-              fromElm.args[0].map(([requestHash, requestToPerform]) => {
-                if (
-                  requestToPerform.url !== "elm-pages-internal://port" &&
-                  requestToPerform.url.startsWith("elm-pages-internal://")
-                ) {
-                  return runInternalJob(
-                    requestHash,
-                    app,
-                    requestToPerform,
-                    patternsToWatch,
-                    portsFile
-                  );
-                } else {
-                  return runHttpJob(
-                    requestHash,
-                    portsFile,
-                    mode,
-                    requestToPerform
-                  );
-                }
-              })
-            )
-          )
+          Object.fromEntries(await Promise.all(promises))
         );
       } else if (fromElm.tag === "Errors") {
         foundErrors = true;
@@ -375,13 +369,9 @@ function runElmApp(
  * @param {string} basePath
  * @param {PageProgress} fromElm
  * @param {boolean} isDevServer
+ * @param {unknown} contentDatPayload
  */
-async function outputString(
-  basePath,
-  /** @type { PageProgress } */ fromElm,
-  isDevServer,
-  contentDatPayload
-) {
+async function outputString(basePath, fromElm, isDevServer, contentDatPayload) {
   const args = fromElm.args[0];
   let contentJson = {};
   contentJson["staticData"] = args.contentJson;
@@ -403,21 +393,13 @@ async function outputString(
   };
 }
 
-/** @typedef { { route : string; contentJson : string; head : SeoTag[]; html: string; } } FromElm */
-/** @typedef {HeadTag | JsonLdTag} SeoTag */
-/** @typedef {{ name: string; attributes: string[][]; type: 'head' }} HeadTag */
-/** @typedef {{ contents: Object; type: 'json-ld' }} JsonLdTag */
-
-/** @typedef { { tag : 'PageProgress'; args : Arg[] } } PageProgress */
-
-/** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
-
-async function runHttpJob(
-  requestHash,
-  portsFile,
-  mode,
-  requestToPerform,
-) {
+/**
+ * @param {string} requestHash
+ * @param {unknown} portsFile
+ * @param {string} mode
+ * @param {Pages_StaticHttp_Request} requestToPerform
+ */
+async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
   try {
     const lookupResponse = await lookupOrPerform(
       portsFile,
@@ -453,21 +435,22 @@ async function runHttpJob(
   }
 }
 
-function stringResponse(request, string) {
-  return {
-    request,
-    response: { bodyKind: "string", body: string },
-  };
-}
+/**
+ * @param {InternalRequest} request
+ * @param {InnerJsonResponse} json
+ * @returns {JsonResponse}
+ */
 function jsonResponse(request, json) {
   return {
     request,
     response: { bodyKind: "json", body: json },
   };
 }
+
 /**
- * @param {any} request
- * @param {WithImplicitCoercion<ArrayBuffer | SharedArrayBuffer>} buffer
+ * @param {InternalRequest} request
+ * @param {Uint8Array | Int32Array} buffer
+ * @returns {BytesResponse}
  */
 function bytesResponse(request, buffer) {
   return {
@@ -480,7 +463,12 @@ function bytesResponse(request, buffer) {
 }
 
 /**
- * @param {{ url: string; body: { args: any[] } }} requestToPerform
+ * @param {InternalRequest} requestToPerform
+ * @param {string} requestHash
+ * @param {MainApp | ScriptApp} app
+ * @param {Set<string>} patternsToWatch
+ * @param {{ [x: string]: (arg0: any, arg1: Context) => any; }} portsFile
+ * @returns {Promise<InternalResponse>}
  */
 async function runInternalJob(
   requestHash,
@@ -494,6 +482,7 @@ async function runInternalJob(
     const quiet = requestToPerform.quiet;
     const env = { ...process.env, ...requestToPerform.env };
 
+    /** @type {Context} */
     const context = { cwd, quiet, env };
     switch (requestToPerform.url) {
       case "elm-pages-internal://log":
@@ -524,20 +513,11 @@ async function runInternalJob(
       case "elm-pages-internal://now":
         return [requestHash, jsonResponse(requestToPerform, Date.now())];
       case "elm-pages-internal://env":
-        return [
-          requestHash,
-          await runEnvJob(requestToPerform, patternsToWatch),
-        ];
+        return [requestHash, await runEnvJob(requestToPerform)];
       case "elm-pages-internal://encrypt":
-        return [
-          requestHash,
-          await runEncryptJob(requestToPerform, patternsToWatch),
-        ];
+        return [requestHash, await runEncryptJob(requestToPerform)];
       case "elm-pages-internal://decrypt":
-        return [
-          requestHash,
-          await runDecryptJob(requestToPerform, patternsToWatch),
-        ];
+        return [requestHash, await runDecryptJob(requestToPerform)];
       case "elm-pages-internal://write-file":
         return [requestHash, await runWriteFileJob(requestToPerform, context)];
       case "elm-pages-internal://sleep":
@@ -559,7 +539,7 @@ async function runInternalJob(
         return [requestHash, runStopSpinner(requestToPerform)];
       default:
         throw `Unexpected internal BackendTask request format: ${kleur.yellow(
-          JSON.stringify(2, null, requestToPerform)
+          JSON.stringify(requestToPerform, null, 2)
         )}`;
     }
   } catch (error) {
@@ -567,8 +547,13 @@ async function runInternalJob(
   }
 }
 
+/**
+ * @param {ReadFileRequest} req
+ * @param {Set<string>} patternsToWatch
+ * @param {Context} context
+ * @return {Promise<JsonResponse>}
+ */
 async function readFileJobNew(req, patternsToWatch, { cwd }) {
-  // TODO use cwd
   const filePath = path.resolve(cwd, req.body.args[1]);
   try {
     patternsToWatch.add(filePath);
@@ -590,8 +575,8 @@ async function readFileJobNew(req, patternsToWatch, { cwd }) {
 }
 
 /**
- * @param {{ url: string; body: { args: any[] } }} req
- * @param {{ add: (arg0: string) => void; }} patternsToWatch
+ * @param {ReadFileBinaryRequest} req
+ * @param {Set<string>} patternsToWatch
  */
 async function readFileBinaryJobNew(req, patternsToWatch) {
   const filePath = req.body.args[1];
@@ -617,6 +602,9 @@ async function readFileBinaryJobNew(req, patternsToWatch) {
   }
 }
 
+/**
+ * @param {SleepRequest} req
+ */
 function runSleep(req) {
   const { milliseconds } = req.body.args[0];
   return new Promise((resolve) => {
@@ -626,6 +614,10 @@ function runSleep(req) {
   });
 }
 
+/**
+ * @param {WhichRequest} req
+ * @return {Promise<JsonResponse>}
+ */
 async function runWhich(req) {
   const command = req.body.args[0];
   try {
@@ -635,10 +627,18 @@ async function runWhich(req) {
   }
 }
 
+/**
+ * @param {QuestionRequest} req
+ */
 async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
 
+/**
+ * @param {StreamRequest} req
+ * @param {PortsFile} portsFile
+ * @param {Context} context
+ */
 function runStream(req, portsFile, context) {
   return new Promise(async (resolve) => {
     let metadataResponse = null;
@@ -707,207 +707,6 @@ function runStream(req, portsFile, context) {
       } else if (kind === "command") {
         // already handled in parts.forEach
       }
-      /**
-       *
-       * @param {import('node:stream').Stream?} lastStream
-       * @param {{ name: string }} part
-       * @param {{cwd: string, quiet: boolean, env: object}} param2
-       * @returns {Promise<{stream: import('node:stream').Stream, metadata?: any}>}
-       */
-      async function pipePartToStream(
-        lastStream,
-        part,
-        { cwd, quiet, env },
-        portsFile,
-        resolve,
-        isLastProcess,
-        kind
-      ) {
-        if (verbosity > 1 && !quiet) {
-        }
-        if (part.name === "stdout") {
-          return { stream: pipeIfPossible(lastStream, stdout()) };
-        } else if (part.name === "stderr") {
-          return { stream: pipeIfPossible(lastStream, stderr()) };
-        } else if (part.name === "stdin") {
-          return { stream: process.stdin };
-        } else if (part.name === "fileRead") {
-          const newLocal = fs.createReadStream(path.resolve(cwd, part.path));
-          newLocal.once("error", (error) => {
-            newLocal.close();
-            resolve({ error: error.toString() });
-          });
-          return { stream: newLocal };
-        } else if (part.name === "customDuplex") {
-          const newLocal = await portsFile[part.portName](part.input, {
-            cwd,
-            quiet,
-            env,
-          });
-          if (validateStream.isDuplexStream(newLocal.stream)) {
-            pipeIfPossible(lastStream, newLocal.stream);
-            return newLocal;
-          } else {
-            throw `Expected '${part.portName}' to be a duplex stream!`;
-          }
-        } else if (part.name === "customRead") {
-          return {
-            metadata: null,
-            stream: await portsFile[part.portName](part.input, {
-              cwd,
-              quiet,
-              env,
-            }),
-          };
-        } else if (part.name === "customWrite") {
-          const newLocal = await portsFile[part.portName](part.input, {
-            cwd,
-            quiet,
-            env,
-          });
-          if (!validateStream.isWritableStream(newLocal.stream)) {
-            console.error("Expected a writable stream!");
-            resolve({ error: "Expected a writable stream!" });
-          } else {
-            pipeIfPossible(lastStream, newLocal.stream);
-          }
-          return newLocal;
-        } else if (part.name === "gzip") {
-          const gzip = zlib.createGzip();
-          if (!lastStream) {
-            gzip.end();
-          }
-          return {
-            metadata: null,
-            stream: pipeIfPossible(lastStream, gzip),
-          };
-        } else if (part.name === "unzip") {
-          return {
-            metadata: null,
-            stream: pipeIfPossible(lastStream, zlib.createUnzip()),
-          };
-        } else if (part.name === "fileWrite") {
-          const destinationPath = path.resolve(part.path);
-          try {
-            await fsPromises.mkdir(path.dirname(destinationPath), {
-              recursive: true,
-            });
-          } catch (error) {
-            resolve({ error: error.toString() });
-          }
-          const newLocal = fs.createWriteStream(destinationPath);
-          newLocal.once("error", (error) => {
-            newLocal.close();
-            newLocal.removeAllListeners();
-            resolve({ error: error.toString() });
-          });
-          return {
-            metadata: null,
-            stream: pipeIfPossible(lastStream, newLocal),
-          };
-        } else if (part.name === "httpWrite") {
-          const makeFetchHappen = makeFetchHappenOriginal.defaults({
-            // cache: mode === "build" ? "no-cache" : "default",
-            cache: "default",
-          });
-          const response = await makeFetchHappen(part.url, {
-            body: lastStream,
-            duplex: "half",
-            redirect: "follow",
-            method: part.method,
-            headers: part.headers,
-            retry: part.retries,
-            timeout: part.timeoutInMs,
-          });
-          if (!isLastProcess && !response.ok) {
-            resolve({
-              error: `HTTP request failed: ${response.status} ${response.statusText}`,
-            });
-          } else {
-            let metadata = () => {
-              return {
-                headers: Object.fromEntries(response.headers.entries()),
-                statusCode: response.status,
-                // bodyKind,
-                url: response.url,
-                statusText: response.statusText,
-              };
-            };
-            return { metadata, stream: response.body };
-          }
-        } else if (part.name === "command") {
-          const { command, args, allowNon0Status, output } = part;
-          /** @type {'ignore' | 'inherit'} } */
-          let letPrint = quiet ? "ignore" : "inherit";
-          let stderrKind = kind === "none" && isLastProcess ? letPrint : "pipe";
-          if (output === "Ignore") {
-            stderrKind = "ignore";
-          } else if (output === "Print") {
-            stderrKind = letPrint;
-          }
-
-          const stdoutKind =
-            (output === "InsteadOfStdout" || kind === "none") && isLastProcess
-              ? letPrint
-              : "pipe";
-          /**
-           * @type {import('node:child_process').ChildProcess}
-           */
-          const newProcess = spawnCallback(command, args, {
-            stdio: [
-              "pipe",
-              // if we are capturing stderr instead of stdout, print out stdout with `inherit`
-              stdoutKind,
-              stderrKind,
-            ],
-            cwd: cwd,
-            env: env,
-          });
-
-          pipeIfPossible(lastStream, newProcess.stdin);
-          let newStream;
-          if (output === "MergeWithStdout") {
-            newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
-          } else if (output === "InsteadOfStdout") {
-            newStream = newProcess.stderr;
-          } else {
-            newStream = newProcess.stdout;
-          }
-
-          newProcess.once("error", (error) => {
-            newStream && newStream.end();
-            newProcess.removeAllListeners();
-            resolve({ error: error.toString() });
-          });
-          if (isLastProcess) {
-            return {
-              stream: newStream,
-              metadata: new Promise((resoveMeta) => {
-                newProcess.once("exit", (code) => {
-                  if (code !== 0 && !allowNon0Status) {
-                    newStream && newStream.end();
-                    resolve({
-                      error: `Command ${command} exited with code ${code}`,
-                    });
-                  }
-
-                  resoveMeta({
-                    exitCode: code,
-                  });
-                });
-              }),
-            };
-          } else {
-            return { metadata: null, stream: newStream };
-          }
-        } else if (part.name === "fromString") {
-          return { stream: Readable.from([part.string]), metadata: null };
-        } else {
-          // console.error(`Unknown stream part: ${part.name}!`);
-          // process.exit(1);
-          throw `Unknown stream part: ${part.name}!`;
-        }
-      }
     } catch (error) {
       if (lastStream) {
         lastStream.destroy();
@@ -919,8 +718,215 @@ function runStream(req, portsFile, context) {
 }
 
 /**
- * @param { import('stream').Stream? } input
- * @param {import('stream').Writable | import('stream').Duplex} destination
+ * @param {?Stream} lastStream
+ * @param {StreamPart} part
+ * @param {Context} context
+ * @param {{ [x: string]: (arg0: any, arg1: Context) => any; }} portsFile
+ * @param {{ (value: any): void; (arg0: { error: any; }): void; }} resolve
+ * @param {boolean} isLastProcess
+ * @param {string} kind
+ * @returns {Promise<{stream: Stream; metadata?: any;}>}
+ */
+async function pipePartToStream(
+  lastStream,
+  part,
+  { cwd, quiet, env },
+  portsFile,
+  resolve,
+  isLastProcess,
+  kind
+) {
+  if (verbosity > 1 && !quiet) {
+  }
+  if (part.name === "stdout") {
+    return { stream: pipeIfPossible(lastStream, stdout()) };
+  } else if (part.name === "stderr") {
+    return { stream: pipeIfPossible(lastStream, stderr()) };
+  } else if (part.name === "stdin") {
+    return { stream: process.stdin };
+  } else if (part.name === "fileRead") {
+    const newLocal = fs.createReadStream(path.resolve(cwd, part.path));
+    newLocal.once("error", (error) => {
+      newLocal.close();
+      resolve({ error: error.toString() });
+    });
+    return { stream: newLocal };
+  } else if (part.name === "customDuplex") {
+    const newLocal = await portsFile[part.portName](part.input, {
+      cwd,
+      quiet,
+      env,
+    });
+    if (validateStream.isDuplexStream(newLocal.stream)) {
+      pipeIfPossible(lastStream, newLocal.stream);
+      return newLocal;
+    } else {
+      throw `Expected '${part.portName}' to be a duplex stream!`;
+    }
+  } else if (part.name === "customRead") {
+    return {
+      metadata: null,
+      stream: await portsFile[part.portName](part.input, {
+        cwd,
+        quiet,
+        env,
+      }),
+    };
+  } else if (part.name === "customWrite") {
+    const newLocal = await portsFile[part.portName](part.input, {
+      cwd,
+      quiet,
+      env,
+    });
+    if (!validateStream.isWritableStream(newLocal.stream)) {
+      console.error("Expected a writable stream!");
+      resolve({ error: "Expected a writable stream!" });
+    } else {
+      pipeIfPossible(lastStream, newLocal.stream);
+    }
+    return newLocal;
+  } else if (part.name === "gzip") {
+    const gzip = zlib.createGzip();
+    if (!lastStream) {
+      gzip.end();
+    }
+    return {
+      metadata: null,
+      stream: pipeIfPossible(lastStream, gzip),
+    };
+  } else if (part.name === "unzip") {
+    return {
+      metadata: null,
+      stream: pipeIfPossible(lastStream, zlib.createUnzip()),
+    };
+  } else if (part.name === "fileWrite") {
+    const destinationPath = path.resolve(part.path);
+    try {
+      await fsPromises.mkdir(path.dirname(destinationPath), {
+        recursive: true,
+      });
+    } catch (error) {
+      resolve({ error: error.toString() });
+    }
+    const newLocal = fs.createWriteStream(destinationPath);
+    newLocal.once("error", (error) => {
+      newLocal.close();
+      newLocal.removeAllListeners();
+      resolve({ error: error.toString() });
+    });
+    return {
+      metadata: null,
+      stream: pipeIfPossible(lastStream, newLocal),
+    };
+  } else if (part.name === "httpWrite") {
+    const makeFetchHappen = makeFetchHappenOriginal.defaults({
+      // cache: mode === "build" ? "no-cache" : "default",
+      cache: "default",
+    });
+    const response = await makeFetchHappen(part.url, {
+      body: lastStream,
+      duplex: "half",
+      redirect: "follow",
+      method: part.method,
+      headers: part.headers,
+      retry: part.retries,
+      timeout: part.timeoutInMs,
+    });
+    if (!isLastProcess && !response.ok) {
+      resolve({
+        error: `HTTP request failed: ${response.status} ${response.statusText}`,
+      });
+    } else {
+      let metadata = () => {
+        return {
+          headers: Object.fromEntries(response.headers.entries()),
+          statusCode: response.status,
+          // bodyKind,
+          url: response.url,
+          statusText: response.statusText,
+        };
+      };
+      return { metadata, stream: response.body };
+    }
+  } else if (part.name === "command") {
+    const { command, args, allowNon0Status, output } = part;
+    /** @type {'ignore' | 'inherit'} } */
+    let letPrint = quiet ? "ignore" : "inherit";
+    /** @type {'ignore' | 'inherit' | 'pipe'} */
+    let stderrKind = kind === "none" && isLastProcess ? letPrint : "pipe";
+    if (output === "Ignore") {
+      stderrKind = "ignore";
+    } else if (output === "Print") {
+      stderrKind = letPrint;
+    }
+
+    const stdoutKind =
+      (output === "InsteadOfStdout" || kind === "none") && isLastProcess
+        ? letPrint
+        : "pipe";
+    /**
+     * @type {import('node:child_process').ChildProcess}
+     */
+    const newProcess = spawnCallback(command, args, {
+      stdio: [
+        "pipe",
+        // if we are capturing stderr instead of stdout, print out stdout with `inherit`
+        stdoutKind,
+        stderrKind,
+      ],
+      cwd: cwd,
+      env: env,
+    });
+
+    pipeIfPossible(lastStream, newProcess.stdin);
+    let newStream;
+    if (output === "MergeWithStdout") {
+      newStream = mergeStreams([newProcess.stdout, newProcess.stderr]);
+    } else if (output === "InsteadOfStdout") {
+      newStream = newProcess.stderr;
+    } else {
+      newStream = newProcess.stdout;
+    }
+
+    newProcess.once("error", (error) => {
+      newStream && newStream.end();
+      newProcess.removeAllListeners();
+      resolve({ error: error.toString() });
+    });
+    if (isLastProcess) {
+      return {
+        stream: newStream,
+        metadata: new Promise((resoveMeta) => {
+          newProcess.once("exit", (code) => {
+            if (code !== 0 && !allowNon0Status) {
+              newStream && newStream.end();
+              resolve({
+                error: `Command ${command} exited with code ${code}`,
+              });
+            }
+
+            resoveMeta({
+              exitCode: code,
+            });
+          });
+        }),
+      };
+    } else {
+      return { metadata: null, stream: newStream };
+    }
+  } else if (part.name === "fromString") {
+    return { stream: Readable.from([part.string]), metadata: null };
+  } else {
+    // console.error(`Unknown stream part: ${part.name}!`);
+    // process.exit(1);
+    throw `Unknown stream part: ${part.name}!`;
+  }
+}
+
+/**
+ * @param {Stream?} input
+ * @param {Writable | Duplex} destination
+ * @return {Writable | Duplex}
  */
 function pipeIfPossible(input, destination) {
   if (input) {
@@ -937,6 +943,7 @@ function stdout() {
     },
   });
 }
+
 function stderr() {
   return new Writable({
     write(chunk, encoding, callback) {
@@ -945,6 +952,9 @@ function stderr() {
   });
 }
 
+/**
+ * @param {Promise<unknown> | (() => Promise<unknown>) | unknown} func
+ */
 async function tryCallingFunction(func) {
   if (func) {
     // if is promise
@@ -960,25 +970,27 @@ async function tryCallingFunction(func) {
   }
 }
 
+/**
+ * @param {ShellRequest} req
+ */
 async function runShell(req) {
   const cwd = path.resolve(...req.dir);
   const quiet = req.quiet;
   const env = { ...process.env, ...req.env };
   const captureOutput = req.body.args[0].captureOutput;
+  let context = { cwd, quiet, env, captureOutput };
   if (req.body.args[0].commands.length === 1) {
-    return jsonResponse(
-      req,
-      await shell({ cwd, quiet, env, captureOutput }, req.body.args[0])
-    );
+    return jsonResponse(req, await shell(context, req.body.args[0]));
   } else {
-    return jsonResponse(
-      req,
-      await pipeShells({ cwd, quiet, env, captureOutput }, req.body.args[0])
-    );
+    return jsonResponse(req, await pipeShells(context, req.body.args[0]));
   }
 }
 
-function commandAndArgsToString(cwd, commandsAndArgs) {
+/**
+ * @param {string} _cwd
+ * @param {{ captureOutput?: boolean | undefined; commands: any; }} commandsAndArgs
+ */
+function commandAndArgsToString(_cwd, commandsAndArgs) {
   return (
     `$ ` +
     commandsAndArgs.commands
@@ -989,6 +1001,10 @@ function commandAndArgsToString(cwd, commandsAndArgs) {
   );
 }
 
+/**
+ * @param {{ cwd: string; quiet: boolean; env: Env; captureOutput: boolean; }} context
+ * @param {{ captureOutput?: boolean; commands: ElmCommand[]; }} commandAndArgs
+ */
 export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
   return new Promise((resolve, reject) => {
     const command = commandAndArgs.commands[0].command;
@@ -1048,11 +1064,8 @@ export function shell({ cwd, quiet, env, captureOutput }, commandAndArgs) {
 }
 
 /**
- * @typedef {{ command: string, args: string[], timeout: number? }} ElmCommand
- */
-
-/**
- * @param {{ commands: ElmCommand[] }} commandsAndArgs
+ * @param {{ cwd: string; quiet: boolean; env: Env; captureOutput: boolean; }} context
+ * @param {{commands: ElmCommand[];}} commandsAndArgs
  */
 export function pipeShells(
   { cwd, quiet, env, captureOutput },
@@ -1139,6 +1152,9 @@ export function pipeShells(
   });
 }
 
+/**
+ * @param {{ prompt: string; }} req
+ */
 export async function question({ prompt }) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
@@ -1153,6 +1169,10 @@ export async function question({ prompt }) {
   });
 }
 
+/**
+ * @param {WriteFileRequest} req
+ * @param {Context} context
+ */
 async function runWriteFileJob(req, { cwd }) {
   const data = req.body.args[0];
   const filePath = path.resolve(cwd, data.path);
@@ -1171,6 +1191,9 @@ async function runWriteFileJob(req, { cwd }) {
   }
 }
 
+/**
+ * @param {StartSpinnerRequest} req
+ */
 function runStartSpinner(req) {
   const data = req.body.args[0];
   let spinnerId;
@@ -1188,10 +1211,12 @@ function runStartSpinner(req) {
   return jsonResponse(req, spinnerId);
 }
 
+/**
+ * @param {StopSpinnerRequest} req
+ */
 function runStopSpinner(req) {
   const data = req.body.args[0];
   const { spinnerId, completionText, completionFn } = data;
-  let completeFn;
   if (completionFn === "succeed") {
     spinnies.succeed(spinnerId, { text: completionText });
   } else if (completionFn === "fail") {
@@ -1202,10 +1227,15 @@ function runStopSpinner(req) {
   return jsonResponse(req, null);
 }
 
+/**
+ * @param {GlobRequest} req
+ * @param {Set<string>} patternsToWatch
+ */
 async function runGlobNew(req, patternsToWatch) {
   try {
     const { pattern, options } = req.body.args[0];
     const cwd = path.resolve(...req.dir);
+    /** @type {import("globby").GlobEntry[]} */
     const matchedPaths = await globby.globby(pattern, {
       ...options,
       stats: true,
@@ -1241,6 +1271,9 @@ async function runGlobNew(req, patternsToWatch) {
   }
 }
 
+/**
+ * @param {LogRequest} req
+ */
 async function runLogJob(req) {
   try {
     console.log(req.body.args[0].message);
@@ -1250,7 +1283,11 @@ async function runLogJob(req) {
     throw e;
   }
 }
-async function runEnvJob(req, patternsToWatch) {
+
+/**
+ * @param {EnvRequest} req
+ */
+async function runEnvJob(req) {
   try {
     const expectedEnv = req.body.args[0];
     return jsonResponse(req, process.env[expectedEnv] || null);
@@ -1259,7 +1296,11 @@ async function runEnvJob(req, patternsToWatch) {
     throw e;
   }
 }
-async function runEncryptJob(req, patternsToWatch) {
+
+/**
+ * @param {EncryptRequest} req
+ */
+async function runEncryptJob(req) {
   try {
     return jsonResponse(
       req,
@@ -1271,12 +1312,15 @@ async function runEncryptJob(req, patternsToWatch) {
   } catch (e) {
     throw {
       title: "BackendTask Encrypt Error",
-      message:
-        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+      message: e.toString() + e.stack + "\n\n" + JSON.stringify(req, null, 2),
     };
   }
 }
-async function runDecryptJob(req, patternsToWatch) {
+
+/**
+ * @param {DecryptRequest} req
+ */
+async function runDecryptJob(req) {
   try {
     // TODO if unsign returns `false`, need to have an `Err` in Elm because decryption failed
     const signed = tryDecodeCookie(
@@ -1288,14 +1332,13 @@ async function runDecryptJob(req, patternsToWatch) {
   } catch (e) {
     throw {
       title: "BackendTask Decrypt Error",
-      message:
-        e.toString() + e.stack + "\n\n" + JSON.stringify(rawRequest, null, 2),
+      message: e.toString() + e.stack + "\n\n" + JSON.stringify(req, null, 2),
     };
   }
 }
 
 /**
- * @param {{ ports: { fromJsPort: { send: (arg0: { tag: string; data: any; }) => void; }; }; }} app
+ * @param {MainApp} app
  * @param {{ message: string; title: string; }} error
  */
 function sendError(app, error) {
@@ -1306,15 +1349,17 @@ function sendError(app, error) {
     data: error,
   });
 }
+
+/**
+ * @param {string} input
+ * @param {string[]} secrets
+ */
 function tryDecodeCookie(input, secrets) {
-  if (secrets.length > 0) {
-    const signed = cookie.unsign(input, secrets[0]);
+  for (let i = 0; i < secrets.length; i++) {
+    const signed = cookie.unsign(input, secrets[i]);
     if (signed) {
       return signed;
-    } else {
-      return tryDecodeCookie(input, secrets.slice(1));
     }
-  } else {
-    return null;
   }
+  return null;
 }
