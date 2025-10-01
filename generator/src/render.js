@@ -412,12 +412,7 @@ async function outputString(
 
 /** @typedef { { head: any[]; errors: any[]; contentJson: any[]; html: string; route: string; title: string; } } Arg */
 
-async function runHttpJob(
-  requestHash,
-  portsFile,
-  mode,
-  requestToPerform,
-) {
+async function runHttpJob(requestHash, portsFile, mode, requestToPerform) {
   try {
     const lookupResponse = await lookupOrPerform(
       portsFile,
@@ -490,18 +485,13 @@ async function runInternalJob(
   portsFile
 ) {
   try {
-    const cwd = path.resolve(...requestToPerform.dir);
-    const quiet = requestToPerform.quiet;
-    const env = { ...process.env, ...requestToPerform.env };
-
-    const context = { cwd, quiet, env };
     switch (requestToPerform.url) {
       case "elm-pages-internal://log":
         return [requestHash, await runLogJob(requestToPerform)];
       case "elm-pages-internal://read-file":
         return [
           requestHash,
-          await readFileJobNew(requestToPerform, patternsToWatch, context),
+          await readFileJobNew(requestToPerform, patternsToWatch),
         ];
       case "elm-pages-internal://read-file-binary":
         return [
@@ -539,7 +529,7 @@ async function runInternalJob(
           await runDecryptJob(requestToPerform, patternsToWatch),
         ];
       case "elm-pages-internal://write-file":
-        return [requestHash, await runWriteFileJob(requestToPerform, context)];
+        return [requestHash, await runWriteFileJob(requestToPerform)];
       case "elm-pages-internal://sleep":
         return [requestHash, await runSleep(requestToPerform)];
       case "elm-pages-internal://which":
@@ -549,10 +539,7 @@ async function runInternalJob(
       case "elm-pages-internal://shell":
         return [requestHash, await runShell(requestToPerform)];
       case "elm-pages-internal://stream":
-        return [
-          requestHash,
-          await runStream(requestToPerform, portsFile, context),
-        ];
+        return [requestHash, await runStream(requestToPerform, portsFile)];
       case "elm-pages-internal://start-spinner":
         return [requestHash, runStartSpinner(requestToPerform)];
       case "elm-pages-internal://stop-spinner":
@@ -567,7 +554,19 @@ async function runInternalJob(
   }
 }
 
-async function readFileJobNew(req, patternsToWatch, { cwd }) {
+/**
+ * @param {{ dir: string[]; quiet: boolean; env: { [key:string]: string; }; }} requestToPerform
+ */
+function getContext(requestToPerform) {
+  const cwd = path.resolve(...requestToPerform.dir);
+  const quiet = requestToPerform.quiet;
+  const env = { ...process.env, ...requestToPerform.env };
+
+  return { cwd, quiet, env };
+}
+
+async function readFileJobNew(req, patternsToWatch) {
+  const { cwd } = getContext(req);
   // TODO use cwd
   const filePath = path.resolve(cwd, req.body.args[1]);
   try {
@@ -639,8 +638,9 @@ async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
 }
 
-function runStream(req, portsFile, context) {
+function runStream(req, portsFile) {
   return new Promise(async (resolve) => {
+    const context = getContext(req);
     let metadataResponse = null;
     let lastStream = null;
     try {
@@ -1153,7 +1153,8 @@ export async function question({ prompt }) {
   });
 }
 
-async function runWriteFileJob(req, { cwd }) {
+async function runWriteFileJob(req) {
+  const { cwd } = getContext(req);
   const data = req.body.args[0];
   const filePath = path.resolve(cwd, data.path);
   try {
