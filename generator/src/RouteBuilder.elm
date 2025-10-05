@@ -1,7 +1,7 @@
 module RouteBuilder exposing
     ( StatelessRoute, buildNoState
     , App
-    , withOnAction
+    , withOnAction, withOnFormChange
     , buildWithLocalState, buildWithSharedState
     , preRender, single
     , preRenderWithFallback, serverRender
@@ -39,7 +39,7 @@ We have the following data during pre-render:
 
 @docs App
 
-@docs withOnAction
+@docs withOnAction, withOnFormChange
 
 
 ## Stateful Route Modules
@@ -127,6 +127,7 @@ type alias StatefulRoute routeParams data action model msg =
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> BackendTask FatalError (Maybe NotFoundReason)
     , kind : String
     , onAction : Maybe (action -> msg)
+    , onFormChange : Maybe (Form.Model -> msg)
     }
 
 
@@ -194,6 +195,7 @@ buildNoState { view } builderState =
             , handleRoute = record.handleRoute
             , kind = record.kind
             , onAction = Nothing
+            , onFormChange = Nothing
             }
 
 
@@ -202,6 +204,14 @@ withOnAction : (action -> msg) -> StatefulRoute routeParams data action model ms
 withOnAction toMsg config =
     { config
         | onAction = Just toMsg
+    }
+
+
+{-| -}
+withOnFormChange : (Form.Model -> msg) -> StatefulRoute routeParams data action model msg -> StatefulRoute routeParams data action model msg
+withOnFormChange toMsg config =
+    { config
+        | onFormChange = Just toMsg
     }
 
 
@@ -242,6 +252,7 @@ buildWithLocalState config builderState =
             , handleRoute = record.handleRoute
             , kind = record.kind
             , onAction = Nothing
+            , onFormChange = Nothing
             }
 
 
@@ -280,6 +291,7 @@ buildWithSharedState config builderState =
             , handleRoute = record.handleRoute
             , kind = record.kind
             , onAction = Nothing
+            , onFormChange = Nothing
             }
 
 

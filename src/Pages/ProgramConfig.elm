@@ -54,6 +54,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , data : Server.Request.Request -> route -> BackendTask FatalError (PageServerResponse pageData errorPage)
     , action : Server.Request.Request -> route -> BackendTask FatalError (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
+    , onFormChange : route -> Form.Model -> Maybe userMsg
     , view :
         Form.Model
         -> Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission actionData)

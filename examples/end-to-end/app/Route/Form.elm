@@ -2,6 +2,7 @@ module Route.Form exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import Date exposing (Date)
+import Effect
 import ErrorPage exposing (ErrorPage)
 import FatalError exposing (FatalError)
 import Form
@@ -20,15 +21,17 @@ import Server.Request as Request exposing (Request)
 import Server.Response
 import Shared
 import Time
+import UrlPath
 import View exposing (View)
 
 
 type alias Model =
-    {}
+    { formChangeCount : Int
+    }
 
 
-type alias Msg =
-    ()
+type Msg
+    = FormChanged Form.Model
 
 
 type alias RouteParams =
@@ -170,18 +173,62 @@ form =
         |> Form.field "checkbox" Field.checkbox
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : RouteBuilder.StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
         , data = data
         , action = action
         }
-        |> RouteBuilder.buildNoState { view = view }
+        |> RouteBuilder.buildWithLocalState
+            { view = view
+            , init = init
+            , update = update
+            , subscriptions = subscriptions
+            }
+        |> RouteBuilder.withOnFormChange FormChanged
 
 
 type alias Data =
     {}
+
+
+init :
+    App Data ActionData RouteParams
+    -> Shared.Model
+    -> ( Model, Effect.Effect Msg )
+init app shared =
+    ( { formChangeCount = 0 }
+    , Effect.none
+    )
+
+
+update :
+    App Data ActionData RouteParams
+    -> Shared.Model
+    -> Msg
+    -> Model
+    -> ( Model, Effect.Effect Msg )
+update app shared msg model =
+    case msg of
+        FormChanged formModel ->
+            ( { model | formChangeCount = model.formChangeCount + 1 }
+            , Effect.SetField
+                { formId = "user-form"
+                , name = "first"
+                , value = model.formChangeCount |> String.fromInt
+                }
+            )
+
+
+subscriptions :
+    RouteParams
+    -> UrlPath.UrlPath
+    -> Shared.Model
+    -> Model
+    -> Sub Msg
+subscriptions routeParams path shared model =
+    Sub.none
 
 
 data : RouteParams -> Request -> BackendTask FatalError (Server.Response.Response Data ErrorPage)
@@ -220,8 +267,9 @@ head static =
 view :
     App Data ActionData RouteParams
     -> Shared.Model
+    -> Model
     -> View (PagesMsg Msg)
-view app shared =
+view app shared model =
     let
         user : User
         user =
@@ -243,6 +291,12 @@ view app shared =
                         ]
                 )
             |> Maybe.withDefault (Html.p [] [])
+        , Html.p
+            [ Attr.style "padding" "10px"
+            , Attr.style "background-color" "#e0e0ff"
+            ]
+            [ Html.text <| "Form changed " ++ String.fromInt model.formChangeCount ++ " times"
+            ]
         , Html.h1
             []
             [ Html.text <| "Edit profile " ++ user.first ++ " " ++ user.last ]

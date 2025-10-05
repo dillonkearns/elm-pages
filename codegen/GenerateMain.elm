@@ -18,6 +18,7 @@ import Gen.Debug
 import Gen.Dict
 import Gen.Effect
 import Gen.ErrorPage
+import Gen.Form
 import Gen.Head
 import Gen.Html
 import Gen.Json.Decode
@@ -78,6 +79,7 @@ otherFile routes phaseString =
             , data = dataForRoute.value
             , action = action.value
             , onActionData = onActionData.value
+            , onFormChange = onFormChange.value
             , view = view.value
             , handleRoute = handleRoute.value
             , getStaticRoutes =
@@ -500,6 +502,38 @@ otherFile routes phaseString =
                                         )
                                 )
                         )
+                        |> Elm.withType (Type.maybe msgType.annotation)
+                )
+
+        onFormChange : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
+        onFormChange =
+            Elm.Declare.fn2 "onFormChange"
+                (Elm.Arg.varWith "maybeRoute" (Type.maybe (Type.named [ "Route" ] "Route")))
+                (Elm.Arg.varWith "formModel" Gen.Form.annotation_.model)
+                (\maybeRoute formModel ->
+                    Elm.Case.maybe maybeRoute
+                        { nothing = Elm.nothing
+                        , just =
+                            ( "justRoute"
+                            , \justRoute ->
+                                branchHelper justRoute
+                                    (\route maybeRouteParams ->
+                                        (Elm.value
+                                            { annotation = Nothing
+                                            , importFrom = "Route" :: RoutePattern.toModuleName route
+                                            , name = "route"
+                                            }
+                                            |> Elm.get "onFormChange"
+                                        )
+                                            |> Gen.Maybe.map
+                                                (\onFormChangeFn ->
+                                                    Elm.apply
+                                                        (route |> routeVariantExpression Msg)
+                                                        [ Elm.apply onFormChangeFn [ formModel ] ]
+                                                )
+                                    )
+                            )
+                        }
                         |> Elm.withType (Type.maybe msgType.annotation)
                 )
 
@@ -1961,6 +1995,7 @@ otherFile routes phaseString =
         , fooFn.declaration
         , templateSubscriptions.declaration
         , onActionData.declaration
+        , onFormChange.declaration
         , byteEncodePageData.declaration
         , byteDecodePageData.declaration
         , apiPatterns.declaration
@@ -2172,6 +2207,7 @@ make_ :
     , data : Elm.Expression
     , action : Elm.Expression
     , onActionData : Elm.Expression
+    , onFormChange : Elm.Expression
     , view : Elm.Expression
     , handleRoute : Elm.Expression
     , getStaticRoutes : Elm.Expression
@@ -2213,6 +2249,7 @@ make_ programConfig_args =
         , Tuple.pair "data" programConfig_args.data
         , Tuple.pair "action" programConfig_args.action
         , Tuple.pair "onActionData" programConfig_args.onActionData
+        , Tuple.pair "onFormChange" programConfig_args.onFormChange
         , Tuple.pair "view" programConfig_args.view
         , Tuple.pair "handleRoute" programConfig_args.handleRoute
         , Tuple.pair
