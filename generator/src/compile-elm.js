@@ -133,6 +133,12 @@ async function compileElm(options, elmEntrypointPath, outputPath, cwd) {
 
 function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
   return new Promise(async (resolve, reject) => {
+    try {
+      await fsPromises.unlink(outputPath);
+    } catch (e) {
+      /* File may not exist, so ignore errors */
+    }
+
     const subprocess = spawnCallback(
       `lamdera`,
       [
@@ -152,13 +158,6 @@ function spawnElmMake(options, elmEntrypointPath, outputPath, cwd) {
         cwd: cwd,
       }
     );
-    if (await fsHelpers.fileExists(outputPath)) {
-      try {
-        await fsPromises.unlink(outputPath, {
-          force: true /* ignore errors if file doesn't exist */,
-        });
-      } catch (e) {}
-    }
     let commandOutput = "";
 
     subprocess.stderr.on("data", function (data) {
