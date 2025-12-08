@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.0.26] - 2025-12-07
+
+### Fixed
+
+- Fix spawnElmMake race condition where the subprocess could finish before event listeners were attached. See [#543](https://github.com/dillonkearns/elm-pages/pull/543).
+
 ## [3.0.25] - 2025-09-09
 
 ### Fixed
