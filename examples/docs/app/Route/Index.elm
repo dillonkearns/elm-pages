@@ -279,7 +279,7 @@ withUserOrRedirect withUser request =
                     |> BackendTask.map List.singleton
             , options = Nothing
             }
-            (session ->
+            (\session ->
                 session
                     |> Session.get "sessionId"
                     |> Maybe.map getUserFromSession
@@ -329,10 +329,6 @@ route : RouteBuilder.StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender { data = data, action = action, head = head }
         |> RouteBuilder.buildNoState { view = view }
-
-
-type alias ActionData =
-    { errors : Form.Response String }
 
 
 view :
