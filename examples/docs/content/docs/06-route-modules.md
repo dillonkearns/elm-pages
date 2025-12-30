@@ -57,8 +57,8 @@ view :
     -> View (PagesMsg Msg)
 view app shared =
     { title = app.routeParams.slug
-    , body = [ h2 (text app.routeParams.slug)
-             , p [ text app.data.body ]
+    , body = [ h2 [] [text app.routeParams.slug]
+             , p [] [text app.data.body]
              ]
     }
 
