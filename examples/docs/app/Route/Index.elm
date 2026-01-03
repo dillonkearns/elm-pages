@@ -279,7 +279,7 @@ withUserOrRedirect withUser request =
                     |> BackendTask.map List.singleton
             , options = Nothing
             }
-            (\session ->
+            (\\session ->
                 session
                     |> Session.get "sessionId"
                     |> Maybe.map getUserFromSession
