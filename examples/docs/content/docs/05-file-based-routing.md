@@ -52,7 +52,7 @@ route =
             { view = view }
 
 
-pages : BackendTask.BackendTask (List RouteParams)
+pages : BackendTask FatalError (List RouteParams)
 pages =
     BackendTask.succeed [ { slug = "introducing-elm-pages" } ]
 ```

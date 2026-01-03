@@ -15,7 +15,7 @@ You can get the `npx` command by installing [node](https://nodejs.org). `elm-pag
 
 ## Lamdera
 
-[`elm-pages` Scripts](/docs/elm-pages-scripts) can run with the Elm compiler if the Lamdera compiler isn't installed. However, builds (`elm-pages build`) and and the dev server (`elm-pages dev`) require the Lamdera compiler to be installed.
+[`elm-pages` Scripts](/docs/elm-pages-scripts) can run with the Elm compiler if the Lamdera compiler isn't installed. However, builds (`elm-pages build`) and the dev server (`elm-pages dev`) require the Lamdera compiler to be installed.
 
 You can [install Lamdera with these instructions](https://dashboard.lamdera.app/docs/download).
 

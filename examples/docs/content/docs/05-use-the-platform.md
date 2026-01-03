@@ -4,7 +4,7 @@
 
 ## URLs
 
-The web has built-in mechanisms for state management. Often client-side applications reinvent the wheel and move state into JavaScript (or the `Model` in a a vanilla Elm app).
+The web has built-in mechanisms for state management. Often client-side applications reinvent the wheel and move state into JavaScript (or the `Model` in a vanilla Elm app).
 
 For example, you might have some implicit state if you click through some tabs or apply some filters on your current page. Let's consider a product search page with a search query and a UI with filters.
 

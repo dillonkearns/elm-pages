@@ -90,7 +90,7 @@ async function render(event, context) {
   } catch (error) {
     console.error(error);
     return {
-      body: "<body><h1>Error</h1><pre>Unexpected Error</pre></body>,
+      body: "<body><h1>Error</h1><pre>Unexpected Error</pre></body>",
       statusCode: 500,
       multiValueHeaders: {
         "Content-Type": ["text/html"],

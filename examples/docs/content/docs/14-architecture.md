@@ -202,8 +202,9 @@ action routeParams request =
 
                     Err error ->
                         BackendTask.succeed (Server.Response.render {})
-	Nothing ->
-	    BackendTask.succeed (Server.Response.render {})
+
+        Nothing ->
+            BackendTask.succeed (Server.Response.render {})
 
 
 toggleFavoriteForm : Form.HtmlForm String ToggleFavoriteForm Bool Msg

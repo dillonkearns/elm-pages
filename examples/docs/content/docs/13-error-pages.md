@@ -22,7 +22,7 @@ data routeParams =
             case maybeProfile of
             Just foundProfile ->
                 Server.Response.render
-                    { profile = profile }
+                    { profile = foundProfile }
             Nothing ->
                 Server.Response.errorPage ErrorPage.NotFound
             )
