@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-- Extend dead code elimination codemod to also stub out the `pages` function in preRender routes. This allows Elm's dead code elimination to remove server-only code referenced by `pages`, reducing client-side bundle size.
+- Extend dead code elimination codemod to also stub out the `pages` function in preRender routes. This allows Elm's dead code elimination to remove server-only code referenced by `pages`, reducing client-side bundle size (see [#544](https://github.com/dillonkearns/elm-pages/pull/544)).
+- [Updated NPM dependencies]([https://github.com/dillonkearns/elm-pages/commit/f390a7e192ab653730743b56b7b546ebe2e13742](https://github.com/dillonkearns/elm-pages/pull/545)).
 
 ## [3.0.26] - 2025-12-07
 
