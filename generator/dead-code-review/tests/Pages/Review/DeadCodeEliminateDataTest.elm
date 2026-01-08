@@ -311,7 +311,7 @@ route =
     RouteBuilder.preRender
         { data = data
         , head = head
-        , pages = pages
+        , pages = BackendTask.fail (FatalError.fromString "")
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -366,7 +366,7 @@ route =
     RouteBuilder.preRender
         { data = \\_ -> BackendTask.fail (FatalError.fromString "")
         , head = head
-        , pages = pages
+        , pages = BackendTask.fail (FatalError.fromString "")
         }
         |> RouteBuilder.buildNoState { view = view }
 
@@ -374,6 +374,109 @@ route =
 data : BackendTask Data
 data =
     BackendTask.succeed ()
+"""
+                        ]
+        , test "replaces pages record setter in preRender" <|
+            \() ->
+                """module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
+
+import Server.Request as Request
+
+import BackendTask exposing (BackendTask)
+import FatalError
+import RouteBuilder exposing (Page, App)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
+import UrlPath
+import Route exposing (Route)
+import Shared
+import View exposing (View)
+
+
+type alias Model =
+   {}
+
+
+type alias Msg =
+   ()
+
+
+type alias RouteParams =
+    { slug : String }
+
+
+type alias Data =
+   ()
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.preRender
+        { data = \\_ -> BackendTask.fail (FatalError.fromString "")
+        , head = head
+        , pages = pages
+        }
+        |> RouteBuilder.buildNoState { view = view }
+
+
+pages : BackendTask (List RouteParams)
+pages =
+    BackendTask.succeed [ { slug = "hello" } ]
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Codemod"
+                            , details =
+                                [ "" ]
+                            , under =
+                                """pages = pages
+        }"""
+                            }
+                            |> Review.Test.whenFixed
+                                """module Route.Blog.Slug_ exposing (Data, Model, Msg, route)
+
+import Server.Request as Request
+
+import BackendTask exposing (BackendTask)
+import FatalError
+import RouteBuilder exposing (Page, App)
+import Pages.PageUrl exposing (PageUrl)
+import Pages.Url
+import UrlPath
+import Route exposing (Route)
+import Shared
+import View exposing (View)
+
+
+type alias Model =
+   {}
+
+
+type alias Msg =
+   ()
+
+
+type alias RouteParams =
+    { slug : String }
+
+
+type alias Data =
+   ()
+
+
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.preRender
+        { data = \\_ -> BackendTask.fail (FatalError.fromString "")
+        , head = head
+        , pages = BackendTask.fail (FatalError.fromString "")}
+        |> RouteBuilder.buildNoState { view = view }
+
+
+pages : BackendTask (List RouteParams)
+pages =
+    BackendTask.succeed [ { slug = "hello" } ]
 """
                         ]
         , test "replaces data record setter with RouteBuilder.serverRendered" <|
