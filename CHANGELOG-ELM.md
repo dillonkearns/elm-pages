@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Add `File.binaryFile`, for reading binary files.
+- Allow using `elm-codegen` version `6`.
 
 ## [10.2.2] - 2025-06-10
 
