@@ -31,7 +31,7 @@
             "elm-community/result-extra": "2.4.0",
             "jluckyiv/elm-utc-date-strings": "1.0.0",
             "justinmimbs/date": "4.1.0",
-            "mdgriffith/elm-codegen": "5.2.0",
+            "mdgriffith/elm-codegen": "6.0.1",
             "miniBill/elm-codec": "2.2.0",
             "noahzgordon/elm-color-extra": "1.0.2",
             "robinheghan/fnv1a": "1.0.0",
