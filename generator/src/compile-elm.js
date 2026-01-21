@@ -8,6 +8,7 @@ import { inject } from "elm-hot";
 import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { ensureDirSync } from "./file-helpers.js";
+import { patchStaticRegions } from "./static-region-codemod.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -34,17 +35,27 @@ export async function compileElmForBrowser(options) {
     pathToClientElm,
     secretDir
   );
-  return fs.promises.writeFile(
-    "./.elm-pages/cache/elm.js",
-    inject(await fs.promises.readFile(pathToClientElm, "utf-8")).replace(
-      /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
-      "let appendSubmitter = (myFormData, event) => { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
-        (true
-          ? // TODO remove hardcoding
-            "_Json_wrap([...(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event)))])"
-          : "[...(new FormData(event.target))")
-    )
+  const rawElmCode = await fs.promises.readFile(pathToClientElm, "utf-8");
+
+  // Apply transforms in sequence:
+  // 1. elm-hot injection for development
+  // 2. Form data stringify replacement
+  // 3. Static region adoption patch
+  let transformedCode = inject(rawElmCode);
+
+  transformedCode = transformedCode.replace(
+    /return \$elm\$json\$Json\$Encode\$string\(.REPLACE_ME_WITH_FORM_TO_STRING.\)/g,
+    "let appendSubmitter = (myFormData, event) => { event.submitter && event.submitter.name && event.submitter.name.length > 0 ? myFormData.append(event.submitter.name, event.submitter.value) : myFormData;  return myFormData }; return " +
+      (true
+        ? // TODO remove hardcoding
+          "_Json_wrap([...(appendSubmitter(new FormData(_Json_unwrap(event).target), _Json_unwrap(event)))])"
+        : "[...(new FormData(event.target))")
   );
+
+  // Apply static region adoption codemod
+  transformedCode = patchStaticRegions(transformedCode);
+
+  return fs.promises.writeFile("./.elm-pages/cache/elm.js", transformedCode);
 }
 
 export async function compileCliApp(
