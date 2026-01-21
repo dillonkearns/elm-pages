@@ -14,6 +14,8 @@ import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
 import Head
+import Html as UnstyledHtml
+import Html.Attributes as UnstyledAttr
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Events exposing (onClick)
@@ -119,9 +121,11 @@ view app _ model =
                 , Html.text "The gray box below should be adopted from pre-rendered HTML."
                 ]
 
-            -- Static region - this should be adopted, not re-rendered
-            -- For now, using Html.Styled.fromUnstyled to wrap the unstyled Html
-            , View.Static.adopt "test-content" app.data.staticHtml
+            -- Static region - on server this renders the content, on client it adopts
+            -- The elm-review codemod transforms render -> adopt in the client bundle
+            , View.Static.render "test-content"
+                app.data.staticHtml
+                (staticContent ())
                 |> Html.fromUnstyled
 
             -- Dynamic region - this updates normally
@@ -174,3 +178,46 @@ view app _ model =
             ]
         ]
     }
+
+
+{-| Static content rendered on the server.
+
+This function is called during server-side rendering but is dead-code eliminated
+in the client bundle after the elm-review transformation converts
+`View.Static.render` to `View.Static.adopt`.
+
+In a real application, this could include:
+
+  - Markdown rendering
+  - Syntax highlighting
+  - Complex data transformations
+  - Heavy dependencies that shouldn't be in the client bundle
+
+-}
+staticContent : () -> UnstyledHtml.Html msg
+staticContent () =
+    UnstyledHtml.div
+        [ UnstyledAttr.style "padding" "20px"
+        , UnstyledAttr.style "background" "#f0f0f0"
+        , UnstyledAttr.style "border-radius" "8px"
+        , UnstyledAttr.style "margin" "20px 0"
+        ]
+        [ UnstyledHtml.h2
+            [ UnstyledAttr.style "color" "#333"
+            , UnstyledAttr.style "margin-top" "0"
+            ]
+            [ UnstyledHtml.text "Static Content (Server Rendered)" ]
+        , UnstyledHtml.p []
+            [ UnstyledHtml.text "This content was rendered at build time using View.Static.render." ]
+        , UnstyledHtml.p []
+            [ UnstyledHtml.text "If you see this without a flash, adoption worked!" ]
+        , UnstyledHtml.ul []
+            [ UnstyledHtml.li [] [ UnstyledHtml.text "Item 1 - rendered on server" ]
+            , UnstyledHtml.li [] [ UnstyledHtml.text "Item 2 - adopted by virtual-dom" ]
+            , UnstyledHtml.li [] [ UnstyledHtml.text "Item 3 - never re-rendered on client" ]
+            ]
+        , UnstyledHtml.p []
+            [ UnstyledHtml.em []
+                [ UnstyledHtml.text "In production, this could be markdown, syntax-highlighted code, etc." ]
+            ]
+        ]
