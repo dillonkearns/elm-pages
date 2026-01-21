@@ -7,9 +7,9 @@ pre-rendered HTML for adoption by the virtual-dom.
 
 Transform:
 
-    View.Static.render "markdown" fallbackHtml content
+    View.Static.render "markdown" content
     -- becomes:
-    View.Static.adopt "markdown" fallbackHtml
+    View.Static.adopt "markdown"
 
 -}
 
@@ -76,7 +76,8 @@ expressionVisitor node context =
     case Node.value node of
         Expression.Application applicationExpressions ->
             case applicationExpressions of
-                functionNode :: idArg :: fallbackArg :: contentArg :: [] ->
+                -- View.Static.render "id" content
+                functionNode :: idArg :: contentArg :: [] ->
                     -- Check if this is View.Static.render
                     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
                         Just [ "View", "Static" ] ->
@@ -85,7 +86,7 @@ expressionVisitor node context =
                                     -- This is View.Static.render, transform it
                                     let
                                         adoptCall =
-                                            renderAdoptCall context idArg fallbackArg
+                                            renderAdoptCall context idArg
                                     in
                                     ( [ Rule.errorWithFix
                                             { message = "Static region codemod: transform render to adopt"
@@ -113,8 +114,8 @@ expressionVisitor node context =
 
 {-| Generate the View.Static.adopt call string
 -}
-renderAdoptCall : Context -> Node Expression -> Node Expression -> String
-renderAdoptCall context idArg fallbackArg =
+renderAdoptCall : Context -> Node Expression -> String
+renderAdoptCall context idArg =
     let
         modulePrefix =
             context.viewStaticAlias
@@ -123,11 +124,8 @@ renderAdoptCall context idArg fallbackArg =
 
         idStr =
             expressionToString idArg
-
-        fallbackStr =
-            expressionToString fallbackArg
     in
-    modulePrefix ++ ".adopt " ++ idStr ++ " " ++ fallbackStr
+    modulePrefix ++ ".adopt " ++ idStr
 
 
 {-| Convert an expression node back to a string representation.

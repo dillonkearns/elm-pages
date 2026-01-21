@@ -1,4 +1,5 @@
 import userInit from "/index";
+import { initStaticRegions, prefetchStaticRegions, fetchStaticRegions } from "./static-regions-client.js";
 
 let prefetchedPages;
 let initialLocationHash;
@@ -6,6 +7,9 @@ let initialLocationHash;
  * @returns
  */
 function loadContentAndInitializeApp() {
+  // Initialize static regions - on initial load, they're adopted from existing DOM
+  initStaticRegions();
+
   let path = window.location.pathname.replace(/(\w)$/, "$1/");
   if (!path.endsWith("/")) {
     path = path + "/";
@@ -23,8 +27,14 @@ function loadContentAndInitializeApp() {
     },
   });
 
-  app.ports.toJsPort.subscribe((fromElm) => {
-    loadNamedAnchor();
+  app.ports.toJsPort.subscribe(async (fromElm) => {
+    if (fromElm.tag === "FetchStaticRegions") {
+      // Fetch static regions for the given path, then notify Elm
+      await fetchStaticRegions(fromElm.path);
+      app.ports.fromJsPort.send({ tag: "StaticRegionsReady" });
+    } else {
+      loadNamedAnchor();
+    }
   });
 
   return app;
@@ -49,6 +59,9 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
     link.setAttribute("rel", "prefetch");
     link.setAttribute("href", origin + target.pathname + "/content.dat");
     document.head.appendChild(link);
+
+    // Also prefetch static regions for the page
+    prefetchStaticRegions(target.pathname);
   }
 }
 

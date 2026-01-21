@@ -106,8 +106,8 @@ view app shared =
         [ text "This is the index page."
         , div [] [ text <| "Greeting: " ++ app.data.greeting ]
         , div [] [ text <| "Greeting: " ++ app.data.portGreeting ]
-        , div [] [ text <| "Random Data: " ++ Debug.toString app.data.randomTuple ]
-        , div [] [ text <| "URL: " ++ Debug.toString app.url ]
+        --, div [] [ text <| "Random Data: " ++ Debug.toString app.data.randomTuple ]
+        --, div [] [ text <| "URL: " ++ Debug.toString app.url ]
         , div [] [ a [ href "/get-form?page=2" ] [ text "Page 2" ] ]
         , div []
             [ Route.Index |> link [] [ text "Link to Self" ] ]

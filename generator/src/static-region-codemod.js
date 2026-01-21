@@ -7,77 +7,73 @@
  * The patch intercepts the thunk (lazy) rendering to:
  * 1. Detect thunks with a StaticId marker in their refs
  * 2. On initial load: adopt existing DOM nodes with matching data-static attribute
- * 3. On SPA navigation: parse HTML strings into DOM nodes
+ * 3. On SPA navigation: parse HTML strings from window.__ELM_PAGES_STATIC_REGIONS__
  *
  * This enables dead-code elimination of static content dependencies (markdown parsers, etc.)
  * while preserving server-rendered HTML.
  */
 
 /**
- * The code to inject that handles static region adoption.
- * This gets called inside the thunk rendering case.
+ * Inlined static region handling code for the thunk render patch.
+ * This gets inserted directly in the tag === 5 (THUNK) case.
  */
-const STATIC_REGION_HANDLER = `
-// Static region adoption handler
-function _VirtualDom_handleStaticRegion(vNode, refs, eventNode) {
-    // refs[0] is the function, refs[1] is StaticId, refs[2] is the HTML fallback string
-    var staticId = refs[1];
-    var htmlFallback = refs[2] || '';
-
-    // Extract the ID string from the StaticId wrapper
-    // StaticId is a custom type, so it's { $: 'StaticId', a: 'the-id-string' }
-    var id = staticId.a;
-
-    // Case 1: Initial page load - try to adopt existing DOM
-    var existingDom = document.querySelector('[data-static="' + id + '"]');
-    if (existingDom) {
-        // Detach from old tree so it can be adopted into new tree
-        if (existingDom.parentNode) {
-            existingDom.parentNode.removeChild(existingDom);
+const STATIC_REGION_INLINE_CHECK = `
+    // Static region adoption: check if this thunk is for a static region
+    // In debug mode: refs[1].$ === 'StaticId' (string variant name)
+    // In optimized mode: refs[1].$ === 0 (numeric variant index)
+    var __staticRefs = vNode.l;
+    var __isStaticRegion = __staticRefs && __staticRefs.length >= 2 && __staticRefs[1] &&
+        (__staticRefs[1].$ === 'StaticId' || __staticRefs[1].$ === 0) &&
+        typeof __staticRefs[1].a === 'string';
+    if (__isStaticRegion) {
+        var __staticId = __staticRefs[1].a;
+        var __existingDom = document.querySelector('[data-static="' + __staticId + '"]');
+        if (__existingDom) {
+            if (__existingDom.parentNode) __existingDom.parentNode.removeChild(__existingDom);
+            vNode.k = _VirtualDom_virtualize(__existingDom);
+            return __existingDom;
         }
-        // Store virtualized version for future diff comparisons
-        // (though with stable refs, this should never actually be diffed)
-        vNode.k = _VirtualDom_virtualize(existingDom);
-        return existingDom;
-    }
-
-    // Case 2: SPA navigation - parse HTML string into DOM
-    if (htmlFallback && htmlFallback.length > 0) {
-        var template = document.createElement('template');
-        template.innerHTML = htmlFallback;
-        var newDom = template.content.firstElementChild;
-        if (newDom) {
-            vNode.k = _VirtualDom_virtualize(newDom);
-            return newDom;
+        var __htmlFallback = (window.__ELM_PAGES_STATIC_REGIONS__ || {})[__staticId] || '';
+        if (__htmlFallback && __htmlFallback.length > 0) {
+            var __template = document.createElement('template');
+            __template.innerHTML = __htmlFallback;
+            var __newDom = __template.content.firstElementChild;
+            if (__newDom) {
+                vNode.k = _VirtualDom_virtualize(__newDom);
+                return __newDom;
+            }
         }
+        var __placeholder = document.createElement('div');
+        __placeholder.setAttribute('data-static', __staticId);
+        __placeholder.textContent = 'Loading static region...';
+        return __placeholder;
     }
-
-    // Case 3: Fallback - return empty text node (shouldn't happen in practice)
-    console.warn('Static region "' + id + '" had no existing DOM and no HTML fallback');
-    return document.createTextNode('');
-}
-
-// Check if a thunk's refs indicate it's a static region
-function _VirtualDom_isStaticRegion(refs) {
-    return refs && refs.length >= 2 && refs[1] && refs[1].$ === 'StaticId';
-}
-
-// Compare refs with special handling for StaticId (which creates new objects each render)
-function _VirtualDom_staticRegionRefsEqual(xRefs, yRefs) {
-    if (xRefs.length !== yRefs.length) return false;
-    for (var i = 0; i < xRefs.length; i++) {
-        var x = xRefs[i];
-        var y = yRefs[i];
-        // Special case for StaticId - compare by inner value, not reference
-        if (x && y && x.$ === 'StaticId' && y.$ === 'StaticId') {
-            if (x.a !== y.a) return false;
-        } else if (x !== y) {
-            return false;
-        }
-    }
-    return true;
-}
 `;
+
+/**
+ * Inlined static region refs comparison for thunk diffing.
+ */
+const STATIC_REGION_DIFF_CHECK = `
+    // Static region: check if refs have StaticId for value comparison
+    // In debug mode: $ === 'StaticId', in optimized mode: $ === 0
+    var __xIsStatic = xRefs && xRefs.length >= 2 && xRefs[1] && (xRefs[1].$ === 'StaticId' || xRefs[1].$ === 0);
+    var __yIsStatic = yRefs && yRefs.length >= 2 && yRefs[1] && (yRefs[1].$ === 'StaticId' || yRefs[1].$ === 0);
+    if (__xIsStatic && __yIsStatic) {
+        // Compare StaticId by value
+        same = xRefs.length === yRefs.length;
+        if (same) {
+            for (var __i = 0; __i < xRefs.length && same; __i++) {
+                var __x = xRefs[__i], __y = yRefs[__i];
+                var __xIsStaticId = __x && (__x.$ === 'StaticId' || __x.$ === 0);
+                var __yIsStaticId = __y && (__y.$ === 'StaticId' || __y.$ === 0);
+                if (__xIsStaticId && __yIsStaticId) {
+                    same = __x.a === __y.a;
+                } else {
+                    same = __x === __y;
+                }
+            }
+        }
+    } else `;
 
 /**
  * Patches the thunk rendering code in the compiled Elm output.
@@ -105,23 +101,7 @@ function _VirtualDom_staticRegionRefsEqual(xRefs, yRefs) {
  * - vNode.m = thunk function (__thunk)
  */
 export function patchStaticRegions(elmCode) {
-  // First, inject our helper functions near the top of the file
-  // We'll add them after the initial variable declarations
-  const helperInjectionPoint = elmCode.indexOf('function _VirtualDom_');
-  if (helperInjectionPoint === -1) {
-    console.warn('Could not find VirtualDom functions to inject static region handler');
-    return elmCode;
-  }
-
-  const codeWithHelpers =
-    elmCode.slice(0, helperInjectionPoint) +
-    STATIC_REGION_HANDLER + '\n' +
-    elmCode.slice(helperInjectionPoint);
-
-  // Now patch the thunk rendering case
-  // We need to handle multiple possible patterns based on compilation mode
-
-  let patchedCode = codeWithHelpers;
+  let patchedCode = elmCode;
   let patched = false;
 
   // Pattern 1: Standard debug/development mode
@@ -130,10 +110,7 @@ export function patchStaticRegions(elmCode) {
 
   if (debugPattern.test(patchedCode)) {
     patchedCode = patchedCode.replace(debugPattern,
-      `$1
-    if (_VirtualDom_isStaticRegion(vNode.l)) {
-      return _VirtualDom_handleStaticRegion(vNode, vNode.l, eventNode);
-    }
+      `$1${STATIC_REGION_INLINE_CHECK}
     $2`
     );
     patched = true;
@@ -147,13 +124,10 @@ export function patchStaticRegions(elmCode) {
     if (elmHotPattern.test(patchedCode)) {
       patchedCode = patchedCode.replace(elmHotPattern, (match, condition, body) => {
         // Check if we already patched it
-        if (body.includes('_VirtualDom_isStaticRegion')) {
+        if (body.includes('__staticRefs')) {
           return match;
         }
-        return `${condition} {
-    if (_VirtualDom_isStaticRegion(vNode.l)) {
-      return _VirtualDom_handleStaticRegion(vNode, vNode.l, eventNode);
-    }
+        return `${condition} {${STATIC_REGION_INLINE_CHECK}
     ${body.trim()}
   }`;
       });
@@ -171,7 +145,7 @@ export function patchStaticRegions(elmCode) {
 
     if (generalPattern.test(patchedCode)) {
       patchedCode = patchedCode.replace(generalPattern,
-        `$1if (_VirtualDom_isStaticRegion(vNode.l)) { return _VirtualDom_handleStaticRegion(vNode, vNode.l, eventNode); }
+        `$1${STATIC_REGION_INLINE_CHECK}
     $2`
       );
       patched = true;
@@ -223,10 +197,7 @@ function patchThunkDiffing(elmCode) {
 
   if (diffPattern.test(elmCode)) {
     elmCode = elmCode.replace(diffPattern, (match, prefix, comparison) => {
-      return `${prefix}// Static region: use value comparison for StaticId
-			if (_VirtualDom_isStaticRegion(xRefs) && _VirtualDom_isStaticRegion(yRefs)) {
-				var same = _VirtualDom_staticRegionRefsEqual(xRefs, yRefs);
-			} else {
+      return `${prefix}${STATIC_REGION_DIFF_CHECK}{
 				${comparison}
 			}`;
     });
@@ -240,9 +211,7 @@ function patchThunkDiffing(elmCode) {
 
   if (fallbackPattern.test(elmCode)) {
     elmCode = elmCode.replace(fallbackPattern, (match, prefix, whileLoop) => {
-      return `${prefix}if (_VirtualDom_isStaticRegion(xRefs) && _VirtualDom_isStaticRegion(yRefs)) {
-				same = _VirtualDom_staticRegionRefsEqual(xRefs, yRefs);
-			} else {
+      return `${prefix}${STATIC_REGION_DIFF_CHECK}{
 				${whileLoop}
 			}`;
     });

@@ -345,10 +345,10 @@ globTestCase { glob, name, expected } =
                 test name <|
                     \() ->
                         actual
-                            |> List.sortBy Debug.toString
+                            |> identity
                             |> Expect.equalLists
                                 (expected
-                                    |> List.sortBy Debug.toString
+                                    |> identity
                                 )
              --if actual == expected then
              --    --Ok ()
@@ -383,10 +383,10 @@ testDir { glob, name, expectedDirs, expectedFiles } =
                 test name <|
                     \() ->
                         actual
-                            |> List.sortBy Debug.toString
+                            |> identity
                             |> Expect.equalLists
                                 (expectedDirs
-                                    |> List.sortBy Debug.toString
+                                    |> identity
                                 )
              --if actual == expectedDirs then
              --    Ok ()

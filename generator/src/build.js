@@ -1,6 +1,7 @@
 import * as fs from "./dir-helpers.js";
 import * as fsPromises from "fs/promises";
 import { runElmReview } from "./compile-elm.js";
+import { patchStaticRegions } from "./static-region-codemod.js";
 import { restoreColorSafe } from "./error-formatter.js";
 import * as path from "path";
 import { spawn as spawnCallback } from "cross-spawn";
@@ -422,9 +423,23 @@ async function compileElm(options) {
     path.join(process.cwd(), "./elm-stuff/elm-pages/client")
   );
 
+  // Apply static region adoption codemod to patch virtual-dom
+  const elmCode = await fsPromises.readFile(fullOutputPath, "utf-8");
+  const patchedCode = patchStaticRegions(elmCode);
+  await fsPromises.writeFile(fullOutputPath, patchedCode);
+
+  // Debug: check if codemod was applied
+  const hasHandler = patchedCode.includes("__staticRefs");
+  console.log(`Static region handler in patched code: ${hasHandler}`);
+
   if (!options.debug) {
     await runTerser(fullOutputPath);
   }
+
+  // Debug: check if handler survived terser
+  const terserResult = await fsPromises.readFile(fullOutputPath, "utf-8");
+  const hasHandlerAfterTerser = terserResult.includes("__staticRefs") || terserResult.includes("data-static");
+  console.log(`Static region handler after terser: ${hasHandlerAfterTerser}`);
 }
 
 async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
@@ -618,7 +633,7 @@ export async function runTerser(filePath) {
         unsafe: true,
         passes: 2,
       },
-      mangle: true,
+      mangle: {},
     }
   );
   if (minifiedElm.code) {

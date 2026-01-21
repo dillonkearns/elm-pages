@@ -5,7 +5,7 @@ module Route.StaticRegionTest exposing (ActionData, Data, Model, Msg, route)
 This route demonstrates:
 
 1.  Pre-rendered static HTML being adopted on initial page load
-2.  SPA navigation working with HTML string parsing
+2.  SPA navigation working with HTML from static-regions.dat
 3.  Dynamic content updating normally alongside static regions
 
 -}
@@ -60,28 +60,15 @@ route =
 
 
 type alias Data =
-    { staticHtml : String
-    , timestamp : String
+    { timestamp : String
     }
 
 
 data : BackendTask FatalError Data
 data =
-    -- In a real scenario, this would render markdown, syntax highlight code, etc.
-    -- For the POC, we hardcode HTML that would normally be generated at build time.
+    -- No more staticHtml in Data - it's automatically extracted from rendered output!
     BackendTask.succeed
-        { staticHtml = """<div data-static="test-content" style="padding: 20px; background: #f0f0f0; border-radius: 8px; margin: 20px 0;">
-            <h2 style="color: #333; margin-top: 0;">Static Content (Adopted)</h2>
-            <p>This content was pre-rendered at build time.</p>
-            <p>If you see this without a flash, adoption worked!</p>
-            <ul>
-                <li>Item 1 - rendered on server</li>
-                <li>Item 2 - adopted by virtual-dom</li>
-                <li>Item 3 - never re-rendered on client</li>
-            </ul>
-            <p><em>In production, this could be markdown, syntax-highlighted code, etc.</em></p>
-        </div>"""
-        , timestamp = "Build time: 2024-01-01T00:00:00Z"
+        { timestamp = "Build time: 2024-01-01T00:00:00Z"
         }
 
 
@@ -121,11 +108,11 @@ view app _ model =
                 , Html.text "The gray box below should be adopted from pre-rendered HTML."
                 ]
 
-            -- Static region - on server this renders the content, on client it adopts
-            -- The elm-review codemod transforms render -> adopt in the client bundle
-            , View.Static.render "test-content"
-                app.data.staticHtml
-                (staticContent ())
+            -- Static region - simplified API!
+            -- Server: renders staticContent with data-static wrapper
+            -- Client: transforms to View.Static.adopt "test-content"
+            -- SPA nav: HTML comes from static-regions.dat
+            , View.Static.render "test-content" (staticContent ())
                 |> Html.fromUnstyled
 
             -- Dynamic region - this updates normally

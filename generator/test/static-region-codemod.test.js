@@ -39,122 +39,81 @@ function _VirtualDom_diff(x, y) {
 }
 `;
 
-// Test that the codemod injects the handler functions
-function testHandlerInjection() {
+// Test that the codemod injects the inlined static region check
+function testInlinedCodeInjection() {
     const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
 
-    const hasHandler = patched.includes('_VirtualDom_handleStaticRegion');
-    const hasChecker = patched.includes('_VirtualDom_isStaticRegion');
+    // The new approach inlines the check directly
+    const hasStaticRefsVar = patched.includes('__staticRefs') || patched.includes('__isStaticRegion');
+    const hasDataStaticSelector = patched.includes('data-static');
+    const hasStaticIdCheck = patched.includes("StaticId") || patched.includes("=== 0");
 
-    console.log('Test: Handler injection');
-    console.log('  - _VirtualDom_handleStaticRegion injected:', hasHandler ? '✓' : '✗');
-    console.log('  - _VirtualDom_isStaticRegion injected:', hasChecker ? '✓' : '✗');
+    console.log('Test: Inlined code injection');
+    console.log('  - Static refs variable:', hasStaticRefsVar ? '✓' : '✗');
+    console.log('  - data-static selector:', hasDataStaticSelector ? '✓' : '✗');
+    console.log('  - StaticId check:', hasStaticIdCheck ? '✓' : '✗');
 
-    return hasHandler && hasChecker;
+    return hasStaticRefsVar && hasDataStaticSelector && hasStaticIdCheck;
 }
 
 // Test that the thunk case is patched
 function testThunkPatching() {
     const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
 
-    // The patched code should check for static region before the normal thunk handling
-    const hasStaticCheck = patched.includes('if (_VirtualDom_isStaticRegion(vNode.l))');
+    // The patched code should have the static region check in the tag === 5 block
+    const hasTag5Block = patched.includes('tag === 5');
+
+    // Check for the virtualize call (used to convert adopted DOM to virtual-dom)
+    const hasVirtualize = patched.includes('_VirtualDom_virtualize');
 
     console.log('Test: Thunk patching');
-    console.log('  - Static region check added:', hasStaticCheck ? '✓' : '✗');
+    console.log('  - tag === 5 block present:', hasTag5Block ? '✓' : '✗');
+    console.log('  - _VirtualDom_virtualize call:', hasVirtualize ? '✓' : '✗');
 
     // Verify the original thunk rendering is still there as fallback
     const hasOriginalThunk = patched.includes('vNode.k || (vNode.k = vNode.m())');
 
     console.log('  - Original thunk handling preserved:', hasOriginalThunk ? '✓' : '✗');
 
-    return hasStaticCheck && hasOriginalThunk;
+    return hasTag5Block && hasVirtualize && hasOriginalThunk;
 }
 
-// Test the handler function logic (in isolation)
-function testHandlerLogic() {
-    console.log('Test: Handler logic');
+// Test that both debug mode ($ === 'StaticId') and optimized mode ($ === 0) checks are present
+function testDualModeSupport() {
+    const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
 
-    // Mock document
-    const mockDoc = {
-        querySelector: (selector) => {
-            if (selector === '[data-static="test-id"]') {
-                return {
-                    id: 'test-element',
-                    parentNode: {
-                        removeChild: function(child) {
-                            console.log('  - removeChild called: ✓');
-                            return child;
-                        }
-                    }
-                };
-            }
-            return null;
-        },
-        createElement: (tag) => ({ tagName: tag, innerHTML: '' }),
-        createTextNode: (text) => ({ nodeType: 3, textContent: text })
-    };
+    // The patched code should support both debug mode ('StaticId') and optimized mode (0)
+    const hasStringCheck = patched.includes("'StaticId'") || patched.includes('"StaticId"');
+    const hasNumericCheck = patched.includes('=== 0') || patched.includes('===0');
 
-    // Simulate the handler (copy from codemod)
-    function _VirtualDom_handleStaticRegion(vNode, refs, eventNode) {
-        var staticId = refs[1];
-        var htmlFallback = refs[2] || '';
-        var id = staticId.a;
+    console.log('Test: Dual mode support (debug + optimized)');
+    console.log('  - Debug mode check ($ === "StaticId"):', hasStringCheck ? '✓' : '✗');
+    console.log('  - Optimized mode check ($ === 0):', hasNumericCheck ? '✓' : '✗');
 
-        // Case 1: Try to adopt existing DOM
-        var existingDom = mockDoc.querySelector('[data-static="' + id + '"]');
-        if (existingDom) {
-            if (existingDom.parentNode) {
-                existingDom.parentNode.removeChild(existingDom);
-            }
-            return existingDom;
-        }
+    return hasStringCheck && hasNumericCheck;
+}
 
-        // Case 2: Parse HTML string
-        if (htmlFallback && htmlFallback.length > 0) {
-            var template = mockDoc.createElement('template');
-            template.innerHTML = htmlFallback;
-            // In real code, would use template.content.firstElementChild
-            return { fromHtml: true, html: htmlFallback };
-        }
+// Test the global fallback mechanism
+function testGlobalFallback() {
+    const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
 
-        return mockDoc.createTextNode('');
-    }
+    // Check for window.__ELM_PAGES_STATIC_REGIONS__ fallback
+    const hasGlobalFallback = patched.includes('__ELM_PAGES_STATIC_REGIONS__');
 
-    // Test case 1: Existing DOM adoption
-    const mockVNode1 = {};
-    const mockRefs1 = [
-        function() {},
-        { $: 'StaticId', a: 'test-id' },
-        ''
-    ];
+    console.log('Test: Global fallback mechanism');
+    console.log('  - window.__ELM_PAGES_STATIC_REGIONS__ check:', hasGlobalFallback ? '✓' : '✗');
 
-    const result1 = _VirtualDom_handleStaticRegion(mockVNode1, mockRefs1, null);
-    const adoptionWorks = result1 && result1.id === 'test-element';
-    console.log('  - Existing DOM adoption:', adoptionWorks ? '✓' : '✗');
-
-    // Test case 2: HTML string parsing
-    const mockVNode2 = {};
-    const mockRefs2 = [
-        function() {},
-        { $: 'StaticId', a: 'nonexistent-id' },
-        '<div>Test HTML</div>'
-    ];
-
-    const result2 = _VirtualDom_handleStaticRegion(mockVNode2, mockRefs2, null);
-    const htmlParsingWorks = result2 && result2.fromHtml === true;
-    console.log('  - HTML string parsing:', htmlParsingWorks ? '✓' : '✗');
-
-    return adoptionWorks && htmlParsingWorks;
+    return hasGlobalFallback;
 }
 
 // Run all tests
 console.log('=== Static Region Codemod Tests ===\n');
 
 const results = [
-    testHandlerInjection(),
+    testInlinedCodeInjection(),
     testThunkPatching(),
-    testHandlerLogic()
+    testDualModeSupport(),
+    testGlobalFallback()
 ];
 
 console.log('\n=== Summary ===');

@@ -271,6 +271,7 @@ init config flags url key =
                     , pageFormState = Dict.empty
                     , pendingRedirect = False
                     , pendingData = Nothing
+                    , pendingStaticRegionsPath = Nothing
                     }
             in
             ( { initialModel
@@ -293,6 +294,7 @@ init config flags url key =
               , pageFormState = Dict.empty
               , pendingRedirect = False
               , pendingData = Nothing
+              , pendingStaticRegionsPath = Nothing
               }
             , NoEffect
             )
@@ -314,6 +316,7 @@ init config flags url key =
               , pageFormState = Dict.empty
               , pendingRedirect = False
               , pendingData = Nothing
+              , pendingStaticRegionsPath = Nothing
               }
             , NoEffect
             )
@@ -333,6 +336,8 @@ type Msg userMsg pageData actionData sharedData errorPage
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse Int (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
+    | StaticRegionsReady
+    | NoOp
 
 
 type ActionDataOrRedirect action
@@ -362,6 +367,7 @@ type alias Model userModel pageData actionData sharedData =
     , pageFormState : Form.Model
     , pendingRedirect : Bool
     , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
+    , pendingStaticRegionsPath : Maybe String
     }
 
 
@@ -379,6 +385,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | UserCmd userEffect
     | CancelRequest Int
     | RunCmd (Cmd (Msg userMsg pageData actionData sharedData errorPage))
+    | FetchStaticRegions String
 
 
 {-| -}
@@ -634,6 +641,24 @@ update config appMsg model =
                                         Nothing
                           }
                         , BrowserReplaceUrl newUrl.path
+                        )
+
+                    else if model.pendingStaticRegionsPath == Just newUrl.path then
+                        -- Static regions are still being fetched, store data and wait
+                        let
+                            ( newPageData, newSharedData, newActionData ) =
+                                case newData of
+                                    ResponseSketch.RenderPage pageData actionData ->
+                                        ( pageData, previousPageData.sharedData, actionData )
+
+                                    ResponseSketch.HotUpdate pageData sharedData actionData ->
+                                        ( pageData, sharedData, actionData )
+
+                                    _ ->
+                                        ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
+                        in
+                        ( { model | pendingData = Just ( newPageData, newSharedData, newActionData ) }
+                        , NoEffect
                         )
 
                     else
@@ -905,6 +930,44 @@ update config appMsg model =
             , NoEffect
             )
 
+        StaticRegionsReady ->
+            case ( model.pendingData, model.pendingStaticRegionsPath ) of
+                ( Just pendingDataTuple, Just pendingPath ) ->
+                    -- Static regions are ready and we have page data waiting
+                    let
+                        newUrl : Url
+                        newUrl =
+                            { protocol = model.url.protocol
+                            , host = model.url.host
+                            , port_ = model.url.port_
+                            , path = pendingPath
+                            , query = model.url.query
+                            , fragment = model.url.fragment
+                            }
+
+                        clearedModel : Model userModel pageData actionData sharedData
+                        clearedModel =
+                            { model
+                                | pendingData = Nothing
+                                , pendingStaticRegionsPath = Nothing
+                            }
+                    in
+                    loadDataAndUpdateUrl
+                        pendingDataTuple
+                        Nothing
+                        newUrl
+                        newUrl
+                        False
+                        config
+                        clearedModel
+
+                _ ->
+                    -- Static regions ready but no page data yet - just clear the pending flag
+                    ( { model | pendingStaticRegionsPath = Nothing }, NoEffect )
+
+        NoOp ->
+            ( model, NoEffect )
+
 
 toFetcherState : Dict String ( Int, Pages.ConcurrentSubmission.ConcurrentSubmission actionData ) -> Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission actionData)
 toFetcherState inFlightFetchers =
@@ -1039,6 +1102,14 @@ perform config model effect =
 
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
+
+        FetchStaticRegions path ->
+            Json.Encode.object
+                [ ( "tag", Json.Encode.string "FetchStaticRegions" )
+                , ( "path", Json.Encode.string path )
+                ]
+                |> config.toJsPort
+                |> Cmd.map never
 
 
 startFetcher : String -> Int -> { fields : List ( String, String ), url : Maybe String, decoder : Result error Bytes -> value, headers : List ( String, String ) } -> Model userModel pageData actionData sharedData -> Cmd (Msg value pageData actionData sharedData errorPage)
@@ -1238,6 +1309,21 @@ application config =
                 update config msg model |> Tuple.mapSecond (perform config model)
         , subscriptions =
             \model ->
+                let
+                    fromJsSub : Sub (Msg userMsg pageData actionData sharedData errorPage)
+                    fromJsSub =
+                        config.fromJsPort
+                            |> Sub.map
+                                (\json ->
+                                    case Decode.decodeValue (Decode.field "tag" Decode.string) json of
+                                        Ok "StaticRegionsReady" ->
+                                            StaticRegionsReady
+
+                                        _ ->
+                                            -- Ignore unknown messages
+                                            NoOp
+                                )
+                in
                 case model.pageData of
                     Ok pageData ->
                         let
@@ -1252,11 +1338,15 @@ application config =
                                 |> Sub.map (Pages.Internal.Msg.UserMsg >> UserMsg)
                             , config.hotReloadData
                                 |> Sub.map HotReloadCompleteNew
+                            , fromJsSub
                             ]
 
                     Err _ ->
-                        config.hotReloadData
-                            |> Sub.map HotReloadCompleteNew
+                        Sub.batch
+                            [ config.hotReloadData
+                                |> Sub.map HotReloadCompleteNew
+                            , fromJsSub
+                            ]
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
@@ -1455,6 +1545,7 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
     in
     ( { model
         | nextTransitionKey = model.nextTransitionKey + 1
+        , pendingStaticRegionsPath = Just urlToGet.path
         , transition =
             ( model.nextTransitionKey
             , case model.transition of
@@ -1483,6 +1574,7 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
             Nothing
             urlToGet
             toMsg
+        , FetchStaticRegions urlToGet.path
         , cancelIfStale
         , effect
         ]

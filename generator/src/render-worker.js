@@ -4,6 +4,7 @@ import * as fs from "./dir-helpers.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { parentPort, threadId, workerData } from "node:worker_threads";
 import * as url from "node:url";
+import { extractStaticRegions } from "./extract-static-regions.js";
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
@@ -74,6 +75,17 @@ async function outputString(
           `dist/${normalizedRoute}/content.dat`,
           Buffer.from(args.contentDatPayload.buffer)
         );
+
+      // Extract and write static regions for SPA navigation
+      const staticRegions = extractStaticRegions(args.htmlString?.html || "");
+      if (Object.keys(staticRegions).length > 0) {
+        writeFileSync(
+          `dist/${normalizedRoute}/static-regions.json`,
+          JSON.stringify(staticRegions)
+        );
+        console.log(`  Extracted ${Object.keys(staticRegions).length} static region(s) for ${normalizedRoute}`);
+      }
+
       parentPort.postMessage({ tag: "done" });
       break;
     }

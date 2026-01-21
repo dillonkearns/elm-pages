@@ -292,7 +292,7 @@ view app sharedModel model =
             |> List.map
                 (\( key, item ) ->
                     Html.li []
-                        [ Html.text <| Debug.toString item
+                        [ Html.text <| "(submission)" -- Debug.toString item
                         ]
                 )
             |> Html.ul []
