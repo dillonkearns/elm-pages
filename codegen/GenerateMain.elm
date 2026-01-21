@@ -1990,13 +1990,13 @@ otherFile routes phaseString =
         , pathPatterns.declaration
         , decodeResponse.declaration
         , Elm.portIncoming "hotReloadData"
-            [ Gen.Bytes.annotation_.bytes ]
+            Gen.Bytes.annotation_.bytes
         , Elm.portOutgoing "toJsPort"
             Gen.Json.Encode.annotation_.value
         , Elm.portIncoming "fromJsPort"
-            [ Gen.Json.Decode.annotation_.value ]
+            Gen.Json.Decode.annotation_.value
         , Elm.portIncoming "gotBatchSub"
-            [ Gen.Json.Decode.annotation_.value ]
+            Gen.Json.Decode.annotation_.value
         ]
 
 

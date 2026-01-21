@@ -44,7 +44,7 @@ suite =
             \() ->
                 RoutePattern.fromModuleName [ "UserName_", "RepoName_", "Blob", "SPLAT_" ]
                     |> Maybe.map RoutePattern.toRouteParamsRecord
-                    |> Expect.equal
+                    |> expectEqualRecord
                         (Just
                             [ ( "userName", Elm.Annotation.string )
                             , ( "repoName", Elm.Annotation.string )
@@ -59,7 +59,7 @@ suite =
             \() ->
                 RoutePattern.fromModuleName [ "SPLAT__" ]
                     |> Maybe.map RoutePattern.toRouteParamsRecord
-                    |> Expect.equal
+                    |> expectEqualRecord
                         (Just
                             [ ( "splat", Elm.Annotation.list Elm.Annotation.string )
                             ]
@@ -68,7 +68,7 @@ suite =
             \() ->
                 RoutePattern.fromModuleName [ "Docs", "Section__" ]
                     |> Maybe.map RoutePattern.toRouteParamsRecord
-                    |> Expect.equal
+                    |> expectEqualRecord
                         (Just
                             [ ( "section", Elm.Annotation.maybe Elm.Annotation.string )
                             ]
@@ -197,6 +197,20 @@ suite =
                     |> Maybe.map RoutePattern.toModuleName
                     |> Expect.equal (Just moduleName)
         ]
+
+
+expectEqualRecord : Maybe (List ( String, Elm.Annotation.Annotation )) -> Maybe (List ( String, Elm.Annotation.Annotation )) -> Expectation
+expectEqualRecord l r =
+    Expect.equal
+        (Maybe.map recordToString l)
+        (Maybe.map recordToString r)
+
+
+recordToString : List ( String, Elm.Annotation.Annotation ) -> String
+recordToString fields =
+    Elm.Annotation.record fields
+        |> Elm.ToString.annotation
+        |> .signature
 
 
 routeModuleNameFuzzer : Fuzzer (List String)
