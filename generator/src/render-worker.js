@@ -66,25 +66,42 @@ async function outputString(
       const normalizedRoute = args.route.replace(/index$/, "");
       await fs.tryMkdir(`./dist/${normalizedRoute}`);
       const template = readFileSync("./dist/template.html", "utf8");
+
+      // Extract static regions from rendered HTML
+      const staticRegions = extractStaticRegions(args.htmlString?.html || "");
+
+      // Create combined format for both content.dat and embedded HTML bytes
+      // Format: [4 bytes: static regions JSON length (big-endian uint32)]
+      //         [N bytes: static regions JSON (UTF-8)]
+      //         [remaining bytes: original ResponseSketch binary]
+      if (args.contentDatPayload) {
+        const staticRegionsJson = JSON.stringify(staticRegions);
+        const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
+        const lengthBuffer = Buffer.alloc(4);
+        lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
+
+        const combinedBuffer = Buffer.concat([
+          lengthBuffer,
+          staticRegionsBuffer,
+          Buffer.from(args.contentDatPayload.buffer)
+        ]);
+
+        // Update the bytesData in htmlString to use combined format
+        // This ensures the Elm decoder can parse it on initial page load
+        args.htmlString.bytesData = combinedBuffer.toString("base64");
+
+        // Write the combined content.dat for SPA navigation
+        writeFileSync(`dist/${normalizedRoute}/content.dat`, combinedBuffer);
+
+        if (Object.keys(staticRegions).length > 0) {
+          console.log(`  Included ${Object.keys(staticRegions).length} static region(s) in content.dat for ${normalizedRoute}`);
+        }
+      }
+
       writeFileSync(
         `dist/${normalizedRoute}/index.html`,
         renderTemplate(template, fromElm)
       );
-      args.contentDatPayload &&
-        writeFileSync(
-          `dist/${normalizedRoute}/content.dat`,
-          Buffer.from(args.contentDatPayload.buffer)
-        );
-
-      // Extract and write static regions for SPA navigation
-      const staticRegions = extractStaticRegions(args.htmlString?.html || "");
-      if (Object.keys(staticRegions).length > 0) {
-        writeFileSync(
-          `dist/${normalizedRoute}/static-regions.json`,
-          JSON.stringify(staticRegions)
-        );
-        console.log(`  Extracted ${Object.keys(staticRegions).length} static region(s) for ${normalizedRoute}`);
-      }
 
       parentPort.postMessage({ tag: "done" });
       break;

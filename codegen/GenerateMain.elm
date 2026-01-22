@@ -1737,26 +1737,45 @@ otherFile routes phaseString =
                         )
                 )
 
+        -- | Decoder that skips the static regions prefix in content.dat
+        -- The format is: [4 bytes: length][N bytes: static regions JSON][remaining: ResponseSketch]
+        skipStaticRegionsPrefix : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
+        skipStaticRegionsPrefix =
+            Elm.Declare.fn "skipStaticRegionsPrefix"
+                (Elm.Arg.varWith "innerDecoder" (Gen.Bytes.Decode.annotation_.decoder (Type.var "a")))
+                (\innerDecoder ->
+                    -- Read 4 bytes as unsigned 32-bit big-endian integer (static regions JSON length)
+                    Gen.Bytes.Decode.unsignedInt32 Gen.Bytes.make_.bE
+                        |> Gen.Bytes.Decode.andThen
+                            (\staticRegionsLength ->
+                                -- Read (and discard) the static regions JSON bytes
+                                Gen.Bytes.Decode.call_.bytes staticRegionsLength
+                                    |> Gen.Bytes.Decode.andThen (\_ -> innerDecoder)
+                            )
+                )
+
         decodeResponse : Elm.Declare.Value
         decodeResponse =
             Elm.Declare.value "decodeResponse"
-                (Elm.apply
-                    (Elm.value
-                        { annotation = Nothing
-                        , name = "w3_decode_ResponseSketch"
-                        , importFrom =
-                            [ "Pages", "Internal", "ResponseSketch" ]
-                        }
+                (skipStaticRegionsPrefix.call
+                    (Elm.apply
+                        (Elm.value
+                            { annotation = Nothing
+                            , name = "w3_decode_ResponseSketch"
+                            , importFrom =
+                                [ "Pages", "Internal", "ResponseSketch" ]
+                            }
+                        )
+                        [ Elm.val "w3_decode_PageData"
+                        , Elm.val "w3_decode_ActionData"
+                        , Elm.value
+                            { annotation = Nothing
+                            , name = "w3_decode_Data"
+                            , importFrom =
+                                [ "Shared" ]
+                            }
+                        ]
                     )
-                    [ Elm.val "w3_decode_PageData"
-                    , Elm.val "w3_decode_ActionData"
-                    , Elm.value
-                        { annotation = Nothing
-                        , name = "w3_decode_Data"
-                        , importFrom =
-                            [ "Shared" ]
-                        }
-                    ]
                     |> Elm.withType
                         (Type.namedWith [ "Pages", "Internal", "ResponseSketch" ]
                             "ResponseSketch"
@@ -2008,6 +2027,7 @@ otherFile routes phaseString =
         , globalHeadTags.declaration
         , encodeResponse.declaration
         , pathPatterns.declaration
+        , skipStaticRegionsPrefix.declaration
         , decodeResponse.declaration
         , Elm.portIncoming "hotReloadData"
             Gen.Bytes.annotation_.bytes

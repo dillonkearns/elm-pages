@@ -1,5 +1,5 @@
 import userInit from "/index";
-import { initStaticRegions, prefetchStaticRegions, fetchStaticRegions } from "./static-regions-client.js";
+import { initStaticRegions, prefetchContentDat, fetchContentWithStaticRegions } from "./static-regions-client.js";
 
 let prefetchedPages;
 let initialLocationHash;
@@ -29,8 +29,9 @@ function loadContentAndInitializeApp() {
 
   app.ports.toJsPort.subscribe(async (fromElm) => {
     if (fromElm.tag === "FetchStaticRegions") {
-      // Fetch static regions for the given path, then notify Elm
-      await fetchStaticRegions(fromElm.path);
+      // Fetch content.dat which contains both static regions and page data
+      // This extracts static regions and sets window.__ELM_PAGES_STATIC_REGIONS__
+      await fetchContentWithStaticRegions(fromElm.path);
       app.ports.fromJsPort.send({ tag: "StaticRegionsReady" });
     } else {
       loadNamedAnchor();
@@ -60,8 +61,8 @@ function prefetchIfNeeded(/** @type {HTMLAnchorElement} */ target) {
     link.setAttribute("href", origin + target.pathname + "/content.dat");
     document.head.appendChild(link);
 
-    // Also prefetch static regions for the page
-    prefetchStaticRegions(target.pathname);
+    // Prefetch is handled by the content.dat link added above
+    // (content.dat now includes both page data and static regions)
   }
 }
 

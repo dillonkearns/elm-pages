@@ -26,6 +26,7 @@ import * as esbuild from "esbuild";
 import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
+import { extractStaticRegions } from "./extract-static-regions.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
 
@@ -502,11 +503,23 @@ export async function start(options) {
           const is404 = renderResult.is404;
           switch (renderResult.kind) {
             case "bytes": {
+              // Create combined format for content.dat
+              // Format: [4 bytes: static regions JSON length][N bytes: JSON][remaining: ResponseSketch]
+              const staticRegions = {}; // For bytes-only requests, no HTML to extract from
+              const staticRegionsJson = JSON.stringify(staticRegions);
+              const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
+              const lengthBuffer = Buffer.alloc(4);
+              lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
+              const combinedBuffer = Buffer.concat([
+                lengthBuffer,
+                staticRegionsBuffer,
+                Buffer.from(renderResult.contentDatPayload.buffer)
+              ]);
               res.writeHead(is404 ? 404 : renderResult.statusCode, {
                 "Content-Type": "application/octet-stream",
                 ...renderResult.headers,
               });
-              res.end(Buffer.from(renderResult.contentDatPayload.buffer));
+              res.end(combinedBuffer);
               break;
             }
             case "json": {
@@ -527,11 +540,28 @@ export async function start(options) {
                   template
                 );
                 const info = renderResult.htmlString;
+
+                // Extract static regions and create combined format for bytesData
+                const staticRegions = extractStaticRegions(info.html || "");
+                const staticRegionsJson = JSON.stringify(staticRegions);
+                const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
+                const lengthBuffer = Buffer.alloc(4);
+                lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
+
+                // Decode original bytesData and prepend static regions
+                const originalBytes = Buffer.from(info.bytesData, 'base64');
+                const combinedBuffer = Buffer.concat([
+                  lengthBuffer,
+                  staticRegionsBuffer,
+                  originalBytes
+                ]);
+                const combinedBytesData = combinedBuffer.toString('base64');
+
                 const renderedHtml = processedTemplate
                   .replace(
                     /<!--\s*PLACEHOLDER_HEAD_AND_DATA\s*-->/,
                     `${info.headTags}
-                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${info.bytesData}</script>`
+                  <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${combinedBytesData}</script>`
                   )
                   .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
                   .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
