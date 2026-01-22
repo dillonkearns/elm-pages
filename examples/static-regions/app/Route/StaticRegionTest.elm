@@ -1,11 +1,11 @@
-module Route.StaticRegionTest exposing (ActionData, Data, Model, Msg, route)
+module Route.StaticRegionTest exposing (ActionData, Data, Model, Msg, route, staticContent)
 
 {-| Test route for static region adoption.
 
 This route demonstrates:
 
 1.  Pre-rendered static HTML being adopted on initial page load
-2.  SPA navigation working with HTML from static-regions.dat
+2.  SPA navigation working with HTML from static-regions.json
 3.  Dynamic content updating normally alongside static regions
 
 -}
@@ -14,8 +14,6 @@ import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
 import Head
-import Html as UnstyledHtml
-import Html.Attributes as UnstyledAttr
 import Html.Styled as Html exposing (Html)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Events exposing (onClick)
@@ -108,12 +106,13 @@ view app _ model =
                 , Html.text "The gray box below should be adopted from pre-rendered HTML."
                 ]
 
-            -- Static region - simplified API!
-            -- Server: renders staticContent with data-static wrapper
-            -- Client: transforms to View.Static.adopt "test-content"
-            -- SPA nav: HTML comes from static-regions.dat
-            , View.Static.render "test-content" (staticContent ())
-                |> Html.fromUnstyled
+            -- Static region - new API!
+            -- For now, using renderStatic with manual ID.
+            -- After build-time transformation is implemented:
+            --   `staticContent : () -> View.Static` will be transformed to
+            --   `staticContent _ = View.Static.adopt "hash"` and we'll use
+            --   `View.embedStatic (staticContent ())` instead.
+            , View.renderStatic "test-content" (staticContent ())
 
             -- Dynamic region - this updates normally
             , Html.div
@@ -167,44 +166,47 @@ view app _ model =
     }
 
 
-{-| Static content rendered on the server.
+{-| Static content - a top-level function that returns View.Static.
 
-This function is called during server-side rendering but is dead-code eliminated
-in the client bundle after the elm-review transformation converts
-`View.Static.render` to `View.Static.adopt`.
+This function signature `() -> View.Static` tells the build system:
+1. Call this function at build time to get the HTML
+2. Hash the HTML content for the data-static ID
+3. Transform this function to return `View.Static.adopt "hash"` instead
 
 In a real application, this could include:
-
   - Markdown rendering
   - Syntax highlighting
   - Complex data transformations
   - Heavy dependencies that shouldn't be in the client bundle
 
+At runtime (after build-time transformation), this becomes:
+    staticContent _ = View.Static.adopt "a7f3b2c1" |> View.htmlToStatic
+
 -}
-staticContent : () -> UnstyledHtml.Html msg
+staticContent : () -> View.Static
 staticContent () =
-    UnstyledHtml.div
-        [ UnstyledAttr.style "padding" "20px"
-        , UnstyledAttr.style "background" "#f0f0f0"
-        , UnstyledAttr.style "border-radius" "8px"
-        , UnstyledAttr.style "margin" "20px 0"
+    Html.div
+        [ Attr.style "padding" "20px"
+        , Attr.style "background" "#f0f0f0"
+        , Attr.style "border-radius" "8px"
+        , Attr.style "margin" "20px 0"
         ]
-        [ UnstyledHtml.h2
-            [ UnstyledAttr.style "color" "#333"
-            , UnstyledAttr.style "margin-top" "0"
+        [ Html.h2
+            [ Attr.style "color" "#333"
+            , Attr.style "margin-top" "0"
             ]
-            [ UnstyledHtml.text "Static Content (Server Rendered)" ]
-        , UnstyledHtml.p []
-            [ UnstyledHtml.text "This content was rendered at build time using View.Static.render." ]
-        , UnstyledHtml.p []
-            [ UnstyledHtml.text "If you see this without a flash, adoption worked!" ]
-        , UnstyledHtml.ul []
-            [ UnstyledHtml.li [] [ UnstyledHtml.text "Item 1 - rendered on server" ]
-            , UnstyledHtml.li [] [ UnstyledHtml.text "Item 2 - adopted by virtual-dom" ]
-            , UnstyledHtml.li [] [ UnstyledHtml.text "Item 3 - never re-rendered on client" ]
+            [ Html.text "Static Content (Server Rendered)" ]
+        , Html.p []
+            [ Html.text "This content was rendered at build time." ]
+        , Html.p []
+            [ Html.text "If you see this without a flash, adoption worked!" ]
+        , Html.ul []
+            [ Html.li [] [ Html.text "Item 1 - rendered on server" ]
+            , Html.li [] [ Html.text "Item 2 - adopted by virtual-dom" ]
+            , Html.li [] [ Html.text "Item 3 - never re-rendered on client" ]
             ]
-        , UnstyledHtml.p []
-            [ UnstyledHtml.em []
-                [ UnstyledHtml.text "In production, this could be markdown, syntax-highlighted code, etc." ]
+        , Html.p []
+            [ Html.em []
+                [ Html.text "In production, this could be markdown, syntax-highlighted code, etc." ]
             ]
         ]

@@ -10,12 +10,39 @@ parsers and syntax highlighters while preserving the server-rendered HTML.
 
 ## How it works
 
-1.  At build time, `render` outputs HTML with a `data-static` attribute
-2.  The build process extracts static regions and stores them in `static-regions.dat`
-3.  The client bundle transforms `render` calls into `adopt` calls (via elm-review)
+1.  Define a top-level function: `myStaticView : () -> View.Static`
+2.  At build time, this function is called and the HTML is extracted
+3.  The function is transformed to return `adopt "hash"` (hash of HTML content)
 4.  On initial page load, `adopt` finds existing DOM with matching `data-static` attribute
-5.  On SPA navigation, `adopt` uses HTML from `static-regions.dat`
+5.  On SPA navigation, `adopt` uses HTML from `static-regions.json`
 6.  The virtual-dom "adopts" this DOM without re-rendering
+
+
+## Usage
+
+Define static content as a top-level function in your route module:
+
+    staticContent : () -> View.Static
+    staticContent () =
+        Html.div []
+            [ Markdown.toHtml markdownSource
+            , SyntaxHighlight.toHtml codeBlock
+            ]
+
+Then embed it in your view:
+
+    view app model =
+        { body =
+            [ View.embedStatic (staticContent ())
+            , dynamicContent model
+            ]
+        }
+
+At build time, `staticContent` is transformed to:
+
+    staticContent : () -> View.Static
+    staticContent _ =
+        View.Static.adopt "a7f3b2c1"
 
 @docs StaticId, adopt, render
 
@@ -38,53 +65,34 @@ type StaticId
     | StaticId_DoNotUse_PreventUnboxing Never
 
 
-{-| Render a static region. On the server, this outputs the content wrapped
-in a container with `data-static` attribute. On the client (after elm-review
-transformation), this becomes an `adopt` call.
+{-| Render static content with a data-static attribute for extraction.
+Used at build time - the HTML is extracted and stored in static-regions.json.
 
-    view : Data -> Html msg
-    view data =
-        div []
-            [ View.Static.render "markdown"
-                (Markdown.toHtml data.markdownSource)
-            , button [ onClick Increment ] [ text "+" ]
-            ]
-
-Arguments:
-
-  - `id` - Unique identifier for this static region
-  - `content` - The actual content to render (only runs on server)
-
-**Note:** The elm-review codemod transforms this to `adopt id` in the client
-bundle, so `content` is never evaluated on the client. The fallback HTML for
-SPA navigation is automatically extracted from the build output.
-
+In the final client bundle, calls to static view functions are replaced with
+`adopt`, so this function is only used during the build/server rendering phase.
 -}
-render : String -> Html msg -> Html msg
+render : String -> Html Never -> Html Never
 render id content =
-    -- On server: renders content wrapped with data-static attribute
-    -- On client (after codemod): this entire call becomes `adopt id`
     Html.div
         [ Attr.attribute "data-static" id
         ]
         [ content ]
 
 
-{-| Adopt a static region by ID. On initial page load, this will find and adopt
-existing pre-rendered DOM with `data-static="<id>"`. On SPA navigation, this will
-use HTML from the `static-regions.dat` file.
+{-| Adopt a static region by ID (hash). On initial page load, this will find
+and adopt existing pre-rendered DOM with `data-static="<id>"`. On SPA navigation,
+this will use HTML from the `static-regions.json` file.
 
-This function is typically not called directly - use `render` instead, which
-gets transformed to `adopt` by the elm-review codemod.
+This function returns `Html Never` because static content cannot produce messages.
+Use `Html.map never` or `View.embedStatic` to embed in your view.
 
-    -- After elm-review transformation, this:
-    View.Static.render "markdown" content
-
-    -- Becomes this:
-    View.Static.adopt "markdown"
+    -- A static view function after build-time transformation:
+    staticContent : () -> View.Static
+    staticContent _ =
+        View.Static.adopt "a7f3b2c1"
 
 -}
-adopt : String -> Html msg
+adopt : String -> Html Never
 adopt id =
     Html.Lazy.lazy adoptThunk (StaticId id)
 
@@ -92,7 +100,7 @@ adopt id =
 {-| Internal thunk function. This is never actually called on the client because
 the virtual-dom codemod intercepts static region thunks before they're evaluated.
 -}
-adoptThunk : StaticId -> Html msg
+adoptThunk : StaticId -> Html Never
 adoptThunk _ =
     -- This is never called in production due to the codemod intercept.
     Html.text ""
