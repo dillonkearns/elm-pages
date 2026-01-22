@@ -128,6 +128,7 @@ type alias StatefulRoute routeParams data action staticViews model msg =
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> BackendTask FatalError (Maybe NotFoundReason)
     , kind : String
     , onAction : Maybe (action -> msg)
+    , staticViewsFromData : data -> staticViews
     }
 
 
@@ -170,7 +171,7 @@ type Builder routeParams data action staticViews
             -> routeParams
             -> BackendTask FatalError (Maybe NotFoundReason)
         , kind : String
-        , staticViewsTask : Maybe (routeParams -> BackendTask FatalError staticViews)
+        , staticViewsFromData : data -> staticViews
         }
 
 
@@ -197,6 +198,7 @@ buildNoState { view } builderState =
             , handleRoute = record.handleRoute
             , kind = record.kind
             , onAction = Nothing
+            , staticViewsFromData = record.staticViewsFromData
             }
 
 
@@ -208,9 +210,10 @@ withOnAction toMsg config =
     }
 
 
-{-| Add pre-rendered static views to a route. The static views will be rendered at build time
-(or server-render time for server-rendered routes) and the rendering code will be eliminated
-from the client bundle via dead code elimination.
+{-| Add pre-rendered static views to a route. The static views are derived from the
+resolved page data and will be rendered at build time (or server-render time for
+server-rendered routes). The rendering code will be eliminated from the client bundle
+via dead code elimination.
 
     route =
         RouteBuilder.preRender
@@ -219,17 +222,15 @@ from the client bundle via dead code elimination.
             , head = head
             }
             |> RouteBuilder.withStaticViews
-                markdownBackendTask
-                (\markdown -> { content = renderMarkdown markdown })
+                (\pageData -> { content = renderMarkdown pageData.markdownBody })
             |> RouteBuilder.buildNoState { view = view }
 
 -}
 withStaticViews :
-    (routeParams -> BackendTask FatalError input)
-    -> (input -> staticViews)
+    (data -> staticViews)
     -> Builder routeParams data action {}
     -> Builder routeParams data action staticViews
-withStaticViews staticViewsData renderStaticViews (WithData record) =
+withStaticViews dataToStaticViews (WithData record) =
     WithData
         { data = record.data
         , action = record.action
@@ -252,7 +253,7 @@ withStaticViews staticViewsData renderStaticViews (WithData record) =
         , serverless = record.serverless
         , handleRoute = record.handleRoute
         , kind = record.kind
-        , staticViewsTask = Just (\routeParams -> staticViewsData routeParams |> BackendTask.map renderStaticViews)
+        , staticViewsFromData = dataToStaticViews
         }
 
 
@@ -293,6 +294,7 @@ buildWithLocalState config builderState =
             , handleRoute = record.handleRoute
             , kind = record.kind
             , onAction = Nothing
+            , staticViewsFromData = record.staticViewsFromData
             }
 
 
@@ -331,6 +333,7 @@ buildWithSharedState config builderState =
             , handleRoute = record.handleRoute
             , kind = record.kind
             , onAction = Nothing
+            , staticViewsFromData = record.staticViewsFromData
             }
 
 
@@ -349,7 +352,7 @@ single { data, head } =
         , serverless = False
         , handleRoute = \_ _ _ -> BackendTask.succeed Nothing
         , kind = "static"
-        , staticViewsTask = Nothing
+        , staticViewsFromData = \_ -> {}
         }
 
 
@@ -388,7 +391,7 @@ preRender { data, head, pages } =
                                         )
                         )
         , kind = "prerender"
-        , staticViewsTask = Nothing
+        , staticViewsFromData = \_ -> {}
         }
 
 
@@ -410,7 +413,7 @@ preRenderWithFallback { data, head, pages } =
             \moduleContext toRecord routeParams ->
                 BackendTask.succeed Nothing
         , kind = "prerender-with-fallback"
-        , staticViewsTask = Nothing
+        , staticViewsFromData = \_ -> {}
         }
 
 
@@ -436,5 +439,5 @@ serverRender { data, action, head } =
             \moduleContext toRecord routeParams ->
                 BackendTask.succeed Nothing
         , kind = "serverless"
-        , staticViewsTask = Nothing
+        , staticViewsFromData = \_ -> {}
         }

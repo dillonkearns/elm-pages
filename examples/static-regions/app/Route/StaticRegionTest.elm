@@ -43,7 +43,7 @@ type alias ActionData =
     {}
 
 
-route : StatefulRoute RouteParams Data ActionData Model Msg
+route : StatefulRoute RouteParams Data ActionData {} Model Msg
 route =
     RouteBuilder.single
         { head = head
@@ -70,12 +70,12 @@ data =
         }
 
 
-init : App Data ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
+init : App Data ActionData {} {} -> Shared.Model -> ( Model, Effect Msg )
 init _ _ =
     ( { counter = 0 }, Effect.none )
 
 
-update : App Data ActionData RouteParams -> Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
+update : App Data ActionData {} {} -> Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
 update _ _ msg model =
     case msg of
         Increment ->
@@ -90,12 +90,12 @@ subscriptions _ _ _ _ =
     Sub.none
 
 
-head : App Data ActionData RouteParams -> List Head.Tag
+head : App Data ActionData {} {} -> List Head.Tag
 head _ =
     []
 
 
-view : App Data ActionData RouteParams -> Shared.Model -> Model -> View (PagesMsg Msg)
+view : App Data ActionData {} {} -> Shared.Model -> Model -> View (PagesMsg Msg)
 view app _ model =
     { title = "Static Region Test"
     , body =

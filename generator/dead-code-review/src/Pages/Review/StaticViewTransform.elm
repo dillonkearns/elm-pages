@@ -156,13 +156,10 @@ expressionVisitor node context =
             ( [], context )
 
 
-{-| Generate View.embedStatic (View.htmlToStatic (View.Static.adopt "id")) for View.renderStatic
+{-| Generate View.embedStatic (View.adopt "id") for View.renderStatic
 
-Note: We need View.htmlToStatic because:
-
-  - View.Static.adopt returns Html.Html Never (unstyled)
-  - View.embedStatic expects View.Static (Html.Styled.Html Never)
-  - View.htmlToStatic converts between these types
+The View module provides adopt which wraps View.Static.adopt and converts
+to Html.Styled, so we can use it directly with embedStatic.
 
 -}
 renderStaticAdoptCall : Context -> Node Expression -> String
@@ -173,15 +170,10 @@ renderStaticAdoptCall context idArg =
                 |> Maybe.withDefault [ "View" ]
                 |> String.join "."
 
-        viewStaticPrefix =
-            context.viewStaticAlias
-                |> Maybe.withDefault [ "View", "Static" ]
-                |> String.join "."
-
         idStr =
             expressionToString idArg
     in
-    viewPrefix ++ ".embedStatic (" ++ viewPrefix ++ ".htmlToStatic (" ++ viewStaticPrefix ++ ".adopt " ++ idStr ++ "))"
+    viewPrefix ++ ".embedStatic (" ++ viewPrefix ++ ".adopt " ++ idStr ++ ")"
 
 
 {-| Generate View.Static.adopt "id" for legacy View.Static.render

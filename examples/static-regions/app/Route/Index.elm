@@ -40,12 +40,26 @@ type alias ActionData =
     {}
 
 
-route : StatelessRoute RouteParams Data ActionData
+type alias StaticViews =
+    { greeting : View.Static
+    , portGreeting : View.Static
+    }
+
+
+route : StatelessRoute RouteParams Data ActionData StaticViews
 route =
     RouteBuilder.single
         { head = head
         , data = data
         }
+        |> RouteBuilder.withStaticViews
+            (\pageData ->
+                { greeting =
+                    div [] [ text <| "Greeting: " ++ pageData.greeting ]
+                , portGreeting =
+                    div [] [ text <| "Port Greeting: " ++ pageData.portGreeting ]
+                }
+            )
         |> RouteBuilder.buildNoState { view = view }
 
 
@@ -72,7 +86,7 @@ generator =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data ActionData {} {}
     -> List Head.Tag
 head static =
     Seo.summary
@@ -97,15 +111,15 @@ link attributes children route_ =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data ActionData RouteParams StaticViews
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
     { title = "Index page"
     , body =
         [ text "This is the index page."
-        , div [] [ text <| "Greeting: " ++ app.data.greeting ]
-        , div [] [ text <| "Greeting: " ++ app.data.portGreeting ]
+        , View.renderStatic "greeting" app.staticViews.greeting
+        , View.renderStatic "portGreeting" app.staticViews.portGreeting
 
         --, div [] [ text <| "Random Data: " ++ Debug.toString app.data.randomTuple ]
         --, div [] [ text <| "URL: " ++ Debug.toString app.url ]

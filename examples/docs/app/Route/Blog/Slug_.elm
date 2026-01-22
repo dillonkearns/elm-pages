@@ -43,13 +43,34 @@ type alias RouteParams =
     { slug : String }
 
 
-route : StatelessRoute RouteParams Data ActionData {}
+type alias StaticViews =
+    { renderedTitle : View.Static
+    }
+
+
+route : StatelessRoute RouteParams Data ActionData StaticViews
 route =
     RouteBuilder.preRender
         { data = data
         , head = head
         , pages = pages
         }
+        |> RouteBuilder.withStaticViews
+            (\pageData ->
+                { renderedTitle =
+                    Html.Styled.h1
+                        [ css
+                            [ Tw.text_center
+                            , Tw.text_4xl
+                            , Tw.font_bold
+                            , Tw.tracking_tight
+                            , Tw.mt_2
+                            , Tw.mb_8
+                            ]
+                        ]
+                        [ Html.Styled.text pageData.metadata.title ]
+                }
+            )
         |> RouteBuilder.buildNoState { view = view }
 
 
@@ -65,7 +86,7 @@ pages =
 
 
 view :
-    App Data ActionData RouteParams {}
+    App Data ActionData RouteParams StaticViews
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
@@ -96,18 +117,7 @@ view app shared =
                         [ Bp.md [ Tw.mx_auto ]
                         ]
                     ]
-                    [ h1
-                        [ css
-                            [ Tw.text_center
-                            , Tw.text_4xl
-                            , Tw.font_bold
-                            , Tw.tracking_tight
-                            , Tw.mt_2
-                            , Tw.mb_8
-                            ]
-                        ]
-                        [ text app.data.metadata.title
-                        ]
+                    [ View.renderStatic "renderedTitle" app.staticViews.renderedTitle
                     , authorView author app.data
                     , div
                         [ css

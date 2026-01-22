@@ -1,8 +1,8 @@
-module View exposing (View, map, Static, staticToHtml, htmlToStatic, embedStatic, renderStatic)
+module View exposing (View, map, Static, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt)
 
 {-|
 
-@docs View, map, Static, staticToHtml, htmlToStatic, embedStatic, renderStatic
+@docs View, map, Static, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt
 
 -}
 
@@ -64,3 +64,13 @@ renderStatic id static =
         |> View.Static.render id
         |> Html.Styled.fromUnstyled
         |> Html.Styled.map never
+
+
+{-| Adopt a static region by ID. This is used by the client-side code after
+DCE transformation. On initial load, it adopts pre-rendered DOM. On SPA
+navigation, it uses HTML from static-regions.json.
+-}
+adopt : String -> Static
+adopt id =
+    View.Static.adopt id
+        |> Html.Styled.fromUnstyled
