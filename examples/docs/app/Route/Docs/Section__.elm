@@ -43,7 +43,7 @@ type alias RouteParams =
     { section : Maybe String }
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : StatelessRoute RouteParams Data ActionData {}
 route =
     RouteBuilder.preRender
         { head = head
@@ -165,7 +165,7 @@ titleForSection section =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data ActionData RouteParams {}
     -> List Head.Tag
 head app =
     Seo.summary
@@ -200,7 +200,7 @@ type alias ActionData =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data ActionData RouteParams {}
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app sharedModel =

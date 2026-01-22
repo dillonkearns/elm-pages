@@ -286,6 +286,7 @@ otherFile routes phaseString =
                                                                                                             )
                                                                                                   )
                                                                                                 , ( "pageFormState", pageFormState )
+                                                                                                , ( "staticViews", Elm.record [] )
                                                                                                 ]
                                                                                             ]
                                                                                         )
@@ -316,6 +317,7 @@ otherFile routes phaseString =
                                                                             , ( "navigation", Elm.nothing )
                                                                             , ( "concurrentSubmissions", Gen.Dict.empty )
                                                                             , ( "pageFormState", Gen.Dict.empty )
+                                                                            , ( "staticViews", Elm.record [] )
                                                                             ]
                                                                         ]
                                                           )
@@ -754,6 +756,7 @@ otherFile routes phaseString =
                                                                                 , ( "navigation", Elm.nothing )
                                                                                 , ( "concurrentSubmissions", Gen.Dict.empty )
                                                                                 , ( "pageFormState", Gen.Dict.empty )
+                                                                                , ( "staticViews", Elm.record [] )
                                                                                 ]
                                                                             ]
                                                                             |> Gen.Tuple.call_.mapBoth
@@ -939,6 +942,7 @@ otherFile routes phaseString =
                                                                                         )
                                                                               )
                                                                             , ( "pageFormState", pageFormState )
+                                                                            , ( "staticViews", Elm.record [] )
                                                                             ]
                                                                         , msg_
                                                                         , pageModel

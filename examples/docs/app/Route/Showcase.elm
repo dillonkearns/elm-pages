@@ -32,7 +32,7 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data ActionData Model Msg
+route : StatefulRoute RouteParams Data ActionData {} Model Msg
 route =
     RouteBuilder.single
         { head = head
@@ -55,7 +55,7 @@ type alias ActionData =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data ActionData RouteParams {}
     -> Shared.Model
     -> View (PagesMsg Msg)
 view static sharedModel =
@@ -90,7 +90,7 @@ view static sharedModel =
     }
 
 
-head : App Data ActionData RouteParams -> List Head.Tag
+head : App Data ActionData RouteParams {} -> List Head.Tag
 head app =
     Seo.summary
         { canonicalUrlOverride = Nothing

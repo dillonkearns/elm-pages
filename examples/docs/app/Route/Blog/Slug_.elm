@@ -43,7 +43,7 @@ type alias RouteParams =
     { slug : String }
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : StatelessRoute RouteParams Data ActionData {}
 route =
     RouteBuilder.preRender
         { data = data
@@ -65,7 +65,7 @@ pages =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data ActionData RouteParams {}
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
@@ -182,7 +182,7 @@ authorView author app =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data ActionData RouteParams {}
     -> List Head.Tag
 head app =
     let
