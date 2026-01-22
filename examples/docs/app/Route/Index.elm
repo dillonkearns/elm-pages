@@ -21,8 +21,8 @@ import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import UrlPath
 import View exposing (View)
-import View.Static
 import View.CodeTab as CodeTab
+import View.Static
 
 
 type alias Model =
@@ -81,7 +81,7 @@ view :
 view app shared =
     { title = "elm-pages - a statically typed site generator"
     , body =
-        [ View.renderStatic "landing" (staticLandingContent ())
+        [ View.embedStatic (View.adopt "landing")
         ]
     }
 

@@ -31,6 +31,16 @@ import UrlPath
 import View exposing (View)
 
 
+{-| Data that's only used for rendering static content.
+This includes the heavy markdown AST - it will be eliminated from the
+client bundle via DCE after elm-review transforms.
+-}
+type alias StaticContent =
+    { title : String
+    , body : List Markdown.Block.Block
+    }
+
+
 type alias Model =
     {}
 
@@ -43,34 +53,13 @@ type alias RouteParams =
     { slug : String }
 
 
-type alias StaticViews =
-    { renderedTitle : View.Static
-    }
-
-
-route : StatelessRoute RouteParams Data ActionData StaticViews
+route : StatelessRoute RouteParams Data ActionData {}
 route =
     RouteBuilder.preRender
         { data = data
         , head = head
         , pages = pages
         }
-        |> RouteBuilder.withStaticViews
-            (\pageData ->
-                { renderedTitle =
-                    Html.Styled.h1
-                        [ css
-                            [ Tw.text_center
-                            , Tw.text_4xl
-                            , Tw.font_bold
-                            , Tw.tracking_tight
-                            , Tw.mt_2
-                            , Tw.mb_8
-                            ]
-                        ]
-                        [ Html.Styled.text pageData.metadata.title ]
-                }
-            )
         |> RouteBuilder.buildNoState { view = view }
 
 
@@ -86,7 +75,7 @@ pages =
 
 
 view :
-    App Data ActionData RouteParams StaticViews
+    App Data ActionData RouteParams {}
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
@@ -117,22 +106,52 @@ view app shared =
                         [ Bp.md [ Tw.mx_auto ]
                         ]
                     ]
-                    [ View.renderStatic "renderedTitle" app.staticViews.renderedTitle
+                    [ -- Static region: title rendered at build time, adopted by client
+                      -- The elm-review codemod transforms this to View.adopt "0"
+                      View.staticView app.data.staticContent renderTitle
                     , authorView author app.data
-                    , div
-                        [ css
-                            [ Tw.prose
-                            ]
-                        ]
-                        (app.data.body
-                            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                            |> Result.withDefault []
-                        )
+                    , -- Static region: markdown body rendered at build time
+                      -- Heavy TailwindMarkdownRenderer is eliminated from client bundle
+                      View.staticView app.data.staticContent renderBody
                     ]
                 ]
             ]
         ]
     }
+
+
+{-| Render the blog post title. This function and its output are eliminated
+from the client bundle after elm-review transforms View.staticView to View.adopt.
+-}
+renderTitle : StaticContent -> View.Static
+renderTitle content =
+    Html.Styled.h1
+        [ css
+            [ Tw.text_center
+            , Tw.text_4xl
+            , Tw.font_bold
+            , Tw.tracking_tight
+            , Tw.mt_2
+            , Tw.mb_8
+            ]
+        ]
+        [ Html.Styled.text content.title ]
+
+
+{-| Render the markdown body. This function and TailwindMarkdownRenderer are
+eliminated from the client bundle after elm-review transforms View.staticView.
+-}
+renderBody : StaticContent -> View.Static
+renderBody content =
+    div
+        [ css
+            [ Tw.prose
+            ]
+        ]
+        (content.body
+            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+            |> Result.withDefault []
+        )
 
 
 authorView : Author -> Data -> Html msg
@@ -242,7 +261,7 @@ head app =
 
 type alias Data =
     { metadata : ArticleMetadata
-    , body : List Markdown.Block.Block
+    , staticContent : View.StaticOnlyData StaticContent
     }
 
 
@@ -252,10 +271,34 @@ type alias ActionData =
 
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
-    MarkdownCodec.withFrontmatter Data
+    MarkdownCodec.withFrontmatter
+        (\metadata body ->
+            { metadata = metadata
+            , body = body
+            }
+        )
         frontmatterDecoder
         TailwindMarkdownRenderer.renderer
         ("content/blog/" ++ routeParams.slug ++ ".md")
+        |> BackendTask.andThen
+            (\parsed ->
+                BackendTask.map2
+                    (\metadata staticContent ->
+                        { metadata = metadata
+                        , staticContent = staticContent
+                        }
+                    )
+                    (BackendTask.succeed parsed.metadata)
+                    -- Wrap the heavy content in StaticOnlyData
+                    -- The elm-review codemod transforms this to BackendTask.fail on client
+                    (View.staticBackendTask
+                        (BackendTask.succeed
+                            { title = parsed.metadata.title
+                            , body = parsed.body
+                            }
+                        )
+                    )
+            )
 
 
 type alias ArticleMetadata =
