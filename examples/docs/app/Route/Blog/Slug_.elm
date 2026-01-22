@@ -14,6 +14,7 @@ import Html.Styled.Attributes as Attr exposing (css)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 import Markdown.Block
+import Pages.Internal.StaticOnlyData
 import Markdown.Renderer
 import MarkdownCodec
 import Pages.Url
@@ -31,12 +32,12 @@ import UrlPath
 import View exposing (View)
 
 
-{-| Data that's only used for rendering static content.
-This includes the heavy markdown AST - it will be eliminated from the
-client bundle via DCE after elm-review transforms.
+{-| All page content wrapped for static rendering.
+The entire view body will be a single static region, eliminating all
+rendering code from the client bundle.
 -}
 type alias StaticContent =
-    { title : String
+    { metadata : ArticleMetadata
     , body : List Markdown.Block.Block
     }
 
@@ -79,132 +80,112 @@ view :
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
-    { title = app.data.metadata.title
+    { title = app.data.title
     , body =
-        let
-            author =
-                Author.dillon
-        in
-        [ div
-            [ css
-                [ Tw.min_h_screen
-                , Tw.w_full
-                , Tw.relative
-                ]
-            ]
-            [ div
-                [ css
-                    [ Tw.pt_16
-                    , Tw.pb_16
-                    , Tw.px_8
-                    , Tw.flex
-                    , Tw.flex_col
-                    ]
-                ]
-                [ div
-                    [ css
-                        [ Bp.md [ Tw.mx_auto ]
-                        ]
-                    ]
-                    [ -- Static region: title rendered at build time, adopted by client
-                      -- The elm-review codemod transforms this to View.adopt "0"
-                      View.staticView app.data.staticContent renderTitle
-                    , authorView author app.data
-                    , -- Static region: markdown body rendered at build time
-                      -- Heavy TailwindMarkdownRenderer is eliminated from client bundle
-                      View.staticView app.data.staticContent renderBody
-                    ]
-                ]
-            ]
+        [ -- The ENTIRE body is a single static region
+          -- All rendering code (TailwindMarkdownRenderer, authorView, etc.)
+          -- is eliminated from the client bundle via DCE
+          View.staticView app.data.staticContent renderFullPage
         ]
     }
 
 
-{-| Render the blog post title. This function and its output are eliminated
-from the client bundle after elm-review transforms View.staticView to View.adopt.
+{-| Render the entire page body as a single static region.
+All of this code is eliminated from the client bundle via DCE.
 -}
-renderTitle : StaticContent -> View.Static
-renderTitle content =
-    Html.Styled.h1
-        [ css
-            [ Tw.text_center
-            , Tw.text_4xl
-            , Tw.font_bold
-            , Tw.tracking_tight
-            , Tw.mt_2
-            , Tw.mb_8
-            ]
-        ]
-        [ Html.Styled.text content.title ]
-
-
-{-| Render the markdown body. This function and TailwindMarkdownRenderer are
-eliminated from the client bundle after elm-review transforms View.staticView.
--}
-renderBody : StaticContent -> View.Static
-renderBody content =
+renderFullPage : StaticContent -> View.Static
+renderFullPage content =
+    let
+        author =
+            Author.dillon
+    in
     div
         [ css
-            [ Tw.prose
+            [ Tw.min_h_screen
+            , Tw.w_full
+            , Tw.relative
             ]
         ]
-        (content.body
-            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-            |> Result.withDefault []
-        )
-
-
-authorView : Author -> Data -> Html msg
-authorView author app =
-    div
-        [ css
-            [ Tw.flex
-            , Tw.mb_16
-
-            --, Tw.flex_shrink_0
-            ]
-        ]
-        [ img
-            [ Attr.src (author.avatar |> Pages.Url.toString)
-            , css
-                [ Tw.rounded_full
-                , Tw.h_10
-                , Tw.w_10
+        [ div
+            [ css
+                [ Tw.pt_16
+                , Tw.pb_16
+                , Tw.px_8
+                , Tw.flex
+                , Tw.flex_col
                 ]
-            ]
-            []
-        , div
-            [ css [ Tw.ml_3 ]
             ]
             [ div
                 [ css
-                    []
+                    [ Bp.md [ Tw.mx_auto ]
+                    ]
                 ]
-                [ p
+                [ -- Title
+                  Html.Styled.h1
                     [ css
-                        [ Tw.text_sm
-                        , Tw.font_medium
-                        , Tw.text_color Theme.gray_900
+                        [ Tw.text_center
+                        , Tw.text_4xl
+                        , Tw.font_bold
+                        , Tw.tracking_tight
+                        , Tw.mt_2
+                        , Tw.mb_8
                         ]
                     ]
-                    [ span
+                    [ Html.Styled.text content.metadata.title ]
+
+                -- Author info
+                , div
+                    [ css
+                        [ Tw.flex
+                        , Tw.mb_16
+                        ]
+                    ]
+                    [ img
+                        [ Attr.src (author.avatar |> Pages.Url.toString)
+                        , css
+                            [ Tw.rounded_full
+                            , Tw.h_10
+                            , Tw.w_10
+                            ]
+                        ]
                         []
-                        [ text author.name ]
+                    , div
+                        [ css [ Tw.ml_3 ]
+                        ]
+                        [ div []
+                            [ p
+                                [ css
+                                    [ Tw.text_sm
+                                    , Tw.font_medium
+                                    , Tw.text_color Theme.gray_900
+                                    ]
+                                ]
+                                [ span [] [ text author.name ]
+                                ]
+                            ]
+                        , div
+                            [ css
+                                [ Tw.flex
+                                , Tw.space_x_1
+                                , Tw.text_sm
+                                , Tw.text_color Theme.gray_500
+                                ]
+                            ]
+                            [ time
+                                [ Attr.datetime "2020-03-16"
+                                ]
+                                [ text (content.metadata.published |> Date.format "MMMM ddd, yyyy") ]
+                            ]
+                        ]
                     ]
-                ]
-            , div
-                [ css
-                    [ Tw.flex
-                    , Tw.space_x_1
-                    , Tw.text_sm
-                    , Tw.text_color Theme.gray_500
-                    , Tw.text_color Theme.gray_400
-                    ]
-                ]
-                [ time
-                    [ Attr.datetime "2020-03-16"
-                    ]
-                    [ text (app.metadata.published |> Date.format "MMMM ddd, yyyy") ]
+
+                -- Markdown body
+                , div
+                    [ css [ Tw.prose ] ]
+                    (content.body
+                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+                        |> Result.withDefault []
+                    )
                 ]
             ]
         ]
@@ -215,8 +196,10 @@ head :
     -> List Head.Tag
 head app =
     let
+        -- Safe to unwrap here because head only runs at build time
+        -- The elm-review codemod ensures this code path is never reached on client
         metadata =
-            app.data.metadata
+            (Pages.Internal.StaticOnlyData.unwrap app.data.staticContent).metadata
     in
     Head.structuredData
         (StructuredData.article
@@ -260,7 +243,7 @@ head app =
 
 
 type alias Data =
-    { metadata : ArticleMetadata
+    { title : String
     , staticContent : View.StaticOnlyData StaticContent
     }
 
@@ -283,17 +266,17 @@ data routeParams =
         |> BackendTask.andThen
             (\parsed ->
                 BackendTask.map2
-                    (\metadata staticContent ->
-                        { metadata = metadata
+                    (\title staticContent ->
+                        { title = title
                         , staticContent = staticContent
                         }
                     )
-                    (BackendTask.succeed parsed.metadata)
-                    -- Wrap the heavy content in StaticOnlyData
+                    (BackendTask.succeed parsed.metadata.title)
+                    -- Wrap ALL content in StaticOnlyData for full DCE
                     -- The elm-review codemod transforms this to BackendTask.fail on client
                     (View.staticBackendTask
                         (BackendTask.succeed
-                            { title = parsed.metadata.title
+                            { metadata = parsed.metadata
                             , body = parsed.body
                             }
                         )
