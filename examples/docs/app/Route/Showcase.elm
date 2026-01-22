@@ -1,4 +1,4 @@
-module Route.Showcase exposing (ActionData, Data, Model, Msg, route)
+module Route.Showcase exposing (ActionData, Data, Model, Msg, route, staticTopSection)
 
 import BackendTask exposing (BackendTask)
 import Css
@@ -17,6 +17,7 @@ import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import UrlPath
 import View exposing (View)
+import View.Static
 
 
 type alias Model =
@@ -75,7 +76,7 @@ view static sharedModel =
                     ]
                 ]
             ]
-            [ topSection
+            [ View.renderStatic "showcase-top" (staticTopSection ())
             , div
                 [ css
                     [ Tw.pt_8
@@ -236,7 +237,12 @@ showcaseItem item =
         ]
 
 
-topSection : Html msg
+staticTopSection : () -> View.Static
+staticTopSection () =
+    topSection
+
+
+topSection : View.Static
 topSection =
     div
         [ css

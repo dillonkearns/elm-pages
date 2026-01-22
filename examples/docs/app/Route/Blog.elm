@@ -1,4 +1,4 @@
-module Route.Blog exposing (ActionData, Data, Model, Msg, route)
+module Route.Blog exposing (ActionData, Data, Model, Msg, route, staticBlogHeader)
 
 import Article
 import BackendTask exposing (BackendTask)
@@ -17,6 +17,7 @@ import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import UrlPath
 import View exposing (View)
+import View.Static
 
 
 type alias Msg =
@@ -104,37 +105,7 @@ view app shared =
                     , Tw.mx_auto
                     ]
                 ]
-                [ div
-                    [ css
-                        [ Tw.text_center
-                        ]
-                    ]
-                    [ h2
-                        [ css
-                            [ Tw.text_3xl
-                            , Tw.tracking_tight
-                            , Tw.font_extrabold
-                            , Tw.text_color Theme.gray_900
-                            , Bp.sm
-                                [ Tw.text_4xl
-                                ]
-                            ]
-                        ]
-                        [ text "Blog" ]
-                    , p
-                        [ css
-                            [ Tw.mt_3
-                            , Tw.max_w_2xl
-                            , Tw.mx_auto
-                            , Tw.text_xl
-                            , Tw.text_color Theme.gray_500
-                            , Bp.sm
-                                [ Tw.mt_4
-                                ]
-                            ]
-                        ]
-                        [ text blogDescription ]
-                    ]
+                [ View.renderStatic "blog-header" (staticBlogHeader ())
                 , div
                     [ css
                         [ Tw.mt_12
@@ -264,6 +235,46 @@ blogCard ( route_, info ) =
                     ]
                 ]
             ]
+        ]
+
+
+staticBlogHeader : () -> View.Static
+staticBlogHeader () =
+    blogHeader
+
+
+blogHeader : View.Static
+blogHeader =
+    div
+        [ css
+            [ Tw.text_center
+            ]
+        ]
+        [ h2
+            [ css
+                [ Tw.text_3xl
+                , Tw.tracking_tight
+                , Tw.font_extrabold
+                , Tw.text_color Theme.gray_900
+                , Bp.sm
+                    [ Tw.text_4xl
+                    ]
+                ]
+            ]
+            [ text "Blog" ]
+        , p
+            [ css
+                [ Tw.mt_3
+                , Tw.max_w_2xl
+                , Tw.mx_auto
+                , Tw.text_xl
+                , Tw.text_color Theme.gray_500
+                , Bp.sm
+                    [ Tw.mt_4
+                    ]
+                ]
+            ]
+            [ text blogDescription ]
         ]
 
 
