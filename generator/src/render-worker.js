@@ -4,7 +4,7 @@ import * as fs from "./dir-helpers.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { parentPort, threadId, workerData } from "node:worker_threads";
 import * as url from "node:url";
-import { extractStaticRegions } from "./extract-static-regions.js";
+import { extractAndReplaceStaticRegions, replaceStaticPlaceholders } from "./extract-static-regions.js";
 
 async function run({ mode, pathname, serverRequest, portsFilePath }) {
   console.time(`${threadId} ${pathname}`);
@@ -67,31 +67,48 @@ async function outputString(
       await fs.tryMkdir(`./dist/${normalizedRoute}`);
       const template = readFileSync("./dist/template.html", "utf8");
 
-      // Extract static regions from rendered HTML
-      const staticRegions = extractStaticRegions(args.htmlString?.html || "");
+      // Extract static regions from rendered HTML and replace __STATIC__ placeholders
+      const { regions: staticRegions, html: updatedHtml } = extractAndReplaceStaticRegions(args.htmlString?.html || "");
 
-      // Create combined format for both content.dat and embedded HTML bytes
-      // Format: [4 bytes: static regions JSON length (big-endian uint32)]
-      //         [N bytes: static regions JSON (UTF-8)]
-      //         [remaining bytes: original ResponseSketch binary]
+      // Update the HTML with resolved static region IDs
+      if (args.htmlString) {
+        args.htmlString.html = updatedHtml;
+      }
+
       if (args.contentDatPayload) {
+        // Create combined format for content.dat (includes static regions for SPA navigation)
+        // Format: [4 bytes: static regions JSON length (big-endian uint32)]
+        //         [N bytes: static regions JSON (UTF-8)]
+        //         [remaining bytes: original ResponseSketch binary]
         const staticRegionsJson = JSON.stringify(staticRegions);
         const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
         const lengthBuffer = Buffer.alloc(4);
         lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
 
-        const combinedBuffer = Buffer.concat([
+        const contentDatBuffer = Buffer.concat([
           lengthBuffer,
           staticRegionsBuffer,
           Buffer.from(args.contentDatPayload.buffer)
         ]);
 
-        // Update the bytesData in htmlString to use combined format
-        // This ensures the Elm decoder can parse it on initial page load
-        args.htmlString.bytesData = combinedBuffer.toString("base64");
-
         // Write the combined content.dat for SPA navigation
-        writeFileSync(`dist/${normalizedRoute}/content.dat`, combinedBuffer);
+        writeFileSync(`dist/${normalizedRoute}/content.dat`, contentDatBuffer);
+
+        // For bytesData embedded in HTML, use empty static regions (they're already in the DOM)
+        const emptyStaticRegions = {};
+        const emptyStaticRegionsJson = JSON.stringify(emptyStaticRegions);
+        const emptyStaticRegionsBuffer = Buffer.from(emptyStaticRegionsJson, 'utf8');
+        const emptyLengthBuffer = Buffer.alloc(4);
+        emptyLengthBuffer.writeUInt32BE(emptyStaticRegionsBuffer.length, 0);
+
+        const htmlBytesBuffer = Buffer.concat([
+          emptyLengthBuffer,
+          emptyStaticRegionsBuffer,
+          Buffer.from(args.contentDatPayload.buffer)
+        ]);
+
+        // Update the bytesData in htmlString with empty static regions header
+        args.htmlString.bytesData = htmlBytesBuffer.toString("base64");
 
         if (Object.keys(staticRegions).length > 0) {
           console.log(`  Included ${Object.keys(staticRegions).length} static region(s) in content.dat for ${normalizedRoute}`);

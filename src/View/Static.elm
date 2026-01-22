@@ -1,4 +1,4 @@
-module View.Static exposing (StaticId(..), adopt, render)
+module View.Static exposing (StaticId(..), adopt, render, static)
 
 {-| This module provides primitives for "static regions" - parts of the view
 that are pre-rendered at build time and adopted by the virtual-dom on the client
@@ -44,7 +44,7 @@ At build time, `staticContent` is transformed to:
     staticContent _ =
         View.Static.adopt "a7f3b2c1"
 
-@docs StaticId, adopt, render
+@docs StaticId, adopt, render, static
 
 -}
 
@@ -104,3 +104,21 @@ adoptThunk : StaticId -> Html Never
 adoptThunk _ =
     -- This is never called in production due to the codemod intercept.
     Html.text ""
+
+
+{-| Mark content as static for build-time rendering.
+
+This wraps content with a `data-static` attribute using a placeholder marker.
+The build process assigns indices to these markers in DOM order, and the
+elm-review transformation replaces `View.static` calls with `View.adopt "index"`.
+
+The placeholder marker `__STATIC__` is replaced during extraction with actual
+indices (0, 1, 2, etc.) based on the order of static regions in the rendered HTML.
+
+-}
+static : Html Never -> Html Never
+static content =
+    Html.div
+        [ Attr.attribute "data-static" "__STATIC__"
+        ]
+        [ content ]

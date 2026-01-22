@@ -11,11 +11,19 @@
 /**
  * Extract all static regions from HTML string.
  *
+ * Handles two types of static region markers:
+ * - Explicit IDs: data-static="my-id" → regions["my-id"]
+ * - Auto-indexed: data-static="__STATIC__" → regions["0"], regions["1"], etc.
+ *
+ * The __STATIC__ placeholder is replaced with sequential indices (0, 1, 2, ...)
+ * in DOM order, matching the order that elm-review assigns to View.static calls.
+ *
  * @param {string} html - The rendered HTML containing data-static elements
  * @returns {Record<string, string>} Map of static region IDs to their outerHTML
  */
 export function extractStaticRegions(html) {
   const regions = {};
+  let autoIndex = 0;
 
   // Find all data-static attributes and their values
   // Pattern: <tagname ... data-static="id" ...>
@@ -24,14 +32,25 @@ export function extractStaticRegions(html) {
   let match;
   while ((match = dataStaticPattern.exec(html)) !== null) {
     const tagName = match[1];
-    const id = match[3];
+    let id = match[3];
     const startIndex = match.index;
+
+    // Handle auto-indexed placeholders
+    if (id === "__STATIC__") {
+      id = String(autoIndex);
+      autoIndex++;
+    }
 
     // Find the matching closing tag, handling nesting
     const outerHTML = extractElement(html, startIndex, tagName);
 
     if (outerHTML) {
-      regions[id] = outerHTML;
+      // If this was a placeholder, update the data-static attribute in the extracted HTML
+      if (match[3] === "__STATIC__") {
+        regions[id] = outerHTML.replace('data-static="__STATIC__"', `data-static="${id}"`);
+      } else {
+        regions[id] = outerHTML;
+      }
     }
   }
 
@@ -108,4 +127,31 @@ function extractElement(html, startIndex, tagName) {
   return null;
 }
 
-export default { extractStaticRegions };
+/**
+ * Replace all __STATIC__ placeholders in HTML with sequential indices.
+ *
+ * @param {string} html - The HTML string containing __STATIC__ placeholders
+ * @returns {string} The HTML with placeholders replaced by indices
+ */
+export function replaceStaticPlaceholders(html) {
+  let index = 0;
+  return html.replace(/data-static="__STATIC__"/g, () => {
+    const result = `data-static="${index}"`;
+    index++;
+    return result;
+  });
+}
+
+/**
+ * Extract static regions and return both the regions map and the updated HTML.
+ *
+ * @param {string} html - The rendered HTML containing data-static elements
+ * @returns {{ regions: Record<string, string>, html: string }} Object with regions map and updated HTML
+ */
+export function extractAndReplaceStaticRegions(html) {
+  const updatedHtml = replaceStaticPlaceholders(html);
+  const regions = extractStaticRegions(updatedHtml);
+  return { regions, html: updatedHtml };
+}
+
+export default { extractStaticRegions, replaceStaticPlaceholders, extractAndReplaceStaticRegions };

@@ -22,7 +22,6 @@ import RouteBuilder exposing (App, StatefulRoute)
 import Shared
 import UrlPath exposing (UrlPath)
 import View exposing (View)
-import View.Static
 
 
 type alias Model =
@@ -106,13 +105,10 @@ view app _ model =
                 , Html.text "The gray box below should be adopted from pre-rendered HTML."
                 ]
 
-            -- Static region - new API!
-            -- For now, using renderStatic with manual ID.
-            -- After build-time transformation is implemented:
-            --   `staticContent : () -> View.Static` will be transformed to
-            --   `staticContent _ = View.Static.adopt "hash"` and we'll use
-            --   `View.embedStatic (staticContent ())` instead.
-            , View.renderStatic "test-content" (staticContent ())
+            -- Static region - content is rendered at build time and adopted by the client
+            -- The elm-review codemod transforms this to `View.embedStatic (View.adopt "0")`
+            -- for DCE, so the staticContent function is eliminated from the client bundle.
+            , View.static (staticContent ())
 
             -- Dynamic region - this updates normally
             , Html.div
@@ -166,21 +162,20 @@ view app _ model =
     }
 
 
-{-| Static content - a top-level function that returns View.Static.
+{-| Static content for the page.
 
-This function signature `() -> View.Static` tells the build system:
-1. Call this function at build time to get the HTML
-2. Hash the HTML content for the data-static ID
-3. Transform this function to return `View.Static.adopt "hash"` instead
+This content is:
+
+  - Rendered at build time
+  - Adopted by the virtual-dom on the client (no re-rendering)
+  - Eligible for dead-code elimination in the client bundle
 
 In a real application, this could include:
+
   - Markdown rendering
   - Syntax highlighting
   - Complex data transformations
   - Heavy dependencies that shouldn't be in the client bundle
-
-At runtime (after build-time transformation), this becomes:
-    staticContent _ = View.Static.adopt "a7f3b2c1" |> View.htmlToStatic
 
 -}
 staticContent : () -> View.Static

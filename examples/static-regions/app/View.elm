@@ -1,8 +1,8 @@
-module View exposing (View, map, Static, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt)
+module View exposing (View, map, Static, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt, static)
 
 {-|
 
-@docs View, map, Static, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt
+@docs View, map, Static, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt, static
 
 -}
 
@@ -51,8 +51,8 @@ htmlToStatic =
 Since Static is Html Never, it can safely become Html msg.
 -}
 embedStatic : Static -> Html.Styled.Html msg
-embedStatic static =
-    Html.Styled.map never static
+embedStatic staticContent =
+    Html.Styled.map never staticContent
 
 
 {-| Render static content with a data-static attribute for extraction.
@@ -78,8 +78,8 @@ And `staticContent` will be transformed to return `View.Static.adopt "hash"`.
 
 -}
 renderStatic : String -> Static -> Html.Styled.Html msg
-renderStatic id static =
-    static
+renderStatic id staticContent =
+    staticContent
         |> staticToHtml
         |> View.Static.render id
         |> Html.Styled.fromUnstyled
@@ -94,3 +94,40 @@ adopt : String -> Static
 adopt id =
     View.Static.adopt id
         |> Html.Styled.fromUnstyled
+
+
+{-| Mark content as static for build-time rendering and client-side adoption.
+
+Static content is:
+
+  - Rendered at build time and included in the HTML
+  - Adopted by the client without re-rendering
+  - Eligible for dead-code elimination (the rendering code is removed from the client bundle)
+
+Usage:
+
+    view app shared model =
+        { title = "My Page"
+        , body =
+            [ View.static
+                (div [] [ text ("Hello " ++ app.data.name) ])
+            , -- Dynamic content that can use model
+              button [ onClick Increment ] [ text (String.fromInt model.counter) ]
+            ]
+        }
+
+The content passed to `View.static` must be `Html Never` (no event handlers).
+This ensures the static content cannot produce messages and is purely presentational.
+
+At build time, an ID is automatically assigned based on the order of `View.static`
+calls in your view. The elm-review transformation replaces `View.static expr` with
+`View.adopt "id"`, allowing DCE to eliminate `expr` and its dependencies.
+
+-}
+static : Static -> Html.Styled.Html msg
+static content =
+    content
+        |> staticToHtml
+        |> View.Static.static
+        |> Html.Styled.fromUnstyled
+        |> Html.Styled.map never

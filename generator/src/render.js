@@ -186,6 +186,8 @@ function runGeneratorAppHelp(
             statusCode: args.statusCode,
             headers: args.headers,
             contentDatPayload,
+            // Include raw HTML for static region extraction
+            html: args.html,
           });
         } else {
           resolve(
@@ -319,6 +321,8 @@ function runElmApp(
             statusCode: args.statusCode,
             headers: args.headers,
             contentDatPayload,
+            // Include raw HTML for static region extraction
+            html: args.html,
           });
         } else {
           resolve(

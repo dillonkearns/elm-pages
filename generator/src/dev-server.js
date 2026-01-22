@@ -26,7 +26,7 @@ import * as esbuild from "esbuild";
 import { merge_vite_configs } from "./vite-utils.js";
 import { templateHtml } from "./pre-render-html.js";
 import { resolveConfig } from "./config.js";
-import { extractStaticRegions } from "./extract-static-regions.js";
+import { extractAndReplaceStaticRegions, replaceStaticPlaceholders } from "./extract-static-regions.js";
 import * as globby from "globby";
 import { fileURLToPath } from "url";
 
@@ -505,7 +505,8 @@ export async function start(options) {
             case "bytes": {
               // Create combined format for content.dat
               // Format: [4 bytes: static regions JSON length][N bytes: JSON][remaining: ResponseSketch]
-              const staticRegions = {}; // For bytes-only requests, no HTML to extract from
+              // Extract static regions from the HTML (needed for SPA navigation)
+              const { regions: staticRegions, html: updatedHtml } = extractAndReplaceStaticRegions(renderResult.html || "");
               const staticRegionsJson = JSON.stringify(staticRegions);
               const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
               const lengthBuffer = Buffer.alloc(4);
@@ -541,14 +542,19 @@ export async function start(options) {
                 );
                 const info = renderResult.htmlString;
 
-                // Extract static regions and create combined format for bytesData
-                const staticRegions = extractStaticRegions(info.html || "");
-                const staticRegionsJson = JSON.stringify(staticRegions);
+                // Replace __STATIC__ placeholders in HTML with indices
+                // (but don't include static regions in bytesData - they're already in the rendered DOM)
+                const updatedHtml = replaceStaticPlaceholders(info.html || "");
+
+                // Create combined format with empty static regions for initial page load
+                // (static regions are already in the DOM, so client adopts from there)
+                const emptyStaticRegions = {};
+                const staticRegionsJson = JSON.stringify(emptyStaticRegions);
                 const staticRegionsBuffer = Buffer.from(staticRegionsJson, 'utf8');
                 const lengthBuffer = Buffer.alloc(4);
                 lengthBuffer.writeUInt32BE(staticRegionsBuffer.length, 0);
 
-                // Decode original bytesData and prepend static regions
+                // Decode original bytesData and prepend empty static regions header
                 const originalBytes = Buffer.from(info.bytesData, 'base64');
                 const combinedBuffer = Buffer.concat([
                   lengthBuffer,
@@ -564,7 +570,7 @@ export async function start(options) {
                   <script id="__ELM_PAGES_BYTES_DATA__" type="application/octet-stream">${combinedBytesData}</script>`
                   )
                   .replace(/<!--\s*PLACEHOLDER_TITLE\s*-->/, info.title)
-                  .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, info.html)
+                  .replace(/<!--\s*PLACEHOLDER_HTML\s* -->/, updatedHtml)
                   .replace(
                     /<!-- ROOT -->\S*<html lang="en">/m,
                     info.rootElement

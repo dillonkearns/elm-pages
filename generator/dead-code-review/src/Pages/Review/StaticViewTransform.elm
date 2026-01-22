@@ -7,18 +7,23 @@ HTML for adoption by the virtual-dom.
 
 Transforms:
 
-    -- User's View.renderStatic (new API):
+    -- View.static (auto-ID):
+    View.static (heavyRender data)
+    -- becomes:
+    View.embedStatic (View.adopt "0")  -- ID assigned based on source order
+
+    -- View.renderStatic (explicit ID):
     View.renderStatic "id" (staticContent ())
     -- becomes:
-    View.embedStatic (View.htmlToStatic (View.Static.adopt "id"))
+    View.embedStatic (View.adopt "id")
 
     -- Direct View.Static.render (legacy):
     View.Static.render "id" content
     -- becomes:
     View.Static.adopt "id"
 
-The key insight is that by replacing the entire `View.renderStatic` call, we
-prevent `staticContent ()` from being called, allowing DCE to eliminate it.
+The key insight is that by replacing the entire call, we prevent the static
+content expression from being called, allowing DCE to eliminate it.
 
 -}
 
@@ -35,6 +40,7 @@ type alias Context =
     { lookupTable : ModuleNameLookupTable
     , viewStaticAlias : Maybe ModuleName
     , viewAlias : Maybe ModuleName
+    , staticIndex : Int
     }
 
 
@@ -54,6 +60,7 @@ initialContext =
             { lookupTable = lookupTable
             , viewStaticAlias = Nothing
             , viewAlias = Nothing
+            , staticIndex = 0
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -99,6 +106,54 @@ expressionVisitor node context =
     case Node.value node of
         Expression.Application applicationExpressions ->
             case applicationExpressions of
+                -- Single-argument application: View.static expr
+                functionNode :: contentArg :: [] ->
+                    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+                        Just [ "View" ] ->
+                            case Node.value functionNode of
+                                Expression.FunctionOrValue _ "static" ->
+                                    let
+                                        replacement =
+                                            viewStaticAutoIdCall context
+                                    in
+                                    ( [ Rule.errorWithFix
+                                            { message = "Static region codemod: transform View.static to adopt"
+                                            , details = [ "Transforms View.static to View.embedStatic (View.adopt \"index\") for client-side adoption and DCE" ]
+                                            }
+                                            (Node.range node)
+                                            [ Review.Fix.replaceRangeBy (Node.range node) replacement
+                                            ]
+                                      ]
+                                    , { context | staticIndex = context.staticIndex + 1 }
+                                    )
+
+                                _ ->
+                                    ( [], context )
+
+                        Just [ "View", "Static" ] ->
+                            case Node.value functionNode of
+                                Expression.FunctionOrValue _ "static" ->
+                                    let
+                                        replacement =
+                                            viewStaticModuleAutoIdCall context
+                                    in
+                                    ( [ Rule.errorWithFix
+                                            { message = "Static region codemod: transform View.Static.static to adopt"
+                                            , details = [ "Transforms View.Static.static to View.Static.adopt \"index\" for client-side adoption and DCE" ]
+                                            }
+                                            (Node.range node)
+                                            [ Review.Fix.replaceRangeBy (Node.range node) replacement
+                                            ]
+                                      ]
+                                    , { context | staticIndex = context.staticIndex + 1 }
+                                    )
+
+                                _ ->
+                                    ( [], context )
+
+                        _ ->
+                            ( [], context )
+
                 -- Two-argument application: fn arg1 arg2
                 functionNode :: idArg :: contentArg :: [] ->
                     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
@@ -154,6 +209,38 @@ expressionVisitor node context =
 
         _ ->
             ( [], context )
+
+
+{-| Generate View.embedStatic (View.adopt "index") for View.static with auto-ID
+-}
+viewStaticAutoIdCall : Context -> String
+viewStaticAutoIdCall context =
+    let
+        viewPrefix =
+            context.viewAlias
+                |> Maybe.withDefault [ "View" ]
+                |> String.join "."
+
+        idStr =
+            "\"" ++ String.fromInt context.staticIndex ++ "\""
+    in
+    viewPrefix ++ ".embedStatic (" ++ viewPrefix ++ ".adopt " ++ idStr ++ ")"
+
+
+{-| Generate View.Static.adopt "index" for View.Static.static with auto-ID
+-}
+viewStaticModuleAutoIdCall : Context -> String
+viewStaticModuleAutoIdCall context =
+    let
+        modulePrefix =
+            context.viewStaticAlias
+                |> Maybe.withDefault [ "View", "Static" ]
+                |> String.join "."
+
+        idStr =
+            "\"" ++ String.fromInt context.staticIndex ++ "\""
+    in
+    modulePrefix ++ ".adopt " ++ idStr
 
 
 {-| Generate View.embedStatic (View.adopt "id") for View.renderStatic
