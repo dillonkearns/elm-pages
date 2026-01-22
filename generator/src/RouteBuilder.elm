@@ -2,7 +2,6 @@ module RouteBuilder exposing
     ( StatelessRoute, buildNoState
     , App
     , withOnAction
-    , withStaticViews
     , buildWithLocalState, buildWithSharedState
     , preRender, single
     , preRenderWithFallback, serverRender
@@ -94,7 +93,6 @@ import FatalError exposing (FatalError)
 import Form
 import Head
 import Http
-import Json.Decode
 import Pages.ConcurrentSubmission
 import Pages.Fetcher
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
@@ -110,35 +108,34 @@ import View exposing (View)
 
 
 {-| -}
-type alias StatefulRoute routeParams data action staticViews model msg =
+type alias StatefulRoute routeParams data action model msg =
     { data : Server.Request.Request -> routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
     , action : Server.Request.Request -> routeParams -> BackendTask FatalError (Server.Response.Response action ErrorPage)
     , staticRoutes : BackendTask FatalError (List routeParams)
     , view :
         Shared.Model
         -> model
-        -> App data action routeParams staticViews
+        -> App data action routeParams
         -> View (PagesMsg msg)
     , head :
-        App data action routeParams staticViews
+        App data action routeParams
         -> List Head.Tag
-    , init : Shared.Model -> App data action routeParams staticViews -> ( model, Effect msg )
-    , update : App data action routeParams staticViews -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
+    , init : Shared.Model -> App data action routeParams -> ( model, Effect msg )
+    , update : App data action routeParams -> msg -> model -> Shared.Model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : routeParams -> UrlPath -> model -> Shared.Model -> Sub msg
     , handleRoute : { moduleName : List String, routePattern : RoutePattern } -> (routeParams -> List ( String, String )) -> routeParams -> BackendTask FatalError (Maybe NotFoundReason)
     , kind : String
     , onAction : Maybe (action -> msg)
-    , staticViewsFromData : data -> staticViews
     }
 
 
 {-| -}
-type alias StatelessRoute routeParams data action staticViews =
-    StatefulRoute routeParams data action staticViews {} ()
+type alias StatelessRoute routeParams data action =
+    StatefulRoute routeParams data action {} ()
 
 
 {-| -}
-type alias App data action routeParams staticViews =
+type alias App data action routeParams =
     { data : data
     , sharedData : Shared.Data
     , routeParams : routeParams
@@ -151,18 +148,17 @@ type alias App data action routeParams staticViews =
     , navigation : Maybe Pages.Navigation.Navigation
     , concurrentSubmissions : Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission (Maybe action))
     , pageFormState : Form.Model
-    , staticViews : staticViews
     }
 
 
 {-| -}
-type Builder routeParams data action staticViews
+type Builder routeParams data action
     = WithData
         { data : Server.Request.Request -> routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
         , action : Server.Request.Request -> routeParams -> BackendTask FatalError (Server.Response.Response action ErrorPage)
         , staticRoutes : BackendTask FatalError (List routeParams)
         , head :
-            App data action routeParams staticViews
+            App data action routeParams
             -> List Head.Tag
         , serverless : Bool
         , handleRoute :
@@ -171,19 +167,18 @@ type Builder routeParams data action staticViews
             -> routeParams
             -> BackendTask FatalError (Maybe NotFoundReason)
         , kind : String
-        , staticViewsFromData : data -> staticViews
         }
 
 
 {-| -}
 buildNoState :
     { view :
-        App data action routeParams staticViews
+        App data action routeParams
         -> Shared.Model
         -> View (PagesMsg ())
     }
-    -> Builder routeParams data action staticViews
-    -> StatefulRoute routeParams data action staticViews {} ()
+    -> Builder routeParams data action
+    -> StatefulRoute routeParams data action {} ()
 buildNoState { view } builderState =
     case builderState of
         WithData record ->
@@ -198,78 +193,30 @@ buildNoState { view } builderState =
             , handleRoute = record.handleRoute
             , kind = record.kind
             , onAction = Nothing
-            , staticViewsFromData = record.staticViewsFromData
             }
 
 
 {-| -}
-withOnAction : (action -> msg) -> StatefulRoute routeParams data action staticViews model msg -> StatefulRoute routeParams data action staticViews model msg
+withOnAction : (action -> msg) -> StatefulRoute routeParams data action model msg -> StatefulRoute routeParams data action model msg
 withOnAction toMsg config =
     { config
         | onAction = Just toMsg
     }
 
 
-{-| Add pre-rendered static views to a route. The static views are derived from the
-resolved page data and will be rendered at build time (or server-render time for
-server-rendered routes). The rendering code will be eliminated from the client bundle
-via dead code elimination.
-
-    route =
-        RouteBuilder.preRender
-            { data = data
-            , pages = pages
-            , head = head
-            }
-            |> RouteBuilder.withStaticViews
-                (\pageData -> { content = renderMarkdown pageData.markdownBody })
-            |> RouteBuilder.buildNoState { view = view }
-
--}
-withStaticViews :
-    (data -> staticViews)
-    -> Builder routeParams data action {}
-    -> Builder routeParams data action staticViews
-withStaticViews dataToStaticViews (WithData record) =
-    WithData
-        { data = record.data
-        , action = record.action
-        , staticRoutes = record.staticRoutes
-        , head =
-            \app ->
-                record.head
-                    { data = app.data
-                    , sharedData = app.sharedData
-                    , routeParams = app.routeParams
-                    , path = app.path
-                    , url = app.url
-                    , action = app.action
-                    , submit = app.submit
-                    , navigation = app.navigation
-                    , concurrentSubmissions = app.concurrentSubmissions
-                    , pageFormState = app.pageFormState
-                    , staticViews = {}
-                    }
-        , serverless = record.serverless
-        , handleRoute = record.handleRoute
-        , kind = record.kind
-        , staticViewsFromData = dataToStaticViews
-        }
-
-
 {-| -}
 buildWithLocalState :
     { view :
-        App data action routeParams staticViews
+        App data action routeParams
         -> Shared.Model
         -> model
         -> View (PagesMsg msg)
-    , init : App data action routeParams staticViews -> Shared.Model -> ( model, Effect msg )
-    , update : App data action routeParams staticViews -> Shared.Model -> msg -> model -> ( model, Effect msg )
+    , init : App data action routeParams -> Shared.Model -> ( model, Effect msg )
+    , update : App data action routeParams -> Shared.Model -> msg -> model -> ( model, Effect msg )
     , subscriptions : routeParams -> UrlPath -> Shared.Model -> model -> Sub msg
     }
-    -> Builder routeParams data action staticViews
-    -> StatefulRoute routeParams data action staticViews model msg
+    -> Builder routeParams data action
+    -> StatefulRoute routeParams data action model msg
 buildWithLocalState config builderState =
     case builderState of
         WithData record ->
@@ -294,23 +241,22 @@ buildWithLocalState config builderState =
             , handleRoute = record.handleRoute
             , kind = record.kind
             , onAction = Nothing
-            , staticViewsFromData = record.staticViewsFromData
             }
 
 
 {-| -}
 buildWithSharedState :
     { view :
-        App data action routeParams staticViews
+        App data action routeParams
         -> Shared.Model
         -> model
         -> View (PagesMsg msg)
-    , init : App data action routeParams staticViews -> Shared.Model -> ( model, Effect msg )
-    , update : App data action routeParams staticViews -> Shared.Model -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
+    , init : App data action routeParams -> Shared.Model -> ( model, Effect msg )
+    , update : App data action routeParams -> Shared.Model -> msg -> model -> ( model, Effect msg, Maybe Shared.Msg )
     , subscriptions : routeParams -> UrlPath -> Shared.Model -> model -> Sub msg
     }
-    -> Builder routeParams data action staticViews
-    -> StatefulRoute routeParams data action staticViews model msg
+    -> Builder routeParams data action
+    -> StatefulRoute routeParams data action model msg
 buildWithSharedState config builderState =
     case builderState of
         WithData record ->
@@ -333,16 +279,15 @@ buildWithSharedState config builderState =
             , handleRoute = record.handleRoute
             , kind = record.kind
             , onAction = Nothing
-            , staticViewsFromData = record.staticViewsFromData
             }
 
 
 {-| -}
 single :
     { data : BackendTask FatalError data
-    , head : App data action {} {} -> List Head.Tag
+    , head : App data action {} -> List Head.Tag
     }
-    -> Builder {} data action {}
+    -> Builder {} data action
 single { data, head } =
     WithData
         { data = \_ _ -> data |> BackendTask.map Server.Response.render
@@ -352,7 +297,6 @@ single { data, head } =
         , serverless = False
         , handleRoute = \_ _ _ -> BackendTask.succeed Nothing
         , kind = "static"
-        , staticViewsFromData = \_ -> {}
         }
 
 
@@ -360,9 +304,9 @@ single { data, head } =
 preRender :
     { data : routeParams -> BackendTask FatalError data
     , pages : BackendTask FatalError (List routeParams)
-    , head : App data action routeParams {} -> List Head.Tag
+    , head : App data action routeParams -> List Head.Tag
     }
-    -> Builder routeParams data action {}
+    -> Builder routeParams data action
 preRender { data, head, pages } =
     WithData
         { data = \_ -> data >> BackendTask.map Server.Response.render
@@ -391,7 +335,6 @@ preRender { data, head, pages } =
                                         )
                         )
         , kind = "prerender"
-        , staticViewsFromData = \_ -> {}
         }
 
 
@@ -399,9 +342,9 @@ preRender { data, head, pages } =
 preRenderWithFallback :
     { data : routeParams -> BackendTask FatalError (Server.Response.Response data ErrorPage)
     , pages : BackendTask FatalError (List routeParams)
-    , head : App data action routeParams {} -> List Head.Tag
+    , head : App data action routeParams -> List Head.Tag
     }
-    -> Builder routeParams data action {}
+    -> Builder routeParams data action
 preRenderWithFallback { data, head, pages } =
     WithData
         { data = \_ -> data
@@ -413,7 +356,6 @@ preRenderWithFallback { data, head, pages } =
             \moduleContext toRecord routeParams ->
                 BackendTask.succeed Nothing
         , kind = "prerender-with-fallback"
-        , staticViewsFromData = \_ -> {}
         }
 
 
@@ -421,9 +363,9 @@ preRenderWithFallback { data, head, pages } =
 serverRender :
     { data : routeParams -> Server.Request.Request -> BackendTask FatalError (Server.Response.Response data ErrorPage)
     , action : routeParams -> Server.Request.Request -> BackendTask FatalError (Server.Response.Response action ErrorPage)
-    , head : App data action routeParams {} -> List Head.Tag
+    , head : App data action routeParams -> List Head.Tag
     }
-    -> Builder routeParams data action {}
+    -> Builder routeParams data action
 serverRender { data, action, head } =
     WithData
         { data =
@@ -439,5 +381,4 @@ serverRender { data, action, head } =
             \moduleContext toRecord routeParams ->
                 BackendTask.succeed Nothing
         , kind = "serverless"
-        , staticViewsFromData = \_ -> {}
         }

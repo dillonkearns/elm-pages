@@ -286,11 +286,6 @@ otherFile routes phaseString =
                                                                                                             )
                                                                                                   )
                                                                                                 , ( "pageFormState", pageFormState )
-                                                                                                , ( "staticViews"
-                                                                                                  , Elm.apply
-                                                                                                        (route |> routeTemplateFunction "staticViewsFromData")
-                                                                                                        [ data ]
-                                                                                                  )
                                                                                                 ]
                                                                                             ]
                                                                                         )
@@ -321,11 +316,6 @@ otherFile routes phaseString =
                                                                             , ( "navigation", Elm.nothing )
                                                                             , ( "concurrentSubmissions", Gen.Dict.empty )
                                                                             , ( "pageFormState", Gen.Dict.empty )
-                                                                            , ( "staticViews"
-                                                                              , Elm.apply
-                                                                                    (route |> routeTemplateFunction "staticViewsFromData")
-                                                                                    [ data ]
-                                                                              )
                                                                             ]
                                                                         ]
                                                           )
@@ -764,11 +754,6 @@ otherFile routes phaseString =
                                                                                 , ( "navigation", Elm.nothing )
                                                                                 , ( "concurrentSubmissions", Gen.Dict.empty )
                                                                                 , ( "pageFormState", Gen.Dict.empty )
-                                                                                , ( "staticViews"
-                                                                                  , Elm.apply
-                                                                                        (route |> routeTemplateFunction "staticViewsFromData")
-                                                                                        [ thisPageData ]
-                                                                                  )
                                                                                 ]
                                                                             ]
                                                                             |> Gen.Tuple.call_.mapBoth
@@ -954,11 +939,6 @@ otherFile routes phaseString =
                                                                                         )
                                                                               )
                                                                             , ( "pageFormState", pageFormState )
-                                                                            , ( "staticViews"
-                                                                              , Elm.apply
-                                                                                    (route |> routeTemplateFunction "staticViewsFromData")
-                                                                                    [ thisPageData ]
-                                                                              )
                                                                             ]
                                                                         , msg_
                                                                         , pageModel
