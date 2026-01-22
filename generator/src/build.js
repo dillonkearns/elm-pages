@@ -415,6 +415,12 @@ async function compileElm(options) {
   ensureDirSync("dist");
   const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
   await generateClientFolder(options.base);
+
+  // NOTE: DCE transform is applied in generateClientFolder via runElmReviewCodemod.
+  // It transforms the COPIED source in elm-stuff/elm-pages/client/app/, not the original.
+  // This allows the CLI bundle (for extraction) to use original source while
+  // the client bundle uses transformed source for dead-code elimination.
+
   await spawnElmMake(
     options.debug ? "debug" : "optimize",
     options,

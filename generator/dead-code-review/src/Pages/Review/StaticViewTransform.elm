@@ -1,24 +1,31 @@
 module Pages.Review.StaticViewTransform exposing (rule)
 
-{-| This rule transforms `View.Static.render` calls into `View.Static.adopt` calls
-in the client bundle. This enables dead-code elimination of the static rendering
-dependencies (markdown parsers, syntax highlighters, etc.) while preserving the
-pre-rendered HTML for adoption by the virtual-dom.
+{-| This rule transforms static region render calls into adopt calls in the client
+bundle. This enables dead-code elimination of the static rendering dependencies
+(markdown parsers, syntax highlighters, etc.) while preserving the pre-rendered
+HTML for adoption by the virtual-dom.
 
-Transform:
+Transforms:
 
-    View.Static.render "markdown" content
+    -- User's View.renderStatic (new API):
+    View.renderStatic "id" (staticContent ())
     -- becomes:
-    View.Static.adopt "markdown"
+    View.embedStatic (View.htmlToStatic (View.Static.adopt "id"))
+
+    -- Direct View.Static.render (legacy):
+    View.Static.render "id" content
+    -- becomes:
+    View.Static.adopt "id"
+
+The key insight is that by replacing the entire `View.renderStatic` call, we
+prevent `staticContent ()` from being called, allowing DCE to eliminate it.
 
 -}
 
-import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Range exposing (Range)
 import Review.Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -27,6 +34,7 @@ import Review.Rule as Rule exposing (Error, Rule)
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , viewStaticAlias : Maybe ModuleName
+    , viewAlias : Maybe ModuleName
     }
 
 
@@ -45,6 +53,7 @@ initialContext =
         (\lookupTable () ->
             { lookupTable = lookupTable
             , viewStaticAlias = Nothing
+            , viewAlias = Nothing
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -55,14 +64,28 @@ importVisitor node context =
     let
         import_ =
             Node.value node
+
+        moduleName =
+            Node.value import_.moduleName
     in
-    if import_.moduleName |> Node.value |> (==) [ "View", "Static" ] then
+    if moduleName == [ "View", "Static" ] then
         ( []
         , { context
             | viewStaticAlias =
                 import_.moduleAlias
                     |> Maybe.map Node.value
                     |> Maybe.withDefault [ "View", "Static" ]
+                    |> Just
+          }
+        )
+
+    else if moduleName == [ "View" ] then
+        ( []
+        , { context
+            | viewAlias =
+                import_.moduleAlias
+                    |> Maybe.map Node.value
+                    |> Maybe.withDefault [ "View" ]
                     |> Just
           }
         )
@@ -76,17 +99,38 @@ expressionVisitor node context =
     case Node.value node of
         Expression.Application applicationExpressions ->
             case applicationExpressions of
-                -- View.Static.render "id" content
+                -- Two-argument application: fn arg1 arg2
                 functionNode :: idArg :: contentArg :: [] ->
-                    -- Check if this is View.Static.render
                     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+                        -- View.renderStatic "id" expr → View.embedStatic (View.Static.adopt "id")
+                        Just [ "View" ] ->
+                            case Node.value functionNode of
+                                Expression.FunctionOrValue _ "renderStatic" ->
+                                    let
+                                        replacement =
+                                            renderStaticAdoptCall context idArg
+                                    in
+                                    ( [ Rule.errorWithFix
+                                            { message = "Static region codemod: transform renderStatic to adopt"
+                                            , details = [ "Transforms View.renderStatic to View.embedStatic (View.Static.adopt ...) for client-side adoption and DCE" ]
+                                            }
+                                            (Node.range node)
+                                            [ Review.Fix.replaceRangeBy (Node.range node) replacement
+                                            ]
+                                      ]
+                                    , context
+                                    )
+
+                                _ ->
+                                    ( [], context )
+
+                        -- View.Static.render "id" content → View.Static.adopt "id" (legacy)
                         Just [ "View", "Static" ] ->
                             case Node.value functionNode of
                                 Expression.FunctionOrValue _ "render" ->
-                                    -- This is View.Static.render, transform it
                                     let
                                         adoptCall =
-                                            renderAdoptCall context idArg
+                                            viewStaticAdoptCall context idArg
                                     in
                                     ( [ Rule.errorWithFix
                                             { message = "Static region codemod: transform render to adopt"
@@ -112,10 +156,38 @@ expressionVisitor node context =
             ( [], context )
 
 
-{-| Generate the View.Static.adopt call string
+{-| Generate View.embedStatic (View.htmlToStatic (View.Static.adopt "id")) for View.renderStatic
+
+Note: We need View.htmlToStatic because:
+
+  - View.Static.adopt returns Html.Html Never (unstyled)
+  - View.embedStatic expects View.Static (Html.Styled.Html Never)
+  - View.htmlToStatic converts between these types
+
 -}
-renderAdoptCall : Context -> Node Expression -> String
-renderAdoptCall context idArg =
+renderStaticAdoptCall : Context -> Node Expression -> String
+renderStaticAdoptCall context idArg =
+    let
+        viewPrefix =
+            context.viewAlias
+                |> Maybe.withDefault [ "View" ]
+                |> String.join "."
+
+        viewStaticPrefix =
+            context.viewStaticAlias
+                |> Maybe.withDefault [ "View", "Static" ]
+                |> String.join "."
+
+        idStr =
+            expressionToString idArg
+    in
+    viewPrefix ++ ".embedStatic (" ++ viewPrefix ++ ".htmlToStatic (" ++ viewStaticPrefix ++ ".adopt " ++ idStr ++ "))"
+
+
+{-| Generate View.Static.adopt "id" for legacy View.Static.render
+-}
+viewStaticAdoptCall : Context -> Node Expression -> String
+viewStaticAdoptCall context idArg =
     let
         modulePrefix =
             context.viewStaticAlias

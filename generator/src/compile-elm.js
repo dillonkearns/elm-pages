@@ -21,6 +21,12 @@ export async function compileElmForBrowser(options) {
   );
   const secretDir = path.join(process.cwd(), "elm-stuff/elm-pages/browser-elm");
   await fsHelpers.tryMkdir(secretDir);
+
+  // For production builds, apply DCE transform via elm-review
+  if (options.optimize) {
+    await runElmReviewForDCE();
+  }
+
   rewriteElmJson(process.cwd(), secretDir, function (elmJson) {
     elmJson["source-directories"] = elmJson["source-directories"].map(
       (item) => {
@@ -278,6 +284,61 @@ export async function runElmReview(cwd) {
         resolve(scriptOutput);
       } else {
         resolve(scriptOutput);
+      }
+    });
+  });
+}
+
+/**
+ * Run elm-review with the dead-code-review config to apply DCE transforms.
+ * This transforms View.renderStatic calls to View.embedStatic (View.Static.adopt ...)
+ * enabling dead-code elimination of static region dependencies.
+ *
+ * @param {string} [ cwd ]
+ */
+export async function runElmReviewForDCE(cwd) {
+  const startTime = Date.now();
+  console.log("Applying static region DCE transforms via elm-review...");
+
+  return new Promise((resolve, reject) => {
+    const child = spawnCallback(
+      `elm-review`,
+      [
+        "--fix-all-without-prompt",
+        "--namespace",
+        "elm-pages-dce",
+        "--config",
+        path.join(__dirname, "../../generator/dead-code-review"),
+      ],
+      { cwd: cwd }
+    );
+
+    let scriptOutput = "";
+
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", function (/** @type {string} */ data) {
+      scriptOutput += data.toString();
+    });
+
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", function (/** @type {string} */ data) {
+      scriptOutput += data.toString();
+    });
+
+    child.on("close", function (code) {
+      console.log(`Ran elm-review DCE transform in ${timeFrom(startTime)}`);
+      if (code === 0) {
+        console.log("DCE transforms applied successfully");
+        resolve(scriptOutput);
+      } else {
+        // elm-review returns non-zero if it made fixes, which is expected
+        // We only reject on actual errors
+        if (scriptOutput.includes("error")) {
+          reject(scriptOutput);
+        } else {
+          console.log("DCE transforms applied (with fixes)");
+          resolve(scriptOutput);
+        }
       }
     });
   });

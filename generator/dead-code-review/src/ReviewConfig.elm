@@ -7,8 +7,9 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    [ Pages.Review.DeadCodeEliminateData.rule
-        |> Rule.filterErrorsForFiles (String.startsWith "app/")
-    , Pages.Review.StaticViewTransform.rule
+    [ -- Temporarily disabled to focus on StaticViewTransform
+      -- Pages.Review.DeadCodeEliminateData.rule
+      --     |> Rule.filterErrorsForFiles (String.startsWith "app/")
+      Pages.Review.StaticViewTransform.rule
         |> Rule.filterErrorsForFiles (String.startsWith "app/")
     ]
