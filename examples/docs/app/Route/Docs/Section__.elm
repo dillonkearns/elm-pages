@@ -29,6 +29,17 @@ import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import Url
 import View exposing (View)
+import View.Static
+
+
+{-| Static content for docs pages - rendered at build time, eliminated from client bundle.
+Contains the markdown body, navigation, and edit link.
+-}
+type alias StaticContent =
+    { body : List Block
+    , previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
+    , editUrl : String
+    }
 
 
 type alias Model =
@@ -72,17 +83,30 @@ pages =
 
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
-    BackendTask.map4 Data
-        (pageBody routeParams)
-        (previousAndNextData routeParams)
-        (routeParams.section
-            |> Maybe.withDefault "what-is-elm-pages"
-            |> findBySlug
-            |> Glob.expectUniqueMatch
-            |> BackendTask.map filePathToEditUrl
-            |> BackendTask.allowFatal
+    BackendTask.map3
+        (\titles metadata staticContent ->
+            { titles = { title = titles.title }
+            , metadata = metadata
+            , staticContent = staticContent
+            }
         )
+        (previousAndNextData routeParams)
         (routeParams |> filePathBackendTask |> BackendTask.andThen MarkdownCodec.titleAndDescription)
+        -- Wrap ALL static content in StaticOnlyData for full DCE
+        -- The elm-review codemod transforms this to BackendTask.fail on client
+        (View.Static.backendTask
+            (BackendTask.map3 StaticContent
+                (pageBody routeParams)
+                (previousAndNextData routeParams |> BackendTask.map .previousAndNext)
+                (routeParams.section
+                    |> Maybe.withDefault "what-is-elm-pages"
+                    |> findBySlug
+                    |> Glob.expectUniqueMatch
+                    |> BackendTask.map filePathToEditUrl
+                    |> BackendTask.allowFatal
+                )
+            )
+        )
 
 
 filePathToEditUrl : String -> String
@@ -188,10 +212,9 @@ head app =
 
 
 type alias Data =
-    { body : List Block
-    , titles : { title : String, previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) }
-    , editUrl : String
+    { titles : { title : String }
     , metadata : { title : String, description : String }
+    , staticContent : View.Static.StaticOnlyData StaticContent
     }
 
 
@@ -241,47 +264,57 @@ view app sharedModel =
                         ]
                     ]
                 ]
-                [ Html.div
-                    [ css
-                        [ Tw.max_w_screen_md
-                        , Tw.mx_auto
-                        , Bp.xl [ Tw.pr_36 ]
-                        ]
-                    ]
-                    ((app.data.body
-                        |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
-                        |> Result.withDefault []
-                     )
-                        ++ [ NextPrevious.view app.data.titles.previousAndNext
-                           , Html.hr [] []
-                           , Html.footer
-                                [ css [ Tw.text_right ]
-                                ]
-                                [ Html.a
-                                    [ Attr.href app.data.editUrl
-                                    , Attr.rel "noopener"
-                                    , Attr.target "_blank"
-                                    , css
-                                        [ Tw.text_sm
-                                        , Css.hover
-                                            [ Tw.text_color Theme.gray_800 |> Css.important
-                                            ]
-                                        , Tw.text_color Theme.gray_500 |> Css.important
-                                        , Tw.flex
-                                        , Tw.items_center
-                                        , Tw.float_right
-                                        ]
-                                    ]
-                                    [ Html.span [ css [ Tw.pr_1 ] ] [ Html.text "Suggest an edit on GitHub" ]
-                                    , Heroicon.edit
-                                    ]
-                                ]
-                           ]
-                    )
+                [ -- Static region: markdown body, prev/next navigation, and edit link
+                  -- All rendering code is eliminated from client bundle via DCE
+                  View.staticView app.data.staticContent renderStaticContent
                 ]
             ]
         ]
     }
+
+
+{-| Render the article content as a static region.
+This code is eliminated from the client bundle via DCE.
+-}
+renderStaticContent : StaticContent -> View.Static
+renderStaticContent content =
+    Html.div
+        [ css
+            [ Tw.max_w_screen_md
+            , Tw.mx_auto
+            , Bp.xl [ Tw.pr_36 ]
+            ]
+        ]
+        ((content.body
+            |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
+            |> Result.withDefault []
+         )
+            ++ [ NextPrevious.view content.previousAndNext
+               , Html.hr [] []
+               , Html.footer
+                    [ css [ Tw.text_right ]
+                    ]
+                    [ Html.a
+                        [ Attr.href content.editUrl
+                        , Attr.rel "noopener"
+                        , Attr.target "_blank"
+                        , css
+                            [ Tw.text_sm
+                            , Css.hover
+                                [ Tw.text_color Theme.gray_800 |> Css.important
+                                ]
+                            , Tw.text_color Theme.gray_500 |> Css.important
+                            , Tw.flex
+                            , Tw.items_center
+                            , Tw.float_right
+                            ]
+                        ]
+                        [ Html.span [ css [ Tw.pr_1 ] ] [ Html.text "Suggest an edit on GitHub" ]
+                        , Heroicon.edit
+                        ]
+                    ]
+               ]
+        )
 
 
 filePathBackendTask : RouteParams -> BackendTask FatalError String

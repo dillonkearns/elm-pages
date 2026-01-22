@@ -43,11 +43,11 @@ route =
 
 data : BackendTask FatalError Data
 data =
-    Showcase.staticRequest
+    View.Static.backendTask Showcase.staticRequest
 
 
 type alias Data =
-    List Showcase.Entry
+    View.Static.StaticOnlyData (List Showcase.Entry)
 
 
 type alias ActionData =
@@ -76,18 +76,28 @@ view static sharedModel =
                     ]
                 ]
             ]
-            [ View.embedStatic (View.Static.adopt "showcase-top")
-            , div
-                [ css
-                    [ Tw.pt_8
-                    , Tw.flex
-                    , Tw.justify_around
-                    ]
-                ]
-                [ showcaseEntries static.data ]
+            [ View.staticView static.data (\_ -> topSection)
+            , -- Static region: showcase entries grid
+              -- The entire entries list is pre-rendered and eliminated from client bundle
+              View.staticView static.data renderShowcaseEntries
             ]
         ]
     }
+
+
+{-| Render showcase entries as a static region.
+This code is eliminated from the client bundle via DCE.
+-}
+renderShowcaseEntries : List Showcase.Entry -> View.Static
+renderShowcaseEntries items =
+    div
+        [ css
+            [ Tw.pt_8
+            , Tw.flex
+            , Tw.justify_around
+            ]
+        ]
+        [ showcaseEntries items ]
 
 
 head : App Data ActionData RouteParams {} -> List Head.Tag

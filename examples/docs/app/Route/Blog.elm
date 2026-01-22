@@ -39,10 +39,11 @@ data : BackendTask FatalError Data
 data =
     Article.allMetadata
         |> BackendTask.allowFatal
+        |> View.Static.backendTask
 
 
 type alias Data =
-    List ( Route, Article.ArticleMetadata )
+    View.Static.StaticOnlyData (List ( Route, Article.ArticleMetadata ))
 
 
 type alias ActionData =
@@ -106,29 +107,39 @@ view app shared =
                     ]
                 ]
                 [ View.embedStatic (View.Static.adopt "blog-header")
-                , div
-                    [ css
-                        [ Tw.mt_12
-                        , Tw.max_w_lg
-                        , Tw.mx_auto
-                        , Tw.grid
-                        , Tw.gap_5
-                        , Bp.lg
-                            [ Tw.grid_cols_3
-                            , Tw.max_w_none
-                            ]
-                        ]
-                    ]
-                    (app.data
-                        |> List.map
-                            (\articleInfo ->
-                                blogCard articleInfo
-                            )
-                    )
+                , -- Static region: blog cards grid
+                  -- All blog card rendering is eliminated from client bundle via DCE
+                  View.staticView app.data renderBlogCards
                 ]
             ]
         ]
     }
+
+
+{-| Render blog cards as a static region.
+This code is eliminated from the client bundle via DCE.
+-}
+renderBlogCards : List ( Route, Article.ArticleMetadata ) -> View.Static
+renderBlogCards articles =
+    div
+        [ css
+            [ Tw.mt_12
+            , Tw.max_w_lg
+            , Tw.mx_auto
+            , Tw.grid
+            , Tw.gap_5
+            , Bp.lg
+                [ Tw.grid_cols_3
+                , Tw.max_w_none
+                ]
+            ]
+        ]
+        (articles
+            |> List.map
+                (\articleInfo ->
+                    blogCard articleInfo
+                )
+        )
 
 
 head : App Data ActionData RouteParams {} -> List Head.Tag
@@ -238,6 +249,8 @@ blogCard ( route_, info ) =
         ]
 
 
+{-| Static blog header content - rendered at build time, eliminated from client bundle.
+-}
 staticBlogHeader : () -> View.Static
 staticBlogHeader () =
     blogHeader
