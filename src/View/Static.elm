@@ -1,4 +1,4 @@
-module View.Static exposing (StaticId(..), StaticOnlyData, adopt, backendTask, render, static, view, wrap)
+module View.Static exposing (StaticId(..), StaticOnlyData, adopt, backendTask, map, map2, render, static, view, wrap)
 
 {-| This module provides primitives for "static regions" - parts of the view
 that are pre-rendered at build time and adopted by the virtual-dom on the client
@@ -49,7 +49,7 @@ At build time, `staticContent` is transformed to:
 
 ## Static-Only Data
 
-@docs StaticOnlyData, wrap, backendTask, view
+@docs StaticOnlyData, wrap, map, map2, backendTask, view
 
 -}
 
@@ -161,6 +161,43 @@ Use this in your BackendTask to create StaticOnlyData:
 wrap : a -> StaticOnlyData a
 wrap =
     Internal.StaticOnlyData
+
+
+{-| Transform static-only data by applying a function to its contents.
+
+This is safe to use at build time (in `head` functions, `data` functions, etc.).
+On the client, the elm-review codemod transforms `View.Static.backendTask` to
+`BackendTask.fail`, so the code path using `map` is never reached.
+
+    head : App Data ActionData RouteParams {} -> List Head.Tag
+    head app =
+        View.Static.map app.data.staticContent
+            (\content ->
+                Seo.summary
+                    { title = content.metadata.title
+                    , description = content.metadata.description
+                    }
+            )
+
+-}
+map : StaticOnlyData a -> (a -> b) -> b
+map staticData fn =
+    fn (Internal.unwrap staticData)
+
+
+{-| Combine two static-only data values by applying a function to both.
+
+    View.Static.map2 app.data.metadata app.data.body
+        (\meta body ->
+            { title = meta.title
+            , renderedBody = renderMarkdown body
+            }
+        )
+
+-}
+map2 : StaticOnlyData a -> StaticOnlyData b -> (a -> b -> c) -> c
+map2 staticDataA staticDataB fn =
+    fn (Internal.unwrap staticDataA) (Internal.unwrap staticDataB)
 
 
 {-| Create a BackendTask that produces static-only data.

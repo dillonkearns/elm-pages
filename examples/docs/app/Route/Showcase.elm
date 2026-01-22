@@ -76,7 +76,7 @@ view static sharedModel =
                     ]
                 ]
             ]
-            [ View.embedStatic (View.adopt "showcase-top")
+            [ View.embedStatic (View.Static.adopt "showcase-top")
             , div
                 [ css
                     [ Tw.pt_8

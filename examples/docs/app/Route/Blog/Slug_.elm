@@ -14,7 +14,6 @@ import Html.Styled.Attributes as Attr exposing (css)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 import Markdown.Block
-import Pages.Internal.StaticOnlyData
 import Markdown.Renderer
 import MarkdownCodec
 import Pages.Url
@@ -30,6 +29,7 @@ import TailwindMarkdownRenderer
 import UnsplashImage
 import UrlPath
 import View exposing (View)
+import View.Static
 
 
 {-| All page content wrapped for static rendering.
@@ -195,56 +195,59 @@ head :
     App Data ActionData RouteParams {}
     -> List Head.Tag
 head app =
-    let
-        -- Safe to unwrap here because head only runs at build time
-        -- The elm-review codemod ensures this code path is never reached on client
-        metadata =
-            (Pages.Internal.StaticOnlyData.unwrap app.data.staticContent).metadata
-    in
-    Head.structuredData
-        (StructuredData.article
-            { title = metadata.title
-            , description = metadata.description
-            , author = StructuredData.person { name = Author.dillon.name }
-            , publisher = StructuredData.person { name = Author.dillon.name }
-            , url = SiteOld.canonicalUrl ++ UrlPath.toAbsolute app.path
-            , imageUrl = metadata.image
-            , datePublished = Date.toIsoString metadata.published
-            , mainEntityOfPage =
-                StructuredData.softwareSourceCode
-                    { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
-                    , description = "A statically typed site generator for Elm."
-                    , author = "Dillon Kearns"
-                    , programmingLanguage = StructuredData.elmLang
+    -- Safe to use staticMap here because head only runs at build time
+    -- The elm-review codemod ensures this code path is never reached on client
+    View.Static.map app.data.staticContent
+        (\content ->
+            let
+                metadata =
+                    content.metadata
+            in
+            Head.structuredData
+                (StructuredData.article
+                    { title = metadata.title
+                    , description = metadata.description
+                    , author = StructuredData.person { name = Author.dillon.name }
+                    , publisher = StructuredData.person { name = Author.dillon.name }
+                    , url = SiteOld.canonicalUrl ++ UrlPath.toAbsolute app.path
+                    , imageUrl = metadata.image
+                    , datePublished = Date.toIsoString metadata.published
+                    , mainEntityOfPage =
+                        StructuredData.softwareSourceCode
+                            { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
+                            , description = "A statically typed site generator for Elm."
+                            , author = "Dillon Kearns"
+                            , programmingLanguage = StructuredData.elmLang
+                            }
                     }
-            }
+                )
+                :: (Seo.summaryLarge
+                        { canonicalUrlOverride = Nothing
+                        , siteName = "elm-pages"
+                        , image =
+                            { url = metadata.image
+                            , alt = metadata.description
+                            , dimensions = Nothing
+                            , mimeType = Nothing
+                            }
+                        , description = metadata.description
+                        , locale = Nothing
+                        , title = metadata.title
+                        }
+                        |> Seo.article
+                            { tags = []
+                            , section = Nothing
+                            , publishedTime = Just (DateOrDateTime.Date metadata.published)
+                            , modifiedTime = Nothing
+                            , expirationTime = Nothing
+                            }
+                   )
         )
-        :: (Seo.summaryLarge
-                { canonicalUrlOverride = Nothing
-                , siteName = "elm-pages"
-                , image =
-                    { url = metadata.image
-                    , alt = metadata.description
-                    , dimensions = Nothing
-                    , mimeType = Nothing
-                    }
-                , description = metadata.description
-                , locale = Nothing
-                , title = metadata.title
-                }
-                |> Seo.article
-                    { tags = []
-                    , section = Nothing
-                    , publishedTime = Just (DateOrDateTime.Date metadata.published)
-                    , modifiedTime = Nothing
-                    , expirationTime = Nothing
-                    }
-           )
 
 
 type alias Data =
     { title : String
-    , staticContent : View.StaticOnlyData StaticContent
+    , staticContent : View.Static.StaticOnlyData StaticContent
     }
 
 
@@ -274,7 +277,7 @@ data routeParams =
                     (BackendTask.succeed parsed.metadata.title)
                     -- Wrap ALL content in StaticOnlyData for full DCE
                     -- The elm-review codemod transforms this to BackendTask.fail on client
-                    (View.staticBackendTask
+                    (View.Static.backendTask
                         (BackendTask.succeed
                             { metadata = parsed.metadata
                             , body = parsed.body

@@ -105,7 +105,7 @@ view app shared =
                     , Tw.mx_auto
                     ]
                 ]
-                [ View.embedStatic (View.adopt "blog-header")
+                [ View.embedStatic (View.Static.adopt "blog-header")
                 , div
                     [ css
                         [ Tw.mt_12

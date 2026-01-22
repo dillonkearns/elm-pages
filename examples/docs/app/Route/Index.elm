@@ -81,7 +81,7 @@ view :
 view app shared =
     { title = "elm-pages - a statically typed site generator"
     , body =
-        [ View.embedStatic (View.adopt "landing")
+        [ View.embedStatic (View.Static.adopt "landing")
         ]
     }
 

@@ -296,7 +296,7 @@ backendTaskFailCall =
     "BackendTask.fail (FatalError.fromString \"static only data\")"
 
 
-{-| Generate View.embedStatic (View.adopt "index") for View.static with auto-ID
+{-| Generate View.embedStatic (View.Static.adopt "index") for View.static with auto-ID
 -}
 viewStaticAutoIdCall : Context -> String
 viewStaticAutoIdCall context =
@@ -306,10 +306,15 @@ viewStaticAutoIdCall context =
                 |> Maybe.withDefault [ "View" ]
                 |> String.join "."
 
+        staticPrefix =
+            context.viewStaticAlias
+                |> Maybe.withDefault [ "View", "Static" ]
+                |> String.join "."
+
         idStr =
             "\"" ++ String.fromInt context.staticIndex ++ "\""
     in
-    viewPrefix ++ ".embedStatic (" ++ viewPrefix ++ ".adopt " ++ idStr ++ ")"
+    viewPrefix ++ ".embedStatic (" ++ staticPrefix ++ ".adopt " ++ idStr ++ ")"
 
 
 {-| Generate View.Static.adopt "index" for View.Static.static with auto-ID
@@ -328,11 +333,7 @@ viewStaticModuleAutoIdCall context =
     modulePrefix ++ ".adopt " ++ idStr
 
 
-{-| Generate View.embedStatic (View.adopt "id") for View.renderStatic
-
-The View module provides adopt which wraps View.Static.adopt and converts
-to Html.Styled, so we can use it directly with embedStatic.
-
+{-| Generate View.embedStatic (View.Static.adopt "id") for View.renderStatic
 -}
 renderStaticAdoptCall : Context -> Node Expression -> String
 renderStaticAdoptCall context idArg =
@@ -342,10 +343,15 @@ renderStaticAdoptCall context idArg =
                 |> Maybe.withDefault [ "View" ]
                 |> String.join "."
 
+        staticPrefix =
+            context.viewStaticAlias
+                |> Maybe.withDefault [ "View", "Static" ]
+                |> String.join "."
+
         idStr =
             expressionToString idArg
     in
-    viewPrefix ++ ".embedStatic (" ++ viewPrefix ++ ".adopt " ++ idStr ++ ")"
+    viewPrefix ++ ".embedStatic (" ++ staticPrefix ++ ".adopt " ++ idStr ++ ")"
 
 
 {-| Generate View.Static.adopt "id" for legacy View.Static.render

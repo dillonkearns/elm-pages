@@ -1,26 +1,28 @@
-module View exposing (View, map, Static, StaticOnlyData, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt, static, staticView, wrapStaticData, staticBackendTask)
+module View exposing (View, map, Static, staticView, embedStatic)
 
-{-|
+{-| The core View type for this application.
 
-@docs View, map, Static, StaticOnlyData, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt, static, staticView, wrapStaticData, staticBackendTask
+@docs View, map, Static, staticView, embedStatic
+
+For static-only data and build-time helpers, import `View.Static` directly.
 
 -}
 
-import BackendTask exposing (BackendTask)
-import FatalError exposing (FatalError)
 import Html
 import Html.Styled
 import View.Static
 
 
-{-| -}
+{-| The View type that all pages must return.
+-}
 type alias View msg =
     { title : String
     , body : List (Html.Styled.Html msg)
     }
 
 
-{-| -}
+{-| Transform the messages in a View.
+-}
 map : (msg1 -> msg2) -> View msg1 -> View msg2
 map fn doc =
     { title = doc.title
@@ -28,91 +30,39 @@ map fn doc =
     }
 
 
-{-| Static content type - cannot produce messages (Html Never).
+{-| Static content type - Html.Styled that cannot produce messages.
 Used for content that is pre-rendered at build time and adopted by virtual-dom.
 -}
 type alias Static =
     Html.Styled.Html Never
 
 
-{-| Convert Static content to plain Html for extraction at build time.
--}
-staticToHtml : Static -> Html.Html Never
-staticToHtml =
-    Html.Styled.toUnstyled
-
-
-{-| Convert plain Html to Static content for adoption at runtime.
--}
-htmlToStatic : Html.Html Never -> Static
-htmlToStatic =
-    Html.Styled.fromUnstyled
-
-
 {-| Embed static content into a View body.
-Since Static is Html Never, it can safely become Html msg.
+
+Takes plain Html Never (e.g. from View.Static.adopt) and converts it to
+Html.Styled.Html msg for use in the view body.
+
 -}
-embedStatic : Static -> Html.Styled.Html msg
-embedStatic staticContent =
-    Html.Styled.map never staticContent
-
-
-{-| Render static content with a data-static attribute for extraction.
--}
-renderStatic : String -> Static -> Html.Styled.Html msg
-renderStatic id staticContent =
-    staticContent
-        |> staticToHtml
-        |> View.Static.render id
-        |> Html.Styled.fromUnstyled
-        |> Html.Styled.map never
-
-
-{-| Adopt a static region by ID. This is used by the client-side code after
-DCE transformation. On initial load, it adopts pre-rendered DOM. On SPA
-navigation, it uses HTML from static-regions.json.
--}
-adopt : String -> Static
-adopt id =
-    View.Static.adopt id
-        |> Html.Styled.fromUnstyled
-
-
-{-| Mark content as static for build-time rendering and client-side adoption.
--}
-static : Static -> Html.Styled.Html msg
-static content =
+embedStatic : Html.Html Never -> Html.Styled.Html msg
+embedStatic content =
     content
-        |> staticToHtml
-        |> View.Static.static
         |> Html.Styled.fromUnstyled
         |> Html.Styled.map never
-
-
-{-| Opaque wrapper for data that should only be used in static regions.
--}
-type alias StaticOnlyData a =
-    View.Static.StaticOnlyData a
-
-
-{-| Wrap data to mark it as static-only.
--}
-wrapStaticData : a -> StaticOnlyData a
-wrapStaticData =
-    View.Static.wrap
 
 
 {-| Render static content using static-only data.
+
+This bridges View.Static.view (which uses plain Html) with Html.Styled.
+
+    view app =
+        { body =
+            [ View.staticView app.data.staticContent renderPage
+            ]
+        }
+
 -}
-staticView : StaticOnlyData a -> (a -> Static) -> Html.Styled.Html msg
+staticView : View.Static.StaticOnlyData a -> (a -> Static) -> Html.Styled.Html msg
 staticView staticOnlyData renderFn =
-    View.Static.view staticOnlyData (\data -> staticToHtml (renderFn data))
+    View.Static.view staticOnlyData (\data -> Html.Styled.toUnstyled (renderFn data))
         |> Html.Styled.fromUnstyled
         |> Html.Styled.map never
-
-
-{-| Create a BackendTask that produces static-only data.
--}
-staticBackendTask : BackendTask FatalError a -> BackendTask FatalError (StaticOnlyData a)
-staticBackendTask =
-    View.Static.backendTask
