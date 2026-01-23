@@ -913,8 +913,8 @@ update config appMsg model =
             )
 
         StaticRegionsReady maybePageDataBase64 ->
-            case ( maybePageDataBase64, model.pendingStaticRegionsPath ) of
-                ( Just pageDataBase64, Just pendingPath ) ->
+            case ( maybePageDataBase64, model.pendingStaticRegionsPath, model.pageData ) of
+                ( Just pageDataBase64, Just pendingPath, Ok previousPageData ) ->
                     -- Static regions and page data received from JS
                     case Base64.toBytes pageDataBase64 of
                         Just pageDataBytes ->
@@ -934,25 +934,13 @@ update config appMsg model =
                                         ( newPageData, newSharedData, newActionData ) =
                                             case decodedResponse of
                                                 ResponseSketch.RenderPage pageData actionData ->
-                                                    case model.pageData of
-                                                        Ok previousPageData ->
-                                                            ( pageData, previousPageData.sharedData, actionData )
-
-                                                        Err _ ->
-                                                            -- Shouldn't happen, but use defaults
-                                                            ( pageData, config.sharedData, actionData )
+                                                    ( pageData, previousPageData.sharedData, actionData )
 
                                                 ResponseSketch.HotUpdate pageData sharedData actionData ->
                                                     ( pageData, sharedData, actionData )
 
                                                 _ ->
-                                                    case model.pageData of
-                                                        Ok previousPageData ->
-                                                            ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
-
-                                                        Err _ ->
-                                                            -- Shouldn't happen
-                                                            ( config.data, config.sharedData, Nothing )
+                                                    ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
 
                                         clearedModel : Model userModel pageData actionData sharedData
                                         clearedModel =
@@ -979,7 +967,7 @@ update config appMsg model =
                             ( { model | pendingStaticRegionsPath = Nothing }, NoEffect )
 
                 _ ->
-                    -- No page data or no pending path - just clear the pending flag
+                    -- No page data, no pending path, or page not loaded - just clear the pending flag
                     ( { model | pendingStaticRegionsPath = Nothing }, NoEffect )
 
         NoOp ->
@@ -1557,7 +1545,7 @@ startNewGetLoad :
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-startNewGetLoad urlToGet _toMsg ( model, effect ) =
+startNewGetLoad urlToGet _ ( model, effect ) =
     let
         cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
