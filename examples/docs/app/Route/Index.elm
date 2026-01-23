@@ -1,4 +1,4 @@
-module Route.Index exposing (ActionData, Data, Model, Msg, route, staticLandingContent)
+module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import Css
@@ -22,7 +22,6 @@ import Tailwind.Utilities as Tw
 import UrlPath
 import View exposing (View)
 import View.CodeTab as CodeTab
-import View.Static
 
 
 type alias Model =
@@ -81,18 +80,9 @@ view :
 view app shared =
     { title = "elm-pages - a statically typed site generator"
     , body =
-        [ View.embedStatic (View.Static.adopt "landing")
+        [ View.static landingView
         ]
     }
-
-
-{-| Static landing page content - this function will be transformed to
-`View.Static.adopt "landing"` at build time, enabling dead-code elimination
-of all the heavy dependencies (syntax highlighting, etc.).
--}
-staticLandingContent : () -> View.Static
-staticLandingContent () =
-    landingView
 
 
 data : BackendTask FatalError Data

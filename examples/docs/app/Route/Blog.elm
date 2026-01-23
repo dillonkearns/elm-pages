@@ -1,4 +1,4 @@
-module Route.Blog exposing (ActionData, Data, Model, Msg, route, staticBlogHeader)
+module Route.Blog exposing (ActionData, Data, Model, Msg, route)
 
 import Article
 import BackendTask exposing (BackendTask)
@@ -106,7 +106,7 @@ view app shared =
                     , Tw.mx_auto
                     ]
                 ]
-                [ View.embedStatic (View.Static.adopt "blog-header")
+                [ View.static blogHeader
                 , -- Static region: blog cards grid
                   -- All blog card rendering is eliminated from client bundle via DCE
                   View.staticView app.data renderBlogCards
@@ -247,13 +247,6 @@ blogCard ( route_, info ) =
                 ]
             ]
         ]
-
-
-{-| Static blog header content - rendered at build time, eliminated from client bundle.
--}
-staticBlogHeader : () -> View.Static
-staticBlogHeader () =
-    blogHeader
 
 
 blogHeader : View.Static

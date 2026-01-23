@@ -1,4 +1,4 @@
-module View exposing (View, map, Static, staticView, embedStatic)
+module View exposing (View, map, Static, static, staticView, embedStatic)
 
 {-| The core View type for this application.
 
@@ -46,6 +46,41 @@ Html.Styled.Html msg for use in the view body.
 embedStatic : Html.Html Never -> Html.Styled.Html msg
 embedStatic content =
     content
+        |> Html.Styled.fromUnstyled
+        |> Html.Styled.map never
+
+
+{-| Mark content as static for build-time rendering and client-side adoption.
+
+Static content is:
+
+  - Rendered at build time and included in the HTML
+  - Adopted by the client without re-rendering
+  - Eligible for dead-code elimination (the rendering code is removed from the client bundle)
+
+Usage:
+
+    view app shared model =
+        { title = "My Page"
+        , body =
+            [ View.static landingView
+            , dynamicContent model
+            ]
+        }
+
+The content passed to `View.static` must be `Html.Styled.Html Never` (no event handlers).
+This ensures the static content cannot produce messages and is purely presentational.
+
+At build time, an ID is automatically assigned based on the order of `View.static`
+calls in your view. The elm-review transformation replaces `View.static expr` with
+`View.embedStatic (View.adopt "id")`, allowing DCE to eliminate `expr` and its dependencies.
+
+-}
+static : Static -> Html.Styled.Html msg
+static content =
+    content
+        |> Html.Styled.toUnstyled
+        |> View.Static.static
         |> Html.Styled.fromUnstyled
         |> Html.Styled.map never
 
