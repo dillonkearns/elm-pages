@@ -27,21 +27,25 @@ const STATIC_REGION_INLINE_CHECK = `
         typeof __staticRefs[1].a === 'string';
     if (__isStaticRegion) {
         var __staticId = __staticRefs[1].a;
-        var __existingDom = document.querySelector('[data-static="' + __staticId + '"]');
-        if (__existingDom) {
-            if (__existingDom.parentNode) __existingDom.parentNode.removeChild(__existingDom);
-            vNode.k = _VirtualDom_virtualize(__existingDom);
-            return __existingDom;
-        }
-        var __htmlFallback = (window.__ELM_PAGES_STATIC_REGIONS__ || {})[__staticId] || '';
-        if (__htmlFallback && __htmlFallback.length > 0) {
+        // Check global first (populated on SPA navigation BEFORE render)
+        // This ensures we use the NEW page's content, not stale DOM from old page
+        var __staticRegions = window.__ELM_PAGES_STATIC_REGIONS__ || {};
+        var __htmlFromGlobal = __staticRegions[__staticId];
+        if (__htmlFromGlobal && __htmlFromGlobal.length > 0) {
             var __template = document.createElement('template');
-            __template.innerHTML = __htmlFallback;
+            __template.innerHTML = __htmlFromGlobal;
             var __newDom = __template.content.firstElementChild;
             if (__newDom) {
                 vNode.k = _VirtualDom_virtualize(__newDom);
                 return __newDom;
             }
+        }
+        // Fall back to DOM adoption (initial page load - global is empty {})
+        var __existingDom = document.querySelector('[data-static="' + __staticId + '"]');
+        if (__existingDom) {
+            if (__existingDom.parentNode) __existingDom.parentNode.removeChild(__existingDom);
+            vNode.k = _VirtualDom_virtualize(__existingDom);
+            return __existingDom;
         }
         var __placeholder = document.createElement('div');
         __placeholder.setAttribute('data-static', __staticId);
