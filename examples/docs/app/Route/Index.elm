@@ -22,6 +22,7 @@ import Tailwind.Utilities as Tw
 import UrlPath
 import View exposing (View)
 import View.CodeTab as CodeTab
+import View.Static
 
 
 type alias Model =
