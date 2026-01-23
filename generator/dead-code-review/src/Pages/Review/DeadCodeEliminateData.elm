@@ -138,19 +138,19 @@ declarationVisitor node context =
                     case ( Node.value name, Node.value expression ) of
                         ( "template", Expression.RecordExpr setters ) ->
                             let
-                                dataFieldValue : Maybe (Node ( Node String, Node Expression ))
+                                dataFieldValue : Maybe ( String, Node ( Node String, Node Expression ) )
                                 dataFieldValue =
                                     setters
                                         |> List.filterMap
                                             (\recordSetter ->
                                                 case Node.value recordSetter of
                                                     ( keyNode, valueNode ) ->
-                                                        if Node.value keyNode == "data" || Node.value keyNode == "action" || Node.value keyNode == "pages" then
+                                                        if Node.value keyNode == "data" || Node.value keyNode == "action" || Node.value keyNode == "pages" || Node.value keyNode == "head" then
                                                             if isAlreadyApplied context.lookupTable (Node.value valueNode) then
                                                                 Nothing
 
                                                             else
-                                                                recordSetter |> Just
+                                                                ( Node.value keyNode, recordSetter ) |> Just
 
                                                         else
                                                             Nothing
@@ -159,18 +159,22 @@ declarationVisitor node context =
                             in
                             dataFieldValue
                                 |> Maybe.map
-                                    (\dataValue ->
+                                    (\( key, dataValue ) ->
                                         ( [ Rule.errorWithFix
                                                 { message = "Codemod"
                                                 , details = [ "" ]
                                                 }
                                                 (Node.range dataValue)
-                                                -- TODO need to replace `action` as well
-                                                [ ("data = "
-                                                    ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                    -- TODO add `import FatalError` if not present (and use alias if present)
-                                                    ++ " "
-                                                    ++ exceptionFromString
+                                                [ (key
+                                                    ++ " = "
+                                                    ++ (if key == "head" then
+                                                            "\\_ -> []"
+
+                                                        else
+                                                            referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                                ++ " "
+                                                                ++ exceptionFromString
+                                                       )
                                                     ++ "\n    "
                                                   )
                                                     |> Review.Fix.replaceRangeBy (Node.range dataValue)
@@ -203,7 +207,7 @@ expressionVisitor node context =
                                     (\recordSetter ->
                                         case Node.value recordSetter of
                                             ( keyNode, valueNode ) ->
-                                                if Node.value keyNode == "data" || Node.value keyNode == "action" || Node.value keyNode == "pages" then
+                                                if Node.value keyNode == "data" || Node.value keyNode == "action" || Node.value keyNode == "pages" || Node.value keyNode == "head" then
                                                     if isAlreadyApplied context.lookupTable (Node.value valueNode) then
                                                         Nothing
 
@@ -232,46 +236,51 @@ expressionVisitor node context =
                                     [ Review.Fix.replaceRangeBy (Node.range dataValue)
                                         (key
                                             ++ " = "
-                                            ++ (case pageBuilderName of
-                                                    "preRender" ->
-                                                        if key == "pages" then
+                                            ++ (if key == "head" then
+                                                    -- head : App -> List Head.Tag, replace with empty list
+                                                    "\\_ -> []"
+
+                                                else
+                                                    case pageBuilderName of
+                                                        "preRender" ->
+                                                            if key == "pages" then
+                                                                referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                                    ++ " "
+                                                                    ++ exceptionFromString
+
+                                                            else
+                                                                "\\_ -> "
+                                                                    ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                                    ++ " "
+                                                                    ++ exceptionFromString
+
+                                                        "preRenderWithFallback" ->
+                                                            if key == "pages" then
+                                                                referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                                    ++ " "
+                                                                    ++ exceptionFromString
+
+                                                            else
+                                                                "\\_ -> "
+                                                                    ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                                    ++ " "
+                                                                    ++ exceptionFromString
+
+                                                        "serverRender" ->
+                                                            "\\_ _ -> "
+                                                                ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                                ++ " ("
+                                                                ++ referenceFunction context.importContext ( [ "FatalError" ], "fromString" )
+                                                                ++ " \"\")\n        "
+
+                                                        "single" ->
                                                             referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                                 ++ " "
                                                                 ++ exceptionFromString
+                                                                ++ "\n       "
 
-                                                        else
-                                                            "\\_ -> "
-                                                                ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                                ++ " "
-                                                                ++ exceptionFromString
-
-                                                    "preRenderWithFallback" ->
-                                                        if key == "pages" then
-                                                            referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                                ++ " "
-                                                                ++ exceptionFromString
-
-                                                        else
-                                                            "\\_ -> "
-                                                                ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                                ++ " "
-                                                                ++ exceptionFromString
-
-                                                    "serverRender" ->
-                                                        "\\_ _ -> "
-                                                            ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                            ++ " ("
-                                                            ++ referenceFunction context.importContext ( [ "FatalError" ], "fromString" )
-                                                            ++ " \"\")\n        "
-
-                                                    "single" ->
-                                                        referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                            ++ " "
-                                                            ++ exceptionFromString
-                                                            ++ "\n       "
-
-                                                    _ ->
-                                                        "data"
+                                                        _ ->
+                                                            "data"
                                                )
                                         )
                                     ]
@@ -308,6 +317,10 @@ isAlreadyApplied lookupTable expression =
     case expression of
         Expression.LambdaExpression info ->
             case Node.value info.expression of
+                -- head = \_ -> [] (empty list for DCE'd head function)
+                Expression.ListExpr [] ->
+                    True
+
                 Expression.Application applicationNodes ->
                     case applicationNodes |> List.map Node.value of
                         (Expression.FunctionOrValue _ "fail") :: _ ->
