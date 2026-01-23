@@ -54,7 +54,7 @@ type alias RouteParams =
     { slug : String }
 
 
-route : StatelessRoute RouteParams Data ActionData {}
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRender
         { data = data
@@ -76,7 +76,7 @@ pages =
 
 
 view :
-    App Data ActionData RouteParams {}
+    App Data ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
@@ -192,7 +192,7 @@ renderFullPage content =
 
 
 head :
-    App Data ActionData RouteParams {}
+    App Data ActionData RouteParams
     -> List Head.Tag
 head app =
     -- Safe to use staticMap here because head only runs at build time

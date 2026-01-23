@@ -24,7 +24,7 @@ type alias Msg =
     ()
 
 
-route : StatelessRoute RouteParams Data ActionData {}
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -59,7 +59,7 @@ type alias Model =
 
 
 view :
-    App Data ActionData {} {}
+    App Data ActionData {}
     -> Shared.Model
     -> View msg
 view app shared =
@@ -142,7 +142,7 @@ renderBlogCards articles =
         )
 
 
-head : App Data ActionData RouteParams {} -> List Head.Tag
+head : App Data ActionData RouteParams -> List Head.Tag
 head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
