@@ -73,18 +73,10 @@ const STATIC_REGION_DIFF_CHECK = `
         var __globalContent = (window.__ELM_PAGES_STATIC_REGIONS__ || {})[__staticId];
         if (__globalContent && __globalContent.length > 0) {
             // Global has content - SPA navigation
-            // Virtualize from global instead of calling thunk (which returns empty Html.text "")
-            var __template = document.createElement('template');
-            __template.innerHTML = __globalContent;
-            var __newDom = __template.content.firstElementChild;
-            if (__newDom) {
-                y.k = _VirtualDom_virtualize(__newDom);
-            } else {
-                y.k = y.m();
-            }
-            // Use REDRAW (type 0) to completely replace the node instead of diffing
-            // This avoids complex patch issues when old/new DOM structures don't match
-            _VirtualDom_pushPatch(patches, 0, index, y.k);
+            // Use REDRAW with the thunk itself (y), not virtualized content
+            // This way render will be called with the thunk, our interception fires,
+            // and we parse HTML fresh with correct SVG namespace
+            _VirtualDom_pushPatch(patches, 0, index, y);
             return;
         } else {
             // No global content - initial load, compare by value to enable caching
