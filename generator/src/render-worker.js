@@ -94,7 +94,8 @@ async function outputString(
         // Write the combined content.dat for SPA navigation
         writeFileSync(`dist/${normalizedRoute}/content.dat`, contentDatBuffer);
 
-        // For bytesData embedded in HTML, use empty static regions (they're already in the DOM)
+        // For bytesData embedded in HTML, use empty static regions prefix
+        // The decoder (skipStaticRegionsPrefix) expects this format even for initial load
         const emptyStaticRegions = {};
         const emptyStaticRegionsJson = JSON.stringify(emptyStaticRegions);
         const emptyStaticRegionsBuffer = Buffer.from(emptyStaticRegionsJson, 'utf8');
@@ -107,7 +108,7 @@ async function outputString(
           Buffer.from(args.contentDatPayload.buffer)
         ]);
 
-        // Update the bytesData in htmlString with empty static regions header
+        // Update the bytesData in htmlString with the prefixed format
         args.htmlString.bytesData = htmlBytesBuffer.toString("base64");
 
         if (Object.keys(staticRegions).length > 0) {

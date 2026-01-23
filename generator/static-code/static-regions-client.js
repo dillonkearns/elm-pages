@@ -37,10 +37,10 @@ function parseCombinedContentDat(buffer) {
 
 /**
  * Fetch content.dat for a given path, parse the combined format,
- * set static regions global, and return the page data bytes.
+ * set static regions global, and return both page data and raw bytes.
  *
  * @param {string} pathname - The path to fetch content for
- * @returns {Promise<{ staticRegions: Record<string, string>, pageData: Uint8Array } | null>}
+ * @returns {Promise<{ staticRegions: Record<string, string>, pageData: Uint8Array, rawBytes: Uint8Array } | null>}
  */
 export async function fetchContentWithStaticRegions(pathname) {
   // Ensure path ends with /
@@ -59,7 +59,8 @@ export async function fetchContentWithStaticRegions(pathname) {
       // Populate global for codemod to use
       window.__ELM_PAGES_STATIC_REGIONS__ = staticRegions;
 
-      return { staticRegions, pageData };
+      // Return rawBytes (full content.dat) for Elm decoder which expects the prefix
+      return { staticRegions, pageData, rawBytes: new Uint8Array(buffer) };
     } else if (response.status === 404) {
       // Page not found
       window.__ELM_PAGES_STATIC_REGIONS__ = {};

@@ -31,10 +31,12 @@ const STATIC_REGION_INLINE_CHECK = `
         // This ensures we use the NEW page's content, not stale DOM from old page
         var __staticRegions = window.__ELM_PAGES_STATIC_REGIONS__ || {};
         var __htmlFromGlobal = __staticRegions[__staticId];
+        console.log('[static-region] Render check:', { staticId: __staticId, globalKeys: Object.keys(__staticRegions), hasContent: !!__htmlFromGlobal, contentLength: __htmlFromGlobal?.length, contentPreview: __htmlFromGlobal?.substring(0, 100) });
         if (__htmlFromGlobal && __htmlFromGlobal.length > 0) {
             var __template = document.createElement('template');
             __template.innerHTML = __htmlFromGlobal;
             var __newDom = __template.content.firstElementChild;
+            console.log('[static-region] Parsed from global:', { hasNewDom: !!__newDom, tagName: __newDom?.tagName });
             if (__newDom) {
                 vNode.k = _VirtualDom_virtualize(__newDom);
                 return __newDom;
@@ -42,6 +44,7 @@ const STATIC_REGION_INLINE_CHECK = `
         }
         // Fall back to DOM adoption (initial page load - global is empty {})
         var __existingDom = document.querySelector('[data-static="' + __staticId + '"]');
+        console.log('[static-region] DOM fallback:', { staticId: __staticId, found: !!__existingDom });
         if (__existingDom) {
             if (__existingDom.parentNode) __existingDom.parentNode.removeChild(__existingDom);
             vNode.k = _VirtualDom_virtualize(__existingDom);
@@ -50,32 +53,47 @@ const STATIC_REGION_INLINE_CHECK = `
         var __placeholder = document.createElement('div');
         __placeholder.setAttribute('data-static', __staticId);
         __placeholder.textContent = 'Loading static region...';
+        console.log('[static-region] Using placeholder for:', __staticId);
         return __placeholder;
     }
 `;
 
 /**
  * Inlined static region refs comparison for thunk diffing.
+ *
+ * For static regions:
+ * - On initial load: global is {}, so we compare by value and cache the adopted DOM
+ * - On SPA navigation: global has content, so we virtualize from global instead of calling thunk
+ *
+ * This allows proper caching on initial load while ensuring navigation updates work.
  */
 const STATIC_REGION_DIFF_CHECK = `
-    // Static region: check if refs have StaticId for value comparison
+    // Static region: check if refs have StaticId
     // In debug mode: $ === 'StaticId', in optimized mode: $ === 0
     var __xIsStatic = xRefs && xRefs.length >= 2 && xRefs[1] && (xRefs[1].$ === 'StaticId' || xRefs[1].$ === 0);
     var __yIsStatic = yRefs && yRefs.length >= 2 && yRefs[1] && (yRefs[1].$ === 'StaticId' || yRefs[1].$ === 0);
     if (__xIsStatic && __yIsStatic) {
-        // Compare StaticId by value
-        same = xRefs.length === yRefs.length;
-        if (same) {
-            for (var __i = 0; __i < xRefs.length && same; __i++) {
-                var __x = xRefs[__i], __y = yRefs[__i];
-                var __xIsStaticId = __x && (__x.$ === 'StaticId' || __x.$ === 0);
-                var __yIsStaticId = __y && (__y.$ === 'StaticId' || __y.$ === 0);
-                if (__xIsStaticId && __yIsStaticId) {
-                    same = __x.a === __y.a;
-                } else {
-                    same = __x === __y;
-                }
+        var __staticId = yRefs[1].a;
+        var __globalContent = (window.__ELM_PAGES_STATIC_REGIONS__ || {})[__staticId];
+        if (__globalContent && __globalContent.length > 0) {
+            // Global has content - SPA navigation
+            // Virtualize from global instead of calling thunk (which returns empty Html.text "")
+            var __template = document.createElement('template');
+            __template.innerHTML = __globalContent;
+            var __newDom = __template.content.firstElementChild;
+            if (__newDom) {
+                y.k = _VirtualDom_virtualize(__newDom);
+                console.log('[static-region] Diff: virtualized from global for', __staticId);
+            } else {
+                y.k = y.m();
             }
+            // Use REDRAW (type 0) to completely replace the node instead of diffing
+            // This avoids complex patch issues when old/new DOM structures don't match
+            _VirtualDom_pushPatch(patches, 0, index, y.k);
+            return;
+        } else {
+            // No global content - initial load, compare by value to enable caching
+            same = xRefs[1].a === yRefs[1].a;
         }
     } else `;
 
