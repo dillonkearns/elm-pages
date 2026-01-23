@@ -28,23 +28,18 @@ function loadContentAndInitializeApp() {
   });
 
   app.ports.toJsPort.subscribe(async (fromElm) => {
-    console.log("[elm-pages] Port message from Elm:", fromElm);
     if (fromElm.tag === "FetchStaticRegions") {
       // Fetch content.dat which contains both static regions and page data
-      console.log("[elm-pages] Fetching static regions for:", fromElm.path);
       const result = await fetchContentWithStaticRegions(fromElm.path);
-      console.log("[elm-pages] Fetch result:", result ? { staticRegionsKeys: Object.keys(result.staticRegions), rawBytesLength: result.rawBytes?.length } : null);
       if (result && result.rawBytes) {
         // Send the FULL content.dat bytes (with prefix) to Elm
         // The Elm decoder (skipStaticRegionsPrefix) expects this format
         const contentDatBase64 = uint8ArrayToBase64(result.rawBytes);
-        console.log("[elm-pages] Sending StaticRegionsReady with contentDat length:", contentDatBase64.length);
         app.ports.fromJsPort.send({
           tag: "StaticRegionsReady",
           pageDataBase64: contentDatBase64
         });
       } else {
-        console.log("[elm-pages] Sending StaticRegionsReady with null pageData");
         app.ports.fromJsPort.send({ tag: "StaticRegionsReady", pageDataBase64: null });
       }
     } else {

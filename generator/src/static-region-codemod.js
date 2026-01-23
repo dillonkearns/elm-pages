@@ -31,12 +31,10 @@ const STATIC_REGION_INLINE_CHECK = `
         // This ensures we use the NEW page's content, not stale DOM from old page
         var __staticRegions = window.__ELM_PAGES_STATIC_REGIONS__ || {};
         var __htmlFromGlobal = __staticRegions[__staticId];
-        console.log('[static-region] Render check:', { staticId: __staticId, globalKeys: Object.keys(__staticRegions), hasContent: !!__htmlFromGlobal, contentLength: __htmlFromGlobal?.length, contentPreview: __htmlFromGlobal?.substring(0, 100) });
         if (__htmlFromGlobal && __htmlFromGlobal.length > 0) {
             var __template = document.createElement('template');
             __template.innerHTML = __htmlFromGlobal;
             var __newDom = __template.content.firstElementChild;
-            console.log('[static-region] Parsed from global:', { hasNewDom: !!__newDom, tagName: __newDom?.tagName });
             if (__newDom) {
                 vNode.k = _VirtualDom_virtualize(__newDom);
                 return __newDom;
@@ -44,7 +42,6 @@ const STATIC_REGION_INLINE_CHECK = `
         }
         // Fall back to DOM adoption (initial page load - global is empty {})
         var __existingDom = document.querySelector('[data-static="' + __staticId + '"]');
-        console.log('[static-region] DOM fallback:', { staticId: __staticId, found: !!__existingDom });
         if (__existingDom) {
             if (__existingDom.parentNode) __existingDom.parentNode.removeChild(__existingDom);
             vNode.k = _VirtualDom_virtualize(__existingDom);
@@ -53,7 +50,6 @@ const STATIC_REGION_INLINE_CHECK = `
         var __placeholder = document.createElement('div');
         __placeholder.setAttribute('data-static', __staticId);
         __placeholder.textContent = 'Loading static region...';
-        console.log('[static-region] Using placeholder for:', __staticId);
         return __placeholder;
     }
 `;
@@ -83,7 +79,6 @@ const STATIC_REGION_DIFF_CHECK = `
             var __newDom = __template.content.firstElementChild;
             if (__newDom) {
                 y.k = _VirtualDom_virtualize(__newDom);
-                console.log('[static-region] Diff: virtualized from global for', __staticId);
             } else {
                 y.k = y.m();
             }
