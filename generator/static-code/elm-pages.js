@@ -31,8 +31,17 @@ function loadContentAndInitializeApp() {
     if (fromElm.tag === "FetchStaticRegions") {
       // Fetch content.dat which contains both static regions and page data
       // This extracts static regions and sets window.__ELM_PAGES_STATIC_REGIONS__
-      await fetchContentWithStaticRegions(fromElm.path);
-      app.ports.fromJsPort.send({ tag: "StaticRegionsReady" });
+      const result = await fetchContentWithStaticRegions(fromElm.path);
+      if (result && result.pageData) {
+        // Convert Uint8Array to base64 for transmission to Elm
+        const pageDataBase64 = uint8ArrayToBase64(result.pageData);
+        app.ports.fromJsPort.send({
+          tag: "StaticRegionsReady",
+          pageDataBase64: pageDataBase64
+        });
+      } else {
+        app.ports.fromJsPort.send({ tag: "StaticRegionsReady", pageDataBase64: null });
+      }
     } else {
       loadNamedAnchor();
     }
@@ -115,6 +124,19 @@ export function setup() {
 function find_anchor(node) {
   while (node && node.nodeName.toUpperCase() !== "A") node = node.parentNode; // SVG <a> elements have a lowercase name
   return /** @type {HTMLAnchorElement} */ (node);
+}
+
+/**
+ * Convert Uint8Array to base64 string for transmission to Elm
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+function uint8ArrayToBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 // only run in modern browsers to prevent exception: https://github.com/dillonkearns/elm-pages/issues/427

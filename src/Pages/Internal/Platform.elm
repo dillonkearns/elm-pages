@@ -336,7 +336,7 @@ type Msg userMsg pageData actionData sharedData errorPage
     | PageScrollComplete
     | HotReloadCompleteNew Bytes
     | ProcessFetchResponse Int (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData )) (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
-    | StaticRegionsReady
+    | StaticRegionsReady (Maybe String)
     | NoOp
 
 
@@ -643,24 +643,6 @@ update config appMsg model =
                         , BrowserReplaceUrl newUrl.path
                         )
 
-                    else if model.pendingStaticRegionsPath == Just newUrl.path then
-                        -- Static regions are still being fetched, store data and wait
-                        let
-                            ( newPageData, newSharedData, newActionData ) =
-                                case newData of
-                                    ResponseSketch.RenderPage pageData actionData ->
-                                        ( pageData, previousPageData.sharedData, actionData )
-
-                                    ResponseSketch.HotUpdate pageData sharedData actionData ->
-                                        ( pageData, sharedData, actionData )
-
-                                    _ ->
-                                        ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
-                        in
-                        ( { model | pendingData = Just ( newPageData, newSharedData, newActionData ) }
-                        , NoEffect
-                        )
-
                     else
                         let
                             stayingOnSamePath : Bool
@@ -930,39 +912,74 @@ update config appMsg model =
             , NoEffect
             )
 
-        StaticRegionsReady ->
-            case ( model.pendingData, model.pendingStaticRegionsPath ) of
-                ( Just pendingDataTuple, Just pendingPath ) ->
-                    -- Static regions are ready and we have page data waiting
-                    let
-                        newUrl : Url
-                        newUrl =
-                            { protocol = model.url.protocol
-                            , host = model.url.host
-                            , port_ = model.url.port_
-                            , path = pendingPath
-                            , query = model.url.query
-                            , fragment = model.url.fragment
-                            }
+        StaticRegionsReady maybePageDataBase64 ->
+            case ( maybePageDataBase64, model.pendingStaticRegionsPath ) of
+                ( Just pageDataBase64, Just pendingPath ) ->
+                    -- Static regions and page data received from JS
+                    case Base64.toBytes pageDataBase64 of
+                        Just pageDataBytes ->
+                            case Bytes.Decode.decode config.decodeResponse pageDataBytes of
+                                Just decodedResponse ->
+                                    let
+                                        newUrl : Url
+                                        newUrl =
+                                            { protocol = model.url.protocol
+                                            , host = model.url.host
+                                            , port_ = model.url.port_
+                                            , path = pendingPath
+                                            , query = model.url.query
+                                            , fragment = model.url.fragment
+                                            }
 
-                        clearedModel : Model userModel pageData actionData sharedData
-                        clearedModel =
-                            { model
-                                | pendingData = Nothing
-                                , pendingStaticRegionsPath = Nothing
-                            }
-                    in
-                    loadDataAndUpdateUrl
-                        pendingDataTuple
-                        Nothing
-                        newUrl
-                        newUrl
-                        False
-                        config
-                        clearedModel
+                                        ( newPageData, newSharedData, newActionData ) =
+                                            case decodedResponse of
+                                                ResponseSketch.RenderPage pageData actionData ->
+                                                    case model.pageData of
+                                                        Ok previousPageData ->
+                                                            ( pageData, previousPageData.sharedData, actionData )
+
+                                                        Err _ ->
+                                                            -- Shouldn't happen, but use defaults
+                                                            ( pageData, config.sharedData, actionData )
+
+                                                ResponseSketch.HotUpdate pageData sharedData actionData ->
+                                                    ( pageData, sharedData, actionData )
+
+                                                _ ->
+                                                    case model.pageData of
+                                                        Ok previousPageData ->
+                                                            ( previousPageData.pageData, previousPageData.sharedData, previousPageData.actionData )
+
+                                                        Err _ ->
+                                                            -- Shouldn't happen
+                                                            ( config.data, config.sharedData, Nothing )
+
+                                        clearedModel : Model userModel pageData actionData sharedData
+                                        clearedModel =
+                                            { model
+                                                | pendingData = Nothing
+                                                , pendingStaticRegionsPath = Nothing
+                                            }
+                                    in
+                                    loadDataAndUpdateUrl
+                                        ( newPageData, newSharedData, newActionData )
+                                        Nothing
+                                        newUrl
+                                        newUrl
+                                        False
+                                        config
+                                        clearedModel
+
+                                Nothing ->
+                                    -- Decode failed
+                                    ( { model | pendingStaticRegionsPath = Nothing }, NoEffect )
+
+                        Nothing ->
+                            -- Base64 decode failed
+                            ( { model | pendingStaticRegionsPath = Nothing }, NoEffect )
 
                 _ ->
-                    -- Static regions ready but no page data yet - just clear the pending flag
+                    -- No page data or no pending path - just clear the pending flag
                     ( { model | pendingStaticRegionsPath = Nothing }, NoEffect )
 
         NoOp ->
@@ -1317,7 +1334,15 @@ application config =
                                 (\json ->
                                     case Decode.decodeValue (Decode.field "tag" Decode.string) json of
                                         Ok "StaticRegionsReady" ->
-                                            StaticRegionsReady
+                                            let
+                                                pageDataBase64 : Maybe String
+                                                pageDataBase64 =
+                                                    Decode.decodeValue
+                                                        (Decode.field "pageDataBase64" (Decode.nullable Decode.string))
+                                                        json
+                                                        |> Result.withDefault Nothing
+                                            in
+                                            StaticRegionsReady pageDataBase64
 
                                         _ ->
                                             -- Ignore unknown messages
@@ -1532,7 +1557,7 @@ startNewGetLoad :
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-startNewGetLoad urlToGet toMsg ( model, effect ) =
+startNewGetLoad urlToGet _toMsg ( model, effect ) =
     let
         cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
@@ -1569,12 +1594,7 @@ startNewGetLoad urlToGet toMsg ( model, effect ) =
                 |> Just
       }
     , Batch
-        [ FetchPageData
-            model.nextTransitionKey
-            Nothing
-            urlToGet
-            toMsg
-        , FetchStaticRegions urlToGet.path
+        [ FetchStaticRegions urlToGet.path
         , cancelIfStale
         , effect
         ]
