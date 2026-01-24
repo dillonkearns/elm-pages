@@ -31,7 +31,7 @@ type alias ActionData =
     {}
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : StatelessRoute RouteParams Data () ActionData
 route =
     RouteBuilder.serverRender
         { head = head
@@ -61,14 +61,14 @@ data routeParams request =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head app =
     []
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =

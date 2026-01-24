@@ -49,7 +49,7 @@ type alias RouteParams =
     { slug : String }
 
 
-route : RouteBuilder.StatefulRoute RouteParams Data ActionData Model Msg
+route : RouteBuilder.StatefulRoute RouteParams Data () ActionData Model Msg
 route =
     RouteBuilder.buildWithLocalState
         { view = view
@@ -61,7 +61,7 @@ route =
 
 
 init :
-    RouteBuilder.App Data ActionData RouteParams
+    RouteBuilder.App Data () ActionData RouteParams
     -> Shared.Model
     -> ( Model, Effect.Effect Msg )
 init app shared =
@@ -69,7 +69,7 @@ init app shared =
 
 
 update :
-    RouteBuilder.App Data ActionData RouteParams
+    RouteBuilder.App Data () ActionData RouteParams
     -> Shared.Model
     -> Msg
     -> Model
@@ -133,13 +133,13 @@ data routeParams request =
                 )
 
 
-head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
+head : RouteBuilder.App Data () ActionData RouteParams -> List Head.Tag
 head app =
     []
 
 
 view :
-    RouteBuilder.App Data ActionData RouteParams
+    RouteBuilder.App Data () ActionData RouteParams
     -> Shared.Model
     -> Model
     -> View.View (PagesMsg Msg)

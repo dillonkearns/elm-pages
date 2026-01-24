@@ -42,7 +42,7 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : StatelessRoute RouteParams Data () ActionData
 route =
     RouteBuilder.serverRender
         { head = head
@@ -215,7 +215,7 @@ render (Form.Response response) =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -248,7 +248,7 @@ type alias ActionData =
 view :
     Maybe PageUrl
     -> Shared.Model
-    -> App Data ActionData RouteParams
+    -> App Data () ActionData RouteParams
     -> View (PagesMsg Msg)
 view maybeUrl sharedModel app =
     { title = "Login"

@@ -524,7 +524,7 @@ cancelButton =
         [ Html.text "Cancel" ]
 
 
-route : StatefulRoute RouteParams Data ActionData Model Msg
+route : StatefulRoute RouteParams Data () ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
@@ -599,7 +599,7 @@ data routeParams request =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head app =
     Seo.summary
@@ -656,7 +656,7 @@ wrapSection children =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> Model
     -> View (PagesMsg Msg)

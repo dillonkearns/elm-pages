@@ -36,7 +36,7 @@ import Time
 import View exposing (View)
 
 
-route : StatefulRoute RouteParams Data ActionData Model Msg
+route : StatefulRoute RouteParams Data () ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = \_ -> []
@@ -99,7 +99,7 @@ toOptimisticTodo todo =
     }
 
 
-init : App Data ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
+init : App Data () ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
 init app shared =
     ( { nextId = app.data.requestTime }
     , Effect.none
@@ -136,7 +136,7 @@ type Action
 
 
 update :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> Msg
     -> Model
@@ -334,7 +334,7 @@ visibilityFromRouteParams { visibility } =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> Model
     -> View (PagesMsg Msg)
@@ -719,7 +719,7 @@ clearCompletedForm =
 -- VIEW ALL ENTRIES
 
 
-viewEntries : App Data ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
+viewEntries : App Data () ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
 viewEntries app visibility entries =
     let
         isVisible todo =
@@ -763,12 +763,12 @@ viewEntries app visibility entries =
 -- VIEW INDIVIDUAL ENTRIES
 
 
-viewKeyedEntry : App Data ActionData RouteParams -> Entry -> ( String, Html (PagesMsg Msg) )
+viewKeyedEntry : App Data () ActionData RouteParams -> Entry -> ( String, Html (PagesMsg Msg) )
 viewKeyedEntry app todo =
     ( todo.id, lazy2 viewEntry app todo )
 
 
-viewEntry : App Data ActionData RouteParams -> Entry -> Html (PagesMsg Msg)
+viewEntry : App Data () ActionData RouteParams -> Entry -> Html (PagesMsg Msg)
 viewEntry app todo =
     li
         [ classList
@@ -811,7 +811,7 @@ viewEntry app todo =
 -- VIEW CONTROLS AND FOOTER
 
 
-viewControls : App Data ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
+viewControls : App Data () ActionData RouteParams -> Visibility -> List Entry -> Html (PagesMsg Msg)
 viewControls app visibility entries =
     let
         entriesCompleted =
@@ -889,7 +889,7 @@ visibilitySwap visibilityParam visibility actualVisibility =
         ]
 
 
-viewControlsClear : App Data ActionData RouteParams -> Int -> Html (PagesMsg Msg)
+viewControlsClear : App Data () ActionData RouteParams -> Int -> Html (PagesMsg Msg)
 viewControlsClear app entriesCompleted =
     clearCompletedForm
         |> Pages.Form.renderHtml []

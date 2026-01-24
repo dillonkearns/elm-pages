@@ -1,4 +1,4 @@
-module Route.Slide.Number_ exposing (ActionData, Data, Model, Msg, route)
+module Route.Slide.Number_ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
@@ -34,7 +34,11 @@ type alias ActionData =
     {}
 
 
-route : StatefulRoute RouteParams Data ActionData Model Msg
+type alias StaticData =
+    ()
+
+
+route : StatefulRoute RouteParams Data () ActionData Model Msg
 route =
     RouteBuilder.preRender
         { head = head
@@ -100,7 +104,7 @@ slideBody route_ =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head app =
     Seo.summary
@@ -125,7 +129,7 @@ type alias Data =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> Model
     -> View (PagesMsg Msg)

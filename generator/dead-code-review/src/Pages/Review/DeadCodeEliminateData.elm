@@ -145,7 +145,7 @@ declarationVisitor node context =
                                             (\recordSetter ->
                                                 case Node.value recordSetter of
                                                     ( keyNode, valueNode ) ->
-                                                        if Node.value keyNode == "data" || Node.value keyNode == "action" || Node.value keyNode == "pages" || Node.value keyNode == "head" then
+                                                        if Node.value keyNode == "data" || Node.value keyNode == "action" || Node.value keyNode == "pages" || Node.value keyNode == "head" || Node.value keyNode == "staticData" then
                                                             if isAlreadyApplied context.lookupTable (Node.value valueNode) then
                                                                 Nothing
 
@@ -200,6 +200,12 @@ expressionVisitor node context =
             case applicationExpressions |> List.map (\applicationNode -> ( ModuleNameLookupTable.moduleNameFor context.lookupTable applicationNode, Node.value applicationNode )) of
                 [ ( Just [ "RouteBuilder" ], Expression.FunctionOrValue _ pageBuilderName ), ( _, Expression.RecordExpr fields ) ] ->
                     let
+                        -- For builders with staticData, don't process head field
+                        -- The head function's type constrains the staticData type variable
+                        shouldProcessHead : Bool
+                        shouldProcessHead =
+                            pageBuilderName /= "preRenderWithStaticData" && pageBuilderName /= "singleWithStaticData"
+
                         dataFieldValue : List ( String, Node ( Node String, Node Expression ) )
                         dataFieldValue =
                             fields
@@ -207,12 +213,23 @@ expressionVisitor node context =
                                     (\recordSetter ->
                                         case Node.value recordSetter of
                                             ( keyNode, valueNode ) ->
-                                                if Node.value keyNode == "data" || Node.value keyNode == "action" || Node.value keyNode == "pages" || Node.value keyNode == "head" then
+                                                let
+                                                    keyName =
+                                                        Node.value keyNode
+
+                                                    isRelevantField =
+                                                        (keyName == "data")
+                                                            || (keyName == "action")
+                                                            || (keyName == "pages")
+                                                            || (keyName == "head" && shouldProcessHead)
+                                                            || (keyName == "staticData")
+                                                in
+                                                if isRelevantField then
                                                     if isAlreadyApplied context.lookupTable (Node.value valueNode) then
                                                         Nothing
 
                                                     else
-                                                        ( Node.value keyNode, recordSetter ) |> Just
+                                                        ( keyName, recordSetter ) |> Just
 
                                                 else
                                                     Nothing
@@ -274,6 +291,24 @@ expressionVisitor node context =
                                                                 ++ " \"\")\n        "
 
                                                         "single" ->
+                                                            referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                                ++ " "
+                                                                ++ exceptionFromString
+                                                                ++ "\n       "
+
+                                                        "preRenderWithStaticData" ->
+                                                            if key == "pages" then
+                                                                referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                                    ++ " "
+                                                                    ++ exceptionFromString
+
+                                                            else
+                                                                "\\_ -> "
+                                                                    ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
+                                                                    ++ " "
+                                                                    ++ exceptionFromString
+
+                                                        "singleWithStaticData" ->
                                                             referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
                                                                 ++ " "
                                                                 ++ exceptionFromString

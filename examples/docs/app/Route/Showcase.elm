@@ -1,4 +1,4 @@
-module Route.Showcase exposing (ActionData, Data, Model, Msg, route, staticTopSection)
+module Route.Showcase exposing (ActionData, Data, Model, Msg, StaticData, route, staticTopSection)
 
 import BackendTask exposing (BackendTask)
 import Css
@@ -32,7 +32,7 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data ActionData Model Msg
+route : StatefulRoute RouteParams Data () ActionData Model Msg
 route =
     RouteBuilder.single
         { head = head
@@ -54,8 +54,12 @@ type alias ActionData =
     {}
 
 
+type alias StaticData =
+    ()
+
+
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view static sharedModel =
@@ -100,7 +104,7 @@ renderShowcaseEntries items =
         [ showcaseEntries items ]
 
 
-head : App Data ActionData RouteParams -> List Head.Tag
+head : App Data () ActionData RouteParams -> List Head.Tag
 head app =
     Seo.summary
         { canonicalUrlOverride = Nothing

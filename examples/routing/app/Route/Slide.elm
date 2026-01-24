@@ -1,4 +1,4 @@
-module Route.Slide exposing (ActionData, Data, Model, Msg, route)
+module Route.Slide exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask
 import Head
@@ -26,7 +26,11 @@ type alias ActionData =
     {}
 
 
-route : StatelessRoute RouteParams Data ActionData
+type alias StaticData =
+    ()
+
+
+route : StatelessRoute RouteParams Data () ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -36,7 +40,7 @@ route =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head app =
     Seo.summary
@@ -60,7 +64,7 @@ type alias Data =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app sharedModel =

@@ -37,7 +37,7 @@ type alias ActionData =
     {}
 
 
-route : StatefulRoute RouteParams Data ActionData Model Msg
+route : StatefulRoute RouteParams Data () ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
@@ -53,7 +53,7 @@ route =
 
 
 init :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> ( Model, Effect Msg )
 init app shared =
@@ -61,7 +61,7 @@ init app shared =
 
 
 update :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> Msg
     -> Model
@@ -124,7 +124,7 @@ data routeParams request =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -144,7 +144,7 @@ head static =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> Model
     -> View (PagesMsg Msg)

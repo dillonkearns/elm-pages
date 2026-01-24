@@ -1,4 +1,4 @@
-module Route.Date.SPLAT_ exposing (ActionData, Data, Model, Msg, route)
+module Route.Date.SPLAT_ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
@@ -26,7 +26,11 @@ type alias ActionData =
     {}
 
 
-route : StatelessRoute RouteParams Data ActionData
+type alias StaticData =
+    ()
+
+
+route : StatelessRoute RouteParams Data () ActionData
 route =
     RouteBuilder.preRender
         { head = head
@@ -54,7 +58,7 @@ data routeParams =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head app =
     []
@@ -65,7 +69,7 @@ type alias Data =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =

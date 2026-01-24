@@ -1,4 +1,4 @@
-module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
+module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import Article
 import BackendTask exposing (BackendTask)
@@ -36,7 +36,7 @@ import View.Static
 The entire view body will be a single static region, eliminating all
 rendering code from the client bundle.
 -}
-type alias StaticContent =
+type alias StaticData =
     { metadata : ArticleMetadata
     , body : List Markdown.Block.Block
     }
@@ -54,10 +54,11 @@ type alias RouteParams =
     { slug : String }
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : StatelessRoute RouteParams Data StaticData ActionData
 route =
-    RouteBuilder.preRender
+    RouteBuilder.preRenderWithStaticData
         { data = data
+        , staticData = staticData
         , head = head
         , pages = pages
         }
@@ -76,7 +77,7 @@ pages =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data StaticData ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
@@ -85,7 +86,8 @@ view app shared =
         [ -- The ENTIRE body is a single static region
           -- All rendering code (TailwindMarkdownRenderer, authorView, etc.)
           -- is eliminated from the client bundle via DCE
-          View.staticView app.data.staticContent renderFullPage
+          -- staticData is automatically wrapped in StaticOnlyData by the framework
+          View.staticView app.staticData renderFullPage
         ]
     }
 
@@ -93,7 +95,7 @@ view app shared =
 {-| Render the entire page body as a single static region.
 All of this code is eliminated from the client bundle via DCE.
 -}
-renderFullPage : StaticContent -> View.Static
+renderFullPage : StaticData -> View.Static
 renderFullPage content =
     let
         author =
@@ -192,12 +194,13 @@ renderFullPage content =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data StaticData ActionData RouteParams
     -> List Head.Tag
 head app =
     -- Safe to use staticMap here because head only runs at build time
     -- The elm-review codemod ensures this code path is never reached on client
-    View.Static.map app.data.staticContent
+    -- staticData is automatically wrapped in StaticOnlyData by the framework
+    View.Static.map app.staticData
         (\content ->
             let
                 metadata =
@@ -247,16 +250,39 @@ head app =
 
 type alias Data =
     { title : String
-    , staticContent : View.Static.StaticOnlyData StaticContent
     }
 
 
+{-| Heavy types are now in staticData, NOT in Data.
+This means Lamdera won't generate wire codecs for Markdown.Block etc.
+The framework wraps this in StaticOnlyData automatically.
+-}
 type alias ActionData =
     {}
 
 
+{-| Data only contains lightweight values that need to be sent to the client.
+Heavy types like Markdown.Block are in staticData instead.
+-}
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
+    MarkdownCodec.withFrontmatter
+        (\metadata _ ->
+            { title = metadata.title
+            }
+        )
+        frontmatterDecoder
+        TailwindMarkdownRenderer.renderer
+        ("content/blog/" ++ routeParams.slug ++ ".md")
+
+
+{-| staticData contains heavy types that should NOT be sent to the client.
+The framework wraps this in StaticOnlyData automatically.
+Since this is separate from Data, Lamdera won't generate wire codecs for
+Markdown.Block, ArticleMetadata, etc. - they get DCE'd from the client bundle!
+-}
+staticData : RouteParams -> BackendTask FatalError StaticData
+staticData routeParams =
     MarkdownCodec.withFrontmatter
         (\metadata body ->
             { metadata = metadata
@@ -266,25 +292,6 @@ data routeParams =
         frontmatterDecoder
         TailwindMarkdownRenderer.renderer
         ("content/blog/" ++ routeParams.slug ++ ".md")
-        |> BackendTask.andThen
-            (\parsed ->
-                BackendTask.map2
-                    (\title staticContent ->
-                        { title = title
-                        , staticContent = staticContent
-                        }
-                    )
-                    (BackendTask.succeed parsed.metadata.title)
-                    -- Wrap ALL content in StaticOnlyData for full DCE
-                    -- The elm-review codemod transforms this to BackendTask.fail on client
-                    (View.Static.backendTask
-                        (BackendTask.succeed
-                            { metadata = parsed.metadata
-                            , body = parsed.body
-                            }
-                        )
-                    )
-            )
 
 
 type alias ArticleMetadata =

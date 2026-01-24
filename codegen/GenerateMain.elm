@@ -30,6 +30,7 @@ import Gen.Pages.Internal.NotFoundReason
 import Gen.Pages.Internal.Platform
 import Gen.Pages.Internal.Platform.Cli
 import Gen.Pages.Internal.RoutePattern
+import Gen.Pages.Internal.StaticOnlyData
 import Gen.Pages.PageUrl
 import Gen.PagesMsg
 import Gen.Platform.Sub
@@ -76,6 +77,7 @@ otherFile routes phaseString =
                 Gen.Shared.values_.template
                     |> Elm.get "data"
             , data = dataForRoute.value
+            , staticData = staticDataForRoute.value
             , action = action.value
             , onActionData = onActionData.value
             , view = view.value
@@ -220,19 +222,23 @@ otherFile routes phaseString =
                 , ( "maybePageUrl", Type.maybe (Type.named [ "Pages", "PageUrl" ] "PageUrl") |> Just )
                 , ( "globalData", Type.named [ "Shared" ] "Data" |> Just )
                 , ( "pageData", pageDataType.annotation |> Just )
+                , ( "staticData"
+                  , Gen.Pages.Internal.StaticOnlyData.annotation_.staticOnlyData staticDataType.annotation |> Just
+                  )
                 , ( "actionData", Type.maybe actionDataType.annotation |> Just )
                 ]
                 (\args ->
                     case args of
-                        [ pageFormState, concurrentSubmissions, navigation, page, maybePageUrl, globalData, pageData, actionData ] ->
+                        [ pageFormState, concurrentSubmissions, navigation, page, maybePageUrl, globalData, pageData, staticData, actionData ] ->
                             let
                                 routeToBranch route =
                                     Elm.Case.branch
-                                        (Elm.Arg.tuple
+                                        (Elm.Arg.triple
                                             (Elm.Arg.customType "Just" identity |> Elm.Arg.item (routeToSyntaxPattern route))
                                             (Elm.Arg.customType (prefixedRouteType "Data" route) identity |> Elm.Arg.item (Elm.Arg.var "data"))
+                                            (Elm.Arg.customType (prefixedRouteType "StaticData" route) identity |> Elm.Arg.item (Elm.Arg.var "staticDataUnwrapped"))
                                         )
-                                        (\( maybeRouteParams, data ) ->
+                                        (\( maybeRouteParams, data, staticDataUnwrapped ) ->
                                             Elm.Let.letIn
                                                 (\actionDataOrNothing ->
                                                     Elm.record
@@ -266,6 +272,16 @@ otherFile routes phaseString =
                                                                                             , subModel
                                                                                             , Elm.record
                                                                                                 [ ( "data", data )
+                                                                                                , ( "staticData"
+                                                                                                  , Elm.apply
+                                                                                                        (Elm.value
+                                                                                                            { name = "StaticOnlyData"
+                                                                                                            , importFrom = [ "Pages", "Internal", "StaticOnlyData" ]
+                                                                                                            , annotation = Nothing
+                                                                                                            }
+                                                                                                        )
+                                                                                                        [ staticDataUnwrapped ]
+                                                                                                  )
                                                                                                 , ( "sharedData", globalData )
                                                                                                 , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                                                 , ( "action", Gen.Maybe.andThen actionDataOrNothing actionData )
@@ -307,6 +323,16 @@ otherFile routes phaseString =
                                                                         )
                                                                         [ Elm.record
                                                                             [ ( "data", data )
+                                                                            , ( "staticData"
+                                                                                                  , Elm.apply
+                                                                                                        (Elm.value
+                                                                                                            { name = "StaticOnlyData"
+                                                                                                            , importFrom = [ "Pages", "Internal", "StaticOnlyData" ]
+                                                                                                            , annotation = Nothing
+                                                                                                            }
+                                                                                                        )
+                                                                                                        [ staticDataUnwrapped ]
+                                                                                                  )
                                                                             , ( "sharedData", globalData )
                                                                             , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
                                                                             , ( "action", Elm.nothing )
@@ -339,16 +365,17 @@ otherFile routes phaseString =
                                                 |> Elm.Let.toExpression
                                         )
                             in
-                            Elm.Case.custom (Elm.tuple (page |> Elm.get "route") pageData)
+                            Elm.Case.custom (Elm.triple (page |> Elm.get "route") pageData (Gen.Pages.Internal.StaticOnlyData.call_.unwrap staticData))
                                 Type.unit
                                 (Elm.Case.branch
-                                    (Elm.Arg.tuple
+                                    (Elm.Arg.triple
                                         Elm.Arg.ignore
                                         (Elm.Arg.customType "DataErrorPage____" identity
                                             |> Elm.Arg.item (Elm.Arg.var "data")
                                         )
+                                        Elm.Arg.ignore
                                     )
-                                    (\( _, data ) ->
+                                    (\( _, data, _ ) ->
                                         Elm.record
                                             [ ( "view"
                                               , Elm.fn (Elm.Arg.var "model")
@@ -592,6 +619,48 @@ otherFile routes phaseString =
                             )
                 )
 
+        staticDataForRoute : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
+        staticDataForRoute =
+            Elm.Declare.fn
+                "staticDataForRoute"
+                (Elm.Arg.varWith "maybeRoute" (Type.maybe (Type.named [ "Route" ] "Route")))
+                (\maybeRoute ->
+                    Elm.Case.maybe maybeRoute
+                        { nothing =
+                            -- For no route (404), return StaticDataNotFound
+                            Gen.BackendTask.succeed (Elm.val "StaticDataNotFound")
+                        , just =
+                            ( "justRoute"
+                            , \justRoute ->
+                                branchHelper justRoute
+                                    (\route maybeRouteParams ->
+                                        Elm.apply
+                                            (Elm.value
+                                                { name = "route"
+                                                , importFrom = "Route" :: (route |> RoutePattern.toModuleName)
+                                                , annotation = Nothing
+                                                }
+                                                |> Elm.get "staticData"
+                                            )
+                                            [ maybeRouteParams
+                                                |> Maybe.withDefault (Elm.record [])
+                                            ]
+                                            |> Gen.BackendTask.map
+                                                (\staticDataResult ->
+                                                    Elm.apply
+                                                        (Elm.val ("StaticData" ++ (RoutePattern.toModuleName route |> String.join "__")))
+                                                        [ staticDataResult ]
+                                                )
+                                    )
+                            )
+                        }
+                        |> Elm.withType
+                            (Gen.BackendTask.annotation_.backendTask
+                                (Type.named [ "FatalError" ] "FatalError")
+                                staticDataType.annotation
+                            )
+                )
+
         action : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
         action =
             Elm.Declare.fn2
@@ -718,6 +787,13 @@ otherFile routes phaseString =
                                                                             [ sharedModel
                                                                             , Elm.record
                                                                                 [ ( "data", thisPageData )
+                                                                                , ( "staticData"
+                                                                                  , Elm.value
+                                                                                        { name = "placeholder"
+                                                                                        , importFrom = [ "Pages", "Internal", "StaticOnlyData" ]
+                                                                                        , annotation = Nothing
+                                                                                        }
+                                                                                  )
                                                                                 , ( "sharedData", sharedData )
                                                                                 , ( "action"
                                                                                   , actionData
@@ -910,6 +986,13 @@ otherFile routes phaseString =
                                                                         )
                                                                         [ Elm.record
                                                                             [ ( "data", thisPageData )
+                                                                            , ( "staticData"
+                                                                              , Elm.value
+                                                                                    { name = "placeholder"
+                                                                                    , importFrom = [ "Pages", "Internal", "StaticOnlyData" ]
+                                                                                    , annotation = Nothing
+                                                                                    }
+                                                                              )
                                                                             , ( "sharedData", sharedData )
                                                                             , ( "action", Elm.nothing )
                                                                             , ( "routeParams", maybeRouteParams |> Maybe.withDefault (Elm.record []) )
@@ -1937,6 +2020,27 @@ otherFile routes phaseString =
                                 ]
                         )
                 )
+
+        staticDataType : Elm.Declare.Annotation
+        staticDataType =
+            Elm.Declare.customType "StaticData"
+                (Elm.variant "StaticDataNotFound"
+                    :: (routes
+                            |> List.map
+                                (\route ->
+                                    Elm.variantWith
+                                        ("StaticData"
+                                            ++ (RoutePattern.toModuleName route |> String.join "__")
+                                        )
+                                        [ Type.named
+                                            ("Route"
+                                                :: RoutePattern.toModuleName route
+                                            )
+                                            "StaticData"
+                                        ]
+                                )
+                       )
+                )
     in
     Elm.file [ "Main" ]
         [ modelType.declaration
@@ -1944,6 +2048,7 @@ otherFile routes phaseString =
         , msgType.declaration
         , pageDataType.declaration
         , actionDataType.declaration
+        , staticDataType.declaration
         , case phase of
             Browser ->
                 Gen.Pages.Internal.Platform.application config
@@ -1975,6 +2080,7 @@ otherFile routes phaseString =
                     |> Elm.declaration "main"
                     |> Elm.exposeConstructor
         , dataForRoute.declaration
+        , staticDataForRoute.declaration
         , toTriple.declaration
         , action.declaration
         , fooFn.declaration
@@ -2190,6 +2296,7 @@ make_ :
     , subscriptions : Elm.Expression
     , sharedData : Elm.Expression
     , data : Elm.Expression
+    , staticData : Elm.Expression
     , action : Elm.Expression
     , onActionData : Elm.Expression
     , view : Elm.Expression
@@ -2231,6 +2338,7 @@ make_ programConfig_args =
             programConfig_args.subscriptions
         , Tuple.pair "sharedData" programConfig_args.sharedData
         , Tuple.pair "data" programConfig_args.data
+        , Tuple.pair "staticData" programConfig_args.staticData
         , Tuple.pair "action" programConfig_args.action
         , Tuple.pair "onActionData" programConfig_args.onActionData
         , Tuple.pair "view" programConfig_args.view

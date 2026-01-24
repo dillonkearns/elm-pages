@@ -1,4 +1,4 @@
-module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, route)
+module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
@@ -54,7 +54,7 @@ type alias RouteParams =
     { section : Maybe String }
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : StatelessRoute RouteParams Data () ActionData
 route =
     RouteBuilder.preRender
         { head = head
@@ -189,7 +189,7 @@ titleForSection section =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head app =
     Seo.summary
@@ -222,8 +222,12 @@ type alias ActionData =
     {}
 
 
+type alias StaticData =
+    ()
+
+
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app sharedModel =

@@ -46,7 +46,7 @@ type alias StaticViews =
     }
 
 
-route : StatelessRoute RouteParams Data ActionData StaticViews
+route : StatelessRoute RouteParams Data () ActionData StaticViews
 route =
     RouteBuilder.single
         { head = head
@@ -86,7 +86,7 @@ generator =
 
 
 head :
-    App Data ActionData {} {}
+    App Data () ActionData {} {}
     -> List Head.Tag
 head static =
     Seo.summary
@@ -111,7 +111,7 @@ link attributes children route_ =
 
 
 view :
-    App Data ActionData RouteParams StaticViews
+    App Data () ActionData RouteParams StaticViews
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =

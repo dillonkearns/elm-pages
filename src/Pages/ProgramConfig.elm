@@ -19,6 +19,7 @@ import Pages.ConcurrentSubmission
 import Pages.Fetcher
 import Pages.Flags
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
+import Pages.Internal.StaticOnlyData exposing (StaticOnlyData)
 import Pages.Internal.Platform.ToJsPayload
 import Pages.Internal.ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
@@ -31,7 +32,7 @@ import Url exposing (Url)
 import UrlPath exposing (UrlPath)
 
 
-type alias ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage =
+type alias ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage =
     { init :
         Pages.Flags.Flags
         -> sharedData
@@ -52,6 +53,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
     , subscriptions : route -> UrlPath -> userModel -> Sub userMsg
     , sharedData : BackendTask FatalError sharedData
     , data : Server.Request.Request -> route -> BackendTask FatalError (PageServerResponse pageData errorPage)
+    , staticData : route -> BackendTask FatalError staticData
     , action : Server.Request.Request -> route -> BackendTask FatalError (PageServerResponse actionData errorPage)
     , onActionData : actionData -> Maybe userMsg
     , view :
@@ -65,6 +67,7 @@ type alias ProgramConfig userMsg userModel route pageData actionData sharedData 
         -> Maybe PageUrl
         -> sharedData
         -> pageData
+        -> StaticOnlyData staticData
         -> Maybe actionData
         ->
             { view : userModel -> { title : String, body : List (Html (PagesMsg userMsg)) }

@@ -40,7 +40,7 @@ type alias ActionData =
     {}
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : StatelessRoute RouteParams Data () ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -72,7 +72,7 @@ generator =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -121,7 +121,7 @@ divider =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =

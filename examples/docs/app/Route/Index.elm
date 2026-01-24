@@ -1,4 +1,4 @@
-module Route.Index exposing (ActionData, Data, Model, Msg, route)
+module Route.Index exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import Css
@@ -45,7 +45,11 @@ type alias ActionData =
     {}
 
 
-route : StatelessRoute RouteParams Data ActionData
+type alias StaticData =
+    ()
+
+
+route : StatelessRoute RouteParams Data () ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -55,7 +59,7 @@ route =
 
 
 head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head app =
     Seo.summary
@@ -75,7 +79,7 @@ head app =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
@@ -127,7 +131,7 @@ landingView =
 type alias Data = Int
 type alias RouteParams = { name : String }
 
-route : StatelessRoute RouteParams Data ActionData
+route : StatelessRoute RouteParams Data () ActionData
 route =
     RouteBuilder.preRender
         { head = head
@@ -148,7 +152,7 @@ data routeParams =
     |> BackendTask.allowFatal
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> View Msg
 view app =
     { title = app.routeParams.name
@@ -205,7 +209,7 @@ stars repoName =
             , svgIcon = "M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242z"
             , code =
                 ( "app/Route/Blog/Slug_.elm", """head :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> List Head.Tag
 head app =
     Seo.summaryLarge
@@ -298,7 +302,7 @@ getUserFromSession sessionId =
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> Model
     -> View (PagesMsg Msg)
@@ -326,14 +330,14 @@ type alias RouteParams = {}
 type alias ActionData = { errors : Form.Response String }
 
 
-route : RouteBuilder.StatefulRoute RouteParams Data ActionData Model Msg
+route : RouteBuilder.StatefulRoute RouteParams Data () ActionData Model Msg
 route =
     RouteBuilder.serverRender { data = data, action = action, head = head }
         |> RouteBuilder.buildNoState { view = view }
 
 
 view :
-    App Data ActionData RouteParams
+    App Data () ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
@@ -354,7 +358,7 @@ data routeParams request =
     BackendTask.succeed (Response.render {})
 
 
-head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
+head : RouteBuilder.App Data () ActionData RouteParams -> List Head.Tag
 head app =
     []
 
