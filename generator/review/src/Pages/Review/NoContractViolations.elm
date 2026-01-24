@@ -149,7 +149,7 @@ moduleDefinitionVisitor node context =
         Exposing.Explicit exposedValues ->
             case context.isRouteModule of
                 Just RouteModule ->
-                    case Set.diff (Set.fromList [ "ActionData", "Data", "Msg", "Model", "route" ]) (exposedNames exposedValues) |> Set.toList of
+                    case Set.diff (Set.fromList [ "ActionData", "Data", "Msg", "Model", "StaticData", "route" ]) (exposedNames exposedValues) |> Set.toList of
                         [] ->
                             ( [], context )
 
@@ -162,6 +162,7 @@ moduleDefinitionVisitor node context =
 - route
 - Data
 - ActionData
+- StaticData
 - Model
 - Msg
 

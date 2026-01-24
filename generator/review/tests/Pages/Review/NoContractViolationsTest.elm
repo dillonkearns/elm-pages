@@ -10,7 +10,7 @@ all =
     describe "Pages.Review.NoContractViolations"
         [ test "reports error when missing exposed declaration" <|
             \() ->
-                """module Route.Blog.Slug_ exposing (ActionData, Data, Msg, route)
+                """module Route.Blog.Slug_ exposing (ActionData, Data, Msg, StaticData, route)
 
 a = 1
 """
@@ -25,19 +25,20 @@ a = 1
 - route
 - Data
 - ActionData
+- StaticData
 - Model
 - Msg
 
 But it is not exposing: Model"""
                                     ]
-                                , under = "exposing (ActionData, Data, Msg, route)"
+                                , under = "exposing (ActionData, Data, Msg, StaticData, route)"
                                 }
                             ]
                           )
                         ]
         , test "reports RouteParams mismatch" <|
             \() ->
-                """module Route.Blog.Slug_ exposing (ActionData, Data, route, Model, Msg)
+                """module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 type alias RouteParams = { blogPostName : String }
 
@@ -61,7 +62,7 @@ type alias RouteParams = { slug : String }
                         ]
         , test "reports incorrect types for optional RouteParams" <|
             \() ->
-                """module Route.Docs.Section_.SubSection__ exposing (ActionData, Data, route, Model, Msg)
+                """module Route.Docs.Section_.SubSection__ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 type alias RouteParams = { section : String, subSection : String }
 
@@ -85,7 +86,7 @@ type alias RouteParams = { section : String, subSection : Maybe String }
                         ]
         , test "reports incorrect types for required splat RouteParams" <|
             \() ->
-                """module Route.Docs.Section_.SPLAT_ exposing (ActionData, Data, route, Model, Msg)
+                """module Route.Docs.Section_.SPLAT_ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 type alias RouteParams = { section : String, splat : List String }
 
@@ -109,7 +110,7 @@ type alias RouteParams = { section : String, splat : ( String, List String ) }
                         ]
         , test "no error for valid SPLAT_ RouteParams" <|
             \() ->
-                """module Route.Docs.Section_.SPLAT_ exposing (ActionData, Data, route, Model, Msg)
+                """module Route.Docs.Section_.SPLAT_ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 type alias RouteParams = { section : String, splat : ( String, List String ) }
 
@@ -119,7 +120,7 @@ route = {}
                     |> Review.Test.expectNoErrors
         , test "no error for valid SPLAT__ RouteParams" <|
             \() ->
-                """module Route.Docs.Section_.SPLAT__ exposing (ActionData, Data, route, Model, Msg)
+                """module Route.Docs.Section_.SPLAT__ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 type alias RouteParams = { section : String, splat : List String }
 
@@ -129,7 +130,7 @@ route = {}
                     |> Review.Test.expectNoErrors
         , test "no error for matching RouteParams name" <|
             \() ->
-                """module Route.Blog.Slug_ exposing (ActionData, Data, route, Model, Msg)
+                """module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 type alias RouteParams = { slug : String }
 
@@ -139,7 +140,7 @@ route = {}
                     |> Review.Test.expectNoErrors
         , test "error when RouteParams type is not a record" <|
             \() ->
-                """module Route.Blog.Slug_ exposing (ActionData, Data, route, Model, Msg)
+                """module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 type alias RouteParams = ()
 
@@ -170,7 +171,7 @@ route = {}
                     |> Review.Test.expectNoErrors
         , test "error for missing application module definitions" <|
             \() ->
-                [ """module Route.Index exposing (ActionData, Data, route, Model, Msg)
+                [ """module Route.Index exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 type alias RouteParams = {}
 
@@ -199,7 +200,7 @@ config =
                         ]
         , test "no error when all core modules are defined" <|
             \() ->
-                ("""module Route.Index exposing (ActionData, Data, route, Model, Msg)
+                ("""module Route.Index exposing (ActionData, Data, Model, Msg, StaticData, route)
                             
 type alias RouteParams = {}
 
@@ -211,7 +212,7 @@ route = {}
                     |> Review.Test.expectNoErrors
         , test "show missing exposed values from core modules" <|
             \() ->
-                [ """module Route.Index exposing (ActionData, Data, route, Model, Msg)
+                [ """module Route.Index exposing (ActionData, Data, Model, Msg, StaticData, route)
                             
 type alias RouteParams = {}
 
