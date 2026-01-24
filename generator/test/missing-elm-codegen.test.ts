@@ -1,5 +1,5 @@
 import { dirname } from "node:path";
-import { existsSync, unlinkSync } from "node:fs";
+import { existsSync, unlinkSync, rmSync } from "node:fs";
 import * as process from "node:process";
 import { fileURLToPath } from "node:url";
 import { sync as spawnSync } from "cross-spawn";
@@ -49,6 +49,9 @@ function spawnLocalElmPages() {
 describe.sequential("runElmCodegenInstall", () => {
   beforeAll(() => {
     process.chdir(`${testDir}/missing-elm-codegen`);
+
+    // Clean up elm-stuff to avoid CORRUPT CACHE errors
+    tryAndIgnore(() => rmSync("elm-stuff", { recursive: true, force: true }));
 
     // Delete this file, if it exists, so we can make sure elm-codegen was
     // really run (because the file will get recreated).

@@ -5,6 +5,7 @@
  * thunk rendering to support static region adoption.
  */
 
+import { describe, it, expect } from "vitest";
 import { patchStaticRegions } from "../src/static-region-codemod.js";
 
 // Sample compiled Elm virtual-dom code (simplified)
@@ -39,8 +40,8 @@ function _VirtualDom_diff(x, y) {
 }
 `;
 
-// Test that the codemod injects the inlined static region check
-function testInlinedCodeInjection() {
+describe("Static Region Codemod", () => {
+  it("injects static region code", () => {
     const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
 
     // The new approach inlines the check directly
@@ -48,16 +49,12 @@ function testInlinedCodeInjection() {
     const hasDataStaticSelector = patched.includes('data-static');
     const hasStaticIdCheck = patched.includes("StaticId") || patched.includes("=== 0");
 
-    console.log('Test: Inlined code injection');
-    console.log('  - Static refs variable:', hasStaticRefsVar ? '✓' : '✗');
-    console.log('  - data-static selector:', hasDataStaticSelector ? '✓' : '✗');
-    console.log('  - StaticId check:', hasStaticIdCheck ? '✓' : '✗');
+    expect(hasStaticRefsVar).toBe(true);
+    expect(hasDataStaticSelector).toBe(true);
+    expect(hasStaticIdCheck).toBe(true);
+  });
 
-    return hasStaticRefsVar && hasDataStaticSelector && hasStaticIdCheck;
-}
-
-// Test that the thunk case is patched
-function testThunkPatching() {
+  it("patches the thunk case", () => {
     const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
 
     // The patched code should have the static region check in the tag === 5 block
@@ -66,65 +63,31 @@ function testThunkPatching() {
     // Check for the virtualize call (used to convert adopted DOM to virtual-dom)
     const hasVirtualize = patched.includes('_VirtualDom_virtualize');
 
-    console.log('Test: Thunk patching');
-    console.log('  - tag === 5 block present:', hasTag5Block ? '✓' : '✗');
-    console.log('  - _VirtualDom_virtualize call:', hasVirtualize ? '✓' : '✗');
-
     // Verify the original thunk rendering is still there as fallback
     const hasOriginalThunk = patched.includes('vNode.k || (vNode.k = vNode.m())');
 
-    console.log('  - Original thunk handling preserved:', hasOriginalThunk ? '✓' : '✗');
+    expect(hasTag5Block).toBe(true);
+    expect(hasVirtualize).toBe(true);
+    expect(hasOriginalThunk).toBe(true);
+  });
 
-    return hasTag5Block && hasVirtualize && hasOriginalThunk;
-}
-
-// Test that both debug mode ($ === 'StaticId') and optimized mode ($ === 0) checks are present
-function testDualModeSupport() {
+  it("supports both debug and optimized modes", () => {
     const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
 
     // The patched code should support both debug mode ('StaticId') and optimized mode (0)
     const hasStringCheck = patched.includes("'StaticId'") || patched.includes('"StaticId"');
     const hasNumericCheck = patched.includes('=== 0') || patched.includes('===0');
 
-    console.log('Test: Dual mode support (debug + optimized)');
-    console.log('  - Debug mode check ($ === "StaticId"):', hasStringCheck ? '✓' : '✗');
-    console.log('  - Optimized mode check ($ === 0):', hasNumericCheck ? '✓' : '✗');
+    expect(hasStringCheck).toBe(true);
+    expect(hasNumericCheck).toBe(true);
+  });
 
-    return hasStringCheck && hasNumericCheck;
-}
-
-// Test the global fallback mechanism
-function testGlobalFallback() {
+  it("includes global fallback mechanism", () => {
     const patched = patchStaticRegions(SAMPLE_VDOM_CODE);
 
     // Check for window.__ELM_PAGES_STATIC_REGIONS__ fallback
     const hasGlobalFallback = patched.includes('__ELM_PAGES_STATIC_REGIONS__');
 
-    console.log('Test: Global fallback mechanism');
-    console.log('  - window.__ELM_PAGES_STATIC_REGIONS__ check:', hasGlobalFallback ? '✓' : '✗');
-
-    return hasGlobalFallback;
-}
-
-// Run all tests
-console.log('=== Static Region Codemod Tests ===\n');
-
-const results = [
-    testInlinedCodeInjection(),
-    testThunkPatching(),
-    testDualModeSupport(),
-    testGlobalFallback()
-];
-
-console.log('\n=== Summary ===');
-const passed = results.filter(r => r).length;
-const total = results.length;
-console.log(`Passed: ${passed}/${total}`);
-
-if (passed === total) {
-    console.log('\n✓ All tests passed!');
-    process.exit(0);
-} else {
-    console.log('\n✗ Some tests failed');
-    process.exit(1);
-}
+    expect(hasGlobalFallback).toBe(true);
+  });
+});
