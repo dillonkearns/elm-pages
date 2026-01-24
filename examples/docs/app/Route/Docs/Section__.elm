@@ -54,12 +54,13 @@ type alias RouteParams =
     { section : Maybe String }
 
 
-route : StatelessRoute RouteParams Data () ActionData
+route : StatelessRoute RouteParams Data StaticData ActionData
 route =
-    RouteBuilder.preRender
+    RouteBuilder.preRenderWithStaticData
         { head = head
         , pages = pages
         , data = data
+        , staticData = staticData
         }
         |> RouteBuilder.buildNoState
             { view = view
@@ -83,29 +84,31 @@ pages =
 
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
-    BackendTask.map3
-        (\titles metadata staticContent ->
+    BackendTask.map2
+        (\titles metadata ->
             { titles = { title = titles.title }
             , metadata = metadata
-            , staticContent = staticContent
             }
         )
         (previousAndNextData routeParams)
         (routeParams |> filePathBackendTask |> BackendTask.andThen MarkdownCodec.titleAndDescription)
-        -- Wrap ALL static content in StaticOnlyData for full DCE
-        -- The elm-review codemod transforms this to BackendTask.fail on client
-        (View.Static.backendTask
-            (BackendTask.map3 StaticContent
-                (pageBody routeParams)
-                (previousAndNextData routeParams |> BackendTask.map .previousAndNext)
-                (routeParams.section
-                    |> Maybe.withDefault "what-is-elm-pages"
-                    |> findBySlug
-                    |> Glob.expectUniqueMatch
-                    |> BackendTask.map filePathToEditUrl
-                    |> BackendTask.allowFatal
-                )
-            )
+
+
+{-| Heavy types (Markdown.Block, etc.) go in staticData.
+The elm-review codemod transforms this to BackendTask.fail on client,
+enabling DCE to eliminate Markdown.Block encoders from the bundle.
+-}
+staticData : RouteParams -> BackendTask FatalError StaticData
+staticData routeParams =
+    BackendTask.map3 StaticContent
+        (pageBody routeParams)
+        (previousAndNextData routeParams |> BackendTask.map .previousAndNext)
+        (routeParams.section
+            |> Maybe.withDefault "what-is-elm-pages"
+            |> findBySlug
+            |> Glob.expectUniqueMatch
+            |> BackendTask.map filePathToEditUrl
+            |> BackendTask.allowFatal
         )
 
 
@@ -189,7 +192,7 @@ titleForSection section =
 
 
 head :
-    App Data () ActionData RouteParams
+    App Data StaticData ActionData RouteParams
     -> List Head.Tag
 head app =
     Seo.summary
@@ -214,7 +217,6 @@ head app =
 type alias Data =
     { titles : { title : String }
     , metadata : { title : String, description : String }
-    , staticContent : View.Static.StaticOnlyData StaticContent
     }
 
 
@@ -222,12 +224,15 @@ type alias ActionData =
     {}
 
 
+{-| Heavy types are in StaticData, not Data.
+This allows DCE to eliminate Markdown.Block encoders from the client bundle.
+-}
 type alias StaticData =
-    ()
+    StaticContent
 
 
 view :
-    App Data () ActionData RouteParams
+    App Data StaticData ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app sharedModel =
@@ -270,7 +275,7 @@ view app sharedModel =
                 ]
                 [ -- Static region: markdown body, prev/next navigation, and edit link
                   -- All rendering code is eliminated from client bundle via DCE
-                  View.staticView app.data.staticContent renderStaticContent
+                  View.staticView app.staticData renderStaticContent
                 ]
             ]
         ]
