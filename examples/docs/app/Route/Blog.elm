@@ -24,11 +24,12 @@ type alias Msg =
     ()
 
 
-route : StatelessRoute RouteParams Data () ActionData
+route : StatelessRoute RouteParams Data StaticData ActionData
 route =
-    RouteBuilder.single
+    RouteBuilder.singleWithStaticData
         { head = head
         , data = data
+        , staticData = staticData
         }
         |> RouteBuilder.buildNoState
             { view = view
@@ -37,21 +38,30 @@ route =
 
 data : BackendTask FatalError Data
 data =
+    BackendTask.succeed ()
+
+
+{-| Heavy types are in staticData, NOT in Data.
+This means Lamdera won't generate wire codecs for Article.ArticleMetadata.
+-}
+staticData : BackendTask FatalError StaticData
+staticData =
     Article.allMetadata
         |> BackendTask.allowFatal
-        |> View.Static.backendTask
 
 
 type alias Data =
-    View.Static.StaticOnlyData (List ( Route, Article.ArticleMetadata ))
+    ()
 
 
 type alias ActionData =
     {}
 
 
+{-| Static data contains heavy types that should NOT be sent to the client.
+-}
 type alias StaticData =
-    ()
+    List ( Route, Article.ArticleMetadata )
 
 
 type alias RouteParams =
@@ -63,7 +73,7 @@ type alias Model =
 
 
 view :
-    App Data () ActionData {}
+    App Data StaticData ActionData {}
     -> Shared.Model
     -> View msg
 view app shared =
@@ -113,7 +123,7 @@ view app shared =
                 [ View.static blogHeader
                 , -- Static region: blog cards grid
                   -- All blog card rendering is eliminated from client bundle via DCE
-                  View.staticView app.data renderBlogCards
+                  View.staticView app.staticData renderBlogCards
                 ]
             ]
         ]
@@ -146,7 +156,7 @@ renderBlogCards articles =
         )
 
 
-head : App Data () ActionData RouteParams -> List Head.Tag
+head : App Data StaticData ActionData RouteParams -> List Head.Tag
 head app =
     Seo.summary
         { canonicalUrlOverride = Nothing

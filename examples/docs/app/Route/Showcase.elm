@@ -32,37 +32,48 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data () ActionData Model Msg
+route : StatefulRoute RouteParams Data StaticData ActionData Model Msg
 route =
-    RouteBuilder.single
+    RouteBuilder.singleWithStaticData
         { head = head
         , data = data
+        , staticData = staticData
         }
         |> RouteBuilder.buildNoState { view = view }
 
 
 data : BackendTask FatalError Data
 data =
-    View.Static.backendTask Showcase.staticRequest
+    BackendTask.succeed ()
+
+
+{-| Heavy types are in staticData, NOT in Data.
+This means Lamdera won't generate wire codecs for Showcase.Entry.
+-}
+staticData : BackendTask FatalError StaticData
+staticData =
+    Showcase.staticRequest
 
 
 type alias Data =
-    View.Static.StaticOnlyData (List Showcase.Entry)
+    ()
 
 
 type alias ActionData =
     {}
 
 
+{-| Static data contains heavy types that should NOT be sent to the client.
+-}
 type alias StaticData =
-    ()
+    List Showcase.Entry
 
 
 view :
-    App Data () ActionData RouteParams
+    App Data StaticData ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
-view static sharedModel =
+view app sharedModel =
     { title = "elm-pages blog"
     , body =
         [ div
@@ -80,10 +91,10 @@ view static sharedModel =
                     ]
                 ]
             ]
-            [ View.staticView static.data (\_ -> topSection)
+            [ View.static topSection
             , -- Static region: showcase entries grid
               -- The entire entries list is pre-rendered and eliminated from client bundle
-              View.staticView static.data renderShowcaseEntries
+              View.staticView app.staticData renderShowcaseEntries
             ]
         ]
     }
@@ -104,7 +115,7 @@ renderShowcaseEntries items =
         [ showcaseEntries items ]
 
 
-head : App Data () ActionData RouteParams -> List Head.Tag
+head : App Data StaticData ActionData RouteParams -> List Head.Tag
 head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
