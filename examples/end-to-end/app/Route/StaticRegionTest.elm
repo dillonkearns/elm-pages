@@ -1,4 +1,4 @@
-module Route.StaticRegionTest exposing (ActionData, Data, Model, Msg, route)
+module Route.StaticRegionTest exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 {-| Test route for static region adoption.
 
@@ -43,6 +43,10 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 route : StatefulRoute RouteParams Data () ActionData Model Msg
@@ -114,6 +118,7 @@ view app _ model =
             -- SPA nav: HTML comes from static-regions.dat
             , View.Static.render "test-content" (staticContent ())
                 |> Html.fromUnstyled
+                |> Html.map Basics.never
 
             -- Dynamic region - this updates normally
             , Html.div

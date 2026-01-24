@@ -1,4 +1,4 @@
-module Route.Fetcher exposing (ActionData, Data, Model, Msg, RouteParams, route)
+module Route.Fetcher exposing (ActionData, Data, Model, Msg, RouteParams, StaticData, route)
 
 {-| -}
 
@@ -103,6 +103,10 @@ type alias Data =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 data :

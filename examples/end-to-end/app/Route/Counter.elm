@@ -1,4 +1,4 @@
-module Route.Counter exposing (ActionData, Data, Model, Msg, route)
+module Route.Counter exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import Effect exposing (Effect)
@@ -32,6 +32,10 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 route : StatefulRoute RouteParams Data () ActionData Model Msg

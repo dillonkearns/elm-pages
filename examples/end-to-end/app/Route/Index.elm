@@ -1,4 +1,4 @@
-module Route.Index exposing (ActionData, Data, Model, Msg, route)
+module Route.Index exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
@@ -38,6 +38,10 @@ type alias RouteParams =
 
 type alias ActionData =
     {}
+
+
+type alias StaticData =
+    ()
 
 
 route : StatelessRoute RouteParams Data () ActionData
