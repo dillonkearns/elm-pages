@@ -123,7 +123,6 @@ export function patchStaticRegions(elmCode) {
     $2`
     );
     patched = true;
-    console.log('Patched using debug mode pattern');
   }
 
   // Pattern 2: elm-hot injected pattern (might have slightly different formatting)
@@ -141,14 +140,11 @@ export function patchStaticRegions(elmCode) {
   }`;
       });
       patched = true;
-      console.log('Patched using elm-hot pattern');
     }
   }
 
   // Pattern 3: Very general fallback - just find the thunk case
   if (!patched) {
-    console.log('Attempting general thunk patch...');
-
     // More lenient pattern: find "tag === 5" followed by return _VirtualDom_render
     const generalPattern = /(if\s*\(\s*tag\s*===\s*5\s*\)\s*\{[^}]*)(return\s+_VirtualDom_render)/;
 
@@ -158,18 +154,11 @@ export function patchStaticRegions(elmCode) {
     $2`
       );
       patched = true;
-      console.log('Patched using general fallback pattern');
     }
   }
 
   if (!patched) {
     console.warn('Could not patch thunk rendering for static regions');
-    console.warn('Looking for patterns in the code...');
-    // Debug: show what patterns exist
-    const thunkMatches = patchedCode.match(/tag\s*===\s*5/g);
-    console.warn('Found "tag === 5" occurrences:', thunkMatches ? thunkMatches.length : 0);
-  } else {
-    console.log('Successfully patched virtual-dom for static region adoption');
   }
 
   // Now patch the thunk DIFFING code to handle StaticId comparison
@@ -210,7 +199,6 @@ function patchThunkDiffing(elmCode) {
 				${comparison}
 			}`;
     });
-    console.log('Successfully patched thunk diffing for static regions');
     return elmCode;
   }
 
@@ -224,7 +212,6 @@ function patchThunkDiffing(elmCode) {
 				${whileLoop}
 			}`;
     });
-    console.log('Successfully patched thunk diffing (fallback pattern)');
     return elmCode;
   }
 

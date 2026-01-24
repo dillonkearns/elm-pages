@@ -321,7 +321,6 @@ function initWorker(basePath, whenDone) {
       }),
     };
     newWorker.worker.once("online", () => {
-      console.log(`[DEBUG] Worker online, activeWorkers = ${activeWorkers}`);
       newWorker.worker.on("message", (message) => {
         if (message.tag === "all-paths") {
           pagesReadyCalled = true;
@@ -366,9 +365,7 @@ function prepareStaticPathsNew(thread) {
 }
 
 async function buildNextPage(thread, allComplete) {
-  console.log(`[DEBUG] buildNextPage called, activeWorkers = ${activeWorkers}`);
   let nextPage = (await pages).pop();
-  console.log(`[DEBUG] nextPage = ${nextPage ? nextPage : 'undefined'}`);
   if (nextPage) {
     thread.worker.postMessage({
       portsFilePath: global.portsFilePath,
@@ -377,10 +374,8 @@ async function buildNextPage(thread, allComplete) {
       pathname: nextPage,
     });
   } else {
-    console.log(`[DEBUG] No more pages, terminating worker, activeWorkers before = ${activeWorkers}`);
     thread.worker.terminate();
     activeWorkers -= 1;
-    console.log(`[DEBUG] Worker terminated, activeWorkers after = ${activeWorkers}`);
     allComplete();
   }
 }
@@ -388,12 +383,9 @@ async function buildNextPage(thread, allComplete) {
 function runCli(options) {
   return new Promise((resolve, reject) => {
     const whenDone = () => {
-      console.log(`[DEBUG] whenDone called, activeWorkers = ${activeWorkers}`);
       if (activeWorkers === 0) {
-        console.log(`[DEBUG] All workers done, resolving Promise.all(pool)`);
         // wait for the remaining tasks in the pool to complete once the pages queue is emptied
         Promise.all(pool).then((value) => {
-          console.log(`[DEBUG] Promise.all(pool) resolved`);
           if (buildError) {
             reject();
           } else {
@@ -403,8 +395,6 @@ function runCli(options) {
       }
     };
     const cpuCount = os.cpus().length;
-    // const cpuCount = 1;
-    console.log("Threads: ", cpuCount);
 
     const getPathsWorker = initWorker(options.base, whenDone);
     getPathsWorker.then(prepareStaticPathsNew);
@@ -442,18 +432,9 @@ async function compileElm(options) {
   const patchedCode = patchStaticRegions(elmCode);
   await fsPromises.writeFile(fullOutputPath, patchedCode);
 
-  // Debug: check if codemod was applied
-  const hasHandler = patchedCode.includes("__staticRefs");
-  console.log(`Static region handler in patched code: ${hasHandler}`);
-
   if (!options.debug) {
     await runTerser(fullOutputPath);
   }
-
-  // Debug: check if handler survived terser
-  const terserResult = await fsPromises.readFile(fullOutputPath, "utf-8");
-  const hasHandlerAfterTerser = terserResult.includes("__staticRefs") || terserResult.includes("data-static");
-  console.log(`Static region handler after terser: ${hasHandlerAfterTerser}`);
 }
 
 async function fingerprintElmAsset(fullOutputPath, withoutExtension) {
