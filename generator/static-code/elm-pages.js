@@ -30,7 +30,7 @@ function loadContentAndInitializeApp() {
   app.ports.toJsPort.subscribe(async (fromElm) => {
     if (fromElm.tag === "FetchStaticRegions") {
       // Fetch content.dat which contains both static regions and page data
-      const result = await fetchContentWithStaticRegions(fromElm.path);
+      const result = await fetchContentWithStaticRegions(fromElm.path, fromElm.query);
       if (result && result.rawBytes) {
         // Send the FULL content.dat bytes (with prefix) to Elm
         // The Elm decoder (skipStaticRegionsPrefix) expects this format

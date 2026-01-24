@@ -40,17 +40,24 @@ function parseCombinedContentDat(buffer) {
  * set static regions global, and return both page data and raw bytes.
  *
  * @param {string} pathname - The path to fetch content for
+ * @param {string | null} query - Optional query string (without leading ?)
  * @returns {Promise<{ staticRegions: Record<string, string>, pageData: Uint8Array, rawBytes: Uint8Array } | null>}
  */
-export async function fetchContentWithStaticRegions(pathname) {
+export async function fetchContentWithStaticRegions(pathname, query = null) {
   // Ensure path ends with /
   let path = pathname.replace(/(\w)$/, "$1/");
   if (!path.endsWith("/")) {
     path = path + "/";
   }
 
+  // Build the URL with optional query string
+  let url = `${window.location.origin}${path}content.dat`;
+  if (query) {
+    url += `?${query}`;
+  }
+
   try {
-    const response = await fetch(`${window.location.origin}${path}content.dat`);
+    const response = await fetch(url);
 
     if (response.ok) {
       const buffer = await response.arrayBuffer();

@@ -273,7 +273,7 @@ init config flags url key =
                     , pageFormState = Dict.empty
                     , pendingRedirect = False
                     , pendingData = Nothing
-                    , pendingStaticRegionsPath = Nothing
+                    , pendingStaticRegionsUrl = Nothing
                     }
             in
             ( { initialModel
@@ -296,7 +296,7 @@ init config flags url key =
               , pageFormState = Dict.empty
               , pendingRedirect = False
               , pendingData = Nothing
-              , pendingStaticRegionsPath = Nothing
+              , pendingStaticRegionsUrl = Nothing
               }
             , NoEffect
             )
@@ -318,7 +318,7 @@ init config flags url key =
               , pageFormState = Dict.empty
               , pendingRedirect = False
               , pendingData = Nothing
-              , pendingStaticRegionsPath = Nothing
+              , pendingStaticRegionsUrl = Nothing
               }
             , NoEffect
             )
@@ -369,7 +369,7 @@ type alias Model userModel pageData actionData sharedData =
     , pageFormState : Form.Model
     , pendingRedirect : Bool
     , pendingData : Maybe ( pageData, sharedData, Maybe actionData )
-    , pendingStaticRegionsPath : Maybe String
+    , pendingStaticRegionsUrl : Maybe Url
     }
 
 
@@ -387,7 +387,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | UserCmd userEffect
     | CancelRequest Int
     | RunCmd (Cmd (Msg userMsg pageData actionData sharedData errorPage))
-    | FetchStaticRegions String
+    | FetchStaticRegions { path : String, query : Maybe String }
 
 
 {-| -}
@@ -915,8 +915,8 @@ update config appMsg model =
             )
 
         StaticRegionsReady maybePageDataBase64 ->
-            case ( maybePageDataBase64, model.pendingStaticRegionsPath, model.pageData ) of
-                ( Just pageDataBase64, Just pendingPath, Ok previousPageData ) ->
+            case ( maybePageDataBase64, model.pendingStaticRegionsUrl, model.pageData ) of
+                ( Just pageDataBase64, Just pendingUrl, Ok previousPageData ) ->
                     -- Static regions and page data received from JS
                     case Base64.toBytes pageDataBase64 of
                         Just pageDataBytes ->
@@ -925,13 +925,7 @@ update config appMsg model =
                                     let
                                         newUrl : Url
                                         newUrl =
-                                            { protocol = model.url.protocol
-                                            , host = model.url.host
-                                            , port_ = model.url.port_
-                                            , path = pendingPath
-                                            , query = model.url.query
-                                            , fragment = model.url.fragment
-                                            }
+                                            pendingUrl
 
                                         ( newPageData, newSharedData, newActionData ) =
                                             case decodedResponse of
@@ -948,7 +942,7 @@ update config appMsg model =
                                         clearedModel =
                                             { model
                                                 | pendingData = Nothing
-                                                , pendingStaticRegionsPath = Nothing
+                                                , pendingStaticRegionsUrl = Nothing
                                             }
                                     in
                                     loadDataAndUpdateUrl
@@ -962,15 +956,15 @@ update config appMsg model =
 
                                 Nothing ->
                                     -- Decode failed
-                                    ( { model | pendingStaticRegionsPath = Nothing }, NoEffect )
+                                    ( { model | pendingStaticRegionsUrl = Nothing }, NoEffect )
 
                         Nothing ->
                             -- Base64 decode failed
-                            ( { model | pendingStaticRegionsPath = Nothing }, NoEffect )
+                            ( { model | pendingStaticRegionsUrl = Nothing }, NoEffect )
 
                 _ ->
                     -- No page data, no pending path, or page not loaded - just clear the pending flag
-                    ( { model | pendingStaticRegionsPath = Nothing }, NoEffect )
+                    ( { model | pendingStaticRegionsUrl = Nothing }, NoEffect )
 
         NoOp ->
             ( model, NoEffect )
@@ -1110,10 +1104,18 @@ perform config model effect =
         CancelRequest transitionKey ->
             Http.cancel (String.fromInt transitionKey)
 
-        FetchStaticRegions path ->
+        FetchStaticRegions { path, query } ->
             Json.Encode.object
                 [ ( "tag", Json.Encode.string "FetchStaticRegions" )
                 , ( "path", Json.Encode.string path )
+                , ( "query"
+                  , case query of
+                        Just q ->
+                            Json.Encode.string q
+
+                        Nothing ->
+                            Json.Encode.null
+                  )
                 ]
                 |> config.toJsPort
                 |> Cmd.map never
@@ -1547,7 +1549,7 @@ startNewGetLoad :
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-startNewGetLoad urlToGet _ ( model, effect ) =
+startNewGetLoad urlToGet toMsg ( model, effect ) =
     let
         cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
@@ -1557,10 +1559,14 @@ startNewGetLoad urlToGet _ ( model, effect ) =
 
                 _ ->
                     NoEffect
+
+        fetchEffect : Effect userMsg pageData actionData sharedData userEffect errorPage
+        fetchEffect =
+            FetchStaticRegions { path = urlToGet.path, query = urlToGet.query }
     in
     ( { model
         | nextTransitionKey = model.nextTransitionKey + 1
-        , pendingStaticRegionsPath = Just urlToGet.path
+        , pendingStaticRegionsUrl = Just urlToGet
         , transition =
             ( model.nextTransitionKey
             , case model.transition of
@@ -1584,7 +1590,7 @@ startNewGetLoad urlToGet _ ( model, effect ) =
                 |> Just
       }
     , Batch
-        [ FetchStaticRegions urlToGet.path
+        [ fetchEffect
         , cancelIfStale
         , effect
         ]
