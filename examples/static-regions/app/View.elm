@@ -90,7 +90,7 @@ renderStatic id staticContent =
 
 {-| Adopt a static region by ID. This is used by the client-side code after
 DCE transformation. On initial load, it adopts pre-rendered DOM. On SPA
-navigation, it uses HTML from static-regions.json.
+navigation, it uses HTML from content.dat (static regions are embedded in the page data).
 -}
 adopt : String -> Static
 adopt id =

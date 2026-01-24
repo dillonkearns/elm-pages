@@ -380,7 +380,6 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
     | BrowserLoadUrl String
     | BrowserPushUrl String
     | BrowserReplaceUrl String
-    | FetchPageData Int (Maybe FormData) Url (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     | Submit FormData
     | SubmitFetcher String Int FormData
     | Batch (List (Effect userMsg pageData actionData sharedData userEffect errorPage))
@@ -1036,9 +1035,6 @@ perform config model effect =
                         Browser.Navigation.replaceUrl key url
                     )
                 |> Maybe.withDefault Cmd.none
-
-        FetchPageData transitionKey maybeRequestInfo url toMsg ->
-            fetchRouteData transitionKey toMsg config url maybeRequestInfo
 
         Submit fields ->
             if fields.method == Form.Get then

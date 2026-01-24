@@ -5,7 +5,7 @@ module Route.StaticRegionTest exposing (ActionData, Data, Model, Msg, StaticData
 This route demonstrates:
 
 1.  Pre-rendered static HTML being adopted on initial page load
-2.  SPA navigation working with HTML from static-regions.dat
+2.  SPA navigation working with HTML from content.dat
 3.  Dynamic content updating normally alongside static regions
 
 -}
@@ -115,7 +115,7 @@ view app _ model =
             -- Static region - simplified API!
             -- Server: renders staticContent with data-static wrapper
             -- Client: transforms to View.Static.adopt "test-content"
-            -- SPA nav: HTML comes from static-regions.dat
+            -- SPA nav: HTML comes from content.dat
             , View.Static.render "test-content" (staticContent ())
                 |> Html.fromUnstyled
                 |> Html.map Basics.never

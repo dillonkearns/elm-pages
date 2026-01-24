@@ -5,7 +5,7 @@ module Route.StaticRegionTest exposing (ActionData, Data, Model, Msg, route, sta
 This route demonstrates:
 
 1.  Pre-rendered static HTML being adopted on initial page load
-2.  SPA navigation working with HTML from static-regions.json
+2.  SPA navigation working with HTML from content.dat
 3.  Dynamic content updating normally alongside static regions
 4.  StaticOnlyData pattern for heavy data that's only used in static regions
 

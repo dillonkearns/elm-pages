@@ -14,7 +14,7 @@ parsers and syntax highlighters while preserving the server-rendered HTML.
 2.  At build time, this function is called and the HTML is extracted
 3.  The function is transformed to return `adopt "hash"` (hash of HTML content)
 4.  On initial page load, `adopt` finds existing DOM with matching `data-static` attribute
-5.  On SPA navigation, `adopt` uses HTML from `static-regions.json`
+5.  On SPA navigation, `adopt` uses HTML from `content.dat` (static regions are embedded in the page data)
 6.  The virtual-dom "adopts" this DOM without re-rendering
 
 
@@ -74,7 +74,7 @@ type StaticId
 
 
 {-| Render static content with a data-static attribute for extraction.
-Used at build time - the HTML is extracted and stored in static-regions.json.
+Used at build time - the HTML is extracted and embedded in content.dat.
 
 In the final client bundle, calls to static view functions are replaced with
 `adopt`, so this function is only used during the build/server rendering phase.
@@ -89,7 +89,7 @@ render id content =
 
 {-| Adopt a static region by ID (hash). On initial page load, this will find
 and adopt existing pre-rendered DOM with `data-static="<id>"`. On SPA navigation,
-this will use HTML from the `static-regions.json` file.
+this will use HTML from `content.dat` (static regions are embedded in the page data).
 
 This function returns `Html Never` because static content cannot produce messages.
 Use `Html.map never` or `View.embedStatic` to embed in your view.
