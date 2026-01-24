@@ -492,7 +492,7 @@ startSimple route backendTasks =
     startWithRoutes route [ route ] [] [ ( route, backendTasks ) ]
 
 
-config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, BackendTask FatalError a ) -> ProgramConfig Msg () Route () () () Effect mappedMsg ()
+config : List (ApiRoute.ApiRoute ApiRoute.Response) -> List ( List String, BackendTask FatalError a ) -> ProgramConfig Msg () Route () () () () Effect mappedMsg ()
 config apiRoutes pages =
     { toJsPort = toJsPort
     , fromJsPort = fromJsPort
@@ -531,7 +531,7 @@ config apiRoutes pages =
                     Debug.todo <| "Couldn't find page: " ++ pageRoute ++ "\npages: " ++ Debug.toString pages
     , site = Just site
     , view =
-        \_ _ _ page _ _ _ _ ->
+        \_ _ _ page _ _ _ _ _ ->
             let
                 thing : Maybe (BackendTask FatalError a)
                 thing =
@@ -548,6 +548,7 @@ config apiRoutes pages =
     , subscriptions = \_ _ _ -> Sub.none
     , routeToPath = \(Route route) -> route |> String.split "/"
     , sharedData = BackendTask.succeed ()
+    , staticData = \_ -> BackendTask.succeed ()
     , onPageChange = \_ -> GotDataBatch (Encode.object [])
     , apiRoutes = \_ -> apiRoutes
     , pathPatterns = []

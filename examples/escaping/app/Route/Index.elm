@@ -1,4 +1,4 @@
-module Route.Index exposing (ActionData, Data, Model, Msg, route)
+module Route.Index exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
@@ -30,7 +30,11 @@ type alias ActionData =
     {}
 
 
-route : StatelessRoute RouteParams Data () ActionData
+type alias StaticData =
+    ()
+
+
+route : StatelessRoute RouteParams Data StaticData ActionData
 route =
     RouteBuilder.single
         { head = head

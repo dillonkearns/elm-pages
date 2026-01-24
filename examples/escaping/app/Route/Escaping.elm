@@ -1,4 +1,4 @@
-module Route.Escaping exposing (ActionData, Data, Model, Msg, route)
+module Route.Escaping exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
@@ -36,7 +36,11 @@ type alias ActionData =
     {}
 
 
-route : StatelessRoute RouteParams Data () ActionData
+type alias StaticData =
+    ()
+
+
+route : StatelessRoute RouteParams Data StaticData ActionData
 route =
     RouteBuilder.single
         { head = head
