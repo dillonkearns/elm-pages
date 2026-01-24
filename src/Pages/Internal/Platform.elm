@@ -470,7 +470,7 @@ update config appMsg model =
                         )
                             -- TODO is it reasonable to always re-fetch route data if you re-navigate to the current route? Might be a good
                             -- parallel to the browser behavior
-                            |> startNewGetLoad url (UpdateCacheAndUrlNew True url Nothing)
+                            |> startNewGetLoad url
 
         FetcherComplete _ fetcherKey _ userMsgResult ->
             case userMsgResult of
@@ -504,7 +504,7 @@ update config appMsg model =
                                         Nothing ->
                                             identity
                                    )
-                                |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
+                                |> startNewGetLoad (currentUrlWithPath model.url.path model)
 
                         RedirectResponse redirectTo ->
                             ( { model
@@ -515,12 +515,12 @@ update config appMsg model =
                               }
                             , NoEffect
                             )
-                                |> startNewGetLoad (currentUrlWithPath redirectTo model) (UpdateCacheAndUrlNew False model.url Nothing)
+                                |> startNewGetLoad (currentUrlWithPath redirectTo model)
 
                 Err _ ->
                     -- TODO how to handle error?
                     ( model, NoEffect )
-                        |> startNewGetLoad (currentUrlWithPath model.url.path model) (UpdateCacheAndUrlNew False model.url Nothing)
+                        |> startNewGetLoad (currentUrlWithPath model.url.path model)
 
         ProcessFetchResponse transitionId response toMsg ->
             case response of
@@ -535,7 +535,7 @@ update config appMsg model =
 
                     else
                         ( model, NoEffect )
-                            |> startNewGetLoad (currentUrlWithPath redirectTo model) toMsg
+                            |> startNewGetLoad (currentUrlWithPath redirectTo model)
 
                 _ ->
                     update config (toMsg response) (clearLoadingFetchersAfterDataLoad transitionId model)
@@ -1542,10 +1542,9 @@ chopEnd needle string =
 
 startNewGetLoad :
     Url
-    -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
-startNewGetLoad urlToGet toMsg ( model, effect ) =
+startNewGetLoad urlToGet ( model, effect ) =
     let
         cancelIfStale : Effect userMsg pageData actionData sharedData userEffect errorPage
         cancelIfStale =
