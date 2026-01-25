@@ -1223,7 +1223,7 @@ async function runGlobNew(req, patternsToWatch) {
         }
         return {
           fullPath: fullPath.path,
-          captures: mm.capture(pattern, fullPath.path),
+          captures: mm.capture(pattern, fullPath.path) || [],
           fileStats: {
             size: stats.size,
             atime: Math.round(stats.atime.getTime()),
