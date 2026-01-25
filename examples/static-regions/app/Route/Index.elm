@@ -1,4 +1,4 @@
-module Route.Index exposing (ActionData, Data, Model, Msg, route)
+module Route.Index exposing (ActionData, Data, Model, Msg, StaticData, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
@@ -40,26 +40,16 @@ type alias ActionData =
     {}
 
 
-type alias StaticViews =
-    { greeting : View.Static
-    , portGreeting : View.Static
-    }
+type alias StaticData =
+    ()
 
 
-route : StatelessRoute RouteParams Data () ActionData StaticViews
+route : StatelessRoute RouteParams Data StaticData ActionData
 route =
     RouteBuilder.single
         { head = head
         , data = data
         }
-        |> RouteBuilder.withStaticViews
-            (\pageData ->
-                { greeting =
-                    div [] [ text <| "Greeting: " ++ pageData.greeting ]
-                , portGreeting =
-                    div [] [ text <| "Port Greeting: " ++ pageData.portGreeting ]
-                }
-            )
         |> RouteBuilder.buildNoState { view = view }
 
 
@@ -86,7 +76,7 @@ generator =
 
 
 head :
-    App Data () ActionData {} {}
+    App Data StaticData ActionData {}
     -> List Head.Tag
 head static =
     Seo.summary
@@ -111,15 +101,17 @@ link attributes children route_ =
 
 
 view :
-    App Data () ActionData RouteParams StaticViews
+    App Data StaticData ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
     { title = "Index page"
     , body =
         [ text "This is the index page."
-        , View.renderStatic "greeting" app.staticViews.greeting
-        , View.renderStatic "portGreeting" app.staticViews.portGreeting
+
+        -- Static regions - content is rendered at build time and adopted by the client
+        , View.static (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.static (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
 
         --, div [] [ text <| "Random Data: " ++ Debug.toString app.data.randomTuple ]
         --, div [] [ text <| "URL: " ++ Debug.toString app.url ]

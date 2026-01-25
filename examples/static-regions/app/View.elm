@@ -50,11 +50,16 @@ htmlToStatic =
 
 
 {-| Embed static content into a View body.
-Since Static is Html Never, it can safely become Html msg.
+
+Takes plain Html Never (e.g. from View.Static.adopt) and converts it to
+Html.Styled.Html msg for use in the view body.
+
 -}
-embedStatic : Static -> Html.Styled.Html msg
-embedStatic staticContent =
-    Html.Styled.map never staticContent
+embedStatic : Html.Html Never -> Html.Styled.Html msg
+embedStatic content =
+    content
+        |> Html.Styled.fromUnstyled
+        |> Html.Styled.map never
 
 
 {-| Render static content with a data-static attribute for extraction.
