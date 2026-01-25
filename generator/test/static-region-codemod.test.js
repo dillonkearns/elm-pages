@@ -90,4 +90,38 @@ describe("Static Region Codemod", () => {
 
     expect(hasGlobalFallback).toBe(true);
   });
+
+  it("patches elm-safe-virtual-dom code with tNode parameter", () => {
+    // elm-safe-virtual-dom (lydell/virtual-dom) has an extra tNode parameter
+    const SAFE_VDOM_CODE = `
+function _VirtualDom_render(vNode, eventNode, tNode) {
+    var tag = vNode.$;
+
+    if (tag === 5) {
+        return _VirtualDom_render(vNode.k || (vNode.k = vNode.m()), eventNode, tNode);
+    }
+
+    if (tag === 0) {
+        return _VirtualDom_doc.createTextNode(vNode.a);
+    }
+
+    return _VirtualDom_doc.createElement('div');
+}
+`;
+
+    const patched = patchStaticRegions(SAFE_VDOM_CODE);
+
+    // Verify the static region check was injected
+    const hasStaticRefsVar = patched.includes('__staticRefs') || patched.includes('__isStaticRegion');
+    const hasDataStaticSelector = patched.includes('data-static');
+
+    // Verify the original thunk rendering with tNode is still there as fallback
+    const hasOriginalThunk = patched.includes('vNode.k || (vNode.k = vNode.m())');
+    const hasTNodeParam = patched.includes('eventNode, tNode');
+
+    expect(hasStaticRefsVar).toBe(true);
+    expect(hasDataStaticSelector).toBe(true);
+    expect(hasOriginalThunk).toBe(true);
+    expect(hasTNodeParam).toBe(true);
+  });
 });

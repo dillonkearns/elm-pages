@@ -2,6 +2,7 @@ import * as fs from "./dir-helpers.js";
 import * as fsPromises from "fs/promises";
 import { runElmReview } from "./compile-elm.js";
 import { patchStaticRegions } from "./static-region-codemod.js";
+import { patchStaticRegionsESVD } from "./static-region-codemod-esvd.js";
 import { restoreColorSafe } from "./error-formatter.js";
 import * as path from "path";
 import { spawn as spawnCallback } from "cross-spawn";
@@ -120,7 +121,7 @@ export async function run(options) {
     );
 
     const buildComplete = build(viteConfig);
-    const compileClientDone = compileElm(options);
+    const compileClientDone = compileElm(options, config);
     await buildComplete;
     await compileClientDone;
     const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
@@ -409,7 +410,7 @@ function runCli(options) {
   });
 }
 
-async function compileElm(options) {
+async function compileElm(options, config) {
   ensureDirSync("dist");
   const fullOutputPath = path.join(process.cwd(), `./dist/elm.js`);
   await generateClientFolder(options.base);
@@ -428,8 +429,11 @@ async function compileElm(options) {
   );
 
   // Apply static region adoption codemod to patch virtual-dom
+  // Use elm-safe-virtual-dom specific patches if configured
   const elmCode = await fsPromises.readFile(fullOutputPath, "utf-8");
-  const patchedCode = patchStaticRegions(elmCode);
+  const patchedCode = config.elmSafeVirtualDom
+    ? patchStaticRegionsESVD(elmCode)
+    : patchStaticRegions(elmCode);
   await fsPromises.writeFile(fullOutputPath, patchedCode);
 
   if (!options.debug) {

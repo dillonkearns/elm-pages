@@ -9,10 +9,11 @@ import { fileURLToPath } from "url";
 import { rewriteElmJson } from "./rewrite-elm-json-help.js";
 import { ensureDirSync } from "./file-helpers.js";
 import { patchStaticRegions } from "./static-region-codemod.js";
+import { patchStaticRegionsESVD } from "./static-region-codemod-esvd.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export async function compileElmForBrowser(options) {
+export async function compileElmForBrowser(options, config = {}) {
   // TODO do I need to make sure this is run from the right cwd? Before it was run outside of this function in the global scope, need to make sure that doesn't change semantics.
   const pathToClientElm = path.join(
     process.cwd(),
@@ -59,7 +60,10 @@ export async function compileElmForBrowser(options) {
   );
 
   // Apply static region adoption codemod
-  transformedCode = patchStaticRegions(transformedCode);
+  // Use elm-safe-virtual-dom specific patches if configured
+  transformedCode = config.elmSafeVirtualDom
+    ? patchStaticRegionsESVD(transformedCode)
+    : patchStaticRegions(transformedCode);
 
   return fs.promises.writeFile("./.elm-pages/cache/elm.js", transformedCode);
 }

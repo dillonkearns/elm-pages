@@ -117,7 +117,8 @@ export async function start(options) {
     console.error(error);
     process.exit(1);
   }
-  let clientElmMakeProcess = compileElmForBrowser(options);
+  const config = await resolveConfig();
+  let clientElmMakeProcess = compileElmForBrowser(options, config);
   let pendingCliCompile = compileCliApp(
     options,
     ".elm-pages/Main.elm",
@@ -171,7 +172,6 @@ export async function start(options) {
     watcher.add(sourceDirs);
   }
 
-  const config = await resolveConfig();
   const vite = await createViteServer(
     merge_vite_configs(
       {
@@ -310,7 +310,7 @@ export async function start(options) {
           clientElmMakeProcess = Promise.reject(errorJson);
           pendingCliCompile = Promise.reject(errorJson);
         } else {
-          clientElmMakeProcess = compileElmForBrowser(options);
+          clientElmMakeProcess = compileElmForBrowser(options, config);
           pendingCliCompile = compileCliApp(
             options,
             ".elm-pages/Main.elm",
