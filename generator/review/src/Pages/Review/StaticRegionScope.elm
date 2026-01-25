@@ -2,10 +2,10 @@ module Pages.Review.StaticRegionScope exposing (rule)
 
 {-| This rule ensures that static region functions are only called from Route modules.
 
-Static regions (View.static, View.staticView, View.staticBackendTask, View.Static.view, etc.)
-are transformed by elm-review during the client-side build. This transformation only works
-for Route modules. Calling these functions from other modules (like Shared.elm or helper
-modules) will NOT enable DCE - the heavy dependencies will still be in the client bundle.
+Static regions (View.static, View.Static.static) are transformed by elm-review during
+the client-side build. This transformation only works for Route modules. Calling these
+functions from other modules (like Shared.elm or helper modules) will NOT enable DCE -
+the heavy dependencies will still be in the client bundle.
 
 @docs rule
 
@@ -95,8 +95,6 @@ staticFunctionNames : List String
 staticFunctionNames =
     [ "static"
     , "staticView"
-    , "staticBackendTask"
-    , "renderStatic"
     ]
 
 
@@ -106,8 +104,6 @@ viewStaticFunctionNames : List String
 viewStaticFunctionNames =
     [ "static"
     , "view"
-    , "backendTask"
-    , "render"
     ]
 
 

@@ -1,67 +1,56 @@
-module Pages.Internal.StaticOnlyData exposing
-    ( StaticOnlyData(..)
-    , placeholder
-    , unwrap
-    )
+module Pages.Internal.StaticOnlyData exposing (StaticOnlyData(..), placeholder, unwrap)
 
-{-| Internal module for StaticOnlyData. Exposes constructors for framework use.
+{-| Internal module for static data wrapper.
 
-**Do not use this module directly.** Use `StaticOnlyData` instead.
-
-@docs StaticOnlyData, placeholder, unwrap
+This is used internally by elm-pages to wrap staticData values. The wrapper
+prevents users from accidentally accessing staticData in contexts where it
+shouldn't be available (like during client-side rendering).
 
 -}
 
 
-{-| Opaque wrapper for data that should only be used in static regions.
+{-| Opaque wrapper for static-only data.
 
-This type has two variants:
+Has two variants:
 
-  - `StaticOnlyData a` - contains real data (used at build time)
-  - `ClientPlaceholder` - empty placeholder (used on client after decoding)
+  - `StaticOnlyData a` - contains actual static data (used server-side/CLI)
+  - `Placeholder` - empty placeholder (used client-side where static data is not available)
 
 -}
 type StaticOnlyData a
     = StaticOnlyData a
-    | ClientPlaceholder
+    | Placeholder
 
 
-{-| Create a placeholder value for client-side decoding.
-
-This is used by generated decoders. The placeholder is safe because
-`Static.view` calls are transformed to `View.adopt` by elm-review,
-so the placeholder is never unwrapped on the client.
-
+{-| Placeholder value for contexts where staticData is not available.
+This is used on the client side where static data doesn't exist.
+The value is never actually accessed - static regions are adopted from pre-rendered HTML,
+and the elm-review codemod transforms View.staticView calls to View.adopt before any
+code path that would unwrap this placeholder can execute.
 -}
-placeholder : StaticOnlyData a
+placeholder : StaticOnlyData staticData
 placeholder =
-    ClientPlaceholder
+    Placeholder
 
 
-{-| Unwrap the static data. Only call this at build time.
+{-| Unwrap static data (internal use only).
 
-On the client, this would hit the unreachable branch if called with
-`ClientPlaceholder`. But `Static.view` is transformed to `View.adopt`
-by elm-review, so this function is never called on the client.
+The Placeholder case uses self-referential recursion to satisfy the type checker.
+This is safe because:
+
+1.  The elm-review codemod transforms View.staticView to View.adopt on the client
+2.  The code that would call unwrap on a Placeholder is eliminated by DCE
+3.  If somehow called, it would loop infinitely (indicating a programmer error)
 
 -}
 unwrap : StaticOnlyData a -> a
-unwrap data =
-    case data of
+unwrap staticOnlyData =
+    case staticOnlyData of
         StaticOnlyData a ->
             a
 
-        ClientPlaceholder ->
-            unreachable ()
-
-
-{-| Infinitely recursive function that can return any type.
-
-This compiles with --optimize (unlike Debug.todo) and is safe as long as
-it's never actually called. It's placed inside the ClientPlaceholder branch
-of unwrap, which is never executed on the client.
-
--}
-unreachable : () -> a
-unreachable () =
-    unreachable ()
+        Placeholder ->
+            -- This branch is never executed in production.
+            -- DCE eliminates all code paths that could reach here.
+            -- Self-reference satisfies the type checker without Debug.todo.
+            unwrap Placeholder

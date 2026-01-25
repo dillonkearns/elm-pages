@@ -103,80 +103,42 @@ view staticData =
                                 }
                             ]
             ]
-        , describe "View.staticBackendTask"
-            [ test "allows View.staticBackendTask in Route modules" <|
-                \() ->
-                    """module Route.Index exposing (staticData)
-
-import View
-
-staticData =
-    View.staticBackendTask parseMarkdown
-"""
-                        |> Review.Test.run rule
-                        |> Review.Test.expectNoErrors
-            , test "errors on View.staticBackendTask in non-Route modules" <|
-                \() ->
-                    """module Data.Content exposing (loadContent)
-
-import View
-
-loadContent =
-    View.staticBackendTask parseMarkdown
-"""
-                        |> Review.Test.run rule
-                        |> Review.Test.expectErrors
-                            [ Review.Test.error
-                                { message = "Static region function called outside Route module"
-                                , details =
-                                    [ "`View.staticBackendTask` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
-                                    , "Static regions are transformed by elm-review during the build, and this transformation only works for Route modules. Calling static region functions from other modules will NOT eliminate heavy dependencies from the client bundle."
-                                    , "To fix this, either:"
-                                    , "1. Move this code to a Route module, or"
-                                    , "2. Pass the static content as a parameter from the Route module"
-                                    ]
-                                , under = "View.staticBackendTask"
-                                }
-                            ]
-            ]
-        , describe "View.renderStatic"
-            [ test "allows View.renderStatic in Route modules" <|
+        , describe "View.Static module functions"
+            [ test "allows View.Static.static in Route modules" <|
                 \() ->
                     """module Route.Index exposing (view)
 
-import View
+import View.Static
 
 view =
-    View.renderStatic "id" content
+    View.Static.static (Html.text "hello")
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectNoErrors
-            , test "errors on View.renderStatic in non-Route modules" <|
+            , test "errors on View.Static.static in non-Route modules" <|
                 \() ->
-                    """module Shared exposing (view)
+                    """module Components.Article exposing (view)
 
-import View
+import View.Static
 
 view =
-    View.renderStatic "id" content
+    View.Static.static (Html.text "hello")
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region function called outside Route module"
                                 , details =
-                                    [ "`View.renderStatic` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
+                                    [ "`View.Static.static` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
                                     , "Static regions are transformed by elm-review during the build, and this transformation only works for Route modules. Calling static region functions from other modules will NOT eliminate heavy dependencies from the client bundle."
                                     , "To fix this, either:"
                                     , "1. Move this code to a Route module, or"
                                     , "2. Pass the static content as a parameter from the Route module"
                                     ]
-                                , under = "View.renderStatic"
+                                , under = "View.Static.static"
                                 }
                             ]
-            ]
-        , describe "View.Static module functions"
-            [ test "allows View.Static.view in Route modules" <|
+            , test "allows View.Static.view in Route modules" <|
                 \() ->
                     """module Route.Index exposing (view)
 
@@ -208,29 +170,6 @@ view staticData =
                                     , "2. Pass the static content as a parameter from the Route module"
                                     ]
                                 , under = "View.Static.view"
-                                }
-                            ]
-            , test "errors on View.Static.backendTask in non-Route modules" <|
-                \() ->
-                    """module Data.Loader exposing (loadContent)
-
-import View.Static
-
-loadContent =
-    View.Static.backendTask parseMarkdown
-"""
-                        |> Review.Test.run rule
-                        |> Review.Test.expectErrors
-                            [ Review.Test.error
-                                { message = "Static region function called outside Route module"
-                                , details =
-                                    [ "`View.Static.backendTask` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
-                                    , "Static regions are transformed by elm-review during the build, and this transformation only works for Route modules. Calling static region functions from other modules will NOT eliminate heavy dependencies from the client bundle."
-                                    , "To fix this, either:"
-                                    , "1. Move this code to a Route module, or"
-                                    , "2. Pass the static content as a parameter from the Route module"
-                                    ]
-                                , under = "View.Static.backendTask"
                                 }
                             ]
             ]

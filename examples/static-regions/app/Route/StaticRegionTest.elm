@@ -7,7 +7,6 @@ This route demonstrates:
 1.  Pre-rendered static HTML being adopted on initial page load
 2.  SPA navigation working with HTML from content.dat
 3.  Dynamic content updating normally alongside static regions
-4.  StaticOnlyData pattern for heavy data that's only used in static regions
 
 -}
 
@@ -63,42 +62,14 @@ route =
 
 type alias Data =
     { timestamp : String
-    , heavyContent : View.StaticOnlyData HeavyData
-    }
-
-
-{-| Example of heavy data that would typically come from expensive processing.
-In a real app, this could be a parsed markdown AST, syntax-highlighted code blocks, etc.
--}
-type alias HeavyData =
-    { items : List String
-    , description : String
     }
 
 
 data : BackendTask FatalError Data
 data =
-    BackendTask.map2
-        (\timestamp heavyContent ->
-            { timestamp = timestamp
-            , heavyContent = heavyContent
-            }
-        )
-        (BackendTask.succeed "Build time: 2024-01-01T00:00:00Z")
-        -- View.staticBackendTask wraps the data so it can only be used in static regions
-        -- The elm-review codemod transforms this to BackendTask.fail on the client,
-        -- enabling DCE of the wrapped BackendTask and its dependencies
-        (View.staticBackendTask
-            (BackendTask.succeed
-                { items =
-                    [ "Parsed from heavy source"
-                    , "Transformed at build time"
-                    , "Only available in static regions"
-                    ]
-                , description = "This data is only accessible via View.staticView"
-                }
-            )
-        )
+    BackendTask.succeed
+        { timestamp = "Build time: 2024-01-01T00:00:00Z"
+        }
 
 
 init : App Data StaticData ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
@@ -138,15 +109,33 @@ view app _ model =
                 ]
 
             -- Static region - content is rendered at build time and adopted by the client
-            -- The elm-review codemod transforms this to `View.embedStatic (View.adopt "0")`
+            -- The elm-review codemod transforms this to `View.Static.adopt "0"`
             -- for DCE, so the staticContent function is eliminated from the client bundle.
             , View.static (staticContent ())
 
-            -- Static region with StaticOnlyData - demonstrates heavy data that's only
-            -- accessible in static regions. The data is discarded after rendering and
-            -- not included in content.dat. The elm-review codemod transforms both
-            -- View.staticBackendTask (to BackendTask.fail) and View.staticView (to View.adopt)
-            , View.staticView app.data.heavyContent renderHeavyContent
+            -- Another static region showing data from app.data
+            , View.static
+                (Html.div
+                    [ Attr.style "padding" "20px"
+                    , Attr.style "background" "#f0f0ff"
+                    , Attr.style "border-radius" "8px"
+                    , Attr.style "margin" "20px 0"
+                    , Attr.style "border-left" "4px solid #6060ff"
+                    ]
+                    [ Html.h2
+                        [ Attr.style "color" "#333"
+                        , Attr.style "margin-top" "0"
+                        ]
+                        [ Html.text "Static Content from Data" ]
+                    , Html.p []
+                        [ Html.text app.data.timestamp ]
+                    , Html.ul []
+                        [ Html.li [] [ Html.text "Item 1 - from app.data" ]
+                        , Html.li [] [ Html.text "Item 2 - rendered at build time" ]
+                        , Html.li [] [ Html.text "Item 3 - adopted by virtual-dom" ]
+                        ]
+                    ]
+                )
 
             -- Dynamic region - this updates normally
             , Html.div
@@ -241,38 +230,5 @@ staticContent () =
         , Html.p []
             [ Html.em []
                 [ Html.text "In production, this could be markdown, syntax-highlighted code, etc." ]
-            ]
-        ]
-
-
-{-| Render function for heavy data.
-
-This function receives unwrapped StaticOnlyData and produces static HTML.
-The elm-review codemod eliminates both this function AND the data from the client bundle.
--}
-renderHeavyContent : HeavyData -> View.Static
-renderHeavyContent heavyData =
-    Html.div
-        [ Attr.style "padding" "20px"
-        , Attr.style "background" "#f0f0ff"
-        , Attr.style "border-radius" "8px"
-        , Attr.style "margin" "20px 0"
-        , Attr.style "border-left" "4px solid #6060ff"
-        ]
-        [ Html.h2
-            [ Attr.style "color" "#333"
-            , Attr.style "margin-top" "0"
-            ]
-            [ Html.text "Static Content with StaticOnlyData" ]
-        , Html.p []
-            [ Html.text heavyData.description ]
-        , Html.ul []
-            (List.map
-                (\item -> Html.li [] [ Html.text item ])
-                heavyData.items
-            )
-        , Html.p []
-            [ Html.em []
-                [ Html.text "This section used StaticOnlyData - the heavy data is discarded after rendering." ]
             ]
         ]

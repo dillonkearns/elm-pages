@@ -1,4 +1,4 @@
-module View.Static exposing (StaticId(..), StaticOnlyData, adopt, backendTask, map, map2, render, static, view, wrap)
+module View.Static exposing (StaticId(..), StaticOnlyData, adopt, render, static, view)
 
 {-| This module provides primitives for "static regions" - parts of the view
 that are pre-rendered at build time and adopted by the virtual-dom on the client
@@ -10,9 +10,9 @@ parsers and syntax highlighters while preserving the server-rendered HTML.
 
 ## How it works
 
-1.  Define a top-level function: `myStaticView : () -> View.Static`
-2.  At build time, this function is called and the HTML is extracted
-3.  The function is transformed to return `adopt "hash"` (hash of HTML content)
+1.  Wrap content with `View.static` in your route's view function
+2.  At build time, this content is rendered and the HTML is extracted
+3.  An elm-review codemod transforms `View.static expr` to `View.Static.adopt "id"`
 4.  On initial page load, `adopt` finds existing DOM with matching `data-static` attribute
 5.  On SPA navigation, `adopt` uses HTML from `content.dat` (static regions are embedded in the page data)
 6.  The virtual-dom "adopts" this DOM without re-rendering
@@ -20,41 +20,43 @@ parsers and syntax highlighters while preserving the server-rendered HTML.
 
 ## Usage
 
-Define static content as a top-level function in your route module:
-
-    staticContent : () -> View.Static
-    staticContent () =
-        Html.div []
-            [ Markdown.toHtml markdownSource
-            , SyntaxHighlight.toHtml codeBlock
-            ]
-
-Then embed it in your view:
+Use `View.static` in your route's view function:
 
     view app model =
         { body =
-            [ View.embedStatic (staticContent ())
+            [ View.static (Markdown.toHtml app.data.content)
             , dynamicContent model
             ]
         }
 
-At build time, `staticContent` is transformed to:
+At build time, the codemod transforms this to:
 
-    staticContent : () -> View.Static
-    staticContent _ =
-        View.Static.adopt "a7f3b2c1"
+    view app model =
+        { body =
+            [ View.Static.adopt "0" |> Html.map never
+            , dynamicContent model
+            ]
+        }
+
+The markdown parser and its dependencies are eliminated from the client bundle via DCE.
 
 @docs StaticId, adopt, render, static
 
 
 ## Static-Only Data
 
-@docs StaticOnlyData, wrap, map, map2, backendTask, view
+Use `View.Static.view` to render data from `app.staticData`:
+
+    view app model =
+        { body =
+            [ View.Static.view app.staticData renderContent
+            ]
+        }
+
+@docs StaticOnlyData, view
 
 -}
 
-import BackendTask exposing (BackendTask)
-import FatalError exposing (FatalError)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
@@ -92,12 +94,14 @@ and adopt existing pre-rendered DOM with `data-static="<id>"`. On SPA navigation
 this will use HTML from `content.dat` (static regions are embedded in the page data).
 
 This function returns `Html Never` because static content cannot produce messages.
-Use `Html.map never` or `View.embedStatic` to embed in your view.
+Use `Html.map never` to embed in your view.
 
     -- A static view function after build-time transformation:
-    staticContent : () -> View.Static
-    staticContent _ =
-        View.Static.adopt "a7f3b2c1"
+    view app model =
+        { body =
+            [ View.Static.adopt "0" |> Html.map never
+            ]
+        }
 
 -}
 adopt : String -> Html Never
@@ -132,13 +136,16 @@ static content =
         [ content ]
 
 
-{-| Opaque wrapper for data that should only be used in static regions.
+{-| Opaque wrapper for data that is only available in static regions.
 
-This data is:
+This data comes from `app.staticData` in your route module. It can only be
+accessed through `View.Static.view`, which renders the data as a static region.
 
-  - Resolved at build time via BackendTask
+The data is:
+
+  - Resolved at build time via your route's `staticData` BackendTask
   - NOT included in content.dat (discarded after rendering)
-  - Only accessible through `Static.view`
+  - Only accessible through `View.Static.view`
 
 This enables heavy data (parsed markdown ASTs, large datasets, etc.) to be used
 for rendering static HTML without bloating the client bundle.
@@ -148,87 +155,21 @@ type alias StaticOnlyData a =
     Internal.StaticOnlyData a
 
 
-{-| Wrap data to mark it as static-only.
-
-Use this in your BackendTask to create StaticOnlyData:
-
-    staticData : BackendTask FatalError (StaticOnlyData MarkdownAst)
-    staticData =
-        loadAndParseMarkdown "content.md"
-            |> BackendTask.map View.Static.wrap
-
--}
-wrap : a -> StaticOnlyData a
-wrap =
-    Internal.StaticOnlyData
-
-
-{-| Transform static-only data by applying a function to its contents.
-
-This is safe to use at build time (in `head` functions, `data` functions, etc.).
-On the client, the elm-review codemod transforms `View.Static.backendTask` to
-`BackendTask.fail`, so the code path using `map` is never reached.
-
-    head : App Data ActionData RouteParams {} -> List Head.Tag
-    head app =
-        View.Static.map app.data.staticContent
-            (\content ->
-                Seo.summary
-                    { title = content.metadata.title
-                    , description = content.metadata.description
-                    }
-            )
-
--}
-map : StaticOnlyData a -> (a -> b) -> b
-map staticData fn =
-    fn (Internal.unwrap staticData)
-
-
-{-| Combine two static-only data values by applying a function to both.
-
-    View.Static.map2 app.data.metadata app.data.body
-        (\meta body ->
-            { title = meta.title
-            , renderedBody = renderMarkdown body
-            }
-        )
-
--}
-map2 : StaticOnlyData a -> StaticOnlyData b -> (a -> b -> c) -> c
-map2 staticDataA staticDataB fn =
-    fn (Internal.unwrap staticDataA) (Internal.unwrap staticDataB)
-
-
-{-| Create a BackendTask that produces static-only data.
-
-This is the recommended way to create StaticOnlyData. The elm-review codemod
-transforms `View.Static.backendTask expr` to `BackendTask.fail` on the client,
-enabling DCE of the wrapped BackendTask and its dependencies.
-
-    staticContent : BackendTask FatalError (StaticOnlyData MarkdownAst)
-    staticContent =
-        View.Static.backendTask (parseMarkdown "content.md")
-
--}
-backendTask : BackendTask FatalError a -> BackendTask FatalError (StaticOnlyData a)
-backendTask task =
-    BackendTask.map wrap task
-
-
-{-| Render static content using static-only data.
+{-| Render static content using static-only data from `app.staticData`.
 
 This is the only way to access data wrapped in `StaticOnlyData`. The data is
 unwrapped and passed to your render function, then the result is marked as
 a static region.
 
-    View.Static.view app.data.staticContent
-        (\ast ->
-            Markdown.toHtml ast
-        )
+    view app shared model =
+        { body =
+            [ View.Static.view app.staticData
+                (\content -> Markdown.toHtml content)
+            ]
+        }
 
 At build time, this renders the content with the data. The elm-review codemod
-transforms this to `View.adopt "id"`, eliminating both the data and render
+transforms this to `View.Static.adopt "id"`, eliminating both the data and render
 function from the client bundle.
 
 -}

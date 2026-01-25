@@ -10,27 +10,22 @@ Transforms:
     -- View.static (auto-ID):
     View.static (heavyRender data)
     -- becomes:
-    View.Static.adopt "0"  -- ID assigned based on source order
+    View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never
 
-    -- View.staticView with StaticOnlyData (auto-ID):
-    View.staticView app.staticData (\data -> heavyRender data)
+    -- View.staticView (auto-ID):
+    View.staticView app.staticData renderFn
     -- becomes:
-    View.Static.adopt "0"  -- Both data and render fn eliminated
+    View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never
 
-    -- View.Static.view with StaticOnlyData (auto-ID):
-    View.Static.view staticData (\data -> heavyRender data)
+    -- View.Static.static (auto-ID, plain Html):
+    View.Static.static (heavyRender data)
     -- becomes:
     View.Static.adopt "0"
 
-    -- View.staticBackendTask (static-only data):
-    View.staticBackendTask (parseMarkdown "content.md")
+    -- View.Static.view (auto-ID, plain Html):
+    View.Static.view staticData renderFn
     -- becomes:
-    BackendTask.fail (FatalError.fromString "static only data")
-
-    -- View.Static.backendTask (static-only data):
-    View.Static.backendTask (parseMarkdown "content.md")
-    -- becomes:
-    BackendTask.fail (FatalError.fromString "static only data")
+    View.Static.adopt "0"
 
 The key insight is that by replacing the entire call, we prevent the static
 content expression from being called, allowing DCE to eliminate it.
@@ -45,7 +40,6 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Range exposing (Range)
 import Review.Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -135,7 +129,7 @@ expressionVisitor node context =
     case Node.value node of
         Expression.Application applicationExpressions ->
             case applicationExpressions of
-                -- Single-argument application: View.static expr, View.staticBackendTask expr, etc.
+                -- Single-argument application: View.static expr, View.Static.static expr
                 functionNode :: _ :: [] ->
                     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
                         Just [ "View" ] ->
@@ -147,7 +141,7 @@ expressionVisitor node context =
                         _ ->
                             ( [], context )
 
-                -- Two-argument application: fn arg1 arg2
+                -- Two-argument application: View.staticView data fn, View.Static.view data fn
                 functionNode :: _ :: _ :: [] ->
                     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
                         Just [ "View" ] ->
@@ -182,11 +176,6 @@ handleViewModuleCall functionNode node context =
             , { context | staticIndex = context.staticIndex + 1 }
             )
 
-        Expression.FunctionOrValue _ "staticBackendTask" ->
-            ( [ createTransformError "View.staticBackendTask" "BackendTask.fail" node backendTaskFailCall ]
-            , context
-            )
-
         _ ->
             ( [], context )
 
@@ -201,11 +190,6 @@ handleViewStaticModuleCall functionNode node context =
             in
             ( [ createTransformError "View.Static.static" "View.Static.adopt" node replacement ]
             , { context | staticIndex = context.staticIndex + 1 }
-            )
-
-        Expression.FunctionOrValue _ "backendTask" ->
-            ( [ createTransformError "View.Static.backendTask" "BackendTask.fail" node backendTaskFailCall ]
-            , context
             )
 
         _ ->
@@ -284,13 +268,6 @@ viewStaticImportFix context =
                 { row = context.lastImportRow + 1, column = 1 }
                 "import View.Static\n"
             ]
-
-
-{-| Generate BackendTask.fail for static-only BackendTask transforms
--}
-backendTaskFailCall : String
-backendTaskFailCall =
-    "BackendTask.fail (FatalError.fromString \"static only data\")"
 
 
 {-| Generate View.Static.adopt "index" for View module calls (View.static, View.staticView).

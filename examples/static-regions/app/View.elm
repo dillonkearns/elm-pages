@@ -1,13 +1,11 @@
-module View exposing (View, map, Static, StaticOnlyData, static, staticView, wrapStaticData, staticBackendTask)
+module View exposing (View, map, Static, static, staticView)
 
 {-| View module for elm-pages.
 
-@docs View, map, Static, StaticOnlyData, static, staticView, wrapStaticData, staticBackendTask
+@docs View, map, Static, static, staticView
 
 -}
 
-import BackendTask exposing (BackendTask)
-import FatalError exposing (FatalError)
 import Html.Styled
 import View.Static
 
@@ -32,6 +30,13 @@ Used for content that is pre-rendered at build time and adopted by virtual-dom.
 -}
 type alias Static =
     Html.Styled.Html Never
+
+
+{-| Opaque wrapper for data that is only available in static regions.
+Re-exported from View.Static.
+-}
+type alias StaticOnlyData a =
+    View.Static.StaticOnlyData a
 
 
 {-| Mark content as static for build-time rendering and client-side adoption.
@@ -71,36 +76,18 @@ static content =
         |> Html.Styled.map never
 
 
-{-| Opaque wrapper for data that should only be used in static regions.
-Re-exported from View.Static.
--}
-type alias StaticOnlyData a =
-    View.Static.StaticOnlyData a
-
-
-{-| Wrap data to mark it as static-only.
-
-    staticData : BackendTask FatalError (StaticOnlyData MarkdownAst)
-    staticData =
-        loadAndParseMarkdown "content.md"
-            |> BackendTask.map View.wrapStaticData
-
--}
-wrapStaticData : a -> StaticOnlyData a
-wrapStaticData =
-    View.Static.wrap
-
-
-{-| Render static content using static-only data.
+{-| Render static content using static-only data from `app.staticData`.
 
 This is the only way to access data wrapped in `StaticOnlyData`. The data is
 unwrapped and passed to your render function, then the result is marked as
 a static region.
 
-    View.staticView app.staticData
-        (\ast ->
-            Markdown.toHtml ast
-        )
+    view app shared model =
+        { body =
+            [ View.staticView app.staticData
+                (\content -> Markdown.toHtml content)
+            ]
+        }
 
 At build time, this renders the content with the data. The elm-review codemod
 transforms this to `View.Static.adopt "id"`, eliminating both the data and render
@@ -112,19 +99,3 @@ staticView staticOnlyData renderFn =
     View.Static.view staticOnlyData (\data -> Html.Styled.toUnstyled (renderFn data))
         |> Html.Styled.fromUnstyled
         |> Html.Styled.map never
-
-
-{-| Create a BackendTask that produces static-only data.
-
-This is the recommended way to create StaticOnlyData. The elm-review codemod
-transforms `View.staticBackendTask expr` to `BackendTask.fail` on the client,
-enabling DCE of the wrapped BackendTask and its dependencies.
-
-    staticContent : BackendTask FatalError (StaticOnlyData MarkdownAst)
-    staticContent =
-        View.staticBackendTask (parseMarkdown "content.md")
-
--}
-staticBackendTask : BackendTask FatalError a -> BackendTask FatalError (StaticOnlyData a)
-staticBackendTask =
-    View.Static.backendTask
