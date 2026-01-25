@@ -1,14 +1,13 @@
-module View exposing (View, map, Static, StaticOnlyData, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt, static, staticView, wrapStaticData, staticBackendTask)
+module View exposing (View, map, Static, StaticOnlyData, static, staticView, wrapStaticData, staticBackendTask)
 
-{-|
+{-| View module for elm-pages.
 
-@docs View, map, Static, StaticOnlyData, staticToHtml, htmlToStatic, embedStatic, renderStatic, adopt, static, staticView, wrapStaticData, staticBackendTask
+@docs View, map, Static, StaticOnlyData, static, staticView, wrapStaticData, staticBackendTask
 
 -}
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
-import Html
 import Html.Styled
 import View.Static
 
@@ -33,74 +32,6 @@ Used for content that is pre-rendered at build time and adopted by virtual-dom.
 -}
 type alias Static =
     Html.Styled.Html Never
-
-
-{-| Convert Static content to plain Html for extraction at build time.
--}
-staticToHtml : Static -> Html.Html Never
-staticToHtml =
-    Html.Styled.toUnstyled
-
-
-{-| Convert plain Html to Static content for adoption at runtime.
--}
-htmlToStatic : Html.Html Never -> Static
-htmlToStatic =
-    Html.Styled.fromUnstyled
-
-
-{-| Embed static content into a View body.
-
-Takes plain Html Never (e.g. from View.Static.adopt) and converts it to
-Html.Styled.Html msg for use in the view body.
-
--}
-embedStatic : Html.Html Never -> Html.Styled.Html msg
-embedStatic content =
-    content
-        |> Html.Styled.fromUnstyled
-        |> Html.Styled.map never
-
-
-{-| Render static content with a data-static attribute for extraction.
-This is a temporary helper until build-time transformation is implemented.
-
-Usage:
-
-    view =
-        { body =
-            [ renderStatic "my-id" (staticContent ())
-            ]
-        }
-
-After build-time transformation is implemented, this will become:
-
-    view =
-        { body =
-            [ embedStatic (staticContent ())
-            ]
-        }
-
-And `staticContent` will be transformed to return `View.Static.adopt "hash"`.
-
--}
-renderStatic : String -> Static -> Html.Styled.Html msg
-renderStatic id staticContent =
-    staticContent
-        |> staticToHtml
-        |> View.Static.render id
-        |> Html.Styled.fromUnstyled
-        |> Html.Styled.map never
-
-
-{-| Adopt a static region by ID. This is used by the client-side code after
-DCE transformation. On initial load, it adopts pre-rendered DOM. On SPA
-navigation, it uses HTML from content.dat (static regions are embedded in the page data).
--}
-adopt : String -> Static
-adopt id =
-    View.Static.adopt id
-        |> Html.Styled.fromUnstyled
 
 
 {-| Mark content as static for build-time rendering and client-side adoption.
@@ -128,13 +59,13 @@ This ensures the static content cannot produce messages and is purely presentati
 
 At build time, an ID is automatically assigned based on the order of `View.static`
 calls in your view. The elm-review transformation replaces `View.static expr` with
-`View.adopt "id"`, allowing DCE to eliminate `expr` and its dependencies.
+`View.Static.adopt "id"`, allowing DCE to eliminate `expr` and its dependencies.
 
 -}
 static : Static -> Html.Styled.Html msg
 static content =
     content
-        |> staticToHtml
+        |> Html.Styled.toUnstyled
         |> View.Static.static
         |> Html.Styled.fromUnstyled
         |> Html.Styled.map never
@@ -172,13 +103,13 @@ a static region.
         )
 
 At build time, this renders the content with the data. The elm-review codemod
-transforms this to `View.adopt "id"`, eliminating both the data and render
+transforms this to `View.Static.adopt "id"`, eliminating both the data and render
 function from the client bundle.
 
 -}
 staticView : StaticOnlyData a -> (a -> Static) -> Html.Styled.Html msg
 staticView staticOnlyData renderFn =
-    View.Static.view staticOnlyData (\data -> staticToHtml (renderFn data))
+    View.Static.view staticOnlyData (\data -> Html.Styled.toUnstyled (renderFn data))
         |> Html.Styled.fromUnstyled
         |> Html.Styled.map never
 

@@ -10,12 +10,12 @@ Transforms:
     -- View.static (auto-ID):
     View.static (heavyRender data)
     -- becomes:
-    View.embedStatic (View.adopt "0")  -- ID assigned based on source order
+    View.Static.adopt "0"  -- ID assigned based on source order
 
     -- View.staticView with StaticOnlyData (auto-ID):
     View.staticView app.staticData (\data -> heavyRender data)
     -- becomes:
-    View.embedStatic (View.adopt "0")  -- Both data and render fn eliminated
+    View.Static.adopt "0"  -- Both data and render fn eliminated
 
     -- View.Static.view with StaticOnlyData (auto-ID):
     View.Static.view staticData (\data -> heavyRender data)
@@ -32,18 +32,12 @@ Transforms:
     -- becomes:
     BackendTask.fail (FatalError.fromString "static only data")
 
-    -- View.renderStatic (explicit ID):
-    View.renderStatic "id" (staticContent ())
-    -- becomes:
-    View.embedStatic (View.adopt "id")
-
-    -- Direct View.Static.render (legacy):
-    View.Static.render "id" content
-    -- becomes:
-    View.Static.adopt "id"
-
 The key insight is that by replacing the entire call, we prevent the static
 content expression from being called, allowing DCE to eliminate it.
+
+Note: This rule always uses View.Static.adopt from the elm-pages package,
+not from the user's View module. If View.Static is not imported, the rule
+adds the import automatically.
 
 -}
 
@@ -51,6 +45,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Range exposing (Range)
 import Review.Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -58,18 +53,24 @@ import Review.Rule as Rule exposing (Error, Rule)
 
 type alias Context =
     { lookupTable : ModuleNameLookupTable
-    , viewStaticAlias : Maybe ModuleName
-    , viewAlias : Maybe ModuleName
+    , viewStaticImport : ViewStaticImport
+    , htmlStyledAlias : Maybe ModuleName
+    , lastImportRow : Int
     , staticIndex : Int
     }
+
+
+type ViewStaticImport
+    = NotImported
+    | ImportedAs ModuleName
 
 
 rule : Rule
 rule =
     Rule.newModuleRuleSchemaUsingContextCreator "Pages.Review.StaticViewTransform" initialContext
         |> Rule.providesFixesForModuleRule
-        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.withImportVisitor importVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
 
 
@@ -78,8 +79,9 @@ initialContext =
     Rule.initContextCreator
         (\lookupTable () ->
             { lookupTable = lookupTable
-            , viewStaticAlias = Nothing
-            , viewAlias = Nothing
+            , viewStaticImport = NotImported
+            , htmlStyledAlias = Nothing
+            , lastImportRow = 2
             , staticIndex = 0
             }
         )
@@ -94,31 +96,38 @@ importVisitor node context =
 
         moduleName =
             Node.value import_.moduleName
+
+        importEndRow =
+            (Node.range node).end.row
     in
     if moduleName == [ "View", "Static" ] then
         ( []
         , { context
-            | viewStaticAlias =
+            | viewStaticImport =
                 import_.moduleAlias
                     |> Maybe.map Node.value
                     |> Maybe.withDefault [ "View", "Static" ]
-                    |> Just
+                    |> ImportedAs
+            , lastImportRow = max context.lastImportRow importEndRow
           }
         )
 
-    else if moduleName == [ "View" ] then
+    else if moduleName == [ "Html", "Styled" ] then
         ( []
         , { context
-            | viewAlias =
+            | htmlStyledAlias =
                 import_.moduleAlias
                     |> Maybe.map Node.value
-                    |> Maybe.withDefault [ "View" ]
+                    |> Maybe.withDefault [ "Html", "Styled" ]
                     |> Just
+            , lastImportRow = max context.lastImportRow importEndRow
           }
         )
 
     else
-        ( [], context )
+        ( []
+        , { context | lastImportRow = max context.lastImportRow importEndRow }
+        )
 
 
 expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
@@ -127,157 +136,25 @@ expressionVisitor node context =
         Expression.Application applicationExpressions ->
             case applicationExpressions of
                 -- Single-argument application: View.static expr, View.staticBackendTask expr, etc.
-                functionNode :: contentArg :: [] ->
+                functionNode :: _ :: [] ->
                     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
                         Just [ "View" ] ->
-                            case Node.value functionNode of
-                                Expression.FunctionOrValue _ "static" ->
-                                    let
-                                        replacement =
-                                            viewStaticAutoIdCall context
-                                    in
-                                    ( [ Rule.errorWithFix
-                                            { message = "Static region codemod: transform View.static to adopt"
-                                            , details = [ "Transforms View.static to View.embedStatic (View.adopt \"index\") for client-side adoption and DCE" ]
-                                            }
-                                            (Node.range node)
-                                            [ Review.Fix.replaceRangeBy (Node.range node) replacement
-                                            ]
-                                      ]
-                                    , { context | staticIndex = context.staticIndex + 1 }
-                                    )
-
-                                Expression.FunctionOrValue _ "staticBackendTask" ->
-                                    ( [ Rule.errorWithFix
-                                            { message = "Static region codemod: transform View.staticBackendTask to BackendTask.fail"
-                                            , details = [ "Transforms View.staticBackendTask to BackendTask.fail for DCE of static-only data" ]
-                                            }
-                                            (Node.range node)
-                                            [ Review.Fix.replaceRangeBy (Node.range node) backendTaskFailCall
-                                            ]
-                                      ]
-                                    , context
-                                    )
-
-                                _ ->
-                                    ( [], context )
+                            handleViewModuleCall functionNode node context
 
                         Just [ "View", "Static" ] ->
-                            case Node.value functionNode of
-                                Expression.FunctionOrValue _ "static" ->
-                                    let
-                                        replacement =
-                                            viewStaticModuleAutoIdCall context
-                                    in
-                                    ( [ Rule.errorWithFix
-                                            { message = "Static region codemod: transform View.Static.static to adopt"
-                                            , details = [ "Transforms View.Static.static to View.Static.adopt \"index\" for client-side adoption and DCE" ]
-                                            }
-                                            (Node.range node)
-                                            [ Review.Fix.replaceRangeBy (Node.range node) replacement
-                                            ]
-                                      ]
-                                    , { context | staticIndex = context.staticIndex + 1 }
-                                    )
-
-                                Expression.FunctionOrValue _ "backendTask" ->
-                                    ( [ Rule.errorWithFix
-                                            { message = "Static region codemod: transform View.Static.backendTask to BackendTask.fail"
-                                            , details = [ "Transforms View.Static.backendTask to BackendTask.fail for DCE of static-only data" ]
-                                            }
-                                            (Node.range node)
-                                            [ Review.Fix.replaceRangeBy (Node.range node) backendTaskFailCall
-                                            ]
-                                      ]
-                                    , context
-                                    )
-
-                                _ ->
-                                    ( [], context )
+                            handleViewStaticModuleCall functionNode node context
 
                         _ ->
                             ( [], context )
 
                 -- Two-argument application: fn arg1 arg2
-                functionNode :: firstArg :: secondArg :: [] ->
+                functionNode :: _ :: _ :: [] ->
                     case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-                        -- View.renderStatic "id" expr → View.embedStatic (View.adopt "id")
-                        -- View.staticView staticData renderFn → View.embedStatic (View.adopt "index")
                         Just [ "View" ] ->
-                            case Node.value functionNode of
-                                Expression.FunctionOrValue _ "renderStatic" ->
-                                    let
-                                        replacement =
-                                            renderStaticAdoptCall context firstArg
-                                    in
-                                    ( [ Rule.errorWithFix
-                                            { message = "Static region codemod: transform renderStatic to adopt"
-                                            , details = [ "Transforms View.renderStatic to View.embedStatic (View.adopt ...) for client-side adoption and DCE" ]
-                                            }
-                                            (Node.range node)
-                                            [ Review.Fix.replaceRangeBy (Node.range node) replacement
-                                            ]
-                                      ]
-                                    , context
-                                    )
+                            handleViewModuleTwoArgCall functionNode node context
 
-                                Expression.FunctionOrValue _ "staticView" ->
-                                    let
-                                        replacement =
-                                            viewStaticAutoIdCall context
-                                    in
-                                    ( [ Rule.errorWithFix
-                                            { message = "Static region codemod: transform View.staticView to adopt"
-                                            , details = [ "Transforms View.staticView to View.embedStatic (View.adopt \"index\") for client-side adoption and DCE" ]
-                                            }
-                                            (Node.range node)
-                                            [ Review.Fix.replaceRangeBy (Node.range node) replacement
-                                            ]
-                                      ]
-                                    , { context | staticIndex = context.staticIndex + 1 }
-                                    )
-
-                                _ ->
-                                    ( [], context )
-
-                        -- View.Static.render "id" content → View.Static.adopt "id" (legacy)
-                        -- View.Static.view staticData renderFn → View.Static.adopt "index"
                         Just [ "View", "Static" ] ->
-                            case Node.value functionNode of
-                                Expression.FunctionOrValue _ "render" ->
-                                    let
-                                        adoptCall =
-                                            viewStaticAdoptCall context firstArg
-                                    in
-                                    ( [ Rule.errorWithFix
-                                            { message = "Static region codemod: transform render to adopt"
-                                            , details = [ "Transforms View.Static.render to View.Static.adopt for client-side adoption" ]
-                                            }
-                                            (Node.range node)
-                                            [ Review.Fix.replaceRangeBy (Node.range node) adoptCall
-                                            ]
-                                      ]
-                                    , context
-                                    )
-
-                                Expression.FunctionOrValue _ "view" ->
-                                    let
-                                        replacement =
-                                            viewStaticModuleAutoIdCall context
-                                    in
-                                    ( [ Rule.errorWithFix
-                                            { message = "Static region codemod: transform View.Static.view to adopt"
-                                            , details = [ "Transforms View.Static.view to View.Static.adopt \"index\" for client-side adoption and DCE" ]
-                                            }
-                                            (Node.range node)
-                                            [ Review.Fix.replaceRangeBy (Node.range node) replacement
-                                            ]
-                                      ]
-                                    , { context | staticIndex = context.staticIndex + 1 }
-                                    )
-
-                                _ ->
-                                    ( [], context )
+                            handleViewStaticModuleTwoArgCall functionNode node context
 
                         _ ->
                             ( [], context )
@@ -289,6 +166,126 @@ expressionVisitor node context =
             ( [], context )
 
 
+handleViewModuleCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
+handleViewModuleCall functionNode node context =
+    case Node.value functionNode of
+        Expression.FunctionOrValue _ "static" ->
+            let
+                replacement =
+                    viewStaticAdoptCallStyled context
+
+                fixes =
+                    [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
+                        ++ viewStaticImportFix context
+            in
+            ( [ createTransformErrorWithFixes "View.static" "View.Static.adopt" node fixes ]
+            , { context | staticIndex = context.staticIndex + 1 }
+            )
+
+        Expression.FunctionOrValue _ "staticBackendTask" ->
+            ( [ createTransformError "View.staticBackendTask" "BackendTask.fail" node backendTaskFailCall ]
+            , context
+            )
+
+        _ ->
+            ( [], context )
+
+
+handleViewStaticModuleCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
+handleViewStaticModuleCall functionNode node context =
+    case Node.value functionNode of
+        Expression.FunctionOrValue _ "static" ->
+            let
+                replacement =
+                    viewStaticAdoptCallPlain context
+            in
+            ( [ createTransformError "View.Static.static" "View.Static.adopt" node replacement ]
+            , { context | staticIndex = context.staticIndex + 1 }
+            )
+
+        Expression.FunctionOrValue _ "backendTask" ->
+            ( [ createTransformError "View.Static.backendTask" "BackendTask.fail" node backendTaskFailCall ]
+            , context
+            )
+
+        _ ->
+            ( [], context )
+
+
+handleViewModuleTwoArgCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
+handleViewModuleTwoArgCall functionNode node context =
+    case Node.value functionNode of
+        Expression.FunctionOrValue _ "staticView" ->
+            let
+                replacement =
+                    viewStaticAdoptCallStyled context
+
+                fixes =
+                    [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
+                        ++ viewStaticImportFix context
+            in
+            ( [ createTransformErrorWithFixes "View.staticView" "View.Static.adopt" node fixes ]
+            , { context | staticIndex = context.staticIndex + 1 }
+            )
+
+        _ ->
+            ( [], context )
+
+
+handleViewStaticModuleTwoArgCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
+handleViewStaticModuleTwoArgCall functionNode node context =
+    case Node.value functionNode of
+        Expression.FunctionOrValue _ "view" ->
+            let
+                replacement =
+                    viewStaticAdoptCallPlain context
+            in
+            ( [ createTransformError "View.Static.view" "View.Static.adopt" node replacement ]
+            , { context | staticIndex = context.staticIndex + 1 }
+            )
+
+        _ ->
+            ( [], context )
+
+
+createTransformError : String -> String -> Node Expression -> String -> Error {}
+createTransformError fromFn toFn node replacement =
+    Rule.errorWithFix
+        { message = "Static region codemod: transform " ++ fromFn ++ " to " ++ toFn
+        , details = [ "Transforms " ++ fromFn ++ " to " ++ toFn ++ " for client-side adoption and DCE" ]
+        }
+        (Node.range node)
+        [ Review.Fix.replaceRangeBy (Node.range node) replacement
+        ]
+
+
+createTransformErrorWithFixes : String -> String -> Node Expression -> List Review.Fix.Fix -> Error {}
+createTransformErrorWithFixes fromFn toFn node fixes =
+    Rule.errorWithFix
+        { message = "Static region codemod: transform " ++ fromFn ++ " to " ++ toFn
+        , details = [ "Transforms " ++ fromFn ++ " to " ++ toFn ++ " for client-side adoption and DCE" ]
+        }
+        (Node.range node)
+        fixes
+
+
+{-| Generate a fix to add `import View.Static` if it's not already imported.
+-}
+viewStaticImportFix : Context -> List Review.Fix.Fix
+viewStaticImportFix context =
+    case context.viewStaticImport of
+        ImportedAs _ ->
+            -- Already imported, no fix needed
+            []
+
+        NotImported ->
+            -- Add the import after the last import
+            [ Review.Fix.insertAt
+                { row = context.lastImportRow + 1, column = 1 }
+                "import View.Static\n"
+            ]
+
+
 {-| Generate BackendTask.fail for static-only BackendTask transforms
 -}
 backendTaskFailCall : String
@@ -296,107 +293,50 @@ backendTaskFailCall =
     "BackendTask.fail (FatalError.fromString \"static only data\")"
 
 
-{-| Generate View.embedStatic (View.Static.adopt "index") for View.static with auto-ID
--}
-viewStaticAutoIdCall : Context -> String
-viewStaticAutoIdCall context =
-    let
-        viewPrefix =
-            context.viewAlias
-                |> Maybe.withDefault [ "View" ]
-                |> String.join "."
+{-| Generate View.Static.adopt "index" for View module calls (View.static, View.staticView).
 
-        staticPrefix =
-            context.viewStaticAlias
-                |> Maybe.withDefault [ "View", "Static" ]
+Wraps with Html.Styled conversion since the user's View module works with Html.Styled types.
+Uses the correct Html.Styled alias if one is defined.
+-}
+viewStaticAdoptCallStyled : Context -> String
+viewStaticAdoptCallStyled context =
+    let
+        viewStaticPrefix =
+            case context.viewStaticImport of
+                ImportedAs alias ->
+                    String.join "." alias
+
+                NotImported ->
+                    "View.Static"
+
+        htmlStyledPrefix =
+            context.htmlStyledAlias
+                |> Maybe.withDefault [ "Html", "Styled" ]
                 |> String.join "."
 
         idStr =
             "\"" ++ String.fromInt context.staticIndex ++ "\""
     in
-    viewPrefix ++ ".embedStatic (" ++ staticPrefix ++ ".adopt " ++ idStr ++ ")"
+    -- Wrap with Html.Styled conversion to match the original View.static return type
+    "(" ++ viewStaticPrefix ++ ".adopt " ++ idStr ++ " |> " ++ htmlStyledPrefix ++ ".fromUnstyled |> " ++ htmlStyledPrefix ++ ".map never)"
 
 
-{-| Generate View.Static.adopt "index" for View.Static.static with auto-ID
+{-| Generate View.Static.adopt "index" for View.Static module calls.
+
+No wrapper needed since View.Static functions work with plain Html.
 -}
-viewStaticModuleAutoIdCall : Context -> String
-viewStaticModuleAutoIdCall context =
+viewStaticAdoptCallPlain : Context -> String
+viewStaticAdoptCallPlain context =
     let
         modulePrefix =
-            context.viewStaticAlias
-                |> Maybe.withDefault [ "View", "Static" ]
-                |> String.join "."
+            case context.viewStaticImport of
+                ImportedAs alias ->
+                    String.join "." alias
+
+                NotImported ->
+                    "View.Static"
 
         idStr =
             "\"" ++ String.fromInt context.staticIndex ++ "\""
     in
     modulePrefix ++ ".adopt " ++ idStr
-
-
-{-| Generate View.embedStatic (View.Static.adopt "id") for View.renderStatic
--}
-renderStaticAdoptCall : Context -> Node Expression -> String
-renderStaticAdoptCall context idArg =
-    let
-        viewPrefix =
-            context.viewAlias
-                |> Maybe.withDefault [ "View" ]
-                |> String.join "."
-
-        staticPrefix =
-            context.viewStaticAlias
-                |> Maybe.withDefault [ "View", "Static" ]
-                |> String.join "."
-
-        idStr =
-            expressionToString idArg
-    in
-    viewPrefix ++ ".embedStatic (" ++ staticPrefix ++ ".adopt " ++ idStr ++ ")"
-
-
-{-| Generate View.Static.adopt "id" for legacy View.Static.render
--}
-viewStaticAdoptCall : Context -> Node Expression -> String
-viewStaticAdoptCall context idArg =
-    let
-        modulePrefix =
-            context.viewStaticAlias
-                |> Maybe.withDefault [ "View", "Static" ]
-                |> String.join "."
-
-        idStr =
-            expressionToString idArg
-    in
-    modulePrefix ++ ".adopt " ++ idStr
-
-
-{-| Convert an expression node back to a string representation.
-This is a simplified version - handles common cases.
--}
-expressionToString : Node Expression -> String
-expressionToString node =
-    case Node.value node of
-        Expression.Literal str ->
-            "\"" ++ str ++ "\""
-
-        Expression.FunctionOrValue moduleName name ->
-            case moduleName of
-                [] ->
-                    name
-
-                _ ->
-                    String.join "." moduleName ++ "." ++ name
-
-        Expression.RecordAccess expr field ->
-            expressionToString expr ++ "." ++ Node.value field
-
-        Expression.Application exprs ->
-            "(" ++ (List.map expressionToString exprs |> String.join " ") ++ ")"
-
-        Expression.ParenthesizedExpression expr ->
-            "(" ++ expressionToString expr ++ ")"
-
-        _ ->
-            -- For complex expressions, wrap in parens to be safe
-            -- This is a fallback - ideally we'd handle more cases
-            "(???)"
