@@ -1,4 +1,4 @@
-module Route.ServerRendered exposing (ActionData, Data, Model, Msg, StaticData, route)
+module Route.ServerRendered exposing (ActionData, Data, Model, Msg, route)
 
 {-| Test route for static regions with server-rendered routes.
 
@@ -45,17 +45,13 @@ type alias ActionData =
     {}
 
 
-type alias StaticData =
-    ()
-
-
 type alias Data =
     { userAgent : String
     , requestTime : String
     }
 
 
-route : StatefulRoute RouteParams Data StaticData ActionData Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
@@ -87,12 +83,12 @@ data _ request =
         )
 
 
-init : App Data StaticData ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
+init : App Data ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
 init _ _ =
     ( { counter = 0 }, Effect.none )
 
 
-update : App Data StaticData ActionData RouteParams -> Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
+update : App Data ActionData RouteParams -> Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
 update _ _ msg model =
     case msg of
         Increment ->
@@ -107,12 +103,12 @@ subscriptions _ _ _ _ =
     Sub.none
 
 
-head : App Data StaticData ActionData RouteParams -> List Head.Tag
+head : App Data ActionData RouteParams -> List Head.Tag
 head _ =
     []
 
 
-view : App Data StaticData ActionData RouteParams -> Shared.Model -> Model -> View (PagesMsg Msg)
+view : App Data ActionData RouteParams -> Shared.Model -> Model -> View (PagesMsg Msg)
 view app _ model =
     { title = "Server-Rendered Static Regions"
     , body =
@@ -135,8 +131,8 @@ view app _ model =
                 , Html.p [] [ Html.text ("Request Time: " ++ app.data.requestTime) ]
                 ]
 
-            -- Static region - rendered on server, adopted by client
-            , View.static
+            -- Frozen view - rendered on server, adopted by client
+            , View.freeze
                 (Html.div
                     [ Attr.style "padding" "20px"
                     , Attr.style "background" "#f0f0ff"
@@ -144,7 +140,7 @@ view app _ model =
                     , Attr.style "margin" "20px 0"
                     , Attr.style "border-left" "4px solid #6060ff"
                     ]
-                    [ Html.h3 [ Attr.style "margin-top" "0" ] [ Html.text "Static Region (Server-Rendered)" ]
+                    [ Html.h3 [ Attr.style "margin-top" "0" ] [ Html.text "Frozen View (Server-Rendered)" ]
                     , Html.p [] [ Html.text "This content is rendered on the server per-request." ]
                     , Html.ul []
                         [ Html.li [] [ Html.text "Server-rendered item 1" ]
@@ -156,8 +152,8 @@ view app _ model =
                     ]
                 )
 
-            -- Simple static region
-            , View.static simpleStaticContent
+            -- Simple frozen view
+            , View.freeze simpleStaticContent
 
             -- Dynamic counter
             , Html.div
@@ -196,7 +192,7 @@ view app _ model =
 
 {-| Simple static content - eliminated from client bundle via DCE.
 -}
-simpleStaticContent : View.Static
+simpleStaticContent : Html Never
 simpleStaticContent =
     Html.div
         [ Attr.style "padding" "20px"
@@ -205,6 +201,6 @@ simpleStaticContent =
         , Attr.style "margin" "20px 0"
         ]
         [ Html.h3 [ Attr.style "margin-top" "0" ] [ Html.text "Simple Static Content" ]
-        , Html.p [] [ Html.text "This is a simple static region." ]
+        , Html.p [] [ Html.text "This is a simple frozen view." ]
         , Html.p [] [ Html.text "It's rendered on the server and adopted by the client." ]
         ]

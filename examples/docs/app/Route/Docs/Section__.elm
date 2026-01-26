@@ -1,4 +1,4 @@
-module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, StaticData, route)
+module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
@@ -29,17 +29,6 @@ import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import Url
 import View exposing (View)
-import View.Static
-
-
-{-| Static content for docs pages - rendered at build time, eliminated from client bundle.
-Contains the markdown body, navigation, and edit link.
--}
-type alias StaticContent =
-    { body : List Block
-    , previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
-    , editUrl : String
-    }
 
 
 type alias Model =
@@ -54,13 +43,31 @@ type alias RouteParams =
     { section : Maybe String }
 
 
-route : StatelessRoute RouteParams Data StaticData ActionData
+{-| Data type with both persistent and ephemeral fields.
+
+  - `titles`, `metadata`: Used in head and view title (persistent)
+  - `body`, `previousAndNext`, `editUrl`: Used only inside View.freeze (ephemeral, DCE'd)
+
+-}
+type alias Data =
+    { titles : { title : String }
+    , metadata : { title : String, description : String }
+    , body : List Block
+    , previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
+    , editUrl : String
+    }
+
+
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
-    RouteBuilder.preRenderWithStaticData
+    RouteBuilder.preRender
         { head = head
         , pages = pages
         , data = data
-        , staticData = staticData
         }
         |> RouteBuilder.buildNoState
             { view = view
@@ -84,25 +91,18 @@ pages =
 
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
-    BackendTask.map2
-        (\titles metadata ->
+    BackendTask.map4
+        (\titles metadata body editUrl ->
             { titles = { title = titles.title }
             , metadata = metadata
+            , body = body
+            , previousAndNext = titles.previousAndNext
+            , editUrl = editUrl
             }
         )
         (previousAndNextData routeParams)
         (routeParams |> filePathBackendTask |> BackendTask.andThen MarkdownCodec.titleAndDescription)
-
-
-{-| Heavy types (Markdown.Block, etc.) go in staticData.
-The elm-review codemod transforms this to BackendTask.fail on client,
-enabling DCE to eliminate Markdown.Block encoders from the bundle.
--}
-staticData : RouteParams -> BackendTask FatalError StaticData
-staticData routeParams =
-    BackendTask.map3 StaticContent
         (pageBody routeParams)
-        (previousAndNextData routeParams |> BackendTask.map .previousAndNext)
         (routeParams.section
             |> Maybe.withDefault "what-is-elm-pages"
             |> findBySlug
@@ -192,7 +192,7 @@ titleForSection section =
 
 
 head :
-    App Data StaticData ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head app =
     Seo.summary
@@ -214,25 +214,8 @@ head app =
         |> Seo.website
 
 
-type alias Data =
-    { titles : { title : String }
-    , metadata : { title : String, description : String }
-    }
-
-
-type alias ActionData =
-    {}
-
-
-{-| Heavy types are in StaticData, not Data.
-This allows DCE to eliminate Markdown.Block encoders from the client bundle.
--}
-type alias StaticData =
-    StaticContent
-
-
 view :
-    App Data StaticData ActionData RouteParams
+    App Data ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app sharedModel =
@@ -273,19 +256,18 @@ view app sharedModel =
                         ]
                     ]
                 ]
-                [ -- Static region: markdown body, prev/next navigation, and edit link
-                  -- All rendering code is eliminated from client bundle via DCE
-                  View.staticView app.staticData renderStaticContent
+                [ -- Frozen content - uses app.data.body, previousAndNext, editUrl (ephemeral)
+                  View.freeze (renderStaticContent app.data)
                 ]
             ]
         ]
     }
 
 
-{-| Render the article content as a static region.
+{-| Render the article content as a frozen view.
 This code is eliminated from the client bundle via DCE.
 -}
-renderStaticContent : StaticContent -> View.Static
+renderStaticContent : Data -> Html Never
 renderStaticContent content =
     Html.div
         [ css

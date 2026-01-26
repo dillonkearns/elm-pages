@@ -1,4 +1,4 @@
-module Route.Showcase exposing (ActionData, Data, Model, Msg, StaticData, route, staticTopSection)
+module Route.Showcase exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import Css
@@ -9,7 +9,7 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css, href)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
-import RouteBuilder exposing (App, StatefulRoute)
+import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import Showcase
 import Tailwind.Breakpoints as Bp
@@ -17,7 +17,6 @@ import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import UrlPath
 import View exposing (View)
-import View.Static
 
 
 type alias Model =
@@ -32,45 +31,37 @@ type alias RouteParams =
     {}
 
 
-route : StatefulRoute RouteParams Data StaticData ActionData Model Msg
-route =
-    RouteBuilder.singleWithStaticData
-        { head = head
-        , data = data
-        , staticData = staticData
-        }
-        |> RouteBuilder.buildNoState { view = view }
+{-| Data type with ephemeral fields only.
 
+  - `entries`: Used only inside View.freeze (ephemeral, DCE'd)
 
-data : BackendTask FatalError Data
-data =
-    BackendTask.succeed ()
-
-
-{-| Heavy types are in staticData, NOT in Data.
-This means Lamdera won't generate wire codecs for Showcase.Entry.
 -}
-staticData : BackendTask FatalError StaticData
-staticData =
-    Showcase.staticRequest
-
-
 type alias Data =
-    ()
+    { entries : List Showcase.Entry
+    }
 
 
 type alias ActionData =
     {}
 
 
-{-| Static data contains heavy types that should NOT be sent to the client.
--}
-type alias StaticData =
-    List Showcase.Entry
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.single
+        { head = head
+        , data = data
+        }
+        |> RouteBuilder.buildNoState { view = view }
+
+
+data : BackendTask FatalError Data
+data =
+    Showcase.staticRequest
+        |> BackendTask.map (\entries -> { entries = entries })
 
 
 view :
-    App Data StaticData ActionData RouteParams
+    App Data ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app sharedModel =
@@ -91,19 +82,20 @@ view app sharedModel =
                     ]
                 ]
             ]
-            [ View.static topSection
-            , -- Static region: showcase entries grid
-              -- The entire entries list is pre-rendered and eliminated from client bundle
-              View.staticView app.staticData renderShowcaseEntries
+            [ -- Frozen top section - no data needed
+              View.freeze topSection
+
+            -- Frozen entries - uses app.data.entries (ephemeral)
+            , View.freeze (renderShowcaseEntries app.data.entries)
             ]
         ]
     }
 
 
-{-| Render showcase entries as a static region.
+{-| Render showcase entries as a frozen view.
 This code is eliminated from the client bundle via DCE.
 -}
-renderShowcaseEntries : List Showcase.Entry -> View.Static
+renderShowcaseEntries : List Showcase.Entry -> Html Never
 renderShowcaseEntries items =
     div
         [ css
@@ -115,7 +107,7 @@ renderShowcaseEntries items =
         [ showcaseEntries items ]
 
 
-head : App Data StaticData ActionData RouteParams -> List Head.Tag
+head : App Data ActionData RouteParams -> List Head.Tag
 head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
@@ -262,12 +254,7 @@ showcaseItem item =
         ]
 
 
-staticTopSection : () -> View.Static
-staticTopSection () =
-    topSection
-
-
-topSection : View.Static
+topSection : Html Never
 topSection =
     div
         [ css

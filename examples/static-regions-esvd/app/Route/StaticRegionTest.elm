@@ -1,4 +1,4 @@
-module Route.StaticRegionTest exposing (ActionData, Data, Model, Msg, StaticData, route, staticContent)
+module Route.StaticRegionTest exposing (ActionData, Data, Model, Msg, route)
 
 {-| Test route for static region adoption.
 
@@ -42,11 +42,17 @@ type alias ActionData =
     {}
 
 
-type alias StaticData =
-    ()
+{-| Data type with both persistent and ephemeral fields.
+
+  - `timestamp`: Used in dynamic content (persistent, sent to client)
+
+-}
+type alias Data =
+    { timestamp : String
+    }
 
 
-route : StatefulRoute RouteParams Data StaticData ActionData Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.single
         { head = head
@@ -60,11 +66,6 @@ route =
             }
 
 
-type alias Data =
-    { timestamp : String
-    }
-
-
 data : BackendTask FatalError Data
 data =
     BackendTask.succeed
@@ -72,12 +73,12 @@ data =
         }
 
 
-init : App Data StaticData ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
+init : App Data ActionData RouteParams -> Shared.Model -> ( Model, Effect Msg )
 init _ _ =
     ( { counter = 0 }, Effect.none )
 
 
-update : App Data StaticData ActionData RouteParams -> Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
+update : App Data ActionData RouteParams -> Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
 update _ _ msg model =
     case msg of
         Increment ->
@@ -92,16 +93,16 @@ subscriptions _ _ _ _ =
     Sub.none
 
 
-head : App Data StaticData ActionData RouteParams -> List Head.Tag
+head : App Data ActionData RouteParams -> List Head.Tag
 head _ =
     []
 
 
-view : App Data StaticData ActionData RouteParams -> Shared.Model -> Model -> View (PagesMsg Msg)
+view : App Data ActionData RouteParams -> Shared.Model -> Model -> View (PagesMsg Msg)
 view app _ model =
     { title = "Static Region Test"
     , body =
-        [ Html.div [ Attr.css [], Attr.style "max-width" "800px", Attr.style "margin" "0 auto", Attr.style "padding" "20px" ]
+        [ Html.div [ Attr.css [], Attr.style "max-width" "800px", Attr.style "0 auto" "margin", Attr.style "padding" "20px" ]
             [ Html.h1 [] [ Html.text "Static Region Adoption Test" ]
             , Html.p []
                 [ Html.text "This page tests the static region adoption feature. "
@@ -109,33 +110,12 @@ view app _ model =
                 ]
 
             -- Static region - content is rendered at build time and adopted by the client
-            -- The elm-review codemod transforms this to `View.Static.adopt "0"`
+            -- The elm-review codemod transforms View.freeze to `View.Static.adopt "0"`
             -- for DCE, so the staticContent function is eliminated from the client bundle.
-            , View.static (staticContent ())
+            , View.freeze staticContent
 
             -- Another static region showing data from app.data
-            , View.static
-                (Html.div
-                    [ Attr.style "padding" "20px"
-                    , Attr.style "background" "#f0f0ff"
-                    , Attr.style "border-radius" "8px"
-                    , Attr.style "margin" "20px 0"
-                    , Attr.style "border-left" "4px solid #6060ff"
-                    ]
-                    [ Html.h2
-                        [ Attr.style "color" "#333"
-                        , Attr.style "margin-top" "0"
-                        ]
-                        [ Html.text "Static Content from Data" ]
-                    , Html.p []
-                        [ Html.text app.data.timestamp ]
-                    , Html.ul []
-                        [ Html.li [] [ Html.text "Item 1 - from app.data" ]
-                        , Html.li [] [ Html.text "Item 2 - rendered at build time" ]
-                        , Html.li [] [ Html.text "Item 3 - adopted by virtual-dom" ]
-                        ]
-                    ]
-                )
+            , View.freeze (staticContentWithData app.data.timestamp)
 
             -- Dynamic region - this updates normally
             , Html.div
@@ -173,7 +153,7 @@ view app _ model =
                     ]
                 ]
 
-            -- Debug info
+            -- Debug info - uses persistent timestamp field
             , Html.div
                 [ Attr.style "margin-top" "20px"
                 , Attr.style "padding" "10px"
@@ -205,8 +185,8 @@ In a real application, this could include:
   - Heavy dependencies that shouldn't be in the client bundle
 
 -}
-staticContent : () -> View.Static
-staticContent () =
+staticContent : Html Never
+staticContent =
     Html.div
         [ Attr.style "padding" "20px"
         , Attr.style "background" "#f0f0f0"
@@ -230,5 +210,32 @@ staticContent () =
         , Html.p []
             [ Html.em []
                 [ Html.text "In production, this could be markdown, syntax-highlighted code, etc." ]
+            ]
+        ]
+
+
+{-| Static content that uses app.data.
+This shows how ephemeral data can be used inside View.freeze.
+-}
+staticContentWithData : String -> Html Never
+staticContentWithData timestamp =
+    Html.div
+        [ Attr.style "padding" "20px"
+        , Attr.style "background" "#f0f0ff"
+        , Attr.style "border-radius" "8px"
+        , Attr.style "margin" "20px 0"
+        , Attr.style "border-left" "4px solid #6060ff"
+        ]
+        [ Html.h2
+            [ Attr.style "color" "#333"
+            , Attr.style "margin-top" "0"
+            ]
+            [ Html.text "Static Content from Data" ]
+        , Html.p []
+            [ Html.text timestamp ]
+        , Html.ul []
+            [ Html.li [] [ Html.text "Item 1 - from app.data" ]
+            , Html.li [] [ Html.text "Item 2 - rendered at build time" ]
+            , Html.li [] [ Html.text "Item 3 - adopted by virtual-dom" ]
             ]
         ]

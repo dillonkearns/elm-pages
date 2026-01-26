@@ -1,4 +1,4 @@
-module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, StaticData, route)
+module Route.Blog.Slug_ exposing (ActionData, Data, Model, Msg, route)
 
 import Article
 import BackendTask exposing (BackendTask)
@@ -29,17 +29,6 @@ import TailwindMarkdownRenderer
 import UnsplashImage
 import UrlPath
 import View exposing (View)
-import View.Static
-
-
-{-| All page content wrapped for static rendering.
-The entire view body will be a single static region, eliminating all
-rendering code from the client bundle.
--}
-type alias StaticData =
-    { metadata : ArticleMetadata
-    , body : List Markdown.Block.Block
-    }
 
 
 type alias Model =
@@ -54,11 +43,26 @@ type alias RouteParams =
     { slug : String }
 
 
-route : StatelessRoute RouteParams Data StaticData ActionData
+{-| Data type with both persistent and ephemeral fields.
+
+  - `metadata`: Used in head and title (persistent, sent to client)
+  - `body`: Used only inside View.freeze (ephemeral, DCE'd)
+
+-}
+type alias Data =
+    { metadata : ArticleMetadata
+    , body : List Markdown.Block.Block
+    }
+
+
+type alias ActionData =
+    {}
+
+
+route : StatelessRoute RouteParams Data ActionData
 route =
-    RouteBuilder.preRenderWithStaticData
+    RouteBuilder.preRender
         { data = data
-        , staticData = staticData
         , head = head
         , pages = pages
         }
@@ -77,25 +81,23 @@ pages =
 
 
 view :
-    App Data StaticData ActionData RouteParams
+    App Data ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
-    { title = app.data.title
+    { title = app.data.metadata.title
     , body =
-        [ -- The ENTIRE body is a single static region
-          -- All rendering code (TailwindMarkdownRenderer, authorView, etc.)
-          -- is eliminated from the client bundle via DCE
-          -- staticData is automatically wrapped in StaticOnlyData by the framework
-          View.staticView app.staticData renderFullPage
+        [ -- Frozen content - uses app.data.body (ephemeral field)
+          -- app.data.metadata is also used here but it's also used in head, so it's persistent
+          View.freeze (renderFullPage app.data)
         ]
     }
 
 
-{-| Render the entire page body as a single static region.
+{-| Render the entire page body as frozen content.
 All of this code is eliminated from the client bundle via DCE.
 -}
-renderFullPage : StaticData -> View.Static
+renderFullPage : Data -> Html Never
 renderFullPage content =
     let
         author =
@@ -194,95 +196,59 @@ renderFullPage content =
 
 
 head :
-    App Data StaticData ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head app =
-    -- Safe to use staticMap here because head only runs at build time
-    -- The elm-review codemod ensures this code path is never reached on client
-    -- staticData is automatically wrapped in StaticOnlyData by the framework
-    View.Static.map app.staticData
-        (\content ->
-            let
-                metadata =
-                    content.metadata
-            in
-            Head.structuredData
-                (StructuredData.article
-                    { title = metadata.title
-                    , description = metadata.description
-                    , author = StructuredData.person { name = Author.dillon.name }
-                    , publisher = StructuredData.person { name = Author.dillon.name }
-                    , url = SiteOld.canonicalUrl ++ UrlPath.toAbsolute app.path
-                    , imageUrl = metadata.image
-                    , datePublished = Date.toIsoString metadata.published
-                    , mainEntityOfPage =
-                        StructuredData.softwareSourceCode
-                            { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
-                            , description = "A statically typed site generator for Elm."
-                            , author = "Dillon Kearns"
-                            , programmingLanguage = StructuredData.elmLang
-                            }
+    let
+        metadata =
+            app.data.metadata
+    in
+    Head.structuredData
+        (StructuredData.article
+            { title = metadata.title
+            , description = metadata.description
+            , author = StructuredData.person { name = Author.dillon.name }
+            , publisher = StructuredData.person { name = Author.dillon.name }
+            , url = SiteOld.canonicalUrl ++ UrlPath.toAbsolute app.path
+            , imageUrl = metadata.image
+            , datePublished = Date.toIsoString metadata.published
+            , mainEntityOfPage =
+                StructuredData.softwareSourceCode
+                    { codeRepositoryUrl = "https://github.com/dillonkearns/elm-pages"
+                    , description = "A statically typed site generator for Elm."
+                    , author = "Dillon Kearns"
+                    , programmingLanguage = StructuredData.elmLang
                     }
-                )
-                :: (Seo.summaryLarge
-                        { canonicalUrlOverride = Nothing
-                        , siteName = "elm-pages"
-                        , image =
-                            { url = metadata.image
-                            , alt = metadata.description
-                            , dimensions = Nothing
-                            , mimeType = Nothing
-                            }
-                        , description = metadata.description
-                        , locale = Nothing
-                        , title = metadata.title
-                        }
-                        |> Seo.article
-                            { tags = []
-                            , section = Nothing
-                            , publishedTime = Just (DateOrDateTime.Date metadata.published)
-                            , modifiedTime = Nothing
-                            , expirationTime = Nothing
-                            }
-                   )
+            }
         )
+        :: (Seo.summaryLarge
+                { canonicalUrlOverride = Nothing
+                , siteName = "elm-pages"
+                , image =
+                    { url = metadata.image
+                    , alt = metadata.description
+                    , dimensions = Nothing
+                    , mimeType = Nothing
+                    }
+                , description = metadata.description
+                , locale = Nothing
+                , title = metadata.title
+                }
+                |> Seo.article
+                    { tags = []
+                    , section = Nothing
+                    , publishedTime = Just (DateOrDateTime.Date metadata.published)
+                    , modifiedTime = Nothing
+                    , expirationTime = Nothing
+                    }
+           )
 
 
-type alias Data =
-    { title : String
-    }
-
-
-{-| Heavy types are now in staticData, NOT in Data.
-This means Lamdera won't generate wire codecs for Markdown.Block etc.
-The framework wraps this in StaticOnlyData automatically.
--}
-type alias ActionData =
-    {}
-
-
-{-| Data only contains lightweight values that need to be sent to the client.
-Heavy types like Markdown.Block are in staticData instead.
+{-| Load metadata and body.
+Metadata is used in head (persistent), body is used only in freeze (ephemeral).
 -}
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
-    MarkdownCodec.withFrontmatter
-        (\metadata _ ->
-            { title = metadata.title
-            }
-        )
-        frontmatterDecoder
-        TailwindMarkdownRenderer.renderer
-        ("content/blog/" ++ routeParams.slug ++ ".md")
-
-
-{-| staticData contains heavy types that should NOT be sent to the client.
-The framework wraps this in StaticOnlyData automatically.
-Since this is separate from Data, Lamdera won't generate wire codecs for
-Markdown.Block, ArticleMetadata, etc. - they get DCE'd from the client bundle!
--}
-staticData : RouteParams -> BackendTask FatalError StaticData
-staticData routeParams =
     MarkdownCodec.withFrontmatter
         (\metadata body ->
             { metadata = metadata

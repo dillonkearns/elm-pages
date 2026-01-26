@@ -1,14 +1,13 @@
-module View exposing (View, map, Static, static, staticView, embedStatic)
+module View exposing (View, map, freeze)
 
 {-| The core View type for this application.
 
-@docs View, map, Static, staticView, embedStatic
+@docs View, map, freeze
 
 For static-only data and build-time helpers, import `View.Static` directly.
 
 -}
 
-import Html
 import Html.Styled
 import View.Static
 
@@ -30,29 +29,9 @@ map fn doc =
     }
 
 
-{-| Static content type - Html.Styled that cannot produce messages.
-Used for content that is pre-rendered at build time and adopted by virtual-dom.
--}
-type alias Static =
-    Html.Styled.Html Never
+{-| Mark content as frozen for build-time rendering and client-side adoption.
 
-
-{-| Embed static content into a View body.
-
-Takes plain Html Never (e.g. from View.Static.adopt) and converts it to
-Html.Styled.Html msg for use in the view body.
-
--}
-embedStatic : Html.Html Never -> Html.Styled.Html msg
-embedStatic content =
-    content
-        |> Html.Styled.fromUnstyled
-        |> Html.Styled.map never
-
-
-{-| Mark content as static for build-time rendering and client-side adoption.
-
-Static content is:
+Frozen content is:
 
   - Rendered at build time and included in the HTML
   - Adopted by the client without re-rendering
@@ -60,44 +39,35 @@ Static content is:
 
 Usage:
 
-    view app shared model =
+    view app shared =
         { title = "My Page"
         , body =
-            [ View.static landingView
-            , dynamicContent model
+            [ h1 [] [ text app.data.title ]  -- Persistent, sent to client
+            , View.freeze (renderMarkdown app.data.content)  -- Ephemeral, DCE'd
+            , button [ onClick Increment ] [ text (String.fromInt model.counter) ]
             ]
         }
 
-The content passed to `View.static` must be `Html.Styled.Html Never` (no event handlers).
-This ensures the static content cannot produce messages and is purely presentational.
+The content passed to `View.freeze` must be `Html.Styled.Html Never` (no event handlers).
+This ensures the frozen content cannot produce messages and is purely presentational.
 
-At build time, an ID is automatically assigned based on the order of `View.static`
-calls in your view. The elm-review transformation replaces `View.static expr` with
-`View.embedStatic (View.adopt "id")`, allowing DCE to eliminate `expr` and its dependencies.
+Fields from `app.data` that are ONLY accessed inside `View.freeze` calls are
+automatically detected and removed from the client-side Data type, enabling
+dead-code elimination of the render functions and their dependencies.
+
+At build time, an ID is automatically assigned based on the order of `View.freeze`
+calls in your view. The elm-review transformation replaces `View.freeze expr` with
+`View.Static.adopt "id"`, allowing DCE to eliminate `expr` and its dependencies.
+
+Important: Do not reference `model` inside `View.freeze` - frozen content is
+rendered at build time when model doesn't exist. The elm-review rule will
+report an error if you try to use model inside freeze.
 
 -}
-static : Static -> Html.Styled.Html msg
-static content =
+freeze : Html.Styled.Html Never -> Html.Styled.Html msg
+freeze content =
     content
         |> Html.Styled.toUnstyled
         |> View.Static.static
-        |> Html.Styled.fromUnstyled
-        |> Html.Styled.map never
-
-
-{-| Render static content using static-only data.
-
-This bridges View.Static.view (which uses plain Html) with Html.Styled.
-
-    view app =
-        { body =
-            [ View.staticView app.data.staticContent renderPage
-            ]
-        }
-
--}
-staticView : View.Static.StaticOnlyData a -> (a -> Static) -> Html.Styled.Html msg
-staticView staticOnlyData renderFn =
-    View.Static.view staticOnlyData (\data -> Html.Styled.toUnstyled (renderFn data))
         |> Html.Styled.fromUnstyled
         |> Html.Styled.map never

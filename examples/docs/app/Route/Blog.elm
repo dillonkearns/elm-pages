@@ -1,4 +1,4 @@
-module Route.Blog exposing (ActionData, Data, Model, Msg, StaticData, route)
+module Route.Blog exposing (ActionData, Data, Model, Msg, route)
 
 import Article
 import BackendTask exposing (BackendTask)
@@ -17,51 +17,25 @@ import Tailwind.Theme as Theme
 import Tailwind.Utilities as Tw
 import UrlPath
 import View exposing (View)
-import View.Static
 
 
 type alias Msg =
     ()
 
 
-route : StatelessRoute RouteParams Data StaticData ActionData
-route =
-    RouteBuilder.singleWithStaticData
-        { head = head
-        , data = data
-        , staticData = staticData
-        }
-        |> RouteBuilder.buildNoState
-            { view = view
-            }
+{-| Data type with both persistent fields and ephemeral fields.
 
+  - No persistent fields in this case (just unit)
+  - `articles`: Used only inside View.freeze (ephemeral, DCE'd)
 
-data : BackendTask FatalError Data
-data =
-    BackendTask.succeed ()
-
-
-{-| Heavy types are in staticData, NOT in Data.
-This means Lamdera won't generate wire codecs for Article.ArticleMetadata.
 -}
-staticData : BackendTask FatalError StaticData
-staticData =
-    Article.allMetadata
-        |> BackendTask.allowFatal
-
-
 type alias Data =
-    ()
+    { articles : List ( Route, Article.ArticleMetadata )
+    }
 
 
 type alias ActionData =
     {}
-
-
-{-| Static data contains heavy types that should NOT be sent to the client.
--}
-type alias StaticData =
-    List ( Route, Article.ArticleMetadata )
 
 
 type alias RouteParams =
@@ -72,8 +46,26 @@ type alias Model =
     {}
 
 
+route : StatelessRoute RouteParams Data ActionData
+route =
+    RouteBuilder.single
+        { head = head
+        , data = data
+        }
+        |> RouteBuilder.buildNoState
+            { view = view
+            }
+
+
+data : BackendTask FatalError Data
+data =
+    Article.allMetadata
+        |> BackendTask.allowFatal
+        |> BackendTask.map (\articles -> { articles = articles })
+
+
 view :
-    App Data StaticData ActionData {}
+    App Data ActionData {}
     -> Shared.Model
     -> View msg
 view app shared =
@@ -120,20 +112,21 @@ view app shared =
                     , Tw.mx_auto
                     ]
                 ]
-                [ View.static blogHeader
-                , -- Static region: blog cards grid
-                  -- All blog card rendering is eliminated from client bundle via DCE
-                  View.staticView app.staticData renderBlogCards
+                [ -- Frozen header - no data needed
+                  View.freeze blogHeader
+
+                -- Frozen blog cards - uses app.data.articles (ephemeral field)
+                , View.freeze (renderBlogCards app.data.articles)
                 ]
             ]
         ]
     }
 
 
-{-| Render blog cards as a static region.
+{-| Render blog cards as a frozen view.
 This code is eliminated from the client bundle via DCE.
 -}
-renderBlogCards : List ( Route, Article.ArticleMetadata ) -> View.Static
+renderBlogCards : List ( Route, Article.ArticleMetadata ) -> Html Never
 renderBlogCards articles =
     div
         [ css
@@ -156,7 +149,7 @@ renderBlogCards articles =
         )
 
 
-head : App Data StaticData ActionData RouteParams -> List Head.Tag
+head : App Data ActionData RouteParams -> List Head.Tag
 head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
@@ -263,7 +256,7 @@ blogCard ( route_, info ) =
         ]
 
 
-blogHeader : View.Static
+blogHeader : Html Never
 blogHeader =
     div
         [ css

@@ -232,39 +232,15 @@ otherFile routes phaseString =
                         [ pageFormState, concurrentSubmissions, navigation, page, maybePageUrl, globalData, pageData, staticData, actionData ] ->
                             let
                                 routeToBranch route =
-                                    case phase of
-                                        Browser ->
-                                            -- For browser: match on (route, pageData) only, ignore staticData
-                                            -- Static data is never used on client - elm-review transforms View.staticView to View.adopt
-                                            Elm.Case.branch
-                                                (Elm.Arg.tuple
-                                                    (Elm.Arg.customType "Just" identity |> Elm.Arg.item (routeToSyntaxPattern route))
-                                                    (Elm.Arg.customType (prefixedRouteType "Data" route) identity |> Elm.Arg.item (Elm.Arg.var "data"))
-                                                )
-                                                (\( maybeRouteParams, data ) ->
-                                                    routeViewBody route maybeRouteParams data Gen.Pages.Internal.StaticOnlyData.placeholder
-                                                )
-
-                                        Cli ->
-                                            -- For CLI: match on full triple including staticData
-                                            Elm.Case.branch
-                                                (Elm.Arg.triple
-                                                    (Elm.Arg.customType "Just" identity |> Elm.Arg.item (routeToSyntaxPattern route))
-                                                    (Elm.Arg.customType (prefixedRouteType "Data" route) identity |> Elm.Arg.item (Elm.Arg.var "data"))
-                                                    (Elm.Arg.customType (prefixedRouteType "StaticData" route) identity |> Elm.Arg.item (Elm.Arg.var "staticDataUnwrapped"))
-                                                )
-                                                (\( maybeRouteParams, data, staticDataUnwrapped ) ->
-                                                    routeViewBody route maybeRouteParams data
-                                                        (Elm.apply
-                                                            (Elm.value
-                                                                { name = "StaticOnlyData"
-                                                                , importFrom = [ "Pages", "Internal", "StaticOnlyData" ]
-                                                                , annotation = Nothing
-                                                                }
-                                                            )
-                                                            [ staticDataUnwrapped ]
-                                                        )
-                                                )
+                                    -- With View.freeze, staticData is handled automatically. Use placeholder.
+                                    Elm.Case.branch
+                                        (Elm.Arg.tuple
+                                            (Elm.Arg.customType "Just" identity |> Elm.Arg.item (routeToSyntaxPattern route))
+                                            (Elm.Arg.customType (prefixedRouteType "Data" route) identity |> Elm.Arg.item (Elm.Arg.var "data"))
+                                        )
+                                        (\( maybeRouteParams, data ) ->
+                                            routeViewBody route maybeRouteParams data Gen.Pages.Internal.StaticOnlyData.placeholder
+                                        )
 
                                 routeViewBody route maybeRouteParams data staticDataWrapped =
                                     Elm.Let.letIn
@@ -437,44 +413,22 @@ otherFile routes phaseString =
                                           )
                                         ]
                             in
-                            (case phase of
-                                Browser ->
-                                    -- For browser: match on tuple (route, pageData), ignore staticData
-                                    Elm.Case.custom (Elm.tuple (page |> Elm.get "route") pageData)
-                                        Type.unit
-                                        (Elm.Case.branch
-                                            (Elm.Arg.tuple
-                                                Elm.Arg.ignore
-                                                (Elm.Arg.customType "DataErrorPage____" identity
-                                                    |> Elm.Arg.item (Elm.Arg.var "data")
-                                                )
-                                            )
-                                            (\( _, data ) ->
-                                                errorPageView data
-                                            )
-                                            :: (routes |> List.map routeToBranch)
-                                            ++ [ Elm.Case.branch Elm.Arg.ignore (\_ -> defaultCaseView) ]
+                            -- With View.freeze, staticData is handled automatically. No need for per-route staticData types.
+                            Elm.Case.custom (Elm.tuple (page |> Elm.get "route") pageData)
+                                Type.unit
+                                (Elm.Case.branch
+                                    (Elm.Arg.tuple
+                                        Elm.Arg.ignore
+                                        (Elm.Arg.customType "DataErrorPage____" identity
+                                            |> Elm.Arg.item (Elm.Arg.var "data")
                                         )
-
-                                Cli ->
-                                    -- For CLI: match on triple including unwrapped staticData
-                                    Elm.Case.custom (Elm.triple (page |> Elm.get "route") pageData (Gen.Pages.Internal.StaticOnlyData.call_.unwrap staticData))
-                                        Type.unit
-                                        (Elm.Case.branch
-                                            (Elm.Arg.triple
-                                                Elm.Arg.ignore
-                                                (Elm.Arg.customType "DataErrorPage____" identity
-                                                    |> Elm.Arg.item (Elm.Arg.var "data")
-                                                )
-                                                Elm.Arg.ignore
-                                            )
-                                            (\( _, data, _ ) ->
-                                                errorPageView data
-                                            )
-                                            :: (routes |> List.map routeToBranch)
-                                            ++ [ Elm.Case.branch Elm.Arg.ignore (\_ -> defaultCaseView) ]
-                                        )
-                            )
+                                    )
+                                    (\( _, data ) ->
+                                        errorPageView data
+                                    )
+                                    :: (routes |> List.map routeToBranch)
+                                    ++ [ Elm.Case.branch Elm.Arg.ignore (\_ -> defaultCaseView) ]
+                                )
                                 |> Elm.withType
                                     (Type.record
                                         [ ( "view"
@@ -654,53 +608,16 @@ otherFile routes phaseString =
             Elm.Declare.fn
                 "staticDataForRoute"
                 (Elm.Arg.varWith "maybeRoute" (Type.maybe (Type.named [ "Route" ] "Route")))
-                (\maybeRoute ->
-                    case phase of
-                        Browser ->
-                            -- For browser, always return placeholder - static data is never used on client
-                            -- This allows DCE to eliminate all route StaticData types and their dependencies
-                            Gen.BackendTask.succeed (Elm.val "StaticDataPlaceholder")
-                                |> Elm.withType
-                                    (Gen.BackendTask.annotation_.backendTask
-                                        (Type.named [ "FatalError" ] "FatalError")
-                                        staticDataType.annotation
-                                    )
-
-                        Cli ->
-                            Elm.Case.maybe maybeRoute
-                                { nothing =
-                                    -- For no route (404), return StaticDataNotFound
-                                    Gen.BackendTask.succeed (Elm.val "StaticDataNotFound")
-                                , just =
-                                    ( "justRoute"
-                                    , \justRoute ->
-                                        branchHelper justRoute
-                                            (\route maybeRouteParams ->
-                                                Elm.apply
-                                                    (Elm.value
-                                                        { name = "route"
-                                                        , importFrom = "Route" :: (route |> RoutePattern.toModuleName)
-                                                        , annotation = Nothing
-                                                        }
-                                                        |> Elm.get "staticData"
-                                                    )
-                                                    [ maybeRouteParams
-                                                        |> Maybe.withDefault (Elm.record [])
-                                                    ]
-                                                    |> Gen.BackendTask.map
-                                                        (\staticDataResult ->
-                                                            Elm.apply
-                                                                (Elm.val ("StaticData" ++ (RoutePattern.toModuleName route |> String.join "__")))
-                                                                [ staticDataResult ]
-                                                        )
-                                            )
-                                    )
-                                }
-                                |> Elm.withType
-                                    (Gen.BackendTask.annotation_.backendTask
-                                        (Type.named [ "FatalError" ] "FatalError")
-                                        staticDataType.annotation
-                                    )
+                (\_ ->
+                    -- With View.freeze, static data is computed at build time by the normal
+                    -- route data function and transformed by elm-review. No need for a
+                    -- separate staticData mechanism - just use a placeholder.
+                    Gen.BackendTask.succeed (Elm.val "StaticDataPlaceholder")
+                        |> Elm.withType
+                            (Gen.BackendTask.annotation_.backendTask
+                                (Type.named [ "FatalError" ] "FatalError")
+                                staticDataType.annotation
+                            )
                 )
 
         action : Elm.Declare.Function (Elm.Expression -> Elm.Expression -> Elm.Expression)
@@ -2065,33 +1982,10 @@ otherFile routes phaseString =
 
         staticDataType : Elm.Declare.Annotation
         staticDataType =
-            case phase of
-                Browser ->
-                    -- For browser, use a simple placeholder type to avoid pulling in
-                    -- heavy types like Markdown.Block from route StaticData
-                    Elm.Declare.customType "StaticData"
-                        [ Elm.variant "StaticDataPlaceholder" ]
-
-                Cli ->
-                    -- For CLI, include full union with all route StaticData types
-                    Elm.Declare.customType "StaticData"
-                        (Elm.variant "StaticDataNotFound"
-                            :: (routes
-                                    |> List.map
-                                        (\route ->
-                                            Elm.variantWith
-                                                ("StaticData"
-                                                    ++ (RoutePattern.toModuleName route |> String.join "__")
-                                                )
-                                                [ Type.named
-                                                    ("Route"
-                                                        :: RoutePattern.toModuleName route
-                                                    )
-                                                    "StaticData"
-                                                ]
-                                        )
-                               )
-                        )
+            -- With View.freeze, static data is handled automatically via elm-review
+            -- transformation. No need for per-route StaticData types anymore.
+            Elm.Declare.customType "StaticData"
+                [ Elm.variant "StaticDataPlaceholder" ]
     in
     Elm.file [ "Main" ]
         [ modelType.declaration

@@ -1,4 +1,4 @@
-module Route.Index exposing (ActionData, Data, Model, Msg, StaticData, route)
+module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Custom
@@ -22,7 +22,6 @@ import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Shared
 import Time
 import View exposing (View)
-import View.Static
 
 
 type alias Model =
@@ -41,11 +40,7 @@ type alias ActionData =
     {}
 
 
-type alias StaticData =
-    ()
-
-
-route : StatelessRoute RouteParams Data StaticData ActionData
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -77,7 +72,7 @@ generator =
 
 
 head :
-    App Data StaticData ActionData {}
+    App Data ActionData {}
     -> List Head.Tag
 head static =
     Seo.summary
@@ -102,7 +97,7 @@ link attributes children route_ =
 
 
 view :
-    App Data StaticData ActionData RouteParams
+    App Data ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
@@ -110,9 +105,10 @@ view app shared =
     , body =
         [ text "This is the index page."
 
-        -- Static regions - content is rendered at build time and adopted by the client
-        , View.static (div [] [ text <| "Greeting: " ++ app.data.greeting ])
-        , View.static (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
+        -- Frozen views - content is rendered at build time and adopted by the client
+        -- Fields used only inside View.freeze are DCE'd from the client bundle
+        , View.freeze (div [] [ text <| "Greeting: " ++ app.data.greeting ])
+        , View.freeze (div [] [ text <| "Port Greeting: " ++ app.data.portGreeting ])
 
         --, div [] [ text <| "Random Data: " ++ Debug.toString app.data.randomTuple ]
         --, div [] [ text <| "URL: " ++ Debug.toString app.url ]
@@ -121,6 +117,8 @@ view app shared =
             [ Route.Index |> link [] [ text "Link to Self" ] ]
         , div []
             [ Route.StaticRegionTest |> link [] [ text "Static Region Test" ] ]
+        , div []
+            [ Route.FrozenViewsTest |> link [] [ text "Frozen Views Test" ] ]
         , div []
             [ text <|
                 "Now: "
