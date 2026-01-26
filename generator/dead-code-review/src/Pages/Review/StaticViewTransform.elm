@@ -73,9 +73,20 @@ type alias Context =
     -- If true, we can't safely determine ephemeral fields
     , appDataUsedAsWhole : Bool
 
+    -- Track if Data is used as a record constructor function
+    -- (e.g., `map4 Data arg1 arg2 arg3 arg4`)
+    -- If true, we can't transform the type alias without breaking the constructor
+    , dataUsedAsConstructor : Bool
+
     -- Data type location for transformation
     , dataTypeRange : Maybe Range
     , dataTypeFields : List ( String, Node TypeAnnotation )
+
+    -- Head function body range for stubbing
+    , headFunctionBodyRange : Maybe Range
+
+    -- Data function body range for stubbing (never runs on client)
+    , dataFunctionBodyRange : Maybe Range
     }
 
 
@@ -113,8 +124,11 @@ initialContext =
             , inHeadFunction = False
             , appDataBindings = Set.empty
             , appDataUsedAsWhole = False
+            , dataUsedAsConstructor = False
             , dataTypeRange = Nothing
             , dataTypeFields = []
+            , headFunctionBodyRange = Nothing
+            , dataFunctionBodyRange = Nothing
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -172,9 +186,25 @@ declarationEnterVisitor node context =
                         |> Node.value
                         |> .name
                         |> Node.value
+
+                bodyRange =
+                    function.declaration
+                        |> Node.value
+                        |> .expression
+                        |> Node.range
             in
             if functionName == "head" then
-                ( [], { context | inHeadFunction = True } )
+                ( []
+                , { context
+                    | inHeadFunction = True
+                    , headFunctionBodyRange = Just bodyRange
+                  }
+                )
+
+            else if functionName == "data" then
+                -- Capture the data function body for potential stubbing
+                -- The data function never runs on client, only at build time
+                ( [], { context | dataFunctionBodyRange = Just bodyRange } )
 
             else
                 ( [], context )
@@ -240,11 +270,27 @@ declarationExitVisitor node context =
 expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionEnterVisitor node context =
     let
+        -- Detect if Data is used as a record constructor function
+        -- (e.g., `map4 Data`, `succeed Data`, `Data field1 field2`)
+        contextWithDataConstructorCheck =
+            if context.dataUsedAsConstructor then
+                -- Already detected, no need to check again
+                context
+
+            else
+                case Node.value node of
+                    -- Direct use: Data as function argument (e.g., `map4 Data`)
+                    Expression.FunctionOrValue [] "Data" ->
+                        { context | dataUsedAsConstructor = True }
+
+                    _ ->
+                        context
+
         -- Track entering freeze calls and check if app.data is used as a whole
         contextWithFreezeTracking =
             case Node.value node of
                 Expression.Application (functionNode :: args) ->
-                    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+                    case ModuleNameLookupTable.moduleNameFor contextWithDataConstructorCheck.lookupTable functionNode of
                         Just [ "View" ] ->
                             case Node.value functionNode of
                                 Expression.FunctionOrValue _ "freeze" ->
@@ -263,26 +309,26 @@ expressionEnterVisitor node context =
                                                             -- If the arg is a function call that contains app.data,
                                                             -- we can't track field access
                                                             Expression.Application innerArgs ->
-                                                                List.any (\a -> containsAppDataExpression a context) innerArgs
+                                                                List.any (\a -> containsAppDataExpression a contextWithDataConstructorCheck) innerArgs
 
                                                             -- Direct app.data is being used as a whole
                                                             _ ->
-                                                                isAppDataExpression arg context
+                                                                isAppDataExpression arg contextWithDataConstructorCheck
                                                     )
                                     in
-                                    { context
+                                    { contextWithDataConstructorCheck
                                         | inFreezeCall = True
-                                        , appDataUsedAsWhole = context.appDataUsedAsWhole || appDataPassedToFunction
+                                        , appDataUsedAsWhole = contextWithDataConstructorCheck.appDataUsedAsWhole || appDataPassedToFunction
                                     }
 
                                 _ ->
-                                    context
+                                    contextWithDataConstructorCheck
 
                         _ ->
-                            context
+                            contextWithDataConstructorCheck
 
                 _ ->
-                    context
+                    contextWithDataConstructorCheck
 
         -- Track field access patterns
         contextWithFieldTracking =
@@ -439,21 +485,42 @@ isAppDataExpression node context =
             False
 
 
-{-| Check if an expression contains app.data anywhere (recursive search).
-This is used to detect when app.data is passed as an argument to a function.
+{-| Check if an expression contains `app.data` being passed as a WHOLE to a function.
+
+This returns True ONLY for `app.data` itself, NOT for field accesses like `app.data.field`.
+The reason: if someone writes `someFunction app.data.field`, we CAN track that field access.
+But if they write `someFunction app.data`, we CANNOT know which fields that function uses.
+
+Examples:
+- `app.data` → True (app.data passed as whole)
+- `app.data.title` → False (field access, we can track "title")
+- `someFunction app.data` → True (app.data passed to function)
+- `someFunction app.data.title` → False (just passing the value of title field)
+
 -}
 containsAppDataExpression : Node Expression -> Context -> Bool
 containsAppDataExpression node context =
     case Node.value node of
+        -- app.data exactly (with field "data" on "app")
         Expression.RecordAccess innerExpr (Node _ "data") ->
             case Node.value innerExpr of
                 Expression.FunctionOrValue [] "app" ->
+                    -- This IS app.data being used as a whole
                     True
 
                 _ ->
+                    -- Something else with .data field, recurse
                     containsAppDataExpression innerExpr context
 
+        -- app.data.field - accessing a field OF app.data is fine, we can track that
+        -- The field access is already tracked by trackFieldAccess
+        Expression.RecordAccess innerExpr _ ->
+            -- Don't recurse here - we don't care if app.data is deep inside a field access chain
+            -- because accessing app.data.foo.bar still tracks "foo" as the accessed field
+            False
+
         Expression.FunctionOrValue [] varName ->
+            -- Check if this variable is bound to app.data
             Set.member varName context.appDataBindings
 
         Expression.Application exprs ->
@@ -665,17 +732,27 @@ viewStaticAdoptCallPlain context =
     modulePrefix ++ ".adopt " ++ idStr
 
 
-{-| Final evaluation - emit Data type transformation if there are ephemeral fields
+{-| Final evaluation - emit Data type transformation if there are ephemeral fields.
+
+Conservative approach:
+- Only tracks DIRECT field access patterns like `app.data.fieldName`
+- If `app.data` is passed as a whole to ANY function inside a freeze call,
+  we can't safely determine which fields are ephemeral, so we skip the transformation entirely
+- If `Data` is used as a record constructor function (e.g., `map4 Data`),
+  we can't transform the type without breaking the constructor call
+- This means `View.freeze (render app.data)` won't get Data type DCE,
+  but `View.freeze (div [] [ text app.data.title ])` will
+
+False negatives (missing optimization) are acceptable.
+False positives (breaking code) are NOT acceptable.
+
 -}
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
-    -- TODO: Re-enable Data type transformation when field tracking is more robust
-    -- Currently disabled because tracking app.data usage is complex
-    -- The freeze→adopt transformation still works and provides DCE benefits
-    if True then
-        []
-
-    else if context.appDataUsedAsWhole then
+    -- Conservative: skip transformation in these cases:
+    -- 1. app.data was passed to a function inside freeze (can't track fields)
+    -- 2. Data is used as a constructor function (changing type would break it)
+    if context.appDataUsedAsWhole || context.dataUsedAsConstructor then
         []
 
     else
@@ -689,6 +766,12 @@ finalEvaluation context =
                     ephemeralFields =
                         Set.union context.fieldsInFreeze context.fieldsInHead
                             |> Set.filter (\f -> not (Set.member f context.fieldsOutsideFreeze))
+
+                    -- Fields that are ONLY used in head (needed for head stubbing)
+                    fieldsOnlyInHead =
+                        context.fieldsInHead
+                            |> Set.filter (\f -> not (Set.member f context.fieldsOutsideFreeze))
+                            |> Set.filter (\f -> not (Set.member f context.fieldsInFreeze))
 
                     -- Persistent fields: used outside freeze (or not used at all - conservative)
                     persistentFieldDefs =
@@ -714,8 +797,51 @@ finalEvaluation context =
                                             |> String.join ", "
                                        )
                                     ++ " }"
+
+                        -- If ephemeral fields are used in head, we need to stub out head too
+                        -- The head function never runs on client, so we replace body with []
+                        headStubFix =
+                            if not (Set.isEmpty fieldsOnlyInHead) then
+                                case context.headFunctionBodyRange of
+                                    Just headRange ->
+                                        [ Rule.errorWithFix
+                                            { message = "Head function codemod: stub out for client bundle"
+                                            , details =
+                                                [ "Replacing head function body with [] because it uses ephemeral fields: " ++ String.join ", " (Set.toList fieldsOnlyInHead)
+                                                , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
+                                                ]
+                                            }
+                                            headRange
+                                            [ Review.Fix.replaceRangeBy headRange "[]" ]
+                                        ]
+
+                                    Nothing ->
+                                        []
+
+                            else
+                                []
+
+                        -- Always stub out the data function when transforming Data type
+                        -- The data function constructs Data records and never runs on client
+                        -- Stub it with BackendTask.fail which works regardless of arity
+                        dataStubFix =
+                            case context.dataFunctionBodyRange of
+                                Just dataRange ->
+                                    [ Rule.errorWithFix
+                                        { message = "Data function codemod: stub out for client bundle"
+                                        , details =
+                                            [ "Replacing data function body because it constructs Data records with ephemeral fields."
+                                            , "The data function never runs on the client (it's for build-time data fetching), so stubbing it out allows DCE."
+                                            ]
+                                        }
+                                        dataRange
+                                        [ Review.Fix.replaceRangeBy dataRange "BackendTask.fail (FatalError.fromString \"\")" ]
+                                    ]
+
+                                Nothing ->
+                                    []
                     in
-                    [ Rule.errorWithFix
+                    Rule.errorWithFix
                         { message = "Data type codemod: remove ephemeral fields"
                         , details =
                             [ "Removing ephemeral fields from Data type: " ++ String.join ", " (Set.toList ephemeralFields)
@@ -725,7 +851,8 @@ finalEvaluation context =
                         range
                         [ Review.Fix.replaceRangeBy range newTypeAnnotation
                         ]
-                    ]
+                        :: headStubFix
+                        ++ dataStubFix
 
 
 {-| Convert a TypeAnnotation back to string representation.

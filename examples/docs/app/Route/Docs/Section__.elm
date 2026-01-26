@@ -256,8 +256,8 @@ view app sharedModel =
                         ]
                     ]
                 ]
-                [ -- Frozen content - uses app.data.body, previousAndNext, editUrl (ephemeral)
-                  View.freeze (renderStaticContent app.data)
+                [ -- Frozen content - pass fields individually so codemod can track ephemeral fields
+                  View.freeze (renderStaticContent app.data.body app.data.previousAndNext app.data.editUrl)
                 ]
             ]
         ]
@@ -267,8 +267,8 @@ view app sharedModel =
 {-| Render the article content as a frozen view.
 This code is eliminated from the client bundle via DCE.
 -}
-renderStaticContent : Data -> Html Never
-renderStaticContent content =
+renderStaticContent : List Block -> ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) -> String -> Html Never
+renderStaticContent body previousAndNext editUrl =
     Html.div
         [ css
             [ Tw.max_w_screen_md
@@ -276,17 +276,17 @@ renderStaticContent content =
             , Bp.xl [ Tw.pr_36 ]
             ]
         ]
-        ((content.body
+        ((body
             |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
             |> Result.withDefault []
          )
-            ++ [ NextPrevious.view content.previousAndNext
+            ++ [ NextPrevious.view previousAndNext
                , Html.hr [] []
                , Html.footer
                     [ css [ Tw.text_right ]
                     ]
                     [ Html.a
-                        [ Attr.href content.editUrl
+                        [ Attr.href editUrl
                         , Attr.rel "noopener"
                         , Attr.target "_blank"
                         , css

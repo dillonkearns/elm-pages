@@ -87,9 +87,9 @@ view :
 view app shared =
     { title = app.data.metadata.title
     , body =
-        [ -- Frozen content - uses app.data.body (ephemeral field)
-          -- app.data.metadata is also used here but it's also used in head, so it's persistent
-          View.freeze (renderFullPage app.data)
+        [ -- Frozen content - uses app.data.body (ephemeral) and app.data.metadata (persistent)
+          -- Pass fields individually so the codemod can track which are ephemeral
+          View.freeze (renderFullPage app.data.metadata app.data.body)
         ]
     }
 
@@ -97,8 +97,8 @@ view app shared =
 {-| Render the entire page body as frozen content.
 All of this code is eliminated from the client bundle via DCE.
 -}
-renderFullPage : Data -> Html Never
-renderFullPage content =
+renderFullPage : ArticleMetadata -> List Markdown.Block.Block -> Html Never
+renderFullPage metadata body =
     let
         author =
             Author.dillon
@@ -135,7 +135,7 @@ renderFullPage content =
                         , Tw.mb_8
                         ]
                     ]
-                    [ Html.Styled.text content.metadata.title ]
+                    [ Html.Styled.text metadata.title ]
 
                 -- Author info
                 , div
@@ -178,7 +178,7 @@ renderFullPage content =
                             [ time
                                 [ Attr.datetime "2020-03-16"
                                 ]
-                                [ text (content.metadata.published |> Date.format "MMMM ddd, yyyy") ]
+                                [ text (metadata.published |> Date.format "MMMM ddd, yyyy") ]
                             ]
                         ]
                     ]
@@ -186,7 +186,7 @@ renderFullPage content =
                 -- Markdown body
                 , div
                     [ css [ Tw.prose ] ]
-                    (content.body
+                    (body
                         |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                         |> Result.withDefault []
                     )
