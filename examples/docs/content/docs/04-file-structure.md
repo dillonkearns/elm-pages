@@ -154,6 +154,7 @@ Right now, this is the only user CSS file that is loaded. You can use CSS import
 - `headTagsTemplate` - A function that returns a string of HTML that will be included in the `<head>` of every page. This is useful for including additional CSS or JS assets on the page. It is pre-processed by Vite.
 - `preloadTagForFile` - Given a file name, return a boolen to indicate whether or not to include a preload tag for that asset.
 - `adapter` - an adapter function to prepare your built application for deployment with a given framework or hosting provider. See the [full adapter docs page](/docs/adapters).
+- `elmSafeVirtualDom` - Set to `true` if you are using [elm-safe-virtual-dom](https://github.com/nicklydell/elm-safe-virtual-dom) (Simon Lydell's fork that protects against browser extension interference). This enables a different static region patching strategy that works with elm-safe-virtual-dom's tNode tracking system.
 
 ```js
 import { defineConfig } from "vite";
@@ -177,3 +178,16 @@ export default {
   },
 };
 ```
+
+### elm-safe-virtual-dom Support
+
+If you're using [elm-safe-virtual-dom](https://github.com/nicklydell/elm-safe-virtual-dom) to protect your app from browser extensions like Google Translate or Grammarly interfering with your DOM, add the `elmSafeVirtualDom` option:
+
+```js
+export default {
+  elmSafeVirtualDom: true,
+  // ... other config
+};
+```
+
+This is required for static regions to work correctly with elm-safe-virtual-dom because it uses a different internal architecture (the "tNode" system) that tracks DOM nodes independently of the actual DOM tree.
