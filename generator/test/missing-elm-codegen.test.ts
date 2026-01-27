@@ -18,10 +18,11 @@ import { runElmCodegenInstall } from "../src/elm-codegen.js";
 const originalWorkingDir = process.cwd();
 const testDir = dirname(fileURLToPath(import.meta.url));
 const originalPATH = process.env.PATH;
-const [nodeFolder, elmFolder, elmCodegenFolder] = await Promise.all([
+const [nodeFolder, elmFolder, elmCodegenFolder, lamderaFolder] = await Promise.all([
   which("node").then(dirname),
   which("elm").then(dirname),
   which("elm-codegen").then(dirname),
+  which("lamdera").then(dirname).catch(() => null), // lamdera is optional
 ]);
 
 function tryAndIgnore(thunk) {
@@ -75,12 +76,9 @@ describe.sequential("runElmCodegenInstall", () => {
   });
 
   describe("via elm-pages run", () => {
-    beforeEach(() => {
-      process.env.PATH = [nodeFolder, elmFolder, elmCodegenFolder].join(":");
-    });
-    afterEach(() => {
-      process.env.PATH = originalPATH;
-    });
+    // Note: We don't restrict PATH here because lamdera may need additional
+    // system tools to function correctly. The "with elm-codegen missing" test
+    // below specifically tests the behavior when elm-codegen is not in PATH.
 
     it("succeeds", async () => {
       expect(existsSync("node_modules/.bin/elm-pages")).toBe(true);

@@ -645,7 +645,16 @@ export async function runTerser(filePath) {
 export async function compileCliApp(options) {
   // Generate server folder with server-specific codemods
   // This transforms Data -> Ephemeral, creates reduced Data, generates ephemeralToData
-  await generateServerFolder(options.base);
+  // Skip for scripts (elm-pages run) that don't have routes/app folder
+  if (!options.isScript) {
+    await generateServerFolder(options.base);
+  }
+
+  // Scripts use the original path (elm-stuff/elm-pages/.elm-pages/)
+  // Full builds use the server path (elm-stuff/elm-pages/server/.elm-pages/)
+  const elmPagesFolder = options.isScript
+    ? "elm-stuff/elm-pages"
+    : "elm-stuff/elm-pages/server";
 
   await spawnElmMake(
     // TODO should be --optimize, but there seems to be an issue with the html to JSON with --optimize
@@ -653,10 +662,10 @@ export async function compileCliApp(options) {
     options,
     path.join(
       process.cwd(),
-      `elm-stuff/elm-pages/server/.elm-pages/${options.mainModule || "Main"}.elm`
+      `${elmPagesFolder}/.elm-pages/${options.mainModule || "Main"}.elm`
     ),
     path.join(process.cwd(), "elm-stuff/elm-pages/elm.js"),
-    path.join(process.cwd(), "elm-stuff/elm-pages/server")
+    path.join(process.cwd(), elmPagesFolder)
   );
 
   const elmFileContent = await fsPromises.readFile(ELM_FILE_PATH(), "utf-8");
