@@ -26,7 +26,7 @@ type alias Data =
     ColorHelpers.Data
 
 
-route : StatelessRoute RouteParams Data () ActionData
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRenderWithFallback
         { head = ColorHelpers.head toCssVal

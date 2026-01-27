@@ -40,7 +40,7 @@ type alias StaticData =
     ()
 
 
-route : StatelessRoute RouteParams Data StaticData ActionData
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.single
         { head = head
@@ -60,7 +60,7 @@ data =
 
 
 head :
-    App Data () ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -85,7 +85,7 @@ snapshotComment comment =
 
 
 view :
-    App Data () ActionData RouteParams
+    App Data ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view static sharedModel =

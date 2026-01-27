@@ -420,12 +420,6 @@ async function compileElm(options, config) {
   // This allows the CLI bundle (for extraction) to use original source while
   // the client bundle uses transformed source for dead-code elimination.
 
-  // Debug: Check Data type before compilation
-  const debugFile = path.join(process.cwd(), "./elm-stuff/elm-pages/client/app/Route/Docs/Section__.elm");
-  const debugContent = await fsPromises.readFile(debugFile, "utf-8");
-  const dataTypeMatch = debugContent.match(/type alias Data =[\s\S]*?(?=\n\ntype|\n\n\w)/);
-  console.log("[DEBUG compileElm] Data type BEFORE compilation:", dataTypeMatch ? dataTypeMatch[0].trim() : "NOT FOUND");
-
   await spawnElmMake(
     options.debug ? "debug" : "optimize",
     options,

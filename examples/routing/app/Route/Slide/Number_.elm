@@ -38,7 +38,7 @@ type alias StaticData =
     ()
 
 
-route : StatefulRoute RouteParams Data () ActionData Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.preRender
         { head = head
@@ -104,7 +104,7 @@ slideBody route_ =
 
 
 head :
-    App Data () ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head app =
     Seo.summary
@@ -129,7 +129,7 @@ type alias Data =
 
 
 view :
-    App Data () ActionData RouteParams
+    App Data ActionData RouteParams
     -> Shared.Model
     -> Model
     -> View (PagesMsg Msg)

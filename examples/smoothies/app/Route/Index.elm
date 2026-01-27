@@ -55,7 +55,7 @@ type alias ActionData =
     {}
 
 
-route : StatefulRoute RouteParams Data () ActionData Model Msg
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.serverRender
         { head = head
@@ -73,7 +73,7 @@ route =
 init :
     Maybe PageUrl
     -> Shared.Model
-    -> App Data () ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> ( Model, Effect Msg )
 init maybePageUrl sharedModel static =
     ( {}, Effect.none )
@@ -82,7 +82,7 @@ init maybePageUrl sharedModel static =
 update :
     PageUrl
     -> Shared.Model
-    -> App Data () ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> Msg
     -> Model
     -> ( Model, Effect Msg )
@@ -98,7 +98,7 @@ subscriptions maybePageUrl routeParams path sharedModel model =
 
 
 head :
-    App Data () ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.Common.tags
@@ -223,7 +223,7 @@ view :
     Maybe PageUrl
     -> Shared.Model
     -> Model
-    -> App Data () ActionData RouteParams
+    -> App Data ActionData RouteParams
     -> View (PagesMsg Msg)
 view maybeUrl sharedModel model app =
     { title = "Ctrl-R Smoothies"
@@ -307,7 +307,7 @@ type QuantityChange
     | Decrement
 
 
-productView : App Data () ActionData RouteParams -> Dict String Cart.CartEntry -> Smoothie -> Html (PagesMsg Msg)
+productView : App Data ActionData RouteParams -> Dict String Cart.CartEntry -> Smoothie -> Html (PagesMsg Msg)
 productView app cart item =
     let
         quantityInCart : Int

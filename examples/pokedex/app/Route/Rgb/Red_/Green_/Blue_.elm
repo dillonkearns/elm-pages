@@ -18,7 +18,7 @@ type alias RouteParams =
     { red : String, green : String, blue : String }
 
 
-route : StatelessRoute RouteParams Data () ActionData
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.preRenderWithFallback
         { head = ColorHelpers.head toCssVal

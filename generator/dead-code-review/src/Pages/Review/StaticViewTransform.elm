@@ -911,6 +911,15 @@ False positives (breaking code) are NOT acceptable.
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     let
+        -- Only apply transformations to Route modules (Route.Index, Route.Blog.Slug_, etc.)
+        isRouteModule =
+            case context.moduleName of
+                "Route" :: _ :: _ ->
+                    True
+
+                _ ->
+                    False
+
         -- Check if RouteBuilder uses conventional naming
         -- We currently track ephemeral context by looking for functions named "head" and "data"
         -- If RouteBuilder uses different names (e.g., `head = seoTags`), our tracking is wrong
@@ -958,10 +967,11 @@ finalEvaluation context =
                     True
     in
     -- Conservative: skip transformation in these cases:
-    -- 1. app.data was passed to a function in CLIENT context (can't track fields)
-    -- 2. Data is used as a constructor function (changing type would break it)
-    -- 3. RouteBuilder doesn't use conventional naming
-    if context.appDataUsedAsWhole || context.dataUsedAsConstructor || not routeBuilderUsesConventionalNaming then
+    -- 1. Not a Route module (Site.elm, Shared.elm, etc.)
+    -- 2. app.data was passed to a function in CLIENT context (can't track fields)
+    -- 3. Data is used as a constructor function (changing type would break it)
+    -- 4. RouteBuilder doesn't use conventional naming
+    if not isRouteModule || context.appDataUsedAsWhole || context.dataUsedAsConstructor || not routeBuilderUsesConventionalNaming then
         []
 
     else

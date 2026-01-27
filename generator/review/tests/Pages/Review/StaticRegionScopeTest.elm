@@ -8,98 +8,98 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "Pages.Review.StaticRegionScope"
-        [ describe "View.static"
-            [ test "allows View.static in Route modules" <|
+        [ describe "View.freeze"
+            [ test "allows View.freeze in Route modules" <|
                 \() ->
                     """module Route.Index exposing (view)
 
 import View
 
 view =
-    View.static (Html.text "hello")
+    View.freeze (Html.text "hello")
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectNoErrors
-            , test "errors on View.static in non-Route modules" <|
+            , test "errors on View.freeze in non-Route modules" <|
                 \() ->
                     """module Shared exposing (view)
 
 import View
 
 view =
-    View.static (Html.text "hello")
+    View.freeze (Html.text "hello")
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region function called outside Route module"
                                 , details =
-                                    [ "`View.static` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
+                                    [ "`View.freeze` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
                                     , "Static regions are transformed by elm-review during the build, and this transformation only works for Route modules. Calling static region functions from other modules will NOT eliminate heavy dependencies from the client bundle."
                                     , "To fix this, either:"
                                     , "1. Move this code to a Route module, or"
                                     , "2. Pass the static content as a parameter from the Route module"
                                     ]
-                                , under = "View.static"
+                                , under = "View.freeze"
                                 }
                             ]
-            , test "errors on View.static in helper modules" <|
+            , test "errors on View.freeze in helper modules" <|
                 \() ->
                     """module Helpers.Views exposing (staticContent)
 
 import View
 
 staticContent =
-    View.static (Html.text "hello")
+    View.freeze (Html.text "hello")
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region function called outside Route module"
                                 , details =
-                                    [ "`View.static` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
+                                    [ "`View.freeze` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
                                     , "Static regions are transformed by elm-review during the build, and this transformation only works for Route modules. Calling static region functions from other modules will NOT eliminate heavy dependencies from the client bundle."
                                     , "To fix this, either:"
                                     , "1. Move this code to a Route module, or"
                                     , "2. Pass the static content as a parameter from the Route module"
                                     ]
-                                , under = "View.static"
+                                , under = "View.freeze"
                                 }
                             ]
             ]
-        , describe "View.staticView"
-            [ test "allows View.staticView in Route modules" <|
+        , describe "View.freeze with data"
+            [ test "allows View.freeze with data in Route modules" <|
                 \() ->
                     """module Route.Blog.Slug_ exposing (view)
 
 import View
 
 view app =
-    View.staticView app.staticData renderContent
+    View.freeze (renderContent app.data)
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectNoErrors
-            , test "errors on View.staticView in non-Route modules" <|
+            , test "errors on View.freeze with data in non-Route modules" <|
                 \() ->
                     """module Components.Article exposing (view)
 
 import View
 
-view staticData =
-    View.staticView staticData renderContent
+view data =
+    View.freeze (renderContent data)
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region function called outside Route module"
                                 , details =
-                                    [ "`View.staticView` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
+                                    [ "`View.freeze` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
                                     , "Static regions are transformed by elm-review during the build, and this transformation only works for Route modules. Calling static region functions from other modules will NOT eliminate heavy dependencies from the client bundle."
                                     , "To fix this, either:"
                                     , "1. Move this code to a Route module, or"
                                     , "2. Pass the static content as a parameter from the Route module"
                                     ]
-                                , under = "View.staticView"
+                                , under = "View.freeze"
                                 }
                             ]
             ]
@@ -185,14 +185,14 @@ view =
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectNoErrors
-            , test "allows static regions in deeply nested Route modules" <|
+            , test "allows freeze in deeply nested Route modules" <|
                 \() ->
                     """module Route.Blog.Category.Slug_ exposing (view)
 
 import View
 
 view =
-    View.static (Html.text "hello")
+    View.freeze (Html.text "hello")
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectNoErrors
@@ -203,20 +203,20 @@ view =
 import View
 
 view =
-    View.static (Html.text "hello")
+    View.freeze (Html.text "hello")
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region function called outside Route module"
                                 , details =
-                                    [ "`View.static` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
+                                    [ "`View.freeze` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
                                     , "Static regions are transformed by elm-review during the build, and this transformation only works for Route modules. Calling static region functions from other modules will NOT eliminate heavy dependencies from the client bundle."
                                     , "To fix this, either:"
                                     , "1. Move this code to a Route module, or"
                                     , "2. Pass the static content as a parameter from the Route module"
                                     ]
-                                , under = "View.static"
+                                , under = "View.freeze"
                                 }
                             ]
             ]

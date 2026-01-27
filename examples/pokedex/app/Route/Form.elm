@@ -164,7 +164,7 @@ form =
         |> Form.field "checkbox" Field.checkbox
 
 
-route : StatelessRoute RouteParams Data () ActionData
+route : StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.serverRender
         { head = head
@@ -208,7 +208,7 @@ action routeParams request =
 
 
 head :
-    App Data () ActionData RouteParams
+    App Data ActionData RouteParams
     -> List Head.Tag
 head static =
     Seo.summary
@@ -228,7 +228,7 @@ head static =
 
 
 view :
-    App Data () ActionData RouteParams
+    App Data ActionData RouteParams
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =

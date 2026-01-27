@@ -33,7 +33,7 @@ type alias RouteParams =
     {}
 
 
-route : RouteBuilder.StatelessRoute RouteParams Data () ActionData
+route : RouteBuilder.StatelessRoute RouteParams Data ActionData
 route =
     RouteBuilder.buildNoState
         { view = view
@@ -125,7 +125,7 @@ action routeParams request =
             )
 
 
-head : RouteBuilder.App Data () ActionData RouteParams -> List Head.Tag
+head : RouteBuilder.App Data ActionData RouteParams -> List Head.Tag
 head app =
     []
 
@@ -157,7 +157,7 @@ form =
 
 
 view :
-    RouteBuilder.App Data () ActionData RouteParams
+    RouteBuilder.App Data ActionData RouteParams
     -> Shared.Model
     -> View.View (PagesMsg Msg)
 view app shared =
