@@ -581,4 +581,239 @@ view app =
                         |> Review.Test.run rule
                         |> Review.Test.expectNoErrors
             ]
+        , describe "RouteBuilder convention detection"
+            [ test "non-conventional head function name bails out (no optimization)" <|
+                \() ->
+                    -- If RouteBuilder uses { head = seoTags, ... } instead of { head = head, ... }
+                    -- we should bail out of optimization to avoid incorrect field tracking
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = seoTags
+        , pages = pages
+        , data = data
+        }
+
+seoTags app =
+    [ Html.text app.data.description ]
+
+data routeParams =
+    BackendTask.succeed { title = "Test", description = "Desc" }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        -- Should NOT produce Data type transformation errors
+                        -- because we bail out when non-conventional naming is detected
+                        |> Review.Test.expectNoErrors
+            , test "lambda in RouteBuilder head bails out (no optimization)" <|
+                \() ->
+                    -- If RouteBuilder uses { head = \app -> [...], ... } instead of { head = head, ... }
+                    -- we should bail out because we can't track ephemeral context in lambdas
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = \\app -> [ Html.text app.data.description ]
+        , pages = pages
+        , data = data
+        }
+
+data routeParams =
+    BackendTask.succeed { title = "Test", description = "Desc" }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        -- Should NOT produce Data type transformation errors
+                        -- because we bail out when lambda is detected
+                        |> Review.Test.expectNoErrors
+            , test "conventional naming in RouteBuilder allows optimization" <|
+                \() ->
+                    -- RouteBuilder uses { head = head, data = data } which is conventional
+                    -- so optimization should proceed
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = head
+        , pages = pages
+        , data = data
+        }
+
+head app =
+    [ Html.text app.data.description ]
+
+data routeParams =
+    BackendTask.succeed { title = "Test", description = "Desc" }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Head function codemod: stub out for client bundle"
+                                , details =
+                                    [ "Replacing head function body with [] because Data fields are being removed."
+                                    , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
+                                    ]
+                                , under = "[ Html.text app.data.description ]"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = head
+        , pages = pages
+        , data = data
+        }
+
+head app =
+    []
+
+data routeParams =
+    BackendTask.succeed { title = "Test", description = "Desc" }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data function codemod: stub out for client bundle"
+                                , details =
+                                    [ "Replacing data function body because Data fields are being removed."
+                                    , "The data function never runs on the client (it's for build-time data fetching), so stubbing it out allows DCE."
+                                    ]
+                                , under = "BackendTask.succeed { title = \"Test\", description = \"Desc\" }"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+import RouteBuilder
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+route =
+    RouteBuilder.preRender
+        { head = head
+        , pages = pages
+        , data = data
+        }
+
+head app =
+    [ Html.text app.data.description ]
+
+data routeParams =
+    BackendTask.fail (FatalError.fromString "")
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: description"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+import RouteBuilder
+
+type alias Data =
+    { title : String }
+
+route =
+    RouteBuilder.preRender
+        { head = head
+        , pages = pages
+        , data = data
+        }
+
+head app =
+    [ Html.text app.data.description ]
+
+data routeParams =
+    BackendTask.succeed { title = "Test", description = "Desc" }
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":9,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]
