@@ -19,17 +19,18 @@ HTML for adoption by the virtual-dom.
 
 ## Data Type Transformation
 
-This rule also analyzes field access patterns on `app.data` and transforms the
-`Data` type alias to remove ephemeral fields (those only used inside `freeze`
-calls or in the `head` function).
+This rule analyzes field access patterns on `app.data` and removes fields that
+are NOT used on the client (i.e., fields only used in ephemeral contexts like
+`View.freeze` calls or the `head` function).
 
-Fields are classified as:
-- **Ephemeral**: Used only inside `View.freeze` calls and/or `head` function
-- **Persistent**: Used outside `freeze` (or both inside and outside)
+The model is:
+- Start with ALL fields from the Data type
+- Track which fields are accessed in CLIENT contexts (outside freeze/head)
+- Removable fields = allFields - clientUsedFields
 
-Ephemeral fields are removed from the `Data` type alias in the client bundle,
-enabling DCE to eliminate the field accessors and any rendering code that
-depends on them.
+Fields used only in ephemeral contexts (freeze, head) are removed from the
+`Data` type alias in the client bundle, enabling DCE to eliminate the field
+accessors and any rendering code that depends on them.
 
 Note: This rule always uses View.Static.adopt from the elm-pages package,
 not from the user's View module. If View.Static is not imported, the rule
@@ -60,18 +61,19 @@ type alias Context =
     , lastImportRow : Int
     , staticIndex : Int
 
-    -- Field tracking
-    , fieldsInFreeze : Set String
-    , fieldsInHead : Set String
-    , fieldsOutsideFreeze : Set String
+    -- Field tracking: fields accessed in CLIENT contexts (outside freeze/head)
+    -- These are the fields that MUST be kept in the client Data type
+    , clientUsedFields : Set String
+
+    -- Ephemeral context tracking
     , inFreezeCall : Bool
     , inHeadFunction : Bool
 
-    -- app.data binding tracking
+    -- app.data binding tracking (for let bindings like `let d = app.data`)
     , appDataBindings : Set String
 
-    -- Track if app.data is used as a whole (not field-accessed)
-    -- If true, we can't safely determine ephemeral fields
+    -- Track if app.data is used as a whole in CLIENT context (not field-accessed)
+    -- If true, we can't safely determine which fields are client-used
     , appDataUsedAsWhole : Bool
 
     -- Track if Data is used as a record constructor function
@@ -119,9 +121,7 @@ initialContext =
             , htmlStyledAlias = Nothing
             , lastImportRow = 2
             , staticIndex = 0
-            , fieldsInFreeze = Set.empty
-            , fieldsInHead = Set.empty
-            , fieldsOutsideFreeze = Set.empty
+            , clientUsedFields = Set.empty
             , inFreezeCall = False
             , inHeadFunction = False
             , appDataBindings = Set.empty
@@ -289,7 +289,8 @@ expressionEnterVisitor node context =
                     _ ->
                         context
 
-        -- Track entering freeze calls and check if app.data is used as a whole
+        -- Track entering freeze calls
+        -- Also check if app.data is passed as a whole in CLIENT context
         contextWithFreezeTracking =
             case Node.value node of
                 Expression.Application (functionNode :: args) ->
@@ -297,38 +298,17 @@ expressionEnterVisitor node context =
                         Just [ "View" ] ->
                             case Node.value functionNode of
                                 Expression.FunctionOrValue _ "freeze" ->
-                                    -- Check if any argument contains app.data passed to a function
-                                    -- (not just field-accessed)
-                                    let
-                                        appDataPassedToFunction =
-                                            args
-                                                |> List.any
-                                                    (\arg ->
-                                                        case Node.value arg of
-                                                            -- Direct app.data.field access is OK
-                                                            Expression.RecordAccess innerExpr _ ->
-                                                                False
-
-                                                            -- If the arg is a function call that contains app.data,
-                                                            -- we can't track field access
-                                                            Expression.Application innerArgs ->
-                                                                List.any (\a -> containsAppDataExpression a contextWithDataConstructorCheck) innerArgs
-
-                                                            -- Direct app.data is being used as a whole
-                                                            _ ->
-                                                                isAppDataExpression arg contextWithDataConstructorCheck
-                                                    )
-                                    in
-                                    { contextWithDataConstructorCheck
-                                        | inFreezeCall = True
-                                        , appDataUsedAsWhole = contextWithDataConstructorCheck.appDataUsedAsWhole || appDataPassedToFunction
-                                    }
+                                    -- Entering freeze - just set the flag, don't check app.data here
+                                    -- (we don't care about tracking inside ephemeral contexts)
+                                    { contextWithDataConstructorCheck | inFreezeCall = True }
 
                                 _ ->
-                                    contextWithDataConstructorCheck
+                                    -- Check for app.data passed as whole in CLIENT context
+                                    checkAppDataPassedInClientContext contextWithDataConstructorCheck args
 
                         _ ->
-                            contextWithDataConstructorCheck
+                            -- Check for app.data passed as whole in CLIENT context
+                            checkAppDataPassedInClientContext contextWithDataConstructorCheck args
 
                 _ ->
                     contextWithDataConstructorCheck
@@ -585,18 +565,58 @@ extractPatternNames node =
             Set.empty
 
 
-{-| Add a field access to the appropriate tracking set
+{-| Add a field access to clientUsedFields if we're in a CLIENT context.
+Fields accessed in ephemeral contexts (freeze, head) are NOT tracked.
 -}
 addFieldAccess : String -> Context -> Context
 addFieldAccess fieldName context =
-    if context.inFreezeCall then
-        { context | fieldsInFreeze = Set.insert fieldName context.fieldsInFreeze }
-
-    else if context.inHeadFunction then
-        { context | fieldsInHead = Set.insert fieldName context.fieldsInHead }
+    if context.inFreezeCall || context.inHeadFunction then
+        -- In ephemeral context - don't track (field can potentially be removed)
+        context
 
     else
-        { context | fieldsOutsideFreeze = Set.insert fieldName context.fieldsOutsideFreeze }
+        -- In client context - field MUST be kept
+        { context | clientUsedFields = Set.insert fieldName context.clientUsedFields }
+
+
+{-| Check if app.data is passed as a whole to a function in CLIENT context.
+If we're in an ephemeral context (freeze/head), we don't care.
+If we're in client context and app.data is passed as a whole, we can't
+safely determine which fields are used, so we set appDataUsedAsWhole.
+-}
+checkAppDataPassedInClientContext : Context -> List (Node Expression) -> Context
+checkAppDataPassedInClientContext context args =
+    if context.inFreezeCall || context.inHeadFunction then
+        -- In ephemeral context - we don't care about tracking here
+        context
+
+    else
+        -- In client context - check if app.data is passed as a whole
+        let
+            appDataPassedToFunction =
+                args
+                    |> List.any
+                        (\arg ->
+                            case Node.value arg of
+                                -- Direct app.data.field access is OK - we can track the field
+                                Expression.RecordAccess _ _ ->
+                                    False
+
+                                -- If the arg is a function call that contains app.data,
+                                -- we can't track which fields are used
+                                Expression.Application innerArgs ->
+                                    List.any (\a -> containsAppDataExpression a context) innerArgs
+
+                                -- Direct app.data is being used as a whole
+                                _ ->
+                                    isAppDataExpression arg context
+                        )
+        in
+        if appDataPassedToFunction then
+            { context | appDataUsedAsWhole = True }
+
+        else
+            context
 
 
 handleViewModuleCall : Node Expression -> Node Expression -> Context -> ( List (Error {}), Context )
@@ -735,16 +755,19 @@ viewStaticAdoptCallPlain context =
     modulePrefix ++ ".adopt " ++ idStr
 
 
-{-| Final evaluation - emit Data type transformation if there are ephemeral fields.
+{-| Final evaluation - emit Data type transformation if there are removable fields.
+
+The model is:
+- Start with ALL fields from the Data type
+- Fields used in CLIENT contexts (outside freeze/head) are in clientUsedFields
+- Removable fields = allFields - clientUsedFields
 
 Conservative approach:
 - Only tracks DIRECT field access patterns like `app.data.fieldName`
-- If `app.data` is passed as a whole to ANY function inside a freeze call,
-  we can't safely determine which fields are ephemeral, so we skip the transformation entirely
+- If `app.data` is passed as a whole to ANY function in CLIENT context,
+  we can't safely determine which fields are client-used, so we skip entirely
 - If `Data` is used as a record constructor function (e.g., `map4 Data`),
   we can't transform the type without breaking the constructor call
-- This means `View.freeze (render app.data)` won't get Data type DCE,
-  but `View.freeze (div [] [ text app.data.title ])` will
 
 False negatives (missing optimization) are acceptable.
 False positives (breaking code) are NOT acceptable.
@@ -753,7 +776,7 @@ False positives (breaking code) are NOT acceptable.
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     -- Conservative: skip transformation in these cases:
-    -- 1. app.data was passed to a function inside freeze (can't track fields)
+    -- 1. app.data was passed to a function in CLIENT context (can't track fields)
     -- 2. Data is used as a constructor function (changing type would break it)
     if context.appDataUsedAsWhole || context.dataUsedAsConstructor then
         []
@@ -765,24 +788,24 @@ finalEvaluation context =
 
             Just range ->
                 let
-                    -- Ephemeral fields: used only in freeze or head (not outside)
-                    ephemeralFields =
-                        Set.union context.fieldsInFreeze context.fieldsInHead
-                            |> Set.filter (\f -> not (Set.member f context.fieldsOutsideFreeze))
-
-                    -- Fields that are ONLY used in head (needed for head stubbing)
-                    fieldsOnlyInHead =
-                        context.fieldsInHead
-                            |> Set.filter (\f -> not (Set.member f context.fieldsOutsideFreeze))
-                            |> Set.filter (\f -> not (Set.member f context.fieldsInFreeze))
-
-                    -- Persistent fields: used outside freeze (or not used at all - conservative)
-                    persistentFieldDefs =
+                    -- All field names from the Data type
+                    allFieldNames =
                         context.dataTypeFields
-                            |> List.filter (\( name, _ ) -> not (Set.member name ephemeralFields))
+                            |> List.map Tuple.first
+                            |> Set.fromList
+
+                    -- Removable fields: all fields that are NOT used in client context
+                    removableFields =
+                        allFieldNames
+                            |> Set.filter (\f -> not (Set.member f context.clientUsedFields))
+
+                    -- Client-used fields: these MUST be kept in the Data type
+                    clientUsedFieldDefs =
+                        context.dataTypeFields
+                            |> List.filter (\( name, _ ) -> Set.member name context.clientUsedFields)
                 in
-                if Set.isEmpty ephemeralFields then
-                    -- No ephemeral fields, nothing to transform
+                if Set.isEmpty removableFields then
+                    -- No removable fields, nothing to transform
                     []
 
                 else
@@ -790,39 +813,35 @@ finalEvaluation context =
                     -- Use single-line format for simplicity
                     let
                         newTypeAnnotation =
-                            if List.isEmpty persistentFieldDefs then
+                            if List.isEmpty clientUsedFieldDefs then
                                 "{}"
 
                             else
                                 "{ "
-                                    ++ (persistentFieldDefs
+                                    ++ (clientUsedFieldDefs
                                             |> List.map (\( name, typeNode ) -> name ++ " : " ++ typeAnnotationToString (Node.value typeNode))
                                             |> String.join ", "
                                        )
                                     ++ " }"
 
-                        -- If ephemeral fields are used in head, we need to stub out head too
+                        -- Always stub out head when removing fields
                         -- The head function never runs on client, so we replace body with []
                         headStubFix =
-                            if not (Set.isEmpty fieldsOnlyInHead) then
-                                case context.headFunctionBodyRange of
-                                    Just headRange ->
-                                        [ Rule.errorWithFix
-                                            { message = "Head function codemod: stub out for client bundle"
-                                            , details =
-                                                [ "Replacing head function body with [] because it uses ephemeral fields: " ++ String.join ", " (Set.toList fieldsOnlyInHead)
-                                                , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
-                                                ]
-                                            }
-                                            headRange
-                                            [ Review.Fix.replaceRangeBy headRange "[]" ]
-                                        ]
+                            case context.headFunctionBodyRange of
+                                Just headRange ->
+                                    [ Rule.errorWithFix
+                                        { message = "Head function codemod: stub out for client bundle"
+                                        , details =
+                                            [ "Replacing head function body with [] because Data fields are being removed."
+                                            , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
+                                            ]
+                                        }
+                                        headRange
+                                        [ Review.Fix.replaceRangeBy headRange "[]" ]
+                                    ]
 
-                                    Nothing ->
-                                        []
-
-                            else
-                                []
+                                Nothing ->
+                                    []
 
                         -- Always stub out the data function when transforming Data type
                         -- The data function constructs Data records and never runs on client
@@ -833,7 +852,7 @@ finalEvaluation context =
                                     [ Rule.errorWithFix
                                         { message = "Data function codemod: stub out for client bundle"
                                         , details =
-                                            [ "Replacing data function body because it constructs Data records with ephemeral fields."
+                                            [ "Replacing data function body because Data fields are being removed."
                                             , "The data function never runs on the client (it's for build-time data fetching), so stubbing it out allows DCE."
                                             ]
                                         }
@@ -848,17 +867,17 @@ finalEvaluation context =
                         -- This is parsed by generate-template-module-connector.js
                         -- Includes:
                         --   - module: full module name
-                        --   - ephemeralFields: list of field names that should be removed
+                        --   - removableFields: list of field names that should be removed
                         --   - newDataType: the new Data type definition string
                         --   - range: the location of the old Data type record definition
-                        ephemeralFieldsList =
-                            Set.toList ephemeralFields
+                        removableFieldsList =
+                            Set.toList removableFields
 
                         jsonMessage =
                             "EPHEMERAL_FIELDS_JSON:{\"module\":\""
                                 ++ String.join "." context.moduleName
                                 ++ "\",\"ephemeralFields\":["
-                                ++ (ephemeralFieldsList |> List.map (\f -> "\"" ++ f ++ "\"") |> String.join ",")
+                                ++ (removableFieldsList |> List.map (\f -> "\"" ++ f ++ "\"") |> String.join ",")
                                 ++ "],\"newDataType\":\""
                                 ++ escapeJsonString newTypeAnnotation
                                 ++ "\",\"range\":{\"start\":{\"row\":"
@@ -884,10 +903,10 @@ finalEvaluation context =
                                 jsonOutputRange
                     in
                     Rule.errorWithFix
-                        { message = "Data type codemod: remove ephemeral fields"
+                        { message = "Data type codemod: remove non-client-used fields"
                         , details =
-                            [ "Removing ephemeral fields from Data type: " ++ String.join ", " (Set.toList ephemeralFields)
-                            , "These fields are only used inside View.freeze calls and/or the head function, so they can be eliminated from the client bundle."
+                            [ "Removing fields from Data type: " ++ String.join ", " removableFieldsList
+                            , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
                             ]
                         }
                         range

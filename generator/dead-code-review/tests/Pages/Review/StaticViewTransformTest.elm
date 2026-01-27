@@ -314,10 +314,10 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "Data type codemod: remove ephemeral fields"
+                                { message = "Data type codemod: remove non-client-used fields"
                                 , details =
-                                    [ "Removing ephemeral fields from Data type: body"
-                                    , "These fields are only used inside View.freeze calls and/or the head function, so they can be eliminated from the client bundle."
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
                                     ]
                                 , under = """{ title : String
     , body : String
@@ -412,7 +412,7 @@ view app =
                             [ Review.Test.error
                                 { message = "Head function codemod: stub out for client bundle"
                                 , details =
-                                    [ "Replacing head function body with [] because it uses ephemeral fields: description"
+                                    [ "Replacing head function body with [] because Data fields are being removed."
                                     , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
                                     ]
                                 , under = "[ Html.text app.data.description ]"
@@ -438,10 +438,10 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "Data type codemod: remove ephemeral fields"
+                                { message = "Data type codemod: remove non-client-used fields"
                                 , details =
-                                    [ "Removing ephemeral fields from Data type: description"
-                                    , "These fields are only used inside View.freeze calls and/or the head function, so they can be eliminated from the client bundle."
+                                    [ "Removing fields from Data type: description"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
                                     ]
                                 , under = """{ title : String
     , description : String
@@ -498,7 +498,7 @@ view app =
                             [ Review.Test.error
                                 { message = "Head function codemod: stub out for client bundle"
                                 , details =
-                                    [ "Replacing head function body with [] because it uses ephemeral fields: metadata"
+                                    [ "Replacing head function body with [] because Data fields are being removed."
                                     , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
                                     ]
                                 , under = "[ Html.text app.data.metadata.description ]"
@@ -524,10 +524,10 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "Data type codemod: remove ephemeral fields"
+                                { message = "Data type codemod: remove non-client-used fields"
                                 , details =
-                                    [ "Removing ephemeral fields from Data type: metadata"
-                                    , "These fields are only used inside View.freeze calls and/or the head function, so they can be eliminated from the client bundle."
+                                    [ "Removing fields from Data type: metadata"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
                                     ]
                                 , under = """{ titles : { title : String }
     , metadata : { description : String }
