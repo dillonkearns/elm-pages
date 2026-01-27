@@ -68,8 +68,8 @@ view =
 """
                             ]
             ]
-        , describe "View.staticView transformation"
-            [ test "transforms View.staticView to View.Static.adopt" <|
+        , describe "View.freeze transformation"
+            [ test "transforms View.freeze with function call argument" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
 
@@ -78,14 +78,14 @@ import View
 import View.Static
 
 view app =
-    { body = [ View.staticView app.staticData renderFn ] }
+    { body = [ View.freeze (renderFn app.staticData) ] }
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.staticView to View.Static.adopt"
-                                , details = [ "Transforms View.staticView to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.staticView app.staticData renderFn"
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (renderFn app.staticData)"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)
@@ -125,21 +125,21 @@ view =
     View.Static.adopt "0"
 """
                             ]
-            , test "transforms View.Static.view to View.Static.adopt (plain Html)" <|
+            , test "transforms View.Static.static with function call (plain Html)" <|
                 \() ->
                     """module Route.Index exposing (Data, route)
 
 import View.Static
 
 view app =
-    View.Static.view app.staticData renderFn
+    View.Static.static (renderFn app.staticData)
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
-                                { message = "Static region codemod: transform View.Static.view to View.Static.adopt"
-                                , details = [ "Transforms View.Static.view to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.Static.view app.staticData renderFn"
+                                { message = "Static region codemod: transform View.Static.static to View.Static.adopt"
+                                , details = [ "Transforms View.Static.static to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.Static.static (renderFn app.staticData)"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)
@@ -269,5 +269,316 @@ view =
     { body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ] }
 """
                             ]
+            ]
+        , describe "Data type field tracking"
+            [ test "tracks field access inside View.freeze as ephemeral" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove ephemeral fields"
+                                , details =
+                                    [ "Removing ephemeral fields from Data type: body"
+                                    , "These fields are only used inside View.freeze calls and/or the head function, so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "does NOT transform fields used both inside and outside freeze" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.title) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.title)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+"""
+                            ]
+            , test "field used ONLY in head function should be ephemeral" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+head app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Head function codemod: stub out for client bundle"
+                                , details =
+                                    [ "Replacing head function body with [] because it uses ephemeral fields: description"
+                                    , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
+                                    ]
+                                , under = "[ Html.text app.data.description ]"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , description : String
+    }
+
+head app =
+    []
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove ephemeral fields"
+                                , details =
+                                    [ "Removing ephemeral fields from Data type: description"
+                                    , "These fields are only used inside View.freeze calls and/or the head function, so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , description : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+head app =
+    [ Html.text app.data.description ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "NESTED field used ONLY in head function should be ephemeral" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { titles : { title : String }
+    , metadata : { description : String }
+    }
+
+head app =
+    [ Html.text app.data.metadata.description ]
+
+view app =
+    { title = app.data.titles.title
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Head function codemod: stub out for client bundle"
+                                , details =
+                                    [ "Replacing head function body with [] because it uses ephemeral fields: metadata"
+                                    , "The head function never runs on the client (it's for SEO at build time), so stubbing it out allows DCE."
+                                    ]
+                                , under = "[ Html.text app.data.metadata.description ]"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { titles : { title : String }
+    , metadata : { description : String }
+    }
+
+head app =
+    []
+
+view app =
+    { title = app.data.titles.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove ephemeral fields"
+                                , details =
+                                    [ "Removing ephemeral fields from Data type: metadata"
+                                    , "These fields are only used inside View.freeze calls and/or the head function, so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ titles : { title : String }
+    , metadata : { description : String }
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { titles : { title : String } }
+
+head app =
+    [ Html.text app.data.metadata.description ]
+
+view app =
+    { title = app.data.titles.title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"metadata\"],\"newDataType\":\"{ titles : { title : String } }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "field used in BOTH head and view should NOT be ephemeral" <|
+                \() ->
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    }
+
+head app =
+    [ Html.text app.data.title ]
+
+view app =
+    { title = app.data.title
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
             ]
         ]

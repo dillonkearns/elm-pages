@@ -787,7 +787,7 @@ finalEvaluation context =
 
                 else
                     -- Generate fix to rewrite Data type alias
-                    -- Use single-line format for simplicity
+                    -- Use single-line format for simplicity and to avoid indentation issues
                     let
                         newTypeAnnotation =
                             if List.isEmpty persistentFieldDefs then
@@ -846,11 +846,7 @@ finalEvaluation context =
 
                         -- JSON output for the build system to consume
                         -- This is parsed by generate-template-module-connector.js
-                        -- Includes:
-                        --   - module: full module name
-                        --   - ephemeralFields: list of field names that should be removed
-                        --   - newDataType: the new Data type definition string
-                        --   - range: the location of the old Data type record definition
+                        -- Simple format: just module name and list of ephemeral field names
                         ephemeralFieldsList =
                             Set.toList ephemeralFields
 
@@ -859,17 +855,7 @@ finalEvaluation context =
                                 ++ String.join "." context.moduleName
                                 ++ "\",\"ephemeralFields\":["
                                 ++ (ephemeralFieldsList |> List.map (\f -> "\"" ++ f ++ "\"") |> String.join ",")
-                                ++ "],\"newDataType\":\""
-                                ++ escapeJsonString newTypeAnnotation
-                                ++ "\",\"range\":{\"start\":{\"row\":"
-                                ++ String.fromInt range.start.row
-                                ++ ",\"column\":"
-                                ++ String.fromInt range.start.column
-                                ++ "},\"end\":{\"row\":"
-                                ++ String.fromInt range.end.row
-                                ++ ",\"column\":"
-                                ++ String.fromInt range.end.column
-                                ++ "}}}"
+                                ++ "]}"
 
                         -- Use a minimal range at line 1 to avoid conflicts with the Data type fix
                         -- Both errors at the same range can confuse elm-review fix application
@@ -888,6 +874,11 @@ finalEvaluation context =
                         , details =
                             [ "Removing ephemeral fields from Data type: " ++ String.join ", " (Set.toList ephemeralFields)
                             , "These fields are only used inside View.freeze calls and/or the head function, so they can be eliminated from the client bundle."
+                            , "DEBUG: fieldsInFreeze=" ++ String.join ", " (Set.toList context.fieldsInFreeze)
+                            , "DEBUG: fieldsInHead=" ++ String.join ", " (Set.toList context.fieldsInHead)
+                            , "DEBUG: fieldsOutsideFreeze=" ++ String.join ", " (Set.toList context.fieldsOutsideFreeze)
+                            , "DEBUG: persistentFieldDefs=" ++ String.join ", " (List.map Tuple.first persistentFieldDefs)
+                            , "DEBUG: newTypeAnnotation=" ++ newTypeAnnotation
                             ]
                         }
                         range
@@ -993,15 +984,3 @@ typeAnnotationToString typeAnnotation =
                             leftStr
             in
             leftWrapped ++ " -> " ++ rightStr
-
-
-{-| Escape a string for use in a JSON string value.
-Handles quotes and backslashes.
--}
-escapeJsonString : String -> String
-escapeJsonString str =
-    str
-        |> String.replace "\\" "\\\\"
-        |> String.replace "\"" "\\\""
-        |> String.replace "\n" "\\n"
-        |> String.replace "\t" "\\t"

@@ -1,5 +1,7 @@
 module GenerateMain exposing (..)
 
+import Dict exposing (Dict)
+import Set
 import Elm exposing (File)
 import Elm.Annotation as Type
 import Elm.Arg
@@ -52,8 +54,15 @@ type Phase
     | Cli
 
 
-otherFile : List RoutePattern.RoutePattern -> String -> File
-otherFile routes phaseString =
+{-| Set of module names that have ephemeral fields (e.g., "Route.Blog.Slug_").
+Simple membership check determines if a route uses Ephemeral type.
+-}
+type alias RoutesWithEphemeral =
+    Set.Set String
+
+
+otherFile : List RoutePattern.RoutePattern -> String -> RoutesWithEphemeral -> File
+otherFile routes phaseString routesWithEphemeral =
     let
         phase : Phase
         phase =
@@ -1464,8 +1473,8 @@ otherFile routes phaseString =
         byteEncodePageData =
             Elm.Declare.fn "byteEncodePageData"
                 (Elm.Arg.varWith "pageData" pageDataType.annotation)
-                (\actionData ->
-                    Elm.Case.custom actionData
+                (\pageData ->
+                    Elm.Case.custom pageData
                         Type.unit
                         ([ Elm.Case.branch
                             (Elm.Arg.customType "DataErrorPage____" identity
@@ -1486,14 +1495,43 @@ otherFile routes phaseString =
                             ++ (routes
                                     |> List.map
                                         (\route ->
+                                            let
+                                                routeModuleName =
+                                                    "Route." ++ String.join "." (RoutePattern.toModuleName route)
+
+                                                hasEphemeralFields =
+                                                    Set.member routeModuleName routesWithEphemeral
+                                            in
                                             Elm.Case.branch
                                                 (Elm.Arg.customType ("Data" ++ (RoutePattern.toModuleName route |> String.join "__")) identity
                                                     |> Elm.Arg.item (Elm.Arg.var "thisPageData")
                                                 )
                                                 (\thisPageData ->
-                                                    Elm.apply
-                                                        (route |> encodeRouteType Data)
-                                                        [ thisPageData ]
+                                                    case phase of
+                                                        Cli ->
+                                                            if hasEphemeralFields then
+                                                                -- Route has ephemeral fields:
+                                                                -- thisPageData is Ephemeral, convert to Data before encoding
+                                                                let
+                                                                    dataValue =
+                                                                        Elm.apply
+                                                                            (Elm.value
+                                                                                { annotation = Nothing
+                                                                                , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                                                , name = "ephemeralToData"
+                                                                                }
+                                                                            )
+                                                                            [ thisPageData ]
+                                                                in
+                                                                Elm.apply (route |> encodeRouteType Data) [ dataValue ]
+
+                                                            else
+                                                                -- No ephemeral fields, encode directly
+                                                                Elm.apply (route |> encodeRouteType Data) [ thisPageData ]
+
+                                                        Browser ->
+                                                            -- Browser phase, use standard encoder
+                                                            Elm.apply (route |> encodeRouteType Data) [ thisPageData ]
                                                 )
                                         )
                                )
@@ -1517,11 +1555,35 @@ otherFile routes phaseString =
                                         |> List.map
                                             (\route ->
                                                 let
+                                                    routeModuleName =
+                                                        "Route." ++ String.join "." (RoutePattern.toModuleName route)
+
+                                                    hasEphemeralFields =
+                                                        Set.member routeModuleName routesWithEphemeral
+
                                                     mappedDecoder : Elm.Expression
                                                     mappedDecoder =
-                                                        Gen.Bytes.Decode.call_.map
-                                                            (Elm.val ("Data" ++ (RoutePattern.toModuleName route |> String.join "__")))
-                                                            (decodeRouteType Data route)
+                                                        case phase of
+                                                            Cli ->
+                                                                if hasEphemeralFields then
+                                                                    -- CLI phase with ephemeral fields:
+                                                                    -- PageData uses Ephemeral, but wire format only has Data.
+                                                                    -- We can't decode Data into Ephemeral (ephemeral fields are missing).
+                                                                    -- Use fail since CLI never needs to decode page data from wire
+                                                                    -- (it generates data via BackendTask, not decodes it).
+                                                                    Gen.Bytes.Decode.values_.fail
+
+                                                                else
+                                                                    -- No ephemeral fields, decode normally
+                                                                    Gen.Bytes.Decode.call_.map
+                                                                        (Elm.val ("Data" ++ (RoutePattern.toModuleName route |> String.join "__")))
+                                                                        (decodeRouteType Data route)
+
+                                                            Browser ->
+                                                                -- Browser phase, decode normally
+                                                                Gen.Bytes.Decode.call_.map
+                                                                    (Elm.val ("Data" ++ (RoutePattern.toModuleName route |> String.join "__")))
+                                                                    (decodeRouteType Data route)
 
                                                     routeVariant : String
                                                     routeVariant =
@@ -1726,6 +1788,155 @@ otherFile routes phaseString =
                             )
                 )
 
+        -- | For CLI phase with ephemeral fields, we need a PageData encoder
+        -- that converts Ephemeral -> Data before encoding. This ensures the Wire3 format
+        -- matches what the client's decoder expects (client has reduced Data type).
+        --
+        -- For routes with ephemeral fields:
+        --   1. PageData uses Ephemeral type (full data for rendering)
+        --   2. Encoder calls ephemeralToData to get reduced Data
+        --   3. Encodes Data using standard Wire3 encoder
+        --
+        -- Tag order must match Lamdera's auto-generated w3_decode_PageData
+        -- which uses ALPHABETICAL ordering of variant names.
+        customPageDataEncoder : Elm.Declare.Function (Elm.Expression -> Elm.Expression)
+        customPageDataEncoder =
+            let
+                -- Build list of all variant names for alphabetical sorting
+                allVariantNames : List String
+                allVariantNames =
+                    (routes
+                        |> List.map
+                            (\route -> "Data" ++ (RoutePattern.toModuleName route |> String.join "__"))
+                    )
+                        ++ [ "Data404NotFoundPage____", "DataErrorPage____" ]
+
+                -- Sort alphabetically and create lookup dict for tag assignment
+                variantToTag : Dict.Dict String Int
+                variantToTag =
+                    allVariantNames
+                        |> List.sort
+                        |> List.indexedMap (\idx name -> ( name, idx ))
+                        |> Dict.fromList
+
+                -- Helper to get tag for a variant name
+                getTag : String -> Int
+                getTag variantName =
+                    Dict.get variantName variantToTag |> Maybe.withDefault 0
+
+                notFoundTag =
+                    getTag "Data404NotFoundPage____"
+
+                errorPageTag =
+                    getTag "DataErrorPage____"
+            in
+            Elm.Declare.fn "encodePageDataForClient"
+                (Elm.Arg.varWith "pageData" pageDataType.annotation)
+                (\pageData ->
+                    Elm.Case.custom pageData
+                        Type.unit
+                        ((routes
+                                    |> List.map
+                                        (\route ->
+                                            let
+                                                routeModuleName =
+                                                    "Route." ++ String.join "." (RoutePattern.toModuleName route)
+
+                                                variantName =
+                                                    "Data" ++ (RoutePattern.toModuleName route |> String.join "__")
+
+                                                -- Tag for this route variant (alphabetically sorted)
+                                                routeTag =
+                                                    getTag variantName
+
+                                                hasEphemeralFields =
+                                                    Set.member routeModuleName routesWithEphemeral
+                                            in
+                                            Elm.Case.branch
+                                                (Elm.Arg.customType variantName identity
+                                                    |> Elm.Arg.item (Elm.Arg.var "thisPageData")
+                                                )
+                                                (\thisPageData ->
+                                                    if hasEphemeralFields then
+                                                        -- Route has ephemeral fields:
+                                                        -- 1. thisPageData is of type Ephemeral (full data)
+                                                        -- 2. Call ephemeralToData to get reduced Data
+                                                        -- 3. Encode Data using standard Wire3 encoder
+                                                        let
+                                                            dataValue =
+                                                                Elm.apply
+                                                                    (Elm.value
+                                                                        { annotation = Nothing
+                                                                        , importFrom = "Route" :: RoutePattern.toModuleName route
+                                                                        , name = "ephemeralToData"
+                                                                        }
+                                                                    )
+                                                                    [ thisPageData ]
+                                                        in
+                                                        Elm.apply
+                                                            (Elm.value
+                                                                { annotation = Nothing
+                                                                , importFrom = [ "Lamdera", "Wire3" ]
+                                                                , name = "encodeSequenceWithoutLength"
+                                                                }
+                                                            )
+                                                            [ Elm.list
+                                                                [ Gen.Bytes.Encode.unsignedInt8 routeTag
+                                                                , Elm.apply (route |> encodeRouteType Data) [ dataValue ]
+                                                                ]
+                                                            ]
+
+                                                    else
+                                                        -- No ephemeral fields, use standard Wire3 encoder directly
+                                                        Elm.apply
+                                                            (Elm.value
+                                                                { annotation = Nothing
+                                                                , importFrom = [ "Lamdera", "Wire3" ]
+                                                                , name = "encodeSequenceWithoutLength"
+                                                                }
+                                                            )
+                                                            [ Elm.list
+                                                                [ Gen.Bytes.Encode.unsignedInt8 routeTag
+                                                                , Elm.apply (route |> encodeRouteType Data) [ thisPageData ]
+                                                                ]
+                                                            ]
+                                                )
+                                        )
+                               )
+                            ++ [ -- Data404NotFoundPage____ (alphabetically sorted tag)
+                                 Elm.Case.branch (Elm.Arg.customType "Data404NotFoundPage____" ())
+                                    (\_ -> Gen.Bytes.Encode.unsignedInt8 notFoundTag)
+                               , -- DataErrorPage____ (alphabetically sorted tag)
+                                 Elm.Case.branch
+                                    (Elm.Arg.customType "DataErrorPage____" identity
+                                        |> Elm.Arg.item (Elm.Arg.var "thisPageData")
+                                    )
+                                    (\thisPageData ->
+                                        Elm.apply
+                                            (Elm.value
+                                                { annotation = Nothing
+                                                , importFrom = [ "Lamdera", "Wire3" ]
+                                                , name = "encodeSequenceWithoutLength"
+                                                }
+                                            )
+                                            [ Elm.list
+                                                [ Gen.Bytes.Encode.unsignedInt8 errorPageTag
+                                                , Elm.apply
+                                                    (Elm.value
+                                                        { annotation = Nothing
+                                                        , importFrom = [ "ErrorPage" ]
+                                                        , name = "w3_encode_ErrorPage"
+                                                        }
+                                                    )
+                                                    [ thisPageData ]
+                                                ]
+                                            ]
+                                    )
+                               ]
+                        )
+                        |> Elm.withType Gen.Bytes.Encode.annotation_.encoder
+                )
+
         encodeResponse : Elm.Declare.Value
         encodeResponse =
             Elm.Declare.value "encodeResponse"
@@ -1737,7 +1948,14 @@ otherFile routes phaseString =
                             [ "Pages", "Internal", "ResponseSketch" ]
                         }
                     )
-                    [ Elm.val "w3_encode_PageData"
+                    [ -- For CLI phase, use custom encoder that skips ephemeral fields
+                      -- For browser phase, use standard Wire3 encoder
+                      case phase of
+                        Cli ->
+                            customPageDataEncoder.value
+
+                        Browser ->
+                            Elm.val "w3_encode_PageData"
                     , Elm.val "w3_encode_ActionData"
                     , Elm.value
                         { annotation = Nothing
@@ -1944,6 +2162,25 @@ otherFile routes phaseString =
                 ((routes
                     |> List.map
                         (\route ->
+                            let
+                                routeModuleName =
+                                    "Route." ++ String.join "." (RoutePattern.toModuleName route)
+
+                                -- In CLI phase, use Ephemeral type for routes with ephemeral fields
+                                -- so that views have access to all data during rendering.
+                                -- In Browser phase, always use Data (which is the reduced type).
+                                dataTypeName =
+                                    case phase of
+                                        Cli ->
+                                            if Set.member routeModuleName routesWithEphemeral then
+                                                "Ephemeral"
+
+                                            else
+                                                "Data"
+
+                                        Browser ->
+                                            "Data"
+                            in
                             Elm.variantWith
                                 ("Data"
                                     ++ (RoutePattern.toModuleName route |> String.join "__")
@@ -1952,7 +2189,7 @@ otherFile routes phaseString =
                                     ("Route"
                                         :: RoutePattern.toModuleName route
                                     )
-                                    "Data"
+                                    dataTypeName
                                 ]
                         )
                  )
@@ -2056,6 +2293,7 @@ otherFile routes phaseString =
                 ]
             )
         , globalHeadTags.declaration
+        , customPageDataEncoder.declaration
         , encodeResponse.declaration
         , pathPatterns.declaration
         , skipStaticRegionsPrefix.declaration

@@ -4,6 +4,71 @@ import { default as mm } from "micromatch";
 import * as routeHelpers from "./route-codegen-helpers.js";
 import { restoreColorSafe } from "./error-formatter.js";
 import { fileURLToPath, pathToFileURL } from "url";
+import { spawnSync } from "child_process";
+import which from "which";
+
+/**
+ * Runs elm-review analysis on the original app/ folder to extract ephemeral fields info.
+ * This info is used to generate custom CLI encoders that skip ephemeral fields.
+ * @returns {Object<string, {ephemeralFields: string[], persistentFields: string[]}>}
+ */
+async function analyzeEphemeralFields() {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+  const lamderaPath = await which("lamdera");
+  const result = spawnSync(
+    "elm-review",
+    [
+      "--report",
+      "json",
+      "--namespace",
+      "elm-pages",
+      "--config",
+      path.join(__dirname, "../../generator/dead-code-review"),
+      "--elmjson",
+      "elm.json",
+      "--compiler",
+      lamderaPath,
+    ],
+    {
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
+    }
+  );
+
+  // Just collect module names that have ephemeral fields (simple list)
+  const routesWithEphemeral = [];
+
+  try {
+    const jsonOutput = JSON.parse(result.stdout);
+    if (jsonOutput.errors) {
+      for (const fileErrors of jsonOutput.errors) {
+        for (const error of fileErrors.errors) {
+          if (
+            error.message &&
+            error.message.startsWith("EPHEMERAL_FIELDS_JSON:")
+          ) {
+            const jsonStr = error.message.slice("EPHEMERAL_FIELDS_JSON:".length);
+            const data = JSON.parse(jsonStr);
+            // Only add if there are actually ephemeral fields
+            if (data.ephemeralFields && data.ephemeralFields.length > 0) {
+              routesWithEphemeral.push(data.module);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // If parsing fails, return empty list (no ephemeral field optimization)
+    console.warn(
+      "Warning: Could not parse elm-review output for ephemeral fields analysis:",
+      e.message
+    );
+  }
+
+  return routesWithEphemeral;
+}
 
 /**
  * @param {string} basePath
@@ -40,12 +105,21 @@ export async function generateTemplateModuleConnector(basePath, phase) {
       ],
     };
   }
+
+  // For CLI phase, detect which routes have ephemeral fields
+  // (used to generate correct encoders/decoders in Main.elm)
+  let routesWithEphemeral = [];
+  if (phase === "cli") {
+    routesWithEphemeral = await analyzeEphemeralFields();
+  }
+
   let elmCodegenFiles = null;
   try {
     elmCodegenFiles = await runElmCodegenCli(
       sortTemplates(templates),
       basePath,
-      phase
+      phase,
+      routesWithEphemeral
     );
   } catch (error) {
     console.log(restoreColorSafe(error));
@@ -63,7 +137,7 @@ export async function generateTemplateModuleConnector(basePath, phase) {
   };
 }
 
-async function runElmCodegenCli(templates, basePath, phase) {
+async function runElmCodegenCli(templates, basePath, phase, routesWithEphemeral) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const filePath = pathToFileURL(
@@ -74,7 +148,13 @@ async function runElmCodegenCli(templates, basePath, phase) {
     const elmPagesCodegen = (await import(filePath)).default.Elm.Generate;
 
     const app = elmPagesCodegen.init({
-      flags: { templates: templates, basePath, phase },
+      flags: {
+        templates: templates,
+        basePath,
+        phase,
+        // Simple list of module names that have ephemeral fields
+        ephemeralFields: routesWithEphemeral,
+      },
     });
     if (app.ports.onSuccessSend) {
       app.ports.onSuccessSend.subscribe(resolve);

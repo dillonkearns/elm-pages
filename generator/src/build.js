@@ -11,7 +11,7 @@ import * as terser from "terser";
 import * as os from "os";
 import { Worker, SHARE_ENV } from "worker_threads";
 import { ensureDirSync } from "./file-helpers.js";
-import { generateClientFolder } from "./codegen.js";
+import { generateClientFolder, generateServerFolder } from "./codegen.js";
 import { default as which } from "which";
 import { build } from "vite";
 import * as preRenderHtml from "./pre-render-html.js";
@@ -420,6 +420,12 @@ async function compileElm(options, config) {
   // This allows the CLI bundle (for extraction) to use original source while
   // the client bundle uses transformed source for dead-code elimination.
 
+  // Debug: Check Data type before compilation
+  const debugFile = path.join(process.cwd(), "./elm-stuff/elm-pages/client/app/Route/Docs/Section__.elm");
+  const debugContent = await fsPromises.readFile(debugFile, "utf-8");
+  const dataTypeMatch = debugContent.match(/type alias Data =[\s\S]*?(?=\n\ntype|\n\n\w)/);
+  console.log("[DEBUG compileElm] Data type BEFORE compilation:", dataTypeMatch ? dataTypeMatch[0].trim() : "NOT FOUND");
+
   await spawnElmMake(
     options.debug ? "debug" : "optimize",
     options,
@@ -643,16 +649,20 @@ export async function runTerser(filePath) {
 }
 
 export async function compileCliApp(options) {
+  // Generate server folder with server-specific codemods
+  // This transforms Data -> Ephemeral, creates reduced Data, generates ephemeralToData
+  await generateServerFolder(options.base);
+
   await spawnElmMake(
     // TODO should be --optimize, but there seems to be an issue with the html to JSON with --optimize
     options.debug ? "debug" : "optimize",
     options,
     path.join(
       process.cwd(),
-      `elm-stuff/elm-pages/.elm-pages/${options.mainModule || "Main"}.elm`
+      `elm-stuff/elm-pages/server/.elm-pages/${options.mainModule || "Main"}.elm`
     ),
     path.join(process.cwd(), "elm-stuff/elm-pages/elm.js"),
-    path.join(process.cwd(), "elm-stuff/elm-pages")
+    path.join(process.cwd(), "elm-stuff/elm-pages/server")
   );
 
   const elmFileContent = await fsPromises.readFile(ELM_FILE_PATH(), "utf-8");

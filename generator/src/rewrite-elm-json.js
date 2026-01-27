@@ -19,7 +19,7 @@ export async function rewriteElmJson(
 
 function rewriteElmJsonHelp(elmJson, options) {
   // The internal generated file will be at:
-  // ./elm-stuff/elm-pages/
+  // ./elm-stuff/elm-pages/ (depth 2) or ./elm-stuff/elm-pages/server/ (depth 3)
   // So, we need to take the existing elmJson and
   // 1. remove existing path that looks at `Pages.elm`
   elmJson["source-directories"] = elmJson["source-directories"].filter(
@@ -27,13 +27,22 @@ function rewriteElmJsonHelp(elmJson, options) {
       return item != ".elm-pages";
     }
   );
-  // 2. prepend ../../../ to remaining
+  // 2. prepend appropriate number of ../ to remaining
+  // Default depth is 2 (for elm-stuff/elm-pages/), but can be overridden
+  const pathPrefix = options && options.pathPrefix ? options.pathPrefix : "../../";
+
+  // For server folder, keep `app/` local instead of pointing to parent
+  // because we copy app files to the server folder for transformation
+  const keepAppLocal = options && options.keepAppLocal;
 
   elmJson["source-directories"] = elmJson["source-directories"].map((item) => {
     if (item === ".") {
       return "parentDirectory";
+    } else if (keepAppLocal && item === "app") {
+      // Keep app local for server folder - files are copied and transformed there
+      return "app";
     } else {
-      return "../../" + item;
+      return pathPrefix + item;
     }
   });
   if (options && options.executableName === "elm") {
