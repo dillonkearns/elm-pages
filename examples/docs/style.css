@@ -25,7 +25,3 @@ h2:hover .anchor-icon {
   color: rgb(226, 0, 124);
 }
 
-/* Rotate transform for left arrow */
-.rotate-180 {
-  transform: rotate(180deg);
-}
