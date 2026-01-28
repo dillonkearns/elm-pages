@@ -84,6 +84,10 @@ type alias Context =
     -- Data type location for transformation
     , dataTypeRange : Maybe Range
     , dataTypeFields : List ( String, Node TypeAnnotation )
+    , dataTypeDeclarationEndRow : Int -- Row where Data type declaration ends (for inserting NarrowedData)
+
+    -- Ranges where "App Data" appears in type signatures (to replace with "App NarrowedData")
+    , appDataTypeRanges : List Range
 
     -- Head function body range for stubbing
     , headFunctionBodyRange : Maybe Range
@@ -100,6 +104,9 @@ type alias Context =
 
     -- App parameter name from view function (could be "app", "static", etc.)
     , appParamName : Maybe String
+
+    -- Track if NarrowedData type alias already exists (to prevent infinite fix loop)
+    , narrowedDataExists : Bool
     }
 
 
@@ -139,12 +146,15 @@ initialContext =
             , dataUsedAsConstructor = False
             , dataTypeRange = Nothing
             , dataTypeFields = []
+            , dataTypeDeclarationEndRow = 0
+            , appDataTypeRanges = []
             , headFunctionBodyRange = Nothing
             , dataFunctionBodyRange = Nothing
             , routeBuilderHeadFn = Nothing
             , routeBuilderDataFn = Nothing
             , routeBuilderFound = False
             , appParamName = Nothing
+            , narrowedDataExists = False
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -221,10 +231,22 @@ declarationEnterVisitor node context =
                 actualDataFn =
                     context.routeBuilderDataFn
                         |> Maybe.withDefault "data"
+
+                -- Find "App Data" in type signature and track its range for replacement
+                appDataRanges =
+                    case function.signature of
+                        Just (Node _ signature) ->
+                            findAppDataRanges signature.typeAnnotation
+
+                        Nothing ->
+                            []
+
+                contextWithAppDataRanges =
+                    { context | appDataTypeRanges = context.appDataTypeRanges ++ appDataRanges }
             in
             if functionName == actualHeadFn then
                 ( []
-                , { context
+                , { contextWithAppDataRanges
                     | inHeadFunction = True
                     , headFunctionBodyRange = Just bodyRange
                   }
@@ -233,7 +255,7 @@ declarationEnterVisitor node context =
             else if functionName == actualDataFn then
                 -- Capture the data function body for potential stubbing
                 -- The data function never runs on client, only at build time
-                ( [], { context | dataFunctionBodyRange = Just bodyRange } )
+                ( [], { contextWithAppDataRanges | dataFunctionBodyRange = Just bodyRange } )
 
             else if functionName == "view" then
                 -- Extract the App parameter name from the view function
@@ -246,15 +268,19 @@ declarationEnterVisitor node context =
                             |> List.head
                             |> Maybe.andThen extractPatternName
                 in
-                ( [], { context | appParamName = maybeAppParam } )
+                ( [], { contextWithAppDataRanges | appParamName = maybeAppParam } )
 
             else
-                ( [], context )
+                ( [], contextWithAppDataRanges )
 
         Declaration.AliasDeclaration typeAlias ->
             let
                 typeName =
                     Node.value typeAlias.name
+
+                -- Track the end of the full declaration for inserting NarrowedData after
+                declarationEndRow =
+                    (Node.range node).end.row
             in
             if typeName == "Data" then
                 case Node.value typeAlias.typeAnnotation of
@@ -275,11 +301,16 @@ declarationEnterVisitor node context =
                         , { context
                             | dataTypeRange = Just (Node.range typeAlias.typeAnnotation)
                             , dataTypeFields = fields
+                            , dataTypeDeclarationEndRow = declarationEndRow
                           }
                         )
 
                     _ ->
                         ( [], context )
+
+            else if typeName == "NarrowedData" then
+                -- NarrowedData already exists, don't emit fix for it again
+                ( [], { context | narrowedDataExists = True } )
 
             else
                 ( [], context )
@@ -660,6 +691,66 @@ extractPatternName node =
             Nothing
 
 
+{-| Find all occurrences of "App Data ..." in a type annotation.
+Returns the ranges of the "Data" type argument so it can be replaced with "NarrowedData".
+
+For example, in `App Data ActionData RouteParams -> Shared.Model -> View msg`,
+this finds the range of `Data` (the first type argument to `App`).
+
+-}
+findAppDataRanges : Node TypeAnnotation -> List Range
+findAppDataRanges node =
+    case Node.value node of
+        TypeAnnotation.Typed (Node _ ( moduleName, typeName )) args ->
+            let
+                -- Check if this is "App" (from RouteBuilder or unqualified)
+                isAppType =
+                    (moduleName == [] && typeName == "App")
+                        || (moduleName == [ "RouteBuilder" ] && typeName == "App")
+
+                -- If it's App and first arg is "Data", get that range
+                appDataRange =
+                    if isAppType then
+                        case args of
+                            (Node dataRange (TypeAnnotation.Typed (Node _ ( [], "Data" )) _)) :: _ ->
+                                [ dataRange ]
+
+                            _ ->
+                                []
+
+                    else
+                        []
+
+                -- Recurse into type arguments
+                nestedRanges =
+                    args |> List.concatMap findAppDataRanges
+            in
+            appDataRange ++ nestedRanges
+
+        TypeAnnotation.FunctionTypeAnnotation left right ->
+            findAppDataRanges left ++ findAppDataRanges right
+
+        TypeAnnotation.Tupled nodes ->
+            nodes |> List.concatMap findAppDataRanges
+
+        TypeAnnotation.Record fields ->
+            fields
+                |> List.concatMap
+                    (\(Node _ ( _, typeNode )) ->
+                        findAppDataRanges typeNode
+                    )
+
+        TypeAnnotation.GenericRecord _ (Node _ fields) ->
+            fields
+                |> List.concatMap
+                    (\(Node _ ( _, typeNode )) ->
+                        findAppDataRanges typeNode
+                    )
+
+        _ ->
+            []
+
+
 {-| Add a field access to clientUsedFields if we're in a CLIENT context.
 Fields accessed in ephemeral contexts (freeze, head) are NOT tracked.
 -}
@@ -1028,7 +1119,8 @@ finalEvaluation context =
     -- 2. app.data was passed to a function in CLIENT context (can't track fields)
     -- 3. Data is used as a constructor function (changing type would break it)
     -- 4. RouteBuilder doesn't use conventional naming
-    if not isRouteModule || context.appDataUsedAsWhole || context.dataUsedAsConstructor || not routeBuilderUsesConventionalNaming then
+    -- 5. NarrowedData type alias already exists (fix was already applied)
+    if not isRouteModule || context.appDataUsedAsWhole || context.dataUsedAsConstructor || not routeBuilderUsesConventionalNaming || context.narrowedDataExists then
         []
 
     else
@@ -1113,16 +1205,24 @@ finalEvaluation context =
                                 Nothing ->
                                     []
 
-                        -- JSON output for the build system to consume
-                        -- This is parsed by generate-template-module-connector.js
-                        -- Includes:
-                        --   - module: full module name
-                        --   - removableFields: list of field names that should be removed
-                        --   - newDataType: the new Data type definition string
-                        --   - range: the location of the old Data type record definition
+                        -- Narrow the Data type directly by replacing the record definition
+                        -- with only client-used fields
                         removableFieldsList =
                             Set.toList removableFields
 
+                        dataTypeNarrowFix =
+                            Rule.errorWithFix
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: " ++ String.join ", " removableFieldsList
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                }
+                                range
+                                [ Review.Fix.replaceRangeBy range newTypeAnnotation ]
+
+                        -- JSON output for the build system to consume
+                        -- This is parsed by generate-template-module-connector.js
                         jsonMessage =
                             "EPHEMERAL_FIELDS_JSON:{\"module\":\""
                                 ++ String.join "." context.moduleName
@@ -1140,8 +1240,6 @@ finalEvaluation context =
                                 ++ String.fromInt range.end.column
                                 ++ "}}}"
 
-                        -- Use a minimal range at line 1 to avoid conflicts with the Data type fix
-                        -- Both errors at the same range can confuse elm-review fix application
                         jsonOutputRange =
                             { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
 
@@ -1152,17 +1250,8 @@ finalEvaluation context =
                                 }
                                 jsonOutputRange
                     in
-                    Rule.errorWithFix
-                        { message = "Data type codemod: remove non-client-used fields"
-                        , details =
-                            [ "Removing fields from Data type: " ++ String.join ", " removableFieldsList
-                            , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
-                            ]
-                        }
-                        range
-                        [ Review.Fix.replaceRangeBy range newTypeAnnotation
-                        ]
-                        :: headStubFix
+                    [ dataTypeNarrowFix ]
+                        ++ headStubFix
                         ++ dataStubFix
                         ++ [ jsonOutputError ]
 
