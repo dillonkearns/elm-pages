@@ -223,7 +223,7 @@ view app sharedModel =
             , Html.article
                 [ Attr.class "prose max-w-xl relative pt-20 pb-16 px-6 w-full max-w-full overflow-x-hidden md:px-8"
                 ]
-                [ -- Frozen content - pass fields individually so codemod can track ephemeral fields
+                [ -- Frozen content - fields accessed only here are removed from client Data type
                   View.freeze (renderStaticContent app.data.body app.data.previousAndNext app.data.editUrl)
                 ]
             ]

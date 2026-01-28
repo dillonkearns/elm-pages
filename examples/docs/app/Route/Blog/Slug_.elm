@@ -84,8 +84,7 @@ view :
 view app shared =
     { title = app.data.metadata.title
     , body =
-        [ -- Frozen content - uses app.data.body (ephemeral) and app.data.metadata (persistent)
-          -- Pass fields individually so the codemod can track which are ephemeral
+        [ -- Frozen content - fields accessed only here (body) are removed from client Data type
           View.freeze (renderFullPage app.data.metadata app.data.body)
         ]
     }

@@ -1,5 +1,6 @@
 @import url("styles/elm-syntax.css");
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 code {
   font-family: "IBM Plex Mono", monospace !important;

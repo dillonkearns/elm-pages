@@ -12,6 +12,7 @@
   "author": "Dillon Kearns",
   "license": "BSD-3",
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.0.0",
     "elm-oembed": "0.0.6",
     "elm-optimize-level-2": "^0.3.5",
