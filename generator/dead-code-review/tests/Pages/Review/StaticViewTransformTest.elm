@@ -314,31 +314,6 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "Data type codemod: remove non-client-used fields"
-                                , details =
-                                    [ "Removing fields from Data type: body"
-                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
-                                    ]
-                                , under = """{ title : String
-    , body : String
-    }"""
-                                }
-                                |> Review.Test.whenFixed
-                                    """module Route.Test exposing (Data, route)
-
-import Html.Styled as Html
-import View
-import View.Static
-
-type alias Data =
-    { title : String }
-
-view app =
-    { title = app.data.title
-    , body = [ View.freeze (Html.text app.data.body) ]
-    }
-"""
-                            , Review.Test.error
                                 { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
@@ -438,34 +413,6 @@ view app =
     }
 """
                             , Review.Test.error
-                                { message = "Data type codemod: remove non-client-used fields"
-                                , details =
-                                    [ "Removing fields from Data type: description"
-                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
-                                    ]
-                                , under = """{ title : String
-    , description : String
-    }"""
-                                }
-                                |> Review.Test.whenFixed
-                                    """module Route.Test exposing (Data, route)
-
-import Html.Styled as Html
-import View
-import View.Static
-
-type alias Data =
-    { title : String }
-
-head app =
-    [ Html.text app.data.description ]
-
-view app =
-    { title = app.data.title
-    , body = []
-    }
-"""
-                            , Review.Test.error
                                 { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"description\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
                                 , details = [ "This is machine-readable output for the build system." ]
                                 , under = "m"
@@ -517,34 +464,6 @@ type alias Data =
 
 head app =
     []
-
-view app =
-    { title = app.data.titles.title
-    , body = []
-    }
-"""
-                            , Review.Test.error
-                                { message = "Data type codemod: remove non-client-used fields"
-                                , details =
-                                    [ "Removing fields from Data type: metadata"
-                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
-                                    ]
-                                , under = """{ titles : { title : String }
-    , metadata : { description : String }
-    }"""
-                                }
-                                |> Review.Test.whenFixed
-                                    """module Route.Test exposing (Data, route)
-
-import Html.Styled as Html
-import View
-import View.Static
-
-type alias Data =
-    { titles : { title : String } }
-
-head app =
-    [ Html.text app.data.metadata.description ]
 
 view app =
     { title = app.data.titles.title
@@ -660,42 +579,6 @@ view app =
                                 , under = "m"
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
-                            , Review.Test.error
-                                { message = "Data type codemod: remove non-client-used fields"
-                                , details =
-                                    [ "Removing fields from Data type: description"
-                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
-                                    ]
-                                , under = """{ title : String
-    , description : String
-    }"""
-                                }
-                                |> Review.Test.whenFixed
-                                    """module Route.Test exposing (Data, route)
-
-import Html.Styled as Html
-import View
-import View.Static
-import RouteBuilder
-
-type alias Data =
-    { title : String }
-
-route =
-    RouteBuilder.preRender
-        { head = \\app -> [ Html.text app.data.description ]
-        , pages = pages
-        , data = data
-        }
-
-data routeParams =
-    BackendTask.succeed { title = "Test", description = "Desc" }
-
-view app =
-    { title = app.data.title
-    , body = []
-    }
-"""
                             , Review.Test.error
                                 { message = "Data function codemod: stub out for client bundle"
                                 , details =
@@ -841,45 +724,6 @@ head app =
 
 data routeParams =
     BackendTask.fail (FatalError.fromString "")
-
-view app =
-    { title = app.data.title
-    , body = []
-    }
-"""
-                            , Review.Test.error
-                                { message = "Data type codemod: remove non-client-used fields"
-                                , details =
-                                    [ "Removing fields from Data type: description"
-                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
-                                    ]
-                                , under = """{ title : String
-    , description : String
-    }"""
-                                }
-                                |> Review.Test.whenFixed
-                                    """module Route.Test exposing (Data, route)
-
-import Html.Styled as Html
-import View
-import View.Static
-import RouteBuilder
-
-type alias Data =
-    { title : String }
-
-route =
-    RouteBuilder.preRender
-        { head = head
-        , pages = pages
-        , data = data
-        }
-
-head app =
-    [ Html.text app.data.description ]
-
-data routeParams =
-    BackendTask.succeed { title = "Test", description = "Desc" }
 
 view app =
     { title = app.data.title

@@ -84,17 +84,18 @@ view :
 view app shared =
     { title = app.data.metadata.title
     , body =
-        [ -- Frozen content - fields accessed only here (body) are removed from client Data type
-          View.freeze (renderFullPage app.data.metadata app.data.body)
+        [ -- Frozen content - passing full Data since this becomes dead code anyway
+          View.freeze (renderFullPage app.data)
         ]
     }
 
 
 {-| Render the entire page body as frozen content.
-All of this code is eliminated from the client bundle via DCE.
+This function becomes dead code in the client bundle since View.freeze
+is transformed to View.Static.adopt.
 -}
-renderFullPage : ArticleMetadata -> List Markdown.Block.Block -> Html Never
-renderFullPage metadata body =
+renderFullPage : Data -> Html Never
+renderFullPage pageData =
     let
         author =
             Author.dillon
@@ -112,7 +113,7 @@ renderFullPage metadata body =
                   Html.h1
                     [ Attr.class "text-center text-4xl font-bold tracking-tight mt-2 mb-8"
                     ]
-                    [ Html.text metadata.title ]
+                    [ Html.text pageData.metadata.title ]
 
                 -- Author info
                 , div
@@ -139,7 +140,7 @@ renderFullPage metadata body =
                             [ time
                                 [ Attr.datetime "2020-03-16"
                                 ]
-                                [ text (metadata.published |> Date.format "MMMM ddd, yyyy") ]
+                                [ text (pageData.metadata.published |> Date.format "MMMM ddd, yyyy") ]
                             ]
                         ]
                     ]
@@ -147,7 +148,7 @@ renderFullPage metadata body =
                 -- Markdown body
                 , div
                     [ Attr.class "prose" ]
-                    (body
+                    (pageData.body
                         |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                         |> Result.withDefault []
                     )

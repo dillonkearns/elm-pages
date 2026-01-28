@@ -202,13 +202,11 @@ async function runElmReviewCodemod(cwd, target = "client") {
   // Now run elm-review with fixes
   const scriptOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
 
-  // For client target, apply Data type fixes that elm-review may have failed to apply
+  // NOTE: We no longer narrow the Data type on the client.
+  // Helper functions inside View.freeze can reference Data - they become dead code.
+  // The JSON output is still collected for the server-side transforms.
   if (target === "client" && fixInfo && fixInfo.length > 0) {
-    console.log("[DEBUG] Applying Data type fixes...");
-    await applyDataTypeFixes(cwd, fixInfo);
-    console.log("[DEBUG] Data type fixes applied.");
-  } else if (target === "client") {
-    console.log("[DEBUG] No Data type fixes to apply (fixInfo:", fixInfo, ")");
+    console.log("[DEBUG] Found", fixInfo.length, "routes with ephemeral fields (Data preserved, View.freeze becomes dead code)");
   }
 
   return scriptOutput;
@@ -256,7 +254,19 @@ async function runElmReviewCommand(cwdPath, configPath, lamderaPath, applyFixes)
         // For analysis-only run, exit code 1 is expected (errors found)
         resolve(output);
       } else {
-        reject(output);
+        // When applying fixes, elm-review returns non-zero if there are errors,
+        // but this is expected when fixes are already applied ("failing fix").
+        // We only reject on actual compilation/parsing errors, not just failing fixes.
+        // Check if the output indicates a real error vs just failing fixes
+        const hasRealError = output.includes("PARSING ERROR") ||
+                             output.includes("COMPILE ERROR") ||
+                             output.includes("CONFIGURATION ERROR");
+        if (hasRealError) {
+          reject(output);
+        } else {
+          // Treat "(failing fix)" as success - the code is already in the desired state
+          resolve(output);
+        }
       }
     });
   });

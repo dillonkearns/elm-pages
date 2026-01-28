@@ -1250,8 +1250,10 @@ finalEvaluation context =
                                 }
                                 jsonOutputRange
                     in
-                    [ dataTypeNarrowFix ]
-                        ++ headStubFix
+                    -- Don't narrow Data type - helper functions inside View.freeze
+                    -- reference it, and they become dead code anyway.
+                    -- Only stub head/data and emit JSON for server-side processing.
+                    headStubFix
                         ++ dataStubFix
                         ++ [ jsonOutputError ]
 
