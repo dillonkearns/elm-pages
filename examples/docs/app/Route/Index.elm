@@ -1,12 +1,11 @@
 module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
-import Css
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
-import Html.Styled as Html exposing (..)
-import Html.Styled.Attributes as Attr exposing (css)
+import Html exposing (..)
+import Html.Attributes as Attr
 import Link exposing (Link)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
@@ -14,11 +13,8 @@ import Route exposing (Route)
 import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import SiteOld
-import Svg.Styled exposing (path, svg)
-import Svg.Styled.Attributes as SvgAttr
-import Tailwind.Breakpoints as Bp
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
+import Svg exposing (path, svg)
+import Svg.Attributes as SvgAttr
 import UrlPath
 import View exposing (View)
 import View.CodeTab as CodeTab
@@ -93,25 +89,11 @@ data =
 landingView : Html Never
 landingView =
     div
-        [ css
-            [ Tw.relative
-            , Tw.pt_16
-            , Tw.pb_32
-            , Tw.overflow_hidden
-            ]
+        [ Attr.class "relative pt-16 pb-32 overflow-hidden"
         ]
         [ div
             [ Attr.attribute "aria-hidden" "true"
-            , css
-                [ Tw.absolute
-                , Tw.inset_x_0
-                , Tw.top_0
-                , Tw.h_48
-
-                --, Tw.bg_gradient_to_b
-                , Tw.bg_gradient_to_b
-                , Tw.from_color Theme.gray_100
-                ]
+            , Attr.class "absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-gray-100"
             ]
             []
         , firstSection
@@ -478,56 +460,21 @@ firstSection :
     -> Html msg
 firstSection info =
     div
-        [ css
-            [ Tw.relative
-            ]
+        [ Attr.class "relative"
         ]
         [ div
-            [ css
-                [ Bp.lg
-                    [ Tw.mx_auto
-                    , Tw.max_w_4xl
-                    , Tw.px_8
-                    ]
-                ]
+            [ Attr.class "lg:mx-auto lg:max-w-4xl lg:px-8"
             ]
             [ div
-                [ css
-                    [ Tw.px_4
-                    , Tw.max_w_xl
-                    , Tw.mx_auto
-                    , Bp.lg
-                        [ Tw.py_16
-                        , Tw.max_w_none
-                        , Tw.mx_0
-                        , Tw.px_0
-                        ]
-                    , Bp.sm
-                        [ Tw.px_6
-                        ]
-                    ]
+                [ Attr.class "px-4 max-w-xl mx-auto lg:py-16 lg:max-w-none lg:mx-0 lg:px-0 sm:px-6"
                 ]
                 [ div []
                     [ div []
                         [ span
-                            [ css
-                                [ Tw.h_12
-                                , Tw.w_12
-                                , Tw.rounded_md
-                                , Tw.flex
-                                , Tw.items_center
-                                , Tw.justify_center
-                                , Tw.bg_gradient_to_r
-                                , Tw.from_color Theme.blue_600
-                                , Tw.to_color Theme.blue_700
-                                ]
+                            [ Attr.class "h-12 w-12 rounded-md flex items-center justify-center bg-gradient-to-r from-blue-600 to-blue-700"
                             ]
                             [ svg
-                                [ SvgAttr.css
-                                    [ Tw.h_6
-                                    , Tw.w_6
-                                    , Tw.text_color Theme.white
-                                    ]
+                                [ SvgAttr.class "h-6 w-6 text-white"
                                 , SvgAttr.fill "none"
                                 , SvgAttr.viewBox "0 0 24 24"
                                 , SvgAttr.stroke "currentColor"
@@ -544,52 +491,21 @@ firstSection info =
                             ]
                         ]
                     , div
-                        [ css
-                            [ Tw.mt_6
-                            ]
+                        [ Attr.class "mt-6"
                         ]
                         [ h2
-                            [ css
-                                [ Tw.text_3xl
-                                , Tw.font_extrabold
-                                , Tw.tracking_tight
-                                , Tw.text_color Theme.gray_900
-                                ]
+                            [ Attr.class "text-3xl font-extrabold tracking-tight text-gray-900"
                             ]
                             [ text info.heading ]
                         , p
-                            [ css
-                                [ Tw.mt_4
-                                , Tw.text_lg
-                                , Tw.text_color Theme.gray_500
-                                ]
+                            [ Attr.class "mt-4 text-lg text-gray-500"
                             ]
                             [ text info.body ]
                         , div
-                            [ css
-                                [ Tw.mt_6
-                                ]
+                            [ Attr.class "mt-6"
                             ]
                             [ Link.link info.buttonLink
-                                [ css
-                                    [ Tw.inline_flex
-                                    , Tw.px_4
-                                    , Tw.py_2
-                                    , Tw.border
-                                    , Tw.border_color Theme.transparent
-                                    , Tw.text_base
-                                    , Tw.font_medium
-                                    , Tw.rounded_md
-                                    , Tw.shadow_sm
-                                    , Tw.text_color Theme.white
-                                    , Tw.bg_gradient_to_r
-                                    , Tw.from_color Theme.blue_600
-                                    , Tw.to_color Theme.blue_700
-                                    , Css.hover
-                                        [ Tw.from_color Theme.blue_700
-                                        , Tw.to_color Theme.blue_800
-                                        ]
-                                    ]
+                                [ Attr.class "inline-flex px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                                 ]
                                 [ text info.buttonText ]
                             ]
@@ -597,34 +513,10 @@ firstSection info =
                     ]
                 ]
             , div
-                [ css
-                    [ Tw.mt_12
-                    , Bp.lg
-                        [ Tw.mt_0
-                        ]
-                    , Bp.sm
-                        [ Tw.mt_16
-                        ]
-                    ]
+                [ Attr.class "mt-12 lg:mt-0 sm:mt-16"
                 ]
                 [ div
-                    [ css
-                        [ Tw.pl_4
-                        , Tw.neg_mr_48
-                        , Tw.pb_12
-                        , Bp.lg
-                            [ Tw.px_0
-                            , Tw.m_0
-                            , Tw.relative
-                            , Tw.h_full
-                            ]
-                        , Bp.md
-                            [ Tw.neg_mr_16
-                            ]
-                        , Bp.sm
-                            [ Tw.pl_6
-                            ]
-                        ]
+                    [ Attr.class "pl-4 -mr-48 pb-12 lg:px-0 lg:m-0 lg:relative lg:h-full md:-mr-16 sm:pl-6"
                     ]
                     [ CodeTab.view info.code
                     ]

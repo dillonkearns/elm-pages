@@ -9,8 +9,8 @@ import DateOrDateTime
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
-import Html.Styled exposing (..)
-import Html.Styled.Attributes as Attr exposing (css)
+import Html exposing (..)
+import Html.Attributes as Attr
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra
 import Markdown.Block
@@ -22,9 +22,6 @@ import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import SiteOld
 import StructuredData
-import Tailwind.Breakpoints as Bp
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import UnsplashImage
 import UrlPath
@@ -104,76 +101,41 @@ renderFullPage metadata body =
             Author.dillon
     in
     div
-        [ css
-            [ Tw.min_h_screen
-            , Tw.w_full
-            , Tw.relative
-            ]
+        [ Attr.class "min-h-screen w-full relative"
         ]
         [ div
-            [ css
-                [ Tw.pt_16
-                , Tw.pb_16
-                , Tw.px_8
-                , Tw.flex
-                , Tw.flex_col
-                ]
+            [ Attr.class "pt-16 pb-16 px-8 flex flex-col"
             ]
             [ div
-                [ css
-                    [ Bp.md [ Tw.mx_auto ]
-                    ]
+                [ Attr.class "md:mx-auto"
                 ]
                 [ -- Title
-                  Html.Styled.h1
-                    [ css
-                        [ Tw.text_center
-                        , Tw.text_4xl
-                        , Tw.font_bold
-                        , Tw.tracking_tight
-                        , Tw.mt_2
-                        , Tw.mb_8
-                        ]
+                  Html.h1
+                    [ Attr.class "text-center text-4xl font-bold tracking-tight mt-2 mb-8"
                     ]
-                    [ Html.Styled.text metadata.title ]
+                    [ Html.text metadata.title ]
 
                 -- Author info
                 , div
-                    [ css
-                        [ Tw.flex
-                        , Tw.mb_16
-                        ]
+                    [ Attr.class "flex mb-16"
                     ]
                     [ img
                         [ Attr.src (author.avatar |> Pages.Url.toString)
-                        , css
-                            [ Tw.rounded_full
-                            , Tw.h_10
-                            , Tw.w_10
-                            ]
+                        , Attr.class "rounded-full h-10 w-10"
                         ]
                         []
                     , div
-                        [ css [ Tw.ml_3 ]
+                        [ Attr.class "ml-3"
                         ]
                         [ div []
                             [ p
-                                [ css
-                                    [ Tw.text_sm
-                                    , Tw.font_medium
-                                    , Tw.text_color Theme.gray_900
-                                    ]
+                                [ Attr.class "text-sm font-medium text-gray-900"
                                 ]
                                 [ span [] [ text author.name ]
                                 ]
                             ]
                         , div
-                            [ css
-                                [ Tw.flex
-                                , Tw.space_x_1
-                                , Tw.text_sm
-                                , Tw.text_color Theme.gray_500
-                                ]
+                            [ Attr.class "flex space-x-1 text-sm text-gray-500"
                             ]
                             [ time
                                 [ Attr.datetime "2020-03-16"
@@ -185,7 +147,7 @@ renderFullPage metadata body =
 
                 -- Markdown body
                 , div
-                    [ css [ Tw.prose ] ]
+                    [ Attr.class "prose" ]
                     (body
                         |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                         |> Result.withDefault []

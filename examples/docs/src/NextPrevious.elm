@@ -1,13 +1,10 @@
 module NextPrevious exposing (..)
 
-import Css
-import Html.Styled exposing (..)
-import Html.Styled.Attributes as Attr exposing (css)
+import Html exposing (..)
+import Html.Attributes as Attr
 import Route
-import Svg.Styled exposing (path, svg)
-import Svg.Styled.Attributes as SvgAttr
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
+import Svg exposing (path, svg)
+import Svg.Attributes as SvgAttr
 
 
 type alias Item =
@@ -17,24 +14,17 @@ type alias Item =
 view : ( Maybe Item, Maybe Item ) -> Html msg
 view ( maybeLeft, maybeRight ) =
     div
-        [ css
-            [ Tw.pt_16
-            ]
+        [ Attr.class "pt-16"
         ]
         [ nav
-            [ css
-                [ Tw.flex
-                , Tw.flex_row
-                , Tw.items_center
-                , Tw.justify_between
-                ]
+            [ Attr.class "flex flex-row items-center justify-between"
             ]
             [ maybeLeft
                 |> Maybe.map
                     (\left ->
                         div []
                             [ link (Route.Docs__Section__ { section = Just left.slug })
-                                [ linkStyle
+                                [ Attr.class "text-lg font-medium p-4 -m-4 !no-underline !text-gray-600 flex items-center mr-2 hover:!text-blue-700"
                                 , Attr.title left.title
                                 ]
                                 [ leftArrow
@@ -48,7 +38,7 @@ view ( maybeLeft, maybeRight ) =
                     (\right ->
                         div []
                             [ link (Route.Docs__Section__ { section = Just right.slug })
-                                [ linkStyle
+                                [ Attr.class "text-lg font-medium p-4 -m-4 !no-underline !text-gray-600 flex items-center mr-2 hover:!text-blue-700"
                                 , Attr.title right.title
                                 ]
                                 [ text right.title
@@ -66,7 +56,7 @@ link route attrs children =
     Route.toLink
         (\anchorAttrs ->
             a
-                (List.map Attr.fromUnstyled anchorAttrs ++ attrs)
+                (anchorAttrs ++ attrs)
                 children
         )
         route
@@ -77,24 +67,6 @@ empty =
     div [] []
 
 
-linkStyle : Attribute msg
-linkStyle =
-    css
-        [ Tw.text_lg
-        , Tw.font_medium
-        , Tw.p_4
-        , Tw.neg_m_4
-        , Tw.no_underline |> Css.important
-        , Tw.text_color Theme.gray_600 |> Css.important
-        , Tw.flex
-        , Tw.items_center
-        , Tw.mr_2
-        , Css.hover
-            [ Tw.text_color Theme.blue_700 |> Css.important
-            ]
-        ]
-
-
 leftArrow : Html msg
 leftArrow =
     svg
@@ -102,13 +74,7 @@ leftArrow =
         , SvgAttr.fill "none"
         , SvgAttr.viewBox "0 0 24 24"
         , SvgAttr.stroke "currentColor"
-        , SvgAttr.css
-            [ Tw.transform
-            , Tw.inline
-            , Tw.flex_shrink_0
-            , Css.rotate (Css.deg 180) |> Css.transform
-            , Tw.mr_1
-            ]
+        , SvgAttr.class "transform inline shrink-0 rotate-180 mr-1"
         ]
         [ path
             [ SvgAttr.strokeLinecap "round"
@@ -127,12 +93,7 @@ rightArrow =
         , SvgAttr.fill "none"
         , SvgAttr.viewBox "0 0 24 24"
         , SvgAttr.stroke "currentColor"
-        , SvgAttr.css
-            [ Tw.transform
-            , Tw.inline
-            , Tw.flex_shrink_0
-            , Tw.ml_1
-            ]
+        , SvgAttr.class "transform inline shrink-0 ml-1"
         ]
         [ path
             [ SvgAttr.strokeLinecap "round"

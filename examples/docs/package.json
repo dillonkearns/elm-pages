@@ -12,12 +12,14 @@
   "author": "Dillon Kearns",
   "license": "BSD-3",
   "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
     "elm-oembed": "0.0.6",
     "elm-optimize-level-2": "^0.3.5",
     "elm-pages": "file:../..",
     "elm-review": "^2.13.2",
     "elm-tooling": "^1.15.1",
     "lamdera": "^0.19.1-1.3.2",
+    "tailwindcss": "^4.0.0",
     "vite-plugin-webfont-dl": "^3.10.4"
   },
   "dependencies": {

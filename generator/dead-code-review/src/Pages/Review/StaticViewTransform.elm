@@ -757,8 +757,14 @@ handleViewModuleCall functionNode node context =
     case Node.value functionNode of
         Expression.FunctionOrValue _ "freeze" ->
             let
+                -- If Html.Styled is imported, wrap with Html.Styled conversion
+                -- Otherwise use plain Html (no wrapper needed since View.freeze returns Html)
                 replacement =
-                    viewStaticAdoptCallStyled context
+                    if context.htmlStyledAlias /= Nothing then
+                        viewStaticAdoptCallStyled context
+
+                    else
+                        viewStaticAdoptCallPlain context
 
                 fixes =
                     [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
@@ -770,8 +776,14 @@ handleViewModuleCall functionNode node context =
 
         Expression.FunctionOrValue _ "static" ->
             let
+                -- If Html.Styled is imported, wrap with Html.Styled conversion
+                -- Otherwise use plain Html (no wrapper needed since View.static returns Html)
                 replacement =
-                    viewStaticAdoptCallStyled context
+                    if context.htmlStyledAlias /= Nothing then
+                        viewStaticAdoptCallStyled context
+
+                    else
+                        viewStaticAdoptCallPlain context
 
                 fixes =
                     [ Review.Fix.replaceRangeBy (Node.range node) replacement ]
@@ -867,9 +879,10 @@ viewStaticAdoptCallStyled context =
     "(" ++ viewStaticPrefix ++ ".adopt " ++ idStr ++ " |> " ++ htmlStyledPrefix ++ ".fromUnstyled |> " ++ htmlStyledPrefix ++ ".map never)"
 
 
-{-| Generate View.Static.adopt "index" for View.Static module calls.
+{-| Generate View.Static.adopt "index" for plain Html (not Html.Styled).
 
-No wrapper needed since View.Static functions work with plain Html.
+Since View.Static.adopt returns Html Never, we need to wrap with Html.map never
+to convert to the generic Html msg type expected by the View type.
 -}
 viewStaticAdoptCallPlain : Context -> String
 viewStaticAdoptCallPlain context =
@@ -885,7 +898,8 @@ viewStaticAdoptCallPlain context =
         idStr =
             "\"" ++ String.fromInt context.staticIndex ++ "\""
     in
-    modulePrefix ++ ".adopt " ++ idStr
+    -- Wrap with Html.map never to convert Html Never -> Html msg
+    "(" ++ modulePrefix ++ ".adopt " ++ idStr ++ " |> Html.map never)"
 
 
 {-| Final evaluation - emit Data type transformation if there are removable fields.

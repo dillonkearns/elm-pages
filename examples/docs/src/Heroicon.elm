@@ -1,18 +1,14 @@
 module Heroicon exposing (edit)
 
-import Html.Styled exposing (Html)
-import Svg.Styled exposing (path, svg)
-import Svg.Styled.Attributes as SvgAttr
-import Tailwind.Utilities as Tw
+import Html exposing (Html)
+import Svg exposing (path, svg)
+import Svg.Attributes as SvgAttr
 
 
 edit : Html msg
 edit =
     svg
-        [ SvgAttr.css
-            [ Tw.h_5
-            , Tw.w_5
-            ]
+        [ SvgAttr.class "h-5 w-5"
         , SvgAttr.fill "none"
         , SvgAttr.viewBox "0 0 24 24"
         , SvgAttr.stroke "currentColor"

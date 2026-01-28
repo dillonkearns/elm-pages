@@ -3,15 +3,13 @@ module Route.Docs.Section__ exposing (ActionData, Data, Model, Msg, route)
 import BackendTask exposing (BackendTask)
 import BackendTask.File
 import BackendTask.Glob as Glob exposing (Glob)
-import Css
-import Css.Global
 import DocsSection exposing (Section)
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
 import Heroicon
-import Html.Styled as Html exposing (Html)
-import Html.Styled.Attributes as Attr exposing (css)
+import Html exposing (Html)
+import Html.Attributes as Attr
 import List.Extra
 import Markdown.Block as Block exposing (Block)
 import Markdown.Parser
@@ -23,9 +21,6 @@ import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import TableOfContents
-import Tailwind.Breakpoints as Bp
-import Tailwind.Theme as Theme
-import Tailwind.Utilities as Tw
 import TailwindMarkdownRenderer
 import Url
 import View exposing (View)
@@ -221,40 +216,12 @@ view :
 view app sharedModel =
     { title = app.data.titles.title ++ " - elm-pages docs"
     , body =
-        [ Css.Global.global
-            [ Css.Global.selector ".anchor-icon"
-                [ Css.opacity Css.zero
-                ]
-            , Css.Global.selector "h2:hover .anchor-icon"
-                [ Css.opacity (Css.num 100)
-                ]
-            ]
-        , Html.div
-            [ css
-                [ Tw.flex
-                , Tw.flex_1
-                , Tw.h_full
-                ]
+        [ Html.div
+            [ Attr.class "flex flex-1 h-full"
             ]
             [ TableOfContents.view sharedModel.showMobileMenu True app.routeParams.section app.sharedData
             , Html.article
-                [ css
-                    [ Tw.prose
-                    , Tw.max_w_xl
-
-                    --, Tw.whitespace_normal
-                    --, Tw.mx_auto
-                    , Tw.relative
-                    , Tw.pt_20
-                    , Tw.pb_16
-                    , Tw.px_6
-                    , Tw.w_full
-                    , Tw.max_w_full
-                    , Tw.overflow_x_hidden
-                    , Bp.md
-                        [ Tw.px_8
-                        ]
-                    ]
+                [ Attr.class "prose max-w-xl relative pt-20 pb-16 px-6 w-full max-w-full overflow-x-hidden md:px-8"
                 ]
                 [ -- Frozen content - pass fields individually so codemod can track ephemeral fields
                   View.freeze (renderStaticContent app.data.body app.data.previousAndNext app.data.editUrl)
@@ -270,11 +237,7 @@ This code is eliminated from the client bundle via DCE.
 renderStaticContent : List Block -> ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) -> String -> Html Never
 renderStaticContent body previousAndNext editUrl =
     Html.div
-        [ css
-            [ Tw.max_w_screen_md
-            , Tw.mx_auto
-            , Bp.xl [ Tw.pr_36 ]
-            ]
+        [ Attr.class "max-w-screen-md mx-auto xl:pr-36"
         ]
         ((body
             |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
@@ -283,24 +246,15 @@ renderStaticContent body previousAndNext editUrl =
             ++ [ NextPrevious.view previousAndNext
                , Html.hr [] []
                , Html.footer
-                    [ css [ Tw.text_right ]
+                    [ Attr.class "text-right"
                     ]
                     [ Html.a
                         [ Attr.href editUrl
                         , Attr.rel "noopener"
                         , Attr.target "_blank"
-                        , css
-                            [ Tw.text_sm
-                            , Css.hover
-                                [ Tw.text_color Theme.gray_800 |> Css.important
-                                ]
-                            , Tw.text_color Theme.gray_500 |> Css.important
-                            , Tw.flex
-                            , Tw.items_center
-                            , Tw.float_right
-                            ]
+                        , Attr.class "text-sm hover:!text-gray-800 !text-gray-500 flex items-center float-right"
                         ]
-                        [ Html.span [ css [ Tw.pr_1 ] ] [ Html.text "Suggest an edit on GitHub" ]
+                        [ Html.span [ Attr.class "pr-1" ] [ Html.text "Suggest an edit on GitHub" ]
                         , Heroicon.edit
                         ]
                     ]
