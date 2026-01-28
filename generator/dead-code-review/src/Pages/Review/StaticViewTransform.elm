@@ -97,6 +97,9 @@ type alias Context =
     , routeBuilderHeadFn : Maybe String -- What's passed to `head = X` in RouteBuilder
     , routeBuilderDataFn : Maybe String -- What's passed to `data = X` in RouteBuilder
     , routeBuilderFound : Bool -- Did we find a RouteBuilder call?
+
+    -- App parameter name from view function (could be "app", "static", etc.)
+    , appParamName : Maybe String
     }
 
 
@@ -141,6 +144,7 @@ initialContext =
             , routeBuilderHeadFn = Nothing
             , routeBuilderDataFn = Nothing
             , routeBuilderFound = False
+            , appParamName = Nothing
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -230,6 +234,19 @@ declarationEnterVisitor node context =
                 -- Capture the data function body for potential stubbing
                 -- The data function never runs on client, only at build time
                 ( [], { context | dataFunctionBodyRange = Just bodyRange } )
+
+            else if functionName == "view" then
+                -- Extract the App parameter name from the view function
+                -- The first parameter is typically named "app" or "static"
+                let
+                    maybeAppParam =
+                        function.declaration
+                            |> Node.value
+                            |> .arguments
+                            |> List.head
+                            |> Maybe.andThen extractPatternName
+                in
+                ( [], { context | appParamName = maybeAppParam } )
 
             else
                 ( [], context )
@@ -479,15 +496,16 @@ trackFieldAccess node context =
             context
 
 
-{-| Check if an expression is `app.data`
+{-| Check if an expression is `app.data` (or `static.data`, etc. based on context.appParamName)
 -}
 isAppDataAccess : Node Expression -> Context -> Bool
 isAppDataAccess node context =
     case Node.value node of
         Expression.RecordAccess innerExpr (Node _ "data") ->
             case Node.value innerExpr of
-                Expression.FunctionOrValue [] "app" ->
-                    True
+                Expression.FunctionOrValue [] varName ->
+                    -- Check if varName matches the App parameter name (e.g., "app", "static")
+                    context.appParamName == Just varName
 
                 _ ->
                     False
@@ -507,8 +525,9 @@ isAppDataExpression node context =
     case Node.value node of
         Expression.RecordAccess innerExpr (Node _ "data") ->
             case Node.value innerExpr of
-                Expression.FunctionOrValue [] "app" ->
-                    True
+                Expression.FunctionOrValue [] varName ->
+                    -- Check if varName matches the App parameter name (e.g., "app", "static")
+                    context.appParamName == Just varName
 
                 _ ->
                     False
@@ -536,12 +555,18 @@ Examples:
 containsAppDataExpression : Node Expression -> Context -> Bool
 containsAppDataExpression node context =
     case Node.value node of
-        -- app.data exactly (with field "data" on "app")
+        -- app.data exactly (with field "data" on the app param)
         Expression.RecordAccess innerExpr (Node _ "data") ->
             case Node.value innerExpr of
-                Expression.FunctionOrValue [] "app" ->
-                    -- This IS app.data being used as a whole
-                    True
+                Expression.FunctionOrValue [] varName ->
+                    -- Check if varName matches the App parameter name (e.g., "app", "static")
+                    if context.appParamName == Just varName then
+                        -- This IS app.data being used as a whole
+                        True
+
+                    else
+                        -- Something else with .data field, recurse
+                        containsAppDataExpression innerExpr context
 
                 _ ->
                     -- Something else with .data field, recurse
@@ -615,6 +640,24 @@ extractPatternNames node =
 
         _ ->
             Set.empty
+
+
+{-| Extract a single name from a pattern (for function parameter names).
+-}
+extractPatternName : Node Pattern -> Maybe String
+extractPatternName node =
+    case Node.value node of
+        Pattern.VarPattern name ->
+            Just name
+
+        Pattern.ParenthesizedPattern inner ->
+            extractPatternName inner
+
+        Pattern.AsPattern _ (Node _ name) ->
+            Just name
+
+        _ ->
+            Nothing
 
 
 {-| Add a field access to clientUsedFields if we're in a CLIENT context.
