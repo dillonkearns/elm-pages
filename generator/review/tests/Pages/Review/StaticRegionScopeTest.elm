@@ -220,4 +220,230 @@ view =
                                 }
                             ]
             ]
+        , describe "Model reference detection"
+            [ test "errors on model.field inside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    { body = [ View.freeze (text model.count) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Model referenced inside View.freeze"
+                                , details =
+                                    [ "Frozen content is rendered at build time when no model state exists."
+                                    , "Referencing `model` inside a `View.freeze` call would result in stale content that doesn't update when the model changes."
+                                    , "To fix this, either:"
+                                    , "1. Move the model-dependent content outside of `View.freeze`, or"
+                                    , "2. Only use `app.data` fields inside `View.freeze` (data that is available at build time)"
+                                    ]
+                                , under = "model.count"
+                                }
+                            ]
+            , test "errors on model |> .field inside freeze (complex example)" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    { body = [ View.freeze (text (model |> .count |> String.fromInt)) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Accessor on model inside View.freeze"
+                                , details =
+                                    [ "Frozen content is rendered at build time when no model state exists."
+                                    , "Using `model |> .field` inside `View.freeze` accesses model data that won't exist at build time."
+                                    , "To fix this, move the model-dependent content outside of `View.freeze`."
+                                    ]
+                                , under = "model"
+                                }
+                                |> Review.Test.atExactly { start = { row = 7, column = 35 }, end = { row = 7, column = 40 } }
+                            ]
+            , test "errors on case model of inside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    { body = [ View.freeze (case model of
+                              _ -> text "hello") ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Pattern match on model inside View.freeze"
+                                , details =
+                                    [ "Frozen content is rendered at build time when no model state exists."
+                                    , "Using `case model of` inside `View.freeze` depends on model data that won't exist at build time."
+                                    , "To fix this, move the model-dependent content outside of `View.freeze`."
+                                    ]
+                                , under = "model"
+                                }
+                                |> Review.Test.atExactly { start = { row = 7, column = 34 }, end = { row = 7, column = 39 } }
+                            ]
+            , test "allows model outside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (div, text)
+
+view app shared model =
+    { body =
+        [ View.freeze (text app.data.title)
+        , div [] [ text model.count ]
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            ]
+        , describe "Runtime app field detection"
+            [ test "errors on app.action inside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    { body = [ View.freeze (text app.action) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Runtime field `action` accessed inside View.freeze"
+                                , details =
+                                    [ "`app.action` is runtime-only data that doesn't exist at build time."
+                                    , "Frozen content is rendered once at build time, so runtime fields like `action`, `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
+                                    , "To fix this, either:"
+                                    , "1. Move the runtime-dependent content outside of `View.freeze`, or"
+                                    , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.sharedData`, `app.routeParams`, `app.path`"
+                                    ]
+                                , under = "app.action"
+                                }
+                            ]
+            , test "errors on app.navigation inside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    { body = [ View.freeze (text (Debug.toString app.navigation)) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Runtime field `navigation` accessed inside View.freeze"
+                                , details =
+                                    [ "`app.navigation` is runtime-only data that doesn't exist at build time."
+                                    , "Frozen content is rendered once at build time, so runtime fields like `action`, `navigation`, `pageFormState`, `concurrentSubmissions`, `submit`, and `url` are not available."
+                                    , "To fix this, either:"
+                                    , "1. Move the runtime-dependent content outside of `View.freeze`, or"
+                                    , "2. Only use build-time fields inside `View.freeze`: `app.data`, `app.sharedData`, `app.routeParams`, `app.path`"
+                                    ]
+                                , under = "app.navigation"
+                                }
+                            ]
+            , test "errors on model |> .field (simple pipe) inside freeze" <|
+                \() ->
+                    -- Test that model |> .field is caught
+                    """module Route.Index exposing (view)
+
+import View
+
+view app shared model =
+    View.freeze (model |> .count)
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Accessor on model inside View.freeze"
+                                , details =
+                                    [ "Frozen content is rendered at build time when no model state exists."
+                                    , "Using `model |> .field` inside `View.freeze` accesses model data that won't exist at build time."
+                                    , "To fix this, move the model-dependent content outside of `View.freeze`."
+                                    ]
+                                , under = "model"
+                                }
+                                |> Review.Test.atExactly { start = { row = 6, column = 18 }, end = { row = 6, column = 23 } }
+                            ]
+            , test "allows app.data inside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    { body = [ View.freeze (text app.data.title) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "allows app.sharedData inside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    { body = [ View.freeze (text app.sharedData.siteName) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "allows app.routeParams inside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    { body = [ View.freeze (text app.routeParams.slug) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "allows app.path inside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (text)
+
+view app shared model =
+    { body = [ View.freeze (text (app.path |> Pages.Url.toString)) ] }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            , test "allows runtime fields outside freeze" <|
+                \() ->
+                    """module Route.Index exposing (view)
+
+import View
+import Html exposing (div, text)
+
+view app shared model =
+    { body =
+        [ View.freeze (text app.data.title)
+        , div [] [ text (Debug.toString app.action) ]
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        |> Review.Test.expectNoErrors
+            ]
         ]

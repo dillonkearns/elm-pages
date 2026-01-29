@@ -139,8 +139,6 @@ export function patchStaticRegionsESVD(elmCode) {
     $2`
         );
         patchCount++;
-    } else {
-        console.warn('[static-region-codemod-esvd] Could not find virtualize adoption patch point');
     }
 
     // Patch 2: thunk-vs-thunk comparison for SPA navigation and re-renders
@@ -154,14 +152,10 @@ export function patchStaticRegionsESVD(elmCode) {
                 $2`
         );
         patchCount++;
-    } else {
-        console.warn('[static-region-codemod-esvd] Could not find SPA navigation patch point');
     }
 
-    if (patchCount === 2) {
-        console.log('[static-region-codemod-esvd] Successfully applied 2 patches for elm-safe-virtual-dom');
-    } else {
-        console.warn(`[static-region-codemod-esvd] Only applied ${patchCount}/2 patches`);
+    if (patchCount < 2) {
+        throw new Error(`[static-region-codemod-esvd] Only applied ${patchCount}/2 patches - elm-safe-virtual-dom structure may have changed`);
     }
 
     return patchedCode;

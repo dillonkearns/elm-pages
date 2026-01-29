@@ -484,6 +484,42 @@ trackFieldAccess node context =
                     _ ->
                         context
 
+        -- Pipe operator with accessor: app.data |> .field
+        -- We can't safely track which field is accessed with accessor functions
+        Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
+            if isAppDataExpression leftExpr context then
+                case Node.value rightExpr of
+                    Expression.RecordAccessFunction _ ->
+                        -- Accessor function on app.data - bail out in client context
+                        if context.inFreezeCall || context.inHeadFunction then
+                            -- In ephemeral context, we don't care
+                            context
+
+                        else
+                            -- In client context, can't track which fields are used
+                            { context | appDataUsedAsWhole = True }
+
+                    _ ->
+                        context
+
+            else
+                context
+
+        -- Case expression on app.data: case app.data of {...}
+        -- We can't safely track field destructuring patterns
+        Expression.CaseExpression caseBlock ->
+            if isAppDataExpression caseBlock.expression context then
+                if context.inFreezeCall || context.inHeadFunction then
+                    -- In ephemeral context, we don't care
+                    context
+
+                else
+                    -- In client context, can't track which fields are used
+                    { context | appDataUsedAsWhole = True }
+
+            else
+                context
+
         -- Let expressions can bind app.data to a variable
         Expression.LetExpression letBlock ->
             let

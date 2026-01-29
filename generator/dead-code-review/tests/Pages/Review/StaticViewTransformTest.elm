@@ -738,4 +738,171 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Bail-out patterns for unsafe field tracking"
+            [ test "accessor pattern app.data |> .field causes bail-out in client context" <|
+                \() ->
+                    -- When app.data |> .field is used outside freeze/head,
+                    -- we can't track which field is being accessed, so bail out entirely
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data |> .title
+    , body = []
+    }
+"""
+                        |> Review.Test.run rule
+                        -- Should NOT produce any Data type transformation errors
+                        -- because we bail out when accessor pattern is detected
+                        |> Review.Test.expectNoErrors
+            , test "accessor pattern in freeze context does not cause bail-out" <|
+                \() ->
+                    -- When app.data |> .field is used INSIDE freeze, we don't care
+                    -- because frozen content is ephemeral anyway
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text (app.data |> .body)) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- Should produce transformation because accessor is only in freeze
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text (app.data |> .body))"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "case expression on app.data causes bail-out in client context" <|
+                \() ->
+                    -- When case app.data of {...} is used outside freeze/head,
+                    -- we can't track which fields are destructured, so bail out entirely
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    case app.data of
+        data ->
+            { title = data.title
+            , body = []
+            }
+"""
+                        |> Review.Test.run rule
+                        -- Should NOT produce any Data type transformation errors
+                        -- because we bail out when case expression on app.data is detected
+                        |> Review.Test.expectNoErrors
+            , test "case expression on app.data in freeze context does not cause bail-out" <|
+                \() ->
+                    -- When case app.data of {...} is used INSIDE freeze, we don't care
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body =
+        [ View.freeze
+            (case app.data of
+                data ->
+                    Html.text data.body
+            )
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- Should produce transformation because case is only in freeze
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = """View.freeze
+            (case app.data of
+                data ->
+                    Html.text data.body
+            )"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body =
+        [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never)
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]

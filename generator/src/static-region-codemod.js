@@ -158,7 +158,7 @@ export function patchStaticRegions(elmCode) {
   }
 
   if (!patched) {
-    console.warn('Could not patch thunk rendering for static regions');
+    throw new Error('Could not patch thunk rendering for static regions - virtual-dom structure may have changed');
   }
 
   // Now patch the thunk DIFFING code to handle StaticId comparison
@@ -215,8 +215,7 @@ function patchThunkDiffing(elmCode) {
     return elmCode;
   }
 
-  console.warn('Could not patch thunk diffing for static regions');
-  return elmCode;
+  throw new Error('Could not patch thunk diffing for static regions - virtual-dom structure may have changed');
 }
 
 export default { patchStaticRegions };

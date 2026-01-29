@@ -192,22 +192,12 @@ async function runElmReviewCodemod(cwd, target = "client") {
   // For client target, first run elm-review without fixes to capture EPHEMERAL_FIELDS_JSON
   let fixInfo = null;
   if (target === "client") {
-    console.log("[DEBUG] Running elm-review analysis to capture ephemeral fields...");
     const analysisOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, false);
-    console.log("[DEBUG] Analysis output length:", analysisOutput.length);
     fixInfo = parseEphemeralFieldsJson(analysisOutput);
-    console.log("[DEBUG] Found", fixInfo.length, "routes with ephemeral fields:", fixInfo.map(f => f.module));
   }
 
   // Now run elm-review with fixes
   const scriptOutput = await runElmReviewCommand(cwdPath, configPath, lamderaPath, true);
-
-  // NOTE: We no longer narrow the Data type on the client.
-  // Helper functions inside View.freeze can reference Data - they become dead code.
-  // The JSON output is still collected for the server-side transforms.
-  if (target === "client" && fixInfo && fixInfo.length > 0) {
-    console.log("[DEBUG] Found", fixInfo.length, "routes with ephemeral fields (Data preserved, View.freeze becomes dead code)");
-  }
 
   return scriptOutput;
 }
@@ -364,18 +354,14 @@ async function applyDataTypeFixes(cwd, fixes) {
       const currentRecord = content.substring(recordStart, recordEnd).replace(/\s+/g, " ").trim();
       const targetRecord = fix.newDataType.replace(/\s+/g, " ").trim();
 
-      console.log(`[DEBUG] ${fix.module}: current="${currentRecord}" target="${targetRecord}"`);
-
       // Check if fix is already applied
       if (currentRecord === targetRecord) {
-        console.log(`[DEBUG] ${fix.module}: Already fixed, skipping`);
         continue; // Already fixed
       }
 
       // Replace the record part only
       const newContent = content.substring(0, recordStart) + fix.newDataType + content.substring(recordEnd);
       await fs.promises.writeFile(fullPath, newContent);
-      console.log(`[DEBUG] ${fix.module}: Fixed Data type`);
     } catch (e) {
       // Skip files that can't be processed
       console.warn(`Warning: Could not apply Data type fix to ${fullPath}: ${e.message}`);

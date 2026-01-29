@@ -110,10 +110,6 @@ async function outputString(
 
         // Update the bytesData in htmlString with the prefixed format
         args.htmlString.bytesData = htmlBytesBuffer.toString("base64");
-
-        if (Object.keys(staticRegions).length > 0) {
-          console.log(`  Included ${Object.keys(staticRegions).length} static region(s) in content.dat for ${normalizedRoute}`);
-        }
       }
 
       writeFileSync(
