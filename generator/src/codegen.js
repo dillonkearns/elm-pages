@@ -19,7 +19,12 @@ const __dirname = path.dirname(__filename);
  * @param {string} basePath
  */
 export async function generate(basePath) {
-  const cliCode = await generateTemplateModuleConnector(basePath, "cli");
+  // In dev mode, skip ephemeral field analysis since the server-review codemod
+  // that creates Ephemeral types in route modules isn't run.
+  // Ephemeral type optimization only matters for production builds.
+  const cliCode = await generateTemplateModuleConnector(basePath, "cli", {
+    skipEphemeralAnalysis: true,
+  });
   const browserCode = await generateTemplateModuleConnector(
     basePath,
     "browser"

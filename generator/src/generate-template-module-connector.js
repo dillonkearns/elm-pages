@@ -73,8 +73,9 @@ async function analyzeEphemeralFields() {
 /**
  * @param {string} basePath
  * @param {'browser' | 'cli'} phase
+ * @param {{ skipEphemeralAnalysis?: boolean }} [options]
  */
-export async function generateTemplateModuleConnector(basePath, phase) {
+export async function generateTemplateModuleConnector(basePath, phase, options = {}) {
   const templates = globby
     .globbySync(["app/Route/**/*.elm"], {})
     .map((file) => {
@@ -108,8 +109,9 @@ export async function generateTemplateModuleConnector(basePath, phase) {
 
   // For CLI phase, detect which routes have ephemeral fields
   // (used to generate correct encoders/decoders in Main.elm)
+  // Skip in dev mode since the server-review codemod that creates Ephemeral types isn't run
   let routesWithEphemeral = [];
-  if (phase === "cli") {
+  if (phase === "cli" && !options.skipEphemeralAnalysis) {
     routesWithEphemeral = await analyzeEphemeralFields();
   }
 

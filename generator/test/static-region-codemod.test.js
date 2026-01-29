@@ -8,7 +8,7 @@
 import { describe, it, expect } from "vitest";
 import { patchStaticRegions } from "../src/static-region-codemod.js";
 
-// Sample compiled Elm virtual-dom code (simplified)
+// Sample compiled Elm virtual-dom code (simplified but with thunk diffing structure)
 const SAMPLE_VDOM_CODE = `
 var _VirtualDom_doc = typeof document !== 'undefined' ? document : {};
 
@@ -35,8 +35,27 @@ function _VirtualDom_render(vNode, eventNode) {
     return _VirtualDom_doc.createElement('div');
 }
 
-function _VirtualDom_diff(x, y) {
-    // ... diff implementation
+function _VirtualDom_diffHelp(x, y, patches, index) {
+    if (x === y) { return; }
+    var xType = x.$;
+    var yType = y.$;
+    if (xType !== yType) {
+        _VirtualDom_pushPatch(patches, 0, index, y);
+        return;
+    }
+    switch (yType) {
+        case 5:
+            var xRefs = x.l;
+            var yRefs = y.l;
+            var i = xRefs.length;
+            var same = i === yRefs.length;
+            while (same && i--) {
+                same = xRefs[i] === yRefs[i];
+            }
+            if (same) { y.k = x.k; return; }
+            _VirtualDom_pushPatch(patches, 0, index, y);
+            return;
+    }
 }
 `;
 
@@ -106,6 +125,29 @@ function _VirtualDom_render(vNode, eventNode, tNode) {
     }
 
     return _VirtualDom_doc.createElement('div');
+}
+
+function _VirtualDom_diffHelp(x, y, patches, index) {
+    if (x === y) { return; }
+    var xType = x.$;
+    var yType = y.$;
+    if (xType !== yType) {
+        _VirtualDom_pushPatch(patches, 0, index, y);
+        return;
+    }
+    switch (yType) {
+        case 5:
+            var xRefs = x.l;
+            var yRefs = y.l;
+            var i = xRefs.length;
+            var same = i === yRefs.length;
+            while (same && i--) {
+                same = xRefs[i] === yRefs[i];
+            }
+            if (same) { y.k = x.k; return; }
+            _VirtualDom_pushPatch(patches, 0, index, y);
+            return;
+    }
 }
 `;
 
