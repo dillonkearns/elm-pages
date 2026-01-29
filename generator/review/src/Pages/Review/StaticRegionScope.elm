@@ -1,118 +1,265 @@
 module Pages.Review.StaticRegionScope exposing (rule)
 
 {-| This rule ensures that static region functions are only called from Route modules
-and that model is not referenced inside freeze calls.
+and that model (or values derived from model) is not referenced inside freeze calls.
 
 Static regions (View.freeze, View.Static.static) are transformed by elm-review during
 the client-side build. This transformation only works for Route modules. Calling these
 functions from other modules (like Shared.elm or helper modules) will NOT enable DCE -
 the heavy dependencies will still be in the client bundle.
 
-Additionally, this rule checks that `model` is not referenced inside `View.freeze` calls.
-Since frozen content is rendered at build time (when model doesn't exist), referencing
-model would cause the content to be stale or cause runtime errors.
+This rule also tracks taint across module boundaries by collecting function taint
+signatures from each module. For example:
+
+    -- Helpers.elm
+    formatUser user = user.name
+
+    -- Route/Index.elm
+    View.freeze (text (Helpers.formatUser model.user))  -- ERROR: tainted!
+
+The rule detects that `model.user` is tainted and flows through `formatUser`.
 
 @docs rule
 
 -}
 
+import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
+import Pages.Review.TaintTracking as Taint
+    exposing
+        ( Nonempty(..)
+        , TaintStatus(..)
+        , addBindingsToScope
+        , emptyBindings
+        , extractBindingsFromPattern
+        , nonemptyCons
+        , nonemptyPop
+        )
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
+import Set exposing (Set)
 
 
-type alias Context =
+{-| Convert a range to a comparable tuple for Set storage.
+-}
+rangeToComparable : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> ( ( Int, Int ), ( Int, Int ) )
+rangeToComparable range =
+    ( ( range.start.row, range.start.column ), ( range.end.row, range.end.column ) )
+
+
+
+-- PROJECT CONTEXT
+
+
+{-| Information about a function's taint behavior.
+
+  - `capturesTaint`: True if the function body references tainted values from outer scope
+  - `paramsThatTaintResult`: Set of parameter indices (0-based) that flow through to the result
+
+-}
+type alias FunctionTaintInfo =
+    { capturesTaint : Bool
+    , paramsThatTaintResult : Set Int
+    }
+
+
+{-| Project-level context: accumulated function taint info from all modules.
+-}
+type alias ProjectContext =
+    { functionTaintInfo : Dict ( ModuleName, String ) FunctionTaintInfo
+    }
+
+
+initialProjectContext : ProjectContext
+initialProjectContext =
+    { functionTaintInfo = Dict.empty
+    }
+
+
+
+-- MODULE CONTEXT
+
+
+type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
     , inFreezeCall : Bool
     , appParamName : Maybe String
+    , modelParamName : Maybe String
+    , bindings : Nonempty (Dict String TaintStatus)
+    , projectFunctions : Dict ( ModuleName, String ) FunctionTaintInfo
+    , collectedFunctions : Dict String FunctionTaintInfo
+    , reportedRanges : Set ( ( Int, Int ), ( Int, Int ) )
     }
 
 
-{-| Reports:
-
-1.  Calls to static region functions outside of Route modules
-2.  References to `model` inside `View.freeze` calls
-
-    config =
-        [ Pages.Review.StaticRegionScope.rule
-        ]
-
-
-## Fail
-
-    -- In Shared.elm or any non-Route module:
-    view =
-        View.freeze (heavyContent ())  -- ERROR: outside Route module
-
-    -- In any module, inside freeze:
-    view app shared model =
-        { body =
-            [ View.freeze (div [] [ text model.name ]) -- ERROR: model in freeze
-            ]
-        }
-
-
-## Success
-
-    -- In Route/Index.elm or any Route.* module:
-    view app shared model =
-        { body =
-            [ View.freeze (div [] [ text app.data.content ])  -- OK
-            , div [] [ text model.name ]  -- OK, outside freeze
-            ]
-        }
-
-
-## Why This Matters
-
-**Static region scope:**
-Static region transformations only work in Route modules. The elm-review codemod that
-enables dead-code elimination runs on Route modules and transforms `View.freeze` calls
-to `View.adopt` calls. If you call `View.freeze` in a non-Route module:
-
-1.  The transformation won't happen
-2.  The heavy rendering code will be in the client bundle
-3.  You won't see any error - just unexpectedly large bundle sizes
-
-**Model references in freeze:**
-Frozen content is rendered at build time when there is no model state. If you reference
-`model` inside a `View.freeze` call:
-
-1.  The content would be frozen with stale/initial model data
-2.  Changes to model wouldn't update the frozen content
-3.  This is almost certainly a bug in your code
-
+{-| Reports uses of tainted values inside View.freeze, including values that
+flow through helper functions from other modules.
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchemaUsingContextCreator "Pages.Review.StaticRegionScope" initialContext
+    Rule.newProjectRuleSchema "Pages.Review.StaticRegionScope" initialProjectContext
+        |> Rule.withContextFromImportedModules
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
+        |> Rule.fromProjectRuleSchema
+
+
+moduleVisitor :
+    Rule.ModuleRuleSchema {} ModuleContext
+    -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor schema =
+    schema
         |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
-        |> Rule.fromModuleRuleSchema
+        |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
+        |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
+        |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
 
 
-initialContext : Rule.ContextCreator () Context
-initialContext =
+fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable moduleName () ->
+        (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
             , moduleName = moduleName
             , inFreezeCall = False
             , appParamName = Nothing
+            , modelParamName = Nothing
+            , bindings = emptyBindings
+            , projectFunctions = projectContext.functionTaintInfo
+            , collectedFunctions = Dict.empty
+            , reportedRanges = Set.empty
             }
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withModuleName
 
 
+fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator
+        (\moduleName moduleContext ->
+            { functionTaintInfo =
+                moduleContext.collectedFunctions
+                    |> Dict.toList
+                    |> List.map (\( name, info ) -> ( ( moduleName, name ), info ))
+                    |> Dict.fromList
+            }
+        )
+        |> Rule.withModuleName
+
+
+foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+foldProjectContexts a b =
+    { functionTaintInfo = Dict.union a.functionTaintInfo b.functionTaintInfo
+    }
+
+
+
+-- HELPERS
+
+
+{-| Report an error if we haven't already reported at this range.
+Returns the error (if new) and the updated context with the range tracked.
+-}
+reportErrorIfNew :
+    { start : { row : Int, column : Int }, end : { row : Int, column : Int } }
+    -> Error {}
+    -> ModuleContext
+    -> ( List (Error {}), ModuleContext )
+reportErrorIfNew range error context =
+    let
+        rangeKey =
+            rangeToComparable range
+    in
+    if Set.member rangeKey context.reportedRanges then
+        ( [], context )
+
+    else
+        ( [ error ]
+        , { context | reportedRanges = Set.insert rangeKey context.reportedRanges }
+        )
+
+
+{-| Collect errors from a list, deduplicating by range.
+-}
+collectErrors :
+    List ( { start : { row : Int, column : Int }, end : { row : Int, column : Int } }, Error {} )
+    -> ModuleContext
+    -> ( List (Error {}), ModuleContext )
+collectErrors errorPairs context =
+    List.foldl
+        (\( range, error ) ( accErrors, accContext ) ->
+            let
+                ( newErrors, newContext ) =
+                    reportErrorIfNew range error accContext
+            in
+            ( accErrors ++ newErrors, newContext )
+        )
+        ( [], context )
+        errorPairs
+
+
+{-| Look up a binding in the context's scope stack.
+-}
+lookupBinding : String -> ModuleContext -> Maybe TaintStatus
+lookupBinding name context =
+    Taint.lookupBinding name context.bindings
+
+
+{-| Add bindings to the current scope.
+-}
+addBindingsToCurrentScope : List ( String, TaintStatus ) -> ModuleContext -> ModuleContext
+addBindingsToCurrentScope newBindings context =
+    { context | bindings = addBindingsToScope newBindings context.bindings }
+
+
+{-| Push a new empty scope onto the stack.
+-}
+pushScope : ModuleContext -> ModuleContext
+pushScope context =
+    { context | bindings = nonemptyCons Dict.empty context.bindings }
+
+
+{-| Pop the top scope from the stack.
+-}
+popScope : ModuleContext -> ModuleContext
+popScope context =
+    case nonemptyPop context.bindings of
+        Just newBindings ->
+            { context | bindings = newBindings }
+
+        Nothing ->
+            context
+
+
+{-| Get a TaintContext for use with analyzeExpressionTaint.
+-}
+toTaintContext : ModuleContext -> Taint.TaintContext
+toTaintContext context =
+    { modelParamName = context.modelParamName
+    , bindings = context.bindings
+    }
+
+
+{-| Analyze expression taint using the shared module.
+-}
+analyzeExpressionTaint : ModuleContext -> Node Expression -> TaintStatus
+analyzeExpressionTaint context =
+    Taint.analyzeExpressionTaint (toTaintContext context)
+
+
 {-| Runtime app fields that don't exist at build time.
-These should not be accessed inside View.freeze.
 -}
 runtimeAppFields : List String
 runtimeAppFields =
@@ -125,49 +272,129 @@ runtimeAppFields =
     ]
 
 
-{-| Build-time app fields that are safe to use in View.freeze.
+{-| Check if a module name is a Route module (Route.Something, Route.Blog.Slug_, etc.)
 -}
-buildTimeAppFields : List String
-buildTimeAppFields =
-    [ "data"
-    , "sharedData"
-    , "routeParams"
-    , "path"
-    ]
+isRouteModule : ModuleName -> Bool
+isRouteModule moduleName =
+    case moduleName of
+        "Route" :: _ :: _ ->
+            True
+
+        _ ->
+            False
 
 
-declarationEnterVisitor : Node Declaration -> Context -> ( List (Error {}), Context )
+{-| Check if a module name is allowed to use static region functions.
+This includes Route modules and the View module (which provides helper functions
+that are ultimately called from Route modules).
+-}
+isAllowedModule : ModuleName -> Bool
+isAllowedModule moduleName =
+    isRouteModule moduleName || moduleName == [ "View" ]
+
+
+{-| Static region functions that should only be called from Route modules.
+-}
+staticFunctionNames : List String
+staticFunctionNames =
+    [ "freeze" ]
+
+
+{-| Static functions in View.Static module
+-}
+viewStaticFunctionNames : List String
+viewStaticFunctionNames =
+    [ "static", "view" ]
+
+
+
+-- VISITORS
+
+
+declarationEnterVisitor : Node Declaration -> ModuleContext -> ( List (Error {}), ModuleContext )
 declarationEnterVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration function ->
             let
+                functionDecl =
+                    Node.value function.declaration
+
                 functionName =
-                    function.declaration
-                        |> Node.value
-                        |> .name
-                        |> Node.value
+                    Node.value functionDecl.name
+
+                -- Extract parameter names
+                paramNames =
+                    List.filterMap extractPatternName functionDecl.arguments
+
+                -- Analyze which parameters flow through to the result
+                -- We create a context where each param is marked as "tainted" to track flow
+                paramFlowContext =
+                    { modelParamName = Nothing
+                    , bindings =
+                        paramNames
+                            |> List.map (\name -> ( name, Tainted ))
+                            |> (\bindings -> addBindingsToScope bindings emptyBindings)
+                    }
+
+                -- Analyze body - if result is tainted, some param flowed through
+                bodyTaint =
+                    Taint.analyzeExpressionTaint paramFlowContext functionDecl.expression
+
+                -- If the body is tainted (with params as tainted), all params could flow through
+                -- A more sophisticated analysis would track exactly which params flow
+                paramsThatTaint =
+                    if bodyTaint == Tainted then
+                        List.range 0 (List.length functionDecl.arguments - 1)
+                            |> Set.fromList
+
+                    else
+                        Set.empty
+
+                -- Also check if function captures tainted values from outer scope
+                -- (using the actual context with model param info)
+                capturesTaint =
+                    analyzeExpressionTaint context functionDecl.expression == Tainted
+
+                functionInfo =
+                    { capturesTaint = capturesTaint
+                    , paramsThatTaintResult = paramsThatTaint
+                    }
+
+                newCollected =
+                    Dict.insert functionName functionInfo context.collectedFunctions
             in
             if functionName == "view" then
-                -- Extract the App parameter name from the view function
-                -- The first parameter is typically named "app" or "static"
+                -- Extract app and model param names for view function
                 let
+                    arguments =
+                        functionDecl.arguments
+
                     maybeAppParam =
-                        function.declaration
-                            |> Node.value
-                            |> .arguments
+                        List.head arguments
+                            |> Maybe.andThen extractPatternName
+
+                    maybeModelParam =
+                        arguments
+                            |> List.drop 2
                             |> List.head
                             |> Maybe.andThen extractPatternName
                 in
-                ( [], { context | appParamName = maybeAppParam } )
+                ( []
+                , { context
+                    | appParamName = maybeAppParam
+                    , modelParamName = maybeModelParam
+                    , collectedFunctions = newCollected
+                  }
+                )
 
             else
-                ( [], context )
+                ( [], { context | collectedFunctions = newCollected } )
 
         _ ->
             ( [], context )
 
 
-{-| Extract a single name from a pattern (for function parameter names).
+{-| Extract a single name from a pattern.
 -}
 extractPatternName : Node Pattern -> Maybe String
 extractPatternName node =
@@ -185,91 +412,93 @@ extractPatternName node =
             Nothing
 
 
-{-| Check if a module name is a Route module (Route.Something, Route.Blog.Slug_, etc.)
--}
-isRouteModule : ModuleName -> Bool
-isRouteModule moduleName =
-    case moduleName of
-        "Route" :: _ :: _ ->
-            True
-
-        _ ->
-            False
-
-
-{-| Check if a module name is allowed to use static region functions.
-
-This includes Route modules and the View module (which provides helper functions
-that are ultimately called from Route modules).
-
--}
-isAllowedModule : ModuleName -> Bool
-isAllowedModule moduleName =
-    isRouteModule moduleName || moduleName == [ "View" ]
-
-
-{-| Static region functions that should only be called from Route modules.
--}
-staticFunctionNames : List String
-staticFunctionNames =
-    [ "freeze"
-    ]
-
-
-{-| Static functions in View.Static module
--}
-viewStaticFunctionNames : List String
-viewStaticFunctionNames =
-    [ "static"
-    , "view"
-    ]
-
-
-expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionEnterVisitor node context =
-    let
-        -- Check for entering a freeze call
-        ( newInFreezeCall, freezeErrors ) =
-            case Node.value node of
-                Expression.Application (functionNode :: _) ->
-                    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-                        Just [ "View" ] ->
-                            case Node.value functionNode of
-                                Expression.FunctionOrValue _ "freeze" ->
-                                    ( True, [] )
+    case Node.value node of
+        Expression.Application (functionNode :: _) ->
+            -- Check if this is a call to a static region function
+            case checkStaticRegionFunctionCall functionNode context of
+                Just scopeError ->
+                    -- Report scope error and don't enter freeze mode (no point checking taint)
+                    ( [ scopeError ], context )
+
+                Nothing ->
+                    -- No scope error - check if entering freeze and track taint
+                    let
+                        newInFreezeCall =
+                            case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+                                Just [ "View" ] ->
+                                    case Node.value functionNode of
+                                        Expression.FunctionOrValue _ "freeze" ->
+                                            True
+
+                                        _ ->
+                                            context.inFreezeCall
+
+                                Just [ "View", "Static" ] ->
+                                    case Node.value functionNode of
+                                        Expression.FunctionOrValue _ name ->
+                                            List.member name viewStaticFunctionNames || context.inFreezeCall
+
+                                        _ ->
+                                            context.inFreezeCall
 
                                 _ ->
-                                    ( context.inFreezeCall, [] )
+                                    context.inFreezeCall
 
-                        _ ->
-                            ( context.inFreezeCall, [] )
+                        contextWithFreeze =
+                            { context | inFreezeCall = newInFreezeCall }
+                    in
+                    if contextWithFreeze.inFreezeCall then
+                        checkTaintedReference node contextWithFreeze
+
+                    else
+                        ( [], contextWithFreeze )
+
+        _ ->
+            -- Not a function application - check taint if in freeze
+            if context.inFreezeCall then
+                checkTaintedReference node context
+
+            else
+                ( [], context )
+
+
+{-| Check if a function call is to a static region function and if the current module is allowed.
+Returns Just error if not allowed, Nothing if allowed or not a static region function.
+-}
+checkStaticRegionFunctionCall : Node Expression -> ModuleContext -> Maybe (Error {})
+checkStaticRegionFunctionCall functionNode context =
+    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+        Just [ "View" ] ->
+            case Node.value functionNode of
+                Expression.FunctionOrValue _ name ->
+                    if List.member name staticFunctionNames && not (isAllowedModule context.moduleName) then
+                        Just (staticRegionScopeError (Node.range functionNode) ("View." ++ name))
+
+                    else
+                        Nothing
 
                 _ ->
-                    ( context.inFreezeCall, [] )
+                    Nothing
 
-        contextWithFreeze =
-            { context | inFreezeCall = newInFreezeCall }
+        Just [ "View", "Static" ] ->
+            case Node.value functionNode of
+                Expression.FunctionOrValue _ name ->
+                    if List.member name viewStaticFunctionNames && not (isAllowedModule context.moduleName) then
+                        Just (staticRegionScopeError (Node.range functionNode) ("View.Static." ++ name))
 
-        -- Check for model reference inside freeze
-        modelErrors =
-            if contextWithFreeze.inFreezeCall then
-                checkModelReference node contextWithFreeze
+                    else
+                        Nothing
 
-            else
-                []
+                _ ->
+                    Nothing
 
-        -- Check for scope errors (static functions outside Route modules)
-        scopeErrors =
-            if isAllowedModule context.moduleName then
-                []
-
-            else
-                checkScopeErrors node context
-    in
-    ( freezeErrors ++ modelErrors ++ scopeErrors, contextWithFreeze )
+        _ ->
+            Nothing
 
 
-expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionExitVisitor node context =
     case Node.value node of
         Expression.Application (functionNode :: _) ->
@@ -282,6 +511,18 @@ expressionExitVisitor node context =
                         _ ->
                             ( [], context )
 
+                Just [ "View", "Static" ] ->
+                    case Node.value functionNode of
+                        Expression.FunctionOrValue _ name ->
+                            if List.member name viewStaticFunctionNames then
+                                ( [], { context | inFreezeCall = False } )
+
+                            else
+                                ( [], context )
+
+                        _ ->
+                            ( [], context )
+
                 _ ->
                     ( [], context )
 
@@ -289,162 +530,253 @@ expressionExitVisitor node context =
             ( [], context )
 
 
-{-| Check if the expression is a reference to `model`, a runtime app field,
-or uses patterns like `model |> .field` inside a freeze call.
+letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
+letDeclarationEnterVisitor _ letDeclNode context =
+    case Node.value letDeclNode of
+        Expression.LetFunction function ->
+            let
+                functionDecl =
+                    Node.value function.declaration
 
-Note: We need to be careful to avoid duplicate errors. For example,
-`model.field` should only report one error (for the RecordAccess),
-not two (one for FunctionOrValue "model" and one for RecordAccess).
-The AST visitor will visit both the outer RecordAccess and inner FunctionOrValue.
-We handle this by:
-- Only catching direct `model` references when they're standalone
-- Catching `model.field` at the RecordAccess level
+                functionName =
+                    Node.value functionDecl.name
+
+                bodyTaint =
+                    analyzeExpressionTaint context functionDecl.expression
+            in
+            ( [], addBindingsToCurrentScope [ ( functionName, bodyTaint ) ] context )
+
+        Expression.LetDestructuring pattern expr ->
+            let
+                exprTaint =
+                    analyzeExpressionTaint context expr
+
+                bindings =
+                    extractBindingsFromPattern exprTaint pattern
+            in
+            ( [], addBindingsToCurrentScope bindings context )
+
+
+caseBranchEnterVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> ModuleContext -> ( List (Error {}), ModuleContext )
+caseBranchEnterVisitor caseBlockNode ( patternNode, _ ) context =
+    let
+        caseBlock =
+            Node.value caseBlockNode
+
+        caseTaint =
+            analyzeExpressionTaint context caseBlock.expression
+
+        patternBindings =
+            extractBindingsFromPattern caseTaint patternNode
+    in
+    ( [], pushScope context |> addBindingsToCurrentScope patternBindings )
+
+
+caseBranchExitVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> ModuleContext -> ( List (Error {}), ModuleContext )
+caseBranchExitVisitor _ _ context =
+    ( [], popScope context )
+
+
+
+-- TAINT CHECKING
+
+
+{-| Check if an expression inside freeze is tainted, including cross-module function calls.
+Uses deduplication to avoid reporting multiple errors at the same location.
 -}
-checkModelReference : Node Expression -> Context -> List (Error {})
-checkModelReference node context =
+checkTaintedReference : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+checkTaintedReference node context =
     case Node.value node of
-        -- model.field - report error at the RecordAccess level
+        -- Check for tainted local variable
+        Expression.FunctionOrValue [] varName ->
+            if context.modelParamName == Just varName then
+                -- model itself is handled by more specific checks (RecordAccess)
+                ( [], context )
+
+            else
+                case lookupBinding varName context of
+                    Just Tainted ->
+                        reportErrorIfNew (Node.range node)
+                            (taintedValueError (Node.range node) varName)
+                            context
+
+                    _ ->
+                        ( [], context )
+
+        -- Check for model.field or taintedVar.field
         Expression.RecordAccess innerExpr (Node _ fieldName) ->
             case Node.value innerExpr of
-                Expression.FunctionOrValue [] "model" ->
-                    [ modelInFreezeError (Node.range node) ]
-
-                -- Check for app.runtimeField (like app.action, app.navigation)
                 Expression.FunctionOrValue [] varName ->
-                    if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
-                        [ runtimeAppFieldInFreezeError (Node.range node) fieldName ]
+                    case lookupBinding varName context of
+                        Just Tainted ->
+                            reportErrorIfNew (Node.range node)
+                                (taintedValueError (Node.range node) varName)
+                                context
 
-                    else
-                        []
+                        Just Pure ->
+                            ( [], context )
+
+                        Nothing ->
+                            if context.modelParamName == Just varName then
+                                reportErrorIfNew (Node.range node)
+                                    (modelInFreezeError (Node.range node))
+                                    context
+
+                            else if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
+                                reportErrorIfNew (Node.range node)
+                                    (runtimeAppFieldError (Node.range node) fieldName)
+                                    context
+
+                            else
+                                ( [], context )
 
                 _ ->
-                    []
+                    ( [], context )
 
-        -- Pipe operator: model |> .field or app |> .action
+        -- Check for cross-module function calls with tainted arguments
+        Expression.Application (functionNode :: args) ->
+            checkCrossModuleCall functionNode args context
+
+        -- Pipe operator
         Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
-            checkPipeAccessor leftExpr rightExpr context
+            checkPipeExpression leftExpr rightExpr context
 
-        -- Case expression: case model of {...}
+        -- Case expression
         Expression.CaseExpression caseBlock ->
             checkCaseExpression caseBlock.expression context
 
         _ ->
-            []
+            ( [], context )
 
 
-{-| Check for accessor patterns in pipe expressions: `model |> .field`, `app |> .action`
-
-NOTE: For `app |> .action`, we check if the field is a runtime-only field.
-For `app |> .data`, we allow it because data is available at build time.
+{-| Check if a cross-module function call passes tainted values.
 -}
-checkPipeAccessor : Node Expression -> Node Expression -> Context -> List (Error {})
-checkPipeAccessor leftExpr rightExpr context =
+checkCrossModuleCall : Node Expression -> List (Node Expression) -> ModuleContext -> ( List (Error {}), ModuleContext )
+checkCrossModuleCall functionNode args context =
+    case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
+        Just moduleName ->
+            case Node.value functionNode of
+                Expression.FunctionOrValue _ functionName ->
+                    let
+                        key =
+                            ( moduleName, functionName )
+                    in
+                    case Dict.get key context.projectFunctions of
+                        Just functionInfo ->
+                            -- Check if any tainted arg is passed to a param that taints result
+                            args
+                                |> List.indexedMap
+                                    (\idx argNode ->
+                                        if Set.member idx functionInfo.paramsThatTaintResult then
+                                            let
+                                                argTaint =
+                                                    analyzeExpressionTaint context argNode
+                                            in
+                                            if argTaint == Tainted then
+                                                Just
+                                                    ( Node.range argNode
+                                                    , crossModuleTaintError (Node.range argNode) functionName
+                                                    )
+
+                                            else
+                                                Nothing
+
+                                        else
+                                            Nothing
+                                    )
+                                |> List.filterMap identity
+                                |> (\errorPairs -> collectErrors errorPairs context)
+
+                        Nothing ->
+                            -- Unknown function (external package) - no error
+                            ( [], context )
+
+                _ ->
+                    ( [], context )
+
+        Nothing ->
+            ( [], context )
+
+
+{-| Check pipe expressions for tainted values.
+-}
+checkPipeExpression : Node Expression -> Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+checkPipeExpression leftExpr rightExpr context =
     case Node.value rightExpr of
         Expression.RecordAccessFunction fieldName ->
             case Node.value leftExpr of
-                -- model |> .field
-                Expression.FunctionOrValue [] "model" ->
-                    [ accessorOnModelInFreezeError (Node.range leftExpr) ]
-
-                -- app |> .action (runtime field)
                 Expression.FunctionOrValue [] varName ->
-                    -- Check if varName matches app param AND field is a runtime field
-                    case context.appParamName of
-                        Just appName ->
-                            if varName == appName && List.member fieldName runtimeAppFields then
-                                [ accessorOnAppRuntimeFieldInFreezeError (Node.range leftExpr) fieldName ]
+                    if context.modelParamName == Just varName then
+                        reportErrorIfNew (Node.range leftExpr)
+                            (accessorOnModelError (Node.range leftExpr))
+                            context
 
-                            else
-                                []
+                    else if context.appParamName == Just varName && List.member fieldName runtimeAppFields then
+                        reportErrorIfNew (Node.range leftExpr)
+                            (accessorOnRuntimeAppFieldError (Node.range leftExpr) fieldName)
+                            context
 
-                        Nothing ->
-                            []
+                    else
+                        case lookupBinding varName context of
+                            Just Tainted ->
+                                reportErrorIfNew (Node.range leftExpr)
+                                    (taintedValueError (Node.range leftExpr) varName)
+                                    context
+
+                            _ ->
+                                ( [], context )
 
                 _ ->
-                    []
+                    ( [], context )
 
         _ ->
-            []
+            ( [], context )
 
 
-{-| Check for case expressions on model or app: `case model of {...}`
+{-| Check case expressions on tainted values.
 -}
-checkCaseExpression : Node Expression -> Context -> List (Error {})
+checkCaseExpression : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 checkCaseExpression exprNode context =
     case Node.value exprNode of
-        Expression.FunctionOrValue [] "model" ->
-            [ caseOnModelInFreezeError (Node.range exprNode) ]
-
-        -- app (without field access) - accessing the whole app record in a case
         Expression.FunctionOrValue [] varName ->
-            if context.appParamName == Just varName then
-                [ caseOnAppInFreezeError (Node.range exprNode) ]
+            if context.modelParamName == Just varName then
+                reportErrorIfNew (Node.range exprNode)
+                    (caseOnModelError (Node.range exprNode))
+                    context
+
+            else if context.appParamName == Just varName then
+                reportErrorIfNew (Node.range exprNode)
+                    (caseOnAppError (Node.range exprNode))
+                    context
 
             else
-                []
+                case lookupBinding varName context of
+                    Just Tainted ->
+                        reportErrorIfNew (Node.range exprNode)
+                            (caseOnTaintedValueError (Node.range exprNode) varName)
+                            context
+
+                    _ ->
+                        ( [], context )
 
         _ ->
-            []
+            ( [], context )
 
 
-{-| Check for static region function calls outside of allowed modules.
--}
-checkScopeErrors : Node Expression -> Context -> List (Error {})
-checkScopeErrors node context =
-    case Node.value node of
-        Expression.Application (functionNode :: _) ->
-            case ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode of
-                Just [ "View" ] ->
-                    checkViewFunction functionNode
 
-                Just [ "View", "Static" ] ->
-                    checkViewStaticFunction functionNode
-
-                _ ->
-                    []
-
-        _ ->
-            []
+-- ERROR HELPERS
 
 
-checkViewFunction : Node Expression -> List (Error {})
-checkViewFunction functionNode =
-    case Node.value functionNode of
-        Expression.FunctionOrValue _ name ->
-            if List.member name staticFunctionNames then
-                [ staticRegionScopeError (Node.range functionNode) ("View." ++ name) ]
-
-            else
-                []
-
-        _ ->
-            []
-
-
-checkViewStaticFunction : Node Expression -> List (Error {})
-checkViewStaticFunction functionNode =
-    case Node.value functionNode of
-        Expression.FunctionOrValue _ name ->
-            if List.member name viewStaticFunctionNames then
-                [ staticRegionScopeError (Node.range functionNode) ("View.Static." ++ name) ]
-
-            else
-                []
-
-        _ ->
-            []
-
-
-staticRegionScopeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
-staticRegionScopeError range functionName =
+taintedValueError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+taintedValueError range varName =
     Rule.error
-        { message = "Static region function called outside Route module"
+        { message = "Tainted value `" ++ varName ++ "` used inside View.freeze"
         , details =
-            [ "`" ++ functionName ++ "` can only be called from Route modules (Route.Index, Route.Blog.Slug_, etc.)."
-            , "Static regions are transformed by elm-review during the build, and this transformation only works for Route modules. Calling static region functions from other modules will NOT eliminate heavy dependencies from the client bundle."
+            [ "`" ++ varName ++ "` depends on `model` or other runtime data that doesn't exist at build time."
+            , "Frozen content is rendered once at build time. Values derived from `model` will be stale and won't update when the model changes."
             , "To fix this, either:"
-            , "1. Move this code to a Route module, or"
-            , "2. Pass the static content as a parameter from the Route module"
+            , "1. Move the model-dependent content outside of `View.freeze`, or"
+            , "2. Only use values derived from `app.data` or other build-time data inside `View.freeze`"
             ]
         }
         range
@@ -465,8 +797,8 @@ modelInFreezeError range =
         range
 
 
-runtimeAppFieldInFreezeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
-runtimeAppFieldInFreezeError range fieldName =
+runtimeAppFieldError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+runtimeAppFieldError range fieldName =
     Rule.error
         { message = "Runtime field `" ++ fieldName ++ "` accessed inside View.freeze"
         , details =
@@ -480,8 +812,8 @@ runtimeAppFieldInFreezeError range fieldName =
         range
 
 
-accessorOnModelInFreezeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
-accessorOnModelInFreezeError range =
+accessorOnModelError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+accessorOnModelError range =
     Rule.error
         { message = "Accessor on model inside View.freeze"
         , details =
@@ -493,8 +825,8 @@ accessorOnModelInFreezeError range =
         range
 
 
-accessorOnAppRuntimeFieldInFreezeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
-accessorOnAppRuntimeFieldInFreezeError range fieldName =
+accessorOnRuntimeAppFieldError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+accessorOnRuntimeAppFieldError range fieldName =
     Rule.error
         { message = "Accessor on runtime app field inside View.freeze"
         , details =
@@ -506,8 +838,8 @@ accessorOnAppRuntimeFieldInFreezeError range fieldName =
         range
 
 
-caseOnModelInFreezeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
-caseOnModelInFreezeError range =
+caseOnModelError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+caseOnModelError range =
     Rule.error
         { message = "Pattern match on model inside View.freeze"
         , details =
@@ -519,8 +851,8 @@ caseOnModelInFreezeError range =
         range
 
 
-caseOnAppInFreezeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
-caseOnAppInFreezeError range =
+caseOnAppError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> Error {}
+caseOnAppError range =
     Rule.error
         { message = "Pattern match on app inside View.freeze"
         , details =
@@ -529,6 +861,49 @@ caseOnAppInFreezeError range =
             , "To fix this, either:"
             , "1. Move this content outside of `View.freeze`, or"
             , "2. Access specific build-time fields like `app.data` or `app.routeParams` instead"
+            ]
+        }
+        range
+
+
+caseOnTaintedValueError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+caseOnTaintedValueError range varName =
+    Rule.error
+        { message = "Pattern match on tainted value `" ++ varName ++ "` inside View.freeze"
+        , details =
+            [ "`" ++ varName ++ "` depends on `model` or other runtime data that doesn't exist at build time."
+            , "Using `case " ++ varName ++ " of` inside `View.freeze` depends on data that won't exist at build time."
+            , "To fix this, move the model-dependent content outside of `View.freeze`."
+            ]
+        }
+        range
+
+
+crossModuleTaintError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+crossModuleTaintError range functionName =
+    Rule.error
+        { message = "Tainted value passed to `" ++ functionName ++ "` inside View.freeze"
+        , details =
+            [ "This argument depends on `model` or other runtime data, and `" ++ functionName ++ "` passes it through to the result."
+            , "Frozen content is rendered once at build time. Values derived from `model` will be stale and won't update when the model changes."
+            , "To fix this, either:"
+            , "1. Move the model-dependent content outside of `View.freeze`, or"
+            , "2. Only use values derived from `app.data` or other build-time data inside `View.freeze`"
+            ]
+        }
+        range
+
+
+staticRegionScopeError : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> String -> Error {}
+staticRegionScopeError range functionName =
+    Rule.error
+        { message = "`" ++ functionName ++ "` can only be called from Route modules"
+        , details =
+            [ "Static region functions like `" ++ functionName ++ "` are transformed by elm-review during the client-side build to enable dead code elimination (DCE)."
+            , "This transformation only works for Route modules (Route.Index, Route.Blog.Slug_, etc.). Calling these functions from other modules like Shared.elm or helper modules will NOT enable DCE - the heavy dependencies will still be included in the client bundle."
+            , "To fix this, either:"
+            , "1. Move the `" ++ functionName ++ "` call into a Route module, or"
+            , "2. Create a helper function that returns data/Html and call `" ++ functionName ++ "` in the Route module"
             ]
         }
         range
