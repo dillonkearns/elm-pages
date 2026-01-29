@@ -53,6 +53,13 @@ import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
 
+{-| Convert a range to a comparable tuple for Set storage.
+-}
+rangeToComparable : Range -> ( ( Int, Int ), ( Int, Int ) )
+rangeToComparable range =
+    ( ( range.start.row, range.start.column ), ( range.end.row, range.end.column ) )
+
+
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
@@ -71,6 +78,15 @@ type alias Context =
 
     -- app.data binding tracking (for let bindings like `let d = app.data`)
     , appDataBindings : Set String
+
+    -- Field-specific binding tracking (for let bindings like `let title = app.data.title`)
+    -- Maps variable name -> field name from app.data
+    -- When a variable is used in client context, we mark its field as client-used
+    , fieldBindings : Dict String String
+
+    -- Ranges of expressions that are RHS of field bindings (to skip in normal tracking)
+    -- These are tracked via the variable usage, not the direct field access
+    , fieldBindingRanges : Set ( ( Int, Int ), ( Int, Int ) )
 
     -- Track if app.data is used as a whole in CLIENT context (not field-accessed)
     -- If true, we can't safely determine which fields are client-used
@@ -142,6 +158,8 @@ initialContext =
             , inFreezeCall = False
             , inHeadFunction = False
             , appDataBindings = Set.empty
+            , fieldBindings = Dict.empty
+            , fieldBindingRanges = Set.empty
             , appDataUsedAsWhole = False
             , dataUsedAsConstructor = False
             , dataTypeRange = Nothing
@@ -462,13 +480,38 @@ expressionExitVisitor node context =
 
 {-| Track field access on app.data and variables bound to app.data.
 Also detects when app.data is used as a whole (not field-accessed).
+
+Enhanced to track:
+1. Direct field access: app.data.fieldName (but NOT in let binding RHS that we extract as field bindings)
+2. Let bindings that assign fields: let title = app.data.title (via fieldBindings)
+3. Usage of variables bound to fields: someFunc title
+
+Note: When a let binding like `let title = app.data.title` is seen, we extract it as a field binding
+and track the USAGE of `title` variable, not the definition. This avoids double-counting.
+
 -}
 trackFieldAccess : Node Expression -> Context -> Context
 trackFieldAccess node context =
+    let
+        -- Check if this expression is in a range we should skip (field binding RHS)
+        nodeRange =
+            rangeToComparable (Node.range node)
+
+        isFieldBindingRHS =
+            Set.member nodeRange context.fieldBindingRanges
+    in
     case Node.value node of
         -- Direct field access: app.data.fieldName
+        -- Skip if this is the RHS of a let binding that we're extracting as a field binding
+        -- (those will be tracked via the variable usage)
         Expression.RecordAccess innerExpr (Node _ fieldName) ->
-            if isAppDataAccess innerExpr context then
+            if isFieldBindingRHS then
+                -- This is a field binding RHS like `let title = app.data.title`
+                -- Don't track here - it will be tracked when the variable is used
+                context
+
+            else if isAppDataAccess innerExpr context then
+                -- Direct app.data.field access (not in a field binding RHS)
                 addFieldAccess fieldName context
 
             else
@@ -483,6 +526,16 @@ trackFieldAccess node context =
 
                     _ ->
                         context
+
+        -- Variable reference: check if it's bound to an app.data field
+        Expression.FunctionOrValue [] varName ->
+            case Dict.get varName context.fieldBindings of
+                Just fieldName ->
+                    -- This variable is bound to an app.data field
+                    addFieldAccess fieldName context
+
+                Nothing ->
+                    context
 
         -- Pipe operator with accessor: app.data |> .field
         -- We can't safely track which field is accessed with accessor functions
@@ -520,44 +573,80 @@ trackFieldAccess node context =
             else
                 context
 
-        -- Let expressions can bind app.data to a variable
+        -- Let expressions can bind app.data to a variable, or bind specific fields
         Expression.LetExpression letBlock ->
             let
-                newBindings =
+                ( newAppDataBindings, newFieldBindings, newFieldBindingRanges ) =
                     letBlock.declarations
                         |> List.foldl
-                            (\declNode acc ->
+                            (\declNode ( appBindings, fieldBinds, bindingRanges ) ->
                                 case Node.value declNode of
                                     Expression.LetFunction letFn ->
                                         let
                                             fnDecl =
                                                 Node.value letFn.declaration
+
+                                            varName =
+                                                Node.value fnDecl.name
+
+                                            exprRange =
+                                                Node.range fnDecl.expression
                                         in
                                         case fnDecl.arguments of
                                             [] ->
-                                                -- No arguments, could be binding app.data
-                                                if isAppDataExpression fnDecl.expression context then
-                                                    Set.insert (Node.value fnDecl.name) acc
+                                                -- No arguments, could be binding app.data or app.data.field
+                                                case extractAppDataFieldAccess fnDecl.expression context of
+                                                    Just fieldName ->
+                                                        -- let title = app.data.title
+                                                        -- Track the range to skip in normal field tracking
+                                                        ( appBindings
+                                                        , Dict.insert varName fieldName fieldBinds
+                                                        , Set.insert (rangeToComparable exprRange) bindingRanges
+                                                        )
 
-                                                else
-                                                    acc
+                                                    Nothing ->
+                                                        if isAppDataExpression fnDecl.expression context then
+                                                            -- let d = app.data
+                                                            ( Set.insert varName appBindings, fieldBinds, bindingRanges )
+
+                                                        else
+                                                            ( appBindings, fieldBinds, bindingRanges )
 
                                             _ ->
-                                                acc
+                                                ( appBindings, fieldBinds, bindingRanges )
 
                                     Expression.LetDestructuring pattern expr ->
                                         -- Handle: let { field1, field2 } = app.data in ...
-                                        -- For now, conservatively mark all destructured fields
+                                        -- With record destructuring, variable names ARE field names
                                         if isAppDataExpression expr context then
-                                            extractPatternNames pattern
-                                                |> Set.union acc
+                                            let
+                                                destructuredNames =
+                                                    extractPatternNames pattern
+
+                                                -- For record destructuring of app.data, variable name = field name
+                                                newFieldBinds =
+                                                    destructuredNames
+                                                        |> Set.foldl (\name acc -> Dict.insert name name acc) fieldBinds
+
+                                                -- Track the range to skip
+                                                exprRange =
+                                                    Node.range expr
+                                            in
+                                            ( Set.union destructuredNames appBindings
+                                            , newFieldBinds
+                                            , Set.insert (rangeToComparable exprRange) bindingRanges
+                                            )
 
                                         else
-                                            acc
+                                            ( appBindings, fieldBinds, bindingRanges )
                             )
-                            context.appDataBindings
+                            ( context.appDataBindings, context.fieldBindings, context.fieldBindingRanges )
             in
-            { context | appDataBindings = newBindings }
+            { context
+                | appDataBindings = newAppDataBindings
+                , fieldBindings = newFieldBindings
+                , fieldBindingRanges = newFieldBindingRanges
+            }
 
         _ ->
             context
@@ -604,6 +693,24 @@ isAppDataExpression node context =
 
         _ ->
             False
+
+
+{-| Extract the field name if the expression is `app.data.fieldName`.
+Returns Just fieldName if it matches, Nothing otherwise.
+-}
+extractAppDataFieldAccess : Node Expression -> Context -> Maybe String
+extractAppDataFieldAccess node context =
+    case Node.value node of
+        -- app.data.fieldName
+        Expression.RecordAccess innerExpr (Node _ fieldName) ->
+            if isAppDataAccess innerExpr context then
+                Just fieldName
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
 
 
 {-| Check if an expression contains `app.data` being passed as a WHOLE to a function.
