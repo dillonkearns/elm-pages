@@ -1083,4 +1083,233 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "Conservative bail-out for app.data passed as whole"
+            [ test "record update with app.data bound variable causes bail-out" <|
+                \() ->
+                    -- When { d | field = value } where d = app.data is used outside freeze,
+                    -- we can't safely track which fields are used (all are copied)
+                    -- so no EPHEMERAL_FIELDS_JSON is emitted, but View.freeze is still transformed
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        d = app.data
+        modifiedData = { d | title = "new" }
+    in
+    { title = modifiedData.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- View.freeze transformation still happens
+                        -- but NO EPHEMERAL_FIELDS_JSON because we bailed out
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    let
+        d = app.data
+        modifiedData = { d | title = "new" }
+    in
+    { title = modifiedData.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+"""
+                            ]
+            , test "app.data in list passed to function causes bail-out" <|
+                \() ->
+                    -- When [ app.data ] is passed to a function outside freeze,
+                    -- we can't track which fields are used, so no EPHEMERAL_FIELDS_JSON is emitted
+                    -- But View.freeze is still transformed to View.Static.adopt
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = someHelper [ app.data ]
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+someHelper items = ""
+"""
+                        |> Review.Test.run rule
+                        -- View.freeze transformation still happens
+                        -- but NO EPHEMERAL_FIELDS_JSON because we bailed out
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = someHelper [ app.data ]
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+someHelper items = ""
+"""
+                            ]
+            , test "app.data in tuple passed to function causes bail-out" <|
+                \() ->
+                    -- When ( app.data, x ) is passed to a function outside freeze,
+                    -- we can't track which fields are used, so no EPHEMERAL_FIELDS_JSON is emitted
+                    -- But View.freeze is still transformed to View.Static.adopt
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = someHelper ( app.data, "extra" )
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+someHelper pair = ""
+"""
+                        |> Review.Test.run rule
+                        -- View.freeze transformation still happens
+                        -- but NO EPHEMERAL_FIELDS_JSON because we bailed out
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = someHelper ( app.data, "extra" )
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+someHelper pair = ""
+"""
+                            ]
+            , test "record update in freeze context does not cause bail-out" <|
+                \() ->
+                    -- When record update is used INSIDE freeze, we don't care
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body =
+        [ View.freeze
+            (let
+                d = app.data
+                modifiedData = { d | body = "modified" }
+            in
+            Html.text modifiedData.body
+            )
+        ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- Should produce transformation because record update is only in freeze
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = """View.freeze
+            (let
+                d = app.data
+                modifiedData = { d | body = "modified" }
+            in
+            Html.text modifiedData.body
+            )"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body =
+        [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never)
+        ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]

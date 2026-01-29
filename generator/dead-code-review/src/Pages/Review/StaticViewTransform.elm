@@ -573,6 +573,21 @@ trackFieldAccess node context =
             else
                 context
 
+        -- Record update on app.data binding: { d | field = value } where d = app.data
+        -- All fields from app.data are used (copied) in the update, so we can't track
+        Expression.RecordUpdateExpression (Node _ varName) _ ->
+            if Set.member varName context.appDataBindings then
+                if context.inFreezeCall || context.inHeadFunction then
+                    -- In ephemeral context, we don't care
+                    context
+
+                else
+                    -- In client context, app.data used as whole via record update
+                    { context | appDataUsedAsWhole = True }
+
+            else
+                context
+
         -- Let expressions can bind app.data to a variable, or bind specific fields
         Expression.LetExpression letBlock ->
             let
@@ -787,6 +802,13 @@ containsAppDataExpression node context =
         Expression.OperatorApplication _ _ left right ->
             containsAppDataExpression left context
                 || containsAppDataExpression right context
+
+        -- Record update: { varName | field = value }
+        -- In Elm, record update uses a variable name, not an expression.
+        -- If the variable is bound to app.data (via let d = app.data),
+        -- then we're using app.data as a whole.
+        Expression.RecordUpdateExpression (Node _ varName) _ ->
+            Set.member varName context.appDataBindings
 
         _ ->
             False
@@ -1017,9 +1039,11 @@ checkAppDataPassedInClientContext context args =
                                 Expression.Application innerArgs ->
                                     List.any (\a -> containsAppDataExpression a context) innerArgs
 
-                                -- Direct app.data is being used as a whole
+                                -- Check if arg is or CONTAINS app.data
+                                -- (e.g., [ app.data ], ( app.data, x ), { app.data | field = y })
                                 _ ->
                                     isAppDataExpression arg context
+                                        || containsAppDataExpression arg context
                         )
         in
         if appDataPassedToFunction then
