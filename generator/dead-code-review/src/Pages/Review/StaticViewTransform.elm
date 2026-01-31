@@ -809,6 +809,10 @@ containsAppDataExpression node context =
             -- Check if this variable is bound to app.data
             Set.member varName context.appDataBindings
 
+        Expression.Application ((Node _ (Expression.FunctionOrValue [ "View" ] "freeze")) :: _) ->
+            -- View.freeze calls are ephemeral context - don't worry about app.data inside them
+            False
+
         Expression.Application exprs ->
             List.any (\e -> containsAppDataExpression e context) exprs
 

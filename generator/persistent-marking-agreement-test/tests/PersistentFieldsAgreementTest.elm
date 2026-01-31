@@ -1,0 +1,820 @@
+module PersistentFieldsAgreementTest exposing (all)
+
+{-| Tests that verify the Server transform (ServerDataTransform) and
+Client transform (StaticViewTransform) agree on which fields are ephemeral.
+
+These tests verify AGREEMENT by testing both transforms on identical code
+and checking that:
+1. When server marks field X as ephemeral, client also marks X as ephemeral
+2. When server keeps all fields persistent (no transform), client also keeps all persistent
+
+The individual transform test suites verify fix correctness. These tests
+focus on the KEY AGREEMENT property that prevents runtime decode errors.
+-}
+
+import Pages.Review.ServerDataTransform as ServerDataTransform
+import Pages.Review.StaticViewTransform as StaticViewTransform
+import Review.Test
+import Test exposing (Test, describe, test)
+
+
+all : Test
+all =
+    describe "Persistent/Ephemeral Field Agreement"
+        [ describe "Basic scenarios - server and client agree"
+            [ test "AGREEMENT: field only in freeze - both mark body as ephemeral" <|
+                \() ->
+                    -- This scenario: body is only accessed inside View.freeze
+                    -- Expected: Both transforms mark body as ephemeral
+                    -- Verified by: server produces "Ephemeral fields: body"
+                    --              client produces EPHEMERAL_FIELDS_JSON with body
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                    in
+                    -- Server marks body as ephemeral (produces split Data error)
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            ]
+            , test "AGREEMENT: field only in freeze - client also marks body as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                    in
+                    -- Client marks body as ephemeral (produces EPHEMERAL_FIELDS_JSON)
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "AGREEMENT: field used in both contexts - server keeps persistent" <|
+                \() ->
+                    -- title is used both inside freeze AND in view title (client context)
+                    -- Expected: Both transforms keep title as persistent (no split)
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.title) ]
+    }
+"""
+                    in
+                    -- Server: no ephemeral fields, no transformation
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectNoErrors
+            , test "AGREEMENT: field used in both contexts - client keeps persistent" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text app.data.title) ]
+    }
+"""
+                    in
+                    -- Client: only View.freeze transform, no Data type narrowing
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.title)"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+"""
+                            ]
+            ]
+        , describe "Safe fallback scenarios - both bail out consistently"
+            [ test "AGREEMENT: app.data in list - server bails out (all persistent)" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = someHelper [ app.data ]
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+someHelper items = ""
+"""
+                    in
+                    -- Server bails out: can't track fields through [ app.data ]
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectNoErrors
+            , test "AGREEMENT: app.data in list - client bails out (all persistent)" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = someHelper [ app.data ]
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+someHelper items = ""
+"""
+                    in
+                    -- Client bails out: can't track fields through [ app.data ]
+                    -- No EPHEMERAL_FIELDS_JSON emitted (diagnostic instead)
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = someHelper [ app.data ]
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+someHelper items = ""
+"""
+                            , Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "KNOWN DISAGREEMENT: accessor pattern - server does NOT bail out (TODO)" <|
+                \() ->
+                    -- NOTE: This documents a KNOWN DISAGREEMENT between transforms!
+                    -- Server transform doesn't detect accessor pattern and continues optimizing,
+                    -- while client transform correctly bails out marking all fields persistent.
+                    --
+                    -- This could cause runtime decode errors if:
+                    -- - Server thinks body is ephemeral (not accessed)
+                    -- - Client thinks all fields are persistent (can't track accessor)
+                    --
+                    -- TODO: Fix ServerDataTransform to also bail out on accessor patterns
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data |> .title
+    , body = []
+    }
+"""
+                    in
+                    -- Server DOES NOT bail out - it can't track fields via accessor
+                    -- So it sees BOTH title and body as never accessed -> marks both ephemeral!
+                    -- This is a BUG - it should bail out like the client does
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body, title"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    {}
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData _ =
+    {}
+
+view app =
+    { title = app.data |> .title
+    , body = []
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data |> .title
+    , body = []
+    }
+"""
+                            ]
+            , test "KNOWN DISAGREEMENT: accessor pattern - client bails out (correct)" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data |> .title
+    , body = []
+    }
+"""
+                    in
+                    -- Client bails out: can't track accessor pattern
+                    -- No EPHEMERAL_FIELDS_JSON emitted (diagnostic instead)
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Helper inside freeze - both still optimize"
+            [ test "AGREEMENT: helper inside freeze - server still marks body as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderContent app.data) ]
+    }
+
+renderContent data =
+    Html.text data.body
+"""
+                    in
+                    -- Server: app.data inside freeze is fine, body is ephemeral
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderContent app.data) ]
+    }
+
+renderContent data =
+    Html.text data.body
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderContent app.data) ]
+    }
+
+renderContent data =
+    Html.text data.body
+"""
+                            ]
+            , test "AGREEMENT: helper inside freeze - client still marks body as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderContent app.data) ]
+    }
+
+renderContent data =
+    Html.text data.body
+"""
+                    in
+                    -- Client: app.data inside freeze is fine, body is ephemeral
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (renderContent app.data)"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+renderContent data =
+    Html.text data.body
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderContent app.data) ]
+    }
+
+renderContent data =
+    Html.text data.body
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        , describe "Multiple ephemeral fields - both agree on the set"
+            [ test "AGREEMENT: multiple fields - server marks body and metadata as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    , metadata : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    }
+"""
+                    in
+                    testModule
+                        |> Review.Test.run ServerDataTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body, metadata"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    , metadata : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    , metadata : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    , metadata : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    }
+"""
+                            ]
+            , test "AGREEMENT: multiple fields - client marks body and metadata as ephemeral" <|
+                \() ->
+                    let
+                        testModule =
+                            """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    , metadata : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    }
+"""
+                    in
+                    testModule
+                        |> Review.Test.run StaticViewTransform.rule
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text (app.data.body ++ app.data.metadata))"
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    , metadata : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body, metadata"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    , metadata : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (Html.text (app.data.body ++ app.data.metadata)) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"metadata\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
+        ]
