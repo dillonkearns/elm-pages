@@ -1,4 +1,4 @@
-module View.Static exposing (StaticId(..), StaticOnlyData, adopt, render, static, view)
+module View.Static exposing (StaticId(..), adopt, render, static)
 
 {-| This module provides primitives for "static regions" - parts of the view
 that are pre-rendered at build time and adopted by the virtual-dom on the client
@@ -42,25 +42,11 @@ The markdown parser and its dependencies are eliminated from the client bundle v
 
 @docs StaticId, adopt, render, static
 
-
-## Static-Only Data
-
-Use `View.Static.view` to render data from `app.staticData`:
-
-    view app model =
-        { body =
-            [ View.Static.view app.staticData renderContent
-            ]
-        }
-
-@docs StaticOnlyData, view
-
 -}
 
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Lazy
-import Pages.Internal.StaticOnlyData as Internal
 
 
 {-| A marker type that identifies a static region. This is used internally
@@ -134,47 +120,3 @@ static content =
         [ Attr.attribute "data-static" "__STATIC__"
         ]
         [ content ]
-
-
-{-| Opaque wrapper for data that is only available in static regions.
-
-This data comes from `app.staticData` in your route module. It can only be
-accessed through `View.Static.view`, which renders the data as a static region.
-
-The data is:
-
-  - Resolved at build time via your route's `staticData` BackendTask
-  - NOT included in content.dat (discarded after rendering)
-  - Only accessible through `View.Static.view`
-
-This enables heavy data (parsed markdown ASTs, large datasets, etc.) to be used
-for rendering static HTML without bloating the client bundle.
-
--}
-type alias StaticOnlyData a =
-    Internal.StaticOnlyData a
-
-
-{-| Render static content using static-only data from `app.staticData`.
-
-This is the only way to access data wrapped in `StaticOnlyData`. The data is
-unwrapped and passed to your render function, then the result is marked as
-a static region.
-
-    view app shared model =
-        { body =
-            [ View.Static.view app.staticData
-                (\content -> Markdown.toHtml content)
-            ]
-        }
-
-At build time, this renders the content with the data. The elm-review codemod
-transforms this to `View.Static.adopt "id"`, eliminating both the data and render
-function from the client bundle.
-
--}
-view : StaticOnlyData a -> (a -> Html Never) -> Html Never
-view staticData renderFn =
-    Internal.unwrap staticData
-        |> renderFn
-        |> static

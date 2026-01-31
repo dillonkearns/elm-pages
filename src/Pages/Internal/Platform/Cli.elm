@@ -24,7 +24,6 @@ import PageServerResponse exposing (PageServerResponse)
 import Pages.Flags
 import Pages.Internal.FatalError
 import Pages.Internal.NotFoundReason as NotFoundReason exposing (NotFoundReason)
-import Pages.Internal.StaticOnlyData as StaticOnlyData
 import Pages.Internal.Platform.CompatibilityKey
 import Pages.Internal.Platform.Effect as Effect exposing (Effect)
 import Pages.Internal.Platform.StaticResponses as StaticResponses
@@ -73,13 +72,13 @@ type alias Program route =
 
 
 {-| -}
-type alias ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage =
-    Pages.ProgramConfig.ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage
+type alias ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage =
+    Pages.ProgramConfig.ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
 
 
 {-| -}
 cliApplication :
-    ProgramConfig userMsg userModel (Maybe route) pageData staticData actionData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel (Maybe route) pageData actionData sharedData effect mappedMsg errorPage
     -> Program (Maybe route)
 cliApplication config =
     let
@@ -87,7 +86,7 @@ cliApplication config =
         site =
             getSiteConfig config
 
-        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) pageData staticData actionData sharedData effect mappedMsg errorPage -> SiteConfig
+        getSiteConfig : ProgramConfig userMsg userModel (Maybe route) pageData actionData sharedData effect mappedMsg errorPage -> SiteConfig
         getSiteConfig fullConfig =
             case fullConfig.site of
                 Just mySite ->
@@ -178,12 +177,12 @@ requestDecoder =
         |> Codec.decoder
 
 
-flatten : SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage -> List Effect -> Cmd Msg
+flatten : SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage -> List Effect -> Cmd Msg
 flatten site renderRequest config list =
     Cmd.batch (flattenHelp [] site renderRequest config list)
 
 
-flattenHelp : List (Cmd Msg) -> SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage -> List Effect -> List (Cmd Msg)
+flattenHelp : List (Cmd Msg) -> SiteConfig -> RenderRequest route -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage -> List Effect -> List (Cmd Msg)
 flattenHelp soFar site renderRequest config list =
     case list of
         first :: rest ->
@@ -201,7 +200,7 @@ flattenHelp soFar site renderRequest config list =
 perform :
     SiteConfig
     -> RenderRequest route
-    -> ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Effect
     -> Cmd Msg
 perform site renderRequest config effect =
@@ -288,7 +287,7 @@ flagsDecoder =
 init :
     SiteConfig
     -> RenderRequest route
-    -> ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Decode.Value
     -> ( Model route, Effect )
 init site renderRequest config flags =
@@ -385,7 +384,7 @@ initLegacy :
     SiteConfig
     -> RenderRequest route
     -> { isDevServer : Bool }
-    -> ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> ( Model route, Effect )
 initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as renderRequest) { isDevServer } config =
     let
@@ -476,8 +475,8 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                 |> BackendTask.succeed
 
                                                         Nothing ->
-                                                            BackendTask.map4
-                                                                (\pageData sharedData tags staticData_ ->
+                                                            BackendTask.map3
+                                                                (\pageData sharedData tags ->
                                                                     let
                                                                         renderedResult : Effect
                                                                         renderedResult =
@@ -518,7 +517,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
 
                                                                                         viewValue : { title : String, body : List (Html (PagesMsg userMsg)) }
                                                                                         viewValue =
-                                                                                            (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ (StaticOnlyData.StaticOnlyData staticData_) maybeActionData |> .view) pageModel
+                                                                                            (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData |> .view) pageModel
 
                                                                                         responseMetadata : { statusCode : Int, headers : List ( String, String ) }
                                                                                         responseMetadata =
@@ -565,7 +564,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                                                 let
                                                                                                     rendered : { view : userModel -> { title : String, body : List (Html (PagesMsg userMsg)) }, head : List Tag }
                                                                                                     rendered =
-                                                                                                        config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ (StaticOnlyData.StaticOnlyData staticData_) maybeActionData
+                                                                                                        config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData_ maybeActionData
                                                                                                 in
                                                                                                 PageServerResponse.toRedirect responseMetadata
                                                                                                     |> Maybe.map
@@ -657,7 +656,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
 
                                                                                         viewValue : { title : String, body : List (Html (PagesMsg userMsg)) }
                                                                                         viewValue =
-                                                                                            (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData2 (StaticOnlyData.StaticOnlyData staticData_) Nothing |> .view) pageModel
+                                                                                            (config.view Dict.empty Dict.empty Nothing currentPage Nothing sharedData pageData2 Nothing |> .view) pageModel
                                                                                     in
                                                                                     (ResponseSketch.HotUpdate pageData2 sharedData Nothing
                                                                                         |> config.encodeResponse
@@ -696,7 +695,6 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
                                                                 )
                                                                 config.sharedData
                                                                 globalHeadTags
-                                                                (config.staticData serverRequestPayload.frontmatter)
                                                 )
                                             |> BackendTask.onError
                                                 (\((Pages.Internal.FatalError.FatalError fatalError) as error) ->
@@ -769,7 +767,7 @@ initLegacy site ((RenderRequest.SinglePage includeHtml singleRequest _) as rende
 
                                                                         viewValue : { title : String, body : List (Html (PagesMsg userMsg)) }
                                                                         viewValue =
-                                                                            (config.view Dict.empty Dict.empty Nothing currentPage Nothing justSharedData dataThing StaticOnlyData.placeholder Nothing |> .view)
+                                                                            (config.view Dict.empty Dict.empty Nothing currentPage Nothing justSharedData dataThing Nothing |> .view)
                                                                                 pageModel
                                                                     in
                                                                     { route = UrlPath.toAbsolute currentPage.path
@@ -926,7 +924,7 @@ nextStepToEffect model nextStep =
 
 
 render404Page :
-    ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> Maybe sharedData
     -> Bool
     -> UrlPath
@@ -973,7 +971,6 @@ render404Page config sharedData isDevServer path notFoundReason =
                         Nothing
                         justSharedData
                         pageData
-                        StaticOnlyData.placeholder
                         Nothing
                         |> .view
                     )
@@ -983,7 +980,7 @@ render404Page config sharedData isDevServer path notFoundReason =
             , contentJson = Dict.empty
             , html = viewValue.body |> bodyToString
             , errors = []
-            , head = config.view Dict.empty Dict.empty Nothing pathAndRoute Nothing justSharedData pageData StaticOnlyData.placeholder Nothing |> .head
+            , head = config.view Dict.empty Dict.empty Nothing pathAndRoute Nothing justSharedData pageData Nothing |> .head
             , title = viewValue.title
             , staticHttpCache = Dict.empty
             , is404 = True
@@ -1032,7 +1029,7 @@ bodyToString body =
     body |> List.map (HtmlPrinter.htmlToString Nothing) |> String.concat
 
 
-urlToRoute : ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage -> Url -> route
+urlToRoute : ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage -> Url -> route
 urlToRoute config url =
     if url.path |> String.startsWith "/____elm-pages-internal____" then
         config.notFoundRoute
@@ -1042,7 +1039,7 @@ urlToRoute config url =
 
 
 toRedirectResponse :
-    ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
     -> { b | path : UrlPath }
     -> RenderRequest.IncludeHtml
     -> { c | headers : List ( String, String ), statusCode : Int }

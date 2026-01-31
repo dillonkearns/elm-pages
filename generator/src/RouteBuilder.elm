@@ -119,7 +119,6 @@ import Pages.ConcurrentSubmission
 import Pages.Fetcher
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
 import Pages.Internal.RoutePattern exposing (RoutePattern)
-import Pages.Internal.StaticOnlyData exposing (StaticOnlyData)
 import Pages.Navigation
 import Pages.PageUrl exposing (PageUrl)
 import PagesMsg exposing (PagesMsg)
@@ -171,7 +170,6 @@ type alias App data action routeParams =
     , navigation : Maybe Pages.Navigation.Navigation
     , concurrentSubmissions : Dict String (Pages.ConcurrentSubmission.ConcurrentSubmission (Maybe action))
     , pageFormState : Form.Model
-    , staticData : StaticOnlyData ()
     }
 
 

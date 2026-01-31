@@ -548,7 +548,6 @@ config apiRoutes pages =
     , subscriptions = \_ _ _ -> Sub.none
     , routeToPath = \(Route route) -> route |> String.split "/"
     , sharedData = BackendTask.succeed ()
-    , staticData = \_ -> BackendTask.succeed ()
     , onPageChange = \_ -> GotDataBatch (Encode.object [])
     , apiRoutes = \_ -> apiRoutes
     , pathPatterns = []

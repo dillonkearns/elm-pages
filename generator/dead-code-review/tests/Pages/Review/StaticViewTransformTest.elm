@@ -78,14 +78,14 @@ import View
 import View.Static
 
 view app =
-    { body = [ View.freeze (renderFn app.staticData) ] }
+    { body = [ View.freeze (renderFn app.data.content) ] }
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to View.Static.adopt"
                                 , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.freeze (renderFn app.staticData)"
+                                , under = "View.freeze (renderFn app.data.content)"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)
@@ -132,14 +132,14 @@ view =
 import View.Static
 
 view app =
-    View.Static.static (renderFn app.staticData)
+    View.Static.static (renderFn app.data.content)
 """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.Static.static to View.Static.adopt"
                                 , details = [ "Transforms View.Static.static to View.Static.adopt for client-side adoption and DCE" ]
-                                , under = "View.Static.static (renderFn app.staticData)"
+                                , under = "View.Static.static (renderFn app.data.content)"
                                 }
                                 |> Review.Test.whenFixed
                                     """module Route.Index exposing (Data, route)

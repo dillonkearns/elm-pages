@@ -49,7 +49,7 @@ type IncludeHtml
 
 
 decoder :
-    ProgramConfig userMsg userModel (Maybe route) pageData staticData actionData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel (Maybe route) pageData actionData sharedData effect mappedMsg errorPage
     -> Decode.Decoder (RenderRequest (Maybe route))
 decoder config =
     Decode.field "request"
@@ -90,7 +90,7 @@ decoder config =
 
 
 requestPayloadDecoder :
-    ProgramConfig userMsg userModel (Maybe route) pageData staticData actionData sharedData effect mappedMsg errorPage
+    ProgramConfig userMsg userModel (Maybe route) pageData actionData sharedData effect mappedMsg errorPage
     -> Decode.Decoder (RequestPayload (Maybe route))
 requestPayloadDecoder config =
     (Decode.string

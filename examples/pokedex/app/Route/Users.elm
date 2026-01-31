@@ -23,7 +23,6 @@ import Server.Response
 import Shared
 import UrlPath
 import View
-import View.Static
 
 
 type alias Model =
@@ -79,16 +78,8 @@ subscriptions routeParams path shared model =
     Sub.none
 
 
-{-| Static content for the users list - rendered at build/request time,
-eliminated from client bundle.
--}
-type alias StaticContent =
-    { users : List String
-    }
-
-
 type alias Data =
-    { staticContent : View.Static.StaticOnlyData StaticContent
+    { users : List String
     }
 
 
@@ -108,7 +99,7 @@ data routeParams request =
         |> BackendTask.map
             (\users ->
                 Server.Response.render
-                    { staticContent = View.Static.wrap { users = users }
+                    { users = users
                     }
             )
 
@@ -127,19 +118,11 @@ view app shared model =
     { title = "Users"
     , body =
         [ Html.h2 [] [ Html.text "Users" ]
-        , View.staticView app.data.staticContent renderUsers
+        , Html.div []
+            [ Html.text (app.data.users |> String.join ", ")
+            ]
         ]
     }
-
-
-{-| Render the users list as a static region.
-This code is eliminated from the client bundle via DCE.
--}
-renderUsers : StaticContent -> View.Static
-renderUsers content =
-    Html.div []
-        [ Html.text (content.users |> String.join ", ")
-        ]
 
 
 action :

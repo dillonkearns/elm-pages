@@ -32,7 +32,6 @@ import Pages.Fetcher
 import Pages.Flags
 import Pages.Internal.Msg
 import Pages.Internal.NotFoundReason exposing (NotFoundReason)
-import Pages.Internal.StaticOnlyData as StaticOnlyData
 import Pages.Internal.ResponseSketch as ResponseSketch exposing (ResponseSketch)
 import Pages.Internal.String as String
 import Pages.Navigation
@@ -52,12 +51,12 @@ type alias Program userModel userMsg pageData actionData sharedData errorPage =
 
 
 {-| -}
-type alias ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage =
-    Pages.ProgramConfig.ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect mappedMsg errorPage
+type alias ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage =
+    Pages.ProgramConfig.ProgramConfig userMsg userModel route pageData actionData sharedData effect mappedMsg errorPage
 
 
 mainView :
-    ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Model userModel pageData actionData sharedData
     -> { title : String, body : List (Html (PagesMsg userMsg)) }
 mainView config model =
@@ -96,7 +95,6 @@ mainView config model =
                         )
                         pageData.sharedData
                         pageData.pageData
-                        StaticOnlyData.placeholder
                         pageData.actionData
                         |> .view
                     )
@@ -123,7 +121,7 @@ urlsToPagePath urls =
 
 {-| -}
 view :
-    ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Model userModel pageData actionData sharedData
     -> Browser.Document (Msg userMsg pageData actionData sharedData errorPage)
 view config model =
@@ -167,7 +165,7 @@ type InitKind shared page actionData errorPage
 
 {-| -}
 init :
-    ProgramConfig userMsg userModel route pageData staticData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Flags
     -> Url
     -> Maybe Browser.Navigation.Key
@@ -391,7 +389,7 @@ type Effect userMsg pageData actionData sharedData userEffect errorPage
 
 {-| -}
 update :
-    ProgramConfig userMsg userModel route pageData staticData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Msg userMsg pageData actionData sharedData errorPage
     -> Model userModel pageData actionData sharedData
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
@@ -977,7 +975,7 @@ toFetcherState inFlightFetchers =
 
 performUserMsg :
     userMsg
-    -> ProgramConfig userMsg userModel route pageData staticData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 performUserMsg userMsg config ( model, effect ) =
@@ -999,7 +997,7 @@ performUserMsg userMsg config ( model, effect ) =
             ( model, effect )
 
 
-perform : ProgramConfig userMsg userModel route pageData staticData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage -> Model userModel pageData actionData sharedData -> Effect userMsg pageData actionData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
+perform : ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage -> Model userModel pageData actionData sharedData -> Effect userMsg pageData actionData sharedData userEffect errorPage -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
 perform config model effect =
     -- elm-review: known-unoptimized-recursion
     case effect of
@@ -1174,7 +1172,7 @@ startFetcher fetcherKey transitionId options model =
 
 
 startFetcher2 :
-    ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Bool
     -> String
     -> Int
@@ -1295,7 +1293,7 @@ urlFromAction currentUrl fetchInfo =
 
 {-| -}
 application :
-    ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Platform.Program Flags (Model userModel pageData actionData sharedData) (Msg userMsg pageData actionData sharedData errorPage)
 application config =
     Browser.application
@@ -1373,7 +1371,7 @@ type alias RequestInfo =
 
 
 withUserMsg :
-    ProgramConfig userMsg userModel route pageData staticData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> userMsg
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
@@ -1407,7 +1405,7 @@ urlPathToPath urls =
 fetchRouteData :
     Int
     -> (Result Http.Error ( Url, ResponseSketch pageData actionData sharedData ) -> Msg userMsg pageData actionData sharedData errorPage)
-    -> ProgramConfig userMsg userModel route pageData staticData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData effect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Url
     -> Maybe FormData
     -> Cmd (Msg userMsg pageData actionData sharedData errorPage)
@@ -1624,7 +1622,7 @@ loadDataAndUpdateUrl :
     -> Url
     -> Url
     -> Bool
-    -> ProgramConfig userMsg userModel route pageData staticData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
+    -> ProgramConfig userMsg userModel route pageData actionData sharedData userEffect (Msg userMsg pageData actionData sharedData errorPage) errorPage
     -> Model userModel pageData actionData sharedData
     -> ( Model userModel pageData actionData sharedData, Effect userMsg pageData actionData sharedData userEffect errorPage )
 loadDataAndUpdateUrl ( newPageData, newSharedData, newActionData ) maybeUserMsg urlWithoutRedirectResolution newUrl redirectPending config model =
