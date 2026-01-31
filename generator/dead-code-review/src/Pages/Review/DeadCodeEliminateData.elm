@@ -289,24 +289,6 @@ expressionVisitor node context =
                                                                 ++ exceptionFromString
                                                                 ++ "\n       "
 
-                                                        "preRenderWithStaticData" ->
-                                                            if key == "pages" then
-                                                                referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                                    ++ " "
-                                                                    ++ exceptionFromString
-
-                                                            else
-                                                                "\\_ -> "
-                                                                    ++ referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                                    ++ " "
-                                                                    ++ exceptionFromString
-
-                                                        "singleWithStaticData" ->
-                                                            referenceFunction context.importContext ( [ "BackendTask" ], "fail" )
-                                                                ++ " "
-                                                                ++ exceptionFromString
-                                                                ++ "\n       "
-
                                                         _ ->
                                                             "data"
                                                )
