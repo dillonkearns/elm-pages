@@ -180,7 +180,7 @@ heading { level, rawText, children } =
             Html.h2
                 [ Attr.id (rawTextToId rawText)
                 , Attr.attribute "name" (rawTextToId rawText)
-                , Attr.class "text-3xl font-semibold tracking-tight mt-10 pb-1 border-b"
+                , Attr.class "text-3xl font-semibold tracking-tight mt-10 pb-1 border-b border-gray-200"
                 ]
                 [ Html.a
                     [ Attr.href <| "#" ++ rawTextToId rawText
