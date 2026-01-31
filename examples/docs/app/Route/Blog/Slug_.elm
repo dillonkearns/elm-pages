@@ -42,8 +42,11 @@ type alias RouteParams =
 
 {-| Data type with both persistent and ephemeral fields.
 
-  - `metadata`: Used in head and title (persistent, sent to client)
+  - `metadata`: Used in view title and head (persistent, sent to client)
   - `body`: Used only inside View.freeze (ephemeral, DCE'd)
+
+The renderFullPage helper uses an extensible record type `{ a | metadata : ..., body : ... }`
+instead of `Data`, so it still compiles when the Data type is narrowed.
 
 -}
 type alias Data =
@@ -84,17 +87,22 @@ view :
 view app shared =
     { title = app.data.metadata.title
     , body =
-        [ -- Frozen content - fields accessed only here (body) are removed from client Data type
-          View.freeze (renderFullPage app.data.metadata app.data.body)
+        [ -- Frozen content - body field is ephemeral (only used in freeze)
+          -- The helper uses an inline record type, not the Data alias, so it still
+          -- compiles when Data is narrowed
+          View.freeze (renderFullPage app.data)
         ]
     }
 
 
 {-| Render the entire page body as frozen content.
 All of this code is eliminated from the client bundle via DCE.
+
+Note: We use an inline record type instead of Data so this function still
+compiles when the Data type alias is narrowed (ephemeral fields removed).
 -}
-renderFullPage : ArticleMetadata -> List Markdown.Block.Block -> Html Never
-renderFullPage metadata body =
+renderFullPage : { a | metadata : ArticleMetadata, body : List Markdown.Block.Block } -> Html Never
+renderFullPage pageData =
     let
         author =
             Author.dillon
@@ -112,7 +120,7 @@ renderFullPage metadata body =
                   Html.h1
                     [ Attr.class "text-center text-4xl font-bold tracking-tight mt-2 mb-8"
                     ]
-                    [ Html.text metadata.title ]
+                    [ Html.text pageData.metadata.title ]
 
                 -- Author info
                 , div
@@ -139,7 +147,7 @@ renderFullPage metadata body =
                             [ time
                                 [ Attr.datetime "2020-03-16"
                                 ]
-                                [ text (metadata.published |> Date.format "MMMM ddd, yyyy") ]
+                                [ text (pageData.metadata.published |> Date.format "MMMM ddd, yyyy") ]
                             ]
                         ]
                     ]
@@ -147,7 +155,7 @@ renderFullPage metadata body =
                 -- Markdown body
                 , div
                     [ Attr.class "prose" ]
-                    (body
+                    (pageData.body
                         |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                         |> Result.withDefault []
                     )

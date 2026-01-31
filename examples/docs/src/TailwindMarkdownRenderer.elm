@@ -22,7 +22,7 @@ renderer =
     , codeSpan =
         \content ->
             Html.code
-                [ Attr.class "font-semibold font-medium !text-code-highlight"
+                [ Attr.class "font-semibold font-medium text-code-highlight"
                 ]
                 [ Html.text content ]
     , link =

@@ -223,8 +223,9 @@ view app sharedModel =
             , Html.article
                 [ Attr.class "prose relative pt-20 pb-16 px-6 w-full max-w-full overflow-x-hidden md:px-8"
                 ]
-                [ -- Frozen content - fields accessed only here are removed from client Data type
-                  View.freeze (renderStaticContent app.data.body app.data.previousAndNext app.data.editUrl)
+                [ -- Frozen content - ephemeral fields (body, previousAndNext, editUrl) are removed
+                  -- from client Data type. The helper uses an extensible record type so it still compiles.
+                  View.freeze (renderStaticContent app.data)
                 ]
             ]
         ]
@@ -233,23 +234,32 @@ view app sharedModel =
 
 {-| Render the article content as a frozen view.
 All of this code is eliminated from the client bundle via DCE.
+
+Note: We use an extensible record type instead of Data so this function still
+compiles when the Data type alias is narrowed (ephemeral fields removed).
 -}
-renderStaticContent : List Block -> ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) -> String -> Html Never
-renderStaticContent body previousAndNext editUrl =
+renderStaticContent :
+    { a
+        | body : List Block
+        , previousAndNext : ( Maybe NextPrevious.Item, Maybe NextPrevious.Item )
+        , editUrl : String
+    }
+    -> Html Never
+renderStaticContent pageData =
     Html.div
         [ Attr.class "max-w-screen-md mx-auto xl:pr-36"
         ]
-        ((body
+        ((pageData.body
             |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
             |> Result.withDefault []
          )
-            ++ [ NextPrevious.view previousAndNext
+            ++ [ NextPrevious.view pageData.previousAndNext
                , Html.hr [] []
                , Html.footer
                     [ Attr.class "text-right"
                     ]
                     [ Html.a
-                        [ Attr.href editUrl
+                        [ Attr.href pageData.editUrl
                         , Attr.rel "noopener"
                         , Attr.target "_blank"
                         , Attr.class "text-sm hover:!text-gray-800 !text-gray-500 flex items-center float-right"

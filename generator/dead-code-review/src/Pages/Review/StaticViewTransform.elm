@@ -1637,12 +1637,37 @@ finalEvaluation context =
     -- 3. RouteBuilder doesn't use conventional naming
     -- 4. NarrowedData type alias already exists (fix was already applied)
     -- Note: markAllFieldsAsClientUsed is handled via effectiveClientUsedFields fallback below
-    if not isRouteModule || context.dataUsedAsConstructor || not routeBuilderUsesConventionalNaming || context.narrowedDataExists then
+    if not isRouteModule then
+        -- Not a Route module, no transformation needed (this is expected for Site.elm, Shared.elm, etc.)
         []
+
+    else if context.narrowedDataExists then
+        -- Already transformed, skip
+        []
+
+    else if context.dataUsedAsConstructor then
+        -- Emit diagnostic: Data used as constructor prevents optimization
+        [ emitDiagnostic context.moduleName
+            "data_used_as_constructor"
+            "Data type is used as a record constructor function (e.g., `map4 Data`). Cannot narrow the type without breaking the constructor call."
+        ]
+
+    else if not routeBuilderUsesConventionalNaming then
+        -- Emit diagnostic: Non-conventional naming prevents optimization
+        [ emitDiagnostic context.moduleName
+            "non_conventional_naming"
+            ("RouteBuilder uses non-conventional function names. Expected head=head, data=data but found head="
+                ++ Maybe.withDefault "<lambda>" context.routeBuilderHeadFn
+                ++ ", data="
+                ++ Maybe.withDefault "<lambda>" context.routeBuilderDataFn
+                ++ ". Cannot safely track ephemeral contexts."
+            )
+        ]
 
     else
         case context.dataTypeRange of
             Nothing ->
+                -- No Data type found - nothing to optimize
                 []
 
             Just range ->
@@ -1703,10 +1728,29 @@ finalEvaluation context =
                     clientUsedFieldDefs =
                         context.dataTypeFields
                             |> List.filter (\( name, _ ) -> Set.member name effectiveClientUsedFields)
+                    -- Track WHY all fields might be client-used (for diagnostics)
+                    skipReason =
+                        if context.markAllFieldsAsClientUsed then
+                            Just "app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)"
+
+                        else if unresolvedHelperCalls then
+                            Just "app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)"
+
+                        else
+                            Nothing
                 in
                 if Set.isEmpty removableFields then
-                    -- No removable fields, nothing to transform
-                    []
+                    -- No removable fields - emit diagnostic if there was a specific reason
+                    case skipReason of
+                        Just reason ->
+                            [ emitDiagnostic context.moduleName
+                                "all_fields_client_used"
+                                ("No fields could be removed from Data type. " ++ reason)
+                            ]
+
+                        Nothing ->
+                            -- All fields are legitimately used in client context - no diagnostic needed
+                            []
 
                 else
                     -- Generate fix to rewrite Data type alias
@@ -1921,3 +1965,30 @@ escapeJsonString str =
         |> String.replace "\"" "\\\""
         |> String.replace "\n" "\\n"
         |> String.replace "\t" "\\t"
+
+
+{-| Emit a diagnostic message about why optimization was skipped or limited.
+These are informational messages to help users understand the optimization behavior.
+The format is JSON for easy parsing by the build system.
+-}
+emitDiagnostic : ModuleName -> String -> String -> Error {}
+emitDiagnostic moduleName reason details =
+    let
+        moduleNameStr =
+            String.join "." moduleName
+
+        jsonMessage =
+            "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\""
+                ++ moduleNameStr
+                ++ "\",\"reason\":\""
+                ++ reason
+                ++ "\",\"details\":\""
+                ++ escapeJsonString details
+                ++ "\"}"
+    in
+    Rule.error
+        { message = jsonMessage
+        , details = [ details ]
+        }
+        -- Use a dummy range at start of file
+        { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }

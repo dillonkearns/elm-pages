@@ -619,7 +619,15 @@ view app =
                         |> Review.Test.run rule
                         -- Should NOT produce Data type transformation errors
                         -- because we bail out when non-conventional naming is detected
-                        |> Review.Test.expectNoErrors
+                        -- But we DO emit a diagnostic explaining why
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"non_conventional_naming\",\"details\":\"RouteBuilder uses non-conventional function names. Expected head=head, data=data but found head=seoTags, data=data. Cannot safely track ephemeral contexts.\"}"
+                                , details = [ "RouteBuilder uses non-conventional function names. Expected head=head, data=data but found head=seoTags, data=data. Cannot safely track ephemeral contexts." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
             , test "lambda in RouteBuilder head still allows DCE for fields only used in head" <|
                 \() ->
                     -- If RouteBuilder uses { head = \app -> [...], ... } instead of { head = head, ... }
@@ -918,7 +926,15 @@ view app =
                         |> Review.Test.run rule
                         -- Should NOT produce any Data type transformation errors
                         -- because we bail out when accessor pattern is detected
-                        |> Review.Test.expectNoErrors
+                        -- But we DO emit a diagnostic explaining why
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
             , test "accessor pattern in freeze context does not cause bail-out" <|
                 \() ->
                     -- When app.data |> .field is used INSIDE freeze, we don't care
@@ -1021,7 +1037,15 @@ view app =
                         |> Review.Test.run rule
                         -- Should NOT produce any Data type transformation errors
                         -- because we bail out when case expression on app.data is detected
-                        |> Review.Test.expectNoErrors
+                        -- But we DO emit a diagnostic explaining why
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
             , test "case expression on app.data in freeze context does not cause bail-out" <|
                 \() ->
                     -- When case app.data of {...} is used INSIDE freeze, we don't care
@@ -1408,6 +1432,7 @@ view app =
                         |> Review.Test.run rule
                         -- View.freeze transformation still happens
                         -- but NO EPHEMERAL_FIELDS_JSON because we bailed out
+                        -- Diagnostic explains why optimization was skipped
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to View.Static.adopt"
@@ -1435,6 +1460,12 @@ view app =
     , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
     }
 """
+                            , Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data used in untrackable pattern (passed to unknown function, used in case expression, pipe with accessor, or record update)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             , test "app.data in list passed to function causes bail-out" <|
                 \() ->
@@ -1462,6 +1493,7 @@ someHelper items = ""
                         |> Review.Test.run rule
                         -- View.freeze transformation still happens
                         -- but NO EPHEMERAL_FIELDS_JSON because we bailed out
+                        -- Diagnostic explains why
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to View.Static.adopt"
@@ -1487,6 +1519,12 @@ view app =
 
 someHelper items = ""
 """
+                            , Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             , test "app.data in tuple passed to function causes bail-out" <|
                 \() ->
@@ -1514,6 +1552,7 @@ someHelper pair = ""
                         |> Review.Test.run rule
                         -- View.freeze transformation still happens
                         -- but NO EPHEMERAL_FIELDS_JSON because we bailed out
+                        -- Diagnostic explains why
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Static region codemod: transform View.freeze to View.Static.adopt"
@@ -1539,6 +1578,12 @@ view app =
 
 someHelper pair = ""
 """
+                            , Review.Test.error
+                                { message = "OPTIMIZATION_DIAGNOSTIC_JSON:{\"module\":\"Route.Test\",\"reason\":\"all_fields_client_used\",\"details\":\"No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)\"}"
+                                , details = [ "No fields could be removed from Data type. app.data passed to function that couldn't be analyzed (unknown function or untrackable helper)" ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             , test "record update in freeze context does not cause bail-out" <|
                 \() ->
