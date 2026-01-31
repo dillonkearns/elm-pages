@@ -14,7 +14,7 @@ view toggleMobileMenuMsg stars currentPath =
         [ Attr.class "flex items-center bg-white z-20 sticky top-0 left-0 right-0 h-16 border-b border-gray-200 px-6"
         ]
         [ div
-            [ Attr.class "hidden w-full flex items-center md:block"
+            [ Attr.class "w-full flex items-center"
             ]
             [ a
                 [ Attr.class "no-underline text-current flex items-center hover:opacity-75"

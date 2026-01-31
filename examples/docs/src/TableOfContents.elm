@@ -186,17 +186,16 @@ surround showMobileMenu onDocsPage children =
     aside
         [ Attr.class
             (String.join " "
-                [ "h-screen bg-white shrink-0 top-0 pt-16 w-full z-10"
-                , "fixed"
-                , "md:w-64 md:shrink-0"
+                [ "h-screen bg-white shrink-0 top-0 left-0 pt-16 w-full z-10"
+                , "max-md:fixed" -- fixed on mobile only
                 , if showMobileMenu then
-                    "block"
+                    "max-md:block"
 
                   else
-                    "hidden"
-                , "md:block"
+                    "max-md:hidden"
+                , "md:w-64 md:shrink-0"
                 , if onDocsPage then
-                    "md:!sticky"
+                    "md:sticky md:block"
 
                   else
                     "md:hidden"
