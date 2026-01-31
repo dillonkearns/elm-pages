@@ -89,8 +89,8 @@ type alias Context =
     , fieldBindingRanges : Set ( ( Int, Int ), ( Int, Int ) )
 
     -- Track if app.data is used as a whole in CLIENT context (not field-accessed)
-    -- If true, we can't safely determine which fields are client-used
-    , appDataUsedAsWhole : Bool
+    -- If true, we mark ALL fields as client-used (safe fallback, no optimization)
+    , markAllFieldsAsClientUsed : Bool
 
     -- Track if Data is used as a record constructor function
     -- (e.g., `map4 Data arg1 arg2 arg3 arg4`)
@@ -160,7 +160,7 @@ initialContext =
             , appDataBindings = Set.empty
             , fieldBindings = Dict.empty
             , fieldBindingRanges = Set.empty
-            , appDataUsedAsWhole = False
+            , markAllFieldsAsClientUsed = False
             , dataUsedAsConstructor = False
             , dataTypeRange = Nothing
             , dataTypeFields = []
@@ -550,7 +550,7 @@ trackFieldAccess node context =
 
                         else
                             -- In client context, can't track which fields are used
-                            { context | appDataUsedAsWhole = True }
+                            { context | markAllFieldsAsClientUsed = True }
 
                     _ ->
                         context
@@ -568,7 +568,7 @@ trackFieldAccess node context =
 
                 else
                     -- In client context, can't track which fields are used
-                    { context | appDataUsedAsWhole = True }
+                    { context | markAllFieldsAsClientUsed = True }
 
             else
                 context
@@ -583,7 +583,7 @@ trackFieldAccess node context =
 
                 else
                     -- In client context, app.data used as whole via record update
-                    { context | appDataUsedAsWhole = True }
+                    { context | markAllFieldsAsClientUsed = True }
 
             else
                 context
@@ -1014,7 +1014,7 @@ extractSimpleFunctionName node =
 {-| Check if app.data is passed as a whole to a function in CLIENT context.
 If we're in an ephemeral context (freeze/head), we don't care.
 If we're in client context and app.data is passed as a whole, we can't
-safely determine which fields are used, so we set appDataUsedAsWhole.
+safely determine which fields are used, so we set markAllFieldsAsClientUsed.
 -}
 checkAppDataPassedInClientContext : Context -> List (Node Expression) -> Context
 checkAppDataPassedInClientContext context args =
@@ -1030,9 +1030,26 @@ checkAppDataPassedInClientContext context args =
                     |> List.any
                         (\arg ->
                             case Node.value arg of
-                                -- Direct app.data.field access is OK - we can track the field
-                                Expression.RecordAccess _ _ ->
-                                    False
+                                -- Check if this is app.data (not app.data.field)
+                                -- app.data.field = RecordAccess (RecordAccess app "data") "field" - OK, trackable
+                                -- app.data = RecordAccess app "data" - NOT OK, can't track
+                                Expression.RecordAccess innerExpr (Node _ fieldName) ->
+                                    if fieldName == "data" then
+                                        -- Could be app.data - check if it IS app.data
+                                        isAppDataExpression arg context
+
+                                    else
+                                        -- This is someExpr.someField - check if someExpr contains app.data
+                                        -- But if it's app.data.field, that's fine (trackable)
+                                        -- So we need to check if innerExpr IS app.data (in which case we're fine)
+                                        -- vs if innerExpr CONTAINS app.data in some other way
+                                        if isAppDataAccess innerExpr context then
+                                            -- This is app.data.field - trackable, OK
+                                            False
+
+                                        else
+                                            -- Check if the inner expression contains app.data
+                                            containsAppDataExpression innerExpr context
 
                                 -- If the arg is a function call that contains app.data,
                                 -- we can't track which fields are used
@@ -1047,7 +1064,7 @@ checkAppDataPassedInClientContext context args =
                         )
         in
         if appDataPassedToFunction then
-            { context | appDataUsedAsWhole = True }
+            { context | markAllFieldsAsClientUsed = True }
 
         else
             context
@@ -1283,11 +1300,11 @@ finalEvaluation context =
     in
     -- Conservative: skip transformation in these cases:
     -- 1. Not a Route module (Site.elm, Shared.elm, etc.)
-    -- 2. app.data was passed to a function in CLIENT context (can't track fields)
-    -- 3. Data is used as a constructor function (changing type would break it)
-    -- 4. RouteBuilder doesn't use conventional naming
-    -- 5. NarrowedData type alias already exists (fix was already applied)
-    if not isRouteModule || context.appDataUsedAsWhole || context.dataUsedAsConstructor || not routeBuilderUsesConventionalNaming || context.narrowedDataExists then
+    -- 2. Data is used as a constructor function (changing type would break it)
+    -- 3. RouteBuilder doesn't use conventional naming
+    -- 4. NarrowedData type alias already exists (fix was already applied)
+    -- Note: markAllFieldsAsClientUsed is handled via effectiveClientUsedFields fallback below
+    if not isRouteModule || context.dataUsedAsConstructor || not routeBuilderUsesConventionalNaming || context.narrowedDataExists then
         []
 
     else
@@ -1303,15 +1320,24 @@ finalEvaluation context =
                             |> List.map Tuple.first
                             |> Set.fromList
 
+                    -- Apply safe fallback: if we can't track field usage, mark ALL as client-used
+                    effectiveClientUsedFields =
+                        if context.markAllFieldsAsClientUsed then
+                            -- Can't track, so assume ALL fields are client-used (safe fallback)
+                            allFieldNames
+
+                        else
+                            context.clientUsedFields
+
                     -- Removable fields: all fields that are NOT used in client context
                     removableFields =
                         allFieldNames
-                            |> Set.filter (\f -> not (Set.member f context.clientUsedFields))
+                            |> Set.filter (\f -> not (Set.member f effectiveClientUsedFields))
 
                     -- Client-used fields: these MUST be kept in the Data type
                     clientUsedFieldDefs =
                         context.dataTypeFields
-                            |> List.filter (\( name, _ ) -> Set.member name context.clientUsedFields)
+                            |> List.filter (\( name, _ ) -> Set.member name effectiveClientUsedFields)
                 in
                 if Set.isEmpty removableFields then
                     -- No removable fields, nothing to transform

@@ -46,9 +46,6 @@ type alias Context =
     -- app.data binding tracking
     , appDataBindings : Set String
 
-    -- Track if app.data is used as a whole
-    , appDataUsedAsWhole : Bool
-
     -- Track where Data is used as a record constructor (needs to become Ephemeral)
     , dataConstructorRanges : List Range
 
@@ -151,7 +148,6 @@ initialContext =
             , inFreezeCall = False
             , inHeadFunction = False
             , appDataBindings = Set.empty
-            , appDataUsedAsWhole = False
             , dataConstructorRanges = []
             , dataTypeRange = Nothing
             , dataTypeFields = []
@@ -298,7 +294,7 @@ expressionEnterVisitor node context =
                 _ ->
                     context
 
-        -- Track entering freeze calls
+        -- Track entering freeze calls and check for app.data passed in client context
         contextWithFreezeTracking =
             case Node.value node of
                 Expression.Application (functionNode :: args) ->
@@ -306,17 +302,18 @@ expressionEnterVisitor node context =
                         Just [ "View" ] ->
                             case Node.value functionNode of
                                 Expression.FunctionOrValue _ "freeze" ->
-                                    -- Don't track appDataUsedAsWhole here - we're entering a freeze context
-                                    -- and we don't care about tracking inside freeze (code becomes dead code)
+                                    -- Entering freeze context - we don't care about tracking inside
                                     { contextWithDataConstructorCheck
                                         | inFreezeCall = True
                                     }
 
                                 _ ->
-                                    contextWithDataConstructorCheck
+                                    -- Check for app.data passed as whole in CLIENT context
+                                    checkAppDataPassedInClientContext contextWithDataConstructorCheck args
 
                         _ ->
-                            contextWithDataConstructorCheck
+                            -- Check for app.data passed as whole in CLIENT context
+                            checkAppDataPassedInClientContext contextWithDataConstructorCheck args
 
                 _ ->
                     contextWithDataConstructorCheck
@@ -518,6 +515,78 @@ extractPatternNames node =
             Set.empty
 
 
+{-| Check if app.data is passed as a whole to a function in CLIENT context.
+If we're in an ephemeral context (freeze/head), we don't care.
+If we're in client context and app.data is passed as a whole, we can't
+safely determine which fields are used, so we mark ALL fields as persistent (safe fallback).
+-}
+checkAppDataPassedInClientContext : Context -> List (Node Expression) -> Context
+checkAppDataPassedInClientContext context args =
+    if context.inFreezeCall || context.inHeadFunction then
+        -- In ephemeral context - we don't care about tracking here
+        context
+
+    else
+        -- In client context - check if app.data is passed as a whole
+        let
+            appDataPassedToFunction =
+                args
+                    |> List.any
+                        (\arg ->
+                            case Node.value arg of
+                                -- Check if this is app.data (not app.data.field)
+                                -- app.data.field = RecordAccess (RecordAccess app "data") "field" - OK, trackable
+                                -- app.data = RecordAccess app "data" - NOT OK, can't track
+                                Expression.RecordAccess innerExpr (Node _ fieldName) ->
+                                    if fieldName == "data" then
+                                        -- Could be app.data - check if it IS app.data
+                                        isAppDataExpression arg context
+
+                                    else
+                                        -- This is someExpr.someField - check if someExpr contains app.data
+                                        -- But if it's app.data.field, that's fine (trackable)
+                                        -- So we need to check if innerExpr IS app.data (in which case we're fine)
+                                        -- vs if innerExpr CONTAINS app.data in some other way
+                                        if isAppDataAccess innerExpr context then
+                                            -- This is app.data.field - trackable, OK
+                                            False
+
+                                        else
+                                            -- Check if the inner expression contains app.data
+                                            containsAppDataExpression innerExpr context
+
+                                -- If the arg is a function call that contains app.data,
+                                -- we can't track which fields are used
+                                Expression.Application innerArgs ->
+                                    List.any (\a -> containsAppDataExpression a context) innerArgs
+
+                                -- Check if arg is or CONTAINS app.data
+                                _ ->
+                                    isAppDataExpression arg context
+                                        || containsAppDataExpression arg context
+                        )
+        in
+        if appDataPassedToFunction then
+            markAllFieldsAsPersistent context
+
+        else
+            context
+
+
+{-| Mark all fields as persistent (safe fallback when we can't track field usage).
+This adds all field names to fieldsOutsideFreeze, which means nothing will be ephemeral.
+-}
+markAllFieldsAsPersistent : Context -> Context
+markAllFieldsAsPersistent context =
+    let
+        allFieldNames =
+            context.dataTypeFields
+                |> List.map Tuple.first
+                |> Set.fromList
+    in
+    { context | fieldsOutsideFreeze = Set.union context.fieldsOutsideFreeze allFieldNames }
+
+
 {-| Extract all ranges where "Data" appears as a type reference in a type annotation.
 -}
 extractDataTypeReferences : Node TypeAnnotation -> List Range
@@ -571,16 +640,18 @@ addFieldAccess fieldName context =
 
 
 {-| Final evaluation - generate Ephemeral/Data split and ephemeralToData function.
+
+The formula is: ephemeral = allFields - fieldsOutsideFreeze
+
+This is the aggressive approach that aligns with the client-side transform.
+If app.data is passed as a whole in client context, markAllFieldsAsPersistent
+is called during expression visiting, which adds all fields to fieldsOutsideFreeze,
+resulting in no ephemeral fields (safe fallback).
 -}
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     -- Skip if transformation was already applied (Ephemeral type exists)
     if context.hasEphemeralType then
-        []
-
-    -- Skip transformation if we can't safely analyze field usage
-    -- (app.data passed as whole to a function)
-    else if context.appDataUsedAsWhole then
         []
 
     else
@@ -590,9 +661,16 @@ finalEvaluation context =
 
             Just range ->
                 let
-                    -- Ephemeral fields: used only in freeze or head (not outside)
+                    -- All field names from the Data type
+                    allFieldNames =
+                        context.dataTypeFields
+                            |> List.map Tuple.first
+                            |> Set.fromList
+
+                    -- Ephemeral fields: all fields that are NOT used outside freeze/head
+                    -- This is the aggressive formula, aligned with client-side transform
                     ephemeralFields =
-                        Set.union context.fieldsInFreeze context.fieldsInHead
+                        allFieldNames
                             |> Set.filter (\f -> not (Set.member f context.fieldsOutsideFreeze))
 
                     -- Persistent fields for the new Data type

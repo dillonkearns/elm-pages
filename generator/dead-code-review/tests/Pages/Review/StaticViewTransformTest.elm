@@ -1641,4 +1641,238 @@ view app =
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
             ]
+        , describe "app.data passed to helper function patterns"
+            [ test "app.data passed to helper inside freeze should still allow optimization" <|
+                \() ->
+                    -- When app.data is passed to a helper function inside View.freeze,
+                    -- we should STILL optimize because the freeze context is ephemeral
+                    -- The body field should be marked as ephemeral (not used outside freeze)
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderContent app.data) ]
+    }
+
+renderContent data =
+    Html.text data.body
+"""
+                        |> Review.Test.run rule
+                        -- body field should be ephemeral (only used inside freeze via helper)
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (renderContent app.data)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+renderContent data =
+    Html.text data.body
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderContent app.data) ]
+    }
+
+renderContent data =
+    Html.text data.body
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":10,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            , test "app.data passed to helper in client context marks all fields persistent (safe fallback)" <|
+                \() ->
+                    -- When app.data is passed to a helper function in CLIENT context (outside freeze),
+                    -- we can't track which fields are used, so we mark ALL fields as client-used
+                    -- This means no optimization occurs (safe fallback)
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ View.freeze (Html.text app.data.body) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                        |> Review.Test.run rule
+                        -- View.freeze transformation still happens
+                        -- but NO EPHEMERAL_FIELDS_JSON because all fields marked as client-used
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (Html.text app.data.body)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view app =
+    { title = extractTitle app.data
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+extractTitle data =
+    data.title
+"""
+                            ]
+            , test "mixed: direct field in client + app.data in freeze helper" <|
+                \() ->
+                    -- title is accessed directly in client context (client-used)
+                    -- app.data is passed to helper in freeze context (ignored)
+                    -- body is only used in freeze via helper, so it's ephemeral
+                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    , metadata : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderBody app.data.body app.data.metadata) ]
+    }
+
+renderBody body meta =
+    Html.text (body ++ meta)
+"""
+                        |> Review.Test.run rule
+                        -- title is client-used (direct access)
+                        -- body and metadata are ephemeral (only in freeze)
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Static region codemod: transform View.freeze to View.Static.adopt"
+                                , details = [ "Transforms View.freeze to View.Static.adopt for client-side adoption and DCE" ]
+                                , under = "View.freeze (renderBody app.data.body app.data.metadata)"
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String
+    , body : String
+    , metadata : String
+    }
+
+view app =
+    { title = app.data.title
+    , body = [ (View.Static.adopt "0" |> Html.fromUnstyled |> Html.map never) ]
+    }
+
+renderBody body meta =
+    Html.text (body ++ meta)
+"""
+                            , Review.Test.error
+                                { message = "Data type codemod: remove non-client-used fields"
+                                , details =
+                                    [ "Removing fields from Data type: body, metadata"
+                                    , "These fields are not used in client contexts (only in freeze/head), so they can be eliminated from the client bundle."
+                                    ]
+                                , under = """{ title : String
+    , body : String
+    , metadata : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed
+                                    """module Route.Test exposing (Data, route)
+
+import Html.Styled as Html
+import View
+import View.Static
+
+type alias Data =
+    { title : String }
+
+view app =
+    { title = app.data.title
+    , body = [ View.freeze (renderBody app.data.body app.data.metadata) ]
+    }
+
+renderBody body meta =
+    Html.text (body ++ meta)
+"""
+                            , Review.Test.error
+                                { message = "EPHEMERAL_FIELDS_JSON:{\"module\":\"Route.Test\",\"ephemeralFields\":[\"body\",\"metadata\"],\"newDataType\":\"{ title : String }\",\"range\":{\"start\":{\"row\":8,\"column\":5},\"end\":{\"row\":11,\"column\":6}}}"
+                                , details = [ "This is machine-readable output for the build system." ]
+                                , under = "m"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
+                            ]
+            ]
         ]
