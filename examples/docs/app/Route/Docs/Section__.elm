@@ -223,8 +223,7 @@ view app sharedModel =
             , Html.article
                 [ Attr.class "prose max-w-xl relative pt-20 pb-16 px-6 w-full max-w-full overflow-x-hidden md:px-8"
                 ]
-                [ -- Frozen content - ephemeral fields are removed from client Data type
-                  -- Helper function takes individual fields to avoid referencing narrowed Data
+                [ -- Frozen content - fields accessed only here are removed from client Data type
                   View.freeze (renderStaticContent app.data.body app.data.previousAndNext app.data.editUrl)
                 ]
             ]
@@ -233,9 +232,7 @@ view app sharedModel =
 
 
 {-| Render the article content as a frozen view.
-Takes individual fields rather than Data to avoid type errors when Data is narrowed.
-This function becomes dead code in the client bundle since View.freeze is
-transformed to View.Static.adopt.
+All of this code is eliminated from the client bundle via DCE.
 -}
 renderStaticContent : List Block -> ( Maybe NextPrevious.Item, Maybe NextPrevious.Item ) -> String -> Html Never
 renderStaticContent body previousAndNext editUrl =

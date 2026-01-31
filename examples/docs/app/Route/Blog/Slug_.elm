@@ -84,18 +84,17 @@ view :
 view app shared =
     { title = app.data.metadata.title
     , body =
-        [ -- Frozen content - passing full Data since this becomes dead code anyway
-          View.freeze (renderFullPage app.data)
+        [ -- Frozen content - fields accessed only here (body) are removed from client Data type
+          View.freeze (renderFullPage app.data.metadata app.data.body)
         ]
     }
 
 
 {-| Render the entire page body as frozen content.
-This function becomes dead code in the client bundle since View.freeze
-is transformed to View.Static.adopt.
+All of this code is eliminated from the client bundle via DCE.
 -}
-renderFullPage : Data -> Html Never
-renderFullPage pageData =
+renderFullPage : ArticleMetadata -> List Markdown.Block.Block -> Html Never
+renderFullPage metadata body =
     let
         author =
             Author.dillon
@@ -113,7 +112,7 @@ renderFullPage pageData =
                   Html.h1
                     [ Attr.class "text-center text-4xl font-bold tracking-tight mt-2 mb-8"
                     ]
-                    [ Html.text pageData.metadata.title ]
+                    [ Html.text metadata.title ]
 
                 -- Author info
                 , div
@@ -140,7 +139,7 @@ renderFullPage pageData =
                             [ time
                                 [ Attr.datetime "2020-03-16"
                                 ]
-                                [ text (pageData.metadata.published |> Date.format "MMMM ddd, yyyy") ]
+                                [ text (metadata.published |> Date.format "MMMM ddd, yyyy") ]
                             ]
                         ]
                     ]
@@ -148,7 +147,7 @@ renderFullPage pageData =
                 -- Markdown body
                 , div
                     [ Attr.class "prose" ]
-                    (pageData.body
+                    (body
                         |> Markdown.Renderer.render TailwindMarkdownRenderer.renderer
                         |> Result.withDefault []
                     )

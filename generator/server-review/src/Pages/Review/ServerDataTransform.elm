@@ -590,16 +590,10 @@ finalEvaluation context =
 
             Just range ->
                 let
-                    -- All field names from the Data type
-                    allFieldNames =
-                        context.dataTypeFields
-                            |> List.map (\( name, _ ) -> name)
-                            |> Set.fromList
-
-                    -- Ephemeral fields: all fields EXCEPT those used in client contexts (outside freeze/head)
-                    -- This follows the mental model: start with everything ephemeral, then subtract what's used in "live" regions
+                    -- Ephemeral fields: used only in freeze or head (not outside)
                     ephemeralFields =
-                        Set.diff allFieldNames context.fieldsOutsideFreeze
+                        Set.union context.fieldsInFreeze context.fieldsInHead
+                            |> Set.filter (\f -> not (Set.member f context.fieldsOutsideFreeze))
 
                     -- Persistent fields for the new Data type
                     persistentFieldDefs =
