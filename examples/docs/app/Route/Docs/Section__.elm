@@ -221,7 +221,7 @@ view app sharedModel =
             ]
             [ TableOfContents.view sharedModel.showMobileMenu True app.routeParams.section app.sharedData
             , Html.article
-                [ Attr.class "prose max-w-xl relative pt-20 pb-16 px-6 w-full max-w-full overflow-x-hidden md:px-8"
+                [ Attr.class "prose relative pt-20 pb-16 px-6 w-full max-w-full overflow-x-hidden md:px-8"
                 ]
                 [ -- Frozen content - fields accessed only here are removed from client Data type
                   View.freeze (renderStaticContent app.data.body app.data.previousAndNext app.data.editUrl)

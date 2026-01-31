@@ -185,20 +185,22 @@ surround : Bool -> Bool -> List (Html msg) -> Html msg
 surround showMobileMenu onDocsPage children =
     aside
         [ Attr.class
-            ("h-screen bg-white shrink-0 top-0 pt-16 w-full fixed z-10 md:w-64 md:shrink-0 "
-                ++ (if showMobileMenu then
-                        "block"
+            (String.join " "
+                [ "h-screen bg-white shrink-0 top-0 pt-16 w-full z-10"
+                , "fixed"
+                , "md:w-64 md:shrink-0"
+                , if showMobileMenu then
+                    "block"
 
-                    else
-                        "hidden"
-                   )
-                ++ " md:"
-                ++ (if onDocsPage then
-                        "sticky md:block"
+                  else
+                    "hidden"
+                , "md:block"
+                , if onDocsPage then
+                    "md:!sticky"
 
-                    else
-                        "hidden"
-                   )
+                  else
+                    "md:hidden"
+                ]
             )
         ]
         [ div
