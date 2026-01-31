@@ -704,6 +704,23 @@ trackFieldAccess node context =
             context
 
 
+{-| Check if a function node is a call to View.freeze.
+Uses the ModuleNameLookupTable to handle all import styles:
+- `View.freeze` (qualified)
+- `freeze` (if imported directly with `exposing (freeze)`)
+- `V.freeze` (if imported with alias `as V`)
+-}
+isViewFreezeCall : Node Expression -> Context -> Bool
+isViewFreezeCall functionNode context =
+    case Node.value functionNode of
+        Expression.FunctionOrValue _ "freeze" ->
+            -- Check if this "freeze" resolves to the View module
+            ModuleNameLookupTable.moduleNameFor context.lookupTable functionNode == Just [ "View" ]
+
+        _ ->
+            False
+
+
 {-| Check if an expression is `app.data` (or `static.data`, etc. based on context.appParamName)
 -}
 isAppDataAccess : Node Expression -> Context -> Bool
@@ -809,12 +826,15 @@ containsAppDataExpression node context =
             -- Check if this variable is bound to app.data
             Set.member varName context.appDataBindings
 
-        Expression.Application ((Node _ (Expression.FunctionOrValue [ "View" ] "freeze")) :: _) ->
-            -- View.freeze calls are ephemeral context - don't worry about app.data inside them
-            False
+        Expression.Application ((functionNode :: _) as exprs) ->
+            -- Check if this is a View.freeze call using the lookup table
+            -- This handles all import styles: View.freeze, qualified imports, aliases
+            if isViewFreezeCall functionNode context then
+                -- View.freeze calls are ephemeral context - don't worry about app.data inside them
+                False
 
-        Expression.Application exprs ->
-            List.any (\e -> containsAppDataExpression e context) exprs
+            else
+                List.any (\e -> containsAppDataExpression e context) exprs
 
         Expression.ParenthesizedExpression inner ->
             containsAppDataExpression inner context
