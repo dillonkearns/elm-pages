@@ -160,6 +160,90 @@ view app =
                         -- Should not produce any errors because Ephemeral already exists
                         |> Review.Test.expectNoErrors
             ]
+        , describe "Non-standard app parameter names"
+            [ test "works with 'static' as parameter name instead of 'app'" <|
+                \() ->
+                    -- Some routes use 'static' instead of 'app' as the parameter name
+                    """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view static =
+    { title = static.data.title
+    , body = [ View.freeze (Html.text static.data.body) ]
+    }
+"""
+                        |> Review.Test.run rule
+                        -- body should be ephemeral (only in freeze)
+                        -- title should be persistent (in client context)
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
+                                { message = "Server codemod: split Data into Ephemeral and Data"
+                                , details =
+                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
+                                    , "Ephemeral fields: body"
+                                    , "Generating ephemeralToData conversion function for wire encoding."
+                                    ]
+                                , under = """type alias Data =
+    { title : String
+    , body : String
+    }"""
+                                }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
+
+import View
+
+type alias Ephemeral =
+    { title : String
+    , body : String
+    }
+
+
+type alias Data =
+    { title : String
+    }
+
+
+ephemeralToData : Ephemeral -> Data
+ephemeralToData ephemeral =
+    { title = ephemeral.title
+    }
+
+view static =
+    { title = static.data.title
+    , body = [ View.freeze (Html.text static.data.body) ]
+    }
+"""
+                            , Review.Test.error
+                                { message = "Server codemod: export Ephemeral type"
+                                , details =
+                                    [ "Adding Ephemeral to module exports."
+                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
+                                    ]
+                                , under = "Data"
+                                }
+                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
+                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
+
+import View
+
+type alias Data =
+    { title : String
+    , body : String
+    }
+
+view static =
+    { title = static.data.title
+    , body = [ View.freeze (Html.text static.data.body) ]
+    }
+"""
+                            ]
+            ]
         , describe "app.data passed inside freeze still allows optimization"
             [ test "app.data passed to helper inside freeze produces transformation" <|
                 \() ->

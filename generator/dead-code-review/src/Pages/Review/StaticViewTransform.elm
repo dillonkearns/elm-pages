@@ -60,6 +60,15 @@ rangeToComparable range =
     ( ( range.start.row, range.start.column ), ( range.end.row, range.end.column ) )
 
 
+{-| Analysis of a helper function's field usage on its first parameter.
+-}
+type alias HelperAnalysis =
+    { paramName : String -- First parameter name
+    , accessedFields : Set String -- Fields accessed on first param (e.g., param.field)
+    , isTrackable : Bool -- False if param is used in ways we can't track
+    }
+
+
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , moduleName : ModuleName
@@ -123,6 +132,15 @@ type alias Context =
 
     -- Track if NarrowedData type alias already exists (to prevent infinite fix loop)
     , narrowedDataExists : Bool
+
+    -- Helper function analysis: maps function name -> analysis of what fields it accesses
+    -- Used to determine which fields a helper uses when app.data is passed to it
+    , helperFunctions : Dict String HelperAnalysis
+
+    -- Pending helper calls: function names called with app.data in client context
+    -- These need to be resolved in finalEvaluation after all helpers are analyzed
+    -- Nothing = unknown function (mark all fields), Just name = lookup in helperFunctions
+    , pendingHelperCalls : List (Maybe String)
     }
 
 
@@ -173,6 +191,8 @@ initialContext =
             , routeBuilderFound = False
             , appParamName = Nothing
             , narrowedDataExists = False
+            , helperFunctions = Dict.empty
+            , pendingHelperCalls = []
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -289,7 +309,24 @@ declarationEnterVisitor node context =
                 ( [], { contextWithAppDataRanges | appParamName = maybeAppParam } )
 
             else
-                ( [], contextWithAppDataRanges )
+                -- Analyze non-special functions as potential helpers
+                -- This allows us to track which fields they access when called with app.data
+                let
+                    helperAnalysis =
+                        analyzeHelperFunction function
+
+                    contextWithHelper =
+                        case helperAnalysis of
+                            Just analysis ->
+                                { contextWithAppDataRanges
+                                    | helperFunctions =
+                                        Dict.insert functionName analysis contextWithAppDataRanges.helperFunctions
+                                }
+
+                            Nothing ->
+                                contextWithAppDataRanges
+                in
+                ( [], contextWithHelper )
 
         Declaration.AliasDeclaration typeAlias ->
             let
@@ -422,11 +459,11 @@ expressionEnterVisitor node context =
 
                                 _ ->
                                     -- Check for app.data passed as whole in CLIENT context
-                                    checkAppDataPassedInClientContext contextWithRouteBuilder args
+                                    checkAppDataPassedInClientContext contextWithRouteBuilder functionNode args
 
                         _ ->
                             -- Check for app.data passed as whole in CLIENT context
-                            checkAppDataPassedInClientContext contextWithRouteBuilder args
+                            checkAppDataPassedInClientContext contextWithRouteBuilder functionNode args
 
                 _ ->
                     contextWithRouteBuilder
@@ -856,6 +893,265 @@ extractPatternName node =
             Nothing
 
 
+{-| Analyze a helper function to determine which fields it accesses on its first parameter.
+
+This enables tracking field usage when app.data is passed to a helper function.
+For example, if we have:
+
+    extractTitle data = data.title
+
+We can determine that only the "title" field is accessed, so when someone writes:
+
+    view app = { title = extractTitle app.data, ... }
+
+We know that only "title" is client-used via this call.
+
+Returns Nothing if the function has no parameters or uses record destructuring.
+
+-}
+analyzeHelperFunction : Expression.Function -> Maybe HelperAnalysis
+analyzeHelperFunction function =
+    let
+        declaration =
+            Node.value function.declaration
+
+        arguments =
+            declaration.arguments
+
+        body =
+            declaration.expression
+    in
+    case arguments of
+        firstArg :: _ ->
+            case extractPatternName firstArg of
+                Just paramName ->
+                    let
+                        ( accessedFields, isTrackable ) =
+                            analyzeFieldAccessesOnParam paramName body
+                    in
+                    Just
+                        { paramName = paramName
+                        , accessedFields = accessedFields
+                        , isTrackable = isTrackable
+                        }
+
+                Nothing ->
+                    -- First param is a pattern (record destructuring, etc.)
+                    -- We could potentially track this but it's complex
+                    Nothing
+
+        [] ->
+            -- No parameters, not a helper that takes data
+            Nothing
+
+
+{-| Analyze an expression to find all field accesses on a given parameter name.
+
+Returns (accessedFields, isTrackable) where:
+
+  - accessedFields: Set of field names accessed like `param.fieldName`
+  - isTrackable: False if the parameter is used in ways we can't track
+    (passed to another function, used in case expression, etc.)
+
+-}
+analyzeFieldAccessesOnParam : String -> Node Expression -> ( Set String, Bool )
+analyzeFieldAccessesOnParam paramName expr =
+    analyzeFieldAccessesHelper paramName expr ( Set.empty, True )
+
+
+analyzeFieldAccessesHelper : String -> Node Expression -> ( Set String, Bool ) -> ( Set String, Bool )
+analyzeFieldAccessesHelper paramName node ( fields, trackable ) =
+    if not trackable then
+        -- Already untrackable, short-circuit
+        ( fields, False )
+
+    else
+        case Node.value node of
+            -- param.fieldName - this is what we're looking for!
+            Expression.RecordAccess innerExpr (Node _ fieldName) ->
+                case Node.value innerExpr of
+                    Expression.FunctionOrValue [] varName ->
+                        if varName == paramName then
+                            ( Set.insert fieldName fields, trackable )
+
+                        else
+                            -- Some other variable's field access, continue
+                            ( fields, trackable )
+
+                    _ ->
+                        -- Nested field access like param.foo.bar - track "foo"
+                        analyzeFieldAccessesHelper paramName innerExpr ( fields, trackable )
+
+            -- param used as bare variable (not field access)
+            Expression.FunctionOrValue [] varName ->
+                if varName == paramName then
+                    -- Parameter used without field access - untrackable
+                    -- (e.g., passed to another function, used in case, etc.)
+                    ( fields, False )
+
+                else
+                    ( fields, trackable )
+
+            -- Function application - recurse into arguments
+            Expression.Application exprs ->
+                List.foldl
+                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
+                    ( fields, trackable )
+                    exprs
+
+            -- Let expression
+            Expression.LetExpression letBlock ->
+                let
+                    -- Analyze declarations
+                    ( declFields, declTrackable ) =
+                        List.foldl
+                            (\declNode acc ->
+                                case Node.value declNode of
+                                    Expression.LetFunction letFn ->
+                                        let
+                                            fnBody =
+                                                (Node.value letFn.declaration).expression
+                                        in
+                                        analyzeFieldAccessesHelper paramName fnBody acc
+
+                                    Expression.LetDestructuring _ letExpr ->
+                                        analyzeFieldAccessesHelper paramName letExpr acc
+                            )
+                            ( fields, trackable )
+                            letBlock.declarations
+                in
+                -- Then analyze the body
+                analyzeFieldAccessesHelper paramName letBlock.expression ( declFields, declTrackable )
+
+            -- If expression
+            Expression.IfBlock cond then_ else_ ->
+                let
+                    ( condFields, condTrackable ) =
+                        analyzeFieldAccessesHelper paramName cond ( fields, trackable )
+
+                    ( thenFields, thenTrackable ) =
+                        analyzeFieldAccessesHelper paramName then_ ( condFields, condTrackable )
+                in
+                analyzeFieldAccessesHelper paramName else_ ( thenFields, thenTrackable )
+
+            -- Case expression
+            Expression.CaseExpression caseBlock ->
+                let
+                    -- Check if we're doing case on the parameter itself
+                    caseOnParam =
+                        case Node.value caseBlock.expression of
+                            Expression.FunctionOrValue [] varName ->
+                                varName == paramName
+
+                            _ ->
+                                False
+
+                    ( exprFields, exprTrackable ) =
+                        if caseOnParam then
+                            -- case param of ... - untrackable (could destructure)
+                            ( fields, False )
+
+                        else
+                            analyzeFieldAccessesHelper paramName caseBlock.expression ( fields, trackable )
+                in
+                -- Analyze each case branch
+                List.foldl
+                    (\( _, caseExpr ) acc -> analyzeFieldAccessesHelper paramName caseExpr acc)
+                    ( exprFields, exprTrackable )
+                    caseBlock.cases
+
+            -- Lambda
+            Expression.LambdaExpression lambda ->
+                -- Check if lambda shadows our param name
+                let
+                    shadowsParam =
+                        lambda.args
+                            |> List.any
+                                (\arg ->
+                                    case extractPatternName arg of
+                                        Just name ->
+                                            name == paramName
+
+                                        Nothing ->
+                                            False
+                                )
+                in
+                if shadowsParam then
+                    -- Lambda shadows the param, stop tracking in this branch
+                    ( fields, trackable )
+
+                else
+                    analyzeFieldAccessesHelper paramName lambda.expression ( fields, trackable )
+
+            -- Operators
+            Expression.OperatorApplication _ _ left right ->
+                let
+                    ( leftFields, leftTrackable ) =
+                        analyzeFieldAccessesHelper paramName left ( fields, trackable )
+                in
+                analyzeFieldAccessesHelper paramName right ( leftFields, leftTrackable )
+
+            -- Parenthesized
+            Expression.ParenthesizedExpression inner ->
+                analyzeFieldAccessesHelper paramName inner ( fields, trackable )
+
+            -- Tuples
+            Expression.TupledExpression exprs ->
+                List.foldl
+                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
+                    ( fields, trackable )
+                    exprs
+
+            -- Lists
+            Expression.ListExpr exprs ->
+                List.foldl
+                    (\e acc -> analyzeFieldAccessesHelper paramName e acc)
+                    ( fields, trackable )
+                    exprs
+
+            -- Record literal - check values
+            Expression.RecordExpr recordSetters ->
+                List.foldl
+                    (\(Node _ ( _, valueExpr )) acc ->
+                        analyzeFieldAccessesHelper paramName valueExpr acc
+                    )
+                    ( fields, trackable )
+                    recordSetters
+
+            -- Record update
+            Expression.RecordUpdateExpression (Node _ varName) recordSetters ->
+                let
+                    updateOnParam =
+                        varName == paramName
+
+                    ( updateFields, updateTrackable ) =
+                        if updateOnParam then
+                            -- { param | field = value } uses all fields
+                            ( fields, False )
+
+                        else
+                            ( fields, trackable )
+                in
+                List.foldl
+                    (\(Node _ ( _, valueExpr )) acc ->
+                        analyzeFieldAccessesHelper paramName valueExpr acc
+                    )
+                    ( updateFields, updateTrackable )
+                    recordSetters
+
+            -- Negation
+            Expression.Negation inner ->
+                analyzeFieldAccessesHelper paramName inner ( fields, trackable )
+
+            -- Record access function like .field - fine, no param usage
+            Expression.RecordAccessFunction _ ->
+                ( fields, trackable )
+
+            -- Literals and other expressions that don't use the param
+            _ ->
+                ( fields, trackable )
+
+
 {-| Find all occurrences of "App Data ..." in a type annotation.
 Returns the ranges of the "Data" type argument so it can be replaced with "NarrowedData".
 
@@ -1013,11 +1309,17 @@ extractSimpleFunctionName node =
 
 {-| Check if app.data is passed as a whole to a function in CLIENT context.
 If we're in an ephemeral context (freeze/head), we don't care.
-If we're in client context and app.data is passed as a whole, we can't
-safely determine which fields are used, so we set markAllFieldsAsClientUsed.
+
+Instead of immediately resolving helper lookups (which may fail if the helper
+is declared after the call site), we store pending helper calls to be resolved
+in finalEvaluation after all helper functions have been analyzed.
+
+  - Just funcName = local function with app.data passed DIRECTLY, will look up in helperFunctions later
+  - Nothing = can't track (qualified function, app.data wrapped in list/tuple/etc.)
+
 -}
-checkAppDataPassedInClientContext : Context -> List (Node Expression) -> Context
-checkAppDataPassedInClientContext context args =
+checkAppDataPassedInClientContext : Context -> Node Expression -> List (Node Expression) -> Context
+checkAppDataPassedInClientContext context functionNode args =
     if context.inFreezeCall || context.inHeadFunction then
         -- In ephemeral context - we don't care about tracking here
         context
@@ -1025,46 +1327,77 @@ checkAppDataPassedInClientContext context args =
     else
         -- In client context - check if app.data is passed as a whole
         let
-            appDataPassedToFunction =
+            -- Check for DIRECT app.data arguments (can potentially use helper analysis)
+            -- vs WRAPPED app.data arguments (list, tuple, etc. - can't track)
+            ( directAppDataArgs, wrappedAppDataArgs ) =
                 args
-                    |> List.any
-                        (\arg ->
+                    |> List.foldl
+                        (\arg ( direct, wrapped ) ->
                             case Node.value arg of
-                                -- Check if this is app.data (not app.data.field)
-                                -- app.data.field = RecordAccess (RecordAccess app "data") "field" - OK, trackable
-                                -- app.data = RecordAccess app "data" - NOT OK, can't track
+                                -- Check if this is app.data directly (not app.data.field)
                                 Expression.RecordAccess innerExpr (Node _ fieldName) ->
-                                    if fieldName == "data" then
-                                        -- Could be app.data - check if it IS app.data
-                                        isAppDataExpression arg context
+                                    if fieldName == "data" && isAppDataExpression arg context then
+                                        -- This IS app.data passed directly - potentially trackable
+                                        ( arg :: direct, wrapped )
+
+                                    else if isAppDataAccess innerExpr context then
+                                        -- This is app.data.field - trackable via normal field tracking, skip
+                                        ( direct, wrapped )
+
+                                    else if containsAppDataExpression innerExpr context then
+                                        -- app.data is nested inside - untrackable
+                                        ( direct, arg :: wrapped )
 
                                     else
-                                        -- This is someExpr.someField - check if someExpr contains app.data
-                                        -- But if it's app.data.field, that's fine (trackable)
-                                        -- So we need to check if innerExpr IS app.data (in which case we're fine)
-                                        -- vs if innerExpr CONTAINS app.data in some other way
-                                        if isAppDataAccess innerExpr context then
-                                            -- This is app.data.field - trackable, OK
-                                            False
-
-                                        else
-                                            -- Check if the inner expression contains app.data
-                                            containsAppDataExpression innerExpr context
+                                        ( direct, wrapped )
 
                                 -- If the arg is a function call that contains app.data,
-                                -- we can't track which fields are used
+                                -- we can't track which fields are used - untrackable
                                 Expression.Application innerArgs ->
-                                    List.any (\a -> containsAppDataExpression a context) innerArgs
+                                    if List.any (\a -> containsAppDataExpression a context) innerArgs then
+                                        ( direct, arg :: wrapped )
 
-                                -- Check if arg is or CONTAINS app.data
-                                -- (e.g., [ app.data ], ( app.data, x ), { app.data | field = y })
+                                    else
+                                        ( direct, wrapped )
+
+                                -- Variable bound to app.data passed directly
+                                Expression.FunctionOrValue [] varName ->
+                                    if Set.member varName context.appDataBindings then
+                                        ( arg :: direct, wrapped )
+
+                                    else
+                                        ( direct, wrapped )
+
+                                -- Lists, tuples, etc. containing app.data - untrackable
                                 _ ->
-                                    isAppDataExpression arg context
-                                        || containsAppDataExpression arg context
+                                    if containsAppDataExpression arg context then
+                                        ( direct, arg :: wrapped )
+
+                                    else
+                                        ( direct, wrapped )
                         )
+                        ( [], [] )
+
+            hasDirectAppData =
+                not (List.isEmpty directAppDataArgs)
+
+            hasWrappedAppData =
+                not (List.isEmpty wrappedAppDataArgs)
         in
-        if appDataPassedToFunction then
-            { context | markAllFieldsAsClientUsed = True }
+        if hasWrappedAppData then
+            -- app.data is wrapped in list/tuple/etc. - can't track, bail out
+            { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
+
+        else if hasDirectAppData then
+            -- app.data passed directly - may be able to track via helper analysis
+            case Node.value functionNode of
+                Expression.FunctionOrValue [] funcName ->
+                    -- Local function - store name for lookup in finalEvaluation
+                    { context | pendingHelperCalls = Just funcName :: context.pendingHelperCalls }
+
+                _ ->
+                    -- Qualified or complex function expression - can't look up
+                    { context | pendingHelperCalls = Nothing :: context.pendingHelperCalls }
 
         else
             context
@@ -1320,14 +1653,46 @@ finalEvaluation context =
                             |> List.map Tuple.first
                             |> Set.fromList
 
+                    -- Resolve pending helper calls against the now-complete helperFunctions dict
+                    -- Returns (additionalClientUsedFields, shouldMarkAllFieldsAsClientUsed)
+                    ( resolvedHelperFields, unresolvedHelperCalls ) =
+                        context.pendingHelperCalls
+                            |> List.foldl
+                                (\pendingCall ( fields, unresolved ) ->
+                                    case pendingCall of
+                                        Nothing ->
+                                            -- Qualified/complex function - can't track
+                                            ( fields, True )
+
+                                        Just funcName ->
+                                            case Dict.get funcName context.helperFunctions of
+                                                Just analysis ->
+                                                    if analysis.isTrackable then
+                                                        -- Known helper with trackable field usage!
+                                                        ( Set.union fields analysis.accessedFields, unresolved )
+
+                                                    else
+                                                        -- Helper uses param in untrackable ways
+                                                        ( fields, True )
+
+                                                Nothing ->
+                                                    -- Unknown function - can't track which fields it uses
+                                                    ( fields, True )
+                                )
+                                ( Set.empty, False )
+
+                    -- Combine direct field accesses with helper-resolved fields
+                    combinedClientUsedFields =
+                        Set.union context.clientUsedFields resolvedHelperFields
+
                     -- Apply safe fallback: if we can't track field usage, mark ALL as client-used
                     effectiveClientUsedFields =
-                        if context.markAllFieldsAsClientUsed then
+                        if context.markAllFieldsAsClientUsed || unresolvedHelperCalls then
                             -- Can't track, so assume ALL fields are client-used (safe fallback)
                             allFieldNames
 
                         else
-                            context.clientUsedFields
+                            combinedClientUsedFields
 
                     -- Removable fields: all fields that are NOT used in client context
                     removableFields =

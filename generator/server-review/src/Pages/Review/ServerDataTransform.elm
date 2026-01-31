@@ -46,6 +46,9 @@ type alias Context =
     -- app.data binding tracking
     , appDataBindings : Set String
 
+    -- App parameter name from view function (could be "app", "static", etc.)
+    , appParamName : Maybe String
+
     -- Track where Data is used as a record constructor (needs to become Ephemeral)
     , dataConstructorRanges : List Range
 
@@ -148,6 +151,7 @@ initialContext =
             , inFreezeCall = False
             , inHeadFunction = False
             , appDataBindings = Set.empty
+            , appParamName = Nothing
             , dataConstructorRanges = []
             , dataTypeRange = Nothing
             , dataTypeFields = []
@@ -212,6 +216,19 @@ declarationEnterVisitor node context =
 
                     Nothing ->
                         ( [], contextWithDataRefs )
+
+            else if functionName == "view" then
+                -- Extract the App parameter name from the view function
+                -- The first parameter is typically named "app" or "static"
+                let
+                    maybeAppParam =
+                        function.declaration
+                            |> Node.value
+                            |> .arguments
+                            |> List.head
+                            |> Maybe.andThen extractPatternName
+                in
+                ( [], { contextWithDataRefs | appParamName = maybeAppParam } )
 
             else
                 ( [], contextWithDataRefs )
@@ -410,8 +427,9 @@ isAppDataAccess node context =
     case Node.value node of
         Expression.RecordAccess innerExpr (Node _ "data") ->
             case Node.value innerExpr of
-                Expression.FunctionOrValue [] "app" ->
-                    True
+                Expression.FunctionOrValue [] varName ->
+                    -- Check if varName matches the App parameter name (e.g., "app", "static")
+                    context.appParamName == Just varName
 
                 _ ->
                     False
@@ -428,8 +446,9 @@ isAppDataExpression node context =
     case Node.value node of
         Expression.RecordAccess innerExpr (Node _ "data") ->
             case Node.value innerExpr of
-                Expression.FunctionOrValue [] "app" ->
-                    True
+                Expression.FunctionOrValue [] varName ->
+                    -- Check if varName matches the App parameter name (e.g., "app", "static")
+                    context.appParamName == Just varName
 
                 _ ->
                     False
@@ -446,8 +465,13 @@ containsAppDataExpression node context =
     case Node.value node of
         Expression.RecordAccess innerExpr (Node _ "data") ->
             case Node.value innerExpr of
-                Expression.FunctionOrValue [] "app" ->
-                    True
+                Expression.FunctionOrValue [] varName ->
+                    -- Check if varName matches the App parameter name (e.g., "app", "static")
+                    if context.appParamName == Just varName then
+                        True
+
+                    else
+                        containsAppDataExpression innerExpr context
 
                 _ ->
                     containsAppDataExpression innerExpr context
@@ -513,6 +537,24 @@ extractPatternNames node =
 
         _ ->
             Set.empty
+
+
+{-| Extract a single name from a pattern (for function parameter names).
+-}
+extractPatternName : Node Pattern -> Maybe String
+extractPatternName node =
+    case Node.value node of
+        Pattern.VarPattern name ->
+            Just name
+
+        Pattern.ParenthesizedPattern inner ->
+            extractPatternName inner
+
+        Pattern.AsPattern _ (Node _ name) ->
+            Just name
+
+        _ ->
+            Nothing
 
 
 {-| Check if app.data is passed as a whole to a function in CLIENT context.
