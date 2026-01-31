@@ -536,6 +536,8 @@ async function runInternalJob(
         return [requestHash, await runWhich(requestToPerform)];
       case "elm-pages-internal://question":
         return [requestHash, await runQuestion(requestToPerform)];
+      case "elm-pages-internal://readKey":
+        return [requestHash, await runReadKey(requestToPerform)];
       case "elm-pages-internal://shell":
         return [requestHash, await runShell(requestToPerform)];
       case "elm-pages-internal://stream":
@@ -636,6 +638,10 @@ async function runWhich(req) {
 
 async function runQuestion(req) {
   return jsonResponse(req, await question(req.body.args[0]));
+}
+
+async function runReadKey(req) {
+  return jsonResponse(req, await readKey());
 }
 
 function runStream(req, portsFile) {
@@ -1149,6 +1155,48 @@ export async function question({ prompt }) {
     return rl.question(prompt, (answer) => {
       rl.close();
       resolve(answer);
+    });
+  });
+}
+
+/**
+ * Read a single keypress from stdin without requiring Enter.
+ * Uses raw mode to capture individual keypresses.
+ * Falls back to line-buffered input when not in a TTY (e.g., piped input).
+ */
+export async function readKey() {
+  const stdin = process.stdin;
+
+  if (!stdin.isTTY) {
+    // Fall back to reading a line when not in a TTY (piped input, CI, etc.)
+    // Takes the first character of the input line
+    const rl = readline.createInterface({ input: stdin });
+    return new Promise((resolve) => {
+      rl.once("line", (line) => {
+        rl.close();
+        resolve(line.charAt(0) || "\n");
+      });
+    });
+  }
+
+  // TTY mode - single keypress without Enter
+  return new Promise((resolve) => {
+    const wasRaw = stdin.isRaw;
+
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding("utf8");
+
+    stdin.once("data", (key) => {
+      stdin.setRawMode(wasRaw);
+      stdin.pause();
+
+      // Handle Ctrl+C to exit gracefully
+      if (key === "\u0003") {
+        process.exit();
+      }
+
+      resolve(key);
     });
   });
 }
