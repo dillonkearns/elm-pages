@@ -341,17 +341,11 @@ someHelper items = ""
                                 }
                                 |> Review.Test.atExactly { start = { row = 1, column = 1 }, end = { row = 1, column = 2 } }
                             ]
-            , test "KNOWN DISAGREEMENT: accessor pattern - server does NOT bail out (TODO)" <|
+            , test "AGREEMENT: accessor pattern - server bails out (all persistent)" <|
                 \() ->
-                    -- NOTE: This documents a KNOWN DISAGREEMENT between transforms!
-                    -- Server transform doesn't detect accessor pattern and continues optimizing,
-                    -- while client transform correctly bails out marking all fields persistent.
-                    --
-                    -- This could cause runtime decode errors if:
-                    -- - Server thinks body is ephemeral (not accessed)
-                    -- - Client thinks all fields are persistent (can't track accessor)
-                    --
-                    -- TODO: Fix ServerDataTransform to also bail out on accessor patterns
+                    -- Both transforms bail out when accessor pattern is used on app.data
+                    -- Server can't track which field is accessed via accessor function,
+                    -- so it conservatively marks all fields as persistent (no ephemeral fields)
                     let
                         testModule =
                             """module Route.Test exposing (Data, route)
@@ -369,73 +363,15 @@ view app =
     }
 """
                     in
-                    -- Server DOES NOT bail out - it can't track fields via accessor
-                    -- So it sees BOTH title and body as never accessed -> marks both ephemeral!
-                    -- This is a BUG - it should bail out like the client does
+                    -- Server bails out: can't track fields via accessor pattern
                     testModule
                         |> Review.Test.run ServerDataTransform.rule
-                        |> Review.Test.expectErrors
-                            [ Review.Test.error
-                                { message = "Server codemod: split Data into Ephemeral and Data"
-                                , details =
-                                    [ "Renaming Data to Ephemeral (full type) and creating new Data (persistent fields only)."
-                                    , "Ephemeral fields: body, title"
-                                    , "Generating ephemeralToData conversion function for wire encoding."
-                                    ]
-                                , under = """type alias Data =
-    { title : String
-    , body : String
-    }"""
-                                }
-                                |> Review.Test.whenFixed """module Route.Test exposing (Data, route)
-
-import View
-
-type alias Ephemeral =
-    { title : String
-    , body : String
-    }
-
-
-type alias Data =
-    {}
-
-
-ephemeralToData : Ephemeral -> Data
-ephemeralToData _ =
-    {}
-
-view app =
-    { title = app.data |> .title
-    , body = []
-    }
-"""
-                            , Review.Test.error
-                                { message = "Server codemod: export Ephemeral type"
-                                , details =
-                                    [ "Adding Ephemeral to module exports."
-                                    , "The generated Main.elm needs to reference Route.*.Ephemeral."
-                                    ]
-                                , under = "Data"
-                                }
-                                |> Review.Test.atExactly { start = { row = 1, column = 29 }, end = { row = 1, column = 33 } }
-                                |> Review.Test.whenFixed """module Route.Test exposing (Data, Ephemeral, ephemeralToData, route)
-
-import View
-
-type alias Data =
-    { title : String
-    , body : String
-    }
-
-view app =
-    { title = app.data |> .title
-    , body = []
-    }
-"""
-                            ]
-            , test "KNOWN DISAGREEMENT: accessor pattern - client bails out (correct)" <|
+                        |> Review.Test.expectNoErrors
+            , test "AGREEMENT: accessor pattern - client also bails out (all persistent)" <|
                 \() ->
+                    -- Both transforms bail out when accessor pattern is used on app.data
+                    -- Client can't track which field is accessed via accessor function,
+                    -- so it conservatively marks all fields as persistent (emits diagnostic)
                     let
                         testModule =
                             """module Route.Test exposing (Data, route)

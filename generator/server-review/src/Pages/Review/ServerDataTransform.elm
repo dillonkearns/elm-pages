@@ -418,6 +418,27 @@ trackFieldAccess node context =
             in
             { context | appDataBindings = newBindings }
 
+        -- Pipe operator with accessor: app.data |> .field
+        -- We can't safely track which field is accessed with accessor functions
+        Expression.OperatorApplication "|>" _ leftExpr rightExpr ->
+            if isAppDataExpression leftExpr context then
+                case Node.value rightExpr of
+                    Expression.RecordAccessFunction _ ->
+                        -- Accessor function on app.data - bail out
+                        if context.inFreezeCall || context.inHeadFunction then
+                            -- In ephemeral context, we don't care
+                            context
+
+                        else
+                            -- In client context, can't track which fields are used
+                            markAllFieldsAsPersistent context
+
+                    _ ->
+                        context
+
+            else
+                context
+
         _ ->
             context
 
