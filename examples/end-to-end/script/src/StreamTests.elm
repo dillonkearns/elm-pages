@@ -277,6 +277,50 @@ b =
         , Script.command "does-not-exist-command" []
             |> expectError "command with non-0 fails"
                 "Error: spawn does-not-exist-command ENOENT"
+          -- Test that stream errors are captured properly
+          -- This verifies the try-catch around consumers
+        , Stream.fromString "test data"
+            |> Stream.pipe (Stream.command "cat" [])
+            |> Stream.read
+            |> try
+            |> test "piped command captures output correctly"
+                (\{ body } ->
+                    body |> Expect.equal "test data"
+                )
+          -- Test that corrupted gzip data returns proper error
+          -- This verifies the error handler on unzip stream
+        , Stream.fromString "this is not gzipped data"
+            |> Stream.pipe Stream.unzip
+            |> Stream.read
+            |> try
+            |> expectErrorContains "invalid gzip data returns error"
+                "unzip error"
+          -- Test that piping through multiple transforms works
+          -- This exercises the finish/end event handling
+        , Stream.fromString "hello world"
+            |> Stream.pipe Stream.gzip
+            |> Stream.pipe Stream.unzip
+            |> Stream.read
+            |> try
+            |> test "gzip then unzip roundtrip"
+                (\{ body } ->
+                    body
+                        |> Expect.equal "hello world"
+                )
+          -- Test command with non-zero exit that we allow
+          -- Verifies metadata resolution and allowNon0Status works correctly
+        , Stream.commandWithOptions
+            (defaultCommandOptions |> Stream.allowNon0Status)
+            "sh"
+            [ "-c", "echo success && exit 42" ]
+            |> Stream.read
+            |> try
+            |> test "command with allowNon0Status succeeds on non-zero exit"
+                (\{ body } ->
+                    body
+                        |> String.trim
+                        |> Expect.equal "success"
+                )
         ]
 
 

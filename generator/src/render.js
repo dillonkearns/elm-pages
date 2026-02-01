@@ -667,19 +667,21 @@ function runStream(req, portsFile) {
         index += 1;
       }
       if (kind === "json") {
-        resolve(
-          jsonResponse(req, {
-            body: await consumers.json(lastStream),
-            metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
+        try {
+          const body = await consumers.json(lastStream);
+          const metadata = await tryCallingFunction(metadataResponse);
+          resolve(jsonResponse(req, { body, metadata }));
+        } catch (error) {
+          resolve(jsonResponse(req, { error: error.toString() }));
+        }
       } else if (kind === "text") {
-        resolve(
-          jsonResponse(req, {
-            body: await consumers.text(lastStream),
-            metadata: await tryCallingFunction(metadataResponse),
-          })
-        );
+        try {
+          const body = await consumers.text(lastStream);
+          const metadata = await tryCallingFunction(metadataResponse);
+          resolve(jsonResponse(req, { body, metadata }));
+        } catch (error) {
+          resolve(jsonResponse(req, { error: error.toString() }));
+        }
       } else if (kind === "none") {
         if (!lastStream) {
           // ensure all error handling gets a chance to fire before resolving successfully
@@ -687,22 +689,21 @@ function runStream(req, portsFile) {
           resolve(jsonResponse(req, { body: null }));
         } else {
           let resolvedMeta = await tryCallingFunction(metadataResponse);
-          lastStream.once("finish", async () => {
+          // Writable streams emit "finish", Readable streams emit "end"
+          // Duplex streams emit both - use a flag to prevent double-resolve
+          let resolved = false;
+          const onComplete = () => {
+            if (resolved) return;
+            resolved = true;
             resolve(
               jsonResponse(req, {
                 body: null,
                 metadata: resolvedMeta,
               })
             );
-          });
-          lastStream.once("end", async () => {
-            resolve(
-              jsonResponse(req, {
-                body: null,
-                metadata: resolvedMeta,
-              })
-            );
-          });
+          };
+          lastStream.once("finish", onComplete);
+          lastStream.once("end", onComplete);
         }
       } else if (kind === "command") {
         // already handled in parts.forEach
@@ -745,6 +746,10 @@ function runStream(req, portsFile) {
             env,
           });
           if (validateStream.isDuplexStream(newLocal.stream)) {
+            newLocal.stream.once("error", (error) => {
+              newLocal.stream.destroy();
+              resolve({ error: `Custom duplex stream '${part.portName}' error: ${error.message}` });
+            });
             pipeIfPossible(lastStream, newLocal.stream);
             if (!lastStream) {
               endStreamIfNoInput(newLocal.stream);
@@ -754,13 +759,23 @@ function runStream(req, portsFile) {
             throw `Expected '${part.portName}' to be a duplex stream!`;
           }
         } else if (part.name === "customRead") {
+          const newLocal = await portsFile[part.portName](part.input, {
+            cwd,
+            quiet,
+            env,
+          });
+          // customRead can return either a stream directly or { stream, metadata }
+          const stream = newLocal.stream || newLocal;
+          if (!validateStream.isReadableStream(stream)) {
+            throw `Expected '${part.portName}' to return a readable stream!`;
+          }
+          stream.once("error", (error) => {
+            stream.destroy();
+            resolve({ error: `Custom read stream '${part.portName}' error: ${error.message}` });
+          });
           return {
-            metadata: null,
-            stream: await portsFile[part.portName](part.input, {
-              cwd,
-              quiet,
-              env,
-            }),
+            metadata: newLocal.metadata || null,
+            stream: stream,
           };
         } else if (part.name === "customWrite") {
           const newLocal = await portsFile[part.portName](part.input, {
@@ -769,17 +784,23 @@ function runStream(req, portsFile) {
             env,
           });
           if (!validateStream.isWritableStream(newLocal.stream)) {
-            console.error("Expected a writable stream!");
-            resolve({ error: "Expected a writable stream!" });
-          } else {
-            pipeIfPossible(lastStream, newLocal.stream);
-            if (!lastStream) {
-              endStreamIfNoInput(newLocal.stream);
-            }
+            throw `Expected '${part.portName}' to return a writable stream!`;
+          }
+          newLocal.stream.once("error", (error) => {
+            newLocal.stream.destroy();
+            resolve({ error: `Custom write stream '${part.portName}' error: ${error.message}` });
+          });
+          pipeIfPossible(lastStream, newLocal.stream);
+          if (!lastStream) {
+            endStreamIfNoInput(newLocal.stream);
           }
           return newLocal;
         } else if (part.name === "gzip") {
           const gzip = zlib.createGzip();
+          gzip.once("error", (error) => {
+            gzip.destroy();
+            resolve({ error: `gzip error: ${error.message}` });
+          });
           if (!lastStream) {
             endStreamIfNoInput(gzip);
           }
@@ -789,6 +810,10 @@ function runStream(req, portsFile) {
           };
         } else if (part.name === "unzip") {
           const unzip = zlib.createUnzip();
+          unzip.once("error", (error) => {
+            unzip.destroy();
+            resolve({ error: `unzip error: ${error.message}` });
+          });
           if (!lastStream) {
             endStreamIfNoInput(unzip);
           }
@@ -891,28 +916,40 @@ function runStream(req, portsFile) {
             newStream = newProcess.stdout;
           }
 
+          // For the last process, we need to track metadata resolution
+          // so we can resolve it even if the process errors
+          let resolveMeta = null;
+          const metadataPromise = isLastProcess
+            ? new Promise((resolve) => {
+                resolveMeta = resolve;
+              })
+            : null;
+
           newProcess.once("error", (error) => {
             newStream && newStream.end();
             newProcess.removeAllListeners();
+            // Resolve metadata Promise to prevent hanging awaits
+            if (resolveMeta) {
+              resolveMeta({ exitCode: null, error: error.toString() });
+            }
             resolve({ error: error.toString() });
           });
+
           if (isLastProcess) {
+            newProcess.once("exit", (code) => {
+              if (code !== 0 && !allowNon0Status) {
+                newStream && newStream.end();
+                resolve({
+                  error: `Command ${command} exited with code ${code}`,
+                });
+              }
+              resolveMeta({
+                exitCode: code,
+              });
+            });
             return {
               stream: newStream,
-              metadata: new Promise((resolveMeta) => {
-                newProcess.once("exit", (code) => {
-                  if (code !== 0 && !allowNon0Status) {
-                    newStream && newStream.end();
-                    resolve({
-                      error: `Command ${command} exited with code ${code}`,
-                    });
-                  }
-
-                  resolveMeta({
-                    exitCode: code,
-                  });
-                });
-              }),
+              metadata: metadataPromise,
             };
           } else {
             return { metadata: null, stream: newStream };
@@ -1133,7 +1170,7 @@ export function pipeShells(
       if (previousProcess === null) {
         currentProcess = spawnCallback(command, args, {
           stdio: ["inherit", "pipe", "inherit"],
-          timeout: timeout ? undefined : timeout,
+          timeout: timeout,
           cwd: cwd,
           env: env,
         });
@@ -1143,14 +1180,14 @@ export function pipeShells(
             stdio: quiet
               ? ["pipe", "ignore", "ignore"]
               : ["pipe", "inherit", "inherit"],
-            timeout: timeout ? undefined : timeout,
+            timeout: timeout,
             cwd: cwd,
             env: env,
           });
         } else {
           currentProcess = spawnCallback(command, args, {
             stdio: ["pipe", "pipe", "pipe"],
-            timeout: timeout ? undefined : timeout,
+            timeout: timeout,
             cwd: cwd,
             env: env,
           });
