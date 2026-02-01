@@ -884,44 +884,59 @@ readJson decoder ((Stream ( _, metadataDecoder ) _) as stream) =
         , body = BackendTask.Http.jsonBody (pipelineEncoder stream "json")
         , expect =
             BackendTask.Http.expectJson
-                (Decode.field "metadata" metadataDecoder
-                    |> Decode.andThen
-                        (\result1 ->
-                            let
-                                bodyResult : Decoder (Result Decode.Error value)
-                                bodyResult =
-                                    Decode.field "body" Decode.value
-                                        |> Decode.map
-                                            (\bodyValue ->
-                                                Decode.decodeValue decoder bodyValue
-                                            )
-                            in
-                            bodyResult
-                                |> Decode.map
-                                    (\result ->
-                                        case result1 of
-                                            Ok metadata ->
-                                                case result of
-                                                    Ok body ->
-                                                        Ok
-                                                            { metadata = metadata
-                                                            , body = body
-                                                            }
-
-                                                    Err decoderError ->
-                                                        FatalError.recoverable
-                                                            { title = "Failed to decode body"
-                                                            , body = "Failed to decode body"
-                                                            }
-                                                            (StreamError (Decode.errorToString decoderError))
-                                                            |> Err
-
-                                            Err error ->
-                                                error
-                                                    |> mapRecoverable (Result.toMaybe result)
-                                                    |> Err
+                (Decode.oneOf
+                    [ Decode.field "error" Decode.string
+                        |> Decode.andThen
+                            (\error ->
+                                Decode.succeed
+                                    (Err
+                                        (FatalError.recoverable
+                                            { title = "Stream Error"
+                                            , body = error
+                                            }
+                                            (StreamError error)
+                                        )
                                     )
-                        )
+                            )
+                    , Decode.field "metadata" metadataDecoder
+                        |> Decode.andThen
+                            (\result1 ->
+                                let
+                                    bodyResult : Decoder (Result Decode.Error value)
+                                    bodyResult =
+                                        Decode.field "body" Decode.value
+                                            |> Decode.map
+                                                (\bodyValue ->
+                                                    Decode.decodeValue decoder bodyValue
+                                                )
+                                in
+                                bodyResult
+                                    |> Decode.map
+                                        (\result ->
+                                            case result1 of
+                                                Ok metadata ->
+                                                    case result of
+                                                        Ok body ->
+                                                            Ok
+                                                                { metadata = metadata
+                                                                , body = body
+                                                                }
+
+                                                        Err decoderError ->
+                                                            FatalError.recoverable
+                                                                { title = "Failed to decode body"
+                                                                , body = "Failed to decode body"
+                                                                }
+                                                                (StreamError (Decode.errorToString decoderError))
+                                                                |> Err
+
+                                                Err error ->
+                                                    error
+                                                        |> mapRecoverable (Result.toMaybe result)
+                                                        |> Err
+                                        )
+                            )
+                    ]
                 )
         }
         |> BackendTask.andThen BackendTask.fromResult

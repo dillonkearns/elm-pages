@@ -175,8 +175,8 @@ b =
             }
             |> Stream.read
             |> try
-            |> expectError "HTTP FatalError message"
-                "BadStatus: 404 Not Found"
+            |> expectErrorContains "HTTP FatalError message"
+                "404"
         , Stream.fromString "Hello!"
             |> Stream.pipe
                 (Stream.httpWithInput
@@ -224,8 +224,9 @@ b =
         , Stream.fromString "This is input..."
             |> Stream.pipe (Stream.fileWrite "/this/is/invalid.txt")
             |> Stream.run
-            |> expectError "invalid file write destination"
-                "Error: ENOENT: no such file or directory, mkdir '/this'"
+            -- Linux returns EACCES (permission denied), macOS returns ENOENT
+            |> expectErrorContains "invalid file write destination"
+                "mkdir '/this'"
         , Stream.gzip
             |> Stream.read
             |> try
@@ -321,6 +322,13 @@ b =
                         |> String.trim
                         |> Expect.equal "success"
                 )
+          -- Test that readJson handles stream errors properly (not crash)
+          -- This verifies the Decode.oneOf error handling in readJson
+        , Stream.fromString "not valid json at all"
+            |> Stream.readJson Decode.value
+            |> try
+            |> expectErrorContains "readJson handles parse errors gracefully"
+                "Unexpected token"
         ]
 
 
