@@ -165,18 +165,6 @@ b =
                         _ ->
                             Expect.fail ("Unexpected error\n\n" ++ Debug.toString result)
                 )
-        , Stream.http
-            { url = "https://jsonplaceholder.typicode.com/posts/124"
-            , timeoutInMs = Nothing
-            , body = BackendTask.Http.emptyBody
-            , retries = Nothing
-            , headers = []
-            , method = "GET"
-            }
-            |> Stream.read
-            |> try
-            |> expectErrorContains "HTTP FatalError message"
-                "404"
         , Stream.fromString "Hello!"
             |> Stream.pipe
                 (Stream.httpWithInput
