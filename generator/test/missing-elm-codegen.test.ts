@@ -73,7 +73,8 @@ describe.sequential("runElmCodegenInstall", () => {
 
   describe("via elm-pages run", () => {
     beforeEach(() => {
-      process.env.PATH = [nodeFolder, elmFolder, elmCodegenFolder].join(":");
+      // Include /bin and /usr/bin so lamdera can find system utilities (sh, etc.)
+      process.env.PATH = [nodeFolder, elmFolder, elmCodegenFolder, "/bin", "/usr/bin"].join(":");
     });
     afterEach(() => {
       process.env.PATH = originalPATH;
